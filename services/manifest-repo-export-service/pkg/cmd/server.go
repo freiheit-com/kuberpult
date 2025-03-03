@@ -260,6 +260,8 @@ func Run(ctx context.Context) error {
 		MinimizeExportedData: minimizeExportedData,
 
 		DBHandler: dbHandler,
+
+		DDMetrics: ddMetrics,
 	}
 	repo, err := repository.New(ctx, cfg)
 	if err != nil {
@@ -432,7 +434,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 		}
 		repo.Notify().Notify() // Notify git sync status
 
-		err = measureGitSyncStatus(ctx, ddMetrics, dbHandler)
+		err = service.MeasureGitSyncStatus(ctx, ddMetrics, dbHandler, nil)
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
 		}
@@ -449,38 +451,6 @@ func measurePushes(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, fai
 			log.Error("Error in ddMetrics.Gauge %v", err)
 		}
 	}
-}
-
-func measureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface, dbHandler *db.DBHandler) error {
-	if ddMetrics != nil {
-		results, err := db.WithTransactionT[[2]int](dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*[2]int, error) {
-			unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
-			if err != nil {
-				return &[2]int{}, err
-			}
-
-			syncFailedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
-			if err != nil {
-				return &[2]int{}, err
-			}
-
-			return &[2]int{len(unsyncedStatuses), len(syncFailedStatuses)}, nil
-		})
-
-		if err != nil {
-			return err
-		}
-
-		if err := ddMetrics.Gauge("git_sync_unsynced", float64(results[0]), []string{}, 1); err != nil {
-			return err
-		}
-
-		if err := ddMetrics.Gauge("git_sync_failed", float64(results[1]), []string{}, 1); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func handleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {

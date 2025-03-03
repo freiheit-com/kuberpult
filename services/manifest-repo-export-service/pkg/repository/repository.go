@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
@@ -120,6 +121,8 @@ type repository struct {
 	backOffProvider func() backoff.BackOff
 
 	DB *db.DBHandler
+
+	ddMetrics statsd.ClientInterface
 }
 
 type RepositoryConfig struct {
@@ -143,6 +146,8 @@ type RepositoryConfig struct {
 	ReleaseVersionLimit uint
 
 	MinimizeExportedData bool
+
+	DDMetrics statsd.ClientInterface
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
@@ -233,6 +238,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 				backOffProvider: defaultBackOffProvider,
 				DB:              cfg.DBHandler,
 				notify:          notify.Notify{},
+				ddMetrics:       cfg.DDMetrics,
 			}
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 			//exhaustruct:ignore
