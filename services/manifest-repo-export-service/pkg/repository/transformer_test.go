@@ -90,12 +90,13 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	}
 
 	repoCfg := RepositoryConfig{
-		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
-		ArgoCdGenerateFiles: true,
-		ReleaseVersionLimit: 2,
+		URL:                  remoteDir,
+		Path:                 localDir,
+		CommitterEmail:       "kuberpult@freiheit.com",
+		CommitterName:        "kuberpult",
+		ArgoCdGenerateFiles:  true,
+		ReleaseVersionLimit:  2,
+		MinimizeExportedData: false,
 	}
 
 	if dbConfig != nil {
@@ -2328,7 +2329,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 		expectedMissing []*FilenameAndData
 	}{
 		{
-
 			Name: "Create undeploy application version and deploy it",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -2483,17 +2483,12 @@ func TestCreateUndeployLogic(t *testing.T) {
 					path:     "environments/acceptance/applications/app1/version/undeploy",
 					fileData: []byte(""),
 				},
-				{ //The second env has the undeploy version *queued*
-					path:     "environments/acceptance2/applications/app1/queued_version/undeploy",
-					fileData: []byte(""),
-				},
-			},
-			expectedMissing: []*FilenameAndData{
-				{ //The second env does NOT have the undeploy version
+				{ //The second env still has an undeploy, event with a lock
 					path:     "environments/acceptance2/applications/app1/version/undeploy",
 					fileData: []byte(""),
 				},
 			},
+			expectedMissing: []*FilenameAndData{},
 		},
 	}
 	for _, tc := range tcs {
@@ -2561,13 +2556,16 @@ func TestCreateUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
+					var version int64
+					version = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 							ReleaseNumber: 2,
 							App:           appName,
 							Manifests: db.DBReleaseManifests{
 								Manifests: map[string]string{ //empty manifest
-									"": "",
+									envAcceptance:  "",
+									envAcceptance2: "",
 								},
 							},
 							Metadata: db.DBReleaseMetaData{
@@ -2578,6 +2576,26 @@ func TestCreateUndeployLogic(t *testing.T) {
 								UndeployVersion: true,
 							},
 							Created: time.Now(),
+						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
+						})
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance2,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
 						})
 						if err2 != nil {
 							t.Fatal(err2)
@@ -2954,6 +2972,8 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
+					var version int64
+					version = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						concreteTransformer := tr.(*CreateUndeployApplicationVersion)
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
@@ -2972,6 +2992,28 @@ func TestUndeployLogic(t *testing.T) {
 								UndeployVersion: true,
 							},
 							Created: time.Now(),
+						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
+						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
 						})
 						if err2 != nil {
 							t.Fatal(err2)

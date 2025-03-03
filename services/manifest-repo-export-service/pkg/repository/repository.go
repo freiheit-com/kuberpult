@@ -189,6 +189,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	if cfg.Branch == "" {
 		cfg.Branch = "master"
 	}
+
 	if cfg.CommitterEmail == "" {
 		cfg.CommitterEmail = "kuberpult@example.com"
 	}
