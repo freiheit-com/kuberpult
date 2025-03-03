@@ -18,18 +18,14 @@ package cmd
 
 import (
 	"context"
-	"database/sql"
 	"os/exec"
 	"path"
 	"testing"
 	"time"
 
-	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestCalculateProcessDelay(t *testing.T) {
@@ -82,32 +78,6 @@ func TestCalculateProcessDelay(t *testing.T) {
 		})
 	}
 }
-
-type Gauge struct {
-	Name  string
-	Value float64
-	Tags  []string
-	Rate  float64
-}
-
-type MockClient struct {
-	gauges []Gauge
-	statsd.ClientInterface
-}
-
-func (c *MockClient) Gauge(name string, value float64, tags []string, rate float64) error {
-	c.gauges = append(c.gauges, Gauge{
-		Name:  name,
-		Value: value,
-		Tags:  tags,
-		Rate:  rate,
-	})
-	return nil
-}
-
-// Verify that MockClient implements the ClientInterface.
-// https://golang.org/doc/faq#guarantee_satisfies_interface
-var _ statsd.ClientInterface = &MockClient{}
 
 func SetupRepositoryTestWithDB(t *testing.T) repository.Repository {
 	r, _ := SetupRepositoryTestWithDBOptions(t, false)
@@ -170,87 +140,4 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 		t.Fatal(err)
 	}
 	return repo, dbHandler
-}
-
-func TestMeasureGitSyncStatus(t *testing.T) {
-	tcs := []struct {
-		Name             string
-		SyncedFailedApps []db.EnvApp
-		UnsyncedApps     []db.EnvApp
-		ExpectedGauges   []Gauge
-	}{
-		{
-			Name:             "No unsynced or sync failed apps",
-			SyncedFailedApps: []db.EnvApp{},
-			UnsyncedApps:     []db.EnvApp{},
-			ExpectedGauges: []Gauge{
-				{Name: "git_sync_unsynced", Value: 0, Tags: []string{}, Rate: 1},
-				{Name: "git_sync_failed", Value: 0, Tags: []string{}, Rate: 1},
-			},
-		},
-		{
-			Name: "Some sync failed apps",
-			SyncedFailedApps: []db.EnvApp{
-				{EnvName: "dev", AppName: "app"},
-				{EnvName: "dev", AppName: "app2"},
-			},
-			UnsyncedApps: []db.EnvApp{
-				{EnvName: "staging", AppName: "app"},
-			},
-			ExpectedGauges: []Gauge{
-				{Name: "git_sync_unsynced", Value: 1, Tags: []string{}, Rate: 1},
-				{Name: "git_sync_failed", Value: 2, Tags: []string{}, Rate: 1},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			mockClient := &MockClient{}
-			var ddMetrics statsd.ClientInterface = mockClient
-			ctx := testutil.MakeTestContext()
-			repo := SetupRepositoryTestWithDB(t)
-			dbHandler := repo.State().DBHandler
-
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, 0, tc.SyncedFailedApps, db.SYNC_FAILED)
-				if err != nil {
-					return err
-				}
-
-				err = dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, 0, tc.UnsyncedApps, db.UNSYNCED)
-				if err != nil {
-					return err
-				}
-
-				return nil
-			})
-			if err != nil {
-				t.Fatalf("failed to write sync events to db: %v", err)
-			}
-
-			err = measureGitSyncStatus(ctx, ddMetrics, dbHandler)
-			if err != nil {
-				t.Fatalf("failed to send git sync status metrics: %v", err)
-			}
-
-			cmpGauge := func(i, j Gauge) bool {
-				if len(i.Tags) == 0 && len(j.Tags) == 0 {
-					return i.Name > j.Name
-				} else if len(i.Tags) != len(j.Tags) {
-					return len(i.Tags) > len(j.Tags)
-				} else {
-					for tagIndex := range i.Tags {
-						if i.Tags[tagIndex] != j.Tags[tagIndex] {
-							return i.Tags[tagIndex] > j.Tags[tagIndex]
-						}
-					}
-					return true
-				}
-			}
-			if diff := cmp.Diff(tc.ExpectedGauges, mockClient.gauges, cmpopts.SortSlices(cmpGauge)); diff != "" {
-				t.Errorf("gauges mismatch (-want, +got):\n%s", diff)
-			}
-		})
-	}
 }

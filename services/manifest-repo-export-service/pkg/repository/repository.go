@@ -2355,3 +2355,35 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 func (r *repository) Notify() *notify.Notify {
 	return &r.notify
 }
+
+func MeasureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface, dbHandler *db.DBHandler) error {
+	if ddMetrics != nil {
+		results, err := db.WithTransactionT[[2]int](dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*[2]int, error) {
+			unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
+			if err != nil {
+				return &[2]int{}, err
+			}
+
+			syncFailedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
+			if err != nil {
+				return &[2]int{}, err
+			}
+
+			return &[2]int{len(unsyncedStatuses), len(syncFailedStatuses)}, nil
+		})
+
+		if err != nil {
+			return err
+		}
+
+		if err := ddMetrics.Gauge("git_sync_unsynced", float64(results[0]), []string{}, 1); err != nil {
+			return err
+		}
+
+		if err := ddMetrics.Gauge("git_sync_failed", float64(results[1]), []string{}, 1); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
