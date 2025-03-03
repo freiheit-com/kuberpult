@@ -4069,7 +4069,6 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 					},
 				},
 				DeletedRootApps: nil,
-				Commits:         nil,
 			},
 			expectedEvents: []statsd.Event{
 				{
@@ -4133,7 +4132,6 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 					},
 				},
 				DeletedRootApps: nil,
-				Commits:         nil,
 			},
 			expectedEvents: []statsd.Event{
 				{

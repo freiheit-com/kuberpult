@@ -20,11 +20,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"io/fs"
 	"strconv"
 	"strings"
 	"time"
@@ -34,8 +32,6 @@ import (
 	"github.com/argoproj/argo-cd/v2/util/argo"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/go-git/go-billy/v5/util"
-	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -57,114 +53,67 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 	defer span.Finish()
 
 	var mn []string
-	if r.repo.State().DBHandler.ShouldUseOtherTables() {
-		dbHandler := r.repo.State().DBHandler
+	dbHandler := r.repo.State().DBHandler
 
-		// Extract the env and app from the path.
-		// We expect the path to have this form:
-		// "environments/$env/applications/$app/manifests",
-		include := req.ApplicationSource.Path
-		split := strings.Split(include, "/")
-		if len(split) != 5 {
-			return nil, fmt.Errorf("unexpected path: '%s'", include)
-		}
-		envName := split[1]
-		appName := split[3]
-
-		type ReleaseResult struct {
-			manifest       string
-			releaseVersion uint64
-		}
-
-		releaseResult, err := db.WithTransactionT[ReleaseResult](dbHandler, ctx, 3, true, func(ctx context.Context, transaction *sql.Tx) (*ReleaseResult, error) {
-			deployment, err := dbHandler.DBSelectLatestDeployment(ctx, transaction, appName, envName)
-			if err != nil {
-				return nil, err
-			}
-			if deployment == nil {
-				return nil, fmt.Errorf("could not find deployment for app=%s and env=%s", appName, envName)
-			}
-			if deployment.Version == nil {
-				return nil, fmt.Errorf("could not find version for app=%s and env=%s", appName, envName)
-			}
-			releaseVersion := uint64(*deployment.Version)
-
-			var release *db.DBReleaseWithMetaData
-			release, err = dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion, true)
-			if err != nil {
-				return nil, err
-			}
-			result := &ReleaseResult{
-				manifest:       release.Manifests.Manifests[envName],
-				releaseVersion: releaseVersion,
-			}
-			return result, nil
-		})
-		if err != nil || releaseResult == nil {
-			return nil, fmt.Errorf("could not load all data to generate manifests: %w", err)
-		}
-		mn, err = splitManifest([]byte(releaseResult.manifest), req)
-		if err != nil {
-			return nil, err
-		}
-		resp := &argorepo.ManifestResponse{
-			Namespace:            "",
-			Server:               "",
-			VerifyResult:         "",
-			XXX_NoUnkeyedLiteral: struct{}{},
-			XXX_unrecognized:     nil,
-			XXX_sizecache:        0,
-			Manifests:            mn,
-			Revision:             ToRevision(releaseResult.releaseVersion),
-			SourceType:           "Directory",
-		}
-		return resp, nil
-	} else {
-		state, _, err := r.resolve(req.Revision)
-		if err != nil {
-			return nil, err
-		}
-		bfs := state.Filesystem
-		path := req.ApplicationSource.Path
-		filter := func(p string) bool { return true }
-		if req.ApplicationSource.Directory != nil {
-			if req.ApplicationSource.Directory.Include != "" {
-				inc := req.ApplicationSource.Directory.Include
-				filter = func(p string) bool { return p == inc }
-			}
-		}
-		err = util.Walk(bfs, path, func(file string, info fs.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() && filter(info.Name()) {
-				m, err := util.ReadFile(bfs, file)
-				if err != nil {
-					return fmt.Errorf("reading %s: %w", file, err)
-				}
-				mn, err = splitManifest(m, req)
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		resp := &argorepo.ManifestResponse{
-			Namespace:            "",
-			Server:               "",
-			VerifyResult:         "",
-			XXX_NoUnkeyedLiteral: struct{}{},
-			XXX_unrecognized:     nil,
-			XXX_sizecache:        0,
-			Manifests:            mn,
-			Revision:             state.Commit.Id().String(),
-			SourceType:           "Directory",
-		}
-		return resp, nil
+	// Extract the env and app from the path.
+	// We expect the path to have this form:
+	// "environments/$env/applications/$app/manifests",
+	include := req.ApplicationSource.Path
+	split := strings.Split(include, "/")
+	if len(split) != 5 {
+		return nil, fmt.Errorf("unexpected path: '%s'", include)
 	}
+	envName := split[1]
+	appName := split[3]
+
+	type ReleaseResult struct {
+		manifest       string
+		releaseVersion uint64
+	}
+
+	releaseResult, err := db.WithTransactionT[ReleaseResult](dbHandler, ctx, 3, true, func(ctx context.Context, transaction *sql.Tx) (*ReleaseResult, error) {
+		deployment, err := dbHandler.DBSelectLatestDeployment(ctx, transaction, appName, envName)
+		if err != nil {
+			return nil, err
+		}
+		if deployment == nil {
+			return nil, fmt.Errorf("could not find deployment for app=%s and env=%s", appName, envName)
+		}
+		if deployment.Version == nil {
+			return nil, fmt.Errorf("could not find version for app=%s and env=%s", appName, envName)
+		}
+		releaseVersion := uint64(*deployment.Version)
+
+		var release *db.DBReleaseWithMetaData
+		release, err = dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion, true)
+		if err != nil {
+			return nil, err
+		}
+		result := &ReleaseResult{
+			manifest:       release.Manifests.Manifests[envName],
+			releaseVersion: releaseVersion,
+		}
+		return result, nil
+	})
+	if err != nil || releaseResult == nil {
+		return nil, fmt.Errorf("could not load all data to generate manifests: %w", err)
+	}
+	mn, err = splitManifest([]byte(releaseResult.manifest), req)
+	if err != nil {
+		return nil, err
+	}
+	resp := &argorepo.ManifestResponse{
+		Namespace:            "",
+		Server:               "",
+		VerifyResult:         "",
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+		Manifests:            mn,
+		Revision:             ToRevision(releaseResult.releaseVersion),
+		SourceType:           "Directory",
+	}
+	return resp, nil
 }
 
 type PseudoRevision = string
@@ -245,52 +194,7 @@ func (*reposerver) ListRefs(context.Context, *argorepo.ListRefsRequest) (*argore
 
 // ResolveRevision implements apiclient.RepoServerServiceServer.
 func (r *reposerver) ResolveRevision(ctx context.Context, req *argorepo.ResolveRevisionRequest) (*argorepo.ResolveRevisionResponse, error) {
-	state, oid, err := r.resolve(req.AmbiguousRevision)
-	if err != nil {
-		// This looks a bit strange but argocd actually responds with a succes response if the ambiguous ref can be parsed as a git commit id even if that commit does not exists at all.
-		if serr, ok := status.FromError(err); ok && serr.Code() == codes.NotFound && oid != nil {
-			return &argorepo.ResolveRevisionResponse{
-				XXX_NoUnkeyedLiteral: struct{}{},
-				XXX_unrecognized:     nil,
-				XXX_sizecache:        0,
-				Revision:             oid.String(),
-				AmbiguousRevision:    fmt.Sprintf("%s (%s)", req.AmbiguousRevision, oid),
-			}, nil
-		}
-		return nil, err
-	}
-	if state == nil || state.Commit == nil || state.Commit.Id() == nil {
-		return nil, fmt.Errorf("state has no commit when requesting revision: %v", req.AmbiguousRevision)
-	}
-	resp := argorepo.ResolveRevisionResponse{
-		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
-		XXX_sizecache:        0,
-		Revision:             state.Commit.Id().String(),
-		AmbiguousRevision:    fmt.Sprintf("%s (%s)", req.AmbiguousRevision, state.Commit.Id()),
-	}
-	return &resp, nil
-}
-
-func (r *reposerver) resolve(rev string) (*repository.State, *git.Oid, error) {
-	var oid *git.Oid
-	if o, err := git.NewOid(rev); err == nil {
-		oid = o
-	} else if rev != "HEAD" && rev != r.config.Branch {
-		return nil, nil, status.Error(codes.NotFound, fmt.Sprintf("unknown revision %q, I only know \"HEAD\", %q and commit hashes", rev, r.config.Branch))
-	}
-	state, err := r.repo.StateAt(oid)
-	if err != nil {
-		var gerr *git.GitError
-		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrorCodeNotFound {
-
-				return nil, oid, status.Error(codes.NotFound, fmt.Sprintf("unknown revision %q, I only know \"HEAD\", %q and commit hashes", rev, r.config.Branch))
-			}
-		}
-		return nil, oid, status.Error(codes.Internal, fmt.Sprintf("internal error: %s", err))
-	}
-	return state, oid, nil
+	return nil, notImplemented
 }
 
 // TestRepository implements apiclient.RepoServerServiceServer.
