@@ -18,7 +18,7 @@ import { LockDisplay } from '../LockDisplay/LockDisplay';
 import * as React from 'react';
 import { Button } from '../button';
 import { SortAscending, SortDescending } from '../../../images';
-import { useCallback } from 'react';
+import { JSX, useCallback } from 'react';
 import classNames from 'classnames';
 
 export const LocksTable: React.FC<{
@@ -96,3 +96,81 @@ export const LocksTable: React.FC<{
         </div>
     );
 };
+
+// export const GeneralTable: React.FC<{
+//     headerTitle: string;
+//     columnHeaders: string[];
+//     locks: DisplayLock[];
+//     tableRows: JSX.Element[];
+// }> = (props) => {
+//     const { headerTitle, columnHeaders, locks } = props;
+//
+//     const [sort, setSort] = React.useState<'newestToOldest' | 'oldestToNewest'>('newestToOldest');
+//
+//     const sortOnClick = useCallback(() => {
+//         if (sort === 'oldestToNewest') {
+//             setSort('newestToOldest');
+//         } else {
+//             setSort('oldestToNewest');
+//         }
+//         sortLocks(locks, sort);
+//     }, [locks, sort]);
+//     return (
+//         <div className={classNames('mdc-data-table', 'locks-table')}>
+//             <div className="mdc-data-table__table-container">
+//                 <table className="mdc-data-table__table" aria-label="Dessert calories">
+//                     <thead>
+//                         <tr className="mdc-data-table__header-row">
+//                             <th className="mdc-data-indicator" role="columnheader" scope="col">
+//                                 <div className="mdc-data-header-title">{headerTitle}</div>
+//                             </th>
+//                         </tr>
+//                         <tr className="mdc-data-table__header-row">
+//                             <th
+//                                 className="mdc-data-indicator mdc-data-indicator--subheader"
+//                                 role="columnheader"
+//                                 scope="col">
+//                                 <div className="mdc-data-indicator-header">
+//                                     {columnHeaders.map((columnHeader) => (
+//                                         <div
+//                                             key={columnHeader}
+//                                             className="mdc-data-indicator-field"
+//                                             style={columnHeader === 'Message' ? { flexGrow: 2 } : {}}>
+//                                             {columnHeader}
+//                                             {columnHeader === 'Date' && sort === 'oldestToNewest' && (
+//                                                 <Button
+//                                                     className={'mdc-data-indicator-sort-button'}
+//                                                     onClick={sortOnClick}
+//                                                     icon={<SortAscending />}
+//                                                     highlightEffect={false}
+//                                                 />
+//                                             )}
+//                                             {columnHeader === 'Date' && sort === 'newestToOldest' && (
+//                                                 <Button
+//                                                     className={'mdc-data-indicator-sort-button'}
+//                                                     onClick={sortOnClick}
+//                                                     icon={<SortDescending />}
+//                                                     highlightEffect={false}
+//                                                 />
+//                                             )}
+//                                         </div>
+//                                     ))}
+//                                 </div>
+//                             </th>
+//                         </tr>
+//                     </thead>
+//                     <tbody className="mdc-data-table__content">
+//                         {props.tableRows.map((elem) => elem)}
+//                         <tr>
+//                             <td>
+//                                 {locks.map((lock) => (
+//                                     <LockDisplay key={displayLockUniqueId(lock)} lock={lock} />
+//                                 ))}
+//                             </td>
+//                         </tr>
+//                     </tbody>
+//                 </table>
+//             </div>
+//         </div>
+//     );
+// };

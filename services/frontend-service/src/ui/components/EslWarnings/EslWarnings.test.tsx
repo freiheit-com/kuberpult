@@ -49,7 +49,7 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                         createdAt: new Date('2024-02-09T09:46:00.000Z'),
                         eventType: 'EvtCreateApplicationVersion',
                         json: '{"version": 1, "app": "test-app-name"}',
-                        reason: '',
+                        reason: 'unexpected error',
                         transformerEslVersion: 12,
                     },
                     {
@@ -64,37 +64,10 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 loadMore: true,
             },
             expectedEslsTable: {
-                head: [
-                    'EslVersion:',
-                    'Date:',
-                    'Event Type:',
-                    'Json:',
-                    'Reason:',
-                    'TransformerEslVersion:',
-                    'Retry:',
-                    'Skip:',
-                ],
+                head: ['Date', 'ID', 'Type', 'Reason', '', ''],
                 body: [
-                    [
-                        '1',
-                        '2024-02-09T09:46:00',
-                        'EvtCreateApplicationVersion',
-                        '{"version": 1, "app": "test-app-name"}',
-                        '',
-                        '12',
-                        'Retry',
-                        'Skip',
-                    ],
-                    [
-                        '2',
-                        '2024-02-10T09:46:00',
-                        'EvtDeployApplication',
-                        '{"app": "test-app-name", "environment": "dev"}',
-                        'unexpected error',
-                        '17',
-                        'Retry',
-                        'Skip',
-                    ],
+                    ['2024-02-09T09:46:00', '12', 'EvtCreateApplicationVersion', 'unexpected error', '', ''],
+                    ['2024-02-10T09:46:00', '17', 'EvtDeployApplication', 'unexpected error', '', ''],
                 ],
             },
         },
@@ -114,28 +87,8 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
                 loadMore: true,
             },
             expectedEslsTable: {
-                head: [
-                    'EslVersion:',
-                    'Date:',
-                    'Event Type:',
-                    'Json:',
-                    'Reason:',
-                    'TransformerEslVersion:',
-                    'Retry:',
-                    'Skip:',
-                ],
-                body: [
-                    [
-                        '1',
-                        '2024-02-09T12:20:00',
-                        'EvtCreateApplicationVersion',
-                        '{"version": 1, "app": "test-app-name"}',
-                        'unknown error',
-                        '9',
-                        'Retry',
-                        'Skip',
-                    ],
-                ],
+                head: ['Date', 'ID', 'Type', 'Reason', '', ''],
+                body: [['2024-02-09T12:20:00', '9', 'EvtCreateApplicationVersion', 'unknown error', '', '']],
             },
         },
     ];
@@ -146,28 +99,30 @@ test('EslWarnings component renders Esl Warnings when the response is valid', ()
         expect(actualHeaders).toHaveLength(1); // there should be 1 header line
 
         const actualHeadersRows = actualHeaders[0].getElementsByTagName('tr');
-        expect(actualHeadersRows).toHaveLength(1); // there should be 1 row in the header line
+        expect(actualHeadersRows).toHaveLength(2); // there should be 1 row in the header line
 
-        const actualHeaderFields = actualHeadersRows[0].getElementsByTagName('th');
-        expect(actualHeaderFields).toHaveLength(expectedTable.head.length);
+        const actualHeaderFields = actualHeadersRows[1].getElementsByClassName('mdc-data-indicator-field');
 
         for (let i = 0; i < actualHeaderFields.length; i++) {
-            expect(actualHeaderFields[i].innerHTML).toEqual(expectedTable.head[i]);
+            expect(actualHeaderFields[i].textContent).toEqual(expectedTable.head[i]);
         }
 
         // rows verification
         const actualBody = actualTable.getElementsByTagName('tbody');
-        expect(actualBody).toHaveLength(1);
+        expect(actualBody).toHaveLength(1); // Header row
 
-        const actualRows = actualBody[0].getElementsByTagName('tr');
+        const actualRows = actualBody[0].getElementsByClassName('lock-display');
         expect(actualRows).toHaveLength(expectedTable.body.length);
 
         for (let i = 0; i < actualRows.length; i++) {
-            const actualRowFields = actualRows[i].getElementsByTagName('td');
-            expect(actualRowFields).toHaveLength(expectedTable.body[i].length);
-
-            for (let j = 0; j < actualHeaderFields.length; j++) {
-                expect(actualRowFields[j]).toHaveTextContent(expectedTable.body[i][j]);
+            const actualElements = actualRows[i].getElementsByClassName('lock-display-info');
+            const reason = actualRows[i].getElementsByClassName('lock-display-info-size-limit');
+            for (let j = 0; j < actualElements.length; j++) {
+                if (j === 3) {
+                    expect(reason[0].textContent).toEqual(expectedTable.body[i][j]);
+                } else {
+                    expect(actualElements[j].textContent).toEqual(expectedTable.body[i][j]);
+                }
             }
         }
     };

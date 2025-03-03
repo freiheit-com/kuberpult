@@ -14,12 +14,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import React, { useCallback, useState } from 'react';
-import { GetFailedEslsResponse } from '../../../api/api';
+import { EslFailedItem, GetFailedEslsResponse } from '../../../api/api';
 import { Button } from '../button';
 import classNames from 'classnames';
 import { useApi } from '../../utils/GrpcApi';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
-import { removeFromFailedEsls, showSnackbarError } from '../../utils/store';
+import { removeFromFailedEsls, showSnackbarError, showSnackbarSuccess } from '../../utils/store';
+import SkipNextIcon from '@material-ui/icons/SkipNext';
+import CachedIcon from '@material-ui/icons/Cached';
 
 type RetryButtonProps = {
     eslVersion: number;
@@ -33,6 +35,9 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
             api.gitService()
                 .RetryFailedEvent({ eslversion: eslVersion }, authHeader)
                 .then(() => removeFromFailedEsls(eslVersion))
+                .then(() => {
+                    showSnackbarSuccess('Retried transformer with ID ' + eslVersion + '.');
+                })
                 .catch((e) => {
                     const GrpcErrorPermissionDenied = 7;
                     if (e.code === GrpcErrorPermissionDenied) {
@@ -45,10 +50,10 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
     }, [api, authHeader, authReady, eslVersion]);
     return (
         <Button
+            className="lock-display-info lock-action service-action--delete"
             onClick={onClickRetry}
-            className={classNames('button-main', 'mdc-button--unelevated')}
             key={'button-first-key'}
-            label="Retry"
+            icon={<CachedIcon />}
             highlightEffect={false}
         />
     );
@@ -62,6 +67,9 @@ export const SkipButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
             api.gitService()
                 .SkipEslEvent({ eventEslVersion: eslVersion }, authHeader)
                 .then(() => removeFromFailedEsls(eslVersion))
+                .then(() => {
+                    showSnackbarSuccess('Skipped transformer with ID ' + eslVersion + '.');
+                })
                 .catch((e) => {
                     const GrpcErrorPermissionDenied = 7;
                     if (e.code === GrpcErrorPermissionDenied) {
@@ -75,9 +83,9 @@ export const SkipButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
     return (
         <Button
             onClick={onClickSkip}
-            className={classNames('button-main', 'mdc-button--unelevated')}
+            className="lock-display-info lock-action service-action--delete"
             key={'button-first-key'}
-            label="Skip"
+            icon={<SkipNextIcon />}
             highlightEffect={false}
         />
     );
@@ -87,6 +95,8 @@ type EslWarningsProps = {
     failedEsls: GetFailedEslsResponse | undefined;
     onClick?: { (): void };
 };
+
+const headers = ['Date', 'ID', 'Type', 'Reason', '', ''];
 
 export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
     const failedEslsResponse = props.failedEsls;
@@ -102,6 +112,17 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
         },
         [setTimezone]
     );
+    React.useEffect(() => {
+        const currSroll = sessionStorage.getItem('scrollPosition');
+        if (currSroll) {
+            document.getElementsByClassName('mdc-drawer-app-content')[0].scrollTo({
+                top: parseInt(currSroll) + 100,
+                behavior: 'smooth',
+            }); //100 is a slight nudge
+            sessionStorage.removeItem('scrollPosition');
+        }
+    }, []);
+
     if (failedEslsResponse === undefined) {
         return (
             <div>
@@ -109,45 +130,7 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
             </div>
         );
     }
-    const convertTimeZone = (
-        date: Date,
-        timeZoneFrom?: string | null, // default timezone is Local
-        timeZoneTo?: string | null // default timezone is Local
-    ): Date => {
-        const dateFrom = !timeZoneFrom
-            ? date
-            : new Date(
-                  date.toLocaleString('en-US', {
-                      timeZone: timeZoneFrom,
-                  })
-              );
-        const dateTo = !timeZoneTo
-            ? date
-            : new Date(
-                  date.toLocaleString('en-US', {
-                      timeZone: timeZoneTo,
-                  })
-              );
-        return new Date(date.getTime() + dateTo.getTime() - dateFrom.getTime());
-    };
-    const dateToString = (date: Date, timeZone: string | null): string => {
-        date = convertTimeZone(date, 'UTC', timeZone);
-        const year = date.getUTCFullYear().toString().padStart(4, '0');
-        const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-        const day = date.getUTCDate().toString().padStart(2, '0');
-        const hours = date.getUTCHours().toString().padStart(2, '0');
-        const minutes = date.getUTCMinutes().toString().padStart(2, '0');
-        const seconds = date.getUTCSeconds().toString().padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-    };
-    const formatDate = (date: Date | undefined): string => {
-        if (!date) return '';
-        if (timezone === 'local') {
-            const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            return dateToString(date, zone);
-        }
-        return dateToString(date, 'UTC');
-    };
+
     const loadMoreButton = failedEslsResponse.loadMore ? (
         <div className="load-more-button-container">
             <button className="mdc-button button-main env-card-deploy-btn mdc-button--unelevated" onClick={onClick}>
@@ -167,49 +150,116 @@ export const EslWarnings: React.FC<EslWarningsProps> = (props) => {
                     manifest repo. Any operation in kuberpult is an event, like creating a lock or running a release
                     train.
                 </div>
-                <div>
+                <div className={classNames('mdc-data-table', 'locks-table')}>
                     <select className={'select-timezone'} value={timezone} onChange={handleChangeTimezone}>
                         <option value="local">{localTimezone} Timezone</option>
                         <option value="UTC">UTC Timezone</option>
                     </select>
-                    <table className={'esls'} border={1}>
-                        <thead>
-                            <tr>
-                                <th className={'EslVersion'}>EslVersion:</th>
-                                <th className={'date'}>Date:</th>
-                                <th className={'Event Type'}>Event Type:</th>
-                                <th className={'Json'}>Json:</th>
-                                <th className={'Reason'}>Reason:</th>
-                                <th className={'TransformerEslVersion'}>TransformerEslVersion:</th>
-                                <th className={'Retry'}>Retry:</th>
-                                <th className={'Skip'}>Skip:</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {failedEslsResponse.failedEsls.map((eslItem, _) => {
-                                const createdAt = formatDate(eslItem.createdAt);
-                                return (
-                                    <tr key={eslItem.transformerEslVersion}>
-                                        <td>{eslItem.eslVersion}</td>
-                                        <td>{createdAt}</td>
-                                        <td>{eslItem.eventType}</td>
-                                        <td>{eslItem.json}</td>
-                                        <td>{eslItem.reason}</td>
-                                        <td>{eslItem.transformerEslVersion}</td>
-                                        <td>
-                                            <RetryButton eslVersion={eslItem.transformerEslVersion}></RetryButton>
-                                        </td>
-                                        <td>
-                                            <SkipButton eslVersion={eslItem.transformerEslVersion}></SkipButton>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                    <div className="mdc-data-table__table-container">
+                        <table className="mdc-data-table__table" aria-label="Dessert calories">
+                            <thead>
+                                <tr className="mdc-data-table__header-row">
+                                    <th className="mdc-data-indicator" role="columnheader" scope="col">
+                                        <div className="mdc-data-header-title">{'Failed Esl Events'}</div>
+                                    </th>
+                                </tr>
+                                <tr className="mdc-data-table__header-row">
+                                    <th
+                                        className="mdc-data-indicator mdc-data-indicator--subheader"
+                                        role="columnheader"
+                                        scope="col">
+                                        <div className="mdc-data-indicator-header">
+                                            {headers.map((columnHeader, idx) => (
+                                                <div
+                                                    key={columnHeader + idx}
+                                                    className="mdc-data-indicator-field"
+                                                    style={columnHeader === 'Reason' ? { flexGrow: 2 } : {}}>
+                                                    {columnHeader}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="mdc-data-table__content">
+                                <tr>
+                                    <td>
+                                        {failedEslsResponse.failedEsls.map((eslItem, _) => (
+                                            <FailedEslDisplay
+                                                key={'failed_esl_' + eslItem.transformerEslVersion}
+                                                failedItem={eslItem}
+                                                timezone={timezone}></FailedEslDisplay>
+                                        ))}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 {loadMoreButton}
             </main>
+        </div>
+    );
+};
+
+export const FailedEslDisplay: React.FC<{ failedItem: EslFailedItem; timezone: string }> = (props) => {
+    const { failedItem, timezone } = props;
+
+    const createdAt = useCallback(() => {
+        const convertTimeZone = (
+            date: Date,
+            timeZoneFrom?: string | null, // default timezone is Local
+            timeZoneTo?: string | null // default timezone is Local
+        ): Date => {
+            const dateFrom = !timeZoneFrom
+                ? date
+                : new Date(
+                      date.toLocaleString('en-US', {
+                          timeZone: timeZoneFrom,
+                      })
+                  );
+            const dateTo = !timeZoneTo
+                ? date
+                : new Date(
+                      date.toLocaleString('en-US', {
+                          timeZone: timeZoneTo,
+                      })
+                  );
+            return new Date(date.getTime() + dateTo.getTime() - dateFrom.getTime());
+        };
+        const dateToString = (date: Date, timeZone: string | null): string => {
+            date = convertTimeZone(date, 'UTC', timeZone);
+            const year = date.getUTCFullYear().toString().padStart(4, '0');
+            const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+            const day = date.getUTCDate().toString().padStart(2, '0');
+            const hours = date.getUTCHours().toString().padStart(2, '0');
+            const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+            const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+        };
+        const formatDate = (date: Date | undefined): string => {
+            if (!date) return '';
+            if (timezone === 'local') {
+                const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                return dateToString(date, zone);
+            }
+            return dateToString(date, 'UTC');
+        };
+        return formatDate(failedItem.createdAt);
+    }, [failedItem.createdAt, timezone]);
+
+    return (
+        <div className="lock-display">
+            <div className="lock-display__table">
+                <div className="lock-display-table">
+                    <div className="lock-display-info">{createdAt()}</div>
+                    <div className="lock-display-info">{failedItem.transformerEslVersion}</div>
+                    <div className="lock-display-info">{failedItem.eventType}</div>
+                    <div className="lock-display-info-size-limit">{failedItem.reason}</div>
+                    <RetryButton eslVersion={failedItem.transformerEslVersion}></RetryButton>
+                    <SkipButton eslVersion={failedItem.transformerEslVersion}></SkipButton>
+                </div>
+            </div>
         </div>
     );
 };
