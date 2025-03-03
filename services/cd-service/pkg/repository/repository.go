@@ -628,6 +628,18 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}
 }
 
+func MeasureGitSyncStatus(unsyncedApps, syncFailedApps int) error {
+	if ddMetrics != nil {
+		if err := ddMetrics.Gauge("git_sync_unsynced", float64(unsyncedApps), []string{}, 1); err != nil {
+			return err
+		}
+		if err := ddMetrics.Gauge("git_sync_failed", float64(syncFailedApps), []string{}, 1); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *repository) notifyChangedApps(changes *TransformerResult) {
 	var changedAppNames []string
 	var seen = make(map[string]bool)
