@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -141,8 +140,6 @@ type repository struct {
 	writeLock    sync.Mutex
 	queue        queue
 	config       *RepositoryConfig
-	credentials  *credentialsStore
-	certificates *certificateStore
 
 	// Mutex guarding head
 	headLock sync.Mutex
@@ -182,8 +179,6 @@ type RepositoryConfig struct {
 	URL  string
 	Path string
 	// Optional Config
-	Credentials    Credentials
-	Certificates   Certificates
 	CommitterEmail string
 	CommitterName  string
 	// default branch is master
@@ -260,29 +255,13 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 		cfg.ReleaseVersionsLimit = keptVersionsOnCleanup
 	}
 
-	var credentials *credentialsStore
-	var certificates *certificateStore
 	var err error
-	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
-		logger.Debug("git url indicates a local directory. Ignoring credentials and certificates.")
-	} else {
-		credentials, err = cfg.Credentials.load()
-		if err != nil {
-			return nil, nil, err
-		}
-		certificates, err = cfg.Certificates.load()
-		if err != nil {
-			return nil, nil, err
-		}
-	}
 
 	result := &repository{
 		headLock:        sync.Mutex{},
 		notify:          notify.Notify{},
 		writeLock:       sync.Mutex{},
 		config:          &cfg,
-		credentials:     credentials,
-		certificates:    certificates,
 		queue:           makeQueueN(cfg.MaximumQueueSize),
 		backOffProvider: defaultBackOffProvider,
 		DB:              cfg.DBHandler,
