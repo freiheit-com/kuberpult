@@ -38,7 +38,6 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	git "github.com/libgit2/git2go/v34"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -52,84 +51,6 @@ func (e errMatcher) Error() string {
 
 func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
-}
-
-func TestRetrySsh(t *testing.T) {
-	tcs := []struct {
-		Name              string
-		NumOfFailures     int
-		ExpectedNumOfCall int
-		ExpectedResponse  error
-		CustomResponse    error
-	}{
-		{
-			Name:              "No retries success from 1st try",
-			NumOfFailures:     0,
-			ExpectedNumOfCall: 1,
-			ExpectedResponse:  nil,
-			CustomResponse:    nil,
-		}, {
-			Name:              "Success after the 4th attempt",
-			NumOfFailures:     4,
-			ExpectedNumOfCall: 5,
-			ExpectedResponse:  nil,
-			CustomResponse:    &git.GitError{Message: "mock error"},
-		}, {
-			Name:              "Fail after the 6th attempt",
-			NumOfFailures:     6,
-			ExpectedNumOfCall: 6,
-			ExpectedResponse:  &git.GitError{Message: "max number of retries exceeded error"},
-			CustomResponse:    &git.GitError{Message: "max number of retries exceeded error"},
-		}, {
-			Name:              "Do not retry after a permanent error",
-			NumOfFailures:     1,
-			ExpectedNumOfCall: 1,
-			ExpectedResponse:  &git.GitError{Message: "permanent error"},
-			CustomResponse:    &git.GitError{Message: "permanent error", Code: git.ErrorCodeNonFastForward},
-		}, {
-			Name:              "Fail after the 6th attempt = Max number of retries ",
-			NumOfFailures:     12,
-			ExpectedNumOfCall: 6,
-			ExpectedResponse:  &git.GitError{Message: "max number of retries exceeded error"},
-			CustomResponse:    nil,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo := &repository{}
-			counter := 0
-			repo.backOffProvider = func() backoff.BackOff {
-				return backoff.WithMaxRetries(&backoff.ZeroBackOff{}, 5)
-			}
-			resp := repo.Push(testutil.MakeTestContext(), func() error {
-				counter++
-				if counter > tc.NumOfFailures {
-					return nil
-				}
-				if counter == tc.NumOfFailures { //  Custom response
-					return tc.CustomResponse
-				}
-				if counter == 6 { // max number of retries
-					return &git.GitError{Message: "max number of retries exceeded error"}
-				}
-				return &git.GitError{Message: fmt.Sprintf("mock error %d", counter)}
-			})
-
-			if resp == nil || tc.ExpectedResponse == nil {
-				if resp != tc.ExpectedResponse {
-					t.Fatalf("new: expected '%v',  got '%v'", tc.ExpectedResponse, resp)
-				}
-			} else if resp.Error() != tc.ExpectedResponse.Error() {
-				t.Fatalf("new: expected '%v',  got '%v'", tc.ExpectedResponse.Error(), resp.Error())
-			}
-			if counter != tc.ExpectedNumOfCall {
-				t.Fatalf("new: expected number of calls  '%d',  got '%d'", tc.ExpectedNumOfCall, counter)
-			}
-
-		})
-	}
 }
 
 type SlowTransformer struct {
@@ -738,161 +659,14 @@ func createGitWithCommit(remote string, local string, t *testing.B) {
 	}
 }
 
-func BenchmarkApplyQueue(t *testing.B) {
-	t.StopTimer()
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	createGitWithCommit(remoteDir, localDir, t)
-
-	repo, err := New(
-		testutil.MakeTestContext(),
-		RepositoryConfig{
-			URL:                 "file://" + remoteDir,
-			Path:                localDir,
-			ArgoCdGenerateFiles: true,
-		},
-	)
-	if err != nil {
-		t.Fatalf("new: expected no error, got '%e'", err)
-	}
-	repoInternal := repo.(*repository)
-	// The worker go routine is now blocked. We can move some items into the queue now.
-	results := make([]<-chan error, t.N)
-	expectedResults := make([]error, t.N)
-	expectedReleases := make(map[int]bool, t.N)
-	tf, _ := getTransformer(0)
-	repoInternal.Apply(testutil.MakeTestContext(), tf)
-
-	t.StartTimer()
-	for i := 0; i < t.N; i++ {
-		tf, expectedResult := getTransformer(i)
-		results[i] = repoInternal.applyDeferred(testutil.MakeTestContext(), tf)
-		expectedResults[i] = expectedResult
-		if expectedResult == nil {
-			expectedReleases[i+1] = true
-		}
-	}
-
-	for i := 0; i < t.N; i++ {
-		if err := <-results[i]; err != expectedResults[i] {
-			t.Errorf("result[%d] expected error \"%v\" but got \"%v\"", i, expectedResults[i], err)
-		}
-	}
-	releases, _ := repo.State().Releases("foo")
-	if !cmp.Equal(expectedReleases, convertToSet(releases)) {
-		t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
-	}
-}
-
-func TestPushUpdate(t *testing.T) {
-	tcs := []struct {
-		Name            string
-		InputBranch     string
-		InputRefName    string
-		InputStatus     string
-		ExpectedSuccess bool
-	}{
-		{
-			Name:            "Should succeed",
-			InputBranch:     "main",
-			InputRefName:    "refs/heads/main",
-			InputStatus:     "",
-			ExpectedSuccess: true,
-		},
-		{
-			Name:            "Should fail because wrong branch",
-			InputBranch:     "main",
-			InputRefName:    "refs/heads/master",
-			InputStatus:     "",
-			ExpectedSuccess: false,
-		},
-		{
-			Name:            "Should fail because status not empty",
-			InputBranch:     "master",
-			InputRefName:    "refs/heads/master",
-			InputStatus:     "i am the status, stopping this from working",
-			ExpectedSuccess: false,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			var success = false
-			actualError := defaultPushUpdate(tc.InputBranch, &success)(tc.InputRefName, tc.InputStatus)
-			if success != tc.ExpectedSuccess {
-				t.Fatal(fmt.Sprintf("expected sucess=%t but got %t", tc.ExpectedSuccess, success))
-			}
-			if actualError != nil {
-				t.Fatal(fmt.Sprintf("expected no error but got %s but got none", actualError))
-			}
-		})
-	}
-}
-
-func TestDeleteDirIfEmpty(t *testing.T) {
-	tcs := []struct {
-		Name           string
-		CreateThisDir  string
-		DeleteThisDir  string
-		ExpectedError  error
-		ExpectedReason SuccessReason
-	}{
-		{
-			Name:           "Should succeed: dir exists and is empty",
-			CreateThisDir:  "foo/bar",
-			DeleteThisDir:  "foo/bar",
-			ExpectedReason: NoReason,
-		},
-		{
-			Name:           "Should succeed: dir does not exist",
-			CreateThisDir:  "foo/bar",
-			DeleteThisDir:  "foo/bar/pow",
-			ExpectedReason: DirDoesNotExist,
-		},
-		{
-			Name:           "Should succeed: dir does not exist",
-			CreateThisDir:  "foo/bar/pow",
-			DeleteThisDir:  "foo/bar",
-			ExpectedReason: DirNotEmpty,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo := setupRepositoryTest(t)
-			state := repo.State()
-			err := state.Filesystem.MkdirAll(tc.CreateThisDir, 0777)
-			if err != nil {
-				t.Fatalf("error in mkdir: %v", err)
-				return
-			}
-
-			successReason, err := state.DeleteDirIfEmpty(tc.DeleteThisDir)
-			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
-			}
-			if successReason != tc.ExpectedReason {
-				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReason, successReason))
-			}
-		})
-	}
-}
-
 func TestProcessQueueOnce(t *testing.T) {
 	tcs := []struct {
-		Name           string
-		Element        transformerBatch
-		PushUpdateFunc PushUpdateFunc
-		PushActionFunc PushActionCallbackFunc
-		ExpectedError  error
+		Name          string
+		Element       transformerBatch
+		ExpectedError error
 	}{
 		{
-			Name:           "success",
-			PushUpdateFunc: defaultPushUpdate,
-			PushActionFunc: DefaultPushActionCallback,
+			Name: "success",
 			Element: transformerBatch{
 				ctx: testutil.MakeTestContext(),
 				transformers: []Transformer{
@@ -912,7 +686,7 @@ func TestProcessQueueOnce(t *testing.T) {
 			dir := t.TempDir()
 			repo := SetupRepositoryTestWithDB(t)
 			repoInternal := repo.(*repository)
-			repoInternal.ProcessQueueOnce(testutil.MakeTestContext(), tc.Element, tc.PushUpdateFunc, tc.PushActionFunc)
+			repoInternal.ProcessQueueOnce(testutil.MakeTestContext(), tc.Element)
 
 			result := tc.Element.result
 			actualError := <-result
@@ -1164,13 +938,7 @@ func TestLimit(t *testing.T) {
 				errCh := repo.(*repository).applyDeferred(ctx, tr)
 				select {
 				case e := <-repo.(*repository).queue.transformerBatches:
-					dummyPushUpdateFunction := func(string, *bool) git.PushUpdateReferenceCallback { return nil }
-					dummyPushActionFunction := func(options git.PushOptions, r *repository) PushActionFunc {
-						return func() error {
-							return nil
-						}
-					}
-					repo.(*repository).ProcessQueueOnce(ctx, e, dummyPushUpdateFunction, dummyPushActionFunction)
+					repo.(*repository).ProcessQueueOnce(ctx, e)
 				default:
 				}
 				select {

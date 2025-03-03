@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -29,18 +28,14 @@ import (
 	"go.uber.org/zap"
 	"sync"
 
-	"os"
 	"sort"
 	"strconv"
 	"strings"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
-	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -73,225 +68,136 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 		return nil, fmt.Errorf("Must have a commit to get the product summary for")
 	}
 	var summaryFromEnv []api.ProductSummary
-	if s.Config.DBHandler.ShouldUseOtherTables() {
-		dbHandler := s.Config.DBHandler
-		state := s.OverviewService.Repository.State()
-		response, err := db.WithTransactionT[api.GetProductSummaryResponse](dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetProductSummaryResponse, error) {
-			//Translate a manifest repo commit hash into a DB transaction timestamp.
-			ts, err := dbHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, in.ManifestRepoCommitHash)
+	dbHandler := s.Config.DBHandler
+	state := s.OverviewService.Repository.State()
+	response, err := db.WithTransactionT[api.GetProductSummaryResponse](dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetProductSummaryResponse, error) {
+		//Translate a manifest repo commit hash into a DB transaction timestamp.
+		ts, err := dbHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, in.ManifestRepoCommitHash)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get manifest repo timestamp that corresponds to provided commit Hash %v", err)
+		}
+
+		if ts == nil {
+			return nil, fmt.Errorf("could not find timestamp that corresponds to the given commit hash")
+		}
+		if in.Environment != nil && *in.Environment != "" {
+			//Single environment
+			allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, *in.Environment, *ts)
 			if err != nil {
-				return nil, fmt.Errorf("unable to get manifest repo timestamp that corresponds to provided commit Hash %v", err)
+				return nil, fmt.Errorf("unable to get applications for environment '%s': %v", *in.Environment, err)
 			}
-
-			if ts == nil {
-				return nil, fmt.Errorf("could not find timestamp that corresponds to the given commit hash")
+			if len(allAppsForEnv) == 0 {
+				return &api.GetProductSummaryResponse{
+					ProductSummary: nil,
+				}, nil
 			}
-			if in.Environment != nil && *in.Environment != "" {
-				//Single environment
-				allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, *in.Environment, *ts)
+			for _, currentApp := range allAppsForEnv {
+				currentAppDeployments, err := state.GetAllDeploymentsForAppAtTimestamp(ctx, transaction, currentApp, *ts)
 				if err != nil {
-					return nil, fmt.Errorf("unable to get applications for environment '%s': %v", *in.Environment, err)
+					return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)
 				}
-				if len(allAppsForEnv) == 0 {
-					return &api.GetProductSummaryResponse{
-						ProductSummary: nil,
-					}, nil
-				}
-				for _, currentApp := range allAppsForEnv {
-					currentAppDeployments, err := state.GetAllDeploymentsForAppAtTimestamp(ctx, transaction, currentApp, *ts)
-					if err != nil {
-						return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)
-					}
 
-					if version, ok := currentAppDeployments[*in.Environment]; ok {
-						summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
-							CommitId:       "",
-							DisplayVersion: "",
-							Team:           "",
-							App:            currentApp,
-							Version:        strconv.FormatInt(version, 10),
-							Environment:    *in.Environment,
-						})
+				if version, ok := currentAppDeployments[*in.Environment]; ok {
+					summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
+						CommitId:       "",
+						DisplayVersion: "",
+						Team:           "",
+						App:            currentApp,
+						Version:        strconv.FormatInt(version, 10),
+						Environment:    *in.Environment,
+					})
 
-					}
 				}
-				if len(summaryFromEnv) == 0 {
-					return &api.GetProductSummaryResponse{
-						ProductSummary: nil,
-					}, nil
-				}
-				sort.Slice(summaryFromEnv, func(i, j int) bool {
-					a := summaryFromEnv[i].App
-					b := summaryFromEnv[j].App
-					return a < b
-				})
+			}
+			if len(summaryFromEnv) == 0 {
+				return &api.GetProductSummaryResponse{
+					ProductSummary: nil,
+				}, nil
+			}
+			sort.Slice(summaryFromEnv, func(i, j int) bool {
+				a := summaryFromEnv[i].App
+				b := summaryFromEnv[j].App
+				return a < b
+			})
+		} else {
+			//Environment Group
+			var environmentGroups []*api.EnvironmentGroup
+
+			envs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+			if err != nil {
+				return nil, fmt.Errorf("could not get environment configs %v", err)
 			} else {
-				//Environment Group
-				var environmentGroups []*api.EnvironmentGroup
+				environmentGroups = mapper.MapEnvironmentsToGroups(envs)
+			}
+			for _, envGroup := range environmentGroups {
+				if *in.EnvironmentGroup == envGroup.EnvironmentGroupName {
+					for _, env := range envGroup.Environments {
+						envName := env.Name
+						allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *ts)
+						if err != nil {
+							return nil, fmt.Errorf("unable to get all applications for environment '%s': %v", envName, err)
+						}
+						if len(allAppsForEnv) == 0 {
+							return &api.GetProductSummaryResponse{
+								ProductSummary: nil,
+							}, nil
+						}
+						for _, currentApp := range allAppsForEnv {
 
-				envs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-				if err != nil {
-					return nil, fmt.Errorf("could not get environment configs %v", err)
-				} else {
-					environmentGroups = mapper.MapEnvironmentsToGroups(envs)
-				}
-				for _, envGroup := range environmentGroups {
-					if *in.EnvironmentGroup == envGroup.EnvironmentGroupName {
-						for _, env := range envGroup.Environments {
-							envName := env.Name
-							allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *ts)
+							currentAppDeployments, err := state.GetAllDeploymentsForAppAtTimestamp(ctx, transaction, currentApp, *ts)
 							if err != nil {
-								return nil, fmt.Errorf("unable to get all applications for environment '%s': %v", envName, err)
+								return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)
 							}
-							if len(allAppsForEnv) == 0 {
-								return &api.GetProductSummaryResponse{
-									ProductSummary: nil,
-								}, nil
-							}
-							for _, currentApp := range allAppsForEnv {
+							if version, ok := currentAppDeployments[envName]; ok {
+								summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
+									CommitId:       "",
+									DisplayVersion: "",
+									Team:           "",
+									App:            currentApp,
+									Version:        strconv.FormatInt(version, 10),
+									Environment:    envName,
+								})
 
-								currentAppDeployments, err := state.GetAllDeploymentsForAppAtTimestamp(ctx, transaction, currentApp, *ts)
-								if err != nil {
-									return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)
-								}
-								if version, ok := currentAppDeployments[envName]; ok {
-									summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
-										CommitId:       "",
-										DisplayVersion: "",
-										Team:           "",
-										App:            currentApp,
-										Version:        strconv.FormatInt(version, 10),
-										Environment:    envName,
-									})
-
-								}
 							}
 						}
 					}
 				}
-				if len(summaryFromEnv) == 0 {
-					return &api.GetProductSummaryResponse{
-						ProductSummary: nil,
-					}, nil
-				}
-				sort.Slice(summaryFromEnv, func(i, j int) bool {
-					a := summaryFromEnv[i].App
-					b := summaryFromEnv[j].App
-					return a < b
-				})
 			}
+			if len(summaryFromEnv) == 0 {
+				return &api.GetProductSummaryResponse{
+					ProductSummary: nil,
+				}, nil
+			}
+			sort.Slice(summaryFromEnv, func(i, j int) bool {
+				a := summaryFromEnv[i].App
+				b := summaryFromEnv[j].App
+				return a < b
+			})
+		}
 
-			var productVersion []*api.ProductSummary
-			for _, row := range summaryFromEnv { //nolint: govet
-				v, err := strconv.ParseUint(row.Version, 10, 64)
-				if err != nil {
-					return nil, fmt.Errorf("could not parse version to integer %s: %v", row.Version, err)
-				}
-				release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, row.App, v, false, *ts)
-				if err != nil {
-					return nil, fmt.Errorf("error getting release for version")
-				}
-				team, err := state.GetApplicationTeamOwnerAtTimestamp(ctx, transaction, row.App, *ts)
-				if err != nil {
-					return nil, fmt.Errorf("could not find app %s: %v", row.App, err)
-				}
-				productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.Metadata.SourceCommitId, DisplayVersion: release.Metadata.DisplayVersion, Environment: row.Environment, Team: team})
+		var productVersion []*api.ProductSummary
+		for _, row := range summaryFromEnv { //nolint: govet
+			v, err := strconv.ParseUint(row.Version, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("could not parse version to integer %s: %v", row.Version, err)
 			}
-			return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
-		})
-		return response, err
-	} else {
-		return nil, fmt.Errorf("unable to retrive product summary information when the database feature is disabled")
-	}
+			release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, row.App, v, false, *ts)
+			if err != nil {
+				return nil, fmt.Errorf("error getting release for version")
+			}
+			team, err := state.GetApplicationTeamOwnerAtTimestamp(ctx, transaction, row.App, *ts)
+			if err != nil {
+				return nil, fmt.Errorf("could not find app %s: %v", row.App, err)
+			}
+			productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.Metadata.SourceCommitId, DisplayVersion: release.Metadata.DisplayVersion, Environment: row.Environment, Team: team})
+		}
+		return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
+	})
+	return response, err
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
-	if !s.Config.WriteCommitData {
-		return nil, status.Error(codes.FailedPrecondition, "no written commit info available; set KUBERPULT_GIT_WRITE_COMMIT_DATA=true to enable")
-	}
-
-	fs := s.OverviewService.Repository.State().Filesystem
-
-	commitIDPrefix, pageNumber := in.CommitHash, in.PageNumber
-
-	commitID, err := findCommitID(ctx, fs, commitIDPrefix)
-	if err != nil {
-		return nil, err
-	}
-
-	commitPath := fs.Join("commits", commitID[:2], commitID[2:])
-
-	sourceMessagePath := fs.Join(commitPath, "source_message")
-	var commitMessage string
-	if dat, err := util.ReadFile(fs, sourceMessagePath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, status.Error(codes.NotFound, "commit info does not exist")
-		}
-		return nil, fmt.Errorf("could not open the source message file at %s, err: %w", sourceMessagePath, err)
-	} else {
-		commitMessage = string(dat)
-	}
-
-	var previousCommitMessagePath = fs.Join(commitPath, "previousCommit")
-	var previousCommitId string
-	if data, err := util.ReadFile(fs, previousCommitMessagePath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("could not open the previous commit file at %s, err: %w", previousCommitMessagePath, err)
-		}
-	} else {
-		previousCommitId = string(data)
-	}
-
-	var nextCommitMessagePath = fs.Join(commitPath, "nextCommit")
-	var nextCommitId string
-	if data, err := util.ReadFile(fs, nextCommitMessagePath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("could not open the next commit file at %s, err: %w", nextCommitMessagePath, err)
-		} //If no file exists, there is no next commit
-	} else {
-		nextCommitId = string(data)
-	}
-
-	commitApplicationsDirPath := fs.Join(commitPath, "applications")
-	dirs, err := fs.ReadDir(commitApplicationsDirPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not read the applications directory at %s, error: %w", commitApplicationsDirPath, err)
-	}
-	touchedApps := make([]string, 0)
-	for _, dir := range dirs {
-		touchedApps = append(touchedApps, dir.Name())
-	}
-	sort.Strings(touchedApps)
-	var events []*api.Event
-	loadMore := false
-	if s.OverviewService.Repository.State().DBHandler.ShouldUseOtherTables() {
-		events, err = db.WithTransactionMultipleEntriesT(s.OverviewService.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
-			return s.GetEvents(ctx, transaction, fs, commitPath, pageNumber)
-		})
-		if len(events) > int(s.PageSize) {
-			loadMore = true
-			events = events[:len(events)-1]
-		}
-	} else {
-		events, err = s.GetEvents(ctx, nil, fs, commitPath, pageNumber)
-		if len(events) > int(s.PageSize) {
-			loadMore = true
-		}
-		events = events[pageNumber*s.PageSize : min(len(events), int((pageNumber+1)*s.PageSize))]
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &api.GetCommitInfoResponse{
-		CommitHash:         commitID,
-		CommitMessage:      commitMessage,
-		TouchedApps:        touchedApps,
-		Events:             events,
-		PreviousCommitHash: previousCommitId,
-		NextCommitHash:     nextCommitId,
-		LoadMore:           loadMore,
-	}, nil
+	return nil, status.Error(codes.Unimplemented, "not implemented.  cd-service")
 }
 
 func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string, pageNumber uint64) ([]*api.Event, error) {
@@ -353,66 +259,6 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 		return nil, err
 	}
 	return eventmod.ToProto(eventId, event), nil
-}
-
-// findCommitID checks if the "commits" directory in the given
-// filesystem contains a commit with the given prefix. Returns the
-// full hash of the commit, if a unique one can be found. Returns a
-// gRPC error that can be directly returned to the client.
-func findCommitID(
-	ctx context.Context,
-	fs billy.Filesystem,
-	commitPrefix string,
-) (string, error) {
-	if !valid.SHA1CommitIDPrefix(commitPrefix) {
-		return "", status.Error(codes.InvalidArgument,
-			"not a valid commit_hash")
-	}
-	commitPrefix = strings.ToLower(commitPrefix)
-	if len(commitPrefix) == valid.SHA1CommitIDLength {
-		// the easy case: the commit has been requested in
-		// full length, so we simply check if the file exist
-		// and are done.
-		commitPath := fs.Join("commits", commitPrefix[:2], commitPrefix[2:])
-
-		if _, err := fs.Stat(commitPath); err != nil {
-			return "", grpcErrors.NotFoundError(ctx,
-				fmt.Errorf("commit %s was not found in the manifest repo", commitPrefix))
-		}
-
-		return commitPrefix, nil
-	}
-	if len(commitPrefix) < 7 {
-		return "", status.Error(codes.InvalidArgument,
-			"commit_hash too short (must be at least 7 characters)")
-	}
-	// the dir we're looking in
-	commitDir := fs.Join("commits", commitPrefix[:2])
-	files, err := fs.ReadDir(commitDir)
-	if err != nil {
-		return "", grpcErrors.NotFoundError(ctx,
-			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
-	}
-	// the prefix of the file we're looking for
-	filePrefix := commitPrefix[2:]
-	var commitID string
-	for _, file := range files {
-		fileName := file.Name()
-		if !strings.HasPrefix(fileName, filePrefix) {
-			continue
-		}
-		if commitID != "" {
-			// another commit has already been found
-			return "", status.Error(codes.InvalidArgument,
-				"commit_hash is not unique, provide the complete hash (or a longer prefix)")
-		}
-		commitID = commitPrefix[:2] + fileName
-	}
-	if commitID == "" {
-		return "", grpcErrors.NotFoundError(ctx,
-			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
-	}
-	return commitID, nil
 }
 
 // Implements api.GitServer.GetGitSyncStatus

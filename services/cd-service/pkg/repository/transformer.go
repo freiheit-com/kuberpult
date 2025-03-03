@@ -321,7 +321,6 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 	runner := transformerRunner{
 		ChangedApps:     nil,
 		DeletedRootApps: nil,
-		Commits:         nil,
 		State:           s,
 		Stack:           [][]string{nil},
 	}
@@ -335,7 +334,6 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 	return commitMsg, &TransformerResult{
 		ChangedApps:     runner.ChangedApps,
 		DeletedRootApps: runner.DeletedRootApps,
-		Commits:         runner.Commits,
 	}, nil
 }
 
@@ -349,7 +347,6 @@ type transformerRunner struct {
 	Stack           [][]string
 	ChangedApps     []AppEnv
 	DeletedRootApps []RootApp
-	Commits         *CommitIds
 }
 
 func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
@@ -1537,9 +1534,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		return "", err
 	}
 	s := State{
-		Commit:               nil,
 		MinorRegexes:         state.MinorRegexes,
-		Filesystem:           state.Filesystem,
 		MaxNumThreads:        state.MaxNumThreads,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
@@ -2162,7 +2157,6 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	fs := state.Filesystem
 
 	var manifestContent []byte
 	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
@@ -2303,10 +2297,8 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	t.AddAppEnv(c.Application, c.Environment, teamOwner)
 	s := State{
-		Commit:               nil,
 		MinorRegexes:         state.MinorRegexes,
 		MaxNumThreads:        state.MaxNumThreads,
-		Filesystem:           fs,
 		DBHandler:            state.DBHandler,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
 		CloudRunClient:       state.CloudRunClient,
