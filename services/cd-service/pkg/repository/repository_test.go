@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
@@ -1010,6 +1011,91 @@ func TestLimit(t *testing.T) {
 			}
 			if expectedErrorNumber > 0 && expectedErrorNumber != actualErrorNumber {
 				t.Errorf("error number mismatch expected: %d, got %d", expectedErrorNumber, actualErrorNumber)
+			}
+		})
+	}
+}
+
+func TestMeasureGitSyncStatus(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		SyncedFailedApps []db.EnvApp
+		UnsyncedApps     []db.EnvApp
+		ExpectedGauges   []Gauge
+	}{
+		{
+			Name:             "No unsynced or sync failed apps",
+			SyncedFailedApps: []db.EnvApp{},
+			UnsyncedApps:     []db.EnvApp{},
+			ExpectedGauges: []Gauge{
+				{Name: "git_sync_unsynced", Value: 0, Tags: []string{}, Rate: 1},
+				{Name: "git_sync_failed", Value: 0, Tags: []string{}, Rate: 1},
+			},
+		},
+		{
+			Name: "Some sync failed apps",
+			SyncedFailedApps: []db.EnvApp{
+				{EnvName: "dev", AppName: "app"},
+				{EnvName: "dev", AppName: "app2"},
+			},
+			UnsyncedApps: []db.EnvApp{
+				{EnvName: "staging", AppName: "app"},
+			},
+			ExpectedGauges: []Gauge{
+				{Name: "git_sync_unsynced", Value: 1, Tags: []string{}, Rate: 1},
+				{Name: "git_sync_failed", Value: 2, Tags: []string{}, Rate: 1},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
+
+			ctx := testutil.MakeTestContext()
+			repo := SetupRepositoryTestWithDB(t)
+			ddMetrics = client
+			dbHandler := repo.State().DBHandler
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, 0, tc.SyncedFailedApps, db.SYNC_FAILED)
+				if err != nil {
+					return err
+				}
+
+				err = dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, 0, tc.UnsyncedApps, db.UNSYNCED)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("failed to write sync events to db: %v", err)
+			}
+
+			err = MeasureGitSyncStatus(len(tc.UnsyncedApps), len(tc.SyncedFailedApps))
+			if err != nil {
+				t.Fatalf("failed to send git sync status metrics: %v", err)
+			}
+
+			cmpGauge := func(i, j Gauge) bool {
+				if len(i.Tags) == 0 && len(j.Tags) == 0 {
+					return i.Name > j.Name
+				} else if len(i.Tags) != len(j.Tags) {
+					return len(i.Tags) > len(j.Tags)
+				} else {
+					for tagIndex := range i.Tags {
+						if i.Tags[tagIndex] != j.Tags[tagIndex] {
+							return i.Tags[tagIndex] > j.Tags[tagIndex]
+						}
+					}
+					return true
+				}
+			}
+			if diff := cmp.Diff(tc.ExpectedGauges, mockClient.gauges, cmpopts.SortSlices(cmpGauge)); diff != "" {
+				t.Errorf("gauges mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
