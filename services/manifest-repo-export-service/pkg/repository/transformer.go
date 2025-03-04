@@ -38,8 +38,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 
@@ -972,19 +970,6 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 	return nil
 }
 
-func isLatestVersion(ctx context.Context, state *State, transaction *sql.Tx, application string, version uint64) (bool, error) {
-	rels, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, application, true)
-	if err != nil {
-		return false, err
-	}
-	for _, r := range rels {
-		if r.ReleaseNumber > version {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
 // Releases older that the oldest deployed release are eligible for deletion. releaseVersionsLimit
 func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, appName string) ([]uint64, error) {
@@ -1104,36 +1089,9 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		return GetNoOpMessage(c)
 	}
 
-	if !valid.EnvironmentName(c.Environment) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid environment: '%s'", c.Environment))
-	}
-	if !valid.TeamName(c.Team) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid team: '%s'", c.Team))
-	}
-	if !valid.LockId(c.LockId) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid lock id: '%s'", c.LockId))
-	}
-
 	fs := state.Filesystem
 
-	foundTeam := false
 	var err error
-	if apps, err := state.GetApplicationsFromFile(); err == nil {
-		for _, currentApp := range apps {
-			currentTeamName, err := state.GetTeamName(currentApp)
-			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
-			} else {
-				if c.Team == currentTeamName {
-					foundTeam = true
-					break
-				}
-			}
-		}
-	}
-	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
-		return "", &TeamNotFoundErr{err: fmt.Errorf("team '%s' does not exist", c.Team)}
-	}
 
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
@@ -1197,15 +1155,6 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		return GetNoOpMessage(c)
 	}
 
-	if !valid.EnvironmentName(c.Environment) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
-	}
-	if !valid.TeamName(c.Team) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid team: '%s'", c.Team))
-	}
-	if !valid.LockId(c.LockId) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid lock id: '%s'", c.LockId))
-	}
 	fs := state.Filesystem
 
 	lockDir := fs.Join("environments", c.Environment, "teams", c.Team, "locks", c.LockId)
