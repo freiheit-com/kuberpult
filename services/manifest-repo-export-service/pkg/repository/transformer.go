@@ -1194,7 +1194,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid lock id: '%s'", c.LockId))
 	}
 	fs := state.Filesystem
-	
+
 	lockDir := fs.Join("environments", c.Environment, "teams", c.Team, "locks", c.LockId)
 	_, err := fs.Stat(lockDir)
 
