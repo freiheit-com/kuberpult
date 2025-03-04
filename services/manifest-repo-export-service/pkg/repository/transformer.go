@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"path"
 	"slices"
 
@@ -38,8 +40,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 
@@ -762,9 +762,6 @@ func (c *CreateApplicationVersion) Transform(
 ) (string, error) {
 	version := c.Version
 	fs := state.Filesystem
-	if !valid.ApplicationName(c.Application) {
-		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
-	}
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
@@ -829,22 +826,6 @@ func (c *CreateApplicationVersion) Transform(
 			}
 		}
 	}
-	isLatest, err := isLatestVersion(ctx, state, transaction, c.Application, version)
-	if err != nil {
-		return "", GetCreateReleaseGeneralFailure(err)
-	}
-	if !isLatest {
-		// check that we can actually backfill this version
-		oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		for _, oldVersion := range oldVersions {
-			if version == oldVersion {
-				return "", GetCreateReleaseTooOld()
-			}
-		}
-	}
 
 	var allEnvsOfThisApp []string = nil
 
@@ -853,7 +834,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	slices.Sort(allEnvsOfThisApp)
 
-	if c.WriteCommitData {
+	if c.WriteCommitData && tCtx.ShouldMaximizeGitData() {
 		ev, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslVersion, event.EventTypeNewRelease, 1)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
@@ -868,11 +849,6 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 
-	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
-	if err != nil {
-		return "", err
-	}
-
 	deploymentsMap, err := state.DBHandler.MapEnvNamesToDeployment(ctx, transaction, c.TransformerEslVersion)
 	if err != nil {
 		return "", err
@@ -883,12 +859,6 @@ func (c *CreateApplicationVersion) Transform(
 		man := c.Manifests[env]
 
 		envDir := fs.Join(releaseDir, "environments", env)
-
-		config, found := configs[env]
-		hasUpstream := false
-		if found {
-			hasUpstream = config.Upstream != nil
-		}
 
 		if tCtx.ShouldMaximizeGitData() {
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
@@ -903,12 +873,10 @@ func (c *CreateApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
+
 		tCtx.AddAppEnv(c.Application, env, teamOwner)
 
-		if _, exists := deploymentsMap[env]; !exists { //If this transformer did not generate any deployments, skip the deployment transformer
-			continue
-		}
-		if hasUpstream && config.Upstream.Latest && isLatest {
+		if _, exists := deploymentsMap[env]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
@@ -924,14 +892,9 @@ func (c *CreateApplicationVersion) Transform(
 					AuthorEmail: "",
 				},
 			}
-			err := tCtx.Execute(d, transaction)
+			err = tCtx.Execute(d, transaction)
 			if err != nil {
-				_, ok := err.(*LockedError)
-				if ok {
-					continue // LockedErrors are expected
-				} else {
-					return "", GetCreateReleaseGeneralFailure(err)
-				}
+				return "", GetCreateReleaseGeneralFailure(err)
 			}
 		}
 	}
@@ -1007,19 +970,6 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 		}
 	}
 	return nil
-}
-
-func isLatestVersion(ctx context.Context, state *State, transaction *sql.Tx, application string, version uint64) (bool, error) {
-	rels, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, application, true)
-	if err != nil {
-		return false, err
-	}
-	for _, r := range rels {
-		if r.ReleaseNumber > version {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
