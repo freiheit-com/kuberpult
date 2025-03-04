@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -2331,27 +2332,27 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 		return fmt.Errorf("DBWriteMigrationsTransformer: no transaction provided")
 	}
 
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
 	defer span.Finish()
 
 	dataMap := make(map[string]interface{})
 	metadata := ESLMetadata{AuthorName: "Migration", AuthorEmail: "Migration"}
 	metadataMap, err := convertObjectToMap(metadata)
 	if err != nil {
-		return fmt.Errorf("could not convert object to map: %w", err)
+		return onErr(err) 
 	}
 	dataMap["metadata"] = metadataMap
 	dataMap["eslVersion"] = 0
 	jsonToInsert, err := json.Marshal(dataMap)
 
 	if err != nil {
-		return fmt.Errorf("could not marshal json transformer: %w", err)
+		return onErr(err)
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (eslversion, created, event_type, json) VALUES (0, ?, ?, ?);")
 	ts, err := h.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
-		return fmt.Errorf("DBWriteMigrationsTransformer unable to get transaction timestamp: %w", err)
+		return onErr(err)
 	}
 	span.SetTag("query", insertQuery)
 	_, err2 := transaction.Exec(
@@ -2360,7 +2361,7 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 		EvtMigrationTransformer,
 		jsonToInsert)
 	if err2 != nil {
-		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err2)
+		return onErr(err2)
 	}
 	return nil
 }
