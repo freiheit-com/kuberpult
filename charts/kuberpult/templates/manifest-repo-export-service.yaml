@@ -18,7 +18,7 @@
 {{ fail ".Values.db.dbOption does not contain a valid value (postgreSQL)."}}
 {{ end -}}
 
-# the export service is only enabled, if the DB is enabled
+# the export service is only enabled, if the DB is enabled and the `enabled` flag is true
 {{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.manifestRepoExport.enabled))}}
 
 ---
