@@ -19,7 +19,7 @@
 {{ end -}}
 
 # the export service is only enabled, if the DB is enabled
-{{- if (eq .Values.db.dbOption "postgreSQL") }}
+{{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.manifestRepoExport.enabled))}}
 
 ---
 apiVersion: apps/v1
