@@ -2307,10 +2307,12 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		RemoteCallbacks: RemoteCallbacks,
 		DownloadTags:    git.DownloadTagsAll,
 	}
+	logger.FromContext(ctx).Sugar().Info("creating remote...")
 	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
 	}
+	logger.FromContext(ctx).Sugar().Info("fetching...")
 	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	if err != nil {
 		return nil, fmt.Errorf("failure to fetch: %v", err)
@@ -2327,10 +2329,12 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		return nil, fmt.Errorf("unable to get list of tags: %v", err)
 	}
 	for {
+
 		tagObject, err := iters.Next()
 		if err != nil {
 			break
 		}
+		logger.FromContext(ctx).Sugar().Info("Processing tag...")
 		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
 		if lookupErr != nil {
 			tagCommit, err := repo.LookupCommit(tagObject.Target())
