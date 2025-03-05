@@ -21,6 +21,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 	"github.com/freiheit-com/kuberpult/cli/pkg/deployments"
+	"github.com/freiheit-com/kuberpult/cli/pkg/environments"
 	"github.com/freiheit-com/kuberpult/cli/pkg/locks"
 	"github.com/freiheit-com/kuberpult/cli/pkg/releasetrain"
 
@@ -210,5 +211,33 @@ func handleGetCommitDeployments(kpClientParams kuberpultClientParameters, args [
 		log.Printf("error on commit deployments, error: %v", err)
 		return ReturnCodeFailure
 	}
+	return ReturnCodeSuccess
+}
+
+func handleDeleteEnvironment(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := environments.ParseArgsDeleteEnvironment(args)
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+
+	authParams := kutil.AuthenticationParameters{
+		IapToken:    kpClientParams.iapToken,
+		DexToken:    kpClientParams.dexToken,
+		AuthorName:  kpClientParams.authorName,
+		AuthorEmail: kpClientParams.authorEmail,
+	}
+
+	requestParameters := kutil.RequestParameters{
+		Url:         &kpClientParams.url,
+		Retries:     kpClientParams.retries,
+		HttpTimeout: cli_utils.HttpDefaultTimeout,
+	}
+
+	if err = environments.HandleDeleteEnvironment(requestParameters, authParams, parsedArgs); err != nil {
+		log.Printf("error on delete environment, error: %v", err)
+		return ReturnCodeFailure
+	}
+
 	return ReturnCodeSuccess
 }

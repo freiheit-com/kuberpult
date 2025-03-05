@@ -1942,3 +1942,60 @@ func makeAllIngressPaths(withDex, withUi, withOldApi, withNewApi bool) []network
 	}
 	return result
 }
+func TestManifestExportServiceDisabled(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		Values      string
+		ShouldExist bool
+	}{
+		{
+			Name: "Disabled Export Service",
+			Values: `
+git:
+  url:  "checkThisValue"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+manifestRepoExport:
+  enabled: false
+`,
+			ShouldExist: false,
+		},
+		{
+			Name: "Enabled Export Service",
+			Values: `
+git:
+  url:  "checkThisValue"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+manifestRepoExport:
+  enabled: true
+`,
+			ShouldExist: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			}
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			} else {
+				_, found := out["kuberpult-manifest-repo-export-service"]
+				if found != tc.ShouldExist {
+					t.Fatalf("Expected existence: %t, got: %t", tc.ShouldExist, found)
+				}
+			}
+		})
+	}
+}

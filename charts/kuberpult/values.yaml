@@ -163,6 +163,7 @@ db:
       maxOpen: 100
       maxIdle: 20
 manifestRepoExport:
+  enabled: true
   image: kuberpult-manifest-repo-export-service
   service:
     annotations: {}
