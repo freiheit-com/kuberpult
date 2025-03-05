@@ -59,6 +59,7 @@ func (s *GitServer) GetProductSummary(_ context.Context, _ *api.GetProductSummar
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitTags")
 	defer span.Finish()
+
 	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
 	if err != nil {
 		return nil, onErr(fmt.Errorf("unable to get tags from repository: %v", err))
