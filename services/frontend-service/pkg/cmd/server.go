@@ -26,6 +26,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 
@@ -271,7 +272,10 @@ func runServer(ctx context.Context) error {
 	if err != nil {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
-	exportCon, err := grpc.Dial(c.ManifestExportServer, grpcClientOpts...)
+
+	exportTimeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+	exportCon, err := grpc.DialContext(exportTimeoutCtx, c.ManifestExportServer, grpcClientOpts...)
 	if err != nil {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
 	}

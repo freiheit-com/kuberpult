@@ -2289,7 +2289,8 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		}
 	}
 
-	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	//fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	fetchSpec := "refs/tags/*:refs/tags/*"
 	//exhaustruct:ignore
 	RemoteCallbacks := git.RemoteCallbacks{
 		CredentialsCallback:      credentials.CredentialsCallback(ctx),
