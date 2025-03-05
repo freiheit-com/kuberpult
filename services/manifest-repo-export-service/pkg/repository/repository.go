@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
@@ -120,6 +121,8 @@ type repository struct {
 	backOffProvider func() backoff.BackOff
 
 	DB *db.DBHandler
+
+	ddMetrics statsd.ClientInterface
 }
 
 type RepositoryConfig struct {
@@ -143,6 +146,8 @@ type RepositoryConfig struct {
 	ReleaseVersionLimit uint
 
 	MinimizeExportedData bool
+
+	DDMetrics statsd.ClientInterface
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
@@ -233,6 +238,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 				backOffProvider: defaultBackOffProvider,
 				DB:              cfg.DBHandler,
 				notify:          notify.Notify{},
+				ddMetrics:       cfg.DDMetrics,
 			}
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 			//exhaustruct:ignore
@@ -2348,4 +2354,36 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 
 func (r *repository) Notify() *notify.Notify {
 	return &r.notify
+}
+
+func MeasureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface, dbHandler *db.DBHandler) error {
+	if ddMetrics != nil {
+		results, err := db.WithTransactionT[[2]int](dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*[2]int, error) {
+			unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
+			if err != nil {
+				return &[2]int{}, err
+			}
+
+			syncFailedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
+			if err != nil {
+				return &[2]int{}, err
+			}
+
+			return &[2]int{len(unsyncedStatuses), len(syncFailedStatuses)}, nil
+		})
+
+		if err != nil {
+			return err
+		}
+
+		if err := ddMetrics.Gauge("git_sync_unsynced", float64(results[0]), []string{}, 1); err != nil {
+			return err
+		}
+
+		if err := ddMetrics.Gauge("git_sync_failed", float64(results[1]), []string{}, 1); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
