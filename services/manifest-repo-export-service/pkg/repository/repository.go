@@ -2270,12 +2270,12 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 }
 
 func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags []*api.TagData, err error) {
-	logger.FromContext(ctx).Sugar().Warn("Into GetTags!")
+	fmt.Println("Into GetTags!")
 	repo, err := openOrCreate(repoName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open/create repo: %v", err)
 	}
-	logger.FromContext(ctx).Sugar().Warn("Getting Credentials...")
+	fmt.Println("Getting Credentials...")
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
@@ -2308,12 +2308,12 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		RemoteCallbacks: RemoteCallbacks,
 		DownloadTags:    git.DownloadTagsAll,
 	}
-	logger.FromContext(ctx).Sugar().Warn("creating remote...")
+	fmt.Println("creating remote...")
 	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
 	}
-	logger.FromContext(ctx).Sugar().Warn("fetching...")
+	fmt.Println("fetching...")
 	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	if err != nil {
 		return nil, fmt.Errorf("failure to fetch: %v", err)
@@ -2335,7 +2335,7 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		if err != nil {
 			break
 		}
-		logger.FromContext(ctx).Sugar().Warn("Processing tag...")
+		fmt.Println("Processing tag...")
 		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
 		if lookupErr != nil {
 			tagCommit, err := repo.LookupCommit(tagObject.Target())

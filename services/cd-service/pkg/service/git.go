@@ -52,6 +52,7 @@ type GitServer struct {
 }
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
+	fmt.Println("FODASS")
 	return nil, status.Error(codes.Unimplemented, "not implemented.  cd-service")
 }
 

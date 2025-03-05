@@ -687,6 +687,7 @@ func (p *GrpcProxy) GetAllEnvTeamLocks(
 func (p *GrpcProxy) GetGitTags(
 	ctx context.Context,
 	in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
+	logger.FromContext(ctx).Warn("PROXY GET GIT TAGS")
 	return p.ManifestExportServiceGitClient.GetGitTags(ctx, in)
 }
 
