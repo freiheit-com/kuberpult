@@ -92,6 +92,25 @@ func (s *State) GetEnvironmentApplicationLocksCount(ctx context.Context, transac
 	return float64(len(locks)), nil
 }
 
+func GaugeGitSyncStatus(ctx context.Context, s *State, transaction *sql.Tx, env string) {
+	if ddMetrics != nil {
+		numberUnsyncedApps, err := s.DBHandler.DBCountAppsWithStatus(ctx, transaction, db.UNSYNCED)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error getting number of unsynced apps: %v\n", err)
+			return
+		}
+		numberSyncFailedApps, err := s.DBHandler.DBCountAppsWithStatus(ctx, transaction, db.SYNC_FAILED)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error getting number of sync failed apps: %v\n", err)
+			return
+		}
+		err = MeasureGitSyncStatus(numberUnsyncedApps, numberSyncFailedApps)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("could not send git sync status metrics to datadog: %v\n", err)
+		}
+	}
+}
+
 func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env string) {
 	if ddMetrics != nil {
 		count, err := s.GetEnvironmentLocksCount(ctx, transaction, env)

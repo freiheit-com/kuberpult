@@ -528,6 +528,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 						Index:            -1,
 					}
 				}
+
 				logger.FromContext(ctx).Sugar().Infof("Transformer modified %d app/envs", len(envApps))
 			}
 		}

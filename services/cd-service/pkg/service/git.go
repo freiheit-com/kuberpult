@@ -257,10 +257,6 @@ func (s *GitServer) ReadSyncStatuses(ctx context.Context) (*api.GetGitSyncStatus
 		}
 		response.AppStatuses = toApiStatuses(append(unsyncedStatuses, syncFailedStatuses...))
 
-		err = repository.MeasureGitSyncStatus(len(unsyncedStatuses), len(syncFailedStatuses))
-		if err != nil { //Don't fail transaction because we can't send data to datadog.
-			logger.FromContext(ctx).Sugar().Warnf("could not send git sync status metrics to datadog: %v\n", err)
-		}
 		return nil
 	})
 

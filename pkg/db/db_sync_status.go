@@ -355,3 +355,52 @@ func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApp
 	}
 	return nil
 }
+
+func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) (int, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBCountAppsInStatus")
+	defer span.Finish()
+	if h == nil {
+		return -1, nil
+	}
+	if tx == nil {
+		return -1, onErr(fmt.Errorf("DBCountAppsInStatus: no transaction provided"))
+	}
+
+	selectQuerry := h.AdaptQuery("SELECT count(*) FROM git_sync_status WHERE status = (?);")
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuerry,
+		status,
+	)
+
+	if err != nil {
+		return -1, fmt.Errorf("could not get git sync status for apps. Error: %w\n", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+
+	var syncData []GitSyncData
+	var count int
+	if rows.Next() {
+		//exhaustruct:ignore
+		curr := GitSyncData{}
+		err := rows.Scan(&count)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return -1, nil
+			}
+			return -1, fmt.Errorf("Error scanning git sync status. Could not retrive number of apps with status %q. Error: %w\n", status, err)
+		}
+		syncData = append(syncData, curr)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return -1, err
+	}
+	return count, nil
+}
