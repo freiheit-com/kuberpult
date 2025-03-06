@@ -1230,16 +1230,16 @@ func (u *DeleteEnvFromApp) Transform(
 		return "", err
 	}
 
+	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("could not get transaction timestamp")
+	}
 	for _, dbReleaseWithMetadata := range releases {
 		newManifests := make(map[string]string)
 		for envName, manifest := range dbReleaseWithMetadata.Manifests.Manifests {
 			if envName != u.Environment {
 				newManifests[envName] = manifest
 			}
-		}
-		now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-		if err != nil {
-			return "", fmt.Errorf("could not get transaction timestamp")
 		}
 		newRelease := db.DBReleaseWithMetaData{
 			ReleaseNumber: dbReleaseWithMetadata.ReleaseNumber,
