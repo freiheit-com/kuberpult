@@ -92,7 +92,7 @@ func (s *State) GetEnvironmentApplicationLocksCount(ctx context.Context, transac
 	return float64(len(locks)), nil
 }
 
-func GaugeGitSyncStatus(ctx context.Context, s *State, transaction *sql.Tx, env string) {
+func GaugeGitSyncStatus(ctx context.Context, s *State, transaction *sql.Tx) {
 	if ddMetrics != nil {
 		numberUnsyncedApps, err := s.DBHandler.DBCountAppsWithStatus(ctx, transaction, db.UNSYNCED)
 		if err != nil {
@@ -285,6 +285,7 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 			}
 		}
 	}
+	GaugeGitSyncStatus(ctx, state, transaction)
 	return nil
 }
 
