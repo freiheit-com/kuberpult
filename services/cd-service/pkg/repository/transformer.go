@@ -181,6 +181,7 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 			return err
 		}
 	}
+	GaugeGitSyncStatus(ctx, state, transaction)
 	return nil
 }
 
@@ -285,7 +286,7 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 			}
 		}
 	}
-	GaugeGitSyncStatus(ctx, state, transaction)
+
 	return nil
 }
 
