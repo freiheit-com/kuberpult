@@ -256,7 +256,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			fetchOptions := git.FetchOptions{
 				Prune:           git.FetchPruneUnspecified,
 				UpdateFetchhead: false,
-				DownloadTags:    git.DownloadTagsUnspecified,
+				DownloadTags:    git.DownloadTagsAll,
 				Headers:         nil,
 				ProxyOptions: git.ProxyOptions{
 					Type: git.ProxyTypeNone,
@@ -712,7 +712,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	fetchOptions := git.FetchOptions{
 		Prune:           git.FetchPruneUnspecified,
 		UpdateFetchhead: false,
-		DownloadTags:    git.DownloadTagsUnspecified,
+		DownloadTags:    git.DownloadTagsAll,
 		Headers:         nil,
 		ProxyOptions: git.ProxyOptions{
 			Type: git.ProxyTypeNone,
