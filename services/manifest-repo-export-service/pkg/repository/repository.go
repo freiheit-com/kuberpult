@@ -256,7 +256,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			fetchOptions := git.FetchOptions{
 				Prune:           git.FetchPruneUnspecified,
 				UpdateFetchhead: false,
-				DownloadTags:    git.DownloadTagsUnspecified,
+				DownloadTags:    git.DownloadTagsAll,
 				Headers:         nil,
 				ProxyOptions: git.ProxyOptions{
 					Type: git.ProxyTypeNone,
@@ -712,7 +712,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	fetchOptions := git.FetchOptions{
 		Prune:           git.FetchPruneUnspecified,
 		UpdateFetchhead: false,
-		DownloadTags:    git.DownloadTagsUnspecified,
+		DownloadTags:    git.DownloadTagsAll,
 		Headers:         nil,
 		ProxyOptions: git.ProxyOptions{
 			Type: git.ProxyTypeNone,
@@ -2270,11 +2270,12 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 }
 
 func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags []*api.TagData, err error) {
+	fmt.Println("Into GetTags!")
 	repo, err := openOrCreate(repoName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open/create repo: %v", err)
 	}
-
+	fmt.Println("Getting Credentials...")
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
@@ -2289,7 +2290,8 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		}
 	}
 
-	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	//fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	fetchSpec := "refs/tags/*:refs/tags/*"
 	//exhaustruct:ignore
 	RemoteCallbacks := git.RemoteCallbacks{
 		CredentialsCallback:      credentials.CredentialsCallback(ctx),
@@ -2306,10 +2308,12 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		RemoteCallbacks: RemoteCallbacks,
 		DownloadTags:    git.DownloadTagsAll,
 	}
+	fmt.Println("creating remote...")
 	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
 	}
+	fmt.Println("fetching...")
 	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	if err != nil {
 		return nil, fmt.Errorf("failure to fetch: %v", err)
@@ -2326,10 +2330,12 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		return nil, fmt.Errorf("unable to get list of tags: %v", err)
 	}
 	for {
+
 		tagObject, err := iters.Next()
 		if err != nil {
 			break
 		}
+		fmt.Println("Processing tag...")
 		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
 		if lookupErr != nil {
 			tagCommit, err := repo.LookupCommit(tagObject.Target())
