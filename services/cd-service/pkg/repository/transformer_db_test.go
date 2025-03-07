@@ -4260,6 +4260,8 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				makeGauge("environment_lock_count", 0, []string{"kuberpult_environment:envA"}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app1"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
+				makeGauge("git_sync_unsynced", 2, []string{}, 1),
+				makeGauge("git_sync_failed", 0, []string{}, 1),
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envA", "kuberpult_application:app2"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
 			},
@@ -4311,7 +4313,8 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 
 				// 14:
 				makeGauge("application_lock_count", 0, []string{"kuberpult_environment:envB", "kuberpult_application:app2"}, 1),
-
+				makeGauge("git_sync_unsynced", 4, []string{}, 1),
+				makeGauge("git_sync_failed", 0, []string{}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envB"}, 1),
 			},
 		},
