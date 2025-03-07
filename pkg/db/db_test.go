@@ -4948,6 +4948,228 @@ func TestDBSelectAllTeamLocksOfAllEnvs(t *testing.T) {
 	}
 }
 
+func TestDbUpdateAllDeployments(t *testing.T) {
+	const oldId = 1
+	const newId = 2
+	const app = "my-app"
+
+	tcs := []struct {
+		Name                     string
+		InitialDeployments       []Deployment
+		ExpectedDeploymentsNewID []Deployment
+		ExpectedDeploymentsOldId []Deployment
+	}{
+		{
+			Name:                     "no deployments",
+			InitialDeployments:       []Deployment{},
+			ExpectedDeploymentsNewID: []Deployment{},
+			ExpectedDeploymentsOldId: []Deployment{},
+		},
+		{
+			Name: "change single deployment",
+			InitialDeployments: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+			},
+			ExpectedDeploymentsNewID: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+			},
+		},
+		{
+			Name: "change multiple deployments",
+			InitialDeployments: []Deployment{
+				{
+					Created: time.Now(),
+					App:     app,
+					Env:     "development-2",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+			},
+			ExpectedDeploymentsOldId: []Deployment{},
+			ExpectedDeploymentsNewID: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development-2",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+			},
+		},
+		{
+			Name: "change multiple deployments, but with other that should not change",
+			InitialDeployments: []Deployment{
+				{
+					Created: time.Now(),
+					App:     app,
+					Env:     "development",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development-2",
+					App:     "my-app",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+				{
+					Created: time.Now(),
+					App:     "my-app",
+					Env:     "development-3",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 3,
+				},
+			},
+			ExpectedDeploymentsNewID: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development-2",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteEslEventWithJson(ctx, transaction, EvtMigrationTransformer, "{}")
+				if err != nil {
+					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+				}
+				err = dbHandler.DBWriteEslEventWithJson(ctx, transaction, EvtMigrationTransformer, "{}")
+				if err != nil {
+					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+				}
+				err = dbHandler.DBWriteEslEventWithJson(ctx, transaction, EvtMigrationTransformer, "{}")
+				if err != nil {
+					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+				}
+				for _, deployment := range tc.InitialDeployments {
+					err := dbHandler.upsertDeploymentRow(ctx, transaction, deployment)
+					if err != nil {
+						return fmt.Errorf("error while writing deployment, error: %w", err)
+					}
+				}
+
+				err = dbHandler.DBBulkUpdateAllDeployments(ctx, transaction, newId, oldId)
+
+				if err != nil {
+					return fmt.Errorf("error while writing deployments, error: %w", err)
+				}
+
+				actualDeploymentsNewId, err := dbHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, newId)
+				if err != nil {
+					return fmt.Errorf("error while reading deployments, error: %w", err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedDeploymentsNewID, actualDeploymentsNewId, cmpopts.IgnoreFields(Deployment{}, "Created")); diff != "" {
+					return fmt.Errorf("deployments with new ID mismatch (-want +got):\n%s", diff)
+				}
+
+				actualDeploymentsOldId, err := dbHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, oldId)
+				if err != nil {
+					return fmt.Errorf("error while reading deployments, error: %w", err)
+				}
+
+				if len(actualDeploymentsOldId) != 0 {
+					return fmt.Errorf("no deployments should have old transformer ID, got \n%v", actualDeploymentsOldId)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
 // DBInsertReleaseWithoutEnvironment inserts a release with mismatching manifest and environments into the database.
 // This behaviour is intended to test the `DBSelectReleasesWithoutEnvironments` method which exists only for migration purposes.
 func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {

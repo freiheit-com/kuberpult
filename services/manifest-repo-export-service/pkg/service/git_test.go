@@ -1250,10 +1250,12 @@ func TestRetryEvent(t *testing.T) {
 		initialFailedEslEvents []*db.EslFailedEventRow
 		initialEslEvents       []*db.EslEventRow
 		initialSyncData        []*db.GitSyncData
+		initialDeployments     []*db.Deployment
 
 		expectedFailedEvents []*db.EslFailedEventRow
 		expectedEslEvents    []*db.EslEventRow
 		expectedSyncData     []*db.GitSyncData
+		expectedDeployments  []db.Deployment
 		expectedError        error
 
 		eventIdToRetry db.TransformerID
@@ -1262,7 +1264,7 @@ func TestRetryEvent(t *testing.T) {
 	tcs := []TestCase{
 		{
 			name:           "No failed events - error ",
-			eventIdToRetry: 1,
+			eventIdToRetry: 0,
 			initialSyncData: []*db.GitSyncData{
 				{
 					AppName:       appName,
@@ -1288,6 +1290,32 @@ func TestRetryEvent(t *testing.T) {
 			},
 			initialFailedEslEvents: []*db.EslFailedEventRow{},
 			expectedFailedEvents:   []*db.EslFailedEventRow{},
+			initialDeployments: []*db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 1,
+				},
+			},
+			expectedDeployments: []db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 1,
+				},
+			},
 			expectedEslEvents: []*db.EslEventRow{ //DESC
 				{
 					EslVersion: 1,
@@ -1296,7 +1324,7 @@ func TestRetryEvent(t *testing.T) {
 				},
 			},
 			expectedError: errMatcher{
-				msg: "Couldn't find failed event with eslVersion: 1",
+				msg: "Couldn't find failed event with eslVersion: 0",
 			},
 		},
 		{
@@ -1345,6 +1373,32 @@ func TestRetryEvent(t *testing.T) {
 					EslVersion: 1,
 					EventType:  testEventType,
 					EventJson:  "{}",
+				},
+			},
+			initialDeployments: []*db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 1,
+				},
+			},
+			expectedDeployments: []db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 2,
 				},
 			},
 		},
@@ -1433,6 +1487,32 @@ func TestRetryEvent(t *testing.T) {
 					EventJson:  "{}",
 				},
 			},
+			initialDeployments: []*db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 2,
+				},
+			},
+			expectedDeployments: []db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 3,
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -1472,6 +1552,13 @@ func TestRetryEvent(t *testing.T) {
 						return err
 					}
 				}
+				for _, in := range tc.initialDeployments {
+					err := repo.State().DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, *in)
+					if err != nil {
+						return err
+					}
+				}
+
 				return nil
 			})
 			if err != nil {
@@ -1509,6 +1596,10 @@ func TestRetryEvent(t *testing.T) {
 					}
 				}
 
+				finalDeployments, err := repo.State().DBHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, tc.eventIdToRetry+1)
+				if diff := cmp.Diff(tc.expectedDeployments, finalDeployments, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
+					t.Errorf("deployments mismatch (-want, +got):\n%s", diff)
+				}
 				return nil
 			})
 
