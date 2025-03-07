@@ -356,6 +356,10 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 		if err != nil {
 			return err
 		}
+		err = dbHandler.DBBulkUpdateAllDeployments(ctx, transaction, db.TransformerID(internal.EslVersion), db.TransformerID(failedEvent.TransformerEslVersion))
+		if err != nil {
+			return err
+		}
 		err = repository.MeasureGitSyncStatus(ctx, s.Config.DDMetrics, dbHandler)
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("Could not send git sync status metrics to datadog. Error: %v", err)
