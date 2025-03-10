@@ -69,5 +69,3 @@ BEGIN
 END
 $$;
 
--- Remove all_environments table
-DROP TABLE IF EXISTS all_environments;

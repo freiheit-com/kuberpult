@@ -11,8 +11,7 @@ BEGIN
     ) THEN
 ALTER TABLE event_sourcing_light_failed RENAME TO event_sourcing_light_failed_history;
 END IF;
-END
-$$;
+
 
 CREATE TABLE IF NOT EXISTS event_sourcing_light_failed(
   created timestamp,
@@ -25,14 +24,13 @@ CREATE TABLE IF NOT EXISTS event_sourcing_light_failed(
 );
 
 -- insert data into event_sourcing_light_failed table from event_sourcing_light_failed_history table if there's no data inside it
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT FROM information_schema.tables
-        WHERE table_name = 'event_sourcing_light_failed'
-    ) AND NOT EXISTS (
-        SELECT 1 FROM event_sourcing_light_failed LIMIT 1
-    ) THEN
+
+IF EXISTS (
+    SELECT FROM information_schema.tables
+    WHERE table_name = 'event_sourcing_light_failed'
+) AND NOT EXISTS (
+    SELECT 1 FROM event_sourcing_light_failed LIMIT 1
+) THEN
 INSERT INTO event_sourcing_light_failed (created, event_type, json, reason, transformereslversion)
 SELECT DISTINCT
     event_sourcing_light_failed_history.created,
