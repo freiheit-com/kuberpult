@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS overview_cache;

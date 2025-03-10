@@ -1,4 +1,0 @@
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-
--- Remove all_app_locks table
-DROP TABLE IF EXISTS all_app_locks;

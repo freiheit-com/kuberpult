@@ -64,5 +64,3 @@ BEGIN
 END
 $$;
 
--- Remove all_deployments table
-DROP TABLE IF EXISTS all_deployments;

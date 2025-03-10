@@ -2,10 +2,10 @@
 DO $$
 BEGIN
     IF EXISTS (
-        SELECT FROM information_schema.tables 
+        SELECT FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = 'apps'
     ) AND NOT EXISTS (
-        SELECT FROM information_schema.tables 
+        SELECT FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = 'apps_history'
     ) THEN
         ALTER TABLE apps RENAME TO apps_history;
@@ -27,12 +27,12 @@ CREATE TABLE IF NOT EXISTS apps
 DO $$
 BEGIN
     IF EXISTS (
-        SELECT FROM information_schema.tables 
+        SELECT FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = 'apps'
     ) AND NOT EXISTS (
         SELECT 1 FROM apps LIMIT 1
     ) AND EXISTS (
-        SELECT FROM information_schema.tables 
+        SELECT FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = 'apps_history'
     ) THEN
         INSERT INTO apps (created, appName, stateChange, metadata)
@@ -50,7 +50,7 @@ BEGIN
             GROUP BY
                 appname) AS latest
         JOIN
-            apps_history AS apps_history 
+            apps_history AS apps_history
         ON
             latest.latestVersion=apps_history.version
             AND latest.appname=apps_history.appname;
@@ -58,5 +58,3 @@ BEGIN
 END
 $$;
 
--- Remove all_apps table
-DROP TABLE IF EXISTS all_apps;
