@@ -195,10 +195,6 @@ func Run(ctx context.Context) error {
 		return err
 	}
 	logger.FromContext(ctx).Info("startup", zap.String("kuberpultVersion", kuberpultVersionRaw))
-	kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
-	if err != nil {
-		return err
-	}
 
 	dbMigrationLocation, err := valid.ReadEnvVar("KUBERPULT_DB_MIGRATIONS_LOCATION")
 	if err != nil {
@@ -285,13 +281,16 @@ func Run(ctx context.Context) error {
 	}
 	logger.FromContext(ctx).Info("Finished with basic database migration.")
 
-	migrationServer := &service.MigrationServer{
-		KuberpultVersion: kuberpultVersion,
-		DBHandler:        dbHandler,
-		Migrations:       getAllMigrations(dbHandler, repo),
-	}
-
 	if shouldRunCustomMigrations(checkCustomMigrations, minimizeExportedData) {
+		kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
+		if err != nil {
+			return err
+		}
+		migrationServer := &service.MigrationServer{
+			KuberpultVersion: kuberpultVersion,
+			DBHandler:        dbHandler,
+			Migrations:       getAllMigrations(dbHandler, repo),
+		}
 		log.Infof("Running Custom Migrations")
 
 		_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
