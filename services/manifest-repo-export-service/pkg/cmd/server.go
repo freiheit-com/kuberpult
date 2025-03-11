@@ -704,5 +704,5 @@ func checkReleaseVersionLimit(limit uint) error {
 }
 
 func shouldRunCustomMigrations(checkCustomMigrations, minimizeGitData bool) bool {
-	return checkCustomMigrations && !minimizeGitData
+	return checkCustomMigrations && !minimizeGitData //If minimize git ata is enabled we can't make sure we have all the information on the repository to perform all the migrations
 }
