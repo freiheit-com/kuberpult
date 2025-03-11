@@ -18,7 +18,12 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
 	"os"
 	"regexp"
@@ -55,6 +60,8 @@ const (
 	datadogNameCd           = "kuberpult-cd-service"
 	minReleaseVersionsLimit = 5
 	maxReleaseVersionsLimit = 30
+
+	megaBytes int = 1024 * 1024
 )
 
 type Config struct {
@@ -88,31 +95,33 @@ type Config struct {
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
 
-	DbOption              string `default:"NO_DB" split_words:"true"`
-	DbLocation            string `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance    string `default:"" split_words:"true"`
-	DbName                string `default:"" split_words:"true"`
-	DbUserName            string `default:"" split_words:"true"`
-	DbUserPassword        string `default:"" split_words:"true"`
-	DbAuthProxyPort       string `default:"5432" split_words:"true"`
-	DbMigrationsLocation  string `default:"" split_words:"true"`
-	DexDefaultRoleEnabled bool   `default:"false" split_words:"true"`
-	DbWriteEslTableOnly   bool   `default:"false" split_words:"true"`
-	DbMaxIdleConnections  uint   `required:"true" split_words:"true"`
-	DbMaxOpenConnections  uint   `required:"true" split_words:"true"`
-
-	ReleaseVersionsLimit uint     `default:"20" split_words:"true"`
-	DeploymentType       string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
-	CloudRunServer       string   `default:"" split_words:"true"`
-	DbSslMode            string   `default:"verify-full" split_words:"true"`
-	MinorRegexes         string   `default:"" split_words:"true"`
-	AllowedDomains       []string `split_words:"true"`
-	CacheTtlHours        uint     `default:"24" split_words:"true"`
+	DbOption              string   `default:"NO_DB" split_words:"true"`
+	DbLocation            string   `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance    string   `default:"" split_words:"true"`
+	DbName                string   `default:"" split_words:"true"`
+	DbUserName            string   `default:"" split_words:"true"`
+	DbUserPassword        string   `default:"" split_words:"true"`
+	DbAuthProxyPort       string   `default:"5432" split_words:"true"`
+	DbMigrationsLocation  string   `default:"" split_words:"true"`
+	DexDefaultRoleEnabled bool     `default:"false" split_words:"true"`
+	DbWriteEslTableOnly   bool     `default:"false" split_words:"true"`
+	DbMaxIdleConnections  uint     `required:"true" split_words:"true"`
+	DbMaxOpenConnections  uint     `required:"true" split_words:"true"`
+	CheckCustomMigrations bool     `default:"false" split_words:"true"`
+	ReleaseVersionsLimit  uint     `default:"20" split_words:"true"`
+	DeploymentType        string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
+	CloudRunServer        string   `default:"" split_words:"true"`
+	DbSslMode             string   `default:"verify-full" split_words:"true"`
+	MinorRegexes          string   `default:"" split_words:"true"`
+	AllowedDomains        []string `split_words:"true"`
+	CacheTtlHours         uint     `default:"24" split_words:"true"`
 
 	DisableQueue bool `required:"true" split_words:"true"`
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
-	GrpcMaxRecvMsgSize int `required:"true" split_words:"true"`
+	MigrationServer       string `required:"true" split_words:"true"`
+	MigrationServerSecure bool   `required:"true" split_words:"true"`
+	GrpcMaxRecvMsgSize    int    `required:"true" split_words:"true"`
 
 	Version string `required:"true" split_words:"true"`
 }
@@ -344,6 +353,61 @@ func RunServer() {
 			&service.Service{
 				Repository: repo,
 			}
+
+		if dbHandler.ShouldUseOtherTables() && c.CheckCustomMigrations {
+			//Check for migrations -> for pulling
+			logger.FromContext(ctx).Sugar().Warnf("checking if migrations are required...")
+
+			var migrationClient api.MigrationServiceClient = nil
+			if c.MigrationServer == "" {
+				logger.FromContext(ctx).Fatal("MigrationServer required")
+			}
+			var cred credentials.TransportCredentials = insecure.NewCredentials()
+			if c.MigrationServerSecure {
+				systemRoots, err := x509.SystemCertPool()
+				if err != nil {
+					msg := "failed to read CA certificates"
+					return fmt.Errorf(msg)
+				}
+				//exhaustruct:ignore
+				cred = credentials.NewTLS(&tls.Config{
+					RootCAs: systemRoots,
+				})
+			}
+			grpcClientOpts := []grpc.DialOption{
+				grpc.WithTransportCredentials(cred),
+				grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(c.GrpcMaxRecvMsgSize * megaBytes)),
+			}
+
+			rolloutCon, err := grpc.Dial(c.MigrationServer, grpcClientOpts...)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.MigrationServer))
+			}
+			migrationClient = api.NewMigrationServiceClient(rolloutCon)
+
+			kuberpultVersion, err := migrations.ParseKuberpultVersion(c.Version)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("env.parse.error", zap.Error(err), zap.String("version", c.Version))
+			}
+
+			response, migErr := migrationClient.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+				Version: kuberpultVersion,
+			})
+
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error ensuring custom migrations are applied", zap.Error(migErr))
+			}
+			if response == nil {
+				logger.FromContext(ctx).Sugar().Fatal("Custom database migrations returned nil response")
+			}
+			if !response.MigrationsApplied {
+				logger.FromContext(ctx).Sugar().Fatalf("Custom database migrations where not applied: %v", response)
+			}
+
+			logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
+		} else {
+			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=%t and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=%t", dbHandler.ShouldUseOtherTables(), c.CheckCustomMigrations)
+		}
 
 		span.Finish()
 

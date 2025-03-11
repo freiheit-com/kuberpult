@@ -235,6 +235,8 @@ spec:
           value: "{{ .Values.git.releaseVersionsLimit }}"
         - name: KUBERPULT_MINIMIZE_EXPORTED_DATA
           value: "{{ .Values.git.minimizeExportedData }}"
+        - name: KUBERPULT_CHECK_CUSTOM_MIGRATIONS
+          value: "{{ .Values.db.checkCustomMigrations }}"
         volumeMounts:
         - name: repository
           # The repository volume, an emptyDir, is mounted to the kp directory.
