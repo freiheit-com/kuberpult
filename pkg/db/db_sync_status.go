@@ -248,6 +248,24 @@ func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, newId, 
 	return h.executeBulkInsert(ctx, tx, allCombs, *now, newId, status, BULK_INSERT_BATCH_SIZE)
 }
 
+func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, newId, oldId TransformerID) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBBulkUpdateAllDeployments")
+	defer span.Finish()
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return onErr(fmt.Errorf("DBBulkUpdateAllDeployments: no transaction provided"))
+	}
+
+	query := h.AdaptQuery("UPDATE deployments SET transformereslversion = ? WHERE transformereslversion= ?;")
+	_, err := tx.ExecContext(ctx, query, newId, oldId)
+	if err != nil {
+		return onErr(fmt.Errorf("could not update deployments from %q to %q. Error: %w\n", oldId, newId, err))
+	}
+	return nil
+}
+
 func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) ([]GitSyncData, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
 	defer span.Finish()
