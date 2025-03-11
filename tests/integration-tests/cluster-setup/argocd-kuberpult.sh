@@ -229,7 +229,7 @@ portForwardAndWait "default" deploy/postgres "5432" "5432"
 
 kubectl get deployment
 kubectl get pods
-
+/kp/create-environments.sh
 for i in $(seq 1 3)
 do
    RELEASE_VERSION=$i /kp/create-release.sh echo;
