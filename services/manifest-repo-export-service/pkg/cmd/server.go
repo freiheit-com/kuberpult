@@ -282,6 +282,7 @@ func Run(ctx context.Context) error {
 	logger.FromContext(ctx).Info("Finished with basic database migration.")
 
 	if shouldRunCustomMigrations(checkCustomMigrations, minimizeExportedData) {
+		log.Infof("Running Custom Migrations")
 		kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
 		if err != nil {
 			return err
