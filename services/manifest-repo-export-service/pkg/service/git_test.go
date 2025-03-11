@@ -1226,18 +1226,6 @@ func TestGetSyncData(t *testing.T) {
 	}
 }
 
-type errMatcher struct {
-	msg string
-}
-
-func (e errMatcher) Error() string {
-	return e.msg
-}
-
-func (e errMatcher) Is(err error) bool {
-	return e.Error() == err.Error()
-}
-
 func TestRetryEvent(t *testing.T) {
 	const appName = "test-app-name"
 	const anotherAppName = "yet-another-app-name"
