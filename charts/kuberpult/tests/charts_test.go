@@ -182,6 +182,14 @@ ingress:
 					Value: "postgreSQL",
 				},
 				{
+					Name:  "KUBERPULT_MIGRATION_SERVER",
+					Value: "kuberpult-manifest-repo-export-service:8443",
+				},
+				{
+					Name:  "KUBERPULT_MIGRATION_SERVER_SECURE",
+					Value: "false",
+				},
+				{
 					Name:  "KUBERPULT_GRPC_MAX_RECV_MSG_SIZE",
 					Value: "4",
 				},

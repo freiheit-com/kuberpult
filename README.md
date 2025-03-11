@@ -97,8 +97,3 @@ See [Remove Env From Service](./docs/remove-env-from-service.md)
 
 ### Remove a service entirely
 See [Remove Service Entirely](./docs/remove-service.md)
-
-## Notes for Upgrading to version 12.x.y
-From version 12 the custom migrations are removed.
-If you were using git and now you need to migrate to db mode, first you need to upgrade to version 11.20.0, and wait for the custom migrations to be applied and then you can upgrade to versions greater than 12.x.y.
-
