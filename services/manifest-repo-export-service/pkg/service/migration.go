@@ -54,7 +54,6 @@ func (s *MigrationServer) EnsureCustomMigrationApplied(ctx context.Context, in *
 	if in.Version == nil {
 		return nil, fmt.Errorf("requested kuberpult version is nil")
 	}
-
 	if !migrations2.IsKuberpultVersionEqual(in.Version, s.KuberpultVersion) {
 		return nil, fmt.Errorf("different versions of kuberpult are running: %s!=%s",
 			migrations2.FormatKuberpultVersion(in.Version),

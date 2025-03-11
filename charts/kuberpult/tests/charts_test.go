@@ -647,6 +647,44 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Check for custom Migrations",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  checkCustomMigrations: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Check for custom Migrations",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  checkCustomMigrations: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {

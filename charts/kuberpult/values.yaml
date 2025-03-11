@@ -162,6 +162,9 @@ db:
     rollout:
       maxOpen: 100
       maxIdle: 20
+  # Kuberpult only checks for custom migrations if this flag is enabled. Otherwise, it skips them entirely, assuming
+  # that there is no information we want to migrate from an existing manifest repository to the database.
+  checkCustomMigrations: false
 manifestRepoExport:
   enabled: true
   image: kuberpult-manifest-repo-export-service

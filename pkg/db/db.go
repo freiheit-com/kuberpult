@@ -2457,7 +2457,7 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) e
 	return nil
 }
 
-func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) error {
+func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table string, eslEvent *EslFailedEventRow) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteFailedEslEvent")
 	defer span.Finish()
 	if h == nil {

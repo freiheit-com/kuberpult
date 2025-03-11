@@ -44,6 +44,7 @@ services:
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=4
       - KUBERPULT_MIGRATION_SERVER_SECURE=false
       - KUBERPULT_VERSION=v0.1.2
+      - KUBERPULT_CHECK_CUSTOM_MIGRATIONS=false
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -67,7 +68,6 @@ services:
       - KUBERPULT_DB_NAME=kuberpult
       - KUBERPULT_DB_USER_NAME=postgres
       - KUBERPULT_DB_USER_PASSWORD=mypassword
-      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
       - KUBERPULT_DB_AUTH_PROXY_PORT=5432
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
       - KUBERPULT_GIT_BRANCH=master
@@ -83,6 +83,7 @@ services:
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=1
       - KUBERPULT_MINIMIZE_EXPORTED_DATA=true
       - KUBERPULT_VERSION=v0.1.2
+      - KUBERPULT_CHECK_CUSTOM_MIGRATIONS=false
     volumes:
       - ./services/cd-service:/kp/kuberpult
       - ./database:/kp/database

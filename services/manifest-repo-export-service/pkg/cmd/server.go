@@ -154,7 +154,11 @@ func Run(ctx context.Context) error {
 	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
-
+	checkCustomMigrationsString, err := valid.ReadEnvVar("KUBERPULT_CHECK_CUSTOM_MIGRATIONS")
+	if err != nil {
+		log.Info("datadog metrics are disabled")
+	}
+	checkCustomMigrations := checkCustomMigrationsString == "true"
 	minimizeExportedData, err := valid.ReadEnvVarBool("KUBERPULT_MINIMIZE_EXPORTED_DATA")
 	if err != nil {
 		return err
@@ -281,21 +285,26 @@ func Run(ctx context.Context) error {
 	}
 	logger.FromContext(ctx).Info("Finished with basic database migration.")
 
-	log.Infof("Running Custom Migrations")
-
 	migrationServer := &service.MigrationServer{
 		KuberpultVersion: kuberpultVersion,
 		DBHandler:        dbHandler,
 		Migrations:       getAllMigrations(dbHandler, repo),
 	}
 
-	_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
-		Version: kuberpultVersion,
-	})
-	if err != nil {
-		return fmt.Errorf("error running custom migrations: %w", err)
+	if shouldRunCustomMigrations(checkCustomMigrations, minimizeExportedData) {
+		log.Infof("Running Custom Migrations")
+
+		_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+			Version: kuberpultVersion,
+		})
+		if err != nil {
+			return fmt.Errorf("error running custom migrations: %w", err)
+		}
+		log.Infof("Finished Custom Migrations successfully")
+	} else {
+		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if" +
+			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=true.")
 	}
-	log.Infof("Finished Custom Migrations successfully")
 
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
@@ -693,4 +702,8 @@ func checkReleaseVersionLimit(limit uint) error {
 		return releaseVersionsLimitError{limit: limit}
 	}
 	return nil
+}
+
+func shouldRunCustomMigrations(checkCustomMigrations, minimizeGitData bool) bool {
+	return checkCustomMigrations && !minimizeGitData
 }

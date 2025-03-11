@@ -95,26 +95,26 @@ type Config struct {
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
 
-	DbOption              string `default:"NO_DB" split_words:"true"`
-	DbLocation            string `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance    string `default:"" split_words:"true"`
-	DbName                string `default:"" split_words:"true"`
-	DbUserName            string `default:"" split_words:"true"`
-	DbUserPassword        string `default:"" split_words:"true"`
-	DbAuthProxyPort       string `default:"5432" split_words:"true"`
-	DbMigrationsLocation  string `default:"" split_words:"true"`
-	DexDefaultRoleEnabled bool   `default:"false" split_words:"true"`
-	DbWriteEslTableOnly   bool   `default:"false" split_words:"true"`
-	DbMaxIdleConnections  uint   `required:"true" split_words:"true"`
-	DbMaxOpenConnections  uint   `required:"true" split_words:"true"`
-
-	ReleaseVersionsLimit uint     `default:"20" split_words:"true"`
-	DeploymentType       string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
-	CloudRunServer       string   `default:"" split_words:"true"`
-	DbSslMode            string   `default:"verify-full" split_words:"true"`
-	MinorRegexes         string   `default:"" split_words:"true"`
-	AllowedDomains       []string `split_words:"true"`
-	CacheTtlHours        uint     `default:"24" split_words:"true"`
+	DbOption              string   `default:"NO_DB" split_words:"true"`
+	DbLocation            string   `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance    string   `default:"" split_words:"true"`
+	DbName                string   `default:"" split_words:"true"`
+	DbUserName            string   `default:"" split_words:"true"`
+	DbUserPassword        string   `default:"" split_words:"true"`
+	DbAuthProxyPort       string   `default:"5432" split_words:"true"`
+	DbMigrationsLocation  string   `default:"" split_words:"true"`
+	DexDefaultRoleEnabled bool     `default:"false" split_words:"true"`
+	DbWriteEslTableOnly   bool     `default:"false" split_words:"true"`
+	DbMaxIdleConnections  uint     `required:"true" split_words:"true"`
+	DbMaxOpenConnections  uint     `required:"true" split_words:"true"`
+	CheckCustomMigrations bool     `default:"false" split_words:"true"`
+	ReleaseVersionsLimit  uint     `default:"20" split_words:"true"`
+	DeploymentType        string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
+	CloudRunServer        string   `default:"" split_words:"true"`
+	DbSslMode             string   `default:"verify-full" split_words:"true"`
+	MinorRegexes          string   `default:"" split_words:"true"`
+	AllowedDomains        []string `split_words:"true"`
+	CacheTtlHours         uint     `default:"24" split_words:"true"`
 
 	DisableQueue bool `required:"true" split_words:"true"`
 
@@ -354,7 +354,7 @@ func RunServer() {
 				Repository: repo,
 			}
 
-		if dbHandler.ShouldUseOtherTables() {
+		if dbHandler.ShouldUseOtherTables() && c.CheckCustomMigrations {
 			//Check for migrations -> for pulling
 			logger.FromContext(ctx).Sugar().Warnf("checking if migrations are required...")
 
@@ -406,7 +406,7 @@ func RunServer() {
 
 			logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
 		} else {
-			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
+			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=%t and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=%t", dbHandler.ShouldUseOtherTables(), c.CheckCustomMigrations)
 		}
 
 		span.Finish()
