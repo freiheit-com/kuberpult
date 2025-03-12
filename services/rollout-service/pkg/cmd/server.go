@@ -232,7 +232,7 @@ func runServer(ctx context.Context, config Config) error {
 				DbUser:         config.DbUserName,
 				MigrationsPath: config.DbMigrationsLocation,
 				WriteEslOnly:   false,
-				SSLMode:        "disable",
+				SSLMode:        "require",
 
 				MaxIdleConnections: config.DbMaxIdleConnections,
 				MaxOpenConnections: config.DbMaxOpenConnections,
