@@ -34,7 +34,6 @@ import {
     useApplications,
     useAppDetails,
     AppDetailsResponse,
-    invalidateAppLocks,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -532,11 +531,6 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     appNamesToInvalidate.push(action.action.deploy.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentApplicationLock') {
-                    invalidateAppLocks(
-                        action.action.deleteEnvironmentApplicationLock.application,
-                        action.action.deleteEnvironmentApplicationLock.environment,
-                        action.action.deleteEnvironmentApplicationLock.lockId
-                    );
                     appNamesToInvalidate.push(action.action.deleteEnvironmentApplicationLock.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentTeamLock') {
