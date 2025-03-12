@@ -21,6 +21,7 @@ import {
     BatchRequest,
     Environment,
     EnvironmentGroup,
+    GetAllAppLocksResponse,
     GetAppDetailsResponse,
     GetCommitInfoResponse,
     GetEnvironmentConfigResponse,
@@ -87,9 +88,7 @@ export const UpdateOverview = UpdateOverview_; // we do not want to export "useO
 export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => loaded);
 
 export const emptyAppLocks: { [key: string]: AllAppLocks } = {};
-export const [useAllApplicationLocks, UpdateAllApplicationLocks] = createStore<{ [key: string]: AllAppLocks }>(
-    emptyAppLocks
-);
+export const [useAllApplicationLocks, UpdateAllApplicationLocks] = createStore<GetAllAppLocksResponse>(emptyAppLocks);
 export const emptyEnvLocks: { [key: string]: Locks } = {};
 export const emptyTeamLocks: { [key: string]: AllTeamLocks } = {};
 export const [useAllEnvLocks, updateAllEnvLocks] = createStore<{
@@ -1117,6 +1116,7 @@ export const useReleaseDifference = (toDeployVersion: number, application: strin
 
     return newVersionIndex - currentDeployedIndex;
 };
+
 // Get all minor releases for an app
 export const useMinorsForApp = (app: string): number[] | undefined =>
     useAppDetailsForApp(app)
@@ -1278,6 +1278,12 @@ export const invalidateAppDetailsForApp = (appName: string): void => {
         errorMessage: undefined,
     };
     updateAppDetails.set(details);
+};
+
+export const invalidateAppLocks = (appName: string, envName: string, lockId: string): void => {
+    const details = UpdateAllApplicationLocks.get();
+    details[envName].appLocks[appName].locks.filter((val) => val.lockId === lockId);
+    UpdateAllApplicationLocks.set(details);
 };
 
 export const EnableRolloutStatus = (): void => {

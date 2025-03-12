@@ -27,6 +27,7 @@ import {
     DisplayLock,
     UpdateSnackbar,
     SnackbarStatus,
+    AppDetailsResponse,
 } from '../../utils/store';
 import { ActionDetails, ActionTypes, getActionDetails, showFailedActionMessage, SideBar } from './SideBar';
 
@@ -612,8 +613,10 @@ describe('Action details', () => {
             const envLocks = testcase.envLocks || [];
             const appLocks = testcase.appLocks || [];
             const teamLocks = testcase.teamLocks || [];
-            const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks, teamLocks))
-                .result.current;
+            const appDetails: { [key: string]: AppDetailsResponse } = {};
+            const obtainedDetails = renderHook(() =>
+                getActionDetails(testcase.action, appLocks, envLocks, teamLocks, appDetails)
+            ).result.current;
             expect(obtainedDetails).toStrictEqual(testcase.expectedDetails);
         });
     });
@@ -850,7 +853,8 @@ describe('Action failed after applying ', () => {
             const envLocks = testcase.envLocks || [];
             const appLocks = testcase.appLocks || [];
             const teamLocks = testcase.teamLocks || [];
-            showFailedActionMessage(testcase.error, testcase.actions, appLocks, envLocks, teamLocks);
+            const appDetails: { [key: string]: AppDetailsResponse } = {};
+            showFailedActionMessage(testcase.error, testcase.actions, appLocks, envLocks, teamLocks, appDetails);
 
             expect(UpdateSnackbar.get().show).toBe(true);
             expect(UpdateSnackbar.get().status).toBe(SnackbarStatus.ERROR);

@@ -20,6 +20,7 @@ import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
     AppDetailsState,
+    emptyAppLocks,
     EnableGitSyncStatus,
     EnableRolloutStatus,
     FlushGitSyncStatus,
@@ -41,7 +42,7 @@ import { AzureAuthProvider, useAzureAuthSub } from '../utils/AzureAuthProvider';
 import { Snackbar } from '../components/snackbar/snackbar';
 import { mergeMap, retryWhen } from 'rxjs/operators';
 import { Observable, timer } from 'rxjs';
-import { GetFrontendConfigResponse } from '../../api/api';
+import { AllAppLocks, GetFrontendConfigResponse } from '../../api/api';
 import { EnvironmentConfigDialog } from '../components/EnvironmentConfigDialog/EnvironmentConfigDialog';
 import { getOpenEnvironmentConfigDialog } from '../utils/Links';
 import { useSearchParams } from 'react-router-dom';
@@ -152,7 +153,7 @@ export const App: React.FC = () => {
                         api.overviewService()
                             .GetAllAppLocks({}, authHeader)
                             .then((res) => {
-                                UpdateAllApplicationLocks.set(res.allAppLocks);
+                                UpdateAllApplicationLocks.set(res);
                             })
                             .catch((e) => {
                                 PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllAppLocks', e }) });
