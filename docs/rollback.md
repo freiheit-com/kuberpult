@@ -12,3 +12,5 @@ You can easily roll back to an older version of a single service
 ![](../assets/img/rollback/releasedialog-full.png)
 5) Now you have 2 planned actions, that you still need to apply. ![](../assets/img/rollback/planned-actions.png)
 
+# Migrations
+If you want to use custom migrations you can use [custom_migrations down migration](../database/migrations/postgres/1738234757185160_remove_custom_migrations.down.sql)
