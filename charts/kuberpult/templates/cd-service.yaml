@@ -50,7 +50,6 @@ spec:
       labels:
         app: kuberpult-cd-service
 {{- if .Values.datadogTracing.enabled }}
-        tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
         tags.datadoghq.com/service: kuberpult-cd-service
         tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
 {{- end }}
@@ -143,7 +142,7 @@ spec:
             memory: "{{ .Values.cd.resources.requests.memory }}"
         env:
         - name: KUBERPULT_GIT_URL
-          value: {{ required ".Values.git.url is required" .Values.git.url | quote }}
+          value: {{ .Values.git.url | quote }}
         - name: KUBERPULT_GIT_BRANCH
           value: {{ .Values.git.branch | quote }}
         - name: KUBERPULT_VERSION
@@ -322,7 +321,7 @@ spec:
         # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
         # Because of an issue in gitlib2, this actually happens.
         emptyDir:
-          sizeLimit: 30Gi
+          sizeLimit: {{ .Values.git.emptyDirSize }}
       - name: ssh
         secret:
           secretName: kuberpult-ssh
