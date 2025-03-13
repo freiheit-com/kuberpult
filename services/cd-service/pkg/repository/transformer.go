@@ -366,7 +366,7 @@ type transformerRunner struct {
 	DeletedRootApps []RootApp
 }
 
-var isolatedTransformerLocks sync.RWMutex
+var isolatedTransformersLock sync.RWMutex
 var isolatedTransformerNames = []string{"UndeployApplication", "DeleteEnvFromApp", "DeleteEnvironment"}
 
 func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
@@ -379,11 +379,11 @@ func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transact
 		}
 	}
 	if isIsolated {
-		isolatedTransformerLocks.Lock()
-		defer isolatedTransformerLocks.Unlock()
+		isolatedTransformersLock.Lock()
+		defer isolatedTransformersLock.Unlock()
 	} else {
-		isolatedTransformerLocks.RLock()
-		defer isolatedTransformerLocks.RUnlock()
+		isolatedTransformersLock.RLock()
+		defer isolatedTransformersLock.RUnlock()
 	}
 	msg, err := t.Transform(ctx, r.State, r, transaction)
 	if err != nil {
