@@ -163,6 +163,262 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('1713218400'
 	}
 }
 
+func TestCustomMigrationReleases(t *testing.T) {
+	var getAllApps = /*GetAllAppsFun*/ func() (map[string]string, error) {
+		result := map[string]string{
+			"app1": "team1",
+		}
+		return result, nil
+	}
+	var writeAllReleases = /*writeAllReleases*/ func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error {
+		releases := AllReleases{
+			1: ReleaseWithManifest{
+				Version:         666,
+				UndeployVersion: false,
+				SourceAuthor:    "auth1",
+				SourceCommitId:  "commit1",
+				SourceMessage:   "msg1",
+				CreatedAt:       time.Time{},
+				DisplayVersion:  "display1",
+				Manifests: map[string]string{
+					"dev": "manifest1",
+				},
+			},
+			2: ReleaseWithManifest{
+				Version:         777,
+				UndeployVersion: false,
+				SourceAuthor:    "auth2",
+				SourceCommitId:  "commit2",
+				SourceMessage:   "msg2",
+				CreatedAt:       time.Time{},
+				DisplayVersion:  "display2",
+				Manifests: map[string]string{
+					"dev": "manifest2",
+				},
+			},
+		}
+		for _, r := range releases {
+			dbRelease := DBReleaseWithMetaData{
+				Created:       time.Now().UTC(),
+				ReleaseNumber: r.Version,
+				App:           app,
+				Manifests: DBReleaseManifests{
+					Manifests: r.Manifests,
+				},
+				Metadata: DBReleaseMetaData{
+					UndeployVersion: r.UndeployVersion,
+					SourceAuthor:    r.SourceAuthor,
+					SourceCommitId:  r.SourceCommitId,
+					SourceMessage:   r.SourceMessage,
+					DisplayVersion:  r.DisplayVersion,
+				},
+			}
+			err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, dbRelease)
+			if err != nil {
+				return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
+			}
+		}
+		return nil
+	}
+	tcs := []struct {
+		Name             string
+		expectedReleases []*DBReleaseWithMetaData
+	}{
+		{
+			Name: "Simple migration",
+			expectedReleases: []*DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 666,
+					App:           "app1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "manifest1",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor:   "auth1",
+						SourceCommitId: "commit1",
+						SourceMessage:  "msg1",
+						DisplayVersion: "display1",
+					},
+					Environments: []string{"dev"},
+				},
+				{
+					ReleaseNumber: 777,
+					App:           "app1",
+					Manifests: DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev": "manifest2",
+						},
+					},
+					Metadata: DBReleaseMetaData{
+						SourceAuthor:   "auth2",
+						SourceCommitId: "commit2",
+						SourceMessage:  "msg2",
+						DisplayVersion: "display2",
+					},
+					Environments: []string{"dev"},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, writeAllReleases)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				for i := range tc.expectedReleases {
+					expectedRelease := tc.expectedReleases[i]
+
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumber, true)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(expectedRelease, release, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestCustomMigrationsApps(t *testing.T) {
+	const appName = "my-app"
+	const teamName = "my-team"
+	tcs := []struct {
+		Name            string
+		expectedApps    []*DBAppWithMetaData
+		expectedAllApps []string
+		allAppsFunc     GetAllAppsFun
+	}{
+		{
+			Name: "Simple migration",
+			expectedApps: []*DBAppWithMetaData{
+				{
+					App:         appName,
+					StateChange: AppStateChangeMigrate,
+					Metadata: DBAppMetaData{
+						Team: teamName,
+					},
+				},
+			},
+			expectedAllApps: []string{appName},
+			allAppsFunc: func() (map[string]string, error) {
+				result := map[string]string{
+					appName: teamName,
+				}
+				return result, nil
+			},
+		},
+		{
+			Name:            "No apps still populate all_apps table",
+			expectedApps:    []*DBAppWithMetaData{},
+			expectedAllApps: []string{},
+			allAppsFunc: func() (map[string]string, error) {
+				result := map[string]string{}
+				return result, nil
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunAllCustomMigrationsForApps(ctx, tc.allAppsFunc)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+
+				allApps, err2 := dbHandler.DBSelectAllApplications(ctx, transaction)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedAllApps, allApps); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				for i := range tc.expectedApps {
+					expectedApp := tc.expectedApps[i]
+
+					app, err := dbHandler.DBSelectApp(ctx, transaction, appName)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(expectedApp, app); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestMigrationCommitEvent(t *testing.T) {
+	var writeAllCommitEvents = /*writeAllCommitEvents*/ func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error {
+		return nil
+	}
+	tcs := []struct {
+		Name           string
+		expectedEvents []*event.DBEventGo
+	}{
+		{
+			Name: "Test migration event",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dbHandler := SetupRepositoryTestWithDB(t)
+			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err2 := dbHandler.RunCustomMigrationsEventSourcingLight(ctx)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+
+				err2 = dbHandler.RunCustomMigrationsCommitEvents(ctx, writeAllCommitEvents)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				//Check for migration event
+				contains, err := dbHandler.DBContainsMigrationCommitEvent(ctx, transaction)
+				if err != nil {
+					t.Errorf("could not get migration event: %v\n", err)
+
+				}
+				if !contains {
+					t.Errorf("migration event was not created: %v\n", err)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
 func TestCommitEvents(t *testing.T) {
 
 	tcs := []struct {
@@ -263,13 +519,15 @@ func TestCommitEvents(t *testing.T) {
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
+
+			err = db.RunCustomMigrationsEventSourcingLight(ctx)
+			if err != nil {
+				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
+
+			}
 			err = db.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
 				if err != nil {
 					t.Fatalf("Error creating transaction. Error: %v\n", err)
-				}
-				err = db.DBWriteMigrationsTransformer(ctx, tx)
-				if err != nil {
-					return err
 				}
 				err := writeEventAux(ctx, db, tx, tc.commitHash, tc.event)
 				if err != nil {
@@ -412,11 +670,12 @@ func TestReadLockPreventedEvents(t *testing.T) {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
 
+			err = db.RunCustomMigrationsEventSourcingLight(ctx)
+			if err != nil {
+				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
+
+			}
 			err = db.WithTransactionR(ctx, 0, false, func(ctx context.Context, tx *sql.Tx) error {
-				err = db.DBWriteMigrationsTransformer(ctx, tx)
-				if err != nil {
-					return err
-				}
 				for i, event := range tc.Events {
 					err = db.DBWriteLockPreventedDeploymentEvent(ctx, tx, 0, "00000000-0000-0000-0000-00000000000"+strconv.Itoa(i), "test", event)
 					if err != nil {
@@ -4937,6 +5196,228 @@ func TestDBSelectAllTeamLocksOfAllEnvs(t *testing.T) {
 				}
 				if diff := cmp.Diff(tc.Expected, teamLocks, cmpopts.IgnoreFields(TeamLock{}, "Created"), cmpopts.IgnoreFields(LockMetadata{}, "CreatedAt")); diff != "" {
 					return fmt.Errorf("releases mismatch (-want +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
+func TestDbUpdateAllDeployments(t *testing.T) {
+	const oldId = 1
+	const newId = 2
+	const app = "my-app"
+
+	tcs := []struct {
+		Name                     string
+		InitialDeployments       []Deployment
+		ExpectedDeploymentsNewID []Deployment
+		ExpectedDeploymentsOldId []Deployment
+	}{
+		{
+			Name:                     "no deployments",
+			InitialDeployments:       []Deployment{},
+			ExpectedDeploymentsNewID: []Deployment{},
+			ExpectedDeploymentsOldId: []Deployment{},
+		},
+		{
+			Name: "change single deployment",
+			InitialDeployments: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+			},
+			ExpectedDeploymentsNewID: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+			},
+		},
+		{
+			Name: "change multiple deployments",
+			InitialDeployments: []Deployment{
+				{
+					Created: time.Now(),
+					App:     app,
+					Env:     "development-2",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+			},
+			ExpectedDeploymentsOldId: []Deployment{},
+			ExpectedDeploymentsNewID: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development-2",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+			},
+		},
+		{
+			Name: "change multiple deployments, but with other that should not change",
+			InitialDeployments: []Deployment{
+				{
+					Created: time.Now(),
+					App:     app,
+					Env:     "development",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development-2",
+					App:     "my-app",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+				{
+					Created: time.Now(),
+					App:     "my-app",
+					Env:     "development-3",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 3,
+				},
+			},
+			ExpectedDeploymentsNewID: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development-2",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteEslEventWithJson(ctx, transaction, EvtMigrationTransformer, "{}")
+				if err != nil {
+					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+				}
+				err = dbHandler.DBWriteEslEventWithJson(ctx, transaction, EvtMigrationTransformer, "{}")
+				if err != nil {
+					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+				}
+				err = dbHandler.DBWriteEslEventWithJson(ctx, transaction, EvtMigrationTransformer, "{}")
+				if err != nil {
+					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+				}
+				for _, deployment := range tc.InitialDeployments {
+					err := dbHandler.upsertDeploymentRow(ctx, transaction, deployment)
+					if err != nil {
+						return fmt.Errorf("error while writing deployment, error: %w", err)
+					}
+				}
+
+				err = dbHandler.DBBulkUpdateAllDeployments(ctx, transaction, newId, oldId)
+
+				if err != nil {
+					return fmt.Errorf("error while writing deployments, error: %w", err)
+				}
+
+				actualDeploymentsNewId, err := dbHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, newId)
+				if err != nil {
+					return fmt.Errorf("error while reading deployments, error: %w", err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedDeploymentsNewID, actualDeploymentsNewId, cmpopts.IgnoreFields(Deployment{}, "Created")); diff != "" {
+					return fmt.Errorf("deployments with new ID mismatch (-want +got):\n%s", diff)
+				}
+
+				actualDeploymentsOldId, err := dbHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, oldId)
+				if err != nil {
+					return fmt.Errorf("error while reading deployments, error: %w", err)
+				}
+
+				if len(actualDeploymentsOldId) != 0 {
+					return fmt.Errorf("no deployments should have old transformer ID, got \n%v", actualDeploymentsOldId)
 				}
 				return nil
 			})

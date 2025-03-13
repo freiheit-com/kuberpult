@@ -256,8 +256,10 @@ func (s *GitServer) ReadSyncStatuses(ctx context.Context) (*api.GetGitSyncStatus
 			return err
 		}
 		response.AppStatuses = toApiStatuses(append(unsyncedStatuses, syncFailedStatuses...))
+
 		return nil
 	})
+
 	return response, onErr(err)
 }
 

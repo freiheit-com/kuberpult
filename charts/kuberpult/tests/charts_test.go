@@ -182,6 +182,14 @@ ingress:
 					Value: "postgreSQL",
 				},
 				{
+					Name:  "KUBERPULT_MIGRATION_SERVER",
+					Value: "kuberpult-manifest-repo-export-service:8443",
+				},
+				{
+					Name:  "KUBERPULT_MIGRATION_SERVER_SECURE",
+					Value: "false",
+				},
+				{
 					Name:  "KUBERPULT_GRPC_MAX_RECV_MSG_SIZE",
 					Value: "4",
 				},
@@ -635,6 +643,44 @@ db:
 				{
 					Name:  "KUBERPULT_DB_MAX_IDLE_CONNECTIONS",
 					Value: "321",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Check for custom Migrations",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  checkCustomMigrations: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Check for custom Migrations",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  checkCustomMigrations: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Value: "true",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -1941,4 +1987,61 @@ func makeAllIngressPaths(withDex, withUi, withOldApi, withNewApi bool) []network
 		)
 	}
 	return result
+}
+func TestManifestExportServiceDisabled(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		Values      string
+		ShouldExist bool
+	}{
+		{
+			Name: "Disabled Export Service",
+			Values: `
+git:
+  url:  "checkThisValue"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+manifestRepoExport:
+  enabled: false
+`,
+			ShouldExist: false,
+		},
+		{
+			Name: "Enabled Export Service",
+			Values: `
+git:
+  url:  "checkThisValue"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+manifestRepoExport:
+  enabled: true
+`,
+			ShouldExist: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			}
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			} else {
+				_, found := out["kuberpult-manifest-repo-export-service"]
+				if found != tc.ShouldExist {
+					t.Fatalf("Expected existence: %t, got: %t", tc.ShouldExist, found)
+				}
+			}
+		})
+	}
 }

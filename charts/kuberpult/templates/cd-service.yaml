@@ -270,6 +270,8 @@ spec:
           value: "{{ .Values.db.connections.cd.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.cd.maxIdle }}"
+        - name: KUBERPULT_CHECK_CUSTOM_MIGRATIONS
+          value: "{{ .Values.db.checkCustomMigrations }}"
 {{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
@@ -281,6 +283,10 @@ spec:
         - name: KUBERPULT_MINOR_REGEXES
           value: {{ .Values.cd.minorRegexes | join "," | quote }}
 {{- end }}
+        - name: KUBERPULT_MIGRATION_SERVER
+          value: kuberpult-manifest-repo-export-service:8443
+        - name: KUBERPULT_MIGRATION_SERVER_SECURE
+          value: "false"
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.cd.grpcMaxRecvMsgSize }}"
         volumeMounts:

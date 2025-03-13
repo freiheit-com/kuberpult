@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"database/sql"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"strconv"
 	"time"
 
@@ -153,7 +154,11 @@ func Run(ctx context.Context) error {
 	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
-
+	checkCustomMigrationsString, err := valid.ReadEnvVar("KUBERPULT_CHECK_CUSTOM_MIGRATIONS")
+	if err != nil {
+		log.Info("datadog metrics are disabled")
+	}
+	checkCustomMigrations := checkCustomMigrationsString == "true"
 	minimizeExportedData, err := valid.ReadEnvVarBool("KUBERPULT_MINIMIZE_EXPORTED_DATA")
 	if err != nil {
 		return err
@@ -260,6 +265,8 @@ func Run(ctx context.Context) error {
 		MinimizeExportedData: minimizeExportedData,
 
 		DBHandler: dbHandler,
+
+		DDMetrics: ddMetrics,
 	}
 	repo, err := repository.New(ctx, cfg)
 	if err != nil {
@@ -273,8 +280,29 @@ func Run(ctx context.Context) error {
 		logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 	}
 	logger.FromContext(ctx).Info("Finished with basic database migration.")
+	kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
+	if err != nil {
+		return err
+	}
+	migrationServer := &service.MigrationServer{
+		KuberpultVersion: kuberpultVersion,
+		DBHandler:        dbHandler,
+		Migrations:       getAllMigrations(dbHandler, repo),
+	}
+	if shouldRunCustomMigrations(checkCustomMigrations, minimizeExportedData) {
+		log.Infof("Running Custom Migrations")
 
-	log.Infof("Running Custom Migrations")
+		_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+			Version: kuberpultVersion,
+		})
+		if err != nil {
+			return fmt.Errorf("error running custom migrations: %w", err)
+		}
+		log.Infof("Finished Custom Migrations successfully")
+	} else {
+		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if" +
+			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=true.")
+	}
 
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
@@ -293,6 +321,7 @@ func Run(ctx context.Context) error {
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10})
+				api.RegisterMigrationServiceServer(srv, migrationServer)
 				reflection.Register(srv)
 			},
 		},
@@ -302,7 +331,7 @@ func Run(ctx context.Context) error {
 				Name:     "processEsls",
 				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 					reporter.ReportReady("Processing Esls")
-					return processEsls(ctx, repo, dbHandler, ddMetrics, eslProcessingIdleTimeSeconds)
+					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds)
 				},
 			},
 		},
@@ -312,6 +341,52 @@ func Run(ctx context.Context) error {
 		},
 	})
 	return nil
+}
+
+func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
+	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrations(
+			ctx,
+			repo.State().GetAppsAndTeams,
+			repo.State().WriteCurrentlyDeployed,
+			repo.State().WriteAllReleases,
+			repo.State().WriteCurrentEnvironmentLocks,
+			repo.State().WriteCurrentApplicationLocks,
+			repo.State().WriteCurrentTeamLocks,
+			repo.State().GetAllEnvironments,
+			repo.State().WriteAllQueuedAppVersions,
+			repo.State().WriteAllCommitEvents,
+		)
+	}
+
+	migrateReleases := func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrationReleaseEnvironments(ctx)
+	}
+	migrateEnvApps := func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
+	}
+
+	// Migrations here must be IN ORDER, oldest first:
+	return []*service.Migration{
+		{
+			// This first migration is actually a list of migrations that are done in one step:
+			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
+			Migration: migrationFunc,
+		},
+		{
+			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
+			Migration: migrateReleases,
+		},
+		{
+			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
+			Migration: migrateEnvApps,
+		},
+		// New migrations should be added here:
+		// {
+		//   Version: ...
+		//   Migration: ...
+		// }
+	}
 }
 
 func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds uint64) error {
@@ -432,7 +507,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 		}
 		repo.Notify().Notify() // Notify git sync status
 
-		err = measureGitSyncStatus(ctx, ddMetrics, dbHandler)
+		err = repository.MeasureGitSyncStatus(ctx, ddMetrics, dbHandler)
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
 		}
@@ -449,38 +524,6 @@ func measurePushes(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, fai
 			log.Error("Error in ddMetrics.Gauge %v", err)
 		}
 	}
-}
-
-func measureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface, dbHandler *db.DBHandler) error {
-	if ddMetrics != nil {
-		results, err := db.WithTransactionT[[2]int](dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*[2]int, error) {
-			unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
-			if err != nil {
-				return &[2]int{}, err
-			}
-
-			syncFailedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
-			if err != nil {
-				return &[2]int{}, err
-			}
-
-			return &[2]int{len(unsyncedStatuses), len(syncFailedStatuses)}, nil
-		})
-
-		if err != nil {
-			return err
-		}
-
-		if err := ddMetrics.Gauge("git_sync_unsynced", float64(results[0]), []string{}, 1); err != nil {
-			return err
-		}
-
-		if err := ddMetrics.Gauge("git_sync_failed", float64(results[1]), []string{}, 1); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func handleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
@@ -657,4 +700,8 @@ func checkReleaseVersionLimit(limit uint) error {
 		return releaseVersionsLimitError{limit: limit}
 	}
 	return nil
+}
+
+func shouldRunCustomMigrations(checkCustomMigrations, minimizeGitData bool) bool {
+	return checkCustomMigrations && !minimizeGitData //If `minimizeGitData` is enabled we can't make sure we have all the information on the repository to perform all the migrations
 }
