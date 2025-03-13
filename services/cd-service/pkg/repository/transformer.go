@@ -28,6 +28,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -365,8 +366,25 @@ type transformerRunner struct {
 	DeletedRootApps []RootApp
 }
 
+var isolatedTransformerLocks sync.RWMutex
+var isolatedTransformerNames = []string{"UndeployApplication", "DeleteEnvFromApp", "DeleteEnvironment"}
+
 func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
 	r.Stack = append(r.Stack, nil)
+	tranformerTypeName := reflect.TypeOf(t).Name()
+	isIsolated := false
+	for _, isolatedTransformerName := range isolatedTransformerNames {
+		if isolatedTransformerName == tranformerTypeName {
+			isIsolated = true
+		}
+	}
+	if isIsolated {
+		isolatedTransformerLocks.Lock()
+		defer isolatedTransformerLocks.Unlock()
+	} else {
+		isolatedTransformerLocks.RLock()
+		defer isolatedTransformerLocks.RUnlock()
+	}
 	msg, err := t.Transform(ctx, r.State, r, transaction)
 	if err != nil {
 		return err
@@ -2090,10 +2108,9 @@ func (c *DeleteEnvironment) Transform(
 			Environment:           c.Environment,
 			Application:           app,
 		}
-		if ret, err := deleteEnvFromAppTransformer.Transform(ctx, state, t, transaction); err != nil {
+		err = t.Execute(ctx, &deleteEnvFromAppTransformer, transaction)
+		if err != nil {
 			return "", err
-		} else {
-			logger.FromContext(ctx).Sugar().Infof(ret)
 		}
 	}
 
