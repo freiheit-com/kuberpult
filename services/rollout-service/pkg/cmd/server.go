@@ -75,6 +75,7 @@ type Config struct {
 	DbMigrationsLocation string `default:"" split_words:"true"`
 	DbMaxIdleConnections uint   `required:"true" split_words:"true"`
 	DbMaxOpenConnections uint   `required:"true" split_words:"true"`
+	DbSslMode            string `default:"verify-full" split_words:"true"`
 
 	ArgocdServer                      string `split_words:"true"`
 	ArgocdInsecure                    bool   `default:"false" split_words:"true"`
@@ -232,7 +233,7 @@ func runServer(ctx context.Context, config Config) error {
 				DbUser:         config.DbUserName,
 				MigrationsPath: config.DbMigrationsLocation,
 				WriteEslOnly:   false,
-				SSLMode:        "disable",
+				SSLMode:        config.DbSslMode,
 
 				MaxIdleConnections: config.DbMaxIdleConnections,
 				MaxOpenConnections: config.DbMaxOpenConnections,
