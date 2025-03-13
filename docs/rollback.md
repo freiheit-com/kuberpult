@@ -13,4 +13,12 @@ You can easily roll back to an older version of a single service
 5) Now you have 2 planned actions, that you still need to apply. ![](../assets/img/rollback/planned-actions.png)
 
 # Migrations
-If you want to use custom migrations you can use [custom_migrations down migration](../database/migrations/postgres/1738234757185160_remove_custom_migrations.down.sql)
+If you've deleted the custom migrations cutoff table and you want to bring it back you can run:
+```Sql
+CREATE TABLE IF NOT EXISTS custom_migration_cutoff
+(
+    migration_done_at TIMESTAMP NOT NULL,
+    kuberpult_version varchar(100) PRIMARY KEY -- the version as it appears on GitHub, e.g. "1.2.3"
+);
+```
+This way you can have this table back.
