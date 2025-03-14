@@ -1955,7 +1955,6 @@ func (c *CreateEnvironment) Transform(
 	if err != nil {
 		return "", fmt.Errorf("could not select environment %s from database, error: %w", c.Environment, err)
 	}
-
 	// write to environments table
 	environmentApplications := make([]string, 0)
 	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications)

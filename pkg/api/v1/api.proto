@@ -606,22 +606,18 @@ message EnvironmentConfig {
       repeated string managed_fields_managers = 7;
     }
 
-    repeated SyncWindows              sync_windows = 1;
+    repeated SyncWindows              syncWindows = 1;
     Destination                       destination = 2;
-    repeated AccessEntry              access_list = 3;
-    map<string, string>               application_annotations = 4;
-    repeated IgnoreDifferences        ignore_differences = 5;
-    repeated string                   sync_options = 6;
+    repeated AccessEntry              accessList = 3;
+    map<string, string>               applicationAnnotations = 4;
+    repeated IgnoreDifferences        ignoreDifferences = 5;
+    repeated string                   syncOptions = 6;
   }
 
   Upstream upstream = 1;
   ArgoCD argocd  = 2;
 
-  // Buf somehow generates the wrong go annotation in this case.
-  // To fix it, we changed the spelling, but now violate a linter rule.
-  // So we disable the rule, according to https://buf.build/docs/lint/overview/#comment-ignores
-  // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
-  optional string environmentGroup = 3; // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
+  optional string environmentGroup = 3;
 }
 
 

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -42,6 +43,9 @@ func (o *EnvironmentServiceServer) GetEnvironmentConfig(
 
 	if err != nil {
 		return nil, err
+	}
+	if config == nil {
+		return nil, fmt.Errorf("could not find environment configuration for env: %q", in.Environment)
 	}
 	var out api.GetEnvironmentConfigResponse
 	out.Config = TransformEnvironmentConfigToApi(*config)
@@ -90,9 +94,9 @@ func transformArgoCdToApi(in *config.EnvironmentConfigArgoCd) *api.EnvironmentCo
 		return nil
 	}
 	return &api.EnvironmentConfig_ArgoCD{
-		ApplicationAnnotations: nil,
-		IgnoreDifferences:      nil,
-		SyncOptions:            nil,
+		ApplicationAnnotations: in.ApplicationAnnotations,
+		IgnoreDifferences:      transformIgnoreDifferencesToApi(in.IgnoreDifferences),
+		SyncOptions:            in.SyncOptions,
 		SyncWindows:            transformSyncWindowsToApi(in.SyncWindows),
 		Destination:            transformDestinationToApi(&in.Destination),
 		AccessList:             transformAccessEntryToApi(in.ClusterResourceWhitelist),
@@ -120,6 +124,22 @@ func transformSyncWindowsToApi(in []config.ArgoCdSyncWindow) []*api.EnvironmentC
 			Kind:         syncWindow.Kind,
 			Schedule:     syncWindow.Schedule,
 			Duration:     syncWindow.Duration,
+		})
+	}
+	return out
+}
+
+func transformIgnoreDifferencesToApi(in []config.ArgoCdIgnoreDifference) []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences {
+	var out []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences
+	for _, currentIgnoreDifferences := range in {
+		out = append(out, &api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
+			Kind:                  currentIgnoreDifferences.Kind,
+			Group:                 currentIgnoreDifferences.Group,
+			Name:                  currentIgnoreDifferences.Name,
+			Namespace:             currentIgnoreDifferences.Namespace,
+			JsonPointers:          currentIgnoreDifferences.JSONPointers,
+			JqPathExpressions:     currentIgnoreDifferences.JqPathExpressions,
+			ManagedFieldsManagers: currentIgnoreDifferences.ManagedFieldsManagers,
 		})
 	}
 	return out
