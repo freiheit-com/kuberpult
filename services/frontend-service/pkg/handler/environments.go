@@ -19,14 +19,15 @@ package handler
 import (
 	"bytes"
 	"fmt"
-	"github.com/golang/protobuf/jsonpb"
-	"io"
-	"net/http"
-	"strings"
+	"github.com/gogo/protobuf/jsonpb"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	a "google.golang.org/protobuf/encoding/protojson"
+	"io"
+	"net/http"
+	"strings"
 )
 
 const (
