@@ -1498,12 +1498,12 @@ db:
 }
 
 func TestVolumes(t *testing.T) {
+	const VolumeName = "repository"
 	tcs := []struct {
 		Name            string
 		Values          string
 		VolumeMountSize string
 		target          core.Volume
-		VolumeName      string
 	}{
 		{
 			Name: "dir size not specified results in default value",
@@ -1517,7 +1517,6 @@ ingress:
     dex: true
 `,
 			VolumeMountSize: "30Gi",
-			VolumeName:      "repository",
 		},
 		{
 			Name: "dir size is configurable",
@@ -1533,7 +1532,6 @@ ingress:
 
 `,
 			VolumeMountSize: "10Gi",
-			VolumeName:      "repository",
 		},
 	}
 
@@ -1549,7 +1547,7 @@ ingress:
 			if out, err := getDeployments(outputFile); err != nil {
 				t.Fatalf(fmt.Sprintf("%v", err))
 			} else {
-				result := CheckEmptyDirVolume(t, tc.VolumeName, tc.VolumeMountSize, out["kuberpult-cd-service"])
+				result := CheckEmptyDirVolume(t, VolumeName, tc.VolumeMountSize, out["kuberpult-cd-service"])
 				if !result {
 					t.Fatalf("volume size mismatch")
 				}
