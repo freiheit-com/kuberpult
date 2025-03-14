@@ -18,15 +18,15 @@ package handler
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
+	"github.com/gogo/protobuf/jsonpb"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"io"
+	"net/http"
+	"strings"
 )
 
 const (
@@ -55,7 +55,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		w.Write([]byte("Missing config in request body")) //nolint:errcheck
 		return
 	}
-	err := json.Unmarshal([]byte(config[0]), &envConfig)
+	err := jsonpb.UnmarshalString(config[0], &envConfig)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Invalid body: %s", err)
