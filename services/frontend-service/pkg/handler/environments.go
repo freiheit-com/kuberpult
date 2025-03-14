@@ -24,7 +24,6 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	a "google.golang.org/protobuf/encoding/protojson"
 	"io"
 	"net/http"
 	"strings"
