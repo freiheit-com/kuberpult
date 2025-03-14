@@ -18,8 +18,8 @@ package handler
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
+	"github.com/golang/protobuf/jsonpb"
 	"io"
 	"net/http"
 	"strings"
@@ -55,7 +55,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		w.Write([]byte("Missing config in request body")) //nolint:errcheck
 		return
 	}
-	err := json.Unmarshal([]byte(config[0]), &envConfig)
+	err := jsonpb.UnmarshalString(config[0], &envConfig)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Invalid body: %s", err)

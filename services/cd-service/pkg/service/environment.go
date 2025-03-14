@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 
@@ -83,6 +82,7 @@ func transformUpstreamToApi(in *config.EnvironmentConfigUpstream) *api.Environme
 	if in == nil {
 		return nil
 	}
+
 	return &api.EnvironmentConfig_Upstream{
 		Environment: &in.Environment,
 		Latest:      &in.Latest,
