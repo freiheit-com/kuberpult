@@ -606,18 +606,18 @@ message EnvironmentConfig {
       repeated string managed_fields_managers = 7;
     }
 
-    repeated SyncWindows              syncWindows = 1;
+    repeated SyncWindows              sync_windows = 1 [json_name = "syncWindows"];
     Destination                       destination = 2;
-    repeated AccessEntry              accessList = 3;
-    map<string, string>               applicationAnnotations = 4;
-    repeated IgnoreDifferences        ignoreDifferences = 5;
-    repeated string                   syncOptions = 6;
+    repeated AccessEntry              access_list = 3 [json_name = "accessList"];
+    map<string, string>               application_annotations = 4 [json_name = "applicationAnnotations"];
+    repeated IgnoreDifferences        ignore_differences = 5 [json_name = "ignoreDifferences"];
+    repeated string                   syncOptions = 6 [json_name = "syncOptions"];
   }
 
   Upstream upstream = 1;
   ArgoCD argocd  = 2;
 
-  optional string environmentGroup = 3;
+  optional string environment_group = 3  [json_name = "environmentGroup"];
 }
 
 
