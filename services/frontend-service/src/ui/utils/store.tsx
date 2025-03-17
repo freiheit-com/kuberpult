@@ -1280,6 +1280,29 @@ export const invalidateAppDetailsForApp = (appName: string): void => {
     updateAppDetails.set(details);
 };
 
+export const InvalidateAppLocks = (envName: string, appName: string, lockId: string): void => {
+    const appLockDetails = UpdateAllApplicationLocks.get();
+
+    appLockDetails[envName].appLocks[appName].locks = appLockDetails[envName].appLocks[appName].locks.filter(
+        (currLock) => {
+            if (lockId === currLock.lockId) {
+                // eslint-disable-next-line no-console
+                console.log('Found a lock that matches!');
+
+                // eslint-disable-next-line no-console
+                console.log(currLock);
+            }
+
+            return lockId !== currLock.lockId;
+        }
+    );
+    // eslint-disable-next-line no-console
+    console.log(appLockDetails);
+    UpdateAllApplicationLocks.set(appLockDetails);
+    // eslint-disable-next-line no-console
+    console.log(UpdateAllApplicationLocks.get());
+};
+
 export const EnableRolloutStatus = (): void => {
     rolloutStatus.set({ enabled: true });
 };

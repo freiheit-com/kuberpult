@@ -34,6 +34,7 @@ import {
     useApplications,
     useAppDetails,
     AppDetailsResponse,
+    InvalidateAppLocks,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -197,7 +198,7 @@ export const getActionDetails = (
                 name: 'Deploy',
                 dialogTitle: 'Please be aware:',
                 summary: ((): string => {
-                    const releaseDiff = relDiff(
+                    const releaseDiff = calculateReleaseDiff(
                         action.deploy.version,
                         action.deploy.environment,
                         appDetails[action.deploy.application]
@@ -432,7 +433,7 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
     );
 };
 
-const relDiff = (version: number, environment: string, appDetails: AppDetailsResponse): number => {
+const calculateReleaseDiff = (version: number, environment: string, appDetails: AppDetailsResponse): number => {
     const deployment = appDetails.details?.deployments[environment];
     if (!deployment) {
         return 0;
@@ -531,6 +532,11 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     appNamesToInvalidate.push(action.action.deploy.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentApplicationLock') {
+                    InvalidateAppLocks(
+                        action.action.deleteEnvironmentApplicationLock.environment,
+                        action.action.deleteEnvironmentApplicationLock.application,
+                        action.action.deleteEnvironmentApplicationLock.lockId
+                    );
                     appNamesToInvalidate.push(action.action.deleteEnvironmentApplicationLock.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentTeamLock') {

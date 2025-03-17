@@ -152,16 +152,7 @@ export const App: React.FC = () => {
                         api.overviewService()
                             .GetAllAppLocks({}, authHeader)
                             .then((res) => {
-                                // eslint-disable-next-line no-console
-                                // console.log();
-                                // const newAppLockDetails: { [key: string]: AllAppLocks } = {};
-                                // UpdateAllApplicationLocks.set(emptyAppLocks);
-                                // Object.entries(res.allAppLocks)?.forEach((elem) => {
-                                //     newAppLockDetails[elem[0]] = elem[1];
-                                // });
                                 UpdateAllApplicationLocks.set(res.allAppLocks);
-                                // // eslint-disable-next-line no-console
-                                // console.log(UpdateAllApplicationLocks.get());
                             })
                             .catch((e) => {
                                 PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllAppLocks', e }) });
