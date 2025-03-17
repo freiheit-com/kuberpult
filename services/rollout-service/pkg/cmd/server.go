@@ -93,6 +93,9 @@ type Config struct {
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
 
+	PersistArgoEvents   bool `default:"false" split_words:"true"`
+	ArgoEventsBatchSize int  `default:"1" split_words:"true"`
+
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
 }
