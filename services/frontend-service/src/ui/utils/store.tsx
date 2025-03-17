@@ -1286,6 +1286,7 @@ export const InvalidateAppLocks = (envName: string, appName: string, lockId: str
     appLockDetails[envName].appLocks[appName].locks = appLockDetails[envName].appLocks[appName].locks.filter(
         (currLock) => lockId !== currLock.lockId
     );
+
     UpdateAllApplicationLocks.set(appLockDetails);
 };
 

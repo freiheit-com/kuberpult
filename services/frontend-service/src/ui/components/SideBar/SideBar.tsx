@@ -521,8 +521,14 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
             setLockMessage('');
         }
         if (authReady) {
+            interface LocksToInvalidate {
+                envName: string;
+                appName: string;
+                lockId: string;
+            }
             setShowSpinner(true);
             const appNamesToInvalidate: string[] = [];
+            const appLocksToInvalidate: LocksToInvalidate[] = [];
             const lockId = randomLockId();
             for (const action of actions) {
                 if (action.action?.$case === 'deleteEnvFromApp') {
@@ -532,11 +538,11 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     appNamesToInvalidate.push(action.action.deploy.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentApplicationLock') {
-                    InvalidateAppLocks(
-                        action.action.deleteEnvironmentApplicationLock.environment,
-                        action.action.deleteEnvironmentApplicationLock.application,
-                        action.action.deleteEnvironmentApplicationLock.lockId
-                    );
+                    appLocksToInvalidate.push({
+                        envName: action.action.deleteEnvironmentApplicationLock.environment,
+                        appName: action.action.deleteEnvironmentApplicationLock.application,
+                        lockId: action.action.deleteEnvironmentApplicationLock.lockId,
+                    });
                     appNamesToInvalidate.push(action.action.deleteEnvironmentApplicationLock.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentTeamLock') {
@@ -569,6 +575,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 })
                 .finally(() => {
                     appNamesToInvalidate.forEach((appName) => invalidateAppDetailsForApp(appName));
+                    appLocksToInvalidate.forEach((lock) => InvalidateAppLocks(lock.envName, lock.appName, lock.lockId));
                     setShowSpinner(false);
                 });
             setDialogState({ showConfirmationDialog: false });
