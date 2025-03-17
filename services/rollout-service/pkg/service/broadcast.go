@@ -110,7 +110,7 @@ func New() *Broadcast {
 }
 
 // ProcessArgoEvent implements service.EventProcessor
-func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
+func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) bool {
 	b.mx.Lock()
 	defer b.mx.Unlock()
 	k := Key{
@@ -123,7 +123,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 	}
 	msg := b.state[k].applyArgoEvent(&ev)
 	if msg == nil {
-		return
+		return false
 	}
 	desub := []chan *BroadcastEvent{}
 	for l := range b.listener {
@@ -137,6 +137,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 	for _, l := range desub {
 		delete(b.listener, l)
 	}
+	return true
 }
 
 func (b *Broadcast) ProcessKuberpultEvent(ctx context.Context, ev versions.KuberpultEvent) {

@@ -55,8 +55,9 @@ type argoEventProcessorMock struct {
 	lastEvent *ArgoEvent
 }
 
-func (a *argoEventProcessorMock) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
+func (a *argoEventProcessorMock) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) bool {
 	a.lastEvent = &ev
+	return true
 }
 
 func TestDispatcher(t *testing.T) {

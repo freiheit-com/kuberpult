@@ -108,8 +108,9 @@ func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T) {
 }
 
 // Process implements service.EventProcessor
-func (m *mockApplicationServiceClient) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
+func (m *mockApplicationServiceClient) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) bool {
 	m.lastEvent <- &ev
+	return true
 }
 
 type version struct {
