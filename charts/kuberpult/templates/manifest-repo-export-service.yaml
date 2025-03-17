@@ -264,7 +264,7 @@ spec:
         # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
         # Because of an issue in gitlib2, this actually happens.
         emptyDir:
-          sizeLimit: 30Gi
+          sizeLimit: {{ .Values.git.emptyDirSize }}
       - name: ssh
         secret:
           secretName: kuberpult-ssh
