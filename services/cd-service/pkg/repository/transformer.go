@@ -367,21 +367,23 @@ type transformerRunner struct {
 }
 
 var isolatedTransformersLock sync.RWMutex
-var isolatedTransformerNames = []string{"UndeployApplication", "DeleteEnvFromApp", "DeleteEnvironment"}
+var isolatedTransformerNames = []db.EventType{db.EvtUndeployApplication, db.EvtDeleteEnvFromApp, db.EvtDeleteEnvironment}
 
 func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
 	r.Stack = append(r.Stack, nil)
 	transformerTypeName := t.GetDBEventType()
-	isIsolated := false
+	requiresIsolation := false
 	for _, isolatedTransformerName := range isolatedTransformerNames {
-		if isolatedTransformerName == tranformerTypeName {
-			isIsolated = true
+		if isolatedTransformerName == transformerTypeName {
+			requiresIsolation = true
 		}
 	}
-	if isIsolated {
+	if requiresIsolation { // This solution is not scalable and doesn't work when we have multiple cd-service pods. Ref: SRX-8JRR7Q
+		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
 		isolatedTransformersLock.Lock()
 		defer isolatedTransformersLock.Unlock()
 	} else {
+		// we also use a read lock, so that destructive and non-destructive transformers cannot run in parallel:
 		isolatedTransformersLock.RLock()
 		defer isolatedTransformersLock.RUnlock()
 	}
