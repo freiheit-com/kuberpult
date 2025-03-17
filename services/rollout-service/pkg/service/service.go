@@ -45,7 +45,7 @@ var (
 )
 
 type ArgoEventProcessor interface {
-	ProcessArgoEvent(ctx context.Context, ev ArgoEvent)
+	ProcessArgoEvent(ctx context.Context, ev ArgoEvent) bool
 }
 
 func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, dispatcher *Dispatcher, hlth *setup.HealthReporter, a *argo.ArgoAppProcessor, ddMetrics statsd.ClientInterface) error {
@@ -78,7 +78,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			var eventDiscarded = false
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
-				dispatcher.Dispatch(ctx, k, ev)
+				sentEvent := dispatcher.Dispatch(ctx, k, ev)
 				select {
 				case a.ArgoApps <- ev:
 				default:
@@ -103,6 +103,9 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 					if ddError != nil {
 						logger.FromContext(ctx).Sugar().Warnf("could not send argo_events_fill_rate metric to datadog! Err: %v", ddError)
 					}
+				}
+				if sentEvent {
+					//Write to Database
 				}
 			case "BOOKMARK":
 				// ignore this event

@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
@@ -38,16 +39,22 @@ func NewDispatcher(sink ArgoEventProcessor, vc versions.VersionClient) *Dispatch
 	return rs
 }
 
-func (r *Dispatcher) Dispatch(ctx context.Context, k Key, ev *v1alpha1.ApplicationWatchEvent) {
-	revision := ev.Application.Status.Sync.Revision
-	version, _ := r.versionClient.GetVersion(ctx, revision, k.Environment, k.Application)
-	if version != nil {
-		r.sendEvent(ctx, k, version, ev)
+func (r *Dispatcher) Dispatch(ctx context.Context, k Key, ev *v1alpha1.ApplicationWatchEvent) bool {
+	revision := ev.Application.Status.OperationState.SyncResult.Revision
+	version, err := r.versionClient.GetVersion(ctx, revision, k.Environment, k.Application)
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("error getting version %q for app %q on environment %q: %v", revision, k.Application, k.Environment, err)
+		return false
 	}
+	if version == nil {
+		logger.FromContext(ctx).Sugar().Info("version %q for app %q on environment %q not found.", revision, k.Application, k.Environment, err)
+		return false
+	}
+	return r.sendEvent(ctx, k, version, ev)
 }
 
-func (r *Dispatcher) sendEvent(ctx context.Context, k Key, version *versions.VersionInfo, ev *v1alpha1.ApplicationWatchEvent) {
-	r.sink.ProcessArgoEvent(ctx, ArgoEvent{
+func (r *Dispatcher) sendEvent(ctx context.Context, k Key, version *versions.VersionInfo, ev *v1alpha1.ApplicationWatchEvent) bool {
+	return r.sink.ProcessArgoEvent(ctx, ArgoEvent{
 		Application:      k.Application,
 		Environment:      k.Environment,
 		SyncStatusCode:   ev.Application.Status.Sync.Status,
