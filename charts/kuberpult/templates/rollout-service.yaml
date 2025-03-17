@@ -220,12 +220,6 @@ spec:
           value: {{ .Values.db.dbOption }} # { postgreSQL}
         - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
           value: "false"
-        - name: KUBERPULT_PERSIST_ARGO_EVENTS
-          value: "{{ .Values.rollout.persistArgoEvents }}"
-{{- if .Values.rollout.persistArgoEvents }}
-        - name: KUBERPULT_ARGO_EVENTS_BATCH_SIZE
-          value: "{{ .Values.rollout.argoEventsBatchSize }}"
-{{- end }}
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
