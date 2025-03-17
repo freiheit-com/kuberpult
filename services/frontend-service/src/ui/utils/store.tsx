@@ -1280,6 +1280,16 @@ export const invalidateAppDetailsForApp = (appName: string): void => {
     updateAppDetails.set(details);
 };
 
+export const InvalidateAppLocks = (envName: string, appName: string, lockId: string): void => {
+    const appLockDetails = UpdateAllApplicationLocks.get();
+
+    appLockDetails[envName].appLocks[appName].locks = appLockDetails[envName].appLocks[appName].locks.filter(
+        (currLock) => lockId !== currLock.lockId
+    );
+
+    UpdateAllApplicationLocks.set(appLockDetails);
+};
+
 export const EnableRolloutStatus = (): void => {
     rolloutStatus.set({ enabled: true });
 };
