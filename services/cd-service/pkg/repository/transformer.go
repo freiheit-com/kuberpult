@@ -1313,7 +1313,7 @@ type CleanupOldApplicationVersions struct {
 }
 
 func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
-	panic("CleanupOldApplicationVersions GetDBEventType")
+	return db.EvtCleanupOldApplicationVersions
 }
 
 func (c *CleanupOldApplicationVersions) SetEslVersion(id db.TransformerID) {
@@ -2794,7 +2794,7 @@ type envReleaseTrain struct {
 }
 
 func (c *envReleaseTrain) GetDBEventType() db.EventType {
-	panic("envReleaseTrain GetDBEventType")
+	return db.EvtEnvReleaseTrain
 }
 
 func (c *envReleaseTrain) SetEslVersion(id db.TransformerID) {
@@ -3296,7 +3296,7 @@ type skippedServices struct {
 }
 
 func (c *skippedServices) GetDBEventType() db.EventType {
-	panic("GetDBEventType for skippedServices")
+	return db.EvtSkippedServices
 }
 
 func (c *skippedServices) SetEslVersion(id db.TransformerID) {
@@ -3331,7 +3331,7 @@ type skippedService struct {
 }
 
 func (c *skippedService) GetDBEventType() db.EventType {
-	panic("GetDBEventType for skippedService")
+	return db.EvtSkippedServices
 }
 
 func (c *skippedService) SetEslVersion(id db.TransformerID) {
