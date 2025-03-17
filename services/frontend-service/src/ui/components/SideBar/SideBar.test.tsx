@@ -525,6 +525,56 @@ describe('Action details', () => {
             },
         },
         {
+            name: 'test deploy action - forward',
+            action: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'foo',
+                        application: 'bread',
+                        version: 1338,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.Deploy,
+                name: 'Deploy',
+                dialogTitle: 'Please be aware:',
+                summary: 'Advancing by 1 releases up to version 1338 of bread to foo',
+                tooltip: '',
+                environment: 'foo',
+                application: 'bread',
+                version: 1338,
+            },
+        },
+        {
+            name: 'test deploy action - rollback',
+            action: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'foo',
+                        application: 'bread',
+                        version: 1336,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.Deploy,
+                name: 'Deploy',
+                dialogTitle: 'Please be aware:',
+                summary: 'Rolling back by 1 releases down to version 1336 of bread to foo',
+                tooltip: '',
+                environment: 'foo',
+                application: 'bread',
+                version: 1336,
+            },
+        },
+        {
             name: 'test prepareUndeploy action',
             action: {
                 action: {
@@ -622,7 +672,31 @@ describe('Action details', () => {
                             name: 'test2',
                             releases: [
                                 {
+                                    version: 1338,
+                                    sourceAuthor: 'SomeAuthor',
+                                    sourceMessage: 'some message',
+                                    sourceCommitId: 'somecommitid',
+                                    undeployVersion: true,
+                                    prNumber: '',
+                                    displayVersion: '1337',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: ['foo'],
+                                },
+                                {
                                     version: 1337,
+                                    sourceAuthor: 'SomeAuthor',
+                                    sourceMessage: 'some message',
+                                    sourceCommitId: 'somecommitid',
+                                    undeployVersion: true,
+                                    prNumber: '',
+                                    displayVersion: '1337',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: ['foo'],
+                                },
+                                {
+                                    version: 1336,
                                     sourceAuthor: 'SomeAuthor',
                                     sourceMessage: 'some message',
                                     sourceCommitId: 'somecommitid',
@@ -641,7 +715,13 @@ describe('Action details', () => {
                         },
                         appLocks: {},
                         teamLocks: {},
-                        deployments: {},
+                        deployments: {
+                            foo: {
+                                version: 1337,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
