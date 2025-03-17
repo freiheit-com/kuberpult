@@ -371,7 +371,7 @@ var isolatedTransformerNames = []string{"UndeployApplication", "DeleteEnvFromApp
 
 func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
 	r.Stack = append(r.Stack, nil)
-	tranformerTypeName := reflect.TypeOf(t).Name()
+	transformerTypeName := t.GetDBEventType()
 	isIsolated := false
 	for _, isolatedTransformerName := range isolatedTransformerNames {
 		if isolatedTransformerName == tranformerTypeName {
