@@ -119,7 +119,7 @@ type Config struct {
 	DisableQueue bool `required:"true" split_words:"true"`
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
-	MigrationServer       string `required:"true" split_words:"true"`
+	MigrationServer       string `required:"false" split_words:"true"`
 	MigrationServerSecure bool   `required:"true" split_words:"true"`
 	GrpcMaxRecvMsgSize    int    `required:"true" split_words:"true"`
 
@@ -360,7 +360,7 @@ func RunServer() {
 
 			var migrationClient api.MigrationServiceClient = nil
 			if c.MigrationServer == "" {
-				logger.FromContext(ctx).Fatal("MigrationServer required")
+				logger.FromContext(ctx).Fatal("MigrationServer required when KUBERPULT_CHECK_CUSTOM_MIGRATIONS is enabled")
 			}
 			var cred credentials.TransportCredentials = insecure.NewCredentials()
 			if c.MigrationServerSecure {
