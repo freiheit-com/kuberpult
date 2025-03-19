@@ -2875,7 +2875,7 @@ func TestDeleteEnvironment(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedCommitMsg: "Successfully deleted environment 'production'",
+			expectedCommitMsg: "Successfully deleted environment 'production'\nEnvironment 'production' was removed from application 'test-app' successfully.",
 		},
 		{
 			Name: "Delete Env - App in env & has a deployment",
@@ -2905,7 +2905,7 @@ func TestDeleteEnvironment(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedCommitMsg: "Successfully deleted environment 'production'",
+			expectedCommitMsg: "Successfully deleted environment 'production'\nEnvironment 'production' was removed from application 'test-app' successfully.",
 		},
 		{
 			Name: "Delete Env - Attempt to delete with env lock",
