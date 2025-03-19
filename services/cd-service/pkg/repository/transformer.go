@@ -28,7 +28,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -366,27 +365,8 @@ type transformerRunner struct {
 	DeletedRootApps []RootApp
 }
 
-var isolatedTransformersLock sync.RWMutex
-var isolatedTransformerNames = []db.EventType{db.EvtUndeployApplication, db.EvtDeleteEnvFromApp, db.EvtDeleteEnvironment}
-
 func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
 	r.Stack = append(r.Stack, nil)
-	transformerTypeName := t.GetDBEventType()
-	requiresIsolation := false
-	for _, isolatedTransformerName := range isolatedTransformerNames {
-		if isolatedTransformerName == transformerTypeName {
-			requiresIsolation = true
-		}
-	}
-	if requiresIsolation { // This solution is not scalable and doesn't work when we have multiple cd-service pods. Ref: SRX-8JRR7Q
-		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
-		isolatedTransformersLock.Lock()
-		defer isolatedTransformersLock.Unlock()
-	} else {
-		// we also use a read lock, so that destructive and non-destructive transformers cannot run in parallel:
-		isolatedTransformersLock.RLock()
-		defer isolatedTransformersLock.RUnlock()
-	}
 	msg, err := t.Transform(ctx, r.State, r, transaction)
 	if err != nil {
 		return err
