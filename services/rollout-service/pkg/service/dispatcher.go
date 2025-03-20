@@ -9,7 +9,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 MIT License for more details.
 
-You should have received ArgoAppProcessor copy of the MIT License
+You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
@@ -24,7 +24,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
 
-// The Dispatcher is responsible for enriching argo events with version data from kuberpult. It also maintains ArgoAppProcessor backlog of applications where adding this data failed.
+// The Dispatcher is responsible for enriching argo events with version data from kuberpult. It also maintains a backlog of applications where adding this data failed.
 // The backlog is retried frequently so that missing data eventually can be resolved.
 type Dispatcher struct {
 	sink          ArgoEventProcessor

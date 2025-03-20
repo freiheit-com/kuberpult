@@ -865,7 +865,7 @@ func TestVersionClientStream(t *testing.T) {
 				tc.VersionResponses = map[string]mockVersionResponse{}
 			}
 			mvc := &mockVersionClient{responses: tc.VersionResponses}
-			vc := New(moc, mvc, nil, false, []string{}, *SetupDB(t))
+			vc := New(moc, mvc, nil, false, []string{}, *setupDB(t))
 			hs := &setup.HealthServer{}
 			hs.BackOffFactory = func() backoff.BackOff {
 				return backoff.NewConstantBackOff(time.Millisecond)
@@ -948,8 +948,8 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 	}
 }
 
-// SetupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
-func SetupDB(t *testing.T) *db.DBHandler {
+// setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
+func setupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
 	dir, err := testutil.CreateMigrationsPath(2)
 	tmpDir := t.TempDir()

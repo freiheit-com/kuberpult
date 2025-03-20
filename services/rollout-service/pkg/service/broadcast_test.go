@@ -775,7 +775,7 @@ func TestGetStatus(t *testing.T) {
 					Environment:      "dev",
 					Version:          &versions.VersionInfo{Version: 3},
 					EnvironmentGroup: "dev-group",
-					Team:             "ArgoAppProcessor",
+					Team:             "a",
 				},
 				{
 					Application:      "foo",
