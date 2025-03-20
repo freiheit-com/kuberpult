@@ -110,7 +110,6 @@ func New() *Broadcast {
 }
 
 // ProcessArgoEvent implements service.EventProcessor
-// returns boolean representing if an event was broadcasted or not
 func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEvent {
 	b.mx.Lock()
 	defer b.mx.Unlock()
