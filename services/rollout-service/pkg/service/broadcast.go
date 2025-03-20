@@ -373,7 +373,7 @@ func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
 	return api.RolloutStatus_ROLLOUT_STATUS_UNKNOWN
 }
 
-// Depending on the rollout state, there are different things ArgoAppProcessor user should do.
+// Depending on the rollout state, there are different things a user should do.
 // 1. Nothing because everything is fine
 // 2. Wait longer
 // 3. Stop and call an operator

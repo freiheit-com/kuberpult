@@ -9,7 +9,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 MIT License for more details.
 
-You should have received ArgoAppProcessor copy of the MIT License
+You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
@@ -37,7 +37,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// this is ArgoAppProcessor simpler version of ApplicationServiceClient from the application package
+// this is a simpler version of ApplicationServiceClient from the application package
 type SimplifiedApplicationServiceClient interface {
 	Watch(ctx context.Context, qry *application.ApplicationQuery, opts ...grpc.CallOption) (application.ApplicationService_WatchClient, error)
 }

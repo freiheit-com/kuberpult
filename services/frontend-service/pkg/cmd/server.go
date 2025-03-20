@@ -825,7 +825,6 @@ func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.Rollout
 			if err != nil {
 				return err
 			}
-			fmt.Println(item)
 			err = stream.Send(item)
 			if err != nil {
 				return err

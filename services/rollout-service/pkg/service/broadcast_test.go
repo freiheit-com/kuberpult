@@ -9,7 +9,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 MIT License for more details.
 
-You should have received ArgoAppProcessor copy of the MIT License
+You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
@@ -313,7 +313,7 @@ func TestBroadcast(t *testing.T) {
 			},
 		},
 		{
-			Name: "healthy app switches to pending when ArgoAppProcessor new version in kuberpult is deployed",
+			Name: "healthy app switches to pending when a new version in kuberpult is deployed",
 			Steps: []step{
 				{
 					VersionEvent: &versions.KuberpultEvent{
