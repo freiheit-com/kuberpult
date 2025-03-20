@@ -27,6 +27,7 @@ export const CompliancePage: React.FC = () => {
         anchor.click();
         URL.revokeObjectURL(anchor.href);
     }, []);
+
     return (
         <div>
             <TopAppBar
