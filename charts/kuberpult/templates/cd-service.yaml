@@ -41,6 +41,7 @@ spec:
   # to `pull` and `push` more often due to possible conflicts.
   # Therefore, we only allow 1 instance of the cd-service.
   # If you temporarily need 2, that will also work.
+  # Having more than 1 cd-service pods may create inconsistent state in the database because some of the transformers require isolation, Ref: SRX-8JRR7Q 
   replicas: 1
   selector:
     matchLabels:
