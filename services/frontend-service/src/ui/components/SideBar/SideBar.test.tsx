@@ -16,17 +16,20 @@ Copyright freiheit.com*/
 import { render, renderHook } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { MemoryRouter } from 'react-router-dom';
-import { BatchAction, LockBehavior, ReleaseTrainRequest_TargetType } from '../../../api/api';
+import { BatchAction, LockBehavior, ReleaseTrainRequest_TargetType, UndeploySummary } from '../../../api/api';
 import {
     addAction,
-    deleteAction,
-    useActions,
-    updateActions,
-    deleteAllActions,
+    AppDetailsResponse,
+    AppDetailsState,
     appendAction,
+    deleteAction,
+    deleteAllActions,
     DisplayLock,
-    UpdateSnackbar,
     SnackbarStatus,
+    updateActions,
+    updateAppDetails,
+    UpdateSnackbar,
+    useActions,
 } from '../../utils/store';
 import { ActionDetails, ActionTypes, getActionDetails, showFailedActionMessage, SideBar } from './SideBar';
 
@@ -522,6 +525,56 @@ describe('Action details', () => {
             },
         },
         {
+            name: 'test deploy action - forward',
+            action: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'foo',
+                        application: 'bread',
+                        version: 1338,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.Deploy,
+                name: 'Deploy',
+                dialogTitle: 'Please be aware:',
+                summary: 'Advancing by 1 releases up to version 1338 of bread to foo',
+                tooltip: '',
+                environment: 'foo',
+                application: 'bread',
+                version: 1338,
+            },
+        },
+        {
+            name: 'test deploy action - rollback',
+            action: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'foo',
+                        application: 'bread',
+                        version: 1336,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.Deploy,
+                name: 'Deploy',
+                dialogTitle: 'Please be aware:',
+                summary: 'Rolling back by 1 releases down to version 1336 of bread to foo',
+                tooltip: '',
+                environment: 'foo',
+                application: 'bread',
+                version: 1336,
+            },
+        },
+        {
             name: 'test prepareUndeploy action',
             action: {
                 action: {
@@ -612,8 +665,73 @@ describe('Action details', () => {
             const envLocks = testcase.envLocks || [];
             const appLocks = testcase.appLocks || [];
             const teamLocks = testcase.teamLocks || [];
-            const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks, teamLocks))
-                .result.current;
+            const appDetails: { [key: string]: AppDetailsResponse } = {
+                bread: {
+                    details: {
+                        application: {
+                            name: 'test2',
+                            releases: [
+                                {
+                                    version: 1338,
+                                    sourceAuthor: 'SomeAuthor',
+                                    sourceMessage: 'some message',
+                                    sourceCommitId: 'somecommitid',
+                                    undeployVersion: true,
+                                    prNumber: '',
+                                    displayVersion: '1337',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: ['foo'],
+                                },
+                                {
+                                    version: 1337,
+                                    sourceAuthor: 'SomeAuthor',
+                                    sourceMessage: 'some message',
+                                    sourceCommitId: 'somecommitid',
+                                    undeployVersion: true,
+                                    prNumber: '',
+                                    displayVersion: '1337',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: ['foo'],
+                                },
+                                {
+                                    version: 1336,
+                                    sourceAuthor: 'SomeAuthor',
+                                    sourceMessage: 'some message',
+                                    sourceCommitId: 'somecommitid',
+                                    undeployVersion: true,
+                                    prNumber: '',
+                                    displayVersion: '1337',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: ['foo'],
+                                },
+                            ],
+                            sourceRepoUrl: 'http://foo.com',
+                            team: 'dummy',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {
+                            foo: {
+                                version: 1337,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                    },
+                    appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
+                    errorMessage: '',
+                },
+            };
+            updateAppDetails.set(appDetails);
+            const obtainedDetails = renderHook(() =>
+                getActionDetails(testcase.action, appLocks, envLocks, teamLocks, appDetails)
+            ).result.current;
             expect(obtainedDetails).toStrictEqual(testcase.expectedDetails);
         });
     });
@@ -675,6 +793,7 @@ describe('Action details', () => {
             name: string;
             actions: BatchAction[];
             expectedTitle: string;
+            appDetails: { [key: string]: AppDetailsResponse };
         }
 
         const data: dataT[] = [
@@ -685,6 +804,39 @@ describe('Action details', () => {
                     { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
                 ],
                 expectedTitle: 'Planned Actions (3)',
+                appDetails: {
+                    nmww: {
+                        details: {
+                            application: {
+                                name: 'nmww',
+                                releases: [
+                                    {
+                                        version: 1337,
+                                        sourceAuthor: 'SomeAuthor',
+                                        sourceMessage: 'some message',
+                                        sourceCommitId: 'somecommitid',
+                                        undeployVersion: true,
+                                        prNumber: '',
+                                        displayVersion: '1337',
+                                        isMinor: false,
+                                        isPrepublish: false,
+                                        environments: ['foo'],
+                                    },
+                                ],
+                                sourceRepoUrl: 'http://foo.com',
+                                team: 'dummy',
+                                undeploySummary: UndeploySummary.NORMAL,
+                                warnings: [],
+                            },
+                            appLocks: {},
+                            teamLocks: {},
+                            deployments: {},
+                        },
+                        appDetailState: AppDetailsState.READY,
+                        updatedAt: new Date(Date.now()),
+                        errorMessage: '',
+                    },
+                },
             },
             {
                 name: 'Add another action',
@@ -703,6 +855,39 @@ describe('Action details', () => {
                     },
                 ],
                 expectedTitle: 'Planned Actions (4)',
+                appDetails: {
+                    bread: {
+                        details: {
+                            application: {
+                                name: 'bread',
+                                releases: [
+                                    {
+                                        version: 1337,
+                                        sourceAuthor: 'SomeAuthor',
+                                        sourceMessage: 'some message',
+                                        sourceCommitId: 'somecommitid',
+                                        undeployVersion: false,
+                                        prNumber: '',
+                                        displayVersion: '1337',
+                                        isMinor: false,
+                                        isPrepublish: false,
+                                        environments: ['foo'],
+                                    },
+                                ],
+                                sourceRepoUrl: 'http://foo.com',
+                                team: 'dummy',
+                                undeploySummary: UndeploySummary.NORMAL,
+                                warnings: [],
+                            },
+                            appLocks: {},
+                            teamLocks: {},
+                            deployments: {},
+                        },
+                        appDetailState: AppDetailsState.READY,
+                        updatedAt: new Date(Date.now()),
+                        errorMessage: '',
+                    },
+                },
             },
             {
                 name: 'Add 2 more actions actions',
@@ -711,6 +896,39 @@ describe('Action details', () => {
                     { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'test2' } } },
                 ],
                 expectedTitle: 'Planned Actions (6)',
+                appDetails: {
+                    test2: {
+                        details: {
+                            application: {
+                                name: 'test2',
+                                releases: [
+                                    {
+                                        version: 1337,
+                                        sourceAuthor: 'SomeAuthor',
+                                        sourceMessage: 'some message',
+                                        sourceCommitId: 'somecommitid',
+                                        undeployVersion: true,
+                                        prNumber: '',
+                                        displayVersion: '1337',
+                                        isMinor: false,
+                                        isPrepublish: false,
+                                        environments: ['foo'],
+                                    },
+                                ],
+                                sourceRepoUrl: 'http://foo.com',
+                                team: 'dummy',
+                                undeploySummary: UndeploySummary.NORMAL,
+                                warnings: [],
+                            },
+                            appLocks: {},
+                            teamLocks: {},
+                            deployments: {},
+                        },
+                        appDetailState: AppDetailsState.READY,
+                        updatedAt: new Date(Date.now()),
+                        errorMessage: '',
+                    },
+                },
             },
         ];
 
@@ -725,6 +943,7 @@ describe('Action details', () => {
                 </MemoryRouter>
             );
         };
+
         const getWrapper = (overrides?: {}) => render(getNode(overrides));
         it('Create an action initially', () => {
             updateActions([{ action: { $case: 'undeploy', undeploy: { application: 'test' } } }]);
@@ -732,6 +951,7 @@ describe('Action details', () => {
             expect(container.getElementsByClassName('sub-headline1')[0].textContent).toBe('Planned Actions (1)');
         });
         describe.each(data)('', (testcase) => {
+            updateAppDetails.set(testcase.appDetails);
             it(testcase.name, () => {
                 appendAction(testcase.actions);
                 const { container } = getWrapper({});
@@ -850,7 +1070,8 @@ describe('Action failed after applying ', () => {
             const envLocks = testcase.envLocks || [];
             const appLocks = testcase.appLocks || [];
             const teamLocks = testcase.teamLocks || [];
-            showFailedActionMessage(testcase.error, testcase.actions, appLocks, envLocks, teamLocks);
+            const appDetails: { [key: string]: AppDetailsResponse } = {};
+            showFailedActionMessage(testcase.error, testcase.actions, appLocks, envLocks, teamLocks, appDetails);
 
             expect(UpdateSnackbar.get().show).toBe(true);
             expect(UpdateSnackbar.get().status).toBe(SnackbarStatus.ERROR);

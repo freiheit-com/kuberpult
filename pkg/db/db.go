@@ -275,6 +275,9 @@ const (
 	EvtDeleteEnvironmentApplicationLock EventType = "DeleteEnvironmentApplicationLock"
 	EvtReleaseTrain                     EventType = "ReleaseTrain"
 	EvtMigrationTransformer             EventType = "MigrationTransformer"
+	EvtEnvReleaseTrain                  EventType = "EnvReleaseTrain"
+	EvtCleanupOldApplicationVersions    EventType = "CleanupOldApplicationVersions"
+	EvtSkippedServices                  EventType = "SkippedServices"
 )
 
 // ESL EVENTS
