@@ -309,7 +309,7 @@ print "connection to rollout service successful"
 kubectl get deployment
 kubectl get pods
 
-
+(cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
 
 for v in $(seq 1 3)
 do

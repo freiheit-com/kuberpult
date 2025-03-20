@@ -9,7 +9,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 MIT License for more details.
 
-You should have received a copy of the MIT License
+You should have received ArgoAppProcessor copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
@@ -110,7 +110,8 @@ func New() *Broadcast {
 }
 
 // ProcessArgoEvent implements service.EventProcessor
-func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) bool {
+// returns boolean representing if an event was broadcasted or not
+func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEvent {
 	b.mx.Lock()
 	defer b.mx.Unlock()
 	k := Key{
@@ -123,7 +124,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) bool {
 	}
 	msg := b.state[k].applyArgoEvent(&ev)
 	if msg == nil {
-		return false
+		return nil
 	}
 	desub := []chan *BroadcastEvent{}
 	for l := range b.listener {
@@ -137,7 +138,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) bool {
 	for _, l := range desub {
 		delete(b.listener, l)
 	}
-	return true
+	return &ev
 }
 
 func (b *Broadcast) ProcessKuberpultEvent(ctx context.Context, ev versions.KuberpultEvent) {
@@ -373,7 +374,7 @@ func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
 	return api.RolloutStatus_ROLLOUT_STATUS_UNKNOWN
 }
 
-// Depending on the rollout state, there are different things a user should do.
+// Depending on the rollout state, there are different things ArgoAppProcessor user should do.
 // 1. Nothing because everything is fine
 // 2. Wait longer
 // 3. Stop and call an operator

@@ -301,7 +301,16 @@ func runServer(ctx context.Context, config Config) error {
 			Shutdown: nil,
 			Name:     "consume argocd events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return service.ConsumeEvents(ctx, appClient, dispatcher, health, versionC.GetArgoProcessor(), ddMetrics)
+				return service.ConsumeEvents(ctx, &service.ConsumeEventsParameters{
+					AppClient:           appClient,
+					Dispatcher:          dispatcher,
+					HealthReporter:      health,
+					ArgoAppProcessor:    versionC.GetArgoProcessor(),
+					DDMetrics:           ddMetrics,
+					DBHandler:           dbHandler,
+					PersistArgoEvents:   config.PersistArgoEvents,
+					ArgoEventsBatchSize: config.ArgoEventsBatchSize,
+				})
 			},
 		},
 		{

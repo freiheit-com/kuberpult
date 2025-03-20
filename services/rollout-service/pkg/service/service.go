@@ -9,7 +9,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 MIT License for more details.
 
-You should have received a copy of the MIT License
+You should have received ArgoAppProcessor copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
@@ -18,8 +18,11 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
@@ -34,7 +37,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// this is a simpler version of ApplicationServiceClient from the application package
+// this is ArgoAppProcessor simpler version of ApplicationServiceClient from the application package
 type SimplifiedApplicationServiceClient interface {
 	Watch(ctx context.Context, qry *application.ApplicationQuery, opts ...grpc.CallOption) (application.ApplicationService_WatchClient, error)
 }
@@ -45,10 +48,29 @@ var (
 )
 
 type ArgoEventProcessor interface {
-	ProcessArgoEvent(ctx context.Context, ev ArgoEvent) bool
+	ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEvent
 }
 
-func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, dispatcher *Dispatcher, hlth *setup.HealthReporter, a *argo.ArgoAppProcessor, ddMetrics statsd.ClientInterface) error {
+type ConsumeEventsParameters struct {
+	AppClient           SimplifiedApplicationServiceClient
+	Dispatcher          *Dispatcher
+	HealthReporter      *setup.HealthReporter
+	ArgoAppProcessor    *argo.ArgoAppProcessor
+	DDMetrics           statsd.ClientInterface
+	DBHandler           *db.DBHandler
+	PersistArgoEvents   bool
+	ArgoEventsBatchSize int
+}
+
+func ConsumeEvents(ctx context.Context, params *ConsumeEventsParameters) error {
+	hlth := params.HealthReporter
+	appClient := params.AppClient
+	dispatcher := params.Dispatcher
+	a := params.ArgoAppProcessor
+	ddMetrics := params.DDMetrics
+	handler := params.DBHandler
+
+	var argoEventBatch []*db.ArgoEvent
 	return hlth.Retry(ctx, func() error {
 		//exhaustruct:ignore
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
@@ -78,7 +100,8 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			var eventDiscarded = false
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
-				sentEvent := dispatcher.Dispatch(ctx, k, ev)
+				argoEvent := dispatcher.Dispatch(ctx, k, ev)
+				sentEvent := argoEvent != nil
 				select {
 				case a.ArgoApps <- ev:
 				default:
@@ -104,8 +127,28 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 						logger.FromContext(ctx).Sugar().Warnf("could not send argo_events_fill_rate metric to datadog! Err: %v", ddError)
 					}
 				}
-				if sentEvent {
-					//Write to Database
+
+				if sentEvent && params.PersistArgoEvents {
+					jsonEvent, err := json.Marshal(argoEvent)
+					if err != nil {
+						return err
+					}
+					dbEvent := &db.ArgoEvent{
+						App:       k.Application,
+						Env:       k.Environment,
+						JsonEvent: jsonEvent,
+						Discarded: eventDiscarded,
+					}
+					argoEventBatch = append(argoEventBatch, dbEvent)
+					if len(argoEventBatch) <= params.ArgoEventsBatchSize {
+						err := handler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+							return handler.InsertArgoEvents(ctx, transaction, argoEventBatch)
+						})
+						if err != nil {
+							return err
+						}
+						argoEventBatch = []*db.ArgoEvent{}
+					}
 				}
 			case "BOOKMARK":
 				// ignore this event
@@ -127,4 +170,24 @@ type ArgoEvent struct {
 	HealthStatusCode health.HealthStatusCode
 	OperationState   *v1alpha1.OperationState
 	Version          *versions.VersionInfo
+}
+
+func ToArgoEvent(k Key, ev *v1alpha1.ApplicationWatchEvent, version *versions.VersionInfo) ArgoEvent {
+	return ArgoEvent{
+		Application:      k.Application,
+		Environment:      k.Environment,
+		SyncStatusCode:   ev.Application.Status.Sync.Status,
+		HealthStatusCode: ev.Application.Status.Health.Status,
+		OperationState:   ev.Application.Status.OperationState,
+		Version:          version,
+	}
+}
+
+func ToDBEvent(k Key, ev *v1alpha1.ApplicationWatchEvent, version *versions.VersionInfo, discarded bool) (db.ArgoEvent, error) {
+	argoEvent := ToArgoEvent(k, ev, version)
+	jsonEvent, err := json.Marshal(argoEvent)
+	if err != nil {
+		return db.ArgoEvent{}, err
+	}
+	return db.ArgoEvent{App: k.Application, Env: k.Environment, JsonEvent: jsonEvent, Discarded: discarded}, nil
 }

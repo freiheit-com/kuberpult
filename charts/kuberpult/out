@@ -1,0 +1,755 @@
+---
+# Source: kuberpult/templates/frontend-service.yaml
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuberpult-frontend-service
+  labels:
+    app: kuberpult-frontend-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kuberpult-frontend-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-frontend-service
+      annotations:
+    spec:
+      containers:
+      - name: service
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:v13.3.0-2-ge7f37528"
+        ports:
+          - name: http
+            containerPort: 8081
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        resources:
+          limits:
+            cpu: "0.05"
+            memory: "200Mi"
+          requests:
+            cpu: "0.05"
+            memory: "200Mi"
+        env:
+        - name: KUBERPULT_GIT_AUTHOR_NAME
+          value: "local.user@example.com"
+        - name: KUBERPULT_GIT_AUTHOR_EMAIL
+          value: "defaultUser"
+        - name: KUBERPULT_CDSERVER
+          value: kuberpult-cd-service:8443
+        - name: KUBERPULT_VERSIONSERVER
+          value: kuberpult-manifest-repo-export-service:8443
+        - name: KUBERPULT_ARGOCD_BASE_URL
+          value: ""
+        - name: KUBERPULT_ARGOCD_NAMESPACE
+          value: 
+        - name: KUBERPULT_BATCH_CLIENT_TIMEOUT
+          value: "2m"
+        - name: KUBERPULT_VERSION
+          value: "v13.3.0-2-ge7f37528"
+        - name: KUBERPULT_SOURCE_REPO_URL
+          value: "https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}"
+        - name: KUBERPULT_MANIFEST_REPO_URL
+          value: ""
+        - name: LOG_FORMAT
+          value: ""
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: KUBERPULT_GKE_BACKEND_SERVICE_ID
+          value: ""
+        - name: KUBERPULT_GKE_BACKEND_SERVICE_NAME
+          value: ""
+        - name: KUBERPULT_GKE_PROJECT_NUMBER
+          value: ""
+        - name: KUBERPULT_ALLOWED_ORIGINS
+          value: "https://kuberpult.example.com"
+        - name: KUBERPULT_GIT_BRANCH
+          value: "main"
+        - name: KUBERPULT_IAP_ENABLED
+          value: "false"
+        - name: KUBERPULT_API_ENABLE_DESPITE_NO_AUTH
+          value: "true"
+        - name: KUBERPULT_DEX_ENABLED
+          value: "false"
+        - name: KUBERPULT_PGP_KEY_RING_PATH
+          value: /keyring/keyring.gpg
+        - name: KUBERPULT_AZURE_ENABLE_AUTH
+          value: "false"
+        - name: KUBERPULT_ROLLOUTSERVER
+          value: "kuberpult-rollout-service:8443"
+        - name: KUBERPULT_MAX_WAIT_DURATION
+          value: "10m"
+        - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
+          value: "4"
+        volumeMounts:
+        - name: keyring
+          mountPath: /keyring 
+      volumes:
+      - name: keyring
+        configMap:
+          name: kuberpult-keyring
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-frontend-service
+  annotations:
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    app: kuberpult-frontend-service
+  type: NodePort
+
+---
+# Source: kuberpult/templates/cd-service.yaml
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuberpult-cd-service
+  labels:
+    app: kuberpult-cd-service
+spec:
+  # Generally, it is possible to have multiple instances of the cd-service.
+  # However, most time is spent in a `git push`, which cannot be parallelized much.
+  # Having multiple instances works when there are only few requests/sec,
+  # but it may get inefficient if there are many, since kuberpult then needs
+  # to `pull` and `push` more often due to possible conflicts.
+  # Therefore, we only allow 1 instance of the cd-service.
+  # If you temporarily need 2, that will also work.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kuberpult-cd-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-cd-service
+      annotations:
+    spec:
+      serviceAccountName: default
+      containers:
+      - name: service
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:v13.3.0-2-ge7f37528"
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+          - name: grpc
+            containerPort: 8443
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+          failureThreshold: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+          failureThreshold: 10
+        resources:
+          limits:
+            cpu: "0.05"
+            memory: "200Mi"
+          requests:
+            cpu: "0.05"
+            memory: "200Mi"
+        env:
+        - name: KUBERPULT_GIT_URL
+          value: "ssh://git@server.git.svc.cluster.local/git/repos/manifests"
+        - name: KUBERPULT_GIT_BRANCH
+          value: "main"
+        - name: KUBERPULT_VERSION
+          value: "v13.3.0-2-ge7f37528"
+        - name: LOG_FORMAT
+          value: ""
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: KUBERPULT_ARGO_CD_INSECURE
+          value: "true"
+        - name: KUBERPULT_ARGO_CD_GENERATE_FILES
+          value: "true"
+        - name: KUBERPULT_GIT_WEB_URL
+          value: 
+        - name: KUBERPULT_PGP_KEY_RING_PATH
+          value: /keyring/keyring.gpg
+        - name: KUBERPULT_AZURE_ENABLE_AUTH
+          value: "false"
+        - name: KUBERPULT_DEX_ENABLED
+          value: "false"
+        - name: KUBERPULT_GIT_NETWORK_TIMEOUT
+          value: "1s"
+        - name: KUBERPULT_DISABLE_QUEUE
+          value: "false"
+        - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
+          value: "true"
+        - name: KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH
+          value: "5"
+        - name: KUBERPULT_ENABLE_PROFILING
+          value: "false"
+        - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
+          value: "5"
+        - name: KUBERPULT_MAX_NUMBER_OF_THREADS
+          value: "3"
+        - name: KUBERPULT_DB_OPTION # { postgreSQL}
+          value: postgreSQL
+        - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
+          value: "false"
+        - name: KUBERPULT_DB_LOCATION
+          value: postgres
+        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
+          value: /migrations
+        - name: KUBERPULT_DB_NAME
+          value: "kuberpult"
+        - name: KUBERPULT_DB_USER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: username
+        - name: KUBERPULT_DB_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: password
+        - name: KUBERPULT_DB_SSL_MODE
+          value: "disable"
+        - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
+          value: "100"
+        - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
+          value: "20"
+        - name: KUBERPULT_CHECK_CUSTOM_MIGRATIONS
+          value: "false"
+        - name: KUBERPULT_ALLOW_LONG_APP_NAMES
+          value: "false"
+        - name: KUBERPULT_ALLOWED_DOMAINS
+          value: ""
+        - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
+          value: "20"
+        - name: KUBERPULT_MIGRATION_SERVER
+          value: kuberpult-manifest-repo-export-service:8443
+        - name: KUBERPULT_MIGRATION_SERVER_SECURE
+          value: "false"
+        - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
+          value: "4"
+        volumeMounts:
+        - name: migrations
+          mountPath: /migrations
+          readOnly: false
+        - name: repository
+          mountPath: /repository
+        - name: ssh
+          mountPath: /etc/ssh
+        - name: keyring
+          mountPath: /keyring
+      volumes:
+      - name: repository
+        # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
+        # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
+        # Because of an issue in gitlib2, this actually happens.
+        emptyDir:
+          sizeLimit: 30Gi
+      - name: ssh
+        secret:
+          secretName: kuberpult-ssh
+      - name: keyring
+        configMap:
+          name: kuberpult-keyring
+      - name: migrations
+        configMap:
+          name: kuberpult-migrations-cloudsql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-cd-service
+  annotations:
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  - name: grpc
+    port: 8443
+    targetPort: grpc
+  selector:
+    app: kuberpult-cd-service
+  type: NodePort
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kuberpult-ssh
+data:
+  identity: "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNDMW1mTVVkZFlraHQ5YkQ5clI0L1FEQUUzV3h1bDFvNE02U3czL0pIMTlOQUFBQUpEVHpKSTIwOHlTCk5nQUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQzFtZk1VZGRZa2h0OWJEOXJSNC9RREFFM1d4dWwxbzRNNlN3My9KSDE5TkEKQUFBRUNHUUZYUmlQUlU2T0p6VkNGUmZoTTZlWkFHUHR4QkVqdTZUbFFzY3A4bTRyV1o4eFIxMWlTRzMxc1AydEhqOUFNQQpUZGJHNlhXamd6cExEZjhrZlgwMEFBQUFCbU5zYVdWdWRBRUNBd1FGQmdjPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K"
+  ssh_known_hosts: "c2VydmVyLmdpdC5zdmMuY2x1c3Rlci5sb2NhbCBzc2gtZWQyNTUxOSBBQUFBQzNOemFDMWxaREkxTlRFNUFBQUFJS0p2SHQvVmlDZnZmdmZqQ2N0dlFvQVcrN3NNZ3AydHg3TUhoVTRIeFNYbCBob3N0CmxvY2FsaG9zdCBzc2gtZWQyNTUxOSBBQUFBQzNOemFDMWxaREkxTlRFNUFBQUFJS0p2SHQvVmlDZnZmdmZqQ2N0dlFvQVcrN3NNZ3AydHg3TUhoVTRIeFNYbCBob3N0Cg=="
+---apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuberpult-keyring
+data:
+  keyring.gpg: "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmDMEZ9hK2RYJKwYBBAHaRw8BAQdAPqFD1HKMNxDfcY+P4ZXK/7EUFNAVcmk/qulH\nHXZNZ/G0Gmt1YmVycHVsdC1raW5kQGV4YW1wbGUuY29tiJkEExYKAEEWIQQMjTV7\nFmtlagBtlF9TPjmALPdsXQUCZ9hK2QIbAwUJBaOagAULCQgHAgIiAgYVCgkICwIE\nFgIDAQIeBwIXgAAKCRBTPjmALPdsXf/ZAP9FyeeU55cvI8HeKBUFYuha2JhZjC+n\nejoWnvZHRy2miAD/aN4KR5+M2LM5bMRI9xTnU3rIdBolNDrMJxAkQv+kAgC4OARn\n2ErZEgorBgEEAZdVAQUBAQdAE/XMNMmvizIlrT10k2sGgFbqhpF9a+25s62zZjS9\nDSsDAQgHiHgEGBYKACAWIQQMjTV7FmtlagBtlF9TPjmALPdsXQUCZ9hK2QIbDAAK\nCRBTPjmALPdsXSoaAP9+MtJB5T1L3CywzrkBzd4+58u5aHI5lbHzg10ISxHrbwD/\nU4FbaPgJN+EEq01joaOID68hh1rpbQOCtl2chwSLSAE=\n=AGI9\n-----END PGP PUBLIC KEY BLOCK-----\n"
+---
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kuberpult-db
+data:
+  username: "cG9zdGdyZXM="
+  password: "bXlwYXNzd29yZA=="
+
+---
+# Source: kuberpult/templates/rollout-service.yaml
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com
+# This file is part of kuberpult.---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuberpult-rollout-service
+  labels:
+    app: kuberpult-rollout-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kuberpult-rollout-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-rollout-service
+      annotations:
+    spec:
+      serviceAccountName: default
+      containers:
+      - name: service
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:v13.3.0-2-ge7f37528"
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+          - name: grpc
+            containerPort: 8443
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        resources:
+          limits:
+            cpu: "0.05"
+            memory: "200Mi"
+          requests:
+            cpu: "0.05"
+            memory: "200Mi"
+        env:
+        - name: KUBERPULT_CDSERVER
+          value: kuberpult-cd-service:8443
+        - name: KUBERPULT_VERSIONSERVER
+          value: kuberpult-cd-service:8443
+        - name: KUBERPULT_ARGOCD_SERVER
+          value: "https://argocd-server.default.svc.cluster.local:443"
+        - name: KUBERPULT_ARGOCD_INSECURE
+          value: "true"
+        - name: KUBERPULT_ARGOCD_REFRESH_ENABLED
+          value: "true"
+        - name: KUBERPULT_ARGOCD_REFRESH_CONCURRENCY
+          value: "50"
+        - name: KUBERPULT_ARGOCD_REFRESH_CLIENT_TIMEOUT_SECONDS
+          value: "30"
+        - name: KUBERPULT_MANAGE_ARGO_APPLICATIONS_ENABLED
+          value: "true"
+        - name: KUBERPULT_MANAGE_ARGO_APPLICATIONS_FILTER
+          value: "*"
+        - name: LOG_FORMAT
+          value: ""
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
+          value: /migrations
+        - name: KUBERPULT_DB_AUTH_PROXY_PORT
+          value: "5432"
+        - name: KUBERPULT_ARGOCD_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-rollout-service
+              key: KUBERPULT_ARGOCD_TOKEN
+        - name: KUBERPULT_REVOLUTION_DORA_ENABLED
+          value: "false"
+        - name: KUBERPULT_REVOLUTION_DORA_URL
+          value: ""
+        - name: KUBERPULT_REVOLUTION_DORA_CONCURRENCY
+          value: "20"
+        - name: KUBERPULT_REVOLUTION_DORA_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-rollout-service
+              key: KUBERPULT_REVOLUTION_DORA_TOKEN
+        - name: KUBERPULT_REVOLUTION_DORA_MAX_EVENT_AGE
+          value: "2h"
+        - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
+          value: "4"
+        - name: KUBERPULT_DB_OPTION
+          value: postgreSQL # { postgreSQL}
+        - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
+          value: "false"
+        - name: KUBERPULT_PERSIST_ARGO_EVENTS
+          value: "false"
+{ { - if .Values.rollout.persistArgoEvents } }
+        - name: KUBERPULT_ARGO_EVENTS_BATCH_SIZE
+          value: "1"
+{ { - end } }
+        - name: KUBERPULT_DB_LOCATION
+          value: postgres
+        - name: KUBERPULT_DB_NAME
+          value: "kuberpult"
+        - name: KUBERPULT_DB_SSL_MODE
+          value: "disable"
+        - name: KUBERPULT_DB_USER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: username
+        - name: KUBERPULT_DB_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: password
+        - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
+          value: "100"
+        - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
+          value: "20"
+        volumeMounts:
+        # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
+        - name: tmp
+          mountPath: /tmp
+          readOnly: false
+      volumes:
+      - name: tmp
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-rollout-service
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  - name: grpc
+    port: 8443
+    targetPort: grpc
+  selector:
+    app: kuberpult-rollout-service
+  type: NodePort
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kuberpult-rollout-service
+type: Opaque
+data:
+  KUBERPULT_ARGOCD_TOKEN: "ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKaGNtZHZZMlFpTENKemRXSWlPaUpyZFdKbGNuQjFiSFE2WVhCcFMyVjVJaXdpYm1KbUlqb3hOelF5TWpJNE16TTNMQ0pwWVhRaU9qRTNOREl5TWpnek16Y3NJbXAwYVNJNkltRmlPVFZqTmpVekxXUXdORFF0TkRRNU1pMDVZek14TFRNNE1UTXhZek0zWmpjMk55SjkudS1KNjlmSWpxMXRSYXVnSFNqbHloeGNZYmxGYzJvQXRmRzlKb2VVckhldw=="
+  KUBERPULT_REVOLUTION_DORA_TOKEN: ""
+
+---
+# Source: kuberpult/templates/migrations.yaml
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuberpult-migrations-sqlite
+data:
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuberpult-migrations-cloudsql
+data:
+---
+---
+# Source: kuberpult/templates/manifest-repo-export-service.yaml
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com# the export service is only enabled, if the DB is enabled and the `enabled` flag is true
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuberpult-manifest-repo-export-service
+  labels:
+    app: kuberpult-manifest-repo-export-service
+spec:
+  # This service works as an export. There should only be 1 instance of it at all times.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kuberpult-manifest-repo-export-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-manifest-repo-export-service
+      annotations:
+    spec:
+      serviceAccountName: default
+      containers:
+      - name: service
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:v13.3.0-2-ge7f37528"
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+          - name: grpc
+            containerPort: 8443
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+          failureThreshold: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+          failureThreshold: 10
+        resources:
+          limits:
+            cpu: "0.05"
+            memory: "200Mi"
+          requests:
+            cpu: "0.05"
+            memory: "200Mi"
+        env:
+        - name: KUBERPULT_GIT_URL
+          value: "ssh://git@server.git.svc.cluster.local/git/repos/manifests"
+        - name: KUBERPULT_GIT_BRANCH
+          value: "main"
+        - name: KUBERPULT_GIT_SSH_KEY
+          value: "/etc/ssh/identity"
+        - name: KUBERPULT_GIT_SSH_KNOWN_HOSTS
+          value: "/etc/ssh/ssh_known_hosts"
+        - name: KUBERPULT_ARGO_CD_GENERATE_FILES
+          value: "true"
+        - name: KUBERPULT_NETWORK_TIMEOUT_SECONDS
+          value: "120"
+        - name: KUBERPULT_VERSION
+          value: "v13.3.0-2-ge7f37528"
+        - name: LOG_FORMAT
+          value: ""
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: KUBERPULT_ESL_PROCESSING_BACKOFF
+          value: "15"
+        - name: KUBERPULT_DB_LOCATION
+          value: "postgres"
+        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
+          value: /migrations
+        - name: KUBERPULT_DB_NAME
+          value: "kuberpult"
+        - name: KUBERPULT_DB_USER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: username
+        - name: KUBERPULT_DB_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: password
+        - name: KUBERPULT_DB_SSL_MODE
+          value: "disable"
+        - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
+          value: postgreSQL
+        - name: KUBERPULT_DB_AUTH_PROXY_PORT
+          value: "5432"
+        - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
+          value: "5"
+        - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
+          value: "2"
+        - name: KUBERPULT_ENABLE_PROFILING
+          value: "false"
+        - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
+          value: "20"
+        - name: KUBERPULT_MINIMIZE_EXPORTED_DATA
+          value: "false"
+        - name: KUBERPULT_CHECK_CUSTOM_MIGRATIONS
+          value: "false"
+        volumeMounts:
+        - name: repository
+          # The repository volume, an emptyDir, is mounted to the kp directory.
+          # The manifest-repo-export-service creates the repository inside this directory in /kp/repository.
+          # We mount the volume to the parent because kubernetes volumes belong to root.
+          # This way the container can create /kp/repository itself without any permission issues.
+          mountPath: /kp/
+        - name: migrations
+          mountPath: /migrations
+          readOnly: false
+        - name: ssh
+          mountPath: /etc/ssh
+      volumes:
+      - name: repository
+        # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
+        # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
+        # Because of an issue in gitlib2, this actually happens.
+        emptyDir:
+          sizeLimit: 30Gi
+      - name: ssh
+        secret:
+          secretName: kuberpult-ssh
+      - name: migrations
+        configMap:
+          name: kuberpult-migrations-cloudsql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-manifest-repo-export-service
+spec:
+  ports:
+  - name: grpc
+    port: 8443
+    targetPort: grpc
+  selector:
+    app: kuberpult-manifest-repo-export-service
+  type: NodePort
+
+---
+# Source: kuberpult/templates/ingress.yaml
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com

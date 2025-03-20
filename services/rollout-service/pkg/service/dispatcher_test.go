@@ -9,7 +9,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 MIT License for more details.
 
-You should have received a copy of the MIT License
+You should have received ArgoAppProcessor copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
@@ -55,9 +55,9 @@ type argoEventProcessorMock struct {
 	lastEvent *ArgoEvent
 }
 
-func (a *argoEventProcessorMock) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) bool {
+func (a *argoEventProcessorMock) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEvent {
 	a.lastEvent = &ev
-	return true
+	return &ev
 }
 
 func TestDispatcher(t *testing.T) {
