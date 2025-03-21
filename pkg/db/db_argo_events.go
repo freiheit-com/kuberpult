@@ -87,7 +87,12 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName, en
 		}
 	}(row)
 
-	event := ArgoEvent{}
+	event := ArgoEvent{
+		App:       "",
+		Env:       "",
+		JsonEvent: []byte(""),
+		Discarded: false,
+	}
 	if row.Next() {
 		err := row.Scan(&event.App, &event.Env, &event.JsonEvent, &event.Discarded)
 		if err != nil {
