@@ -18,6 +18,7 @@ import { Button } from '../button';
 import { useApi } from '../../utils/GrpcApi';
 import { showSnackbarError, useEnvironmentGroups } from '../../utils/store';
 import { ProgressBar } from '../ProgressBar/ProgressBar';
+import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export type ComplianceProps = {
     saveFile: (lines: string[]) => void;
@@ -30,6 +31,7 @@ export const Compliance: React.FC<ComplianceProps> = ({ saveFile }) => {
     const [environment, setEnvironment] = useState('default');
     const [progress, setProgress] = useState(0);
     const [downloading, setDownloading] = useState(false);
+    const { authHeader } = useAzureAuthSub((auth) => auth);
 
     const onClick = useCallback(() => {
         if (environment === 'default') {
@@ -54,18 +56,22 @@ export const Compliance: React.FC<ComplianceProps> = ({ saveFile }) => {
         setDownloading(true);
 
         api.overviewService()
-            .StreamDeploymentHistory({ startDate, endDate, environment: environment.split('/')[1] })
+            .StreamDeploymentHistory({ startDate, endDate, environment: environment.split('/')[1] }, authHeader)
             .subscribe({
                 next: (res) => {
                     setProgress(res.progress);
                     content.push(res.deployment);
+                },
+                error: (e) => {
+                    setDownloading(false);
+                    showSnackbarError(e.message);
                 },
                 complete: () => {
                     saveFile(content);
                     setDownloading(false);
                 },
             });
-    }, [api, endDate, startDate, saveFile, environment, downloading]);
+    }, [environment, startDate, endDate, downloading, api, authHeader, saveFile]);
 
     const onStartDateChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
         setStartDate(e.target.valueAsDate ?? undefined);
