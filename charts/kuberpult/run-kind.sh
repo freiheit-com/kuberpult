@@ -151,6 +151,7 @@ rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBER
 
 print "cd image: $cd_imagename"
 print "frontend image: $frontend_imagename"
+print "rollout image: $rollout_imagename"
 
 if ! "$LOCAL_EXECUTION"
 then
@@ -187,7 +188,7 @@ print 'loading docker images into kind...'
 print "$cd_imagename"
 print "$frontend_imagename"
 (
-  for image in "$cd_imagename" "$manifest_repo_export_imagename" "$frontend_imagename" "$ARGOCD_IMAGE_URI" "$DEX_IMAGE_URI" "$CLOUDSQL_PROXY_IMAGE_URI" "$REDIS_IMAGE_URI"
+  for image in "$cd_imagename" "$manifest_repo_export_imagename" "$rollout_imagename" "$frontend_imagename" "$ARGOCD_IMAGE_URI" "$DEX_IMAGE_URI" "$CLOUDSQL_PROXY_IMAGE_URI" "$REDIS_IMAGE_URI"
   do
     kind load docker-image "${image}" &
   done
@@ -302,9 +303,13 @@ portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
 waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
 print "connection to frontend service successful"
+waitForDeployment "default" "app=kuberpult-rollout-service"
+print "connection to rollout service successful"
 
 kubectl get deployment
 kubectl get pods
+
+(cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
 
 for v in $(seq 1 3)
 do
