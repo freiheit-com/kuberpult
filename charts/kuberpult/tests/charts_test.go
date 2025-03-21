@@ -1468,6 +1468,86 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test persist argo events disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  persistArgoEvents: false
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_PERSIST_ARGO_EVENTS",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_BATCH_SIZE",
+					Value: "does-not-matter",
+				},
+			},
+		},
+		{
+			Name: "Test default argo events batch size",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  persistArgoEvents: true
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_PERSIST_ARGO_EVENTS",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_BATCH_SIZE",
+					Value: "1",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test batch size is configurable",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  persistArgoEvents: true
+  argoEventsBatchSize: 50
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_PERSIST_ARGO_EVENTS",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_BATCH_SIZE",
+					Value: "50",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
