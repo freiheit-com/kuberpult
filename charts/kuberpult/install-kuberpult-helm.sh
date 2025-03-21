@@ -48,6 +48,7 @@ frontend:
       cpu: 0.05
 rollout:
   enabled: true
+  grpcMaxRecvMsgSize: 4
   resources:
     limits:
       memory: 200Mi
@@ -87,7 +88,7 @@ argocd:
     enabled: true
 manageArgoApplications:
   enabled: true
-  filter: "sreteam"
+  filter: "*"
 datadogProfiling:
   enabled: false
   apiKey: invalid-3
