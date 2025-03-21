@@ -20,6 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
@@ -363,6 +366,9 @@ func (d *BatchServer) processAction(
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
 }
 
+var isolatedTransformersLock sync.RWMutex
+var isolatedTransformerNames = []db.EventType{db.EvtUndeployApplication, db.EvtDeleteEnvFromApp, db.EvtDeleteEnvironment}
+
 func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
@@ -378,14 +384,31 @@ func (d *BatchServer) ProcessBatch(
 
 	results := make([]*api.BatchResult, 0, len(in.GetActions()))
 	transformers := make([]repository.Transformer, 0, maxBatchActions)
+	requiresIsolation := false
 	for _, batchAction := range in.GetActions() {
 		transformer, result, err := d.processAction(batchAction)
 		if err != nil {
 			// Validation error
 			return nil, err
 		}
+
+		transformerTypeName := transformer.GetDBEventType()
+		for _, isolatedTransformerName := range isolatedTransformerNames {
+			if isolatedTransformerName == transformerTypeName {
+				requiresIsolation = true
+			}
+		}
 		transformers = append(transformers, transformer)
 		results = append(results, result)
+	}
+	if requiresIsolation { // This solution is not scalable and doesn't work when we have multiple cd-service pods. Ref: SRX-8JRR7Q
+		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
+		isolatedTransformersLock.Lock()
+		defer isolatedTransformersLock.Unlock()
+	} else {
+		// we also use a read lock, so that destructive and non-destructive transformers cannot run in parallel:
+		isolatedTransformersLock.RLock()
+		defer isolatedTransformersLock.RUnlock()
 	}
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
