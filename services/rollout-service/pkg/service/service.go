@@ -18,8 +18,11 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
@@ -45,13 +48,26 @@ var (
 )
 
 type ArgoEventProcessor interface {
-	ProcessArgoEvent(ctx context.Context, ev ArgoEvent)
+	ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEvent
 }
 
-func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, dispatcher *Dispatcher, hlth *setup.HealthReporter, a *argo.ArgoAppProcessor, ddMetrics statsd.ClientInterface) error {
-	return hlth.Retry(ctx, func() error {
+type ArgoEventConsumer struct {
+	AppClient           SimplifiedApplicationServiceClient
+	Dispatcher          *Dispatcher
+	HealthReporter      *setup.HealthReporter
+	ArgoAppProcessor    *argo.ArgoAppProcessor
+	DDMetrics           statsd.ClientInterface
+	DBHandler           *db.DBHandler
+	PersistArgoEvents   bool
+	ArgoEventsBatchSize int
+}
+
+func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
+
+	var argoEventBatch []*db.ArgoEvent
+	return e.HealthReporter.Retry(ctx, func() error {
 		//exhaustruct:ignore
-		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
+		watch, err := e.AppClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
 				// context is cancelled -> we are shutting down
@@ -59,7 +75,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			}
 			return fmt.Errorf("watching applications: %w", err)
 		}
-		hlth.ReportReady("consuming events")
+		e.HealthReporter.ReportReady("consuming events")
 		for {
 			ev, err := watch.Recv()
 			if err != nil {
@@ -78,30 +94,53 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			var eventDiscarded = false
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
-				dispatcher.Dispatch(ctx, k, ev)
+				argoEvent := e.Dispatcher.Dispatch(ctx, k, ev)
 				select {
-				case a.ArgoApps <- ev:
+				case e.ArgoAppProcessor.ArgoApps <- ev:
 				default:
 					eventDiscarded = true
-					logger.FromContext(ctx).Sugar().Warnf("argo apps channel at full capacity of %d. Discarding event: %v", cap(a.ArgoApps), ev)
+					logger.FromContext(ctx).Sugar().Warnf("argo apps channel at full capacity of %d. Discarding event: %v", cap(e.ArgoAppProcessor.ArgoApps), ev)
 				}
 
-				if ddMetrics != nil { //If DD is enabled, send metrics
+				if e.DDMetrics != nil { //If DD is enabled, send metrics
 					if eventDiscarded {
-						ddError := ddMetrics.Gauge("argo_discarded_events", 1, []string{}, 1)
+						ddError := e.DDMetrics.Gauge("argo_discarded_events", 1, []string{}, 1)
 						if ddError != nil {
 							logger.FromContext(ctx).Sugar().Warnf("could not send argo_discarded_events metric to datadog! Err: %v", ddError)
 						}
 					}
 					fillRate := 0.0
-					if cap(a.ArgoApps) != 0 {
-						fillRate = float64(len(a.ArgoApps)) / float64(cap(a.ArgoApps))
+					if cap(e.ArgoAppProcessor.ArgoApps) != 0 {
+						fillRate = float64(len(e.ArgoAppProcessor.ArgoApps)) / float64(cap(e.ArgoAppProcessor.ArgoApps))
 					} else {
 						fillRate = 1 // If capacity is 0, we are always at 100%
 					}
-					ddError := ddMetrics.Gauge("argo_events_fill_rate", fillRate, []string{}, 1)
+					ddError := e.DDMetrics.Gauge("argo_events_fill_rate", fillRate, []string{}, 1)
 					if ddError != nil {
 						logger.FromContext(ctx).Sugar().Warnf("could not send argo_events_fill_rate metric to datadog! Err: %v", ddError)
+					}
+				}
+
+				if argoEvent != nil && e.PersistArgoEvents {
+					jsonEvent, err := json.Marshal(argoEvent)
+					if err != nil {
+						return err
+					}
+					dbEvent := &db.ArgoEvent{
+						App:       k.Application,
+						Env:       k.Environment,
+						JsonEvent: jsonEvent,
+						Discarded: eventDiscarded,
+					}
+					argoEventBatch = append(argoEventBatch, dbEvent)
+					if len(argoEventBatch) <= e.ArgoEventsBatchSize {
+						err := e.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+							return e.DBHandler.UpsertArgoEvents(ctx, transaction, argoEventBatch)
+						})
+						if err != nil {
+							return err
+						}
+						argoEventBatch = []*db.ArgoEvent{}
 					}
 				}
 			case "BOOKMARK":
@@ -124,4 +163,24 @@ type ArgoEvent struct {
 	HealthStatusCode health.HealthStatusCode
 	OperationState   *v1alpha1.OperationState
 	Version          *versions.VersionInfo
+}
+
+func ToArgoEvent(k Key, ev *v1alpha1.ApplicationWatchEvent, version *versions.VersionInfo) ArgoEvent {
+	return ArgoEvent{
+		Application:      k.Application,
+		Environment:      k.Environment,
+		SyncStatusCode:   ev.Application.Status.Sync.Status,
+		HealthStatusCode: ev.Application.Status.Health.Status,
+		OperationState:   ev.Application.Status.OperationState,
+		Version:          version,
+	}
+}
+
+func ToDBEvent(k Key, ev *v1alpha1.ApplicationWatchEvent, version *versions.VersionInfo, discarded bool) (db.ArgoEvent, error) {
+	argoEvent := ToArgoEvent(k, ev, version)
+	jsonEvent, err := json.Marshal(argoEvent)
+	if err != nil {
+		return db.ArgoEvent{}, err
+	}
+	return db.ArgoEvent{App: k.Application, Env: k.Environment, JsonEvent: jsonEvent, Discarded: discarded}, nil
 }

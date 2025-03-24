@@ -93,6 +93,9 @@ type Config struct {
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
 
+	PersistArgoEvents   bool `default:"false" split_words:"true"`
+	ArgoEventsBatchSize int  `default:"1" split_words:"true"`
+
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
 }
@@ -293,12 +296,23 @@ func runServer(ctx context.Context, config Config) error {
 	shutdownCh := make(chan struct{})
 	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.ManageArgoApplicationsFilter, *dbHandler)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
+	ArgoEventConsumer := service.ArgoEventConsumer{
+		AppClient:           appClient,
+		Dispatcher:          dispatcher,
+		HealthReporter:      nil,
+		ArgoAppProcessor:    versionC.GetArgoProcessor(),
+		DDMetrics:           ddMetrics,
+		DBHandler:           dbHandler,
+		PersistArgoEvents:   config.PersistArgoEvents,
+		ArgoEventsBatchSize: config.ArgoEventsBatchSize,
+	}
 	backgroundTasks := []setup.BackgroundTaskConfig{
 		{
 			Shutdown: nil,
 			Name:     "consume argocd events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return service.ConsumeEvents(ctx, appClient, dispatcher, health, versionC.GetArgoProcessor(), ddMetrics)
+				ArgoEventConsumer.HealthReporter = health
+				return ArgoEventConsumer.ConsumeEvents(ctx)
 			},
 		},
 		{

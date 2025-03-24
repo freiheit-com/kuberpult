@@ -56,6 +56,8 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
+  persistArgoEvents: true
+  argoEventsBatchSize: 1
 manifestRepoExport:
   eslProcessingIdleTimeSeconds: 15
   resources:

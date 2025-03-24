@@ -243,6 +243,11 @@ rollout:
       memory: 250Mi
   # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
+  # Enables the persistence of ArgoCD events on the database.
+  persistArgoEvents: false
+  # If `persistArgoEvents` is enabled, this value dictates how many ArgoCD events must be received before they are
+  # written to the database. This parameter can improve performance if you have a lot of ArgoCD events.
+  argoEventsBatchSize: 1
 
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
