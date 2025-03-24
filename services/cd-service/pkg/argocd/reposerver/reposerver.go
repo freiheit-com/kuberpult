@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	git "github.com/libgit2/git2go/v34"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"strconv"
 	"strings"
@@ -194,7 +195,20 @@ func (*reposerver) ListRefs(context.Context, *argorepo.ListRefsRequest) (*argore
 
 // ResolveRevision implements apiclient.RepoServerServiceServer.
 func (r *reposerver) ResolveRevision(ctx context.Context, req *argorepo.ResolveRevisionRequest) (*argorepo.ResolveRevisionResponse, error) {
-	return nil, notImplemented
+	var oid *git.Oid
+	if o, err := git.NewOid(req.AmbiguousRevision); err == nil {
+		oid = o
+	} else if req.AmbiguousRevision != "HEAD" && req.AmbiguousRevision != r.config.Branch {
+		return nil, status.Error(codes.NotFound, fmt.Sprintf("unknown revision %q, I only know \"HEAD\", %q and commit hashes", req.AmbiguousRevision, r.config.Branch))
+	}
+	// This looks a bit strange but argocd actually responds with a success response if the ambiguous ref can be parsed as a git commit id even if that commit does not exists at all.
+	return &argorepo.ResolveRevisionResponse{
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+		Revision:             oid.String(),
+		AmbiguousRevision:    fmt.Sprintf("%s (%s)", req.AmbiguousRevision, oid),
+	}, nil
 }
 
 // TestRepository implements apiclient.RepoServerServiceServer.
