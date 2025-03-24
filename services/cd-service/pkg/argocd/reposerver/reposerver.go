@@ -201,7 +201,7 @@ func (r *reposerver) ResolveRevision(ctx context.Context, req *argorepo.ResolveR
 		revision into a concrete commit hash which is then passed into the GenerateManifests endpoint. As the generate manifests
 		endpoint discards the revision it is provided, we simply respond with a bogus commit here.
 	*/
-	const commitID = "deadbeefdeadbeefdeadbeefdeadbeef"
+	const commitID = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 	return &argorepo.ResolveRevisionResponse{
 		XXX_NoUnkeyedLiteral: struct{}{},
 		XXX_unrecognized:     nil,
