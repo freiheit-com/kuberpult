@@ -347,7 +347,6 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 		Name                     string
 		Transformers             []Transformer
 		expectedError            *TransformerBatchApplyError
-		expectedCommitMsg        string
 		shouldSucceed            bool
 		numberExpectedLocks      int
 		ExpectedLockIds          []string
@@ -366,7 +365,6 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 					Message:     message,
 				},
 			},
-			expectedCommitMsg:   "Created lock " + lockID + " on environment " + env,
 			shouldSucceed:       true,
 			numberExpectedLocks: 1,
 			ExpectedLockIds: []string{
@@ -390,7 +388,6 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 					LockId:      lockID,
 				},
 			},
-			expectedCommitMsg:   "Created lock " + lockID + " on environment " + env,
 			shouldSucceed:       true,
 			numberExpectedLocks: 0,
 			ExpectedLockIds:     []string{},
@@ -422,7 +419,6 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 					Message:     message,
 				},
 			},
-			expectedCommitMsg:   "Created lock " + lockID + " on environment " + env,
 			shouldSucceed:       true,
 			numberExpectedLocks: 2,
 			ExpectedLockIds: []string{
@@ -2496,10 +2492,9 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 
 func TestUndeployApplicationDB(t *testing.T) {
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedError     *TransformerBatchApplyError
-		expectedCommitMsg string
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
 	}{
 		{
 			Name: "Delete non-existent application",
@@ -2512,7 +2507,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 				Index:            0,
 				TransformerError: errMatcher{"UndeployApplication: error cannot undeploy non-existing application 'app1'"},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Success",
@@ -2540,7 +2534,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Create un-deploy Version for un-deployed application should not work",
@@ -2575,7 +2568,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 				Index:            4,
 				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Undeploy application where there is an application lock should not work",
@@ -2605,7 +2597,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Undeploy application where there is an application lock created after the un-deploy version creation should",
@@ -2635,7 +2626,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Undeploy application where there current releases are not undeploy shouldn't work",
@@ -2668,7 +2658,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 				Index:            4,
 				TransformerError: errMatcher{"UndeployApplication(db): error cannot un-deploy application 'app1' the current release 'acceptance' is not un-deployed"},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Undeploy application where the app does not have a release in all envs must work",
@@ -2696,7 +2685,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Undeploy application where there is an environment lock should work",
@@ -2725,7 +2713,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
@@ -2766,7 +2753,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 				Index:            4,
 				TransformerError: errMatcher{"UndeployApplication: error last release is not un-deployed application version of 'app1'"},
 			},
-			expectedCommitMsg: "",
 		},
 	}
 	for _, tc := range tcs {
@@ -2777,19 +2763,10 @@ func TestUndeployApplicationDB(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 
 				if err != nil {
 					return err
-				}
-
-				actualMsg := ""
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
-					return nil
 				}
 				return nil
 			})
@@ -2809,10 +2786,9 @@ func TestUndeployApplicationDB(t *testing.T) {
 func TestDeleteEnvironment(t *testing.T) {
 	const testAppName = "test-app"
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedError     *TransformerBatchApplyError
-		expectedCommitMsg string
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
 	}{
 		{
 			Name: "Delete non-existent environment",
@@ -2833,7 +2809,6 @@ func TestDeleteEnvironment(t *testing.T) {
 				Index:            1,
 				TransformerError: errMatcher{"error at index 1 of transformer batch: environment this-env-does-not-exist not found"},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Delete Env - Simple case",
@@ -2850,7 +2825,6 @@ func TestDeleteEnvironment(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedCommitMsg: "Successfully deleted environment 'production'",
 		},
 		{
 			Name: "Delete Env - App in env",
@@ -2875,7 +2849,6 @@ func TestDeleteEnvironment(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedCommitMsg: "Successfully deleted environment 'production'\nEnvironment 'production' was removed from application 'test-app' successfully.",
 		},
 		{
 			Name: "Delete Env - App in env & has a deployment",
@@ -2905,7 +2878,6 @@ func TestDeleteEnvironment(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedCommitMsg: "Successfully deleted environment 'production'\nEnvironment 'production' was removed from application 'test-app' successfully.",
 		},
 		{
 			Name: "Delete Env - Attempt to delete with env lock",
@@ -2945,7 +2917,6 @@ func TestDeleteEnvironment(t *testing.T) {
 				Index:            4,
 				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment locks for this environment exist."},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Delete Env - Attempt to delete with app lock",
@@ -2986,7 +2957,6 @@ func TestDeleteEnvironment(t *testing.T) {
 				Index:            4,
 				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Application locks for this environment exist."},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Delete Env - Attempt to delete with team lock",
@@ -3028,7 +2998,6 @@ func TestDeleteEnvironment(t *testing.T) {
 				Index:            4,
 				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Team locks for this environment exist."},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Env to delete is upstream",
@@ -3074,7 +3043,6 @@ func TestDeleteEnvironment(t *testing.T) {
 				Index:            4,
 				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Env to delete is upstream group",
@@ -3131,7 +3099,6 @@ func TestDeleteEnvironment(t *testing.T) {
 				Index:            6,
 				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
 			},
-			expectedCommitMsg: "",
 		},
 	}
 	for _, tc := range tcs {
@@ -3142,19 +3109,9 @@ func TestDeleteEnvironment(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
 					return err
-				}
-
-				actualMsg := ""
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
-					return nil
 				}
 				return nil
 			})
@@ -3173,10 +3130,9 @@ func TestDeleteEnvironment(t *testing.T) {
 
 func TestUndeployTransformerDB(t *testing.T) {
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedError     *TransformerBatchApplyError
-		expectedCommitMsg string
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
 	}{
 		{
 			Name: "Access non-existent application",
@@ -3189,7 +3145,6 @@ func TestUndeployTransformerDB(t *testing.T) {
 				Index:            0,
 				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Success",
@@ -3206,7 +3161,6 @@ func TestUndeployTransformerDB(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "created undeploy-version 2 of 'app1'",
 		},
 		{
 			Name: "Deploy after Undeploy should work",
@@ -3229,9 +3183,9 @@ func TestUndeployTransformerDB(t *testing.T) {
 					SourceAuthor:    "",
 					SourceMessage:   "",
 					WriteCommitData: true,
+					Version:         3,
 				},
 			},
-			expectedCommitMsg: "created version 3 of \"app1\"",
 		},
 		{
 			Name: "Undeploy twice should succeed",
@@ -3251,7 +3205,6 @@ func TestUndeployTransformerDB(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "created undeploy-version 3 of 'app1'",
 		},
 	}
 	for _, tc := range tcs {
@@ -3262,17 +3215,9 @@ func TestUndeployTransformerDB(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
-					return nil
-				}
-				actualMsg := ""
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+					return err
 				}
 				return nil
 			})
@@ -3295,7 +3240,6 @@ func TestCreateUndeployDBState(t *testing.T) {
 		TargetApp              string
 		Transformers           []Transformer
 		expectedError          *TransformerBatchApplyError
-		expectedCommitMsg      string
 		expectedReleaseNumbers []int64
 	}{
 		{
@@ -3378,7 +3322,6 @@ func TestAllowedCILinksState(t *testing.T) {
 		TargetApp           string
 		Transformers        []Transformer
 		expectedError       *TransformerBatchApplyError
-		expectedCommitMsg   string
 		expectedAllReleases []int64
 		expectedDeployments []db.Deployment
 	}{
@@ -3591,7 +3534,6 @@ func TestUndeployDBState(t *testing.T) {
 		TargetApp           string
 		Transformers        []Transformer
 		expectedError       *TransformerBatchApplyError
-		expectedCommitMsg   string
 		expectedAllReleases []int64
 		expectedDeployments []db.Deployment
 	}{

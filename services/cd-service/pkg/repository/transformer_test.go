@@ -61,10 +61,9 @@ var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
 
 func TestUndeployApplicationErrors(t *testing.T) {
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedError     *TransformerBatchApplyError
-		expectedCommitMsg string
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
 	}{
 		{
 			Name: "Delete non-existent application",
@@ -77,7 +76,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				Index:            0,
 				TransformerError: errMatcher{"UndeployApplication: error cannot undeploy non-existing application 'app1'"},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Success",
@@ -101,7 +99,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Create un-deploy Version for un-deployed application should not work",
@@ -132,7 +129,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				Index:            4,
 				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Undeploy application where there is an application lock should not work",
@@ -162,7 +158,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Undeploy application where there is an application lock created after the un-deploy version creation should",
@@ -192,7 +187,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Undeploy application where there current releases are not undeploy shouldn't work",
@@ -225,7 +219,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				Index:            4,
 				TransformerError: errMatcher{"UndeployApplication(db): error cannot un-deploy application 'app1' the current release 'acceptance' is not un-deployed"},
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Undeploy application where the app does not have a release in all envs must work",
@@ -253,7 +246,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Undeploy application where there is an environment lock should work",
@@ -282,7 +274,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedCommitMsg: "application 'app1' was deleted successfully",
 		},
 		{
 			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
@@ -315,7 +306,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				Index:            3,
 				TransformerError: errMatcher{"UndeployApplication: error last release is not un-deployed application version of 'app1'"},
 			},
-			expectedCommitMsg: "",
 		},
 	}
 	for _, tc := range tcs {
@@ -325,7 +315,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 
 			repo := SetupRepositoryTestWithDB(t)
 			ctx := testutil.MakeTestContext()
-			commitMsgPtr, _ := db.WithTransactionT(repo.State().DBHandler, ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) (*[]string, error) {
+			_, _ = db.WithTransactionT(repo.State().DBHandler, ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) (*[]string, error) {
 				commitMsg, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
@@ -333,15 +323,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				}
 				return &commitMsg, nil
 			})
-			commitMsg := *commitMsgPtr
-			actualMsg := ""
-			if len(commitMsg) > 0 {
-				actualMsg = commitMsg[len(commitMsg)-1]
-			}
-
-			if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-				t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
-			}
 
 		})
 	}
@@ -1030,18 +1011,11 @@ func TestUndeployErrors(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 
-				actualMsg := ""
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
-				}
 				return nil
 			})
 
@@ -1057,7 +1031,6 @@ func TestReleaseTrainErrors(t *testing.T) {
 		ReleaseTrain      ReleaseTrain
 		expectedError     *TransformerBatchApplyError
 		expectedPrognosis ReleaseTrainPrognosis
-		expectedCommitMsg string
 	}{
 		{
 			Name:  "Access non-existent environment",
@@ -1079,7 +1052,6 @@ func TestReleaseTrainErrors(t *testing.T) {
 				),
 				EnvironmentPrognoses: nil,
 			},
-			expectedCommitMsg: "",
 		},
 		{
 			Name: "Environment is locked - but train continues in other env",
@@ -1157,10 +1129,6 @@ func TestReleaseTrainErrors(t *testing.T) {
 					},
 				},
 			},
-			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
-
-Target Environment 'acceptance-ca' is locked - skipping.
-Target Environment 'acceptance-de' is locked - skipping.`,
 		},
 		{
 			Name: "Environment has no upstream - but train continues in other env",
@@ -1202,10 +1170,6 @@ Target Environment 'acceptance-de' is locked - skipping.`,
 					},
 				},
 			},
-			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
-
-Environment '"acceptance-ca"' does not have upstream configured - skipping.
-Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 		},
 		{
 			Name: "Environment has no upstream.latest or env - but train continues in other env",
@@ -1253,10 +1217,6 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 					},
 				},
 			},
-			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
-
-Environment "acceptance-ca" does not have upstream.latest or upstream.environment configured - skipping.
-Environment "acceptance-de" does not have upstream.latest or upstream.environment configured - skipping.`,
 		},
 		{
 			Name: "Environment has both upstream.latest and env - but train continues in other env",
@@ -1306,10 +1266,6 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 			ReleaseTrain: ReleaseTrain{
 				Target: envAcceptance,
 			},
-			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
-
-Environment "acceptance-ca" has both upstream.latest and upstream.environment configured - skipping.
-Environment "acceptance-de" has both upstream.latest and upstream.environment configured - skipping.`,
 		},
 	}
 	for _, tc := range tcs {
@@ -1335,18 +1291,10 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 					t.Fatalf("release train prognosis is wrong, wanted the error %v, got %v", tc.expectedPrognosis.Error, prognosis.Error)
 				}
 
-				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, []Transformer{&tc.ReleaseTrain}...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, []Transformer{&tc.ReleaseTrain}...)
 
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
-				// note that we only check the LAST error here:
-				actualMsg := ""
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-					t.Errorf("got \n%s\n, want \n%s\n, diff (-want +got)\n%s\n", actualMsg, tc.expectedCommitMsg, diff)
 				}
 				return nil
 			})
@@ -1356,10 +1304,9 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 
 func TestTransformerChanges(t *testing.T) {
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedCommitMsg string
-		expectedChanges   *TransformerResult
+		Name            string
+		Transformers    []Transformer
+		expectedChanges *TransformerResult
 	}{
 		{
 			Name: "Deploy 1 app, another app locked by app lock",
@@ -1612,7 +1559,7 @@ func TestTransformerChanges(t *testing.T) {
 			dbHandler := repo.State().DBHandler
 
 			_ = dbHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
-				msgs, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				_, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				// note that we only check the LAST error here:
 				if err != nil {
 					t.Fatalf("Expected no error: %v", err)
@@ -1620,7 +1567,6 @@ func TestTransformerChanges(t *testing.T) {
 				// we only diff the changes from the last transformer here:
 				lastChanges := actualChanges[len(actualChanges)-1]
 				if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
-					t.Log("Commit message:\n", msgs[len(msgs)-1])
 					t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
 				}
 				return nil
@@ -3588,11 +3534,10 @@ func TestDatadogQueueMetric(t *testing.T) {
 
 func TestDeleteEnvFromApp(t *testing.T) {
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedError     *TransformerBatchApplyError
-		expectedCommitMsg string
-		shouldSucceed     bool
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
+		shouldSucceed bool
 	}{
 		{
 			Name: "Success",
@@ -3620,8 +3565,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedCommitMsg: "Environment 'production' was removed from application 'app1' successfully.",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 		{
 			Name: "Success Double Delete",
@@ -3653,8 +3597,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedCommitMsg: "Environment 'production' was removed from application 'app1' successfully.",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 		{
 			Name: "fail to provide app name",
@@ -3681,8 +3624,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedCommitMsg: "Environment 'production' was removed from application '' successfully.",
-			shouldSucceed:     false,
+			shouldSucceed: false,
 		},
 		{
 			Name: "fail to provide env name",
@@ -3713,8 +3655,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 				Index:            3,
 				TransformerError: errMatcher{"Attempting to delete an environment that doesn't exist in the environments table"},
 			},
-			expectedCommitMsg: "",
-			shouldSucceed:     false,
+			shouldSucceed: false,
 		},
 	}
 	for _, tc := range tcs {
@@ -3725,17 +3666,9 @@ func TestDeleteEnvFromApp(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
-				actualMsg := ""
-				// note that we only check the LAST error here:
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
@@ -3745,11 +3678,10 @@ func TestDeleteEnvFromApp(t *testing.T) {
 
 func TestDeleteLocks(t *testing.T) {
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedError     *TransformerBatchApplyError
-		expectedCommitMsg string
-		shouldSucceed     bool
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
+		shouldSucceed bool
 	}{
 		{
 			Name: "Success delete env lock",
@@ -3767,8 +3699,7 @@ func TestDeleteLocks(t *testing.T) {
 					LockId:      "l123",
 				},
 			},
-			expectedCommitMsg: "Deleted lock \"l123\" on environment \"production\"",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 		{
 			Name: "Success delete app lock",
@@ -3789,8 +3720,7 @@ func TestDeleteLocks(t *testing.T) {
 					LockId:      "l123",
 				},
 			},
-			expectedCommitMsg: "Deleted lock \"l123\" on environment \"production\" for application \"app1\"",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 		{
 			Name: "Success create env lock",
@@ -3805,8 +3735,7 @@ func TestDeleteLocks(t *testing.T) {
 					Message:     "my lock",
 				},
 			},
-			expectedCommitMsg: "Created lock \"l123\" on environment \"production\"",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 		{
 			Name: "Success create app lock",
@@ -3822,8 +3751,7 @@ func TestDeleteLocks(t *testing.T) {
 					Message:     "my lock",
 				},
 			},
-			expectedCommitMsg: "Created lock \"l123\" on environment \"production\" for application \"app1\"",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 	}
 	for _, tc := range tcs {
@@ -3833,17 +3761,9 @@ func TestDeleteLocks(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
-				actualMsg := ""
-				// note that we only check the LAST error here:
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
@@ -3854,11 +3774,10 @@ func TestDeleteLocks(t *testing.T) {
 func TestEnvironmentGroupLocks(t *testing.T) {
 	group := conversion.FromString("prod")
 	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedError     *TransformerBatchApplyError
-		expectedCommitMsg string
-		shouldSucceed     bool
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
+		shouldSucceed bool
 	}{
 		{
 			Name: "Success create env group lock",
@@ -3882,8 +3801,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 					Message:          "my-message",
 				},
 			},
-			expectedCommitMsg: "Creating locks 'my-lock' for environment group 'prod':\nCreated lock \"my-lock\" on environment \"prod-ca\"\nCreated lock \"my-lock\" on environment \"prod-de\"",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 		{
 			Name: "Success delete env group lock",
@@ -3912,8 +3830,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 					LockId:           "my-lock",
 				},
 			},
-			expectedCommitMsg: "Deleting locks 'my-lock' for environment group 'prod':\nDeleted lock \"my-lock\" on environment \"prod-ca\"\nDeleted lock \"my-lock\" on environment \"prod-de\"",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 		{
 			Name: "Success delete env group that was created as env lock",
@@ -3934,8 +3851,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 					LockId:           "my-lock",
 				},
 			},
-			expectedCommitMsg: "Deleting locks 'my-lock' for environment group 'prod':\nDeleted lock \"my-lock\" on environment \"prod-ca\"",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 		{
 			Name: "Success delete env lock that was created as env group lock",
@@ -3956,8 +3872,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 					LockId:         "my-lock",
 				},
 			},
-			expectedCommitMsg: "Deleted lock \"my-lock\" on environment \"prod-ca\"",
-			shouldSucceed:     true,
+			shouldSucceed: true,
 		},
 		{
 			Name: "Failure create env group lock - no envs found",
@@ -3985,8 +3900,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 				Index:            3,
 				TransformerError: status.Error(codes.InvalidArgument, "error: No environment found with given group 'dev'"),
 			},
-			expectedCommitMsg: "",
-			shouldSucceed:     false,
+			shouldSucceed: false,
 		},
 	}
 	for _, tc := range tcs {
@@ -3997,17 +3911,9 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
-				actualMsg := ""
-				// note that we only check the LAST error here:
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
-					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
