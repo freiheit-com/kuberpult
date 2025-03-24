@@ -380,7 +380,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     <div className="env-card-buttons">
                         <div
                             title={
-                                'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
+                                'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version.'
                             }>
                             <DeployLockButtons
                                 onClickSubmit={deployAndLockClick}
@@ -696,7 +696,7 @@ export const EnvironmentGroupLane: React.FC<{
                     <div
                         className={'env-group-expand-button'}
                         title={
-                            'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
+                            'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version.'
                         }>
                         <DeployLockButtons
                             onClickSubmit={deployAndLockClick}
