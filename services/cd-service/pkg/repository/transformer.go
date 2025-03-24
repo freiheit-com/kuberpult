@@ -338,15 +338,11 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		ChangedApps:     nil,
 		DeletedRootApps: nil,
 		State:           s,
-		Stack:           [][]string{nil},
 	}
 	if err := runner.Execute(ctx, t, transaction); err != nil {
 		return "", nil, err
 	}
 	commitMsg := ""
-	if len(runner.Stack[0]) > 0 {
-		commitMsg = runner.Stack[0][0]
-	}
 	return commitMsg, &TransformerResult{
 		ChangedApps:     runner.ChangedApps,
 		DeletedRootApps: runner.DeletedRootApps,
@@ -360,34 +356,13 @@ type transformerRunner struct {
 	// the outer slice corresponds to a step being executed. Each
 	// entry of the inner slices correspond to a message generated
 	// by that step.
-	Stack           [][]string
 	ChangedApps     []AppEnv
 	DeletedRootApps []RootApp
 }
 
 func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
-	r.Stack = append(r.Stack, nil)
-	msg, err := t.Transform(ctx, r.State, r, transaction)
-	if err != nil {
-		return err
-	}
-	idx := len(r.Stack) - 1
-	if idx >= 0 && len(r.Stack[idx]) != 0 {
-		if msg != "" {
-			msg = msg + "\n" + strings.Join(r.Stack[idx], "\n")
-		} else {
-			msg = strings.Join(r.Stack[idx], "\n")
-		}
-	}
-	if msg != "" {
-		if idx > 0 {
-			r.Stack[idx-1] = append(r.Stack[idx-1], msg)
-		}
-	}
-	if idx > 0 {
-		r.Stack = r.Stack[:idx]
-	}
-	return nil
+	_, err := t.Transform(ctx, r.State, r, transaction)
+	return err
 }
 
 func (r *transformerRunner) AddAppEnv(app string, env string, team string) {
