@@ -33,14 +33,14 @@ type ArgoEvent struct {
 	Discarded bool
 }
 
-func (h *DBHandler) InsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*ArgoEvent) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "InsertArgoEvents")
+func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*ArgoEvent) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "UpsertArgoEvents")
 	defer span.Finish()
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
-		return onErr(fmt.Errorf("InsertArgoEvents: no transaction provided"))
+		return onErr(fmt.Errorf("UpsertArgoEvents: no transaction provided"))
 	}
 	queryTemplate := `INSERT INTO argo_cd_events (created, app, env, json, discarded)
 	VALUES ('%s', '%s', '%s', '%s', %t)

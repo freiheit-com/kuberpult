@@ -296,21 +296,23 @@ func runServer(ctx context.Context, config Config) error {
 	shutdownCh := make(chan struct{})
 	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.ManageArgoApplicationsFilter, *dbHandler)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
+	ArgoEventConsumer := service.ArgoEventConsumer{
+		AppClient:           appClient,
+		Dispatcher:          dispatcher,
+		HealthReporter:      nil,
+		ArgoAppProcessor:    versionC.GetArgoProcessor(),
+		DDMetrics:           ddMetrics,
+		DBHandler:           dbHandler,
+		PersistArgoEvents:   config.PersistArgoEvents,
+		ArgoEventsBatchSize: config.ArgoEventsBatchSize,
+	}
 	backgroundTasks := []setup.BackgroundTaskConfig{
 		{
 			Shutdown: nil,
 			Name:     "consume argocd events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return service.ConsumeEvents(ctx, &service.ConsumeEventsParameters{
-					AppClient:           appClient,
-					Dispatcher:          dispatcher,
-					HealthReporter:      health,
-					ArgoAppProcessor:    versionC.GetArgoProcessor(),
-					DDMetrics:           ddMetrics,
-					DBHandler:           dbHandler,
-					PersistArgoEvents:   config.PersistArgoEvents,
-					ArgoEventsBatchSize: config.ArgoEventsBatchSize,
-				})
+				ArgoEventConsumer.HealthReporter = health
+				return ArgoEventConsumer.ConsumeEvents(ctx)
 			},
 		},
 		{

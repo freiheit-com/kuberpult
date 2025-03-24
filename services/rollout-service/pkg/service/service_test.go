@@ -446,7 +446,7 @@ func TestArgoConection(t *testing.T) {
 			hlth := &setup.HealthServer{}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			dispatcher := NewDispatcher(&as, &mockVersionClient{versions: tc.KnownVersions})
-			params := ConsumeEventsParameters{
+			EventConsumer := ArgoEventConsumer{
 				Dispatcher:     dispatcher,
 				HealthReporter: hlth.Reporter("consume"),
 				AppClient:      &as,
@@ -460,7 +460,7 @@ func TestArgoConection(t *testing.T) {
 				DBHandler:         dbHandler,
 				PersistArgoEvents: false,
 			}
-			err := ConsumeEvents(ctx, &params)
+			err := EventConsumer.ConsumeEvents(ctx)
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -675,7 +675,7 @@ func TestArgoEvents(t *testing.T) {
 			hlth := &setup.HealthServer{}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			dispatcher := NewDispatcher(&as, &mockVersionClient{versions: tc.KnownVersions})
-			params := ConsumeEventsParameters{
+			EventConsumer := ArgoEventConsumer{
 				Dispatcher:     dispatcher,
 				HealthReporter: hlth.Reporter("consume"),
 				AppClient:      &as,
@@ -690,7 +690,7 @@ func TestArgoEvents(t *testing.T) {
 				PersistArgoEvents:   tc.persistArgoEvents,
 				ArgoEventsBatchSize: tc.argoBufferSize,
 			}
-			err := ConsumeEvents(ctx, &params)
+			err := EventConsumer.ConsumeEvents(ctx)
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}

@@ -117,7 +117,7 @@ func TestDBArgoEvent(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.InsertArgoEvents(ctx, transaction, tc.Input)
+				err := dbHandler.UpsertArgoEvents(ctx, transaction, tc.Input)
 				if err != nil {
 					return err
 				}
