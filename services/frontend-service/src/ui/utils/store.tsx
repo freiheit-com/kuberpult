@@ -1005,6 +1005,24 @@ export const useRelease = (application: string, version: number): Release | unde
     return appDetails.details ? appDetails.details.application?.releases.find((r) => r.version === version) : undefined;
 };
 
+export const useReleaseOrGet = (
+    application: string,
+    version: number,
+    authHeader: AuthHeader,
+    authReady: boolean
+): Release | undefined => {
+    const release = useRelease(application, version);
+    if (release === undefined && authReady) {
+        getAppDetails(application, authHeader);
+        const details = updateAppDetails.get();
+        const appDetails = details[application];
+        return appDetails.details
+            ? appDetails.details.application?.releases.find((r) => r.version === version)
+            : undefined;
+    }
+    return release;
+};
+
 export const useReleaseOrLog = (application: string, version: number): Release | undefined => {
     const release = useRelease(application, version);
     if (!release) {
