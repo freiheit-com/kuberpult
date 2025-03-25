@@ -24,28 +24,24 @@ Copyright freiheit.com*/
     display: block;
     text-align: center;
     height: max-content;
+    color: var(--mdc-theme-on-surface);
+    border-color: var(--mdc-theme-surface);
 }
 
 .rollout__description_unknown {
     @extend .rollout__description;
-    background-color: var(--mdc-theme-on-surface);
-    color: var(--mdc-theme-surface);
-    border-color: var(--mdc-theme-surface);
+    background-color: var(--mdc-theme-surface);
 }
 
 .rollout__description_successful {
     @extend .rollout__description;
     background-color: var(--mdc-theme-surface);
-    color: var(--mdc-theme-on-surface);
-    border-color: var(--mdc-theme-on-secondary);
 }
 
 .rollout__description_error,
 .rollout__description_unhealthy {
     @extend .rollout__description;
     background-color: var(--mdc-theme-error);
-    color: var(--mdc-theme-on-secondary);
-    border-color: var(--mdc-theme-on-secondary);
 }
 
 .rollout__description_progressing,

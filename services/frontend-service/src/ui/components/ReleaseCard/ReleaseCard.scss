@@ -18,11 +18,13 @@ Copyright freiheit.com*/
 .mdc-tooltip__title.release__details {
     white-space: pre-wrap;
     font-height: 7px;
+    color: var(--mdc-theme-on-primary);
 }
 
 .release-card__container {
     display: flex;
     flex-direction: column;
+    color: red;
 }
 
 .release-card {
@@ -61,6 +63,9 @@ Copyright freiheit.com*/
         -webkit-box-orient: vertical;
     }
 }
+.mdc-card__primary-action {
+    color: var(--mdc-theme-on-surface)
+}
 
 .release__hash {
     @extend .text-bold;
@@ -73,6 +78,11 @@ Copyright freiheit.com*/
             color: var(--mdc-theme-primary);
         }
     }
+    .tooltip-text {
+        color: var(--mdc-theme-on-surface-light);
+    }
+    border-color: var(--mdc-theme-surface);
+    background-color: var(--mdc-theme-surface);
 }
 
 .release__environments {

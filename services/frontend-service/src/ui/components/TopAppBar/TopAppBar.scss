@@ -18,7 +18,7 @@ Copyright freiheit.com*/
 
 .mdc-top-app-bar {
     background: var(--mdc-theme-background);
-    color: var(--mdc-theme-primary);
+    color: var(--mdc-theme-on-background);
     padding: $top-app-bar-padding;
     position: fixed;
     width: 100%;
@@ -72,6 +72,7 @@ Copyright freiheit.com*/
         white-space: nowrap;
         overflow: hidden;
         letter-spacing: 0.0125em;
+        color: var(--mdc-theme-on-background)
     }
 
     .mdc-text-field {

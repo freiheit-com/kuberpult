@@ -96,7 +96,7 @@ div.mdc-select {
     justify-content: left;
     font-size: small;
     .mdc-button__label {
-        color: black;
+        color: var(--mdc-theme-on-primary);
         font-family: 'Inter';
         text-transform: none;
     }
