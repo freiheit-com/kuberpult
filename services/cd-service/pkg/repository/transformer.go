@@ -3130,8 +3130,7 @@ func (c *envReleaseTrain) Transform(
 			return fmt.Sprintf("skipping application %q in environment %q for an unrecognized reason", appName, c.Env)
 		}
 	}
-
-	prognosis := c.prognosis(ctx, state, transaction, nil)
+	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache)
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error
