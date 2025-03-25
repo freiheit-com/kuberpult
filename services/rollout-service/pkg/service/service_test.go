@@ -156,9 +156,17 @@ type Gauge struct {
 	Rate  float64
 }
 
+type Count struct {
+	Name  string
+	Value float64
+	Tags  []string
+	Rate  float64
+}
+
 type MockClient struct {
 	events []*statsd.Event
 	Gauges []Gauge
+	Counts []Count
 	statsd.ClientInterface
 }
 
@@ -166,6 +174,17 @@ func (c *MockClient) Gauge(name string, value float64, tags []string, rate float
 	c.Gauges = append(c.Gauges, Gauge{
 		Name:  name,
 		Value: value,
+		Tags:  tags,
+		Rate:  rate,
+	})
+	return nil
+}
+
+// Incr is count of 1
+func (c *MockClient) Incr(name string, tags []string, rate float64) error {
+	c.Counts = append(c.Counts, Count{
+		Name:  name,
+		Value: 1,
 		Tags:  tags,
 		Rate:  rate,
 	})
@@ -181,6 +200,14 @@ func TestArgoConection(t *testing.T) {
 			Rate:  rate,
 		}
 	}
+	makeCount := func(name string, tags []string, rate float64) Count {
+		return Count{
+			Name:  name,
+			Value: 1,
+			Tags:  tags,
+			Rate:  rate,
+		}
+	}
 	tcs := []struct {
 		Name          string
 		KnownVersions []version
@@ -190,6 +217,7 @@ func TestArgoConection(t *testing.T) {
 		ExpectedReady bool
 
 		expectedGauges []Gauge
+		expectedCounts []Count
 
 		channelSize int
 	}{
@@ -424,8 +452,10 @@ func TestArgoConection(t *testing.T) {
 			ExpectedReady: true,
 			channelSize:   0, //Ok to get discarded events, as there is nobody listening to them
 			expectedGauges: []Gauge{
-				makeGauge("argo_discarded_events", 1, []string{}, 1),
 				makeGauge("argo_events_fill_rate", 1, []string{}, 1),
+			},
+			expectedCounts: []Count{
+				makeCount("argo_discarded_events", []string{}, 1),
 			},
 		},
 	}
