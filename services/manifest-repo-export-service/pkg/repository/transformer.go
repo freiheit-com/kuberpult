@@ -1468,10 +1468,13 @@ func (u *ReleaseTrain) Transform(
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, u.TargetType)
 	for _, currentDeployment := range deployments {
 		envConfig := envGroupConfigs[currentDeployment.Env]
-		if envConfig.Upstream == nil || envConfig.Upstream.Environment == "" {
+		if envConfig.Upstream == nil || (envConfig.Upstream.Environment == "" && !envConfig.Upstream.Latest) {
 			return "", fmt.Errorf("could not find upstream config for env '%s'", currentDeployment.Env)
 		}
 		upstreamEnvName := envConfig.Upstream.Environment
+		if envConfig.Upstream.Latest {
+			upstreamEnvName = currentDeployment.Env
+		}
 		var trainGroup *string
 		if isEnvGroup {
 			trainGroup = conversion.FromString(targetGroupName)
