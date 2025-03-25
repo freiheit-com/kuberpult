@@ -104,7 +104,7 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 
 				if e.DDMetrics != nil { //If DD is enabled, send metrics
 					if eventDiscarded {
-						ddError := e.DDMetrics.Gauge("argo_discarded_events", 1, []string{}, 1)
+						ddError := e.DDMetrics.Incr("argo_discarded_events", []string{}, 1)
 						if ddError != nil {
 							logger.FromContext(ctx).Sugar().Warnf("could not send argo_discarded_events metric to datadog! Err: %v", ddError)
 						}
