@@ -837,7 +837,9 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 				Deployment: line,
 				Progress:   uint32(100 * i / (count + 1)),
 			})
-
+			if err != nil {
+				return err
+			}
 			previousReleaseVersions[appName] = releaseVersion
 		}
 
