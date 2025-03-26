@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"sort"
@@ -732,61 +733,116 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 		}
 
 		err = stream.Send(&api.DeploymentHistoryResponse{
-			Deployment: "time,app,environment,deployed release version,previous release version\n",
+			Deployment: "time,app,environment,deployed release version,source repository commit hash,previous release version\n",
 			Progress:   uint32(100 / (count + 1)),
 		})
 		if err != nil {
 			return err
 		}
+		type ReleaseInfo struct {
+			appName        string
+			releaseVersion uint64
+		}
 
+		var releases = make(map[ReleaseInfo]string)
+		//Get releases for which we found any relevant deployment. We want to extract the commit hash for that release
 		query := o.DBHandler.AdaptQuery(`
+			SELECT appName, metadata, releaseVersion FROM releases
+			WHERE releaseversion IS NOT NULL AND created <= (?);
+		`)
+		releasesRows, err := transaction.QueryContext(
+			ctx,
+			query,
+			endDate,
+		)
+		if err != nil {
+			return fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+		}
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+			}
+		}(releasesRows)
+
+		for releasesRows.Next() {
+			var releaseVersion uint64
+			var appName string
+			var metadataStr string
+
+			//Get the metadata
+			err := releasesRows.Scan(&appName, &metadataStr, &releaseVersion)
+			if err != nil {
+				return err
+			}
+
+			var metaData = db.DBReleaseMetaData{
+				SourceAuthor:    "",
+				SourceCommitId:  "",
+				SourceMessage:   "",
+				DisplayVersion:  "",
+				UndeployVersion: false,
+				IsMinor:         false,
+				CiLink:          "",
+				IsPrepublish:    false,
+			}
+			err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+			if err != nil {
+				return fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
+			}
+			releases[ReleaseInfo{appName: appName, releaseVersion: releaseVersion}] = metaData.SourceCommitId
+
+			if err != nil {
+				return err
+			}
+		}
+
+		query = o.DBHandler.AdaptQuery(`
 			SELECT created, releaseversion, appname, envname FROM deployments_history
 			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?)
 			ORDER BY created ASC;
 		`)
 
-		rows, err := transaction.QueryContext(ctx, query, startDate, endDate, in.Environment)
+		//All releases that come in first query
+
+		deploymentRows, err := transaction.QueryContext(ctx, query, startDate, endDate, in.Environment)
 		if err != nil {
 			return err
 		}
 
-		type AppEnvPair struct {
-			App string
-			Env string
-		}
-		previousReleaseVersions := make(map[AppEnvPair]uint64)
-
-		defer rows.Close()
-		for i := uint64(2); rows.Next(); i++ {
+		previousReleaseVersions := make(map[string]uint64)
+		defer deploymentRows.Close()
+		//Get all relevant deployments and store its information
+		for i := uint64(2); deploymentRows.Next(); i++ {
 			var created time.Time
 			var releaseVersion uint64
 			var appName string
 			var envName string
 
-			err := rows.Scan(&created, &releaseVersion, &appName, &envName)
+			err := deploymentRows.Scan(&created, &releaseVersion, &appName, &envName)
 			if err != nil {
 				return err
 			}
 
-			appEnvPair := AppEnvPair{App: appName, Env: envName}
-			previousReleaseVersion, hasPreviousVersion := previousReleaseVersions[appEnvPair]
+			previousReleaseVersion, hasPreviousVersion := previousReleaseVersions[appName]
+			releaseInfo, exists := releases[ReleaseInfo{appName: appName, releaseVersion: releaseVersion}]
+			if !exists {
+				logger.FromContext(ctx).Sugar().Warnf("Could not find information for release %q, skipping deployment of application %q on environment %q", releaseVersion, appName, envName)
+				continue
+			}
 			var line string
-
 			if hasPreviousVersion {
-				line = fmt.Sprintf("%s,%s,%s,%d,%d\n", created.Format(time.RFC3339), appName, envName, releaseVersion, previousReleaseVersion)
+				line = fmt.Sprintf("%s,%s,%s,%d,%s,%d\n", created.Format(time.RFC3339), appName, in.Environment, releaseVersion, releaseInfo, previousReleaseVersion)
 			} else {
-				line = fmt.Sprintf("%s,%s,%s,%d,nil\n", created.Format(time.RFC3339), appName, envName, releaseVersion)
+				line = fmt.Sprintf("%s,%s,%s,%d,%s,nil\n", created.Format(time.RFC3339), appName, in.Environment, releaseVersion, releaseInfo)
 			}
 
 			err = stream.Send(&api.DeploymentHistoryResponse{
 				Deployment: line,
 				Progress:   uint32(100 * i / (count + 1)),
 			})
-			if err != nil {
-				return err
-			}
 
-			previousReleaseVersions[appEnvPair] = releaseVersion
+			previousReleaseVersions[appName] = releaseVersion
 		}
 
 		return nil

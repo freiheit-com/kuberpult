@@ -2117,6 +2117,8 @@ func TestCalculateWarnings(t *testing.T) {
 }
 
 func TestDeploymentHistory(t *testing.T) {
+	const testApp = "test-app"
+	const testApp2 = "test-app-2"
 	created := time.Now()
 	today := created.Round(time.Hour * 24)
 	yesterday := today.AddDate(0, 0, -1)
@@ -2128,7 +2130,7 @@ func TestDeploymentHistory(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Setup            []db.Deployment
-		SetupEnvs        []repository.CreateEnvironment
+		SetupEnvs        []repository.Transformer
 		Request          *api.DeploymentHistoryRequest
 		ExpectedCsvLines []string
 		ExpectedError    string
@@ -2136,8 +2138,8 @@ func TestDeploymentHistory(t *testing.T) {
 		{
 			Name:  "Test empty deployment history",
 			Setup: []db.Deployment{},
-			SetupEnvs: []repository.CreateEnvironment{
-				repository.CreateEnvironment{
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
 					Environment: "dev",
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
@@ -2151,7 +2153,7 @@ func TestDeploymentHistory(t *testing.T) {
 				Environment: "dev",
 			},
 			ExpectedCsvLines: []string{
-				"time,app,environment,deployed release version,previous release version\n",
+				"time,app,environment,deployed release version,source repository commit hash,previous release version\n",
 			},
 		},
 		{
@@ -2160,46 +2162,79 @@ func TestDeploymentHistory(t *testing.T) {
 				{
 					Created:       created,
 					Env:           "dev",
-					App:           "testapp",
+					App:           testApp,
 					Version:       &versionOne,
 					TransformerID: 0,
 				},
 				{
 					Created:       created,
 					Env:           "staging",
-					App:           "testapp",
+					App:           testApp,
 					Version:       &versionOne,
 					TransformerID: 0,
 				},
 				{
 					Created:       created,
 					Env:           "dev",
-					App:           "testapp2",
+					App:           testApp2,
 					Version:       &versionTwo,
 					TransformerID: 0,
 				},
 				{
 					Created:       created,
 					Env:           "dev",
-					App:           "testapp",
+					App:           testApp,
 					Version:       &versionTwo,
 					TransformerID: 0,
 				},
 			},
-			SetupEnvs: []repository.CreateEnvironment{
-				repository.CreateEnvironment{
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
 					Environment: "dev",
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
 						EnvironmentGroup: &dev,
 					},
 				},
-				repository.CreateEnvironment{
+				&repository.CreateEnvironment{
 					Environment: "staging",
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
 						EnvironmentGroup: &dev,
 					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp2,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					SourceMessage:  "changed something (#678)",
 				},
 			},
 			Request: &api.DeploymentHistoryRequest{
@@ -2208,10 +2243,10 @@ func TestDeploymentHistory(t *testing.T) {
 				Environment: "dev",
 			},
 			ExpectedCsvLines: []string{
-				"time,app,environment,deployed release version,previous release version\n",
-				"testapp,dev,1,nil\n",
-				"testapp2,dev,2,nil\n",
-				"testapp,dev,2,1\n",
+				"time,app,environment,deployed release version,source repository commit hash,previous release version\n",
+				"test-app,dev,1,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,nil\n",
+				"test-app-2,dev,2,cccccccccccccccccccccccccccccccccccccccc,nil\n",
+				"test-app,dev,2,bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,1\n",
 			},
 		},
 		{
@@ -2220,46 +2255,79 @@ func TestDeploymentHistory(t *testing.T) {
 				{
 					Created:       created,
 					Env:           "dev",
-					App:           "testapp",
+					App:           testApp,
 					Version:       &versionOne,
 					TransformerID: 0,
 				},
 				{
 					Created:       created,
 					Env:           "staging",
-					App:           "testapp",
+					App:           testApp,
 					Version:       &versionOne,
 					TransformerID: 0,
 				},
 				{
 					Created:       created,
 					Env:           "dev",
-					App:           "testapp2",
+					App:           testApp2,
 					Version:       &versionTwo,
 					TransformerID: 0,
 				},
 				{
 					Created:       created,
 					Env:           "dev",
-					App:           "testapp",
+					App:           testApp,
 					Version:       &versionTwo,
 					TransformerID: 0,
 				},
 			},
-			SetupEnvs: []repository.CreateEnvironment{
-				repository.CreateEnvironment{
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
 					Environment: "dev",
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
 						EnvironmentGroup: &dev,
 					},
 				},
-				repository.CreateEnvironment{
+				&repository.CreateEnvironment{
 					Environment: "staging",
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
 						EnvironmentGroup: &dev,
 					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp2,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					SourceMessage:  "changed something (#678)",
 				},
 			},
 			Request: &api.DeploymentHistoryRequest{
@@ -2268,8 +2336,8 @@ func TestDeploymentHistory(t *testing.T) {
 				Environment: "staging",
 			},
 			ExpectedCsvLines: []string{
-				"time,app,environment,deployed release version,previous release version\n",
-				"testapp,staging,1,nil\n",
+				"time,app,environment,deployed release version,source repository commit hash,previous release version\n",
+				"test-app,staging,1,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,nil\n",
 			},
 		},
 		{
@@ -2283,13 +2351,46 @@ func TestDeploymentHistory(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
-			SetupEnvs: []repository.CreateEnvironment{
-				repository.CreateEnvironment{
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
 					Environment: "dev",
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
 						EnvironmentGroup: &dev,
 					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp2,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					SourceMessage:  "changed something (#678)",
 				},
 			},
 			Request: &api.DeploymentHistoryRequest{
@@ -2322,7 +2423,7 @@ func TestDeploymentHistory(t *testing.T) {
 		{
 			Name:          "Test with environment that does not exist",
 			Setup:         []db.Deployment{},
-			SetupEnvs:     []repository.CreateEnvironment{},
+			SetupEnvs:     []repository.Transformer{},
 			ExpectedError: `environment "dev" does not exist`,
 			Request: &api.DeploymentHistoryRequest{
 				StartDate:   timestamppb.New(yesterday),
@@ -2360,7 +2461,7 @@ func TestDeploymentHistory(t *testing.T) {
 			}
 
 			for _, tr := range tc.SetupEnvs {
-				if err := repo.Apply(ctx, &tr); err != nil {
+				if err := repo.Apply(ctx, tr); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -2384,7 +2485,7 @@ func TestDeploymentHistory(t *testing.T) {
 			}
 
 			var expectedLinesWithCreated []string
-			expectedLinesWithCreated = append(expectedLinesWithCreated, "time,app,environment,deployed release version,previous release version\n")
+			expectedLinesWithCreated = append(expectedLinesWithCreated, "time,app,environment,deployed release version,source repository commit hash,previous release version\n")
 
 			err = svc.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 				query := svc.DBHandler.AdaptQuery(`
