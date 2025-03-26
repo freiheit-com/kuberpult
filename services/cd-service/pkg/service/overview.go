@@ -791,10 +791,6 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 				return fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
 			}
 			releases[ReleaseInfo{appName: appName, releaseVersion: releaseVersion}] = metaData.SourceCommitId
-
-			if err != nil {
-				return err
-			}
 		}
 
 		query = o.DBHandler.AdaptQuery(`
