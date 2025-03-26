@@ -2156,6 +2156,13 @@ func TestReleaseTrain(t *testing.T) {
 					Version:               2,
 					TransformerEslVersion: 0,
 				},
+				&DeployApplicationVersion{
+					Application:           testAppName,
+					Environment:           envAcceptance,
+					Version:               1,
+					WriteCommitData:       true,
+					TransformerEslVersion: 0,
+				},
 				&ReleaseTrain{
 					Target:                envAcceptance,
 					TransformerEslVersion: 0,
