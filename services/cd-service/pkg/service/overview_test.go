@@ -2130,6 +2130,7 @@ func TestDeploymentHistory(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Setup            []db.Deployment
+		SetupReleases    []db.DBReleaseWithMetaData
 		SetupEnvs        []repository.Transformer
 		Request          *api.DeploymentHistoryRequest
 		ExpectedCsvLines []string
@@ -2341,6 +2342,116 @@ func TestDeploymentHistory(t *testing.T) {
 			},
 		},
 		{
+			Name: "we are still able to retrieve commit hash from a very old release",
+			Setup: []db.Deployment{
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp,
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "staging",
+					App:           testApp,
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp2,
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp,
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+			},
+			SetupReleases: []db.DBReleaseWithMetaData{
+				{
+					App:           testApp,
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev":     "dev",
+							"staging": "staging",
+						},
+					},
+					Environments: []string{"dev", "staging"},
+					Metadata: db.DBReleaseMetaData{
+						SourceAuthor:   "example <example@example.com>",
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+						SourceMessage:  "changed something (#678)",
+					},
+					Created: created.AddDate(-1, 0, 0),
+				},
+			},
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp2,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					SourceMessage:  "changed something (#678)",
+				},
+			},
+			Request: &api.DeploymentHistoryRequest{
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "staging",
+			},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,source repository commit hash,previous release version\n",
+				"test-app,staging,1,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,nil\n",
+			},
+		},
+		{
 			Name: "Test no deployment in the specified time frame",
 			Setup: []db.Deployment{
 				{
@@ -2470,6 +2581,12 @@ func TestDeploymentHistory(t *testing.T) {
 				err := svc.DBHandler.DBWriteMigrationsTransformer(ctx, transaction)
 				if err != nil {
 					return err
+				}
+
+				for _, release := range tc.SetupReleases {
+					if err := svc.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, release); err != nil {
+						return err
+					}
 				}
 
 				for _, deployment := range tc.Setup {

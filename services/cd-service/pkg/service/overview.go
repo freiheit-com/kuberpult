@@ -743,17 +743,18 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 			appName        string
 			releaseVersion uint64
 		}
-
+		startDateReleases := in.StartDate.AsTime().AddDate(0, -1, 0)
 		var releases = make(map[ReleaseInfo]string)
 		//Get releases for which we found any relevant deployment. We want to extract the commit hash for that release
 		query := o.DBHandler.AdaptQuery(`
 			SELECT appName, metadata, releaseVersion FROM releases
-			WHERE releaseversion IS NOT NULL AND created <= (?);
+			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?);
 		`)
 		releasesRows, err := transaction.QueryContext(
 			ctx,
 			query,
-			endDate,
+			startDateReleases, // To avoid fetching all releases for all applications since the beginning of time, we make an educate guess that
+			endDate,           // Every release that has been deployed within the requested window has been created in the month prior to the lower bound of the requested window. If we still cant find the release we want, we directly get it from the database (below)
 		)
 		if err != nil {
 			return fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
@@ -800,7 +801,6 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 		`)
 
 		//All releases that come in first query
-
 		deploymentRows, err := transaction.QueryContext(ctx, query, startDate, endDate, in.Environment)
 		if err != nil {
 			return err
@@ -821,16 +821,25 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 			}
 
 			previousReleaseVersion, hasPreviousVersion := previousReleaseVersions[appName]
-			releaseInfo, exists := releases[ReleaseInfo{appName: appName, releaseVersion: releaseVersion}]
+			releaseSourceCommitId, exists := releases[ReleaseInfo{appName: appName, releaseVersion: releaseVersion}]
 			if !exists {
-				logger.FromContext(ctx).Sugar().Warnf("Could not find information for release %q, skipping deployment of application %q on environment %q", releaseVersion, appName, envName)
-				continue
+				// If we couldnt find the release info in the window from [start_data - 1Month, EndDate], we fetch this information directly
+				fetchRelease, err := o.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion, false)
+				if err != nil {
+					return err
+				}
+				if fetchRelease == nil {
+					logger.FromContext(ctx).Sugar().Warnf("Could not find information for release %q, skipping deployment of application %q on environment %q!", releaseVersion, appName, envName)
+					releaseSourceCommitId = "<no commit hash found>"
+				} else {
+					releaseSourceCommitId = fetchRelease.Metadata.SourceCommitId
+				}
 			}
 			var line string
 			if hasPreviousVersion {
-				line = fmt.Sprintf("%s,%s,%s,%d,%s,%d\n", created.Format(time.RFC3339), appName, in.Environment, releaseVersion, releaseInfo, previousReleaseVersion)
+				line = fmt.Sprintf("%s,%s,%s,%d,%s,%d\n", created.Format(time.RFC3339), appName, in.Environment, releaseVersion, releaseSourceCommitId, previousReleaseVersion)
 			} else {
-				line = fmt.Sprintf("%s,%s,%s,%d,%s,nil\n", created.Format(time.RFC3339), appName, in.Environment, releaseVersion, releaseInfo)
+				line = fmt.Sprintf("%s,%s,%s,%d,%s,nil\n", created.Format(time.RFC3339), appName, in.Environment, releaseVersion, releaseSourceCommitId)
 			}
 
 			err = stream.Send(&api.DeploymentHistoryResponse{
