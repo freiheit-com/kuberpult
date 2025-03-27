@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	git "github.com/libgit2/git2go/v34"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"strconv"
 	"strings"
