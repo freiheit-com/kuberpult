@@ -646,7 +646,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 	if h == nil {
 		return nil, nil
 	}
-	if tx == nil {
+	if transaction == nil {
 		return nil, fmt.Errorf("DBSelectCommitHashesTimeWindow: no transaction provided")
 	}
 
