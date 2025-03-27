@@ -697,7 +697,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 		if err != nil {
 			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
 		}
-		releases[ReleaseKey{appName: appName, releaseVersion: releaseVersion}] = metaData.SourceCommitId
+		releases[ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion}] = metaData.SourceCommitId
 	}
 	err = closeRows(releasesRows)
 	if err != nil {
