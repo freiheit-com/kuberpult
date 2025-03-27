@@ -315,7 +315,7 @@ func RunServer() {
 		cfg := repository.RepositoryConfig{
 			WebhookResolver:       nil,
 			URL:                   c.GitUrl,
-			Path:                  "",
+			WebURL:                c.GitWebUrl,
 			MinorRegexes:          minorRegexes,
 			MaxNumThreads:         c.MaxNumberOfThreads,
 			Branch:                c.GitBranch,

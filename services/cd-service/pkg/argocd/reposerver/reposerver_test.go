@@ -305,28 +305,6 @@ func TestGetRevisionMetadata(t *testing.T) {
 	}
 }
 
-func setupRepository(t *testing.T) (repository.Repository, repository.RepositoryConfig) {
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Run()
-	cfg := repository.RepositoryConfig{
-		URL:                 "file://" + remoteDir,
-		Path:                localDir,
-		Branch:              "master",
-		ArgoCdGenerateFiles: true,
-	}
-	repo, err := repository.New(
-		testutil.MakeTestContext(),
-		cfg,
-	)
-	if err != nil {
-		t.Fatalf("expected no error, got '%e'", err)
-	}
-	return repo, cfg
-}
-
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (repository.Repository, *repository.RepositoryConfig) {
 	ctx := context.Background()
 	migrationsPath, err := testutil.CreateMigrationsPath(5)
@@ -357,7 +335,6 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 
 	repoCfg := repository.RepositoryConfig{
 		URL:                 remoteDir,
-		Path:                localDir,
 		ArgoCdGenerateFiles: true,
 	}
 	dbConfig.DbHost = dir

@@ -685,7 +685,6 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 
 	repoCfg := repository.RepositoryConfig{
 		URL:                 remoteDir,
-		Path:                localDir,
 		ArgoCdGenerateFiles: true,
 		DisableQueue:        true,
 	}

@@ -176,8 +176,6 @@ func (r DefaultWebhookResolver) Resolve(insecure bool, req *http.Request) (*http
 type RepositoryConfig struct {
 	// the URL used for git checkout, (ssh protocol)
 	URL string
-	// the URL used for git checkout, (ssh protocol)
-	Path string
 	// default branch is master
 	Branch string
 	// network timeout
