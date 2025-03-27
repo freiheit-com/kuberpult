@@ -3376,8 +3376,6 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 		RepositoryConfig{
 			URL:                   remoteDir,
 			Path:                  localDir,
-			CommitterEmail:        "kuberpult@freiheit.com",
-			CommitterName:         "kuberpult",
 			WriteCommitData:       true,
 			MaximumCommitsPerPush: 5,
 			ArgoCdGenerateFiles:   true,

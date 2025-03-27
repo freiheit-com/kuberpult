@@ -358,8 +358,6 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 	repoCfg := repository.RepositoryConfig{
 		URL:                 remoteDir,
 		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
 	}
 	dbConfig.DbHost = dir

@@ -64,27 +64,29 @@ const (
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitWriteCommitData    bool   `default:"false" split_words:"true"`
-	PgpKeyRingPath        string `split_words:"true"`
-	AzureEnableAuth       bool   `default:"false" split_words:"true"`
-	DexEnabled            bool   `default:"false" split_words:"true"`
-	DexRbacPolicyPath     string `split_words:"true"`
-	DexRbacTeamPath       string `split_words:"true"`
-	EnableTracing         bool   `default:"false" split_words:"true"`
-	EnableMetrics         bool   `default:"false" split_words:"true"`
-	EnableEvents          bool   `default:"false" split_words:"true"`
-	DogstatsdAddr         string `default:"127.0.0.1:8125" split_words:"true"`
-	EnableProfiling       bool   `default:"false" split_words:"true"`
-	DatadogApiKeyLocation string `default:"" split_words:"true"`
-	EnableSqlite          bool   `default:"true" split_words:"true"`
-	DexMock               bool   `default:"false" split_words:"true"`
-	DexMockRole           string `default:"Developer" split_words:"true"`
-	//GitWebUrl                string        `default:"" split_words:"true"`
-	//GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
-	MaximumQueueSize    uint `default:"5" split_words:"true"`
-	AllowLongAppNames   bool `default:"false" split_words:"true"`
-	ArgoCdGenerateFiles bool `default:"true" split_words:"true"`
-	MaxNumberOfThreads  uint `default:"3" split_words:"true"`
+	GitUrl                   string `split_words:"true"`
+	GitBranch                string `default:"master" split_words:"true"`
+	GitWriteCommitData       bool   `default:"false" split_words:"true"`
+	PgpKeyRingPath           string `split_words:"true"`
+	AzureEnableAuth          bool   `default:"false" split_words:"true"`
+	DexEnabled               bool   `default:"false" split_words:"true"`
+	DexRbacPolicyPath        string `split_words:"true"`
+	DexRbacTeamPath          string `split_words:"true"`
+	EnableTracing            bool   `default:"false" split_words:"true"`
+	EnableMetrics            bool   `default:"false" split_words:"true"`
+	EnableEvents             bool   `default:"false" split_words:"true"`
+	DogstatsdAddr            string `default:"127.0.0.1:8125" split_words:"true"`
+	EnableProfiling          bool   `default:"false" split_words:"true"`
+	DatadogApiKeyLocation    string `default:"" split_words:"true"`
+	EnableSqlite             bool   `default:"true" split_words:"true"`
+	DexMock                  bool   `default:"false" split_words:"true"`
+	DexMockRole              string `default:"Developer" split_words:"true"`
+	GitWebUrl                string `default:"" split_words:"true"`
+	GitMaximumCommitsPerPush uint   `default:"1" split_words:"true"`
+	MaximumQueueSize         uint   `default:"5" split_words:"true"`
+	AllowLongAppNames        bool   `default:"false" split_words:"true"`
+	ArgoCdGenerateFiles      bool   `default:"true" split_words:"true"`
+	MaxNumberOfThreads       uint   `default:"3" split_words:"true"`
 
 	DbOption              string   `default:"NO_DB" split_words:"true"`
 	DbLocation            string   `default:"/kp/database" split_words:"true"`
@@ -225,6 +227,16 @@ func RunServer() {
 		// If the tracer is not started, calling this function is a no-op.
 		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
 
+		if strings.HasPrefix(c.GitUrl, "https") {
+			logger.FromContext(ctx).Fatal("git.url.protocol.unsupported",
+				zap.String("url", c.GitUrl),
+				zap.String("details", "https is not supported for git communication, only ssh is supported"))
+		}
+		if c.GitMaximumCommitsPerPush == 0 {
+			logger.FromContext(ctx).Fatal("git.config",
+				zap.String("details", "the maximum number of commits per push must be at least 1"),
+			)
+		}
 		if c.MaximumQueueSize < 2 || c.MaximumQueueSize > 100 {
 			logger.FromContext(ctx).Fatal("cd.config",
 				zap.String("details", "the size of the queue must be between 2 and 100"),
@@ -301,25 +313,29 @@ func RunServer() {
 		}
 
 		cfg := repository.RepositoryConfig{
-			WebhookResolver:      nil,
-			MinorRegexes:         minorRegexes,
-			MaxNumThreads:        c.MaxNumberOfThreads,
-			ReleaseVersionsLimit: c.ReleaseVersionsLimit,
-			StorageBackend:       c.storageBackend(),
-			DogstatsdEvents:      c.EnableMetrics,
-			WriteCommitData:      c.GitWriteCommitData,
-			MaximumQueueSize:     c.MaximumQueueSize,
-			AllowLongAppNames:    c.AllowLongAppNames,
-			ArgoCdGenerateFiles:  c.ArgoCdGenerateFiles,
-			DBHandler:            dbHandler,
-			CloudRunClient:       cloudRunClient,
+			WebhookResolver:       nil,
+			URL:                   c.GitUrl,
+			Path:                  "",
+			MinorRegexes:          minorRegexes,
+			MaxNumThreads:         c.MaxNumberOfThreads,
+			Branch:                c.GitBranch,
+			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
+			StorageBackend:        c.storageBackend(),
+			DogstatsdEvents:       c.EnableMetrics,
+			WriteCommitData:       c.GitWriteCommitData,
+			MaximumCommitsPerPush: c.GitMaximumCommitsPerPush,
+			MaximumQueueSize:      c.MaximumQueueSize,
+			AllowLongAppNames:     c.AllowLongAppNames,
+			ArgoCdGenerateFiles:   c.ArgoCdGenerateFiles,
+			DBHandler:             dbHandler,
+			CloudRunClient:        cloudRunClient,
 
 			DisableQueue: c.DisableQueue,
 		}
 
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err))
+			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}
 
 		repositoryService :=
