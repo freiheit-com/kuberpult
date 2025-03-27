@@ -654,7 +654,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 	//Get releases for which we found any relevant deployment. We want to extract the commit hash for that release
 	query := h.AdaptQuery(`
 			SELECT appName, metadata, releaseVersion FROM releases_history
-			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?);
+			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) ORDER BY version;
 		`)
 	releasesRows, err := transaction.QueryContext(
 		ctx,
