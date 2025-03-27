@@ -144,9 +144,9 @@ spec:
             memory: "{{ .Values.cd.resources.requests.memory }}"
         env:
         - name: KUBERPULT_GIT_URL
-          value: { { .Values.git.url | quote } }
+          value: {{ .Values.git.url | quote }}
         - name: KUBERPULT_GIT_BRANCH
-          value: { { .Values.git.branch | quote } }
+          value: {{ .Values.git.branch | quote }}
         - name: KUBERPULT_VERSION
           value: {{ $.Chart.AppVersion | quote}}
         - name: LOG_FORMAT
