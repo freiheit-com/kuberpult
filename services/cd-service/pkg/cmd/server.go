@@ -225,16 +225,6 @@ func RunServer() {
 		// If the tracer is not started, calling this function is a no-op.
 		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
 
-		//if strings.HasPrefix(c.GitUrl, "https") {
-		//	logger.FromContext(ctx).Fatal("git.url.protocol.unsupported",
-		//		zap.String("url", c.GitUrl),
-		//		zap.String("details", "https is not supported for git communication, only ssh is supported"))
-		//}
-		//if c.GitMaximumCommitsPerPush == 0 {
-		//	logger.FromContext(ctx).Fatal("git.config",
-		//		zap.String("details", "the maximum number of commits per push must be at least 1"),
-		//	)
-		//}
 		if c.MaximumQueueSize < 2 || c.MaximumQueueSize > 100 {
 			logger.FromContext(ctx).Fatal("cd.config",
 				zap.String("details", "the size of the queue must be between 2 and 100"),
