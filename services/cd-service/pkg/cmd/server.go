@@ -302,7 +302,6 @@ func RunServer() {
 
 		cfg := repository.RepositoryConfig{
 			WebhookResolver:      nil,
-			Path:                 "./repository",
 			MinorRegexes:         minorRegexes,
 			MaxNumThreads:        c.MaxNumberOfThreads,
 			ReleaseVersionsLimit: c.ReleaseVersionsLimit,
