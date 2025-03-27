@@ -81,7 +81,6 @@ type Config struct {
 	EnableSqlite             bool   `default:"true" split_words:"true"`
 	DexMock                  bool   `default:"false" split_words:"true"`
 	DexMockRole              string `default:"Developer" split_words:"true"`
-	GitWebUrl                string `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint   `default:"1" split_words:"true"`
 	MaximumQueueSize         uint   `default:"5" split_words:"true"`
 	AllowLongAppNames        bool   `default:"false" split_words:"true"`
@@ -315,7 +314,6 @@ func RunServer() {
 		cfg := repository.RepositoryConfig{
 			WebhookResolver:       nil,
 			URL:                   c.GitUrl,
-			WebURL:                c.GitWebUrl,
 			MinorRegexes:          minorRegexes,
 			MaxNumThreads:         c.MaxNumberOfThreads,
 			Branch:                c.GitBranch,

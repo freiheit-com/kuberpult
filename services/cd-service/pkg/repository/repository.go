@@ -184,7 +184,6 @@ type RepositoryConfig struct {
 	ReleaseVersionsLimit uint
 	StorageBackend       StorageBackend
 	// the url to the git repo, like the browser requires it (https protocol)
-	WebURL                string
 	DogstatsdEvents       bool
 	WriteCommitData       bool
 	WebhookResolver       WebhookResolver
