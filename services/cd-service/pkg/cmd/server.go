@@ -31,6 +31,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
@@ -64,28 +65,29 @@ const (
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl                   string `split_words:"true"`
-	GitBranch                string `default:"master" split_words:"true"`
-	GitWriteCommitData       bool   `default:"false" split_words:"true"`
-	PgpKeyRingPath           string `split_words:"true"`
-	AzureEnableAuth          bool   `default:"false" split_words:"true"`
-	DexEnabled               bool   `default:"false" split_words:"true"`
-	DexRbacPolicyPath        string `split_words:"true"`
-	DexRbacTeamPath          string `split_words:"true"`
-	EnableTracing            bool   `default:"false" split_words:"true"`
-	EnableMetrics            bool   `default:"false" split_words:"true"`
-	EnableEvents             bool   `default:"false" split_words:"true"`
-	DogstatsdAddr            string `default:"127.0.0.1:8125" split_words:"true"`
-	EnableProfiling          bool   `default:"false" split_words:"true"`
-	DatadogApiKeyLocation    string `default:"" split_words:"true"`
-	EnableSqlite             bool   `default:"true" split_words:"true"`
-	DexMock                  bool   `default:"false" split_words:"true"`
-	DexMockRole              string `default:"Developer" split_words:"true"`
-	GitMaximumCommitsPerPush uint   `default:"1" split_words:"true"`
-	MaximumQueueSize         uint   `default:"5" split_words:"true"`
-	AllowLongAppNames        bool   `default:"false" split_words:"true"`
-	ArgoCdGenerateFiles      bool   `default:"true" split_words:"true"`
-	MaxNumberOfThreads       uint   `default:"3" split_words:"true"`
+	GitUrl                   string        `split_words:"true"`
+	GitBranch                string        `default:"master" split_words:"true"`
+	GitNetworkTimeout        time.Duration `default:"1m" split_words:"true"`
+	GitWriteCommitData       bool          `default:"false" split_words:"true"`
+	PgpKeyRingPath           string        `split_words:"true"`
+	AzureEnableAuth          bool          `default:"false" split_words:"true"`
+	DexEnabled               bool          `default:"false" split_words:"true"`
+	DexRbacPolicyPath        string        `split_words:"true"`
+	DexRbacTeamPath          string        `split_words:"true"`
+	EnableTracing            bool          `default:"false" split_words:"true"`
+	EnableMetrics            bool          `default:"false" split_words:"true"`
+	EnableEvents             bool          `default:"false" split_words:"true"`
+	DogstatsdAddr            string        `default:"127.0.0.1:8125" split_words:"true"`
+	EnableProfiling          bool          `default:"false" split_words:"true"`
+	DatadogApiKeyLocation    string        `default:"" split_words:"true"`
+	EnableSqlite             bool          `default:"true" split_words:"true"`
+	DexMock                  bool          `default:"false" split_words:"true"`
+	DexMockRole              string        `default:"Developer" split_words:"true"`
+	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
+	MaximumQueueSize         uint          `default:"5" split_words:"true"`
+	AllowLongAppNames        bool          `default:"false" split_words:"true"`
+	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
+	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
 
 	DbOption              string   `default:"NO_DB" split_words:"true"`
 	DbLocation            string   `default:"/kp/database" split_words:"true"`
@@ -321,6 +323,7 @@ func RunServer() {
 			StorageBackend:        c.storageBackend(),
 			DogstatsdEvents:       c.EnableMetrics,
 			WriteCommitData:       c.GitWriteCommitData,
+			NetworkTimeout:        c.GitNetworkTimeout,
 			MaximumCommitsPerPush: c.GitMaximumCommitsPerPush,
 			MaximumQueueSize:      c.MaximumQueueSize,
 			AllowLongAppNames:     c.AllowLongAppNames,
