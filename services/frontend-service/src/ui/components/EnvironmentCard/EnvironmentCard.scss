@@ -112,4 +112,12 @@ Copyright freiheit.com*/
             margin-left: 8px;
         }
     }
+
+    a:link,
+    a:visited,
+    a:hover,
+    a:focus,
+    a:active {
+      color: var(--mdc-theme-anchor-on-surface);
+    }
 }

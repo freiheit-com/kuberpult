@@ -25,14 +25,6 @@ body,
     @extend .font;
 }
 
-a:link,
-a:visited,
-a:hover,
-a:focus,
-a:active {
-  color: var(--mdc-theme-anchor);
-}
-
 .app-container--v2 {
     height: 100%;
     width: 100%;

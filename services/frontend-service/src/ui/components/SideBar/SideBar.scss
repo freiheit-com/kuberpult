@@ -47,7 +47,7 @@ Copyright freiheit.com*/
 .mdc-drawer-sidebar-list-item {
     border: 2px solid #f2f5f7;
     border-radius: 10px;
-    background-color: var(--mdc-theme-background);
+    background-color: var(--mdc-theme-surface-light);
     padding: 5px;
     width: 100%;
     position: relative;
@@ -60,7 +60,7 @@ Copyright freiheit.com*/
     display: flex;
     flex-direction: column;
     gap: 6px;
-    color: var(--mdc-theme-on-surface);
+    color: var(--mdc-theme-on-surface-light);
     align-items: flex-start;
     @extend .text-regular;
 }
