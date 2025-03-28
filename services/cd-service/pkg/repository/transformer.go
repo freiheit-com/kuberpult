@@ -1896,6 +1896,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
 }
 
+// Creates or Update an Environment
 type CreateEnvironment struct {
 	Authentication        `json:"-"`
 	Environment           string                   `json:"env"`
@@ -1927,12 +1928,16 @@ func (c *CreateEnvironment) Transform(
 		return "", err
 	}
 	// first read the env to see if it has applications:
+	env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, c.Environment)
 	if err != nil {
 		return "", fmt.Errorf("could not select environment %s from database, error: %w", c.Environment, err)
 	}
 
 	// write to environments table
 	environmentApplications := make([]string, 0)
+	if env != nil {
+		environmentApplications = env.Applications
+	}
 	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications)
 	if err != nil {
 		return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
