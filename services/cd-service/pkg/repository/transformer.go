@@ -1927,18 +1927,9 @@ func (c *CreateEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	// first read the env to see if it has applications:
-	env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, c.Environment)
-	if err != nil {
-		return "", fmt.Errorf("could not select environment %s from database, error: %w", c.Environment, err)
-	}
 
 	// write to environments table
-	environmentApplications := make([]string, 0)
-	if env != nil {
-		environmentApplications = env.Applications
-	}
-	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, c.Environment, c.Config, environmentApplications)
+	err = state.DBHandler.DBWriteEnvironmentNotOverrideApplications(ctx, transaction, c.Environment, c.Config, make([]string, 0))
 	if err != nil {
 		return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 	}
