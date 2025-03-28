@@ -36,7 +36,7 @@ Copyright freiheit.com*/
 }
 
 .mdc-evolution-chip-release-dialog {
-    background-color: white;
+    background-color: var(--mdc-theme-background);
     height: $env-chip-height;
     border-radius: $border-radius-small;
     margin-bottom: 10px;

@@ -18,7 +18,7 @@ Copyright freiheit.com*/
 
 .mdc-top-app-bar {
     background: var(--mdc-theme-background);
-    color: var(--mdc-theme-primary);
+    color: var(--mdc-theme-on-background);
     padding: $top-app-bar-padding;
     position: fixed;
     width: 100%;
@@ -62,6 +62,7 @@ Copyright freiheit.com*/
         flex: 1 1 auto;
         align-items: center;
         padding: 8px 12px;
+        color: white;
     }
     .mdc-top-app-bar__title {
         @extend .headline1;
@@ -72,11 +73,26 @@ Copyright freiheit.com*/
         white-space: nowrap;
         overflow: hidden;
         letter-spacing: 0.0125em;
+        color: var(--mdc-theme-on-background)
     }
 
     .mdc-text-field {
         @include notched-outline.shape-radius($border-radius-medium);
-        @include notched-outline.color(var(--mdc-theme-primary));
+        .mdc-text-field__input {
+            color: white;
+        }
+        .mdc-text-field__icon--leading {
+            color: white;
+        }
+        .top-app-bar-search-field {
+            color: white;
+        }
+        .mdc-notched-outline__trailing {
+            color: white;
+        }
+        .mdc-notched-outline__leading {
+            color: white;
+        }
     }
 
     .mdc-show-button {
@@ -88,4 +104,16 @@ Copyright freiheit.com*/
         height: $sidebar-show-button-height;
         border-radius: $border-radius-medium 0 0 $border-radius-medium;
     }
+}
+
+.mdc-notched-outline {
+    .mdc-notched-outline--trailing {
+        color: white;
+    }
+    .mdc-notched-outline--leading {
+        color: white;
+    }
+}
+#application-filter-input::placeholder {
+  color: white;
 }

@@ -234,30 +234,30 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const tooltipContents = (
         <div className="mdc-tooltip__title_ release__details">
             {!!sourceMessage && (
-                <b>
+                <b className={'tooltip-text'}>
                     {sourceMessage} {isMinor ? '💤' : ''}
                 </b>
             )}
             {!!sourceAuthor && (
-                <div>
+                <div className={'tooltip-text'}>
                     <span>Author:</span> {sourceAuthor}
                 </div>
             )}
             {isMinor && (
                 <div>
-                    <span>
+                    <span className={'tooltip-text'}>
                         '💤' icon means that this release is a minor release; it has no changes to the manifests
                         comparing to the previous release.
                     </span>
                 </div>
             )}
             {isPrepublish && (
-                <div className="prerelease__description">
+                <div className="prerelease__description tooltip-text">
                     <span>This is a pre-release. It doesn't have any manifests. It can't be deployed anywhere.</span>
                 </div>
             )}
             {!!createdAt && (
-                <div className="release__metadata">
+                <div className="release__metadata tooltip-text">
                     <span>Created </span>
                     <FormattedDate className={'date'} createdAt={createdAt} />
                 </div>
@@ -266,15 +266,15 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                 <table className="release__environment_status">
                     <thead>
                         <tr>
-                            <th>Environment group</th>
+                            <th className={'tooltip-text'}>Environment group</th>
 
                             {syncStatus.isEnabled() ? (
-                                <th className="release-card__statusth">
+                                <th className="release-card__statusth tooltip-text">
                                     Sync Status
                                     <Git className="status-logo" />
                                 </th>
                             ) : (
-                                <th className="release-card__statusth">
+                                <th className="release-card__statusth tooltip-text">
                                     Rollout Status <Argo className="status-logo" />
                                 </th>
                             )}
@@ -284,7 +284,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                         {syncStatus.isEnabled()
                             ? gitSyncStatuses.map((env) => (
                                   <tr key={env.environmentGroup}>
-                                      <td>{env.environmentGroup}</td>
+                                      <td className={'tooltip-text'}>{env.environmentGroup}</td>
                                       <td>
                                           <GitSyncStatusDescription
                                               status={env.gitSyncStatus}></GitSyncStatusDescription>
@@ -293,7 +293,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                               ))
                             : rolloutEnvs.map((env) => (
                                   <tr key={env.environmentGroup}>
-                                      <td>{env.environmentGroup}</td>
+                                      <td className={'tooltip-text'}>{env.environmentGroup}</td>
                                       <td>
                                           <RolloutStatusDescription status={env.rolloutStatus} />
                                       </td>

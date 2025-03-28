@@ -59,8 +59,8 @@ Copyright freiheit.com*/
     max-height: 80vh;
     display: grid;
     grid-template-rows: auto 1fr auto;
-    background: white;
-    color: black;
+    background: var(--mdc-theme-surface);
+    color: var(--mdc-theme-on-surface-light);;
     position: fixed;
     float: left;
     left: 50%;
@@ -92,16 +92,14 @@ Copyright freiheit.com*/
         gap: 1rem;
         padding: 1rem 2rem 1rem 2rem;
 
-        .item:not(:first-child) {
-            border-top: 1px solid;
-            border-color: white;
-        }
         .item {
             list-style-type: none;
             padding: 0;
         }
         button {
+            border: 1px solid var(--mdc-theme-primary);
             border-radius: 10px;
+            border-color: var(--mdc-theme-on-surface-light);
         }
     }
     hr {
