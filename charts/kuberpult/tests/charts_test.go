@@ -1577,65 +1577,6 @@ argocd:
 	}
 }
 
-func TestVolumes(t *testing.T) {
-	const VolumeName = "repository"
-	tcs := []struct {
-		Name            string
-		Values          string
-		VolumeMountSize string
-		target          core.Volume
-	}{
-		{
-			Name: "dir size not specified results in default value",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  create: true
-  domainName: "kuberpult-example.com"
-  allowedPaths:
-    dex: true
-`,
-			VolumeMountSize: "30Gi",
-		},
-		{
-			Name: "dir size is configurable",
-			Values: `
-git:
-  url: "testURL"
-  emptyDirSize: 10Gi
-ingress:
-  create: true
-  domainName: "kuberpult-example.com"
-  allowedPaths:
-    dex: true
-
-`,
-			VolumeMountSize: "10Gi",
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-
-			testDirName := t.TempDir()
-			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
-			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
-			}
-
-			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
-			} else {
-				result := CheckEmptyDirVolume(t, VolumeName, tc.VolumeMountSize, out["kuberpult-cd-service"])
-				if !result {
-					t.Fatalf("volume size mismatch")
-				}
-			}
-		})
-	}
-}
-
 func TestIngress(t *testing.T) {
 	ingressClassGcePrivate := "gce-private"
 	tcs := []struct {

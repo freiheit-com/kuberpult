@@ -3359,7 +3359,6 @@ func setupRepositoryTest(t *testing.T) Repository {
 func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
 	err := cmd.Start()
 	if err != nil {
@@ -3375,9 +3374,6 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 		testutil.MakeTestContext(),
 		RepositoryConfig{
 			URL:                   remoteDir,
-			Path:                  localDir,
-			CommitterEmail:        "kuberpult@freiheit.com",
-			CommitterName:         "kuberpult",
 			WriteCommitData:       true,
 			MaximumCommitsPerPush: 5,
 			ArgoCdGenerateFiles:   true,

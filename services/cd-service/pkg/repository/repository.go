@@ -174,13 +174,8 @@ func (r DefaultWebhookResolver) Resolve(insecure bool, req *http.Request) (*http
 }
 
 type RepositoryConfig struct {
-	// Mandatory Config
 	// the URL used for git checkout, (ssh protocol)
-	URL  string
-	Path string
-	// Optional Config
-	CommitterEmail string
-	CommitterName  string
+	URL string
 	// default branch is master
 	Branch string
 	// network timeout
@@ -189,7 +184,6 @@ type RepositoryConfig struct {
 	ReleaseVersionsLimit uint
 	StorageBackend       StorageBackend
 	// the url to the git repo, like the browser requires it (https protocol)
-	WebURL                string
 	DogstatsdEvents       bool
 	WriteCommitData       bool
 	WebhookResolver       WebhookResolver
@@ -228,15 +222,6 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 		logger.Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
 	}
 
-	if cfg.Branch == "" {
-		cfg.Branch = "master"
-	}
-	if cfg.CommitterEmail == "" {
-		cfg.CommitterEmail = "kuberpult@example.com"
-	}
-	if cfg.CommitterName == "" {
-		cfg.CommitterName = "kuberpult"
-	}
 	if cfg.StorageBackend == DefaultBackend {
 		cfg.StorageBackend = SqliteBackend
 	}
