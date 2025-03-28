@@ -226,6 +226,8 @@ spec:
 {{- if .Values.environment_configs.bootstrap_mode }}
         {{ fail "Values.environment_configs.bootstrap_mode cannot be used anymore. For more information [See environment.md/Environment Creation for how to create and edit environments](https://github.com/freiheit-com/kuberpult/blob/main/docs/environment.md) "}}
 {{- end }}
+        - name: KUBERPULT_GIT_NETWORK_TIMEOUT
+          value: "{{ .Values.git.networkTimeout }}"
         - name: KUBERPULT_DISABLE_QUEUE
           value: "{{ .Values.cd.backendConfig.disableQueue }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
