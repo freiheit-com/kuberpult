@@ -28,7 +28,7 @@ Copyright freiheit.com*/
     line-height: 48px;
     padding-left: 35px;
     align-items: center;
-    color: var(--mdc-theme-primary);
+    color: var(--mdc-theme-on-background);
 }
 
 .page_description {
@@ -48,6 +48,7 @@ Copyright freiheit.com*/
     display: flex;
     padding: 20px;
     padding-left: 35px;
+
 }
 
 .release_train_button {
@@ -65,7 +66,9 @@ Copyright freiheit.com*/
     border-radius: 3px;
     min-width: 220px;
     height: 50px;
-    border: 1px solid var(--mdc-theme-primary);
+    border: 1px solid var(--mdc-theme-on-surface-light);
+    color: var(--mdc-theme-on-surface-light);
+    background-color: var(--mdc-theme-surface);
     padding-left: 1em;
     margin-right: 20px;
 }
@@ -74,7 +77,9 @@ Copyright freiheit.com*/
     border-radius: 3px;
     min-width: 220px;
     height: 50px;
-    border: 1px solid var(--mdc-theme-primary);
+    border: 1px solid var(--mdc-theme-on-surface-light);
+    color: var(--mdc-theme-on-surface-light);
+    background-color: var(--mdc-theme-surface);
     padding-left: 1em;
     margin-right: 20px;
 }

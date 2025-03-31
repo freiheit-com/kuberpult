@@ -109,7 +109,7 @@ Copyright freiheit.com*/
     position: absolute;
     right: 11px;
     top: 11px;
-    color: #4a4a4a;
+    color: var(--mdc-theme-on-surface-light);
 }
 
 .mdc-drawer-sidebar-list-item-delete-icon:hover {

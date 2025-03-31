@@ -34,7 +34,7 @@ Copyright freiheit.com*/
     }
     border-radius: 10px;
     background-color: transparent;
-    color: black;
+    color: var(--mdc-theme-on-background-dark);
 }
 
 .spinner-small {
@@ -43,5 +43,5 @@ Copyright freiheit.com*/
     margin-left: 10px;
     border-radius: 10px;
     background-color: transparent;
-    color: black;
+    color: var(--mdc-theme-on-background-dark);
 }

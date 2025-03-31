@@ -18,6 +18,14 @@ Copyright freiheit.com*/
     position: relative;
     max-width: 1200px;
     margin: 0 auto;
+    color: var(--mdc-theme-on-surface-light);
+    a:link,
+    a:visited,
+    a:hover,
+    a:focus,
+    a:active {
+      color: var(--mdc-theme-anchor-on-surface-light);
+    }
 }
 
 /* Container around content */
@@ -63,11 +71,6 @@ Copyright freiheit.com*/
     line-height: 48px;
     padding-left: 35px;
     align-items: center;
-    color: var(--mdc-theme-primary);
-}
-
-.release_date {
-    color: var(--mdc-theme-primary);
 }
 
 .app-locks-container {

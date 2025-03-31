@@ -79,19 +79,22 @@ Copyright freiheit.com*/
     .mdc-text-field {
         @include notched-outline.shape-radius($border-radius-medium);
         .mdc-text-field__input {
-            color: white;
+            caret-color: var(--mdc-theme-on-surface-light);
+            color: var(--mdc-theme-on-background-dark);
         }
         .mdc-text-field__icon--leading {
-            color: white;
+            color:  var(--mdc-theme-on-surface-light);
         }
         .top-app-bar-search-field {
-            color: white;
+            color:  var(--mdc-theme-on-surface-light);
         }
         .mdc-notched-outline__trailing {
-            color: white;
+            border-color: var(--mdc-theme-on-background-dark);
+            color: var(--mdc-theme-on-surface-light);
         }
         .mdc-notched-outline__leading {
-            color: white;
+            border-color: var(--mdc-theme-on-background-dark);
+            color: var(--mdc-theme-on-surface-light);
         }
     }
 
@@ -104,16 +107,17 @@ Copyright freiheit.com*/
         height: $sidebar-show-button-height;
         border-radius: $border-radius-medium 0 0 $border-radius-medium;
     }
+
+    a:link,
+    a:visited,
+    a:hover,
+    a:focus,
+    a:active {
+      color: var(--mdc-theme-anchor-on-surface-light);
+    }
 }
 
-.mdc-notched-outline {
-    .mdc-notched-outline--trailing {
-        color: white;
-    }
-    .mdc-notched-outline--leading {
-        color: white;
-    }
-}
+
 #application-filter-input::placeholder {
-  color: white;
+  color: var(--mdc-theme-on-surface-light);
 }

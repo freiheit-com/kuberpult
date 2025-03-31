@@ -42,8 +42,8 @@ Copyright freiheit.com*/
     max-height: 80vh;
     display: grid;
     grid-template-rows: auto 1fr auto;
-    background: white;
-    color: black;
+    background: var(--mdc-theme-surface);
+    color: var(--mdc-theme-on-surface-light);;
     float: left;
 
     z-index: 1000;
@@ -59,7 +59,7 @@ Copyright freiheit.com*/
     max-height: 80vh;
     display: grid;
     grid-template-rows: auto 1fr auto;
-    background: var(--mdc-theme-surface);
+    background: var(--mdc-theme-surface-light);
     color: var(--mdc-theme-on-surface-light);;
     position: fixed;
     float: left;

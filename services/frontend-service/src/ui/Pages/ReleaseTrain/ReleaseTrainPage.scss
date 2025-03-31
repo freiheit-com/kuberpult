@@ -14,17 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-.esl-warnings-page {
-    table {
-        table-layout: auto;
-        width: 50%;
-
-        td {
-            padding: 4px;
-        }
-    }
-    color: var(--mdc-theme-on-background-dark);
-    .esl-warnings-page-message span {
-        margin-left: 10px;
-    }
+.release-train-prognosis {
+    color: var(--mdc-theme-on-background-dark)
 }
