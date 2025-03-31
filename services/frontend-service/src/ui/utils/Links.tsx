@@ -277,11 +277,12 @@ export const ReleaseTrainLink: React.FC<{ env: string }> = (props): JSX.Element 
     const { env } = props;
 
     const currentLink = window.location.href;
+    const addParam = currentLink.split('?');
 
     return (
         <a
             title={'Opens a preview of release trains on this environment'}
-            href={currentLink + '/' + env + '/releaseTrain'}>
+            href={addParam[0] + '/' + env + '/releaseTrain' + (addParam.length > 1 ? '?' + addParam[1] : '')}>
             Release train details
         </a>
     );

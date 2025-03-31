@@ -685,9 +685,6 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 
 	repoCfg := repository.RepositoryConfig{
 		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
 		DisableQueue:        true,
 	}
