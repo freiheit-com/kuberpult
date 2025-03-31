@@ -73,7 +73,7 @@ Copyright freiheit.com*/
         white-space: nowrap;
         overflow: hidden;
         letter-spacing: 0.0125em;
-        color: var(--mdc-theme-on-background)
+        color: var(--mdc-theme-on-background);
     }
 
     .mdc-text-field {
@@ -83,10 +83,10 @@ Copyright freiheit.com*/
             color: var(--mdc-theme-on-background-dark);
         }
         .mdc-text-field__icon--leading {
-            color:  var(--mdc-theme-on-surface-light);
+            color: var(--mdc-theme-on-surface-light);
         }
         .top-app-bar-search-field {
-            color:  var(--mdc-theme-on-surface-light);
+            color: var(--mdc-theme-on-surface-light);
         }
         .mdc-notched-outline__trailing {
             border-color: var(--mdc-theme-on-background-dark);
@@ -113,11 +113,10 @@ Copyright freiheit.com*/
     a:hover,
     a:focus,
     a:active {
-      color: var(--mdc-theme-anchor-on-surface-light);
+        color: var(--mdc-theme-anchor-on-surface-light);
     }
 }
 
-
 #application-filter-input::placeholder {
-  color: var(--mdc-theme-on-surface-light);
+    color: var(--mdc-theme-on-surface-light);
 }
