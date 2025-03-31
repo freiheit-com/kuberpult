@@ -21,7 +21,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
@@ -29,10 +32,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
@@ -66,12 +65,8 @@ const (
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl                   string        `required:"true" split_words:"true"`
+	GitUrl                   string        `split_words:"true"`
 	GitBranch                string        `default:"master" split_words:"true"`
-	GitCommitterEmail        string        `default:"kuberpult@freiheit.com" split_words:"true"`
-	GitCommitterName         string        `default:"kuberpult" split_words:"true"`
-	GitSshKey                string        `default:"/etc/ssh/identity" split_words:"true"`
-	GitSshKnownHosts         string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
 	GitNetworkTimeout        time.Duration `default:"1m" split_words:"true"`
 	GitWriteCommitData       bool          `default:"false" split_words:"true"`
 	PgpKeyRingPath           string        `split_words:"true"`
@@ -88,7 +83,6 @@ type Config struct {
 	EnableSqlite             bool          `default:"true" split_words:"true"`
 	DexMock                  bool          `default:"false" split_words:"true"`
 	DexMockRole              string        `default:"Developer" split_words:"true"`
-	GitWebUrl                string        `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 	AllowLongAppNames        bool          `default:"false" split_words:"true"`
@@ -322,15 +316,11 @@ func RunServer() {
 		cfg := repository.RepositoryConfig{
 			WebhookResolver:       nil,
 			URL:                   c.GitUrl,
-			Path:                  "./repository",
-			CommitterEmail:        c.GitCommitterEmail,
-			CommitterName:         c.GitCommitterName,
 			MinorRegexes:          minorRegexes,
 			MaxNumThreads:         c.MaxNumberOfThreads,
 			Branch:                c.GitBranch,
 			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
 			StorageBackend:        c.storageBackend(),
-			WebURL:                c.GitWebUrl,
 			NetworkTimeout:        c.GitNetworkTimeout,
 			DogstatsdEvents:       c.EnableMetrics,
 			WriteCommitData:       c.GitWriteCommitData,

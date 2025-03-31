@@ -1503,6 +1503,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 		Name                      string
 		Transformers              []Transformer
 		expectedEnvironmentConfig map[string]config.EnvironmentConfig
+		expectedStagingEnvApps    []string
 	}
 
 	testCases := []TestCase{
@@ -1510,13 +1511,14 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			Name: "create a single environment",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: "development",
+					Environment: "staging",
 					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 			},
 			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
-				"development": testutil.MakeEnvConfigLatest(nil),
+				"staging": testutil.MakeEnvConfigLatest(nil),
 			},
+			expectedStagingEnvApps: []string{},
 		},
 		{
 			Name: "create a single environment twice",
@@ -1524,6 +1526,13 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				&CreateEnvironment{
 					Environment: "staging",
 					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "testapp",
+					Version:     1,
+					Manifests: map[string]string{
+						"staging": "staging-manifest",
+					},
 				},
 				&CreateEnvironment{
 					Environment: "staging",
@@ -1533,6 +1542,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigUpstream("development", nil),
 			},
+			expectedStagingEnvApps: []string{"testapp"},
 		},
 		{
 			Name: "create multiple environments",
@@ -1550,6 +1560,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				"development": testutil.MakeEnvConfigLatest(nil),
 				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},
+			expectedStagingEnvApps: []string{},
 		},
 	}
 
@@ -1570,6 +1581,10 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				}
 				if diff := cmp.Diff(tc.expectedEnvironmentConfig, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				env, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "staging")
+				if diff := cmp.Diff(tc.expectedStagingEnvApps, env.Applications); diff != "" {
+					t.Errorf("error mismatch staging env apps (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
