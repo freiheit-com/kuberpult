@@ -237,7 +237,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	return nil
 }
 
-func (h *DBHandler) DBWriteEnvironmentNotOverrideApplications(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string)error {
+func (h *DBHandler) DBWriteEnvironmentNotOverrideApplications(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
 	err := h.upsertEnvironmentsRow(ctx, tx, environmentName, environmentConfig, applications, false)
