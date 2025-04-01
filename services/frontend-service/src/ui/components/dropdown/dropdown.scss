@@ -81,14 +81,18 @@ div.mdc-select {
 .dropdown-input {
     height: 70px;
     border-radius: $border-radius-medium;
-    border: 1px solid blue;
+    border: 1px solid;
+    border-color: var(--mdc-theme-on-background);
+    color: var(--mdc-theme-on-background-dark);
+    background-color: var(--mdc-theme-background);
     padding-left: 1em;
 }
 
 .dropdown-button {
     height: 70px;
     border-radius: $border-radius-medium;
-    border: 1px solid blue;
+    border: 1px solid;
+    border-color: var(--mdc-theme-on-background);
     padding-left: 10px;
     width: 160px;
     text-align: left;
@@ -96,7 +100,7 @@ div.mdc-select {
     justify-content: left;
     font-size: small;
     .mdc-button__label {
-        color: black;
+        color: var(--mdc-theme-on-background-dark);
         font-family: 'Inter';
         text-transform: none;
     }

@@ -18,7 +18,7 @@ Copyright freiheit.com*/
     box-shadow: none;
     width: inherit;
     display: flex;
-    background: #f7f9fa;
+    background: var(--mdc-theme-surface);
     border-radius: 4px;
     cursor: pointer;
 }
@@ -28,7 +28,7 @@ Copyright freiheit.com*/
     width: inherit;
     margin: 10px;
     @extend .text-regular;
-    color: #4a4a4a;
+    color: var(--mdc-theme-on-surface-light);
 }
 
 .links {
@@ -41,7 +41,6 @@ Copyright freiheit.com*/
     font-weight: 700;
     font-size: 18px;
     line-height: 32px;
-    color: #4a4a4a;
     justify-content: space-between;
     display: flex;
 }
@@ -53,7 +52,6 @@ Copyright freiheit.com*/
     font-weight: 500;
     font-size: 14px;
     line-height: 24px;
-    color: #4a4a4a;
 }
 
 .release__environments-mini {

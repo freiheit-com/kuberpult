@@ -27,14 +27,14 @@ Copyright freiheit.com*/
         @extend .sub-headline1;
 
         margin-top: 20px;
-        background-color: white;
+        background-color: var(--mdc-theme-background);
         box-shadow: 0 0 0 99999px rgba(0, 0, 0, 0.5);
         border-radius: 5px;
         text-align: center;
     }
     border-radius: 10px;
     background-color: transparent;
-    color: black;
+    color: var(--mdc-theme-on-background-dark);
 }
 
 .spinner-small {
@@ -43,5 +43,5 @@ Copyright freiheit.com*/
     margin-left: 10px;
     border-radius: 10px;
     background-color: transparent;
-    color: black;
+    color: var(--mdc-theme-on-background-dark);
 }

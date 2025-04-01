@@ -56,6 +56,10 @@ Copyright freiheit.com*/
                 @extend .text-bold;
             }
         }
+        .mdc-button__ripple {
+            background: var(--mdc-theme-error);
+            position: relative;
+        }
     }
 
     .service-lane__header__error {
@@ -70,11 +74,11 @@ Copyright freiheit.com*/
 
     .service-lane__header__not_found {
         @extend .service-lane__header;
-        background: var(--mdc-theme-on-surface-light);
+        background: var(--mdc-theme-on-surface);
     }
     .service-lane__header__not_requested {
         @extend .service-lane__header;
-        background: var(--mdc-theme-on-surface-light);
+        background: var(--mdc-theme-not-requested);
     }
 
     .service__releases {
@@ -109,6 +113,7 @@ Copyright freiheit.com*/
             height: 24px;
             border: 2px solid $service-lane-diff-element-border-color;
             border-radius: $border-radius-large;
+            color: var(--mdc-theme-on-background-dark);
         }
 
         .service-lane__diff--dot {
