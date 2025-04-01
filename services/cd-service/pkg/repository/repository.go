@@ -338,7 +338,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 		r.notify.NotifyGitSyncStatus()
 
 		if txErr != nil {
-			logger.FromContext(e.ctx).Sugar().Warnf("txError in applyTransformerBatches: %w", txErr)
+			logger.FromContext(e.ctx).Sugar().Warnf("txError in applyTransformerBatches: %s", txErr.Error())
 			e.finish(txErr)
 			transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 			continue //Skip this batch
