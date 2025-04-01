@@ -21,6 +21,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getOpenEnvironmentConfigDialog, setOpenEnvironmentConfigDialog } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
 import { GetEnvironmentConfigPretty, showSnackbarError } from '../../utils/store';
+import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export const environmentConfigDialogClass = 'environment-config-dialog';
 const environmentConfigDialogAppBarClass = environmentConfigDialogClass + '-app-bar';
@@ -35,6 +36,7 @@ export type EnvironmentConfigDialogProps = {
 
 export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (props) => {
     const environmentName = props.environmentName;
+    const { authHeader } = useAzureAuthSub((auth) => auth);
     const [params, setParams] = useSearchParams();
     const isOpen = (): boolean => getOpenEnvironmentConfigDialog(params) === props.environmentName;
     const onClose = useCallback((): void => {
@@ -48,7 +50,7 @@ export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (
             return;
         }
         setLoading(true);
-        const result = GetEnvironmentConfigPretty(environmentName);
+        const result = GetEnvironmentConfigPretty(environmentName, authHeader);
         result
             .then((pretty) => {
                 setLoading(false);
@@ -61,7 +63,7 @@ export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (
                 console.error('error while loading environment config: ' + e);
                 setConfig('');
             });
-    }, [environmentName, params]);
+    }, [environmentName, params, authHeader]);
 
     const dialog: JSX.Element | '' = (
         <PlainDialog

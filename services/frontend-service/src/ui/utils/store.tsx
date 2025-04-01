@@ -158,10 +158,10 @@ const emptyBatch: BatchRequest & { [key: string]: unknown } = { actions: [] };
 
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
-export const refreshTags = (): void => {
+export const refreshTags = (authHeader: AuthHeader): void => {
     const api = useApi;
     api.gitService()
-        .GetGitTags({})
+        .GetGitTags({}, authHeader)
         .then((result: GetGitTagsResponse) => {
             updateTag.set({ response: result, tagsReady: true });
         })
@@ -1320,10 +1320,10 @@ export const FlushGitSyncStatus = (): void => {
     gitSyncStatus.set({ enabled: false, response: undefined });
 };
 
-export const GetEnvironmentConfigPretty = (environmentName: string): Promise<string> =>
+export const GetEnvironmentConfigPretty = (environmentName: string, authHeader: AuthHeader): Promise<string> =>
     useApi
         .environmentService()
-        .GetEnvironmentConfig({ environment: environmentName })
+        .GetEnvironmentConfig({ environment: environmentName }, authHeader)
         .then((res: GetEnvironmentConfigResponse) => {
             if (!res.config) {
                 return Promise.reject(new Error('empty response.'));
