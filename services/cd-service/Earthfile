@@ -17,6 +17,11 @@ artifacts:
     SAVE ARTIFACT /usr/share/zoneinfo
     SAVE ARTIFACT pkg
 
+bench-test:
+    FROM +compile
+    ARG GO_TEST_ARGS
+    DO go-build+BENCH_TEST --GO_TEST_ARGS=$GO_TEST_ARGS
+
 compile:
     FROM +deps
     ARG USERARCH

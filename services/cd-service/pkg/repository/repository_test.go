@@ -637,6 +637,13 @@ func getTransformer(i int) (Transformer, error) {
 	transformerType := i % 5
 	switch transformerType {
 	case 0:
+		return &CreateApplicationVersion{
+			Application: "foo",
+			Manifests: map[string]string{
+				"development": fmt.Sprintf("%d", i),
+			},
+			Version: uint64(i),
+		}, nil
 	case 1:
 	case 2:
 		return &CreateApplicationVersion{
@@ -644,7 +651,7 @@ func getTransformer(i int) (Transformer, error) {
 			Manifests: map[string]string{
 				"development": fmt.Sprintf("%d", i),
 			},
-			Version: uint64(i + 1),
+			Version: uint64(i),
 		}, nil
 	case 3:
 		return &ErrorTransformer{}, TransformerError
@@ -1098,5 +1105,91 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 				t.Errorf("gauges mismatch (-want, +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func SetupRepositoryBenchmark(t *testing.B, writeEslOnly bool) (Repository, *db.DBHandler) {
+	ctx := context.Background()
+	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig := &db.DBConfig{
+		DriverName:     "sqlite3",
+		MigrationsPath: migrationsPath,
+		WriteEslOnly:   writeEslOnly,
+	}
+
+	dir := t.TempDir()
+
+	repoCfg := RepositoryConfig{
+		ArgoCdGenerateFiles: true,
+	}
+	dbConfig.DbHost = dir
+
+	migErr := db.RunDBMigrations(ctx, *dbConfig)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := db.Connect(ctx, *dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoCfg.DBHandler = dbHandler
+
+	repo, err := New(
+		testutil.MakeTestContext(),
+		repoCfg,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, dbHandler
+}
+
+func BenchmarkApplyQueue(t *testing.B) {
+	t.StopTimer()
+	repo, _ := SetupRepositoryBenchmark(t, false)
+	ctx := testutil.MakeTestContext()
+	dbHandler := repo.State().DBHandler
+
+	repoInternal := repo.(*repository)
+	// The worker go routine is now blocked. We can move some items into the queue now.
+	results := make([]error, t.N)
+	expectedResults := make([]error, t.N)
+	expectedReleases := make(map[int]bool, t.N)
+
+	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		expectedResults[0] = nil
+		results[0] = nil
+		t.StartTimer()
+		for i := 1; i < t.N; i++ {
+			tf, expectedResult := getTransformer(i)
+			_, _, _, err2 := repoInternal.ApplyTransformersInternal(ctx, transaction, tf)
+			if err2 != nil {
+				results[i] = err2.TransformerError
+			} else {
+				results[i] = nil
+			}
+			expectedResults[i] = expectedResult
+			if expectedResult == nil {
+				expectedReleases[i] = true
+			}
+		}
+		for i := 0; i < t.N; i++ {
+			if diff := cmp.Diff(expectedResults[i], results[i], cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("result[%d] expected error \"%v\" but got \"%v\"", i, expectedResults[i], results[i])
+			}
+		}
+		releases, _ := repo.State().GetAllApplicationReleases(ctx, transaction, "foo")
+		if !cmp.Equal(expectedReleases, convertToSet(releases)) {
+			t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Errorf("Error applying transformers: %v", err)
 	}
 }
