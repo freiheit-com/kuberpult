@@ -21,13 +21,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os"
 	"os/exec"
 	"path"
 	"testing"
+	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -1291,7 +1294,13 @@ func getTransformer(i int) (Transformer, error) {
 		Manifests: map[string]string{
 			"development": fmt.Sprintf("%d", i),
 		},
-		Version: uint64(i + 1),
+		Version:               uint64(i),
+		WriteCommitData:       true,
+		TransformerEslVersion: db.TransformerID(i),
+		TransformerMetadata: TransformerMetadata{
+			AuthorName:  "test-author",
+			AuthorEmail: "test@example.com",
+		},
 	}, nil
 	// case 3:
 	// 	return &ErrorTransformer{}, TransformerError
@@ -1309,8 +1318,8 @@ func convertToSet(list []uint64) map[int]bool {
 	return set
 }
 
-func BenchmarkApplyQueue(t *testing.B) {
-	t.StopTimer()
+func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
+	ctx := context.Background()
 	migrationsPath, err := testutil.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
@@ -1320,59 +1329,145 @@ func BenchmarkApplyQueue(t *testing.B) {
 		DriverName:     "sqlite3",
 	}
 
-	dbHandler, err := db.Connect(context.Background(), *dbConfig)
-	if err != nil {
-		t.Fatalf("new: expected no error, got '%e'", err)
-	}
-
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
-	createGitWithCommit(remoteDir, localDir, t)
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Errorf("could not start git init")
+		return nil, ""
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Errorf("could not wait for git init to finish")
+		return nil, ""
+	}
+
+	repoCfg := RepositoryConfig{
+		URL:                  remoteDir,
+		Path:                 localDir,
+		CommitterEmail:       "kuberpult@freiheit.com",
+		CommitterName:        "kuberpult",
+		ArgoCdGenerateFiles:  true,
+		ReleaseVersionLimit:  2,
+		MinimizeExportedData: false,
+	}
+
+	if dbConfig != nil {
+		dbConfig.DbHost = dir
+
+		migErr := db.RunDBMigrations(ctx, *dbConfig)
+		if migErr != nil {
+			t.Fatal(migErr)
+		}
+
+		dbHandler, err := db.Connect(ctx, *dbConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		repoCfg.DBHandler = dbHandler
+	}
 
 	repo, err := New(
 		testutil.MakeTestContext(),
-		RepositoryConfig{
-			URL:                 "file://" + remoteDir,
-			Path:                localDir,
-			ArgoCdGenerateFiles: true,
-			DBHandler:           dbHandler,
-		},
+		repoCfg,
 	)
-
 	if err != nil {
-		t.Fatalf("new: expected no error, got '%e'", err)
+		t.Fatal(err)
 	}
+	return repo, remoteDir
+}
+
+func BenchmarkApplyQueue(t *testing.B) {
+	t.StopTimer()
+	repo, _ := setupRepositoryBenchmarkWithPath(t)
+	ctx := testutil.MakeTestContext()
+	generator := testutil.NewIncrementalUUIDGenerator()
+	dbHandler := repo.State().DBHandler
+
 	repoInternal := repo.(*repository)
 	// The worker go routine is now blocked. We can move some items into the queue now.
 	results := make([]error, t.N)
 	expectedResults := make([]error, t.N)
 	expectedReleases := make(map[int]bool, t.N)
 	tf, _ := getTransformer(0)
-	ctx := testutil.MakeTestContext()
 
-	dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		repoInternal.Apply(ctx, transaction, tf)
+	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{
+			Team: "team-123",
+		})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBWriteEslEventInternal(ctx, tf.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tf.GetMetadata().AuthorName, AuthorEmail: tf.GetMetadata().AuthorEmail})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+			ReleaseNumber: 0,
+			Created:       time.Time{},
+			App:           "foo",
+			Manifests:     db.DBReleaseManifests{},
+			Metadata:      db.DBReleaseMetaData{},
+		})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, 0, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+		if err != nil {
+			return err
+		}
+		err = repoInternal.Apply(ctx, transaction, tf)
+		if err != nil {
+			return err
+		}
+		expectedReleases[0] = true
 
 		t.StartTimer()
-		for i := 0; i < t.N; i++ {
+		for i := 1; i < t.N; i++ {
 			tf, expectedResult := getTransformer(i)
+			err = dbHandler.DBWriteEslEventInternal(ctx, tf.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tf.GetMetadata().AuthorName, AuthorEmail: tf.GetMetadata().AuthorEmail})
+			if err != nil {
+				return err
+			}
+			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				ReleaseNumber: uint64(i),
+				Created:       time.Time{},
+				App:           "foo",
+				Manifests:     db.DBReleaseManifests{},
+				Metadata:      db.DBReleaseMetaData{},
+			})
+			if err != nil {
+				return err
+			}
+			err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, db.TransformerID(i), uint64(i), generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+			if err != nil {
+				return err
+			}
 			results[i] = repoInternal.Apply(ctx, transaction, tf)
 			expectedResults[i] = expectedResult
 			if expectedResult == nil {
-				expectedReleases[i+1] = true
+				expectedReleases[i] = true
 			}
 		}
 
 		return nil
 	})
+	if err != nil {
+		t.Errorf("Error applying transformers: %v", err)
+	}
 
 	for i := 0; i < t.N; i++ {
-		if results[i] != expectedResults[i] {
+		if diff := cmp.Diff(expectedResults[i], results[i], cmpopts.EquateErrors()); diff != "" {
 			t.Errorf("result[%d] expected error \"%v\" but got \"%v\"", i, expectedResults[i], err)
 		}
 	}
-	releases, _ := repo.State().Releases("foo")
+	releases, _ := repo.State().GetAllApplicationReleasesFromManifest("foo")
 	if !cmp.Equal(expectedReleases, convertToSet(releases)) {
 		t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
 	}
