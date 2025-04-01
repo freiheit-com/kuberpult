@@ -75,6 +75,7 @@ export const makeRelease = (
     prNumber: '666',
     isMinor: false,
     isPrepublish: false,
+    ciLink: '',
 });
 
 const date = new Date(2023, 6, 12);

@@ -1122,6 +1122,7 @@ type Release struct {
 	*/
 	IsPrepublish bool
 	Environments []string
+	CiLink       string
 }
 
 func (rel *Release) ToProto() *api.Release {
@@ -1140,6 +1141,7 @@ func (rel *Release) ToProto() *api.Release {
 		IsMinor:         rel.IsMinor,
 		IsPrepublish:    rel.IsPrepublish,
 		Environments:    rel.Environments,
+		CiLink:          rel.CiLink,
 	}
 }
 

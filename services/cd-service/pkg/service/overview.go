@@ -118,6 +118,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 				IsMinor:         currentRelease.Metadata.IsMinor,
 				IsPrepublish:    currentRelease.Metadata.IsPrepublish,
 				Environments:    currentRelease.Environments,
+				CiLink:          currentRelease.Metadata.CiLink,
 			}
 			result.Releases = append(result.Releases, tmp.ToProto())
 		}

@@ -103,6 +103,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: ['prod'],
+                    ciLink: '',
                 },
             ],
             envs: [
@@ -150,6 +151,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: true,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             envs: [
@@ -207,6 +209,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -246,6 +249,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             envs: [
@@ -301,6 +305,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -340,6 +345,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             envs: [
@@ -406,6 +412,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     sourceCommitId: 'cafe',
@@ -419,6 +426,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -491,6 +499,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
                 {
                     sourceCommitId: 'cafe',
@@ -504,6 +513,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             rolloutStatus: [
@@ -553,6 +563,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -582,6 +593,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             envs: [],
