@@ -31,17 +31,20 @@ Copyright freiheit.com*/
 .rollout__description_unknown {
     @extend .rollout__description;
     background-color: var(--mdc-theme-surface);
+    background-color: var(--mdc-theme-surface);
 }
 
 .rollout__description_successful {
     @extend .rollout__description;
     background-color: var(--mdc-theme-surface);
+    border-color: var(--mdc-theme-surface);
 }
 
 .rollout__description_error,
 .rollout__description_unhealthy {
     @extend .rollout__description;
     background-color: var(--mdc-theme-error);
+    border-color: var(--mdc-theme-error);
 }
 
 .rollout__description_progressing,
@@ -49,5 +52,5 @@ Copyright freiheit.com*/
     @extend .rollout__description;
     background-color: var(--mdc-theme-secondary);
     color: var(--mdc-theme-on-secondary);
-    border-color: var(--mdc-theme-on-secondary);
+    border-color: var(--mdc-theme-secondary);
 }

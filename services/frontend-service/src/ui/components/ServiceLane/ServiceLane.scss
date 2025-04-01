@@ -113,6 +113,7 @@ Copyright freiheit.com*/
             height: 24px;
             border: 2px solid $service-lane-diff-element-border-color;
             border-radius: $border-radius-large;
+            color: var(--mdc-theme-on-background-dark);
         }
 
         .service-lane__diff--dot {

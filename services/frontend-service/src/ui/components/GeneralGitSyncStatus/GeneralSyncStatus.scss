@@ -36,7 +36,8 @@ Copyright freiheit.com*/
 }
 .general-status__unsynced {
     @extend .general-status;
-    background-color: #7a7a7a;
+    background-color: var(--mdc-theme-secondary-light);
+    border-color: var(--mdc-theme-secondary-light);
 }
 
 .general-status__error {

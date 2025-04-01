@@ -33,7 +33,7 @@ export const SmallSpinner: React.FC<{ appName: string; size: number }> = (props)
     <div className={'spinner-small'}>
         <div className={'spinner-animation'}>
             <PacmanLoader
-                color={'var(--mdc-theme-on-surface-dark)'}
+                color={'var(--mdc-theme-on-secondary)'}
                 loading={true}
                 size={props.size}
                 speedMultiplier={1}
