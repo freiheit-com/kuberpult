@@ -115,9 +115,11 @@ const useEnvironmentGroupCombinations = (envGroupResponse: EnvironmentGroup[]): 
 };
 
 export const ProductVersion: React.FC = () => {
+    const { authHeader } = useAzureAuthSub((auth) => auth);
     React.useEffect(() => {
-        refreshTags();
-    }, []);
+        refreshTags(authHeader);
+    }, [authHeader]);
+
     const envGroupResponse = useEnvironmentGroups();
     const envList = useEnvironmentGroupCombinations(envGroupResponse);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -129,7 +131,6 @@ export const ProductVersion: React.FC = () => {
     const [selectedTag, setSelectedTag] = React.useState('');
     const envsList = useEnvironments();
     const tagsResponse = useTags();
-    const { authHeader } = useAzureAuthSub((auth) => auth);
 
     const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {

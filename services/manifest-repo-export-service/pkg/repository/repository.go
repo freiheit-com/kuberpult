@@ -1077,23 +1077,6 @@ func (s *State) Releases(application string) ([]uint64, error) {
 	}
 }
 
-func (s *State) ReleaseManifests(application string, release uint64) (map[string]string, error) {
-	base := s.Filesystem.Join("applications", application, "releases", strconv.FormatUint(release, 10), "environments")
-	if entries, err := s.Filesystem.ReadDir(base); err != nil {
-		return nil, err
-	} else {
-		result := make(map[string]string, len(entries))
-		for _, e := range entries {
-			if buf, err := readFile(s.Filesystem, s.Filesystem.Join(base, e.Name(), "manifests.yaml")); err != nil {
-				return nil, err
-			} else {
-				result[e.Name()] = string(buf)
-			}
-		}
-		return result, nil
-	}
-}
-
 func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app string, dbHandler *db.DBHandler) error {
 	releases, err := s.GetAllApplicationReleasesFromManifest(app)
 	if err != nil {
