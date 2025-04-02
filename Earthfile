@@ -137,6 +137,7 @@ integration-test:
     COPY infrastructure/scripts/create-testdata/testdata_template/environments ./testdata_template/environments
     COPY tests/integration-tests tests/integration-tests
     COPY ./pkg+artifacts/pkg pkg
+    COPY +migration-deps/migrations /kp/database/migrations
 
     ARG --required kuberpult_version
     ENV VERSION=$kuberpult_version
