@@ -1443,6 +1443,10 @@ func (c *CreateEnvironmentLock) Transform(
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
+	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("could not get transaction timestamp")
+	}
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
@@ -1454,8 +1458,9 @@ func (c *CreateEnvironmentLock) Transform(
 		CreatedByName:  user.Name,
 		CreatedByEmail: user.Email,
 		CiLink:         c.CiLink,
-		CreatedAt:      time.Time{}, //will not be used
+		CreatedAt:      *now,
 	}
+
 	errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, metadata)
 	if errW != nil {
 		return "", errW
@@ -1466,10 +1471,7 @@ func (c *CreateEnvironmentLock) Transform(
 	if err != nil {
 		return "", err
 	}
-	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return "", fmt.Errorf("could not get transaction timestamp")
-	}
+
 	if allEnvLocks == nil {
 		allEnvLocks = &db.AllEnvLocksGo{
 			Version: 1,
