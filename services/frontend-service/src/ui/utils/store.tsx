@@ -60,6 +60,7 @@ export interface DisplayLock {
     lockId: string;
     authorName?: string;
     authorEmail?: string;
+    ciLink: string;
 }
 
 export const displayLockUniqueId = (displayLock: DisplayLock): string =>
@@ -623,6 +624,7 @@ export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] => {
                               message: lock.message,
                               authorName: lock.createdBy?.name,
                               authorEmail: lock.createdBy?.email,
+                              ciLink: lock.ciLink,
                           }))
                         : []
                 )
@@ -653,6 +655,7 @@ export const useAppLocks = (allAppLocks: Map<string, AllAppLocks>): DisplayLock[
                     message: lock.message,
                     authorName: lock.createdBy?.name,
                     authorEmail: lock.createdBy?.email,
+                    ciLink: lock.ciLink,
                 })
             );
         });
@@ -736,6 +739,7 @@ export const useDisplayApplicationLocks = (appName: string): DisplayApplicationL
                                   message: currentLock.message,
                                   authorName: currentLock.authorName,
                                   authorEmail: currentLock.authorEmail,
+                                  ciLink: currentLock.ciLink,
                               },
                               application: appName,
                               environment: env,
@@ -821,6 +825,7 @@ export const useEnvironmentLock = (lockId: string): DisplayLock => {
                     authorName: lock.createdBy?.name,
                     authorEmail: lock.createdBy?.email,
                     environment: env,
+                    ciLink: lock.ciLink,
                 };
             }
         }
@@ -861,6 +866,7 @@ export const useAllLocks = (): AllLocks => {
                 message: lock.message,
                 authorName: lock.createdBy?.name,
                 authorEmail: lock.createdBy?.email,
+                ciLink: lock.ciLink,
             };
             environmentLocks.push(displayLock);
         }

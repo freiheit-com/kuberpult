@@ -376,6 +376,7 @@ describe('Action details', () => {
                     lockId: 'ui-v2-1337',
                     environment: 'foo',
                     message: 'bar',
+                    ciLink: '',
                 },
             ],
             expectedDetails: {
@@ -432,6 +433,7 @@ describe('Action details', () => {
                     environment: 'foo',
                     message: 'bar',
                     application: 'bar',
+                    ciLink: '',
                 },
             ],
             expectedDetails: {
@@ -485,6 +487,7 @@ describe('Action details', () => {
                     environment: 'foo',
                     message: 'bar',
                     team: 'bar',
+                    ciLink: '',
                 },
             ],
             expectedDetails: {

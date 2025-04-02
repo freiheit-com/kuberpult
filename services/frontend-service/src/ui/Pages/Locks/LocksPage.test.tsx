@@ -108,7 +108,7 @@ describe('Test env locks', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     integration: {
-                        locks: [{ message: 'locktest', lockId: 'ui-v2-1337' }],
+                        locks: [{ message: 'locktest', lockId: 'ui-v2-1337', ciLink: '' }],
                     },
                 },
             },
@@ -129,9 +129,14 @@ describe('Test env locks', () => {
                 allEnvLocks: {
                     integration: {
                         locks: [
-                            { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                            { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                            },
+                            { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16), ciLink: '' },
+                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15), ciLink: '' },
                         ],
                     },
                 },
@@ -153,9 +158,14 @@ describe('Test env locks', () => {
                 allEnvLocks: {
                     integration: {
                         locks: [
-                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                            { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                            { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
+                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15), ciLink: '' },
+                            { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16), ciLink: '' },
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                            },
                         ],
                     },
                 },
@@ -216,7 +226,7 @@ describe('Test env locks', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     integration: {
-                        locks: [{ message: 'locktest', lockId: 'ui-v2-1337' }],
+                        locks: [{ message: 'locktest', lockId: 'ui-v2-1337', ciLink: '' }],
                     },
                 },
             },
@@ -236,12 +246,19 @@ describe('Test env locks', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     integration: {
-                        locks: [{ message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) }],
+                        locks: [
+                            { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16), ciLink: '' },
+                        ],
                     },
                     development: {
                         locks: [
-                            { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                            },
+                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15), ciLink: '' },
                         ],
                     },
                 },
@@ -267,12 +284,19 @@ describe('Test env locks', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     integration: {
-                        locks: [{ message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) }],
+                        locks: [
+                            { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16), ciLink: '' },
+                        ],
                     },
                     development: {
                         locks: [
-                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                            { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
+                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15), ciLink: '' },
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                            },
                         ],
                     },
                 },
@@ -335,6 +359,7 @@ describe('Test env locks', () => {
                                 lockId: 'ui-v2-1337',
                                 createdAt: new Date(1995, 11, 17),
                                 createdBy: { email: 'kuberpult@fdc.com', name: 'kuberpultUser' },
+                                ciLink: '',
                             },
                         ],
                     },
@@ -356,6 +381,7 @@ describe('Test env locks', () => {
                 message: 'locktest',
                 authorEmail: 'kuberpult@fdc.com',
                 authorName: 'kuberpultUser',
+                ciLink: '',
             },
         },
     ];
@@ -422,7 +448,7 @@ describe('Test app locks', () => {
                 integration: {
                     appLocks: {
                         foo: {
-                            locks: [{ message: 'locktest', lockId: 'ui-v2-1337' }],
+                            locks: [{ message: 'locktest', lockId: 'ui-v2-1337', ciLink: '' }],
                         },
                     },
                 },
@@ -454,16 +480,19 @@ describe('Test app locks', () => {
                                     message: 'locktest',
                                     lockId: 'ui-v2-1337',
                                     createdAt: new Date(1995, 11, 17),
+                                    ciLink: '',
                                 },
                                 {
                                     message: 'lockfoo',
                                     lockId: 'ui-v2-123',
                                     createdAt: new Date(1995, 11, 16),
+                                    ciLink: '',
                                 },
                                 {
                                     message: 'lockbar',
                                     lockId: 'ui-v2-321',
                                     createdAt: new Date(1995, 11, 15),
+                                    ciLink: '',
                                 },
                             ],
                         },
@@ -501,6 +530,7 @@ describe('Test app locks', () => {
                                     message: 'lockbar',
                                     lockId: 'ui-v2-321',
                                     createdAt: new Date(1995, 11, 15),
+                                    ciLink: '',
                                 },
                             ],
                         },
@@ -510,11 +540,13 @@ describe('Test app locks', () => {
                                     message: 'lockfoo',
                                     lockId: 'ui-v2-123',
                                     createdAt: new Date(1995, 11, 16),
+                                    ciLink: '',
                                 },
                                 {
                                     message: 'locktest',
                                     lockId: 'ui-v2-1337',
                                     createdAt: new Date(1995, 11, 17),
+                                    ciLink: '',
                                 },
                             ],
                         },
@@ -585,6 +617,7 @@ describe('Test Team locks', () => {
                                         message: 'locktest',
                                         lockId: 'ui-v2-1337',
                                         createdAt: new Date(1995, 11, 17),
+                                        ciLink: '',
                                     },
                                 ],
                             },
@@ -608,16 +641,19 @@ describe('Test Team locks', () => {
                                         message: 'locktest',
                                         lockId: 'ui-v2-1337',
                                         createdAt: new Date(1995, 11, 17),
+                                        ciLink: '',
                                     },
                                     {
                                         message: 'lockfoo',
                                         lockId: 'ui-v2-123',
                                         createdAt: new Date(1995, 11, 16),
+                                        ciLink: '',
                                     },
                                     {
                                         message: 'lockbar',
                                         lockId: 'ui-v2-321',
                                         createdAt: new Date(1995, 11, 16),
+                                        ciLink: '',
                                     },
                                 ],
                             },
@@ -634,9 +670,14 @@ describe('Test Team locks', () => {
                 allEnvLocks: {
                     integration: {
                         locks: [
-                            { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                            { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
+                            { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16), ciLink: '' },
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                            },
+                            { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15), ciLink: '' },
                         ],
                     },
                 },
@@ -649,11 +690,13 @@ describe('Test Team locks', () => {
                                         message: 'team lock 1',
                                         lockId: 'ui-v2-t-lock-1',
                                         createdAt: new Date(1995, 11, 15),
+                                        ciLink: '',
                                     },
                                     {
                                         message: 'team lock 2',
                                         lockId: 'ui-v2-t-lock-2',
                                         createdAt: new Date(1995, 11, 15),
+                                        ciLink: '',
                                     },
                                 ],
                             },

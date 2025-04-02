@@ -838,7 +838,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         },
         appLocks: {
             foo2: {
-                locks: [{ message: 'test lock', lockId: '321' }],
+                locks: [{ message: 'test lock', lockId: '321', ciLink: '' }],
             },
         },
         teamLocks: {},
@@ -855,7 +855,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         appLocks: {},
         teamLocks: {
             foo2: {
-                locks: [{ message: 'test team lock', lockId: 't-1000' }],
+                locks: [{ message: 'test team lock', lockId: 't-1000', ciLink: '' }],
             },
         },
     };
@@ -871,14 +871,14 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         appLocks: {
             foo2: {
                 locks: [
-                    { message: 'test lock', lockId: '321' },
-                    { message: 'test app lock', lockId: 'a-1' },
+                    { message: 'test lock', lockId: '321', ciLink: '' },
+                    { message: 'test app lock', lockId: 'a-1', ciLink: '' },
                 ],
             },
         },
         teamLocks: {
             foo2: {
-                locks: [{ message: 'test team lock', lockId: 't-1000' }],
+                locks: [{ message: 'test team lock', lockId: 't-1000', ciLink: '' }],
             },
         },
     };
@@ -895,14 +895,14 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         appLocks: {
             foo2: {
                 locks: [
-                    { message: 'test lock', lockId: '321' },
-                    { message: 'test lock', lockId: '321' },
+                    { message: 'test lock', lockId: '321', ciLink: '' },
+                    { message: 'test lock', lockId: '321', ciLink: '' },
                 ],
             },
         },
         teamLocks: {
             foo2: {
-                locks: [{ message: 'test team lock', lockId: 't-1000' }],
+                locks: [{ message: 'test team lock', lockId: 't-1000', ciLink: '' }],
             },
         },
     };

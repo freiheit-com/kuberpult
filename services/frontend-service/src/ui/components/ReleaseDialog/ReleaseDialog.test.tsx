@@ -103,7 +103,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: ['prod'],
-                    ciLink: '',
+                    ciLink: 'givemesomething',
                 },
             ],
             envs: [
@@ -183,7 +183,7 @@ describe('Release Dialog', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     prod: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
                     },
                 },
             },
@@ -209,7 +209,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
-                                    ciLink: '',
+                                    ciLink: 'www.somewebsite.com',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -219,7 +219,7 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
                             },
                         },
                         teamLocks: {},
@@ -249,7 +249,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
-                    ciLink: '',
+                    ciLink: 'www.somewebsite.com',
                 },
             ],
             envs: [
@@ -279,7 +279,7 @@ describe('Release Dialog', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     prod: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
                     },
                 },
             },
@@ -305,7 +305,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
-                                    ciLink: '',
+                                    ciLink: 'www.somewebsite.com',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -315,7 +315,7 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
                             },
                         },
                         teamLocks: {},
@@ -345,7 +345,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
-                    ciLink: '',
+                    ciLink: 'www.somewebsite.com',
                 },
             ],
             envs: [
@@ -376,17 +376,17 @@ describe('Release Dialog', () => {
                     dev: {
                         teamLocks: {
                             test1: {
-                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
+                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock', ciLink: '' }],
                             },
                         },
                     },
                 },
                 allEnvLocks: {
                     prod: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
                     },
                     dev: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
                     },
                 },
             },
@@ -412,7 +412,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
-                                    ciLink: '',
+                                    ciLink: 'www.somewebsite.com',
                                 },
                                 {
                                     sourceCommitId: 'cafe',
@@ -426,7 +426,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
-                                    ciLink: '',
+                                    ciLink: 'www.somewebsite.com',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -436,15 +436,15 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
                             },
                             dev: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
                             },
                         },
                         teamLocks: {
                             dev: {
-                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
+                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock', ciLink: '' }],
                             },
                         },
                         deployments: {
@@ -499,7 +499,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
-                    ciLink: '',
+                    ciLink: 'www.somewebsite.com',
                 },
                 {
                     sourceCommitId: 'cafe',
@@ -513,7 +513,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
-                    ciLink: '',
+                    ciLink: 'www.somewebsite.com',
                 },
             ],
             rolloutStatus: [
@@ -563,7 +563,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
-                                    ciLink: '',
+                                    ciLink: 'www.somewebsite.com',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -593,7 +593,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
-                    ciLink: '',
+                    ciLink: 'www.somewebsite.com',
                 },
             ],
             envs: [],
@@ -676,6 +676,26 @@ describe('Release Dialog', () => {
                 const envLocks = testcase.allEnvLocks.allEnvLocks[env.name]?.locks ?? [];
                 expect(document.querySelector('.env-locks')?.children).toHaveLength(envLocks.length);
             });
+        });
+    });
+
+    describe.each(data)(`Renders ci links`, (testcase) => {
+        it(testcase.name, () => {
+            // given
+            mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
+            // when
+            setTheStore(testcase);
+            getWrapper(testcase.props);
+            expect(document.body).toMatchSnapshot();
+            expect(document.querySelectorAll('.release-env-group-list')).toHaveLength(1);
+            testcase.envs.forEach((env) => {
+                const envLocks = testcase.allEnvLocks.allEnvLocks[env.name]?.locks ?? [];
+                expect(document.querySelector('.env-locks')?.children).toHaveLength(envLocks.length);
+            });
+            if (testcase.rels.length !== 0) {
+                expect(document.getElementById('ciLink')).toBeInTheDocument();
+                //toEqual(testcase.rels[0].ciLink === '' ? 0 : 1);
+            }
         });
     });
 

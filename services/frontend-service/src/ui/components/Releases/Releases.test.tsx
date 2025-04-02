@@ -98,18 +98,21 @@ describe('Release Dialog', () => {
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
     };
     const testAppLock2: Lock = {
         lockId: 'testlockId2',
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
     };
     const testApplock3: Lock = {
         lockId: 'testlockId3',
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
     };
 
     const app1Details: AppDetailsResponse = {

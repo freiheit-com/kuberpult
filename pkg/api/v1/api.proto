@@ -353,6 +353,7 @@ message Lock {
   string lock_id = 3;
   google.protobuf.Timestamp created_at = 4;
   Actor created_by = 5;
+  string ci_link = 6;
 }
 
 message LockedError {

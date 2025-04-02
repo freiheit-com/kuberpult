@@ -174,6 +174,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 					Name:  currentLock.Metadata.CreatedByName,
 					Email: currentLock.Metadata.CreatedByEmail,
 				},
+				CiLink: currentLock.Metadata.CiLink,
 			})
 		}
 
@@ -194,6 +195,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 					Name:  currentTeamLock.Metadata.CreatedByName,
 					Email: currentTeamLock.Metadata.CreatedByEmail,
 				},
+				CiLink: currentTeamLock.Metadata.CiLink,
 			})
 		}
 
@@ -330,6 +332,7 @@ func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 					Name:  currentLock.Metadata.CreatedByName,
 					Email: currentLock.Metadata.CreatedByEmail,
 				},
+				CiLink: currentLock.Metadata.CiLink,
 			})
 		}
 		return &response, nil
@@ -365,6 +368,7 @@ func (o *OverviewServiceServer) GetAllEnvTeamLocks(ctx context.Context,
 						Name:  currentLock.Metadata.CreatedByName,
 						Email: currentLock.Metadata.CreatedByEmail,
 					},
+					CiLink: currentLock.Metadata.CiLink,
 				})
 			}
 		}
@@ -389,6 +393,7 @@ func (o *OverviewServiceServer) GetAllEnvTeamLocks(ctx context.Context,
 							Name:  currentLock.Metadata.CreatedByName,
 							Email: currentLock.Metadata.CreatedByEmail,
 						},
+						CiLink: currentLock.Metadata.CiLink,
 					})
 				}
 			}

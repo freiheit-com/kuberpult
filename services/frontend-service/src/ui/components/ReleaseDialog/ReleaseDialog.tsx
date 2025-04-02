@@ -50,6 +50,7 @@ import { PlainDialog } from '../dialog/ConfirmationDialog';
 import { DeployLockButtons } from '../button/DeployLockButtons';
 import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
+import { Link } from 'react-router-dom';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -175,24 +176,39 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const appDetails = useAppDetailsForApp(app);
     const deployment = appDetails.details?.deployments[env.name];
 
-    const getDeploymentMetadata = (): [String, JSX.Element] => {
+    const getDeploymentMetadata = (): [JSX.Element, JSX.Element] => {
+        let deployedByContent = '';
+        let deployedAt = <></>;
         if (!deployment) {
-            return ['', <></>];
+            return [<div>{deployedByContent}</div>, deployedAt];
         }
         if (deployment.deploymentMetaData === null) {
-            return ['', <></>];
+            return [<div>{deployedByContent}</div>, deployedAt];
         }
+
         const deployedBy = deployment.deploymentMetaData?.deployAuthor ?? 'unknown';
         const deployedUNIX = deployment.deploymentMetaData?.deployTime ?? '';
         if (deployedUNIX === '') {
-            return ['Deployed by &nbsp;' + deployedBy, <></>];
+            deployedByContent = 'Deployed by &nbsp;' + deployedBy;
+        } else {
+            deployedByContent = 'Deployed by ' + deployedBy + ' ';
+            const deployedDate = new Date(deployedUNIX);
+            deployedAt = (
+                <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', '')} />
+            );
         }
-        const deployedDate = new Date(deployedUNIX);
-        const returnString = 'Deployed by ' + deployedBy + ' ';
-        const time = <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', '')} />;
 
-        return [returnString, time];
+        if (deployment.deploymentMetaData?.ciLink && deployment.deploymentMetaData?.ciLink !== '') {
+            return [
+                <Link to={deployment.deploymentMetaData.ciLink} target="_blank" rel="noopener noreferrer">
+                    {deployedByContent}
+                </Link>,
+                deployedAt,
+            ];
+        }
+        return [<span>{deployedByContent}</span>, deployedAt];
     };
+
     const syncStatus = useGitSyncStatus((getter) => getter.getAppStatus(app, env.name));
     const appGitSyncStatus = gitSyncStatus.get();
     const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
@@ -371,7 +387,10 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     {queueInfo}
                     <div className={classNames('env-card-data')}>
                         {getDeploymentMetadata().flatMap((metadata, i) => (
-                            <div key={i}>{metadata}&nbsp;</div>
+                            <div key={i}>
+                                {metadata}
+                                &nbsp;
+                            </div>
                         ))}
                     </div>
                     <div className={classNames('env-card-data')}>{getReleaseDiffContent()}</div>
@@ -438,7 +457,21 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     if (!release) {
         return null;
     }
-
+    const createdByContent = (
+        <div>
+            {'Created '}
+            {release?.createdAt ? (
+                <FormattedDate
+                    createdAt={release.createdAt}
+                    className={classNames('release-dialog-createdAt', className)}
+                />
+            ) : (
+                'at an unknown date'
+            )}
+            {' by '}
+            {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
+        </div>
+    );
     const dialog: JSX.Element | '' = (
         <PlainDialog
             open={app !== ''}
@@ -456,18 +489,15 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         </div>
                         <div className="source">
                             <span>
-                                {'Created '}
-                                {release?.createdAt ? (
-                                    <FormattedDate
-                                        createdAt={release.createdAt}
-                                        className={classNames('release-dialog-createdAt', className)}
-                                    />
+                                {release.ciLink !== '' ? (
+                                    <Link id={'ciLink'} to={release.ciLink} target="_blank" rel="noopener noreferrer">
+                                        {createdByContent}
+                                    </Link>
                                 ) : (
-                                    'at an unknown date'
+                                    createdByContent
                                 )}
-                                {' by '}
-                                {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
                             </span>
+
                             <span className="links">
                                 <DisplaySourceLink commitId={release.sourceCommitId} displayString={'Source'} />
                                 &nbsp;

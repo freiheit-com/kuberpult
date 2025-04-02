@@ -67,6 +67,7 @@ describe('Test delete lock button', () => {
         environment: 'test-env',
         lockId: 'test-lock-id',
         message: 'test-lock-123',
+        ciLink: '',
     };
     const data: dataT[] = [
         {
