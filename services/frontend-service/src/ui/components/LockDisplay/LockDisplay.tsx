@@ -78,7 +78,11 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     <div className="lock-display-info">{lock.lockId}</div>
                     <div className="lock-display-info-size-limit">{lock.message}</div>
                     {lock.ciLink !== '' ? (
-                        <Link className="lock-display-info" to={lock.ciLink} target="_blank" rel="noopener noreferrer">
+                        <Link
+                            className="lock-display-info lock-ci-link"
+                            to={lock.ciLink}
+                            target="_blank"
+                            rel="noopener noreferrer">
                             {lock.authorName}
                         </Link>
                     ) : (

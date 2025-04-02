@@ -15,9 +15,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { act, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
-import { DisplayLock } from '../../utils/store';
+import { DisplayLock, displayLockUniqueId } from '../../utils/store';
 import { isOutdated, LockDisplay } from './LockDisplay';
 import { documentQuerySelectorSafe } from '../../../setupTests';
+import { BrowserRouter } from 'react-router-dom';
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 
 describe('Test Auxiliary Functions for Lock Display', () => {
@@ -111,6 +112,59 @@ describe('Test delete lock button', () => {
                     'deleteEnvironmentLock'
                 );
             }
+        });
+    });
+});
+
+describe('Test link to ciLink', () => {
+    interface dataT {
+        name: string;
+        lock: DisplayLock;
+        date: Date;
+    }
+    const lockWithLink = {
+        environment: 'test-env',
+        lockId: 'test-lock-id-2',
+        message: 'test-lock-123',
+        ciLink: 'somelink',
+    };
+    const lockWithoutLink = {
+        environment: 'test-env',
+        lockId: 'test-lock-id',
+        message: 'test-lock-123',
+        ciLink: '',
+    };
+    const data: dataT[] = [
+        {
+            name: 'Environment Lock with Link',
+            date: new Date(2022, 0, 2),
+            lock: lockWithLink,
+        },
+        {
+            name: 'App Lock with Link',
+            date: new Date(2022, 0, 2),
+            lock: { ...lockWithLink, application: 'test-app' },
+        },
+        {
+            name: 'Team Lock with Link',
+            date: new Date(2022, 0, 2),
+            lock: { ...lockWithLink, team: 'test-team' },
+        },
+        {
+            name: 'Environment Lock without Link',
+            date: new Date(2022, 0, 2),
+            lock: lockWithoutLink,
+        },
+    ];
+
+    describe.each(data)('ci links on locks', (testcase) => {
+        it(testcase.name, () => {
+            render(
+                <BrowserRouter>
+                    <LockDisplay key={displayLockUniqueId(testcase.lock)} lock={testcase.lock} />{' '}
+                </BrowserRouter>
+            );
+            expect(document.getElementsByClassName('lock-ci-link')).toHaveLength(testcase.lock.ciLink !== '' ? 1 : 0);
         });
     });
 });
