@@ -287,8 +287,6 @@ spec:
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.cd.grpcMaxRecvMsgSize }}"
         volumeMounts:
-        - name: repository
-          mountPath: /repository
         - name: ssh
           mountPath: /etc/ssh
 {{- if .Values.datadogProfiling.enabled }}
