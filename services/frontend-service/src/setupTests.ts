@@ -100,7 +100,7 @@ export const makeDisplayLock = (input: Partial<DisplayLock>): DisplayLock => ({
     // application: 'default-app', // application should not be set here, because it cannot be overwritten with undefined
     authorEmail: 'default@example.com',
     authorName: 'default',
-    ciLink: input.ciLink,
+    ciLink: input.ciLink ? input.ciLink : '',
     ...input,
 });
 
