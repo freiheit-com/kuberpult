@@ -199,8 +199,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         }
 
         if (deployment.deploymentMetaData?.ciLink && deployment.deploymentMetaData?.ciLink !== '') {
-            // eslint-disable-next-line no-console
-            console.log('deployment-ci-link-' + env.name + '-' + app);
             return [
                 <Link
                     id={'deployment-ci-link-' + env.name + '-' + app}
