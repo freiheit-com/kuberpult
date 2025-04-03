@@ -25,7 +25,6 @@ import {
     UpdateRolloutStatus,
 } from '../../utils/store';
 import {
-    Deployment,
     Environment,
     EnvironmentGroup,
     GetAllEnvTeamLocksResponse,

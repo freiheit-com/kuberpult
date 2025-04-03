@@ -684,6 +684,7 @@ type Lock struct {
 	Message   string
 	CreatedBy Actor
 	CreatedAt time.Time
+	CiLink    string
 }
 
 func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
@@ -712,6 +713,7 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 				Email: lock.Metadata.CreatedByEmail,
 			},
 			CreatedAt: lock.Created,
+			CiLink:    lock.Metadata.CiLink,
 		}
 		result[lock.LockID] = genericLock
 	}
@@ -748,6 +750,7 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 				Email: lock.Metadata.CreatedByEmail,
 			},
 			CreatedAt: lock.Created,
+			CiLink:    lock.Metadata.CiLink,
 		}
 		result[lock.LockID] = genericLock
 	}
@@ -781,7 +784,9 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *
 				Email: lock.Metadata.CreatedByEmail,
 			},
 			CreatedAt: lock.Created,
+			CiLink:    lock.Metadata.CiLink,
 		}
+
 		result[lock.LockID] = genericLock
 	}
 	return result, nil
@@ -1182,6 +1187,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 			IsMinor:         rel.Metadata.IsMinor,
 			IsPrepublish:    rel.Metadata.IsPrepublish,
 			Environments:    rel.Environments,
+			CiLink:          rel.Metadata.CiLink,
 		}
 		result = append(result, r)
 	}
@@ -1207,6 +1213,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		IsMinor:         env.Metadata.IsMinor,
 		IsPrepublish:    env.Metadata.IsPrepublish,
 		Environments:    env.Environments,
+		CiLink:          env.Metadata.CiLink,
 	}, nil
 }
 

@@ -2050,6 +2050,7 @@ func (rel *Release) ToProto() *api.Release {
 		IsMinor:         false,
 		IsPrepublish:    false,
 		Environments:    []string{},
+		CiLink:          "", //does not matter here
 	}
 }
 
