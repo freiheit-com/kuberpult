@@ -29,13 +29,22 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 class="source"
               >
                 <span>
-                  Created 
-                  <div>
-                    some formatted date
-                  </div>
-                   by 
-                  test
-                   
+                  <a
+                    href="/www.somewebsite.com"
+                    id="ciLink"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <div>
+                      Created 
+                      <div>
+                        some formatted date
+                      </div>
+                       by 
+                      test
+                       
+                    </div>
+                  </a>
                 </span>
                 <span
                   class="links"
@@ -246,6 +255,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                         class="env-card-data"
                       >
                         <div>
+                          <div />
                            
                         </div>
                         <div>
@@ -344,13 +354,22 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                 class="source"
               >
                 <span>
-                  Created 
-                  <div>
-                    some formatted date
-                  </div>
-                   by 
-                  test
-                   
+                  <a
+                    href="/www.somewebsite.com"
+                    id="ciLink"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <div>
+                      Created 
+                      <div>
+                        some formatted date
+                      </div>
+                       by 
+                      test
+                       
+                    </div>
+                  </a>
                 </span>
                 <span
                   class="links"
@@ -561,6 +580,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                         class="env-card-data"
                       >
                         <div>
+                          <div />
                            
                         </div>
                         <div>
@@ -659,13 +679,22 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 class="source"
               >
                 <span>
-                  Created 
-                  <div>
-                    some formatted date
-                  </div>
-                   by 
-                  nobody
-                   
+                  <a
+                    href="/www.somewebsite.com"
+                    id="ciLink"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <div>
+                      Created 
+                      <div>
+                        some formatted date
+                      </div>
+                       by 
+                      nobody
+                       
+                    </div>
+                  </a>
                 </span>
                 <span
                   class="links"
@@ -878,10 +907,21 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         class="env-card-data"
                       >
                         <div>
-                          Deployed by &nbsp;unknown
+                          <a
+                            class="deployment-ci-link"
+                            href="/www.somewebsite.com"
+                            id="deployment-ci-link-prod-test1"
+                            rel="noopener noreferrer"
+                            target="_blank"
+                          >
+                            Deployed by somebody 
+                          </a>
                            
                         </div>
                         <div>
+                          <div>
+                            some formatted date
+                          </div>
                            
                         </div>
                       </div>
@@ -1068,10 +1108,21 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         class="env-card-data"
                       >
                         <div>
-                          Deployed by &nbsp;unknown
+                          <a
+                            class="deployment-ci-link"
+                            href="/www.somewebsite.com"
+                            id="deployment-ci-link-dev-test1"
+                            rel="noopener noreferrer"
+                            target="_blank"
+                          >
+                            Deployed by somebody 
+                          </a>
                            
                         </div>
                         <div>
+                          <div>
+                            some formatted date
+                          </div>
                            
                         </div>
                       </div>
@@ -1172,13 +1223,22 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                 class="source"
               >
                 <span>
-                  Created 
-                  <div>
-                    some formatted date
-                  </div>
-                   by 
-                  test1
-                   
+                  <a
+                    href="/www.somewebsite.com"
+                    id="ciLink"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <div>
+                      Created 
+                      <div>
+                        some formatted date
+                      </div>
+                       by 
+                      test1
+                       
+                    </div>
+                  </a>
                 </span>
                 <span
                   class="links"

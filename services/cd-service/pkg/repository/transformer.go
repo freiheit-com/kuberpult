@@ -2865,6 +2865,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					Name:  envLocks[lockId].CreatedBy.Name,
 				},
 				LockId: lockId,
+				CiLink: envLocks[lockId].CiLink,
 			}
 			locksList = append(locksList, newLock)
 		}
@@ -2976,6 +2977,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 						Name:  appLocks[lockId].CreatedBy.Name,
 					},
 					LockId: lockId,
+					CiLink: appLocks[lockId].CiLink,
 				}
 				locksList = append(locksList, newLock)
 			}
@@ -3048,8 +3050,10 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 							Name:  teamLocks[lockId].CreatedBy.Name,
 						},
 						LockId: lockId,
+						CiLink: teamLocks[lockId].CiLink,
 					}
 					locksList = append(locksList, newLock)
+
 				}
 
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{

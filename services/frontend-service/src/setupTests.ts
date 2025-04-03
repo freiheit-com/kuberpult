@@ -75,6 +75,7 @@ export const makeRelease = (
     prNumber: '666',
     isMinor: false,
     isPrepublish: false,
+    ciLink: '',
 });
 
 const date = new Date(2023, 6, 12);
@@ -87,6 +88,7 @@ export const makeLock = (input: Partial<Lock>): Lock => ({
         name: 'default',
         email: 'default@example.com',
     },
+    ciLink: '',
     ...input,
 });
 
@@ -98,6 +100,7 @@ export const makeDisplayLock = (input: Partial<DisplayLock>): DisplayLock => ({
     // application: 'default-app', // application should not be set here, because it cannot be overwritten with undefined
     authorEmail: 'default@example.com',
     authorName: 'default',
+    ciLink: input.ciLink ? input.ciLink : '',
     ...input,
 });
 

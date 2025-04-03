@@ -61,6 +61,7 @@ describe('Release Dialog', () => {
             isMinor: false,
             isPrepublish: false,
             environments: [],
+            ciLink: '',
         },
         {
             version: 2,
@@ -74,6 +75,7 @@ describe('Release Dialog', () => {
             isMinor: false,
             isPrepublish: false,
             environments: [],
+            ciLink: '',
         },
         {
             version: 3,
@@ -87,6 +89,7 @@ describe('Release Dialog', () => {
             isMinor: false,
             isPrepublish: false,
             environments: [],
+            ciLink: '',
         },
     ];
 
@@ -95,18 +98,21 @@ describe('Release Dialog', () => {
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
     };
     const testAppLock2: Lock = {
         lockId: 'testlockId2',
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
     };
     const testApplock3: Lock = {
         lockId: 'testlockId3',
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
     };
 
     const app1Details: AppDetailsResponse = {
@@ -187,6 +193,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
                 {
                     version: 2,
@@ -200,6 +207,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
                 {
                     version: 3,
@@ -213,6 +221,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             envGroups: [testEnvGroup1],
@@ -257,6 +266,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     version: 2,
@@ -270,6 +280,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     version: 3,
@@ -283,6 +294,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -312,6 +324,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
                 {
                     version: 2,
@@ -325,6 +338,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
                 {
                     version: 3,
@@ -338,6 +352,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             envGroups: [],
