@@ -89,6 +89,7 @@ type Config struct {
 	RevolutionDoraToken       string        `split_words:"true" default:""`
 	RevolutionDoraConcurrency int           `default:"10" split_words:"true"`
 	RevolutionDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
+	RevolutionDoraDryRun      bool          `split_words:"true" default:"false"`
 
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
@@ -98,9 +99,9 @@ type Config struct {
 	ArgoEventsChannelSize      int  `default:"50" split_words:"true"`
 	KuberpultEventsChannelSize int  `default:"50" split_words:"true"`
 
-	RevolutionFailedDoraEventsMetricEnabled bool `default:"false" split_words:"true"`
-	ArgoEventsMetricsEnabled                bool `default:"false" split_words:"true"`
-	KuberpultEventsMetricsEnabled           bool `default:"false" split_words:"true"`
+	DoraEventsMetricsEnabled      bool `default:"false" split_words:"true"`
+	ArgoEventsMetricsEnabled      bool `default:"false" split_words:"true"`
+	KuberpultEventsMetricsEnabled bool `default:"false" split_words:"true"`
 
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
@@ -129,10 +130,12 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 		return revolution.Config{}, fmt.Errorf("KUBERPULT_REVOLUTION_DORA_TOKEN must not be empty")
 	}
 	return revolution.Config{
-		URL:         config.RevolutionDoraUrl,
-		Token:       []byte(config.RevolutionDoraToken),
-		Concurrency: config.RevolutionDoraConcurrency,
-		MaxEventAge: config.RevolutionDoraMaxEventAge,
+		URL:            config.RevolutionDoraUrl,
+		Token:          []byte(config.RevolutionDoraToken),
+		Concurrency:    config.RevolutionDoraConcurrency,
+		MaxEventAge:    config.RevolutionDoraMaxEventAge,
+		MetricsEnabled: config.DoraEventsMetricsEnabled,
+		DryRun:         config.RevolutionDoraDryRun,
 	}, nil
 }
 
@@ -354,7 +357,7 @@ func runServer(ctx context.Context, config Config) error {
 		if err != nil {
 			return err
 		}
-		revolutionDora := revolution.New(revolutionConfig)
+		revolutionDora := revolution.New(revolutionConfig, ddMetrics)
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Shutdown: nil,
 			Name:     "revolution dora",

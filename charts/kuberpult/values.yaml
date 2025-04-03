@@ -248,6 +248,19 @@ rollout:
   # If `persistArgoEvents` is enabled, this value dictates how many ArgoCD events must be received before they are
   # written to the database. This parameter can improve performance if you have a lot of ArgoCD events.
   argoEventsBatchSize: 1
+  # Size of the channel that holds the ArgoCD Events received by the rollout service.
+  argoEventsChannelSize: 50
+  # Size of the channel that holds the Kuberpult Events received by the rollout service.
+  kuberpultEventsChannelSize: 50
+  metrics:
+    # If `RevolutionMetricsEnabled` is enabled, Kuberpult sends metrics regarding successful and failed DORA events
+    doraMetricsEnabled: false
+    # If `ArgoEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding argocd events received by the
+    # rollout service. Useful for diagnosing possible bottlenecks on rollout service.
+    argoEventsMetricsEnabled: false
+    # If `KuberpultEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding kuberpult events received by the
+    # rollout service. Useful for diagnosing possible bottlenecks on rollout service
+    kuberpultEventsMetricsEnabled: false
 
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
@@ -458,6 +471,8 @@ revolution:
     token: ""
     # Maximum number of requests send in parallel.
     concurrency: 20
+    # If enabled, revolution isn't actually contacted with new events and simply Kuberpult logs the events it would have sent
+    dryRun: false
 
 # Whether the rollout service should self-manage applications
 manageArgoApplications:

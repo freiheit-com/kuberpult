@@ -865,7 +865,7 @@ func TestVersionClientStream(t *testing.T) {
 				tc.VersionResponses = map[string]mockVersionResponse{}
 			}
 			mvc := &mockVersionClient{responses: tc.VersionResponses}
-			vc := New(moc, mvc, nil, false, []string{}, *setupDB(t))
+			vc := New(moc, mvc, nil, false, false, false, []string{}, *setupDB(t), 50, 50, nil)
 			hs := &setup.HealthServer{}
 			hs.BackOffFactory = func() backoff.BackOff {
 				return backoff.NewConstantBackOff(time.Millisecond)

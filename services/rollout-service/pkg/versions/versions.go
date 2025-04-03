@@ -54,12 +54,11 @@ type VersionClient interface {
 }
 
 type versionClient struct {
-	overviewClient                api.OverviewServiceClient
-	versionClient                 api.VersionServiceClient
-	cache                         *lru.Cache
-	ArgoProcessor                 argo.ArgoAppProcessor
-	db                            db.DBHandler
-	KuberpultEventsMetricsEnabled bool
+	overviewClient api.OverviewServiceClient
+	versionClient  api.VersionServiceClient
+	cache          *lru.Cache
+	ArgoProcessor  argo.ArgoAppProcessor
+	db             db.DBHandler
 }
 
 type VersionInfo struct {
@@ -295,12 +294,11 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, db db.DBHandler, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) VersionClient {
 	result := &versionClient{
-		cache:                         lru.New(20),
-		overviewClient:                oclient,
-		versionClient:                 vclient,
-		ArgoProcessor:                 argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics),
-		db:                            db,
-		KuberpultEventsMetricsEnabled: kuberpultMetricsEnabled,
+		cache:          lru.New(20),
+		overviewClient: oclient,
+		versionClient:  vclient,
+		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics),
+		db:             db,
 	}
 	return result
 }

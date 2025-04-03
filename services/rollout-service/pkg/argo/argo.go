@@ -63,7 +63,7 @@ type ArgoAppProcessor struct {
 	KuberpultMetricsEnabled bool
 	ArgoAppsMetricsEnabled  bool
 	ManageArgoAppsFilter    []string
-	ddMetrics               statsd.ClientInterface
+	DDMetrics               statsd.ClientInterface
 }
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) ArgoAppProcessor {
@@ -76,7 +76,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		ArgoAppsMetricsEnabled:  argoAppsMetricsEnabled,
 		trigger:                 make(chan *ArgoOverview, triggerChannelSize),
 		ArgoApps:                make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
-		ddMetrics:               ddMetrics,
+		DDMetrics:               ddMetrics,
 	}
 }
 
@@ -249,7 +249,7 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 }
 
 func (a *ArgoAppProcessor) GaugeArgoAppsQueueFillRate(ctx context.Context) {
-	if !a.KuberpultMetricsEnabled {
+	if !a.ArgoAppsMetricsEnabled {
 		return
 	}
 	fillRate := 0.0
@@ -258,7 +258,7 @@ func (a *ArgoAppProcessor) GaugeArgoAppsQueueFillRate(ctx context.Context) {
 	} else {
 		fillRate = 1 // If capacity is 0, we are always at 100%
 	}
-	ddError := a.ddMetrics.Gauge("argo_events_fill_rate", fillRate, []string{}, 1)
+	ddError := a.DDMetrics.Gauge("argo_events_fill_rate", fillRate, []string{}, 1)
 	if ddError != nil {
 		logger.FromContext(ctx).Sugar().Warnf("could not send argo_events_fill_rate metric to datadog! Err: %v", ddError)
 	}
@@ -275,7 +275,7 @@ func (a *ArgoAppProcessor) GaugeKuberpultEventsQueueFillRate(ctx context.Context
 	} else {
 		fillRate = 1 // If capacity is 0, we are always at 100%
 	}
-	ddError := a.ddMetrics.Gauge("kuberpult_events_fill_rate", fillRate, []string{}, 1)
+	ddError := a.DDMetrics.Gauge("kuberpult_events_fill_rate", fillRate, []string{}, 1)
 
 	if ddError != nil {
 		logger.FromContext(ctx).Sugar().Warnf("error sending kuberpult_events_fill_rate to datadog. Err: %w", ddError)

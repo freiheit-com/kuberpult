@@ -214,6 +214,8 @@ spec:
               key: KUBERPULT_REVOLUTION_DORA_TOKEN
         - name: KUBERPULT_REVOLUTION_DORA_MAX_EVENT_AGE
           value: "2h"
+        - name: KUBERPULT_REVOLUTION_DORA_DRY_RUN
+          value: {{ .Values.revolution.dora.dryRun | quote }}
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.rollout.grpcMaxRecvMsgSize }}"
         - name: KUBERPULT_DB_OPTION
@@ -226,6 +228,16 @@ spec:
         - name: KUBERPULT_ARGO_EVENTS_BATCH_SIZE
           value: "{{ .Values.rollout.argoEventsBatchSize }}"
 {{- end }}
+        - name: KUBERPULT_ARGO_EVENTS_CHANNEL_SIZE
+          value: "{{ .Values.rollout.argoEventsChannelSize }}"
+        - name: KUBERPULT_KUBERPULT_EVENTS_CHANNEL_SIZE
+          value: "{{ .Values.rollout.kuberpultEventsChannelSize }}"
+        - name: KUBERPULT_DORA_EVENTS_METRICS_ENABLED
+          value: "{{ .Values.rollout.metrics.doraMetricsEnabled }}"
+        - name: KUBERPULT_ARGO_EVENTS_METRICS_ENABLED
+          value: "{{ .Values.rollout.metrics.argoEventsMetricsEnabled }}"
+        - name: KUBERPULT_KUBERPULT_EVENTS_METRICS_ENABLED
+          value: "{{ .Values.rollout.metrics.kuberpultEventsMetricsEnabled }}"
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}

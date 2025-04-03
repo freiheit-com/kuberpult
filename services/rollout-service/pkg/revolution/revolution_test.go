@@ -276,11 +276,12 @@ func TestRevolution(t *testing.T) {
 			bc := service.New()
 			errCh := make(chan error, 1)
 			cs := New(Config{
-				URL:         revolution.URL,
-				Token:       []byte("revolution"),
-				Concurrency: 100,
-				MaxEventAge: time.Second,
-			})
+				URL:            revolution.URL,
+				Token:          []byte("revolution"),
+				Concurrency:    100,
+				MaxEventAge:    time.Second,
+				MetricsEnabled: false,
+			}, nil)
 			cs.ready = func() { readyCh <- struct{}{} }
 			cs.now = func() time.Time { return tc.Now }
 			go func() {
