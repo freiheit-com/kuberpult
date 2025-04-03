@@ -71,7 +71,7 @@ DOCKER:
     COPY ../../../services/$service+artifacts/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
     COPY ../../../services/$service+artifacts/zoneinfo /usr/share/zoneinfo
     COPY ../../../services/$service+compile/main /main
-    COPY ../../..+migration-deps/migrations /kp/database/migrations
+    COPY ../../..+migration-deps/migrations /migrations
     IF [  "$cgo_enabled" = "1" ]
         COPY ../../../services/$service+compile/lib/* /lib
         IF [ "$USERARCH" != "arm64" ]

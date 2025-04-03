@@ -246,7 +246,7 @@ spec:
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
-          value: /kp/database/migrations/postgres
+          value: /migrations/postgres
 {{- end }}
 {{- if eq .Values.db.dbOption "postgreSQL" }}
         - name: KUBERPULT_DB_NAME
