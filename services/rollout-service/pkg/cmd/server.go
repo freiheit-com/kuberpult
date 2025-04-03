@@ -93,8 +93,14 @@ type Config struct {
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
 
-	PersistArgoEvents   bool `default:"false" split_words:"true"`
-	ArgoEventsBatchSize int  `default:"1" split_words:"true"`
+	PersistArgoEvents          bool `default:"false" split_words:"true"`
+	ArgoEventsBatchSize        int  `default:"1" split_words:"true"`
+	ArgoEventsChannelSize      int  `default:"50" split_words:"true"`
+	KuberpultEventsChannelSize int  `default:"50" split_words:"true"`
+
+	RevolutionFailedDoraEventsMetricEnabled bool `default:"false" split_words:"true"`
+	ArgoEventsMetricsEnabled                bool `default:"false" split_words:"true"`
+	KuberpultEventsMetricsEnabled           bool `default:"false" split_words:"true"`
 
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
@@ -294,7 +300,8 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
-	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.ManageArgoApplicationsFilter, *dbHandler)
+
+	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.KuberpultEventsMetricsEnabled, config.ArgoEventsMetricsEnabled, config.ManageArgoApplicationsFilter, *dbHandler, config.KuberpultEventsChannelSize, config.ArgoEventsChannelSize, ddMetrics)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
 	ArgoEventConsumer := service.ArgoEventConsumer{
 		AppClient:           appClient,
@@ -332,7 +339,6 @@ func runServer(ctx context.Context, config Config) error {
 	}
 
 	if config.ArgocdRefreshEnabled {
-
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Shutdown: nil,
 			Name:     "refresh argocd",

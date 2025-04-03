@@ -114,6 +114,7 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 			if s.maxAge != 0 &&
 				ev.ArgocdVersion != nil &&
 				ev.ArgocdVersion.DeployedAt.Add(s.maxAge).Before(s.now()) {
+				l.Sugar().Warnf("discarded event for app %q on environment %q. Event too old: %s", ev.Key.Application, ev.Key.Environment, ev.ArgocdVersion.DeployedAt.String())
 				continue
 			}
 			l.Info("registering event app: " + ev.Key.Application + ", environment: " + ev.Key.Environment)
@@ -189,6 +190,7 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 		EventTime:   ev.ArgocdVersion.DeployedAt.Format(time.RFC3339),
 		ServiceName: ev.Application,
 	}
+
 	return func() error {
 		span, _ := tracer.StartSpanFromContext(ctx, "revolution.notify")
 		defer span.Finish()
@@ -196,6 +198,7 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 		span.SetTag("revolution.id", event.Id)
 		span.SetTag("environment", ev.Environment)
 		span.SetTag("application", ev.Application)
+		//IF verbose write these spans
 		body, err := json.Marshal(event)
 		if err != nil {
 			return fmt.Errorf("marshal event: %w", err)
@@ -212,6 +215,7 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 		r.Header.Set("User-Agent", "kuberpult")
 		s, err := http.DefaultClient.Do(r)
 		if err != nil {
+			//IF verbose write these spans
 			span.Finish(tracer.WithError(err))
 			return nil
 		}

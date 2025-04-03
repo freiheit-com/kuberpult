@@ -102,23 +102,14 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 					logger.FromContext(ctx).Sugar().Warnf("argo apps channel at full capacity of %d. Discarding event: %v", cap(e.ArgoAppProcessor.ArgoApps), ev)
 				}
 
-				if e.DDMetrics != nil { //If DD is enabled, send metrics
+				if e.DDMetrics != nil && e.ArgoAppProcessor.ArgoAppsMetricsEnabled { //If DD is enabled, send metrics
 					if eventDiscarded {
 						ddError := e.DDMetrics.Incr("argo_discarded_events", []string{}, 1)
 						if ddError != nil {
 							logger.FromContext(ctx).Sugar().Warnf("could not send argo_discarded_events metric to datadog! Err: %v", ddError)
 						}
 					}
-					fillRate := 0.0
-					if cap(e.ArgoAppProcessor.ArgoApps) != 0 {
-						fillRate = float64(len(e.ArgoAppProcessor.ArgoApps)) / float64(cap(e.ArgoAppProcessor.ArgoApps))
-					} else {
-						fillRate = 1 // If capacity is 0, we are always at 100%
-					}
-					ddError := e.DDMetrics.Gauge("argo_events_fill_rate", fillRate, []string{}, 1)
-					if ddError != nil {
-						logger.FromContext(ctx).Sugar().Warnf("could not send argo_events_fill_rate metric to datadog! Err: %v", ddError)
-					}
+					e.ArgoAppProcessor.GaugeArgoAppsQueueFillRate(ctx)
 				}
 
 				if argoEvent != nil && e.PersistArgoEvents {
