@@ -24,6 +24,7 @@ const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 const makeLock = (id: string): Lock => ({
     message: id,
     lockId: id,
+    ciLink: '',
 });
 
 describe('EnvironmentChip', () => {

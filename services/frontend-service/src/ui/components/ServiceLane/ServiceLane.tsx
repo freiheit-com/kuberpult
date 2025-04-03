@@ -169,8 +169,6 @@ export const GeneralServiceLane: React.FC<{
 }> = (props) => {
     const onReload = useCallback(() => {
         const details = updateAppDetails.get();
-        // eslint-disable-next-line no-console
-        console.log('On reload GeneralServiceLane');
         details[props.application.name] = {
             details: undefined,
             appDetailState: AppDetailsState.NOTREQUESTED,
@@ -441,8 +439,6 @@ export const ReadyServiceLane: React.FC<{
     );
     const onReload = useCallback(() => {
         const details = updateAppDetails.get();
-        // eslint-disable-next-line no-console
-        console.log('On reload');
         details[application.name] = {
             details: undefined,
             appDetailState: AppDetailsState.NOTREQUESTED,

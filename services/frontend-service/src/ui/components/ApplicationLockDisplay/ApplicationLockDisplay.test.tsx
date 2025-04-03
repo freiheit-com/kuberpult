@@ -34,6 +34,7 @@ describe('ApplicationLockDisplay', () => {
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
     };
     const testApp: Application = {
         name: 'test',
@@ -81,6 +82,7 @@ describe('ApplicationLockDisplay', () => {
                     lockId: testAppLock.lockId,
                     authorName: testAppLock.createdBy?.name,
                     authorEmail: testAppLock.createdBy?.email,
+                    ciLink: '',
                 },
             },
             expectedPriorityClassName: '.environment-priority-upstream',
@@ -101,6 +103,7 @@ describe('ApplicationLockDisplay', () => {
                     lockId: testAppLock.lockId,
                     authorName: testAppLock.createdBy?.name,
                     authorEmail: testAppLock.createdBy?.email,
+                    ciLink: '',
                 },
             },
             expectedPriorityClassName: '.environment-priority-other',

@@ -34,7 +34,7 @@ import {
     UndeploySummary,
 } from '../../../api/api';
 import { Spy } from 'spy4js';
-import { MemoryRouter } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
 
@@ -103,6 +103,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: ['prod'],
+                    ciLink: 'givemesomething',
                 },
             ],
             envs: [
@@ -150,6 +151,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: true,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             envs: [
@@ -181,7 +183,7 @@ describe('Release Dialog', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     prod: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
                     },
                 },
             },
@@ -207,6 +209,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: 'www.somewebsite.com',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -216,7 +219,7 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
                             },
                         },
                         teamLocks: {},
@@ -225,6 +228,11 @@ describe('Release Dialog', () => {
                                 version: 1,
                                 queuedVersion: 0,
                                 undeployVersion: false,
+                                deploymentMetaData: {
+                                    ciLink: 'www.somewebsite.com',
+                                    deployAuthor: 'somebody',
+                                    deployTime: 'sometime',
+                                },
                             },
                         },
                     },
@@ -246,6 +254,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: 'www.somewebsite.com',
                 },
             ],
             envs: [
@@ -275,7 +284,7 @@ describe('Release Dialog', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     prod: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
                     },
                 },
             },
@@ -301,6 +310,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: 'www.somewebsite.com',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -310,7 +320,7 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
                             },
                         },
                         teamLocks: {},
@@ -319,6 +329,11 @@ describe('Release Dialog', () => {
                                 version: 1,
                                 queuedVersion: 0,
                                 undeployVersion: false,
+                                deploymentMetaData: {
+                                    ciLink: 'www.somewebsite.com',
+                                    deployAuthor: 'somebody',
+                                    deployTime: 'sometime',
+                                },
                             },
                         },
                     },
@@ -340,6 +355,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: 'www.somewebsite.com',
                 },
             ],
             envs: [
@@ -370,17 +386,17 @@ describe('Release Dialog', () => {
                     dev: {
                         teamLocks: {
                             test1: {
-                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
+                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock', ciLink: '' }],
                             },
                         },
                     },
                 },
                 allEnvLocks: {
                     prod: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
                     },
                     dev: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
                     },
                 },
             },
@@ -406,6 +422,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: 'www.somewebsite.com',
                                 },
                                 {
                                     sourceCommitId: 'cafe',
@@ -419,6 +436,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: 'www.somewebsite.com',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -428,15 +446,15 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
                             },
                             dev: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock' }],
+                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
                             },
                         },
                         teamLocks: {
                             dev: {
-                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock' }],
+                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock', ciLink: '' }],
                             },
                         },
                         deployments: {
@@ -444,11 +462,21 @@ describe('Release Dialog', () => {
                                 version: 2,
                                 queuedVersion: 0,
                                 undeployVersion: false,
+                                deploymentMetaData: {
+                                    ciLink: 'www.somewebsite.com',
+                                    deployAuthor: 'somebody',
+                                    deployTime: 'sometime',
+                                },
                             },
                             dev: {
                                 version: 3,
                                 queuedVersion: 666,
                                 undeployVersion: false,
+                                deploymentMetaData: {
+                                    ciLink: 'www.somewebsite.com',
+                                    deployAuthor: 'somebody',
+                                    deployTime: 'sometime',
+                                },
                             },
                         },
                     },
@@ -491,6 +519,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: 'www.somewebsite.com',
                 },
                 {
                     sourceCommitId: 'cafe',
@@ -504,6 +533,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: 'www.somewebsite.com',
                 },
             ],
             rolloutStatus: [
@@ -553,6 +583,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: 'www.somewebsite.com',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -562,7 +593,18 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {},
                         teamLocks: {},
-                        deployments: {},
+                        deployments: {
+                            dev: {
+                                version: 3,
+                                queuedVersion: 666,
+                                undeployVersion: false,
+                                deploymentMetaData: {
+                                    ciLink: 'www.somewebsite.com',
+                                    deployAuthor: 'somebody',
+                                    deployTime: 'sometime',
+                                },
+                            },
+                        },
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
@@ -582,6 +624,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: 'www.somewebsite.com',
                 },
             ],
             envs: [],
@@ -710,13 +753,15 @@ describe('Release Dialog', () => {
                 setTheStore(testcase);
 
                 render(
-                    <EnvironmentListItem
-                        env={testcase.envs[0]}
-                        envGroup={testcase.envGroups[0]}
-                        app={testcase.props.app}
-                        queuedVersion={0}
-                        release={{ ...testcase.rels[0], version: 3 }}
-                    />
+                    <BrowserRouter>
+                        <EnvironmentListItem
+                            env={testcase.envs[0]}
+                            envGroup={testcase.envGroups[0]}
+                            app={testcase.props.app}
+                            queuedVersion={0}
+                            release={{ ...testcase.rels[0], version: 3 }}
+                        />
+                    </BrowserRouter>
                 );
                 const result = querySelectorSafe('.env-card-deploy-btn');
                 if (testcase.rels[0].isPrepublish) {
@@ -751,6 +796,163 @@ describe('Release Dialog', () => {
                     ]);
                 }
             });
+        });
+    });
+});
+
+describe('Release Dialog CI Links', () => {
+    const getNode = (overrides: ReleaseDialogProps) => (
+        <MemoryRouter>
+            <ReleaseDialog {...overrides} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: ReleaseDialogProps) => render(getNode(overrides));
+    interface ReleaseDataT {
+        appName: string;
+        version: number;
+        ciLink: string;
+    }
+    interface DeploymentDataT {
+        appName: string;
+        version: number;
+        envName: string;
+        ciLink: string;
+    }
+    interface dataT {
+        name: string;
+        props: ReleaseDialogProps;
+        appDetails: { [p: string]: AppDetailsResponse };
+        deploymentData: DeploymentDataT[];
+        releaseData: ReleaseDataT;
+        envs: Environment[];
+        envGroups: EnvironmentGroup[];
+    }
+
+    const ciLinksData: dataT[] = [
+        {
+            name: 'normal release',
+            props: {
+                app: 'test1',
+                version: 2,
+            },
+            appDetails: {
+                test1: {
+                    details: {
+                        application: {
+                            name: 'test1',
+                            releases: [
+                                {
+                                    version: 2,
+                                    sourceMessage: 'test1',
+                                    sourceAuthor: 'test',
+                                    sourceCommitId: 'commit',
+                                    createdAt: new Date(2002),
+                                    undeployVersion: false,
+                                    prNumber: '#1337',
+                                    displayVersion: '2',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: [],
+                                    ciLink: 'www.somewebsite.com',
+                                },
+                            ],
+                            sourceRepoUrl: 'http://test2.com',
+                            team: 'example',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {
+                            production: {
+                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
+                            },
+                        },
+                        teamLocks: {},
+                        deployments: {
+                            dev: {
+                                version: 1,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                                deploymentMetaData: {
+                                    ciLink: 'www.somewebsite.com',
+                                    deployAuthor: 'somebody',
+                                    deployTime: 'sometime',
+                                },
+                            },
+                        },
+                    },
+                    updatedAt: new Date(Date.now()),
+                    appDetailState: AppDetailsState.READY,
+                    errorMessage: '',
+                },
+            },
+            deploymentData: [
+                {
+                    version: 1,
+                    envName: 'dev',
+                    appName: 'test1',
+                    ciLink: 'www.somewebsite.com',
+                },
+            ],
+            releaseData: {
+                version: 1,
+                appName: 'test1',
+                ciLink: 'www.somewebsite.com',
+            },
+            envs: [
+                {
+                    name: 'dev',
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+            envGroups: [
+                {
+                    // this data should never appear (group with no envs with a well-defined priority), but we'll make it for the sake of the test.
+                    distanceToUpstream: 0,
+                    environmentGroupName: 'dev',
+                    environments: [],
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+        },
+    ];
+
+    const setTheStore = (testcase: dataT) => {
+        const asMap: { [key: string]: Environment } = {};
+        testcase.envs.forEach((obj) => {
+            asMap[obj.name] = obj;
+        });
+        UpdateOverview.set({
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: testcase.envs,
+                    distanceToUpstream: 2,
+                    priority: Priority.UNRECOGNIZED,
+                },
+            ],
+        });
+        updateAppDetails.set(testcase.appDetails);
+    };
+
+    describe.each(ciLinksData)(`Renders ci links for release and deployments`, (testcase) => {
+        it(testcase.name, () => {
+            // given
+            mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
+            // when
+            setTheStore(testcase);
+            getWrapper(testcase.props);
+            if (testcase.releaseData.ciLink !== '') {
+                expect(document.getElementById('ciLink')?.getAttribute('href')).toContain(testcase.releaseData.ciLink);
+            }
+
+            testcase.deploymentData.forEach((curr) =>
+                expect(
+                    document
+                        .getElementById('deployment-ci-link-' + curr.envName + '-' + curr.appName)
+                        ?.getAttribute('href')
+                ).toContain(curr.ciLink)
+            );
         });
     });
 });

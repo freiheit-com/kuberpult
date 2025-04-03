@@ -19,6 +19,7 @@ import { addAction, DisplayLock } from '../../utils/store';
 import classNames from 'classnames';
 import { useCallback } from 'react';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
+import { Link } from 'react-router-dom';
 
 const millisecondsPerDay = 1000 * 60 * 60 * 24;
 // lock is outdated if it's more than two days old
@@ -76,7 +77,18 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     {!!lock.team && <div className="lock-display-info">{lock.team}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>
                     <div className="lock-display-info-size-limit">{lock.message}</div>
-                    <div className="lock-display-info">{lock.authorName}</div>
+                    {lock.ciLink !== '' ? (
+                        <Link
+                            className="lock-display-info lock-ci-link"
+                            to={lock.ciLink}
+                            target="_blank"
+                            rel="noopener noreferrer">
+                            {lock.authorName}
+                        </Link>
+                    ) : (
+                        <div className="lock-display-info">{lock.authorName}</div>
+                    )}
+
                     <div className="lock-display-info">{lock.authorEmail}</div>
                     <Button
                         className="lock-display-info lock-action service-action--delete"
