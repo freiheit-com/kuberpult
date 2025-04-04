@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"strconv"
 	"time"
 
@@ -94,7 +95,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			revision, application, environment, err)
 	}
 	return db.WithTransactionT[VersionInfo](&v.db, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
-		deployment, err := v.db.DBSelectSpecificDeployment(ctx, tx, environment, application, releaseVersion)
+		deployment, err := v.db.DBSelectSpecificDeployment(ctx, tx, application, environment, releaseVersion)
 		if err != nil || deployment == nil {
 			return nil, onErr(fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, application, err))
 		}
@@ -242,7 +243,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 						dt := deployedAt(deployment)
 						sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
-						l.Info("version.process", zap.String("application", appName), zap.String("environment", env.Name), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt))
+						l.Info("version.process", zap.String("application", appName), zap.String("environment", env.Name), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt), zap.String("commitid", sc))
 
 						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
 							Application:      appName,
@@ -291,12 +292,12 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string, db db.DBHandler) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, db db.DBHandler, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) VersionClient {
 	result := &versionClient{
 		cache:          lru.New(20),
 		overviewClient: oclient,
 		versionClient:  vclient,
-		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
+		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics),
 		db:             db,
 	}
 	return result

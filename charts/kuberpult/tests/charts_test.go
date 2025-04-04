@@ -1548,6 +1548,112 @@ argocd:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test Argo Events Channel Size",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  argoEventsChannelSize: 100
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_CHANNEL_SIZE",
+					Value: "100",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test Kuberpult Events Channel Size",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  kuberpultEventsChannelSize: 99
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_KUBERPULT_EVENTS_CHANNEL_SIZE",
+					Value: "99",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test enable all metrics",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  metrics:
+    doraMetricsEnabled: true
+    argoEventsMetricsEnabled: true
+    kuberpultEventsMetricsEnabled: true
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_METRICS_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_KUBERPULT_EVENTS_METRICS_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_DORA_EVENTS_METRICS_ENABLED",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test enable all metrics",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+revolution:
+  dora:
+    enabled: true
+    dryRun: true
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REVOLUTION_DORA_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_REVOLUTION_DORA_DRY_RUN",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"sync"
 	"time"
 
@@ -121,10 +122,12 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEve
 		//exhaustruct:ignore
 		b.state[k] = &appState{}
 	}
+	logger.FromContext(ctx).Sugar().Infof("Received current argo event: %v", ev)
 	msg := b.state[k].applyArgoEvent(&ev)
 	if msg == nil {
 		return nil
 	}
+	logger.FromContext(ctx).Sugar().Infof("argo event Applied! broadcasting: %v", ev)
 	desub := []chan *BroadcastEvent{}
 	for l := range b.listener {
 		select {

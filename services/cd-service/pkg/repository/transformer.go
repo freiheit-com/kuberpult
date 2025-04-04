@@ -2261,7 +2261,7 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	if existingDeployment.Version == nil {
+	if existingDeployment == nil || existingDeployment.Version == nil {
 		firstDeployment = true
 	} else {
 		oldVersion = existingDeployment.Version

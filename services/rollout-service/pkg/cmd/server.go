@@ -89,12 +89,19 @@ type Config struct {
 	RevolutionDoraToken       string        `split_words:"true" default:""`
 	RevolutionDoraConcurrency int           `default:"10" split_words:"true"`
 	RevolutionDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
+	RevolutionDoraDryRun      bool          `split_words:"true" default:"false"`
 
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
 
-	PersistArgoEvents   bool `default:"false" split_words:"true"`
-	ArgoEventsBatchSize int  `default:"1" split_words:"true"`
+	PersistArgoEvents          bool `default:"false" split_words:"true"`
+	ArgoEventsBatchSize        int  `default:"1" split_words:"true"`
+	ArgoEventsChannelSize      int  `default:"50" split_words:"true"`
+	KuberpultEventsChannelSize int  `default:"50" split_words:"true"`
+
+	DoraEventsMetricsEnabled      bool `default:"false" split_words:"true"`
+	ArgoEventsMetricsEnabled      bool `default:"false" split_words:"true"`
+	KuberpultEventsMetricsEnabled bool `default:"false" split_words:"true"`
 
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
@@ -123,10 +130,12 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 		return revolution.Config{}, fmt.Errorf("KUBERPULT_REVOLUTION_DORA_TOKEN must not be empty")
 	}
 	return revolution.Config{
-		URL:         config.RevolutionDoraUrl,
-		Token:       []byte(config.RevolutionDoraToken),
-		Concurrency: config.RevolutionDoraConcurrency,
-		MaxEventAge: config.RevolutionDoraMaxEventAge,
+		URL:            config.RevolutionDoraUrl,
+		Token:          []byte(config.RevolutionDoraToken),
+		Concurrency:    config.RevolutionDoraConcurrency,
+		MaxEventAge:    config.RevolutionDoraMaxEventAge,
+		MetricsEnabled: config.DoraEventsMetricsEnabled,
+		DryRun:         config.RevolutionDoraDryRun,
 	}, nil
 }
 
@@ -294,7 +303,8 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
-	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.ManageArgoApplicationsFilter, *dbHandler)
+
+	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.KuberpultEventsMetricsEnabled, config.ArgoEventsMetricsEnabled, config.ManageArgoApplicationsFilter, *dbHandler, config.KuberpultEventsChannelSize, config.ArgoEventsChannelSize, ddMetrics)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
 	ArgoEventConsumer := service.ArgoEventConsumer{
 		AppClient:           appClient,
@@ -332,7 +342,6 @@ func runServer(ctx context.Context, config Config) error {
 	}
 
 	if config.ArgocdRefreshEnabled {
-
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Shutdown: nil,
 			Name:     "refresh argocd",
@@ -348,7 +357,7 @@ func runServer(ctx context.Context, config Config) error {
 		if err != nil {
 			return err
 		}
-		revolutionDora := revolution.New(revolutionConfig)
+		revolutionDora := revolution.New(revolutionConfig, ddMetrics)
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Shutdown: nil,
 			Name:     "revolution dora",

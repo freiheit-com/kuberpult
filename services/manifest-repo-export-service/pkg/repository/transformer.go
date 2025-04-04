@@ -408,7 +408,9 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", fmt.Errorf("error while retrieving deployment: %v", err)
 	}
-
+	if existingDeployment == nil {
+		return "", nil
+	}
 	if tCtx.ShouldMaximizeGitData() {
 		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by"), []byte(existingDeployment.Metadata.DeployedByName), 0666); err != nil {
 			return "", err

@@ -19,6 +19,7 @@ package argo
 import (
 	"context"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"path/filepath"
 	"slices"
 
@@ -54,22 +55,28 @@ type Processor interface {
 }
 
 type ArgoAppProcessor struct {
-	trigger               chan *ArgoOverview
-	lastOverview          *ArgoOverview
-	ArgoApps              chan *v1alpha1.ApplicationWatchEvent
-	ApplicationClient     application.ApplicationServiceClient
-	ManageArgoAppsEnabled bool
-	ManageArgoAppsFilter  []string
+	trigger                 chan *ArgoOverview
+	lastOverview            *ArgoOverview
+	ArgoApps                chan *v1alpha1.ApplicationWatchEvent
+	ApplicationClient       application.ApplicationServiceClient
+	ManageArgoAppsEnabled   bool
+	KuberpultMetricsEnabled bool
+	ArgoAppsMetricsEnabled  bool
+	ManageArgoAppsFilter    []string
+	DDMetrics               statsd.ClientInterface
 }
 
-func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string) ArgoAppProcessor {
+func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) ArgoAppProcessor {
 	return ArgoAppProcessor{
-		lastOverview:          nil,
-		ApplicationClient:     appClient,
-		ManageArgoAppsEnabled: manageArgoApplicationEnabled,
-		ManageArgoAppsFilter:  manageArgoApplicationFilter,
-		trigger:               make(chan *ArgoOverview, 50),
-		ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 50),
+		lastOverview:            nil,
+		ApplicationClient:       appClient,
+		ManageArgoAppsEnabled:   manageArgoApplicationEnabled,
+		ManageArgoAppsFilter:    manageArgoApplicationFilter,
+		KuberpultMetricsEnabled: kuberpultMetricsEnabled,
+		ArgoAppsMetricsEnabled:  argoAppsMetricsEnabled,
+		trigger:                 make(chan *ArgoOverview, triggerChannelSize),
+		ArgoApps:                make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
+		DDMetrics:               ddMetrics,
 	}
 }
 
@@ -87,6 +94,7 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) error {
 	select {
 	case a.trigger <- a.lastOverview:
 		l.Info("argocd.pushed")
+		a.GaugeKuberpultEventsQueueFillRate(ctx)
 		return nil
 	default:
 		return fmt.Errorf("failed to push to argo app processor: channel full")
@@ -102,6 +110,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 		case argoOv := <-a.trigger:
 			l.Info("self-manage.trigger")
 			a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
+			a.GaugeKuberpultEventsQueueFillRate(ctx)
 		case <-ctx.Done():
 			return nil
 		default:
@@ -109,8 +118,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			case argoOv := <-a.trigger:
 				l.Info("self-manage.trigger")
 				a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
+				a.GaugeKuberpultEventsQueueFillRate(ctx)
 			case ev := <-a.ArgoApps:
 				a.ProcessArgoWatchEvent(ctx, l, appsKnownToArgo, ev)
+				a.GaugeArgoAppsQueueFillRate(ctx)
 			case <-ctx.Done():
 				return nil
 			}
@@ -232,6 +243,44 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 				updateSpan.Finish()
 			}
 		}
+	}
+}
+
+func (a *ArgoAppProcessor) ShouldSendArgoAppsMetrics() bool {
+	return a.DDMetrics != nil && a.ArgoAppsMetricsEnabled
+}
+
+func (a *ArgoAppProcessor) GaugeArgoAppsQueueFillRate(ctx context.Context) {
+	if !a.ShouldSendArgoAppsMetrics() {
+		return
+	}
+	fillRate := 0.0
+	if cap(a.ArgoApps) != 0 {
+		fillRate = float64(len(a.ArgoApps)) / float64(cap(a.ArgoApps))
+	} else {
+		fillRate = 1 // If capacity is 0, we are always at 100%
+	}
+	ddError := a.DDMetrics.Gauge("argo_events_fill_rate", fillRate, []string{}, 1)
+	if ddError != nil {
+		logger.FromContext(ctx).Sugar().Warnf("could not send argo_events_fill_rate metric to datadog! Err: %v", ddError)
+	}
+}
+
+func (a *ArgoAppProcessor) GaugeKuberpultEventsQueueFillRate(ctx context.Context) {
+	if !a.KuberpultMetricsEnabled || a.DDMetrics == nil {
+		return
+	}
+
+	fillRate := 0.0
+	if cap(a.trigger) != 0 {
+		fillRate = float64(len(a.trigger)) / float64(cap(a.trigger))
+	} else {
+		fillRate = 1 // If capacity is 0, we are always at 100%
+	}
+	ddError := a.DDMetrics.Gauge("kuberpult_events_fill_rate", fillRate, []string{}, 1)
+
+	if ddError != nil {
+		logger.FromContext(ctx).Sugar().Warnf("error sending kuberpult_events_fill_rate to datadog. Err: %w", ddError)
 	}
 }
 
