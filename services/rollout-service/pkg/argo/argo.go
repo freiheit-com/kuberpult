@@ -249,7 +249,7 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 }
 
 func (a *ArgoAppProcessor) GaugeArgoAppsQueueFillRate(ctx context.Context) {
-	if !a.ArgoAppsMetricsEnabled {
+	if !a.ArgoAppsMetricsEnabled || a.DDMetrics == nil {
 		return
 	}
 	fillRate := 0.0
@@ -265,7 +265,7 @@ func (a *ArgoAppProcessor) GaugeArgoAppsQueueFillRate(ctx context.Context) {
 }
 
 func (a *ArgoAppProcessor) GaugeKuberpultEventsQueueFillRate(ctx context.Context) {
-	if !a.KuberpultMetricsEnabled {
+	if !a.KuberpultMetricsEnabled || a.DDMetrics == nil {
 		return
 	}
 

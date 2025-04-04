@@ -132,6 +132,9 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 				l.Sugar().Warnf("discarded event for app %q on environment %q. Event too old: %s", ev.Key.Application, ev.Key.Environment, ev.ArgocdVersion.DeployedAt.String())
 				continue
 			}
+			if ev.ArgocdVersion == nil {
+				l.Sugar().Warnf("discarded event for app %q on environment %q. No ArgocdVersion found.", ev.Key.Application, ev.Key.Environment)
+			}
 			l.Info("registering event app: " + ev.Key.Application + ", environment: " + ev.Key.Environment)
 			if shouldNotify(ctx, s.state[ev.Key], ev) {
 				s.group.Go(s.notify(ctx, ev))

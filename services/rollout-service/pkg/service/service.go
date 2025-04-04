@@ -63,7 +63,6 @@ type ArgoEventConsumer struct {
 }
 
 func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
-
 	var argoEventBatch []*db.ArgoEvent
 	return e.HealthReporter.Retry(ctx, func() error {
 		//exhaustruct:ignore

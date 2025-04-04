@@ -490,20 +490,32 @@ func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, 
 }
 
 // process Rows
-
 func processDeployment(rows *sql.Rows) (*Deployment, error) {
 	var releaseVersion sql.NullInt64
-	var row = &DBDeployment{
-		Created:        time.Time{},
-		ReleaseVersion: nil,
-		App:            "",
-		Env:            "",
-		Metadata:       "",
-		TransformerID:  0,
+
+	var toReturn = &Deployment{
+		Created: time.Time{},
+		Version: nil,
+		App:     "",
+		Env:     "",
+		Metadata: DeploymentMetadata{
+			DeployedByName:  "",
+			DeployedByEmail: "",
+			CiLink:          "",
+		},
+		TransformerID: 0,
 	}
 	//exhaustruct:ignore
 	var resultJson = DeploymentMetadata{}
 	if rows.Next() {
+		var row = &DBDeployment{
+			Created:        time.Time{},
+			ReleaseVersion: nil,
+			App:            "",
+			Env:            "",
+			Metadata:       "",
+			TransformerID:  0,
+		}
 		err := rows.Scan(&row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -519,6 +531,16 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
 		}
+		toReturn = &Deployment{
+			Created:       row.Created,
+			App:           row.App,
+			Env:           row.Env,
+			Version:       row.ReleaseVersion,
+			Metadata:      resultJson,
+			TransformerID: row.TransformerID,
+		}
+	} else {
+		toReturn = nil
 	}
 	err := rows.Close()
 	if err != nil {
@@ -528,14 +550,7 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 	if err != nil {
 		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
 	}
-	return &Deployment{
-		Created:       row.Created,
-		App:           row.App,
-		Env:           row.Env,
-		Version:       row.ReleaseVersion,
-		Metadata:      resultJson,
-		TransformerID: row.TransformerID,
-	}, nil
+	return toReturn, nil
 }
 
 func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[string]Deployment, error) {
