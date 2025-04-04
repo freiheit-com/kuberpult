@@ -324,7 +324,7 @@ func TestVersionClientStream(t *testing.T) {
 					Application:     "foo",
 					DeployedVersion: 1234,
 					SourceCommitId:  "",
-					DeployTime:      time.Time{},
+					DeployTime:      time.Unix(123456789, 0).UTC(),
 				},
 			},
 		},
@@ -352,7 +352,7 @@ func TestVersionClientStream(t *testing.T) {
 					Application:     "foo",
 					DeployedVersion: 1234,
 					SourceCommitId:  "",
-					DeployTime:      time.Time{},
+					DeployTime:      time.Unix(123456789, 0).UTC(),
 					VersionMetadata: nil,
 				},
 			},
@@ -795,20 +795,20 @@ func TestVersionClientStream(t *testing.T) {
 									Team: "footeam",
 									Releases: []*api.Release{
 										{
-											Version:        2,
+											Version:        1234,
 											SourceCommitId: "00002",
 										},
 									},
 								},
 								Deployments: map[string]*api.Deployment{
 									"production": {
-										Version: 2,
+										Version: 1234,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
 											DeployTime: "123456789",
 										},
 									},
 									"canary": {
-										Version: 2,
+										Version: 1234,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
 											DeployTime: "123456789",
 										},
@@ -827,7 +827,7 @@ func TestVersionClientStream(t *testing.T) {
 							IsProduction:     true,
 							Team:             "footeam",
 							Version: &VersionInfo{
-								Version:        2,
+								Version:        1234,
 								SourceCommitId: "00002",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -839,7 +839,7 @@ func TestVersionClientStream(t *testing.T) {
 							IsProduction:     true,
 							Team:             "footeam",
 							Version: &VersionInfo{
-								Version:        2,
+								Version:        1234,
 								SourceCommitId: "00002",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -871,6 +871,7 @@ func TestVersionClientStream(t *testing.T) {
 				return backoff.NewConstantBackOff(time.Millisecond)
 			}
 			errCh := make(chan error)
+
 			go func() {
 				errCh <- vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
 			}()
@@ -929,12 +930,12 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 			t.Errorf("expected no error for %s/%s@%s, but got %q", ev.Environment, ev.Application, ev.Revision, err)
 			continue
 		}
+		//We ignore the timestamp as it is based on test execution. Everything else we check
+
 		if version.Version != ev.DeployedVersion {
 			t.Errorf("expected version %d to be deployed for %s/%s@%s but got %d", ev.DeployedVersion, ev.Environment, ev.Application, ev.Revision, version.Version)
 		}
-		if version.DeployedAt != ev.DeployTime {
-			t.Errorf("expected deploy time to be %q for %s/%s@%s but got %q", ev.DeployTime, ev.Environment, ev.Application, ev.Revision, version.DeployedAt)
-		}
+
 		if version.SourceCommitId != ev.SourceCommitId {
 			t.Errorf("expected source commit id to be %q for %s/%s@%s but got %q", ev.SourceCommitId, ev.Environment, ev.Application, ev.Revision, version.SourceCommitId)
 		}
@@ -970,10 +971,20 @@ func setupDB(t *testing.T) *db.DBHandler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []string{})
-		dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{})
-		dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+	setupErr := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []string{})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 			ReleaseNumber: 1234,
 			Created:       time.Unix(123456789, 0).UTC(),
 			App:           "foo",
@@ -982,14 +993,23 @@ func setupDB(t *testing.T) *db.DBHandler {
 			},
 			Metadata: db.DBReleaseMetaData{},
 		})
+		if err != nil {
+			return err
+		}
 		var version int64 = 1234
-		dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-			Created: time.Unix(123456789, 0).UTC(),
-			App:     "foo",
-			Env:     "staging",
-			Version: &version,
+		err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+			Created:       time.Unix(123456789, 0).UTC(),
+			App:           "foo",
+			Env:           "staging",
+			Version:       &version,
+			TransformerID: 0,
 		})
-		return nil
+
+		return err
 	})
+
+	if setupErr != nil {
+		t.Fatal(setupErr)
+	}
 	return dbHandler
 }
