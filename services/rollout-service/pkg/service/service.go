@@ -64,7 +64,11 @@ type ArgoEventConsumer struct {
 
 func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 	var argoEventBatch []*db.ArgoEvent
+
 	return e.HealthReporter.Retry(ctx, func() error {
+		if e.ArgoAppProcessor == nil {
+			return fmt.Errorf("argo app processor is not configured (nil)")
+		}
 		//exhaustruct:ignore
 		watch, err := e.AppClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
@@ -74,6 +78,7 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 			}
 			return fmt.Errorf("watching applications: %w", err)
 		}
+
 		e.HealthReporter.ReportReady("consuming events")
 		for {
 			ev, err := watch.Recv()
@@ -101,7 +106,7 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 					logger.FromContext(ctx).Sugar().Warnf("argo apps channel at full capacity of %d. Discarding event: %v", cap(e.ArgoAppProcessor.ArgoApps), ev)
 				}
 
-				if e.DDMetrics != nil && e.ArgoAppProcessor.ArgoAppsMetricsEnabled { //If DD is enabled, send metrics
+				if e.DDMetrics != nil || e.ArgoAppProcessor.ArgoAppsMetricsEnabled { //If DD is enabled, send metrics
 					if eventDiscarded {
 						ddError := e.DDMetrics.Incr("argo_discarded_events", []string{}, 1)
 						if ddError != nil {

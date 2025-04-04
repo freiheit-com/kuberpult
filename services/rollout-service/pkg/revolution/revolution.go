@@ -221,7 +221,7 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 		}
 
 		if s.dryRun {
-			logger.FromContext(ctx).Sugar().Infof("Dry Run enabled! Would send following DORA event to revolution: %s", string(body))
+			logger.FromContext(ctx).Sugar().Warnf("Dry Run enabled! Would send following DORA event to revolution: %s", string(body))
 			return nil
 		}
 		h := hmac.New(sha256.New, s.token)
