@@ -399,7 +399,7 @@ func TestEnvironmentLock(t *testing.T) {
 
 			// Call the db to see if the release was deployed
 			deployment := callDBForDeployments(t, dbHandler, ctx, appName)
-			if deployment.App != "" {
+			if deployment != nil || deployment.App != "" {
 				t.Fatalf("expected no deployments")
 			}
 
