@@ -472,7 +472,7 @@ revolution:
     concurrency: 20
 
     # If enabled, revolution isn't actually contacted with new events and Kuberpult simply logs the events it would have sent.
-    # Useful if you don't want to overload Revolution with events.
+    # Useful if you don't want to overload Revolution with events while debugging.
     dryRun: false
     maxAge: 2h
 
