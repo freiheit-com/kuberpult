@@ -457,6 +457,7 @@ revolution:
     token: ""
     # Maximum number of requests send in parallel.
     concurrency: 20
+    maxAge: 2h
 
 # Whether the rollout service should self-manage applications
 manageArgoApplications:

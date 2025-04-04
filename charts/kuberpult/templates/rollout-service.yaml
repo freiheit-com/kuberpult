@@ -213,7 +213,7 @@ spec:
               name: kuberpult-rollout-service
               key: KUBERPULT_REVOLUTION_DORA_TOKEN
         - name: KUBERPULT_REVOLUTION_DORA_MAX_EVENT_AGE
-          value: "2h"
+          value: {{ .Values.revolution.dora.maxAge | quote }}
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.rollout.grpcMaxRecvMsgSize }}"
         - name: KUBERPULT_DB_OPTION
