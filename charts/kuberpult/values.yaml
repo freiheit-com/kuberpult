@@ -144,7 +144,6 @@ db:
   dbName: "databaseName"
   dbUser: "username"
   dbPassword: "password"
-  migrations: /migrations
   # SSL mode to be used by the database
   sslMode: verify-full
   requests:
@@ -471,9 +470,11 @@ revolution:
     token: ""
     # Maximum number of requests send in parallel.
     concurrency: 20
+
     # If enabled, revolution isn't actually contacted with new events and Kuberpult simply logs the events it would have sent.
     # Useful if you don't want to overload Revolution with events.
     dryRun: false
+    maxAge: 2h
 
 # Whether the rollout service should self-manage applications
 manageArgoApplications:

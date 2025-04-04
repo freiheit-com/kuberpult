@@ -43,7 +43,7 @@ func TestMigrations(t *testing.T) {
 		DbPassword:     "mypassword",
 		DbName:         "kuberpult",
 		DriverName:     "postgres",
-		MigrationsPath: "../../database/migrations/postgres",
+		MigrationsPath: "/migrations/postgres",
 		SSLMode:        "disable",
 	}
 	dbHandler, err := db.Connect(ctx, dbConfig)

@@ -155,7 +155,7 @@ spec:
         - name: LOG_LEVEL
           value: {{ .Values.log.level | quote }}
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
-          value: {{ .Values.db.migrations }}
+          value: /migrations/postgres
         - name: KUBERPULT_DB_AUTH_PROXY_PORT
           value: "{{ .Values.db.authProxyPort }}"
 {{- if .Values.datadogTracing.enabled }}
@@ -213,7 +213,7 @@ spec:
               name: kuberpult-rollout-service
               key: KUBERPULT_REVOLUTION_DORA_TOKEN
         - name: KUBERPULT_REVOLUTION_DORA_MAX_EVENT_AGE
-          value: "2h"
+          value: {{ .Values.revolution.dora.maxAge | quote }}
         - name: KUBERPULT_REVOLUTION_DORA_DRY_RUN
           value: {{ .Values.revolution.dora.dryRun | quote }}
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE

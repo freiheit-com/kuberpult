@@ -246,7 +246,7 @@ spec:
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
-          value: {{ .Values.db.migrations }}
+          value: /migrations/postgres
 {{- end }}
 {{- if eq .Values.db.dbOption "postgreSQL" }}
         - name: KUBERPULT_DB_NAME
@@ -287,11 +287,6 @@ spec:
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.cd.grpcMaxRecvMsgSize }}"
         volumeMounts:
-{{- if (eq .Values.db.dbOption "postgreSQL") }}
-        - name: migrations
-          mountPath: {{ .Values.db.migrations }}
-          readOnly: false
-{{- end }}
         - name: ssh
           mountPath: /etc/ssh
 {{- if .Values.datadogProfiling.enabled }}
@@ -324,11 +319,6 @@ spec:
       - name: keyring
         configMap:
           name: kuberpult-keyring
-{{- end }}
-{{- if eq .Values.db.dbOption "postgreSQL" }}
-      - name: migrations
-        configMap:
-          name: kuberpult-migrations-cloudsql
 {{- end }}
 {{- if .Values.auth.dexAuth.enabled }}
       - name: kuberpult-rbac

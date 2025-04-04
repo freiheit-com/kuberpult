@@ -186,7 +186,7 @@ spec:
         - name: KUBERPULT_DB_LOCATION
           value: "{{ .Values.db.location }}"
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
-          value: {{ .Values.db.migrations }}
+          value: /migrations/postgres
         - name: KUBERPULT_DB_NAME
           value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
@@ -244,9 +244,6 @@ spec:
           # We mount the volume to the parent because kubernetes volumes belong to root.
           # This way the container can create /kp/repository itself without any permission issues.
           mountPath: /kp/
-        - name: migrations
-          mountPath: {{ .Values.db.migrations }}
-          readOnly: false
         - name: ssh
           mountPath: /etc/ssh
 {{- if .Values.datadogProfiling.enabled }}
@@ -278,9 +275,6 @@ spec:
         hostPath:
           path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
 {{- end }}
-      - name: migrations
-        configMap:
-          name: kuberpult-migrations-cloudsql
 ---
 apiVersion: v1
 kind: Service
