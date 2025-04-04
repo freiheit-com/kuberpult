@@ -246,8 +246,12 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 	}
 }
 
+func (a *ArgoAppProcessor) ShouldSendArgoAppsMetrics() bool {
+	return a.DDMetrics != nil && a.ArgoAppsMetricsEnabled
+}
+
 func (a *ArgoAppProcessor) GaugeArgoAppsQueueFillRate(ctx context.Context) {
-	if !a.ArgoAppsMetricsEnabled || a.DDMetrics == nil {
+	if a.ShouldSendArgoAppsMetrics() {
 		return
 	}
 	fillRate := 0.0
