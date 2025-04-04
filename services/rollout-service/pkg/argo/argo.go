@@ -194,7 +194,6 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 			createSpan.SetTag("application", appName)
 			createSpan.SetTag("environment", env.Name)
 			createSpan.SetTag("operation", "create")
-			//Check on DB if A/A -> create multiple apps for each env config
 			appToCreate := CreateArgoApplication(overview, appName, team, env)
 			appToCreate.ResourceVersion = ""
 			upsert := false
@@ -216,7 +215,6 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 			}
 			createSpan.Finish()
 		} else {
-			//Check on DB if A/A -> update multiple apps for each env config
 			appToUpdate := CreateArgoApplication(overview, appName, team, env)
 			appUpdateRequest := &application.ApplicationUpdateRequest{
 				XXX_NoUnkeyedLiteral: struct{}{},
