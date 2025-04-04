@@ -144,7 +144,6 @@ db:
   dbName: "databaseName"
   dbUser: "username"
   dbPassword: "password"
-  migrations: /migrations
   # SSL mode to be used by the database
   sslMode: verify-full
   requests:
