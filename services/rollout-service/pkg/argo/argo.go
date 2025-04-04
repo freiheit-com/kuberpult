@@ -251,7 +251,7 @@ func (a *ArgoAppProcessor) ShouldSendArgoAppsMetrics() bool {
 }
 
 func (a *ArgoAppProcessor) GaugeArgoAppsQueueFillRate(ctx context.Context) {
-	if a.ShouldSendArgoAppsMetrics() {
+	if !a.ShouldSendArgoAppsMetrics() {
 		return
 	}
 	fillRate := 0.0
