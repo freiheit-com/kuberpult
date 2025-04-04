@@ -493,18 +493,7 @@ func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, 
 func processDeployment(rows *sql.Rows) (*Deployment, error) {
 	var releaseVersion sql.NullInt64
 
-	var toReturn = &Deployment{
-		Created: time.Time{},
-		Version: nil,
-		App:     "",
-		Env:     "",
-		Metadata: DeploymentMetadata{
-			DeployedByName:  "",
-			DeployedByEmail: "",
-			CiLink:          "",
-		},
-		TransformerID: 0,
-	}
+	var toReturn *Deployment
 	//exhaustruct:ignore
 	var resultJson = DeploymentMetadata{}
 	if rows.Next() {
