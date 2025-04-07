@@ -226,7 +226,21 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
-	err := h.upsertEnvironmentsRow(ctx, tx, environmentName, environmentConfig, applications)
+	err := h.upsertEnvironmentsRow(ctx, tx, environmentName, environmentConfig, applications, true)
+	if err != nil {
+		return err
+	}
+	err = h.insertEnvironmentHistoryRow(ctx, tx, environmentName, environmentConfig, applications, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DBHandler) DBWriteEnvironmentNotOverrideApplications(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
+	defer span.Finish()
+	err := h.upsertEnvironmentsRow(ctx, tx, environmentName, environmentConfig, applications, false)
 	if err != nil {
 		return err
 	}
@@ -267,7 +281,7 @@ func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environ
 
 // actual changes in tables
 
-func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
+func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string, updateApplications bool) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
 	if h == nil {
@@ -280,8 +294,13 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 		INSERT INTO environments (created, name, json, applications)
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(name)
-		DO UPDATE SET created = excluded.created, name = excluded.name, json = excluded.json, applications = excluded.applications;
+		DO UPDATE SET created = excluded.created, name = excluded.name, json = excluded.json
 	`)
+	if updateApplications {
+		insertQuery += ", applications = excluded.applications;"
+	} else {
+		insertQuery += ";"
+	}
 	span.SetTag("query", insertQuery)
 
 	jsonToInsert, err := json.Marshal(environmentConfig)
