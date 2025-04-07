@@ -167,7 +167,7 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 }
 
 func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeployment")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeploymentHistory")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion
