@@ -95,7 +95,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			revision, application, environment, err)
 	}
 	return db.WithTransactionT[VersionInfo](&v.db, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
-		deployment, err := v.db.DBSelectSpecificDeployment(ctx, tx, application, environment, releaseVersion)
+		deployment, err := v.db.DBSelectSpecificDeploymentHistory(ctx, tx, application, environment, releaseVersion)
 		if err != nil || deployment == nil {
 			return nil, onErr(fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, application, err))
 		}
