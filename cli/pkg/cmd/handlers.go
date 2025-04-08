@@ -82,7 +82,9 @@ func HandleReleaseDiff(kpClientParams kutil.RequestParameters, args kutil.Authen
 		return ReturnCodeFailure
 	}
 
-	var resp *GetManifestsResponse = &GetManifestsResponse{}
+	var resp *GetManifestsResponse = &GetManifestsResponse{
+		Manifests: nil,
+	}
 	err = json.Unmarshal([]byte(body), &resp)
 	if err != nil {
 		log.Printf("error while unmarshalling manifests, error: %v", err)
