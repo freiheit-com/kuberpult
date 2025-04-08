@@ -15,17 +15,5 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 .manifests-page {
-    table {
-        table-layout: auto;
-        width: 50%;
-
-        td {
-            padding: 4px;
-        }
-    }
-    .commit-page-message span {
-        margin-left: 10px;
-    }
-
     color: var(--mdc-theme-on-background-dark);
 }
