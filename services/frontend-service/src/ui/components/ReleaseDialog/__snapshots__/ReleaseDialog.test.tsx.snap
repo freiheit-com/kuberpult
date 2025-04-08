@@ -50,6 +50,12 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                   class="links"
                 >
                    
+                  <a
+                    href="/ui/manifest?app=test1&release=2"
+                    title="Opens the release directory in the manifest repository for this release"
+                  >
+                    Manifest
+                  </a>
                    
                   <a
                     href="/ui/commits/commit"
@@ -375,6 +381,12 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                   class="links"
                 >
                    
+                  <a
+                    href="/ui/manifest?app=test1&release=2"
+                    title="Opens the release directory in the manifest repository for this release"
+                  >
+                    Manifest
+                  </a>
                    
                   <a
                     href="/ui/commits/commit"
@@ -700,6 +712,12 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   class="links"
                 >
                    
+                  <a
+                    href="/ui/manifest?app=test1&release=2"
+                    title="Opens the release directory in the manifest repository for this release"
+                  >
+                    Manifest
+                  </a>
                    
                   <a
                     href="/ui/commits/cafe"
@@ -1244,6 +1262,12 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                   class="links"
                 >
                    
+                  <a
+                    href="/ui/manifest?app=test1&release=4"
+                    title="Opens the release directory in the manifest repository for this release"
+                  >
+                    Manifest
+                  </a>
                    
                 </span>
               </div>

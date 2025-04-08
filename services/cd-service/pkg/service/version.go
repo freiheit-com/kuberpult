@@ -83,7 +83,9 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 		if err != nil {
 			return nil, wrapError("manifests", err)
 		}
-
+		if manifests == nil {
+			return nil, status.Errorf(codes.NotFound, "no manifests found for release %q of app %q", req.Release, req.Application)
+		}
 		return &api.GetManifestsResponse{
 			Release:   repoRelease.ToProto(),
 			Manifests: manifests,

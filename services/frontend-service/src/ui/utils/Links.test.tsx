@@ -210,12 +210,12 @@ describe('DisplayManifestLink', () => {
             expectedLink: 'https://example.com/testing/main/applications/foo/releases/1',
         },
         {
-            name: 'Test without repo link should render nothing',
+            name: 'Test without repo link should render internal',
             displayVersion: '1',
             version: 1,
             app: 'foo',
             sourceRepo: '',
-            expectedLink: undefined,
+            expectedLink: '/ui/manifest?app=foo&release=1',
         },
         {
             name: 'Test with undeployVersion should render nothing',
@@ -238,6 +238,7 @@ describe('DisplayManifestLink', () => {
         const getWrapper = () => render(getNode());
         it(testcase.name, () => {
             setupManifestRepo(testcase.sourceRepo);
+
             const { container } = getWrapper();
 
             if (testcase.expectedLink) {
@@ -275,7 +276,7 @@ describe('DisplaySourceLink', () => {
             expectedLink: 'https://example.com/testing/main/123',
         },
         {
-            name: 'Test without repo link should render nothing',
+            name: 'Test without repo link should render internal link',
             displayVersion: '1',
             commitId: '123',
             sourceRepo: '',

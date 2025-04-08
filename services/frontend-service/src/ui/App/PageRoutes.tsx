@@ -23,6 +23,7 @@ import { CommitInfoPage } from '../Pages/CommitInfo/CommitInfoPage';
 import { ReleaseTrainPage } from '../Pages/ReleaseTrain/ReleaseTrainPage';
 import { EslWarningsPage } from '../Pages/EslWarnings/EslWarningsPage';
 import { CompliancePage } from '../Pages/Compliance/CompliancePage';
+import { ManifestsPage } from '../Pages/Manifests/ManifestsPage';
 
 const routes = [
     {
@@ -56,6 +57,10 @@ const routes = [
     {
         path: `/ui/commits/`,
         element: <CommitInfoPage />,
+    },
+    {
+        path: `/ui/manifest/`,
+        element: <ManifestsPage />,
     },
     {
         path: `/ui/failedEvents`,

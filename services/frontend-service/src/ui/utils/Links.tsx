@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 import React from 'react';
-import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl, useGitSyncStatus } from './store';
+import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useGitSyncStatus, useManifestRepoUrl } from './store';
 import classNames from 'classnames';
 import { Argo } from '../../images';
 
@@ -156,9 +156,16 @@ export const DisplayManifestLink: React.FC<{ displayString: string; app: string;
     props
 ): JSX.Element | null => {
     const { displayString, app, version } = props;
+
+    let manifestLink = '/ui/manifest?app=' + app + '&release=' + version;
     const manifestRepo = useManifestRepoUrl();
     const branch = useBranch();
-    const manifestLink = deriveReleaseDirLink(manifestRepo, branch, app, version);
+
+    if (manifestRepo && manifestRepo !== '') {
+        const relLinkDir = deriveReleaseDirLink(manifestRepo, branch, app, version);
+        manifestLink = relLinkDir ? relLinkDir : manifestLink; //If we cant get a proper repo link, use internal page
+    }
+
     if (manifestLink && version) {
         return (
             <a title={'Opens the release directory in the manifest repository for this release'} href={manifestLink}>
