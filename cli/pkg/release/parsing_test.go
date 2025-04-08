@@ -74,7 +74,7 @@ func TestReadArgs(t *testing.T) {
 			name: "only --application is properly provided but without --environment and --manifest",
 			args: []string{"--skip_signatures", "--application", "potato"},
 			expectedError: errMatcher{
-				msg: "the args --enviornment and --manifest must be set at least once",
+				msg: "the args --environment and --manifest must be set at least once",
 			},
 		},
 		{
@@ -714,10 +714,10 @@ func TestParseArgs(t *testing.T) {
 	tcs := []testCase{
 		{
 			setup:   []fileCreation{},
-			name:    "no enviornments and manifests",
+			name:    "no environments and manifests",
 			cmdArgs: []string{"--skip_signatures", "--application", "potato"},
 			expectedError: errMatcher{
-				msg: "error while reading command line arguments, error: the args --enviornment and --manifest must be set at least once",
+				msg: "error while reading command line arguments, error: the args --environment and --manifest must be set at least once",
 			},
 		},
 		{
@@ -822,13 +822,13 @@ func TestParseArgs(t *testing.T) {
 			},
 		},
 		{
+			name: "use_dex_auth is passed",
 			setup: []fileCreation{
 				{
 					filename: "development-manifest.yaml",
 					content:  "some development manifest",
 				},
 			},
-			name:    "use_dex_auth is passed",
 			cmdArgs: []string{"--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--use_dex_auth"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
@@ -839,6 +839,7 @@ func TestParseArgs(t *testing.T) {
 			},
 		},
 		{
+			name: "signatures are not allowed when use_dex_auth is enabled",
 			setup: []fileCreation{
 				{
 					filename: "development-manifest.yaml",
@@ -849,7 +850,6 @@ func TestParseArgs(t *testing.T) {
 					content:  "some development signature",
 				},
 			},
-			name:           "signatures are not allowed when use_dex_auth is enabled",
 			cmdArgs:        []string{"--use_dex_auth", "--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--signature", "development-signature.gpg"},
 			expectedParams: nil,
 			expectedError: errMatcher{
@@ -857,13 +857,13 @@ func TestParseArgs(t *testing.T) {
 			},
 		},
 		{
+			name: "with environment, manifest and ci link",
 			setup: []fileCreation{
 				{
 					filename: "production-manifest.yaml",
 					content:  "some production manifest",
 				},
 			},
-			name:    "with environment, manifest and ci link",
 			cmdArgs: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml", "--ci_link", "https://localhost:8000"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
@@ -871,6 +871,25 @@ func TestParseArgs(t *testing.T) {
 					"production": []byte("some production manifest"),
 				},
 				CiLink: strPtr("https://localhost:8000"),
+				DryRun: false,
+			},
+		},
+		{
+			name: "with dry-run",
+			setup: []fileCreation{
+				{
+					filename: "production-manifest.yaml",
+					content:  "some production manifest",
+				},
+			},
+			cmdArgs: []string{"--dry-run", "--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml", "--ci_link", "https://localhost:8000"},
+			expectedParams: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"production": []byte("some production manifest"),
+				},
+				CiLink: strPtr("https://localhost:8000"),
+				DryRun: true,
 			},
 		},
 	}

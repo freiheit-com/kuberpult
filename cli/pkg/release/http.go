@@ -27,7 +27,7 @@ import (
 	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
 
-func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
+func prepareHttpReleaseRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
 
@@ -126,6 +126,44 @@ func prepareHttpRequest(url string, authParams kutil.AuthenticationParameters, p
 	if parsedArgs.UseDexAuthentication {
 		path = "api/release"
 	}
+	req, err := http.NewRequest(http.MethodPost, urlStruct.JoinPath(path).String(), form)
+	if err != nil {
+		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	if authParams.IapToken != nil {
+		req.Header.Add("Proxy-Authorization", "Bearer "+*authParams.IapToken)
+	}
+
+	if authParams.DexToken != nil {
+		req.Header.Add("Authorization", "Bearer "+*authParams.DexToken)
+	}
+
+	if authParams.AuthorName != nil {
+		req.Header.Add("author-name", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorName)))
+	}
+
+	if authParams.AuthorEmail != nil {
+		req.Header.Add("author-email", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorEmail)))
+	}
+
+	return req, nil
+}
+
+func prepareHttpManifestRequest(url string, authParams kutil.AuthenticationParameters, parsedArgs ReleaseParameters) (*http.Request, error) {
+	form := bytes.NewBuffer(nil)
+	writer := multipart.NewWriter(form)
+
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("error closing the writer, error: %w", err)
+	}
+
+	urlStruct, err := urllib.Parse(url)
+	if err != nil {
+		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)
+	}
+	path := fmt.Sprintf("api/application/%s/release/latest/manifests", parsedArgs.Application)
 	req, err := http.NewRequest(http.MethodPost, urlStruct.JoinPath(path).String(), form)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
