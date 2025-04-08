@@ -28,6 +28,7 @@ import {
     GetFrontendConfigResponse,
     GetGitSyncStatusResponse,
     GetGitTagsResponse,
+    GetManifestsResponse,
     GetOverviewResponse,
     GetReleaseTrainPrognosisResponse,
     GitSyncStatus,
@@ -113,6 +114,13 @@ export enum CommitInfoState {
     NOTFOUND,
 }
 
+export enum ManifestRequestState {
+    LOADING,
+    READY,
+    ERROR,
+    NOTFOUND,
+}
+
 export enum AppDetailsState {
     LOADING,
     READY,
@@ -124,6 +132,11 @@ export enum AppDetailsState {
 export type CommitInfoResponse = {
     response: GetCommitInfoResponse | undefined;
     commitInfoReady: CommitInfoState;
+};
+
+export type ManifestResponse = {
+    response: GetManifestsResponse | undefined;
+    manifestInfoReady: ManifestRequestState;
 };
 
 export type AppDetailsResponse = {
@@ -241,6 +254,28 @@ export const getCommitInfo = (commitHash: string, pageNumber: number, authHeader
             } else {
                 showSnackbarError(e.message);
                 updateCommitInfo.set({ response: undefined, commitInfoReady: CommitInfoState.ERROR });
+            }
+        });
+};
+
+export const [useManifestInfo, updateManifestInfo] = createStore<ManifestResponse>({
+    response: undefined,
+    manifestInfoReady: ManifestRequestState.LOADING,
+});
+export const getManifest = (applicationName: string, release: string, authHeader: AuthHeader): void => {
+    useApi
+        .versionService()
+        .GetManifests({ application: applicationName, release: release }, authHeader)
+        .then((result: GetManifestsResponse) => {
+            updateManifestInfo.set({ response: result, manifestInfoReady: ManifestRequestState.READY });
+        })
+        .catch((e) => {
+            const GrpcErrorNotFound = 5;
+            if (e.code === GrpcErrorNotFound) {
+                updateManifestInfo.set({ response: undefined, manifestInfoReady: ManifestRequestState.NOTFOUND });
+            } else {
+                showSnackbarError(e.message);
+                updateManifestInfo.set({ response: undefined, manifestInfoReady: ManifestRequestState.ERROR });
             }
         });
 };
@@ -1252,6 +1287,10 @@ class RolloutStatusGetter {
 
     constructor(store: RolloutStatusStore) {
         this.store = store;
+    }
+
+    isEnabled(): boolean {
+        return this.store.enabled;
     }
 
     getAppStatus(

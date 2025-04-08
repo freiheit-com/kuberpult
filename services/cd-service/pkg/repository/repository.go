@@ -1223,6 +1223,9 @@ func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction 
 	if err != nil {
 		return nil, fmt.Errorf("could not get release for app %s with version %v: %w", application, version, err)
 	}
+	if release == nil {
+		return nil, nil
+	}
 	for index, mani := range release.Manifests.Manifests {
 		manifests[index] = &api.Manifest{
 			Environment: index,
