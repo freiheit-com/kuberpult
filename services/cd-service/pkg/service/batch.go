@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"sync"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -373,13 +374,16 @@ func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (*api.BatchResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "ProcessBatch")
+	defer span.Finish()
+	span.SetTag("BatchActions", len(in.GetActions()))
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return nil, grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err))
+		return nil, onErr(grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err)))
 	}
 	ctx = auth.WriteUserToContext(ctx, *user)
 	if len(in.GetActions()) > maxBatchActions {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
+		return nil, onErr(status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions)))
 	}
 
 	results := make([]*api.BatchResult, 0, len(in.GetActions()))
@@ -389,7 +393,7 @@ func (d *BatchServer) ProcessBatch(
 		transformer, result, err := d.processAction(batchAction)
 		if err != nil {
 			// Validation error
-			return nil, err
+			return nil, onErr(err)
 		}
 
 		transformerTypeName := transformer.GetDBEventType()
@@ -403,11 +407,15 @@ func (d *BatchServer) ProcessBatch(
 	}
 	if requiresIsolation { // This solution is not scalable and doesn't work when we have multiple cd-service pods. Ref: SRX-8JRR7Q
 		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
+		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-Lock")
 		isolatedTransformersLock.Lock()
+		isolationSpan.Finish()
 		defer isolatedTransformersLock.Unlock()
 	} else {
 		// we also use a read lock, so that destructive and non-destructive transformers cannot run in parallel:
+		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-RLock")
 		isolatedTransformersLock.RLock()
+		isolationSpan.Finish()
 		defer isolatedTransformersLock.RUnlock()
 	}
 	err = d.Repository.Apply(ctx, transformers...)
@@ -418,9 +426,10 @@ func (d *BatchServer) ProcessBatch(
 		}
 		var applyErr *repository.TransformerBatchApplyError = repository.UnwrapUntilTransformerBatchApplyError(err)
 		if applyErr != nil {
-			return d.handleError(applyErr, err)
+			resp, handledErr := d.handleError(applyErr, err)
+			return resp, onErr(handledErr)
 		}
-		return nil, err
+		return nil, onErr(err)
 	}
 	return &api.BatchResponse{Results: results}, nil
 }
