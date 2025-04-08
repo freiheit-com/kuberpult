@@ -1289,10 +1289,6 @@ class RolloutStatusGetter {
         this.store = store;
     }
 
-    isEnabled(): boolean {
-        return this.store.enabled;
-    }
-
     getAppStatus(
         application: string,
         applicationVersion: number | undefined,

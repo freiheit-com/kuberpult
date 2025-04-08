@@ -20,7 +20,6 @@ import {
     useSourceRepoUrl,
     useBranch,
     useGitSyncStatus,
-    useRolloutStatus,
     useManifestRepoUrl,
     useFrontendConfig,
 } from './store';
