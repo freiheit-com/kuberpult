@@ -28,10 +28,12 @@ export const Manifest: React.FC<ManifestProps> = (props) => {
     if (manifest === '') {
         return (
             <div>
-                <main className="main-content commit-page">Backend returned empty response</main>
+                <h2> Backend returned an empty manifest for {EnvironmentName}.</h2>
+                <hr />
             </div>
         );
     }
+
     return (
         <div>
             <h2> Environment: {EnvironmentName} </h2>
