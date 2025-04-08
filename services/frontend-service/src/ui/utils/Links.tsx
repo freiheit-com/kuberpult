@@ -22,6 +22,7 @@ import {
     useGitSyncStatus,
     useRolloutStatus,
     useManifestRepoUrl,
+    useFrontendConfig,
 } from './store';
 import classNames from 'classnames';
 import { Argo } from '../../images';
@@ -163,12 +164,13 @@ export const DisplayManifestLink: React.FC<{ displayString: string; app: string;
     props
 ): JSX.Element | null => {
     const { displayString, app, version } = props;
-    const useKuberpultLink = useRolloutStatus((f) => f).isEnabled();
+    const frontendConfig = useFrontendConfig((m) => m);
+
     let manifestLink = '/ui/manifest?app=' + app + '&release=' + version;
     const manifestRepo = useManifestRepoUrl();
     const branch = useBranch();
 
-    if (!useKuberpultLink) {
+    if (frontendConfig.configs.manifestRepoUrl !== '') {
         const relLinkDir = deriveReleaseDirLink(manifestRepo, branch, app, version);
         manifestLink = relLinkDir ? relLinkDir : manifestLink; //If we cant get a proper repo link, use internal page
     }
