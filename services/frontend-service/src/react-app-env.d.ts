@@ -20,5 +20,3 @@ declare module globalThis {
 declare module '*.svg' {
     export const ReactComponent: React.FunctionComponent<React.SVGAttributes<SVGElement>>;
 }
-
-declare module 'js-yaml';

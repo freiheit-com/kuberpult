@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import React from 'react';
-import yaml from 'js-yaml';
 
 type ManifestProps = {
     Manifest: string;
@@ -38,7 +37,7 @@ export const Manifest: React.FC<ManifestProps> = (props) => {
         <div>
             <h2> Environment: {EnvironmentName} </h2>
             <div id={'manifest-' + EnvironmentName} className={'manifest-container'}>
-                <pre>{yaml.dump(manifest, { indent: 4 })}</pre>
+                <pre>{manifest}</pre>
             </div>
             <hr />
         </div>
