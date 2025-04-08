@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package release
 
 import (
+	"encoding/base64"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -55,7 +56,7 @@ func intPtr(n uint64) *uint64 {
 	return &n
 }
 
-func TestRequestCreation(t *testing.T) {
+func TestRequestCreationRelease(t *testing.T) {
 	// simplified version of multipart.FileHeader
 	type simpleMultipartFormFileHeader struct {
 		filename string
@@ -660,6 +661,127 @@ func TestRequestCreation(t *testing.T) {
 				Url: &server.URL,
 			}
 			err := Release(requestParams, authParams, tc.params)
+			// check errors
+			if tc.expectedErrorMsg != nil {
+				if diff := cmp.Diff(tc.expectedErrorMsg, err, cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return
+			}
+
+			// check headers, note that we cannot compare with cmp.Diff because there are some default headers that we shouldn't bother checking (like Accept-Encoding etc)
+			for key, expectedVal := range tc.expectedHeaders {
+				actualVal, ok := mockServer.header[key]
+				if !ok {
+					t.Fatalf("there is a key in the expected headers that does not exist in the received headers\nexpected:\n  %v\nreceived:\n  %v\nmissing key:\n  %s", tc.expectedHeaders, mockServer.header, key)
+				}
+				if diff := cmp.Diff(expectedVal, actualVal); diff != "" {
+					t.Fatalf("there is a mismatch between the expected headers and the received headers\nexpected:\n  %v\nreceived:\n  %v\ndiffering key:\n  %s\ndiff:\n  %s", tc.expectedHeaders, mockServer.header, key, diff)
+				}
+			}
+
+			// check multipart form values
+			if diff := cmp.Diff(mockServer.multipartForm.Value, tc.expectedMultipartFormValue); diff != "" {
+				t.Fatalf("request multipart forms are different\nexpected:\n  %v\nreceived:\n  %v\ndiff:\n  %s", tc.expectedMultipartFormValue, mockServer.multipartForm, diff)
+			}
+
+			// check multipart form files
+			fileHeaders := make(map[string][]simpleMultipartFormFileHeader)
+			// Note: we do not need to sort the map before iterating over it, because we just use `cmp.Equal` which handles the undefined order
+			for key, val := range mockServer.multipartForm.File {
+				simpleHeaders := make([]simpleMultipartFormFileHeader, 0)
+				for _, header := range val {
+					file, err := header.Open()
+					if err != nil {
+						t.Fatalf("error encountered while opening the multipart file header for key \"%s\" file \"%s\", error: %v", key, header.Filename, err)
+					}
+					defer file.Close()
+
+					bytes := make([]byte, MAXIMUM_MULTIPART_SIZE)
+					n, err := file.Read(bytes)
+					if err != nil {
+						t.Fatalf("error encountered while reading the multipart file header for key \"%s\" file \"%s\", error: %v", key, header.Filename, err)
+					}
+					bytes = bytes[:n]
+					content := string(bytes)
+					simpleHeader := simpleMultipartFormFileHeader{
+						filename: header.Filename,
+						content:  content,
+					}
+
+					simpleHeaders = append(simpleHeaders, simpleHeader)
+				}
+				fileHeaders[key] = simpleHeaders
+			}
+			if diff := cmp.Diff(fileHeaders, tc.expectedMultipartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})); diff != "" {
+				t.Fatalf("request multipart forms are different\nexpected:\n  %v\nreceived:\n  %v\ndiff:\n  %s\n", tc.expectedMultipartFormFile, fileHeaders, diff)
+			}
+		})
+	}
+}
+
+func TestRequestCreationGetManifests(t *testing.T) {
+	// simplified version of multipart.FileHeader
+	type simpleMultipartFormFileHeader struct {
+		filename string
+		content  string
+	}
+
+	type testCase struct {
+		name                       string
+		params                     ReleaseParameters
+		authParams                 kuberpult_utils.AuthenticationParameters
+		expectedHeaders            http.Header
+		expectedMultipartFormValue map[string][]string
+		expectedMultipartFormFile  map[string][]simpleMultipartFormFileHeader
+		expectedErrorMsg           error
+		responseCode               int
+	}
+
+	tcs := []testCase{
+		{
+			name: "complete request",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"dev":  []byte("hello-dev"),
+					"prod": []byte("hello-prod"),
+				},
+			},
+			authParams: kuberpult_utils.AuthenticationParameters{
+				IapToken:    strPtr("fake-token"),
+				DexToken:    strPtr("dex-token"),
+				AuthorName:  strPtr("fake-author"),
+				AuthorEmail: strPtr("fake@example.com"),
+			},
+			expectedMultipartFormValue: map[string][]string{},
+			expectedMultipartFormFile:  map[string][]simpleMultipartFormFileHeader{},
+			expectedHeaders: map[string][]string{
+				"Proxy-Authorization": {"Bearer " + "fake-token"},
+				"Authorization":       {"Bearer " + "dex-token"},
+				"Author-Name":         {base64.StdEncoding.EncodeToString([]byte("fake-author"))},
+				"Author-Email":        {base64.StdEncoding.EncodeToString([]byte("fake@example.com"))},
+			},
+			responseCode: http.StatusOK,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockServer := &mockHttpServer{
+				response: tc.responseCode,
+			}
+			server := httptest.NewServer(mockServer)
+
+			authParams := tc.authParams
+			requestParams := kuberpult_utils.RequestParameters{
+				Url: &server.URL,
+			}
+			_, err := GetManifests(requestParams, authParams, tc.params)
+			//err := Release(requestParams, authParams, tc.params)
 			// check errors
 			if tc.expectedErrorMsg != nil {
 				if diff := cmp.Diff(tc.expectedErrorMsg, err, cmpopts.EquateErrors()); diff != "" {
