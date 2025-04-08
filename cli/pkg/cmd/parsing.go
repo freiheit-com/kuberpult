@@ -30,7 +30,6 @@ type commandLineArguments struct {
 	authorName  cli_utils.RepeatedString
 	retries     cli_utils.RepeatedInt
 	timeout     cli_utils.RepeatedInt
-	dryRun      bool
 }
 
 func readArgs(args []string) (*commandLineArguments, []string, error) {
