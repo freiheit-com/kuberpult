@@ -17,7 +17,12 @@ Copyright freiheit.com*/
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
+	sorting2 "github.com/freiheit-com/kuberpult/cli/pkg/sorting"
+	"github.com/google/go-cmp/cmp"
 	"log"
+	"os"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 	"github.com/freiheit-com/kuberpult/cli/pkg/deployments"
@@ -37,6 +42,15 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) Retu
 		return ReturnCodeInvalidArguments
 	}
 
+	if parsedArgs.DryRun {
+		_, err := fmt.Fprintf(os.Stderr, "This is a dry-run.\n"+
+			"I will print out the diff of the manifests you supplied, compared to the latest release in kuberpults database.\n"+
+			"The minus sign (-) stands for the existing release in kuberpults DB, and the plus sign (+) stands for the manifests you supplied as parameters.\n")
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	authParams := kutil.AuthenticationParameters{
 		IapToken:    kpClientParams.iapToken,
 		DexToken:    kpClientParams.dexToken,
@@ -50,10 +64,50 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) Retu
 		HttpTimeout: cli_utils.HttpDefaultTimeout,
 	}
 
-	if err = rl.Release(requestParameters, authParams, *parsedArgs); err != nil {
-		log.Printf("error on release, error: %v", err)
+	if parsedArgs.DryRun {
+		return HandleReleaseDiff(requestParameters, authParams, *parsedArgs)
+	} else {
+		if err = rl.Release(requestParameters, authParams, *parsedArgs); err != nil {
+			log.Printf("error on release, error: %v", err)
+			return ReturnCodeFailure
+		}
+	}
+	return ReturnCodeSuccess
+}
+
+func HandleReleaseDiff(kpClientParams kutil.RequestParameters, args kutil.AuthenticationParameters, parsedArgs rl.ReleaseParameters) ReturnCode {
+	body, err := rl.GetManifests(kpClientParams, args, parsedArgs)
+	if err != nil {
+		log.Printf("error on getting manifests, error: %v", err)
 		return ReturnCodeFailure
 	}
+
+	var resp *GetManifestsResponse = &GetManifestsResponse{
+		Manifests: nil,
+	}
+	err = json.Unmarshal([]byte(body), &resp)
+	if err != nil {
+		log.Printf("error while unmarshalling manifests, error: %v", err)
+		return ReturnCodeFailure
+	}
+
+	// We sort by environment name to maintain a stable sorting:
+	sortedKeys := sorting2.SortKeys(parsedArgs.Manifests)
+	for keyIndex := range sortedKeys {
+		envName := sortedKeys[keyIndex]
+		inputManifestBytes := parsedArgs.Manifests[envName]
+		inputManifest := string(inputManifestBytes)
+		val, ok := resp.Manifests[envName]
+		var gottenManifest string
+		if !ok {
+			gottenManifest = ""
+		} else {
+			gottenManifest = val.Content
+		}
+		diff := cmp.Diff(gottenManifest, inputManifest)
+		fmt.Printf("Diff for the manifest on environment '%s':\n%s", envName, diff)
+	}
+
 	return ReturnCodeSuccess
 }
 
