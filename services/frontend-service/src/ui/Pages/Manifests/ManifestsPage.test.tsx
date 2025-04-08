@@ -17,7 +17,7 @@ import { render } from '@testing-library/react';
 import { UpdateOverview, updateManifestInfo, ManifestResponse, ManifestRequestState } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 
-import { fakeLoadEverything, enableDexAuth, documentQuerySelectorSafe } from '../../../setupTests';
+import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 import { ManifestsPage } from './ManifestsPage';
 import { Manifest, Priority } from '../../../api/api';
 

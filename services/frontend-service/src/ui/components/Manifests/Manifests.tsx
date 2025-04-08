@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import React from 'react';
-// @ts-ignore
 import yaml from 'js-yaml';
 
 type ManifestProps = {
