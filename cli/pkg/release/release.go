@@ -39,12 +39,13 @@ type ReleaseParameters struct {
 	CiLink               *string
 	UseDexAuthentication bool
 	IsPrepublish         bool
+	DryRun               bool
 }
 
-// calls the Release endpoint with the specified parameters
+// Release calls the release endpoint with the specified parameters
 // this function might be used in the future for programmatic interaction with Kuberpult, hence its separation
 func Release(requestParams kutil.RequestParameters, authParams kutil.AuthenticationParameters, params ReleaseParameters) error {
-	req, err := prepareHttpRequest(*requestParams.Url, authParams, params)
+	req, err := prepareHttpReleaseRequest(*requestParams.Url, authParams, params)
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
@@ -52,4 +53,17 @@ func Release(requestParams kutil.RequestParameters, authParams kutil.Authenticat
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
 	return nil
+}
+
+// GetManifests calls the API to retrieve current manifests
+func GetManifests(requestParams kutil.RequestParameters, authParams kutil.AuthenticationParameters, params ReleaseParameters) (string, error) {
+	req, err := prepareHttpManifestRequest(*requestParams.Url, authParams, params)
+	if err != nil {
+		return "", fmt.Errorf("error while preparing HTTP request, error: %w", err)
+	}
+	body, err := cli_utils.IssueHttpRequestWithBodyReturn(*req, requestParams.HttpTimeout)
+	if err != nil || body == nil {
+		return "", fmt.Errorf("error while issuing HTTP request, error: %v", err)
+	}
+	return string(body), nil
 }
