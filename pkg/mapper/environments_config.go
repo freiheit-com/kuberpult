@@ -50,6 +50,7 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 				Argocd:           nil,
 				Upstream:         TransformUpstream(env.Upstream),
 				EnvironmentGroup: &groupNameCopy,
+				ArgoConfigs:      nil,
 			},
 		}
 		bucket.Environments = append(bucket.Environments, newEnv)
@@ -364,6 +365,7 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConf
 		IgnoreDifferences:      ignoreDifferences,
 		ApplicationAnnotations: config.ApplicationAnnotations,
 		SyncOptions:            config.SyncOptions,
+		ConcreteEnvName:        config.ConcreteEnvName,
 	}
 }
 func TransformArgocdConfigs(config config.ArgoCDConfigs) *api.EnvironmentConfig_ArgoConfigs {

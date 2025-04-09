@@ -80,6 +80,7 @@ func MakeEnvConfigLatestWithGroup(argoCd *config.EnvironmentConfigArgoCd, envGro
 			Latest:      true,
 		},
 		ArgoCd:           argoCd,
+		ArgoCdConfigs:    nil,
 		EnvironmentGroup: envGroup,
 	}
 }
@@ -92,6 +93,7 @@ func MakeEnvConfigUpstream(upstream string, argoCd *config.EnvironmentConfigArgo
 		},
 		ArgoCd:           argoCd,
 		EnvironmentGroup: nil,
+		ArgoCdConfigs:    nil,
 	}
 }
 
