@@ -2183,6 +2183,7 @@ func makeAllIngressPaths(withDex, withUi, withOldApi, withNewApi bool) []network
 			makeIngressPrefixPath("/api.v1.FrontendConfigService/"),
 			makeIngressPrefixPath("/api.v1.RolloutService/"),
 			makeIngressPrefixPath("/api.v1.GitService/"),
+			makeIngressPrefixPath("/api.v1.VersionService/"),
 			makeIngressPrefixPath("/api.v1.EnvironmentService/"),
 			makeIngressPrefixPath("/api.v1.ReleaseTrainPrognosisService/"),
 			makeIngressPrefixPath("/api.v1.EslService/"),
