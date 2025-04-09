@@ -1,0 +1,14 @@
+{
+  "actions": [
+    {
+      "prepare_undeploy": {
+        "application": "echo-143"
+      }
+    },
+    {
+      "undeploy": {
+        "application": "echo-143"
+      }
+    }
+  ]
+}

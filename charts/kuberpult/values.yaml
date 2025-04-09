@@ -96,6 +96,15 @@ cd:
   allowedDomains: ""
   cacheTtlHours: 24
   maxNumberOfThreads: 3
+
+  # The lockType option is EXPERIMENTAL and may be removed or changed without a breaking change.
+  # By default, (lockType: "go") the cd-service uses in-memory go-locks to make sure that
+  # destructive actions like deleting an app are only run by one transaction at a time.
+  # With database locks (lockType: "db") kuberpult will not use go-locks, but instead postgres-locks.
+  # These have the advantage that they are not limited to one cd-service pod.
+  # LockType: "none" means there is no locking at all, increasing the risk of an inconsistent database state.
+  # This lock type should only be used for testing purposes.
+  lockType: "go"
   service:
     annotations: {}
   pod:
