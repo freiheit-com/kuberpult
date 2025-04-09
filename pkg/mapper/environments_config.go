@@ -320,7 +320,6 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConf
 	var syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows
 	var accessList []*api.EnvironmentConfig_ArgoCD_AccessEntry
 	var ignoreDifferences []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences
-
 	for _, i := range config.SyncWindows {
 		syncWindow := &api.EnvironmentConfig_ArgoCD_SyncWindows{
 			Kind:         i.Kind,
@@ -366,4 +365,12 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConf
 		ApplicationAnnotations: config.ApplicationAnnotations,
 		SyncOptions:            config.SyncOptions,
 	}
+}
+func TransformArgocdConfigs(config config.ArgoCDConfigs) *api.EnvironmentConfig_ArgoConfigs {
+	var toReturn api.EnvironmentConfig_ArgoConfigs
+	toReturn.CommonEnvPrefix = *config.CommonEnvPrefix
+	for _, cfg := range config.ArgoCdConfigurations {
+		toReturn.Configs = append(toReturn.Configs, TransformArgocd(*cfg))
+	}
+	return &toReturn
 }

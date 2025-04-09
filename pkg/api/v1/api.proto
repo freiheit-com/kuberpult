@@ -579,6 +579,11 @@ message EnvironmentConfig {
     optional bool    latest = 2;
   }
 
+  message ArgoConfigs {
+    repeated ArgoCD configs = 1;
+    string common_env_prefix = 2;
+  }
+
   message ArgoCD {
     message SyncWindows {
       string           kind = 1; // "allow" or "deny"
@@ -613,6 +618,7 @@ message EnvironmentConfig {
     map<string, string>               application_annotations = 4;
     repeated IgnoreDifferences        ignore_differences = 5;
     repeated string                   sync_options = 6;
+    string                            concrete_env_name = 7;
   }
 
   Upstream upstream = 1;
@@ -623,6 +629,7 @@ message EnvironmentConfig {
   // So we disable the rule, according to https://buf.build/docs/lint/overview/#comment-ignores
   // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
   optional string environmentGroup = 3; // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
+  ArgoConfigs argoConfigs = 4;
 }
 
 

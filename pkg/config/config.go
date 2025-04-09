@@ -20,6 +20,12 @@ type EnvironmentConfig struct {
 	Upstream         *EnvironmentConfigUpstream `json:"upstream,omitempty"`
 	ArgoCd           *EnvironmentConfigArgoCd   `json:"argocd,omitempty"`
 	EnvironmentGroup *string                    `json:"environmentGroup,omitempty"`
+	ArgoCdConfigs    *ArgoCDConfigs             `json:"argocdConfigs,omitempty"`
+}
+
+type ArgoCDConfigs struct {
+	ArgoCdConfigurations []*EnvironmentConfigArgoCd
+	CommonEnvPrefix      *string
 }
 
 type EnvironmentConfigUpstream struct {
@@ -39,6 +45,7 @@ type EnvironmentConfigArgoCd struct {
 	ApplicationAnnotations   map[string]string        `json:"applicationAnnotations,omitempty"`
 	IgnoreDifferences        []ArgoCdIgnoreDifference `json:"ignoreDifferences,omitempty"`
 	SyncOptions              []string                 `json:"syncOptions,omitempty"`
+	ConcreteEnvName          string                   `json:"name,omitempty"`
 }
 
 // ArgoCdDestination

@@ -39,7 +39,6 @@ func (o *EnvironmentServiceServer) GetEnvironmentConfig(
 	config, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
 		return state.GetEnvironmentConfig(ctx, transaction, in.Environment)
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +55,23 @@ func TransformEnvironmentConfigToApi(in config.EnvironmentConfig) *api.Environme
 		Upstream:         transformUpstreamToApi(in.Upstream),
 		Argocd:           transformArgoCdToApi(in.ArgoCd),
 		EnvironmentGroup: in.EnvironmentGroup,
+		ArgoConfigs:      transformArgoCdConfigsToApi(in.ArgoCdConfigs),
 	}
+}
+
+func transformArgoCdToConfig(conf *api.EnvironmentConfig_ArgoCD) *config.EnvironmentConfigArgoCd {
+	syncWindows := transformSyncWindowsToConfig(conf.SyncWindows)
+	clusterResourceWhitelist := transformAccessListToConfig(conf.AccessList)
+	ignoreDifferences := transformIgnoreDifferencesToConfig(conf.IgnoreDifferences)
+	argocd := &config.EnvironmentConfigArgoCd{
+		Destination:              transformDestinationToConfig(conf.Destination),
+		SyncWindows:              syncWindows,
+		ClusterResourceWhitelist: clusterResourceWhitelist,
+		ApplicationAnnotations:   conf.ApplicationAnnotations,
+		IgnoreDifferences:        ignoreDifferences,
+		SyncOptions:              conf.SyncOptions,
+	}
+	return argocd
 }
 
 func transformUpstreamToConfig(upstream *api.EnvironmentConfig_Upstream) *config.EnvironmentConfigUpstream {
@@ -101,6 +116,38 @@ func transformArgoCdToApi(in *config.EnvironmentConfigArgoCd) *api.EnvironmentCo
 		Destination:            transformDestinationToApi(&in.Destination),
 		AccessList:             transformAccessEntryToApi(in.ClusterResourceWhitelist),
 	}
+}
+
+func transformArgoCdConfigsToApi(in *config.ArgoCDConfigs) *api.EnvironmentConfig_ArgoConfigs {
+	if in == nil {
+		return nil
+	}
+
+	toReturn := &api.EnvironmentConfig_ArgoConfigs{
+		CommonEnvPrefix: *in.CommonEnvPrefix,
+		Configs:         make([]*api.EnvironmentConfig_ArgoCD, 0),
+	}
+
+	for _, cfg := range in.ArgoCdConfigurations {
+		toReturn.Configs = append(toReturn.Configs, transformArgoCdToApi(cfg))
+	}
+	return toReturn
+}
+
+func transformArgoCdConfigsToConfig(in *api.EnvironmentConfig_ArgoConfigs) *config.ArgoCDConfigs {
+	if in == nil {
+		return nil
+	}
+
+	toReturn := &config.ArgoCDConfigs{
+		CommonEnvPrefix:      &in.CommonEnvPrefix,
+		ArgoCdConfigurations: make([]*config.EnvironmentConfigArgoCd, 0),
+	}
+
+	for _, cfg := range in.Configs {
+		toReturn.ArgoCdConfigurations = append(toReturn.ArgoCdConfigurations, transformArgoCdToConfig(cfg))
+	}
+	return toReturn
 }
 
 func transformSyncWindowsToConfig(syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows) []config.ArgoCdSyncWindow {

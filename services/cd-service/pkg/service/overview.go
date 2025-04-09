@@ -459,8 +459,15 @@ func (o *OverviewServiceServer) getOverview(
 				IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
 				SyncOptions:            []string{},
 			}
+			var argocdConfigs = &api.EnvironmentConfig_ArgoConfigs{
+				CommonEnvPrefix: "",
+				Configs:         make([]*api.EnvironmentConfig_ArgoCD, 0),
+			}
 			if config.ArgoCd != nil {
 				argocd = mapper.TransformArgocd(*config.ArgoCd)
+			}
+			if config.ArgoCdConfigs != nil {
+				argocdConfigs = mapper.TransformArgocdConfigs(*config.ArgoCdConfigs)
 			}
 			env := api.Environment{
 				DistanceToUpstream: 0,
@@ -470,6 +477,7 @@ func (o *OverviewServiceServer) getOverview(
 					Upstream:         mapper.TransformUpstream(config.Upstream),
 					Argocd:           argocd,
 					EnvironmentGroup: &groupName,
+					ArgoConfigs:      argocdConfigs,
 				},
 			}
 			envInGroup.Config = env.Config

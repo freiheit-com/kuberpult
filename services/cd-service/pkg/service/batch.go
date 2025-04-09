@@ -312,17 +312,11 @@ func (d *BatchServer) processAction(
 		}
 		var argocd *config.EnvironmentConfigArgoCd
 		if conf.Argocd != nil {
-			syncWindows := transformSyncWindowsToConfig(conf.Argocd.SyncWindows)
-			clusterResourceWhitelist := transformAccessListToConfig(conf.Argocd.AccessList)
-			ignoreDifferences := transformIgnoreDifferencesToConfig(conf.Argocd.IgnoreDifferences)
-			argocd = &config.EnvironmentConfigArgoCd{
-				Destination:              transformDestinationToConfig(conf.Argocd.Destination),
-				SyncWindows:              syncWindows,
-				ClusterResourceWhitelist: clusterResourceWhitelist,
-				ApplicationAnnotations:   conf.Argocd.ApplicationAnnotations,
-				IgnoreDifferences:        ignoreDifferences,
-				SyncOptions:              conf.Argocd.SyncOptions,
-			}
+			argocd = transformArgoCdToConfig(conf.Argocd)
+		}
+		var configs *config.ArgoCDConfigs
+		if conf.ArgoConfigs != nil {
+			configs = transformArgoCdConfigsToConfig(conf.ArgoConfigs)
 		}
 		upstream := transformUpstreamToConfig(conf.Upstream)
 		transformer := &repository.CreateEnvironment{
@@ -331,6 +325,7 @@ func (d *BatchServer) processAction(
 				Upstream:         upstream,
 				ArgoCd:           argocd,
 				EnvironmentGroup: conf.EnvironmentGroup,
+				ArgoCdConfigs:    configs,
 			},
 			TransformerEslVersion: 0,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
