@@ -629,7 +629,7 @@ message EnvironmentConfig {
   // So we disable the rule, according to https://buf.build/docs/lint/overview/#comment-ignores
   // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
   optional string environmentGroup = 3; // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
-  ArgoConfigs argoConfigs = 4;
+  ArgoConfigs argo_configs = 4;
 }
 
 
