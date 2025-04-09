@@ -458,6 +458,7 @@ func (o *OverviewServiceServer) getOverview(
 				ApplicationAnnotations: map[string]string{},
 				IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
 				SyncOptions:            []string{},
+				ConcreteEnvName:        "",
 			}
 			var argocdConfigs = &api.EnvironmentConfig_ArgoConfigs{
 				CommonEnvPrefix: "",

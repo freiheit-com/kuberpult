@@ -70,6 +70,7 @@ func transformArgoCdToConfig(conf *api.EnvironmentConfig_ArgoCD) *config.Environ
 		ApplicationAnnotations:   conf.ApplicationAnnotations,
 		IgnoreDifferences:        ignoreDifferences,
 		SyncOptions:              conf.SyncOptions,
+		ConcreteEnvName:          conf.ConcreteEnvName,
 	}
 	return argocd
 }
@@ -115,6 +116,7 @@ func transformArgoCdToApi(in *config.EnvironmentConfigArgoCd) *api.EnvironmentCo
 		SyncWindows:            transformSyncWindowsToApi(in.SyncWindows),
 		Destination:            transformDestinationToApi(&in.Destination),
 		AccessList:             transformAccessEntryToApi(in.ClusterResourceWhitelist),
+		ConcreteEnvName:        in.ConcreteEnvName,
 	}
 }
 
