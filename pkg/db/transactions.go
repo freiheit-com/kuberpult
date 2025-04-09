@@ -176,7 +176,9 @@ func IsRetryablePostgresError(err error) bool {
 	}
 	codeStr := string(pgErr.Code)
 	// for a list of all postgres error codes, see https://www.postgresql.org/docs/9.3/errcodes-appendix.html
-	return strings.HasPrefix(codeStr, "40") || strings.HasPrefix(codeStr, "23505")
+	return strings.HasPrefix(codeStr, "40") ||
+		strings.HasPrefix(codeStr, "23505") ||
+		strings.HasPrefix(codeStr, "40P01")
 }
 
 func UnwrapUntilPostgresError(err error) *pq.Error {
