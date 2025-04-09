@@ -178,6 +178,13 @@ spec:
             port:
               name: http
       - pathType: Prefix
+        path: /api.v1.VersionService/
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              name: http
+      - pathType: Prefix
         path: /api.v1.EnvironmentService/
         backend:
           service:
