@@ -48,7 +48,7 @@ type SimplifiedApplicationServiceClient interface {
 type Processor interface {
 	Push(ctx context.Context, last *ArgoOverview) error
 	Consume(ctx context.Context, hlth *setup.HealthReporter) error
-	CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application)
+	CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team, envName string, argoEnvConfigurationb *api.EnvironmentConfig_ArgoCD, appsKnownToArgo map[string]*v1alpha1.Application)
 	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment)
 	GetManageArgoAppsFilter() []string
 	GetManageArgoAppsEnabled() bool
@@ -141,18 +141,39 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 		defer span.Finish()
 		span.SetTag("kuberpult-app", currentApp)
 		for _, envGroup := range overview.EnvironmentGroups {
-			for _, env := range envGroup.Environments {
-				if ok := appsKnownToArgo[env.Name]; ok != nil {
-					a.DeleteArgoApps(ctx, appsKnownToArgo[env.Name], currentApp, currentAppDetails.Deployments[env.Name])
+			for _, parentEnvironment := range envGroup.Environments {
+				if isAAEnv(parentEnvironment.Config) {
+					for _, cfg := range parentEnvironment.Config.ArgoConfigs.Configs {
+						targetEnvName := a.extractFullyQualifiedEnvironmentName(parentEnvironment.Config.ArgoConfigs.CommonEnvPrefix, parentEnvironment.Name, cfg)
+						a.ProcessAppChange(ctx, appsKnownToArgo, targetEnvName, cfg, currentApp, currentAppDetails, overview)
+					}
+				} else {
+					a.ProcessAppChange(ctx, appsKnownToArgo, parentEnvironment.Name, parentEnvironment.Config.Argocd, currentApp, currentAppDetails, overview)
 				}
 
-				if currentAppDetails.Deployments[env.Name] != nil { //If there is a deployment for this app on this environment
-					a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, appsKnownToArgo[env.Name])
-				}
 			}
 		}
 		span.Finish()
 	}
+}
+
+func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, envName string, argoCDConfig *api.EnvironmentConfig_ArgoCD) string {
+	return commonPrefix + "-" + envName + "-" + argoCDConfig.ConcreteEnvName
+}
+
+func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appsKnownToArgo map[string]map[string]*v1alpha1.Application, targetEnvironmentName string, targetEnvConfig *api.EnvironmentConfig_ArgoCD, currentApp string, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse) {
+	logger.FromContext(ctx).Sugar().Debugf("Processing app %q on environment %q", currentApp, targetEnvironmentName)
+	if ok := appsKnownToArgo[targetEnvironmentName]; ok != nil {
+		a.DeleteArgoApps(ctx, appsKnownToArgo[targetEnvironmentName], currentApp, currentAppDetails.Deployments[targetEnvironmentName])
+	}
+
+	if currentAppDetails.Deployments[targetEnvironmentName] != nil { //If there is a deployment for this app on this environment
+		a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, targetEnvironmentName, targetEnvConfig, appsKnownToArgo[targetEnvironmentName])
+	}
+}
+
+func isAAEnv(config *api.EnvironmentConfig) bool {
+	return config.ArgoConfigs != nil && len(config.ArgoConfigs.Configs) > 1
 }
 
 func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, appsKnownToArgo map[string]map[string]*v1alpha1.Application, ev *v1alpha1.ApplicationWatchEvent) {
@@ -173,7 +194,7 @@ func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Log
 	}
 }
 
-func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
+func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team, envName string, argoEnvConfiguration *api.EnvironmentConfig_ArgoCD, appsKnownToArgo map[string]*v1alpha1.Application) {
 	t := team
 
 	var existingApp *v1alpha1.Application
@@ -183,7 +204,7 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 	}
 	if selfManaged {
 		for _, argoApp := range appsKnownToArgo {
-			if argoApp.Annotations["com.freiheit.kuberpult/application"] == appName && argoApp.Annotations["com.freiheit.kuberpult/environment"] == env.Name {
+			if argoApp.Annotations["com.freiheit.kuberpult/application"] == appName && argoApp.Annotations["com.freiheit.kuberpult/environment"] == envName {
 				existingApp = argoApp
 				break
 			}
@@ -192,9 +213,9 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 		if existingApp == nil {
 			createSpan, ctx := tracer.StartSpanFromContext(ctx, "CreateApplication")
 			createSpan.SetTag("application", appName)
-			createSpan.SetTag("environment", env.Name)
+			createSpan.SetTag("environment", envName)
 			createSpan.SetTag("operation", "create")
-			appToCreate := CreateArgoApplication(overview, appName, team, env)
+			appToCreate := CreateArgoApplication(overview, appName, team, envName, argoEnvConfiguration)
 			appToCreate.ResourceVersion = ""
 			upsert := false
 			validate := false
@@ -210,12 +231,12 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 			if err != nil {
 				// We check if the application was created in the meantime
 				if status.Code(err) != codes.InvalidArgument {
-					logger.FromContext(ctx).Error("creating "+appToCreate.Name+",env "+env.Name, zap.Error(err))
+					logger.FromContext(ctx).Error("creating "+appToCreate.Name+",env "+envName, zap.Error(err))
 				}
 			}
 			createSpan.Finish()
 		} else {
-			appToUpdate := CreateArgoApplication(overview, appName, team, env)
+			appToUpdate := CreateArgoApplication(overview, appName, team, envName, argoEnvConfiguration)
 			appUpdateRequest := &application.ApplicationUpdateRequest{
 				XXX_NoUnkeyedLiteral: struct{}{},
 				XXX_unrecognized:     nil,
@@ -233,12 +254,12 @@ func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 			if diff != "" {
 				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
 				updateSpan.SetTag("application", appName)
-				updateSpan.SetTag("environment", env.Name)
+				updateSpan.SetTag("environment", envName)
 				updateSpan.SetTag("operation", "update")
 				updateSpan.SetTag("argoDiff", diff)
 				_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 				if err != nil {
-					logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
+					logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+envName, zap.Error(err))
 				}
 				updateSpan.Finish()
 			}
@@ -333,16 +354,16 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 	}
 }
 
-func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team string, env *api.Environment) *v1alpha1.Application {
+func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team, envName string, envArgoConfig *api.EnvironmentConfig_ArgoCD) *v1alpha1.Application {
 	applicationNs := ""
 
 	annotations := make(map[string]string)
 	labels := make(map[string]string)
 
-	manifestPath := filepath.Join("environments", env.Name, "applications", appName, "manifests")
+	manifestPath := filepath.Join("environments", envName, "applications", appName, "manifests")
 
 	annotations["com.freiheit.kuberpult/application"] = appName
-	annotations["com.freiheit.kuberpult/environment"] = env.Name
+	annotations["com.freiheit.kuberpult/environment"] = envName
 	annotations["com.freiheit.kuberpult/self-managed"] = "true"
 	// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
 	// It has to start with a "/" to be absolute to the git repo.
@@ -350,22 +371,22 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team stri
 	annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
 	labels["com.freiheit.kuberpult/team"] = team
 
-	if env.Config.Argocd.Destination.Namespace != nil {
-		applicationNs = *env.Config.Argocd.Destination.Namespace
-	} else if env.Config.Argocd.Destination.ApplicationNamespace != nil {
-		applicationNs = *env.Config.Argocd.Destination.ApplicationNamespace
+	if envArgoConfig.Destination.Namespace != nil {
+		applicationNs = *envArgoConfig.Destination.Namespace
+	} else if envArgoConfig.Destination.ApplicationNamespace != nil {
+		applicationNs = *envArgoConfig.Destination.ApplicationNamespace
 	}
 
 	applicationDestination := v1alpha1.ApplicationDestination{
-		Name:      env.Config.Argocd.Destination.Name,
+		Name:      envArgoConfig.Destination.Name,
 		Namespace: applicationNs,
-		Server:    env.Config.Argocd.Destination.Server,
+		Server:    envArgoConfig.Destination.Server,
 	}
 
 	var ignoreDifferences []v1alpha1.ResourceIgnoreDifferences = nil
-	if len(env.Config.Argocd.IgnoreDifferences) > 0 {
-		ignoreDifferences = make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
-		for index, value := range env.Config.Argocd.IgnoreDifferences {
+	if len(envArgoConfig.IgnoreDifferences) > 0 {
+		ignoreDifferences = make([]v1alpha1.ResourceIgnoreDifferences, len(envArgoConfig.IgnoreDifferences))
+		for index, value := range envArgoConfig.IgnoreDifferences {
 			difference := v1alpha1.ResourceIgnoreDifferences{
 				Group:                 value.Group,
 				Kind:                  value.Kind,
@@ -380,7 +401,7 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team stri
 	}
 	//exhaustruct:ignore
 	ObjectMeta := metav1.ObjectMeta{
-		Name:        fmt.Sprintf("%s-%s", env.Name, appName),
+		Name:        fmt.Sprintf("%s-%s", envName, appName),
 		Annotations: annotations,
 		Labels:      labels,
 		Finalizers:  calculateFinalizers(),
@@ -399,13 +420,13 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team stri
 			// We always allow empty, because it makes it easier to delete apps/environments
 			AllowEmpty: true,
 		},
-		SyncOptions: env.Config.Argocd.SyncOptions,
+		SyncOptions: envArgoConfig.SyncOptions,
 	}
 	//exhaustruct:ignore
 	Spec := v1alpha1.ApplicationSpec{
 		Source:            Source,
 		SyncPolicy:        SyncPolicy,
-		Project:           env.Name,
+		Project:           envName,
 		Destination:       applicationDestination,
 		IgnoreDifferences: ignoreDifferences,
 	}
