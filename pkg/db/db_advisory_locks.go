@@ -74,17 +74,9 @@ func (h *DBHandler) DBAcquireAdvisoryLock(ctx context.Context, isShared bool, lo
 	err := h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		var selectQuery string
 		if isShared {
-			selectQuery = h.AdaptQuery(
-				fmt.Sprintf(
-					"SELECT pg_advisory_lock_shared(?)",
-				),
-			)
+			selectQuery = h.AdaptQuery("SELECT pg_advisory_lock_shared(?)")
 		} else {
-			selectQuery = h.AdaptQuery(
-				fmt.Sprintf(
-					"SELECT pg_advisory_lock(?)",
-				),
-			)
+			selectQuery = h.AdaptQuery("SELECT pg_advisory_lock(?)")
 		}
 		span.SetTag("query", selectQuery)
 		row, err := transaction.QueryContext(
@@ -114,17 +106,9 @@ func (h *DBHandler) DBReleaseAdvisoryLock(ctx context.Context, isShared bool, lo
 
 	var selectQuery string
 	if isShared {
-		selectQuery = h.AdaptQuery(
-			fmt.Sprintf(
-				"SELECT pg_advisory_unlock_shared(?)",
-			),
-		)
+		selectQuery = h.AdaptQuery("SELECT pg_advisory_unlock_shared(?)")
 	} else {
-		selectQuery = h.AdaptQuery(
-			fmt.Sprintf(
-				"SELECT pg_advisory_unlock(?)",
-			),
-		)
+		selectQuery = h.AdaptQuery("SELECT pg_advisory_unlock(?)")
 	}
 
 	span.SetTag("query", selectQuery)
