@@ -140,7 +140,7 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
 		}
 		var lockType service.LockType
-		err, lockType = service.ParseLockType(c.LockType)
+		lockType, err = service.ParseLockType(c.LockType)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error.lock", zap.Error(err))
 		}

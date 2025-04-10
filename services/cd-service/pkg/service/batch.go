@@ -44,15 +44,21 @@ const (
 	LockTypeNone LockType = "none"
 )
 
-func ParseLockType(raw string) (error, LockType) {
+func ParseLockType(raw string) (LockType, error) {
 	if raw == string(LockTypeDb) {
-		return nil, LockTypeDb
+		return LockTypeDb, nil
 	} else if raw == string(LockTypeGo) {
-		return nil, LockTypeGo
+		return LockTypeGo, nil
 	} else if raw == string(LockTypeNone) {
-		return nil, LockTypeNone
+		return LockTypeNone, nil
 	} else {
-		return fmt.Errorf("invalid lock type: '%s' (%s) - valid lock types are: 'go', 'db', 'none'", raw, string(LockTypeNone)), ""
+		return "", fmt.Errorf(
+			"invalid lock type: '%s' - valid lock types are: '%s', '%s', '%s'",
+			raw,
+			string(LockTypeNone),
+			string(LockTypeDb),
+			string(LockTypeGo),
+		)
 	}
 }
 
