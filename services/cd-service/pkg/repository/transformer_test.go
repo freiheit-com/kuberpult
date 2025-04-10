@@ -3769,6 +3769,7 @@ func TestDeleteLocks(t *testing.T) {
 
 func TestEnvironmentGroupLocks(t *testing.T) {
 	group := conversion.FromString("prod")
+	var lifeTime2d = "2d"
 	tcs := []struct {
 		Name          string
 		Transformers  []Transformer
@@ -3791,10 +3792,11 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("another-group")),
 				},
 				&CreateEnvironmentGroupLock{
-					Authentication:   Authentication{},
-					EnvironmentGroup: *group,
-					LockId:           "my-lock",
-					Message:          "my-message",
+					Authentication:    Authentication{},
+					EnvironmentGroup:  *group,
+					LockId:            "my-lock",
+					Message:           "my-message",
+					SuggestedLifeTime: &lifeTime2d,
 				},
 			},
 			shouldSucceed: true,
@@ -4509,6 +4511,73 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLifeTimeValidation(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		InputLifeTime  string
+		ExpectedResult bool
+	}{
+		{
+			Name:           "lifetime in days",
+			InputLifeTime:  "2d",
+			ExpectedResult: true,
+		},
+		{
+			Name:           "lifetime in weeks",
+			InputLifeTime:  "10w",
+			ExpectedResult: true,
+		},
+		{
+			Name:           "lifetime in hours",
+			InputLifeTime:  "123h",
+			ExpectedResult: true,
+		},
+		{
+			Name:           "random text",
+			InputLifeTime:  "jkldsflkdjs",
+			ExpectedResult: false,
+		},
+		{
+			Name:           "zero time",
+			InputLifeTime:  "0h",
+			ExpectedResult: false,
+		},
+		{
+			Name:           "negative value",
+			InputLifeTime:  "-22d",
+			ExpectedResult: false,
+		},
+		{
+			Name:           "Number starting with zero",
+			InputLifeTime:  "02h",
+			ExpectedResult: false,
+		},
+		{
+			Name:           "Just number",
+			InputLifeTime:  "2",
+			ExpectedResult: false,
+		},
+		{
+			Name:           "Capitalized",
+			InputLifeTime:  "4H",
+			ExpectedResult: false,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+			isValid := isValidLifeTime(tc.InputLifeTime)
+			if isValid != tc.ExpectedResult {
+				t.Errorf("result mismatch (-want, +got):\n -%v, +%v", tc.ExpectedResult, isValid)
+			}
+
+		})
+	}
+
 }
 
 // DBParseToEvents gets all events from Raw DB data

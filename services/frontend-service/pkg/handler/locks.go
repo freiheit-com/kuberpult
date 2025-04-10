@@ -155,10 +155,11 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
 		{Action: &api.BatchAction_CreateEnvironmentLock{
 			CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
-				Environment: environment,
-				LockId:      lockID,
-				Message:     body.Message,
-				CiLink:      body.CiLink,
+				Environment:       environment,
+				LockId:            lockID,
+				Message:           body.Message,
+				CiLink:            body.CiLink,
+				SuggestedLifeTime: &body.SuggestedLifeTime,
 			},
 		}},
 	}})
@@ -267,10 +268,11 @@ func (s Server) handlePutEnvironmentGroupLock(w http.ResponseWriter, req *http.R
 	response, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
 		{Action: &api.BatchAction_CreateEnvironmentGroupLock{
 			CreateEnvironmentGroupLock: &api.CreateEnvironmentGroupLockRequest{
-				EnvironmentGroup: environmentGroup,
-				LockId:           lockID,
-				Message:          body.Message,
-				CiLink:           body.CiLink,
+				EnvironmentGroup:  environmentGroup,
+				LockId:            lockID,
+				Message:           body.Message,
+				CiLink:            body.CiLink,
+				SuggestedLifeTime: &body.SuggestedLifeTime,
 			},
 		}},
 	}})
@@ -394,11 +396,12 @@ func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, envi
 	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
 		{Action: &api.BatchAction_CreateEnvironmentTeamLock{
 			CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
-				Environment: environment,
-				Team:        team,
-				LockId:      lockID,
-				Message:     body.Message,
-				CiLink:      body.CiLink,
+				Environment:       environment,
+				Team:              team,
+				LockId:            lockID,
+				Message:           body.Message,
+				CiLink:            body.CiLink,
+				SuggestedLifeTime: &body.SuggestedLifeTime,
 			},
 		}},
 	}})

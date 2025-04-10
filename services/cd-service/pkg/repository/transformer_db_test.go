@@ -49,6 +49,7 @@ var (
 )
 
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
+	var lifeTime2d = "2d"
 	setupTransformers := []Transformer{
 		&CreateEnvironment{
 			Authentication: Authentication{},
@@ -92,10 +93,11 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			WriteCommitData: false,
 		},
 		&CreateEnvironmentLock{
-			Authentication: Authentication{},
-			Environment:    "dev",
-			LockId:         "setup-lock-1",
-			Message:        "msg321",
+			Authentication:    Authentication{},
+			Environment:       "dev",
+			LockId:            "setup-lock-1",
+			Message:           "msg321",
+			SuggestedLifeTime: &lifeTime2d,
 		},
 		&CreateEnvironmentTeamLock{
 			Authentication: Authentication{},
@@ -105,17 +107,19 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			Team:           "myteam",
 		},
 		&CreateEnvironmentGroupLock{
-			Authentication:   Authentication{},
-			LockId:           "setup-lock-3",
-			Message:          "msg321",
-			EnvironmentGroup: "mygroup",
+			Authentication:    Authentication{},
+			LockId:            "setup-lock-3",
+			Message:           "msg321",
+			EnvironmentGroup:  "mygroup",
+			SuggestedLifeTime: &lifeTime2d,
 		},
 		&CreateEnvironmentApplicationLock{
-			Authentication: Authentication{},
-			Environment:    "dev",
-			Application:    "myapp",
-			LockId:         "setup-lock-4",
-			Message:        "msg321",
+			Authentication:    Authentication{},
+			Environment:       "dev",
+			Application:       "myapp",
+			LockId:            "setup-lock-4",
+			Message:           "msg321",
+			SuggestedLifeTime: &lifeTime2d,
 		},
 	}
 	tcs := []struct {
@@ -343,6 +347,8 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 	const env = envProduction
 	const lockID = "l123"
 	const message = "my lock"
+	var lifeTime2d = "2d"
+	var lifeTime4h = "4h"
 	tcs := []struct {
 		Name                     string
 		Transformers             []Transformer
@@ -379,9 +385,10 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&CreateEnvironmentLock{
-					Environment: env,
-					LockId:      lockID,
-					Message:     message,
+					Environment:       env,
+					LockId:            lockID,
+					Message:           message,
+					SuggestedLifeTime: &lifeTime2d,
 				},
 				&DeleteEnvironmentLock{
 					Environment: env,
@@ -405,9 +412,10 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 					Message:     message,
 				},
 				&CreateEnvironmentLock{
-					Environment: env,
-					LockId:      "l2",
-					Message:     message,
+					Environment:       env,
+					LockId:            "l2",
+					Message:           message,
+					SuggestedLifeTime: &lifeTime4h,
 				},
 				&DeleteEnvironmentLock{
 					Environment: env,
@@ -477,6 +485,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 	const team = "test-team"
 	const lockID = "l123"
 	const message = "my lock"
+	var lifeTime2d = "2d"
 	tcs := []struct {
 		Name            string
 		Transformers    []Transformer
@@ -500,10 +509,11 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 					Version: 1,
 				},
 				&CreateEnvironmentTeamLock{
-					Environment: envAcceptance,
-					LockId:      lockID,
-					Message:     message,
-					Team:        team,
+					Environment:       envAcceptance,
+					LockId:            lockID,
+					Message:           message,
+					Team:              team,
+					SuggestedLifeTime: &lifeTime2d,
 				},
 			},
 			shouldSucceed: true,

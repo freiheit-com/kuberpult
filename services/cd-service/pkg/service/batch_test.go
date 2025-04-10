@@ -139,6 +139,9 @@ func getNBatchActions(N int) []*api.BatchAction {
 
 func TestBatchServiceWorks(t *testing.T) {
 	const prod = "production"
+	var lifeTime2d = "2d"
+	var lifeTime4h = "4h"
+	var lifeTime3w = "3w"
 	tcs := []struct {
 		Name          string
 		Batch         []*api.BatchAction
@@ -167,10 +170,11 @@ func TestBatchServiceWorks(t *testing.T) {
 					Message:     "EnvLock",
 				},
 				&repository.CreateEnvironmentApplicationLock{ // will be deleted by the batch actions
-					Environment: prod,
-					Application: "test",
-					LockId:      "5678",
-					Message:     "AppLock",
+					Environment:       prod,
+					Application:       "test",
+					LockId:            "5678",
+					Message:           "AppLock",
+					SuggestedLifeTime: &lifeTime3w,
 				},
 				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
 					Environment: prod,
@@ -199,9 +203,10 @@ func TestBatchServiceWorks(t *testing.T) {
 					Version: 1,
 				},
 				&repository.CreateEnvironmentLock{
-					Environment: "production",
-					LockId:      "1234",
-					Message:     "EnvLock",
+					Environment:       "production",
+					LockId:            "1234",
+					Message:           "EnvLock",
+					SuggestedLifeTime: &lifeTime4h,
 				},
 				&repository.CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -210,10 +215,11 @@ func TestBatchServiceWorks(t *testing.T) {
 					Message:     "no message",
 				},
 				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
-					Environment: prod,
-					Team:        "test-team",
-					LockId:      "91011",
-					Message:     "TeamLock",
+					Environment:       prod,
+					Team:              "test-team",
+					LockId:            "91011",
+					Message:           "TeamLock",
+					SuggestedLifeTime: &lifeTime2d,
 				},
 			},
 			Batch: getBatchActions(),
