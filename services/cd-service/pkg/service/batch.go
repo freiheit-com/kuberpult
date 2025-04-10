@@ -52,7 +52,7 @@ func ParseLockType(raw string) (error, LockType) {
 	} else if raw == string(LockTypeNone) {
 		return nil, LockTypeNone
 	} else {
-		return fmt.Errorf("invalid lock type: '%s' (%s)", raw, string(LockTypeNone)), ""
+		return fmt.Errorf("invalid lock type: '%s' (%s) - valid lock types are: 'go', 'db', 'none'", raw, string(LockTypeNone)), ""
 	}
 }
 
