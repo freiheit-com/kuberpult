@@ -44,10 +44,10 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
-	envConfig, errCode, errMessage := s.parseCreateEnvironment(w, req)
+	envConfig, errCode, errMessage := s.parseCreateEnvironment(req)
 	if envConfig == nil {
 		w.WriteHeader(errCode)
-		fmt.Fprint(w, errMessage) //nolint:errcheck
+		fmt.Fprintf(w, errMessage)
 		return
 	}
 	_, err := s.BatchClient.ProcessBatch(req.Context(),
@@ -78,7 +78,7 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
-	envConfig, errCode, message := s.parseCreateEnvironment(w, req)
+	envConfig, errCode, message := s.parseCreateEnvironment(req)
 	if envConfig == nil {
 		w.WriteHeader(errCode)
 		fmt.Fprint(w, message) //nolint:errcheck
@@ -106,7 +106,7 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s Server) parseCreateEnvironment(w http.ResponseWriter, req *http.Request) (*api.EnvironmentConfig, int, string) {
+func (s Server) parseCreateEnvironment(req *http.Request) (*api.EnvironmentConfig, int, string) {
 	form := req.MultipartForm
 	//exhaustruct:ignore
 	envConfig := api.EnvironmentConfig{}
@@ -124,15 +124,11 @@ func (s Server) parseCreateEnvironment(w http.ResponseWriter, req *http.Request)
 	if signature, ok := form.Value["signature"]; ok {
 		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader([]byte(config[0])), bytes.NewReader([]byte(signature[0])), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
-				w.WriteHeader(http.StatusInternalServerError)
-
-				return nil, http.StatusInternalServerError, fmt.Sprintf("Invalid body: %s", err)
+				return nil, http.StatusInternalServerError, fmt.Sprintf("Internal: Invalid Signature: %s", err)
 			}
 			return nil, http.StatusUnauthorized, "Invalid signature"
 		}
 	} else if s.AzureAuth {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Missing signature in request body")) //nolint:errcheck
 		return nil, http.StatusBadRequest, "Missing signature in request body"
 	}
 	return &envConfig, -1, ""
