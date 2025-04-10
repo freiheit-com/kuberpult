@@ -32,12 +32,12 @@ for appId in $(seq -w "${MIN}" "${MAX}" ); do
 "actions": [
   {
     "prepare_undeploy": {
-      "application": "'${app}'"
+      "application": "'"${app}"'"
     }
   },
   {
     "undeploy": {
-      "application": "'${app}'"
+      "application": "'"${app}"'"
     }
   }
 ]
