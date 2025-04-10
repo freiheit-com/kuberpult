@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -95,6 +96,36 @@ func MakeEnvConfigUpstream(upstream string, argoCd *config.EnvironmentConfigArgo
 		EnvironmentGroup: nil,
 		ArgoCdConfigs:    nil,
 	}
+}
+
+func MakeDummyArgoCdConfig(concreteEnvName string) *config.EnvironmentConfigArgoCd {
+	return &config.EnvironmentConfigArgoCd{
+		Destination: config.ArgoCdDestination{
+			Name:                 "destination-name",
+			Server:               "server",
+			Namespace:            nil,
+			AppProjectNamespace:  nil,
+			ApplicationNamespace: nil,
+		},
+		SyncWindows:              nil,
+		ClusterResourceWhitelist: nil,
+		ApplicationAnnotations:   nil,
+		IgnoreDifferences:        nil,
+		SyncOptions:              nil,
+		ConcreteEnvName:          concreteEnvName,
+	}
+}
+
+func MakeArgoCDConfigs(commonName, concreteName string, envNumber int) *config.ArgoCDConfigs {
+	toReturn := config.ArgoCDConfigs{
+		CommonEnvPrefix:      &commonName,
+		ArgoCdConfigurations: make([]*config.EnvironmentConfigArgoCd, 0),
+	}
+
+	for i := 0; i < envNumber; i++ {
+		toReturn.ArgoCdConfigurations = append(toReturn.ArgoCdConfigurations, MakeDummyArgoCdConfig(concreteName+"-"+strconv.Itoa(i)))
+	}
+	return &toReturn
 }
 
 type TestGenerator struct {
