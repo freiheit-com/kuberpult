@@ -115,6 +115,51 @@ func ValidateApplication(
 	return nil
 }
 
+func ValidateEnvironment(
+	environmentName string,
+	environmentConfig config.EnvironmentConfig,
+) error {
+	if environmentConfig.ArgoCdConfigs != nil && environmentConfig.ArgoCd != nil {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("specifying both argocd field and argo_configs is not supported"))
+	}
+	if !valid.EnvironmentName(environmentName) {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("invalid environment name: '%s'", environmentName))
+	}
+
+	if environmentConfig.ArgoCdConfigs != nil {
+
+		configs := environmentConfig.ArgoCdConfigs.ArgoCdConfigurations
+		commonEnvPrefix := environmentConfig.ArgoCdConfigs.CommonEnvPrefix
+		invalidNames := make([]string, 0)
+		knownNames := make(map[string]struct{})
+
+		if (commonEnvPrefix == nil || *commonEnvPrefix == "") && len(configs) > 1 {
+			return status.Error(codes.InvalidArgument, fmt.Sprintf("a common environment name prefix must be specified for active/active environments: '%s'", environmentName))
+		}
+		for _, currentConfig := range configs { //Each sub-environment must be valid
+			var currentFullEnvironmentName string
+			if commonEnvPrefix == nil || *commonEnvPrefix == "" || len(configs) == 1 { //only 1 config provided, we dont care about prefixes or concrete env names
+				currentFullEnvironmentName = environmentName
+			} else {
+				currentFullEnvironmentName = *commonEnvPrefix + "-" + environmentName + "-" + currentConfig.ConcreteEnvName
+			}
+
+			if !valid.EnvironmentName(currentFullEnvironmentName) {
+				invalidNames = append(invalidNames, currentFullEnvironmentName)
+			}
+
+			if _, exists := knownNames[currentFullEnvironmentName]; exists {
+				return status.Error(codes.InvalidArgument, fmt.Sprintf("environment names must not be the same: %v", invalidNames))
+			}
+			knownNames[currentFullEnvironmentName] = struct{}{}
+		}
+		if len(invalidNames) != 0 {
+			return status.Error(codes.InvalidArgument, fmt.Sprintf("one or more invalid environment names were provided: %v", invalidNames))
+		}
+	}
+	return nil
+}
+
 func (d *BatchServer) processAction(
 	batchAction *api.BatchAction,
 ) (repository.Transformer, *api.BatchResult, error) {
@@ -319,14 +364,18 @@ func (d *BatchServer) processAction(
 			configs = transformArgoCdConfigsToConfig(conf.ArgoConfigs)
 		}
 		upstream := transformUpstreamToConfig(conf.Upstream)
+		internalEnvironmentConfig := config.EnvironmentConfig{
+			Upstream:         upstream,
+			ArgoCd:           argocd,
+			EnvironmentGroup: conf.EnvironmentGroup,
+			ArgoCdConfigs:    configs,
+		}
+		if err := ValidateEnvironment(in.Environment, internalEnvironmentConfig); err != nil {
+			return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
+		}
 		transformer := &repository.CreateEnvironment{
-			Environment: in.Environment,
-			Config: config.EnvironmentConfig{
-				Upstream:         upstream,
-				ArgoCd:           argocd,
-				EnvironmentGroup: conf.EnvironmentGroup,
-				ArgoCdConfigs:    configs,
-			},
+			Environment:           in.Environment,
+			Config:                internalEnvironmentConfig,
 			TransformerEslVersion: 0,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 		}

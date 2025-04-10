@@ -88,6 +88,8 @@ func (s Server) handleApiEnvironments(w http.ResponseWriter, req *http.Request, 
 	case "":
 		if tail == "/" && req.Method == http.MethodDelete {
 			s.handleDeleteEnvironment(w, req, environment, tail)
+		} else if tail == "/" && req.Method == http.MethodPost {
+			s.handleApiCreateEnvironment(w, req, environment, tail)
 		} else {
 			http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
 		}

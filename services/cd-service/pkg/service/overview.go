@@ -445,27 +445,13 @@ func (o *OverviewServiceServer) getOverview(
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
 
-			argocd := &api.EnvironmentConfig_ArgoCD{
-				SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{},
-				Destination: &api.EnvironmentConfig_ArgoCD_Destination{
-					Name:                 "",
-					Server:               "",
-					Namespace:            nil,
-					AppProjectNamespace:  nil,
-					ApplicationNamespace: nil,
-				},
-				AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
-				ApplicationAnnotations: map[string]string{},
-				IgnoreDifferences:      []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
-				SyncOptions:            []string{},
-				ConcreteEnvName:        "",
-			}
+			var argocd api.EnvironmentConfig_ArgoCD
 			var argocdConfigs = &api.EnvironmentConfig_ArgoConfigs{
 				CommonEnvPrefix: "",
 				Configs:         make([]*api.EnvironmentConfig_ArgoCD, 0),
 			}
 			if config.ArgoCd != nil {
-				argocd = mapper.TransformArgocd(*config.ArgoCd)
+				argocd = *mapper.TransformArgocd(*config.ArgoCd)
 			}
 			if config.ArgoCdConfigs != nil {
 				argocdConfigs = mapper.TransformArgocdConfigs(*config.ArgoCdConfigs)
@@ -476,7 +462,7 @@ func (o *OverviewServiceServer) getOverview(
 				Name:               envName,
 				Config: &api.EnvironmentConfig{
 					Upstream:         mapper.TransformUpstream(config.Upstream),
-					Argocd:           argocd,
+					Argocd:           &argocd,
 					EnvironmentGroup: &groupName,
 					ArgoConfigs:      argocdConfigs,
 				},

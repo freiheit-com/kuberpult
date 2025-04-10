@@ -914,7 +914,11 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 	if len(envConfigs) == 0 {
 		logger.Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
 	}
+
 	for envName, env := range envConfigs {
+		if env.ArgoCdConfigs != nil && env.ArgoCd != nil {
+			logger.Warn(fmt.Sprintf("The environment '%s' has both ArgoCdConfigs and ArgoCd configured. This is not supported", envName))
+		}
 		if env.Upstream == nil || env.Upstream.Environment == "" {
 			continue
 		}
@@ -930,6 +934,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 			if env.DistanceToUpstream != grpDist {
 				logger.Warn(fmt.Sprintf("The environment group '%s' has multiple environments setup with different distances to upstream", group.EnvironmentGroupName))
 			}
+
 		}
 	}
 	return envConfigs, err
