@@ -426,10 +426,11 @@ func (d *BatchServer) ProcessBatch(
 		transformers = append(transformers, transformer)
 		results = append(results, result)
 	}
-	if requiresIsolation { // This solution is not scalable and doesn't work when we have multiple cd-service pods. Ref: SRX-8JRR7Q
+	if requiresIsolation {
 		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
 		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-Lock")
 		if d.Config.LockType == LockTypeGo {
+			// This solution (go locks) is not scalable and doesn't work when we have multiple cd-service pods
 			isolatedTransformersLock.Lock()
 			defer isolatedTransformersLock.Unlock()
 		}
