@@ -1288,11 +1288,12 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 				LockID:     lockId,
 				Created:    time.Time{}, //Time of insertion in the database
 				Metadata: db.LockMetadata{
-					CreatedByName:  lock.CreatedBy.Name,
-					CreatedByEmail: lock.CreatedBy.Email,
-					Message:        lock.Message,
-					CiLink:         "",             //CI links are not written into the manifest
-					CreatedAt:      lock.CreatedAt, //Actual creation date
+					CreatedByName:     lock.CreatedBy.Name,
+					CreatedByEmail:    lock.CreatedBy.Email,
+					Message:           lock.Message,
+					CiLink:            "",             //CI links are not written into the manifest
+					CreatedAt:         lock.CreatedAt, //Actual creation date
+					SuggestedLifeTime: "",
 				},
 				Deleted: false,
 			}
@@ -1412,11 +1413,12 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 					LockID:  lockId,
 					Created: time.Time{},
 					Metadata: db.LockMetadata{
-						CreatedByName:  lock.CreatedBy.Name,
-						CreatedByEmail: lock.CreatedBy.Email,
-						Message:        lock.Message,
-						CiLink:         "", //CI links are not written into the manifest
-						CreatedAt:      lock.CreatedAt,
+						CreatedByName:     lock.CreatedBy.Name,
+						CreatedByEmail:    lock.CreatedBy.Email,
+						Message:           lock.Message,
+						CiLink:            "", //CI links are not written into the manifest
+						CreatedAt:         lock.CreatedAt,
+						SuggestedLifeTime: "",
 					},
 					App: currentApp,
 				}
@@ -1500,11 +1502,12 @@ func (s *State) WriteCurrentTeamLocks(ctx context.Context, transaction *sql.Tx, 
 					LockID:  lockId,
 					Created: time.Time{},
 					Metadata: db.LockMetadata{
-						CreatedByName:  lock.CreatedBy.Name,
-						CreatedByEmail: lock.CreatedBy.Email,
-						Message:        lock.Message,
-						CiLink:         "", //CI links are not written into the manifest
-						CreatedAt:      lock.CreatedAt,
+						CreatedByName:     lock.CreatedBy.Name,
+						CreatedByEmail:    lock.CreatedBy.Email,
+						Message:           lock.Message,
+						CiLink:            "", //CI links are not written into the manifest
+						CreatedAt:         lock.CreatedAt,
+						SuggestedLifeTime: "",
 					},
 					Team: teamName,
 				}
