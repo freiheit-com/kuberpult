@@ -1,0 +1,10 @@
+{
+  "actions": [
+    {
+      "delete_env_from_app": {
+        "application": "echo-10",
+        "environment": "development"
+      }
+    }
+  ]
+}
