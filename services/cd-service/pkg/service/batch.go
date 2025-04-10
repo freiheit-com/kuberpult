@@ -374,7 +374,7 @@ func (d *BatchServer) processAction(
 			ArgoCdConfigs:    configs,
 		}
 		if err := ValidateEnvironment(in.Environment, internalEnvironmentConfig); err != nil {
-			return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
+			return nil, nil, status.Error(codes.InvalidArgument, "processAction: invalid environment")
 		}
 		transformer := &repository.CreateEnvironment{
 			Environment:           in.Environment,

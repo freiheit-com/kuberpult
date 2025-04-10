@@ -917,7 +917,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 
 	for envName, env := range envConfigs {
 		if env.ArgoCdConfigs != nil && env.ArgoCd != nil {
-			logger.Warn(fmt.Sprintf("The environment '%s' has both ArgoCdConfigs and ArgoCd configured. This is not supported", envName))
+			logger.Error(fmt.Sprintf("The environment '%s' has both ArgoCdConfigs and ArgoCd configured. This is not supported", envName))
 		}
 		if env.Upstream == nil || env.Upstream.Environment == "" {
 			continue
