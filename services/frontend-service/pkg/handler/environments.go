@@ -47,7 +47,8 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 	envConfig, errCode, errMessage := s.parseCreateEnvironment(w, req)
 	if envConfig == nil {
 		w.WriteHeader(errCode)
-		fmt.Printf(errMessage)
+		fmt.Fprint(w, errMessage) //nolint:errcheck
+		return
 	}
 	_, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
@@ -81,6 +82,7 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 	if envConfig == nil {
 		w.WriteHeader(errCode)
 		fmt.Fprint(w, message) //nolint:errcheck
+		return
 	}
 	if envConfig.Argocd != nil { //ArgoCd field is not supported in API version of create Environment
 		w.WriteHeader(http.StatusBadRequest)
@@ -126,7 +128,7 @@ func (s Server) parseCreateEnvironment(w http.ResponseWriter, req *http.Request)
 
 				return nil, http.StatusInternalServerError, fmt.Sprintf("Invalid body: %s", err)
 			}
-			return nil, http.StatusUnauthorized, fmt.Sprintf("Invalid signature")
+			return nil, http.StatusUnauthorized, "Invalid signature"
 		}
 	} else if s.AzureAuth {
 		w.WriteHeader(http.StatusBadRequest)
