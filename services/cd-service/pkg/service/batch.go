@@ -122,6 +122,9 @@ func ValidateEnvironment(
 	if environmentConfig.ArgoCdConfigs != nil && environmentConfig.ArgoCd != nil {
 		return status.Error(codes.InvalidArgument, "specifying both argocd field and argo_configs is not supported")
 	}
+	if environmentConfig.ArgoCdConfigs == nil && environmentConfig.ArgoCd == nil {
+		return status.Error(codes.InvalidArgument, "exactly one of the argocd or argo_configs fields must be specified")
+	}
 	if !valid.EnvironmentName(environmentName) {
 		return status.Error(codes.InvalidArgument, fmt.Sprintf("invalid environment name: '%s'", environmentName))
 	}

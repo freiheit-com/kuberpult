@@ -1200,6 +1200,17 @@ func TestActiveActiveEnvironmentNames(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			Name:            "invalid, must specify either argocd or ArgoCdConfigs",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    nil,
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc

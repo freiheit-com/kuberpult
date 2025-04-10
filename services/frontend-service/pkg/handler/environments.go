@@ -44,10 +44,10 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
-	envConfig, errCode, errMessage := s.parseCreateEnvironment(req)
+	envConfig, errCode, errMessage := s.validateCreateEnvironmentRequest(req)
 	if envConfig == nil {
 		w.WriteHeader(errCode)
-		fmt.Fprintf(w, errMessage)
+		fmt.Fprintf(w, errMessage) //nolint:errcheck
 		return
 	}
 	_, err := s.BatchClient.ProcessBatch(req.Context(),
@@ -78,7 +78,7 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
-	envConfig, errCode, message := s.parseCreateEnvironment(req)
+	envConfig, errCode, message := s.validateCreateEnvironmentRequest(req)
 	if envConfig == nil {
 		w.WriteHeader(errCode)
 		fmt.Fprint(w, message) //nolint:errcheck
@@ -106,7 +106,7 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s Server) parseCreateEnvironment(req *http.Request) (*api.EnvironmentConfig, int, string) {
+func (s Server) validateCreateEnvironmentRequest(req *http.Request) (*api.EnvironmentConfig, int, string) {
 	form := req.MultipartForm
 	//exhaustruct:ignore
 	envConfig := api.EnvironmentConfig{}
