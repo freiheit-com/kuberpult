@@ -440,6 +440,15 @@ func isValidLink(urlToCheck string, allowedDomains []string) bool {
 	return slices.Contains(allowedDomains, u.Hostname())
 }
 
+func isValidLifeTime(lifeTime string) bool {
+	pattern := `^[1-9][0-9]*(h|d|w)$`
+	matched, err := regexp.MatchString(pattern, lifeTime)
+	if err != nil {
+		return false
+	}
+	return matched
+}
+
 func (c *CreateApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
@@ -1357,6 +1366,7 @@ type CreateEnvironmentLock struct {
 	Message               string           `json:"message"`
 	CiLink                string           `json:"ciLink"`
 	AllowedDomains        []string         `json:"-"`
+	SuggestedLifeTime     *string          `json:"suggestedLifeTime"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
@@ -1443,6 +1453,9 @@ func (c *CreateEnvironmentLock) Transform(
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
+	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+	}
 	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
 		return "", fmt.Errorf("could not get transaction timestamp")
@@ -1454,11 +1467,15 @@ func (c *CreateEnvironmentLock) Transform(
 	}
 	//Write to locks table
 	metadata := db.LockMetadata{
-		Message:        c.Message,
-		CreatedByName:  user.Name,
-		CreatedByEmail: user.Email,
-		CiLink:         c.CiLink,
-		CreatedAt:      *now,
+		Message:           c.Message,
+		CreatedByName:     user.Name,
+		CreatedByEmail:    user.Email,
+		CiLink:            c.CiLink,
+		CreatedAt:         *now,
+		SuggestedLifeTime: "",
+	}
+	if c.SuggestedLifeTime != nil {
+		metadata.SuggestedLifeTime = *c.SuggestedLifeTime
 	}
 
 	errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, c.Environment, metadata)
@@ -1563,6 +1580,7 @@ type CreateEnvironmentGroupLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	CiLink                string           `json:"ciLink"`
+	SuggestedLifeTime     *string          `json:"suggestedLifeTime"`
 	AllowedDomains        []string         `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -1593,6 +1611,9 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
+	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+	}
 	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, transaction, c.EnvironmentGroup)
 	if err != nil {
 		return "", grpc.PublicError(ctx, err)
@@ -1608,6 +1629,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 			TransformerEslVersion: c.TransformerEslVersion,
 			CiLink:                c.CiLink,
 			AllowedDomains:        c.AllowedDomains,
+			SuggestedLifeTime:     c.SuggestedLifeTime,
 		}
 		if err := t.Execute(ctx, &x, transaction); err != nil {
 			return "", err
@@ -1672,6 +1694,7 @@ type CreateEnvironmentApplicationLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	CiLink                string           `json:"ciLink"`
+	SuggestedLifeTime     *string          `json:"suggestedLifeTime"`
 	AllowedDomains        []string         `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -1703,6 +1726,9 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
+	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
 		return "", err
@@ -1715,14 +1741,19 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		return "", fmt.Errorf("could not get transaction timestamp: nil")
 	}
 	//Write to locks table
+	metadata := db.LockMetadata{
+		CreatedByName:     user.Name,
+		CreatedByEmail:    user.Email,
+		Message:           c.Message,
+		CiLink:            c.CiLink,
+		CreatedAt:         *now,
+		SuggestedLifeTime: "",
+	}
+	if c.SuggestedLifeTime != nil {
+		metadata.SuggestedLifeTime = *c.SuggestedLifeTime
+	}
 
-	errW := state.DBHandler.DBWriteApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, db.LockMetadata{
-		CreatedByName:  user.Name,
-		CreatedByEmail: user.Email,
-		Message:        c.Message,
-		CiLink:         c.CiLink,
-		CreatedAt:      *now,
-	})
+	errW := state.DBHandler.DBWriteApplicationLock(ctx, transaction, c.LockId, c.Environment, c.Application, metadata)
 	if errW != nil {
 		return "", errW
 	}
@@ -1802,6 +1833,7 @@ type CreateEnvironmentTeamLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	CiLink                string           `json:"ciLink"`
+	SuggestedLifeTime     *string          `json:"suggestedLifeTime"`
 	AllowedDomains        []string         `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -1835,6 +1867,9 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
+	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
 		return "", err
@@ -1844,14 +1879,19 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	if err != nil {
 		return "", fmt.Errorf("could not get transaction timestamp")
 	}
+	metadata := db.LockMetadata{
+		CreatedByName:     user.Name,
+		CreatedByEmail:    user.Email,
+		Message:           c.Message,
+		CiLink:            c.CiLink,
+		CreatedAt:         *now,
+		SuggestedLifeTime: "",
+	}
+	if c.SuggestedLifeTime != nil {
+		metadata.SuggestedLifeTime = *c.SuggestedLifeTime
+	}
 
-	errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, db.LockMetadata{
-		CreatedByName:  user.Name,
-		CreatedByEmail: user.Email,
-		Message:        c.Message,
-		CiLink:         c.CiLink,
-		CreatedAt:      *now,
-	})
+	errW := state.DBHandler.DBWriteTeamLock(ctx, transaction, c.LockId, c.Environment, c.Team, metadata)
 
 	if errW != nil {
 		return "", errW

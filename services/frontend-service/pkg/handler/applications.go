@@ -79,11 +79,12 @@ func (s Server) handlePutApplicationLock(w http.ResponseWriter, req *http.Reques
 	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
 		{Action: &api.BatchAction_CreateEnvironmentApplicationLock{
 			CreateEnvironmentApplicationLock: &api.CreateEnvironmentApplicationLockRequest{
-				Environment: environment,
-				Application: application,
-				LockId:      lockID,
-				Message:     body.Message,
-				CiLink:      body.CiLink,
+				Environment:       environment,
+				Application:       application,
+				LockId:            lockID,
+				Message:           body.Message,
+				CiLink:            body.CiLink,
+				SuggestedLifeTime: &body.SuggestedLifeTime,
 			},
 		}},
 	}})
