@@ -115,6 +115,54 @@ func ValidateApplication(
 	return nil
 }
 
+func ValidateEnvironment(
+	environmentName string,
+	environmentConfig config.EnvironmentConfig,
+) error {
+	if environmentConfig.ArgoCdConfigs != nil && environmentConfig.ArgoCd != nil {
+		return status.Error(codes.InvalidArgument, "specifying both argocd field and argo_configs is not supported")
+	}
+	if environmentConfig.ArgoCdConfigs == nil && environmentConfig.ArgoCd == nil {
+		return status.Error(codes.InvalidArgument, "exactly one of the argocd or argo_configs fields must be specified")
+	}
+	if !valid.EnvironmentName(environmentName) {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("invalid environment name: '%s'", environmentName))
+	}
+
+	if environmentConfig.ArgoCdConfigs != nil {
+
+		configs := environmentConfig.ArgoCdConfigs.ArgoCdConfigurations
+		commonEnvPrefix := environmentConfig.ArgoCdConfigs.CommonEnvPrefix
+		invalidNames := make([]string, 0)
+		knownNames := make(map[string]struct{})
+
+		if (commonEnvPrefix == nil || *commonEnvPrefix == "") && len(configs) > 1 {
+			return status.Error(codes.InvalidArgument, fmt.Sprintf("a common environment name prefix must be specified for active/active environments: '%s'", environmentName))
+		}
+		for _, currentConfig := range configs { //Each sub-environment must be valid
+			var currentFullEnvironmentName string
+			if commonEnvPrefix == nil || *commonEnvPrefix == "" || len(configs) == 1 { //only 1 config provided, we dont care about prefixes or concrete env names
+				currentFullEnvironmentName = environmentName
+			} else {
+				currentFullEnvironmentName = *commonEnvPrefix + "-" + environmentName + "-" + currentConfig.ConcreteEnvName
+			}
+
+			if !valid.EnvironmentName(currentFullEnvironmentName) {
+				invalidNames = append(invalidNames, currentFullEnvironmentName)
+			}
+
+			if _, exists := knownNames[currentFullEnvironmentName]; exists {
+				return status.Error(codes.InvalidArgument, fmt.Sprintf("environment names must not be the same: %v", invalidNames))
+			}
+			knownNames[currentFullEnvironmentName] = struct{}{}
+		}
+		if len(invalidNames) != 0 {
+			return status.Error(codes.InvalidArgument, fmt.Sprintf("one or more invalid environment names were provided: %v", invalidNames))
+		}
+	}
+	return nil
+}
+
 func (d *BatchServer) processAction(
 	batchAction *api.BatchAction,
 ) (repository.Transformer, *api.BatchResult, error) {
@@ -315,26 +363,25 @@ func (d *BatchServer) processAction(
 		}
 		var argocd *config.EnvironmentConfigArgoCd
 		if conf.Argocd != nil {
-			syncWindows := transformSyncWindowsToConfig(conf.Argocd.SyncWindows)
-			clusterResourceWhitelist := transformAccessListToConfig(conf.Argocd.AccessList)
-			ignoreDifferences := transformIgnoreDifferencesToConfig(conf.Argocd.IgnoreDifferences)
-			argocd = &config.EnvironmentConfigArgoCd{
-				Destination:              transformDestinationToConfig(conf.Argocd.Destination),
-				SyncWindows:              syncWindows,
-				ClusterResourceWhitelist: clusterResourceWhitelist,
-				ApplicationAnnotations:   conf.Argocd.ApplicationAnnotations,
-				IgnoreDifferences:        ignoreDifferences,
-				SyncOptions:              conf.Argocd.SyncOptions,
-			}
+			argocd = transformArgoCdToConfig(conf.Argocd)
+		}
+		var configs *config.ArgoCDConfigs
+		if conf.ArgoConfigs != nil {
+			configs = transformArgoCdConfigsToConfig(conf.ArgoConfigs)
 		}
 		upstream := transformUpstreamToConfig(conf.Upstream)
+		internalEnvironmentConfig := config.EnvironmentConfig{
+			Upstream:         upstream,
+			ArgoCd:           argocd,
+			EnvironmentGroup: conf.EnvironmentGroup,
+			ArgoCdConfigs:    configs,
+		}
+		if err := ValidateEnvironment(in.Environment, internalEnvironmentConfig); err != nil {
+			return nil, nil, status.Error(codes.InvalidArgument, "processAction: invalid environment")
+		}
 		transformer := &repository.CreateEnvironment{
-			Environment: in.Environment,
-			Config: config.EnvironmentConfig{
-				Upstream:         upstream,
-				ArgoCd:           argocd,
-				EnvironmentGroup: conf.EnvironmentGroup,
-			},
+			Environment:           in.Environment,
+			Config:                internalEnvironmentConfig,
 			TransformerEslVersion: 0,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 		}

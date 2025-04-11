@@ -872,6 +872,11 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 						Action: &api.BatchAction_CreateEnvironment{
 							CreateEnvironment: &api.CreateEnvironmentRequest{
 								Environment: "env",
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										ConcreteEnvName: "placeholder",
+									},
+								},
 							},
 						},
 					},
@@ -883,7 +888,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 				},
 			},
 			ExpectedEnvironments: map[string]config.EnvironmentConfig{
-				"env": config.EnvironmentConfig{},
+				"env": {
+					ArgoCd: &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
+				},
 			},
 		},
 		{
@@ -899,6 +906,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: conversion.Bool(true),
 									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										ConcreteEnvName: "placeholder",
+									},
 								},
 							},
 						},
@@ -913,6 +923,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			ExpectedEnvironments: map[string]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					ArgoCd:   &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
 				},
 			},
 		},
@@ -929,6 +940,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: conversion.FromString("other-env"),
 									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										ConcreteEnvName: "placeholder",
+									},
 								},
 							},
 						},
@@ -943,6 +957,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			ExpectedEnvironments: map[string]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Environment: "other-env"},
+					ArgoCd: &config.EnvironmentConfigArgoCd{
+						ConcreteEnvName: "placeholder",
+					},
 				},
 			},
 		},
@@ -1116,6 +1133,117 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			}
 			if d := cmp.Diff(tc.ExpectedEnvironments, envs); d != "" {
 				t.Errorf("batch response mismatch: %s", d)
+			}
+		})
+	}
+}
+
+// this tests that we can get the time out of a time-uuid.
+func TestActiveActiveEnvironmentNames(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		EnvironmentName string
+		InputEnvConfig  config.EnvironmentConfig
+		valid           bool
+	}{
+		{
+			Name:            "invalid",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("", "", 10),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+		{
+			Name:            "invalid, no concrete name specified",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("aa", "", 10),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+		{
+			Name:            "invalid, no common name specified",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("", "de", 10),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+		{
+			Name:            "invalid, environmentName is invalid",
+			EnvironmentName: "DeVeLoPment#",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("aa", "de", 1),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+		{
+			Name:            "valid as there is only one env specified",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("", "", 1),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: true,
+		},
+		{
+			Name:            "valid",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("aa", "de", 10),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: true,
+		},
+		{
+			Name:            "valid, only one env discards common and concrete",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("InvalidCommonNAme#", "InvalidConcreteNAme#", 1),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: true,
+		},
+		{
+			Name:            "invalid, must specify either argocd or ArgoCdConfigs",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    nil,
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateEnvironment(tc.EnvironmentName, tc.InputEnvConfig)
+
+			isValid := err == nil
+			if isValid != tc.valid {
+				t.Errorf("Invalid environment: %v, %v", tc.InputEnvConfig, err)
 			}
 		})
 	}

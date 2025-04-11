@@ -98,6 +98,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
+						ArgoCdConfigs:    testutil.MakeArgoCDConfigs("aa", "dev", 2),
 						EnvironmentGroup: &dev,
 					},
 				},
@@ -352,7 +353,8 @@ func TestOverviewAndAppDetails(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
-									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+									ArgoConfigs:      transformArgoCdConfigsToApi(testutil.MakeArgoCDConfigs("aa", "dev", 2)),
 									EnvironmentGroup: &dev,
 								},
 								Priority: api.Priority_UPSTREAM,
@@ -369,7 +371,8 @@ func TestOverviewAndAppDetails(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: &development,
 									},
-									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+									ArgoConfigs:      &api.EnvironmentConfig_ArgoConfigs{},
 									EnvironmentGroup: &staging,
 								},
 								DistanceToUpstream: 1,
@@ -388,9 +391,8 @@ func TestOverviewAndAppDetails(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: &staging,
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+									ArgoConfigs:      &api.EnvironmentConfig_ArgoConfigs{},
 									EnvironmentGroup: &prod,
 								},
 								DistanceToUpstream: 2,

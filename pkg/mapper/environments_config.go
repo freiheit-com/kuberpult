@@ -50,6 +50,7 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 				Argocd:           nil,
 				Upstream:         TransformUpstream(env.Upstream),
 				EnvironmentGroup: &groupNameCopy,
+				ArgoConfigs:      nil,
 			},
 		}
 		bucket.Environments = append(bucket.Environments, newEnv)
@@ -320,7 +321,6 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConf
 	var syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows
 	var accessList []*api.EnvironmentConfig_ArgoCD_AccessEntry
 	var ignoreDifferences []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences
-
 	for _, i := range config.SyncWindows {
 		syncWindow := &api.EnvironmentConfig_ArgoCD_SyncWindows{
 			Kind:         i.Kind,
@@ -365,5 +365,14 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConf
 		IgnoreDifferences:      ignoreDifferences,
 		ApplicationAnnotations: config.ApplicationAnnotations,
 		SyncOptions:            config.SyncOptions,
+		ConcreteEnvName:        config.ConcreteEnvName,
 	}
+}
+func TransformArgocdConfigs(config config.ArgoCDConfigs) *api.EnvironmentConfig_ArgoConfigs {
+	var toReturn api.EnvironmentConfig_ArgoConfigs
+	toReturn.CommonEnvPrefix = *config.CommonEnvPrefix
+	for _, cfg := range config.ArgoCdConfigurations {
+		toReturn.Configs = append(toReturn.Configs, TransformArgocd(*cfg))
+	}
+	return &toReturn
 }

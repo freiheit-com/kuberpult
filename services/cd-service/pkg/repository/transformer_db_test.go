@@ -1572,6 +1572,32 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			},
 			expectedStagingEnvApps: []string{},
 		},
+		{
+			Name: "create environment with argo cd configs",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 2),
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN-STG", "PT", 100),
+					},
+				},
+			},
+			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+				"development": {
+					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 2),
+				},
+				"staging": {
+					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN-STG", "PT", 100),
+				},
+			},
+			expectedStagingEnvApps: []string{},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1593,6 +1619,9 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				env, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "staging")
+				if err2 != nil {
+					return err2
+				}
 				if diff := cmp.Diff(tc.expectedStagingEnvApps, env.Applications); diff != "" {
 					t.Errorf("error mismatch staging env apps (-want, +got):\n%s", diff)
 				}
