@@ -83,11 +83,12 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 			App:     "",
 			Deleted: true,
 			Metadata: LockMetadata{
-				CreatedByName:  "",
-				CreatedByEmail: "",
-				Message:        "",
-				CiLink:         "",
-				CreatedAt:      time.Time{},
+				CreatedByName:     "",
+				CreatedByEmail:    "",
+				Message:           "",
+				CiLink:            "",
+				CreatedAt:         time.Time{},
+				SuggestedLifeTime: "",
 			},
 		}
 		var metaData string
@@ -236,11 +237,12 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 			Env:     "",
 			App:     "",
 			Metadata: LockMetadata{
-				CreatedByName:  "",
-				CreatedByEmail: "",
-				Message:        "",
-				CiLink:         "",
-				CreatedAt:      time.Time{},
+				CreatedByName:     "",
+				CreatedByEmail:    "",
+				Message:           "",
+				CiLink:            "",
+				CreatedAt:         time.Time{},
+				SuggestedLifeTime: "",
 			},
 		}
 		var metaData string
@@ -412,11 +414,12 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 			Env:     "",
 			Deleted: true,
 			Metadata: LockMetadata{
-				CreatedByName:  "",
-				CreatedByEmail: "",
-				Message:        "",
-				CiLink:         "",
-				CreatedAt:      time.Time{},
+				CreatedByName:     "",
+				CreatedByEmail:    "",
+				Message:           "",
+				CiLink:            "",
+				CreatedAt:         time.Time{},
+				SuggestedLifeTime: "",
 			},
 		}
 		var metaData string
@@ -617,11 +620,12 @@ func (h *DBHandler) processAppLockRows(ctx context.Context, err error, rows *sql
 			Env:     "",
 			App:     "",
 			Metadata: LockMetadata{
-				CreatedAt:      time.Time{},
-				CreatedByEmail: "",
-				CreatedByName:  "",
-				Message:        "",
-				CiLink:         "",
+				CreatedAt:         time.Time{},
+				CreatedByEmail:    "",
+				CreatedByName:     "",
+				Message:           "",
+				CiLink:            "",
+				SuggestedLifeTime: "",
 			},
 		}
 		var metadataJson string
