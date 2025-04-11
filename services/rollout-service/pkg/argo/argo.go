@@ -262,7 +262,6 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 			}
 		}
 		createSpan.Finish()
-
 	}
 }
 
