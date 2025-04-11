@@ -138,8 +138,9 @@ func (a *mockArgoProcessor) TestConsume(t *testing.T, ctx context.Context, expec
 							envAppsKnownToArgo = appsKnownToArgo[env.Name]
 							a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
 						}
+						appInfo := &AppInfo{ApplicationName: currentApp, EnvironmentName: env.Name, ParentEnvironmentName: env.Name, TeamName: currentAppDetails.Application.Team, ArgoEnvironmentConfiguration: env.Config.Argocd}
 						if existingArgoApps {
-							argoApp := CreateArgoApplication(overview, currentApp, currentAppDetails.Application.Team, env)
+							argoApp := CreateArgoApplication(overview, appInfo)
 							if syncDisable {
 								argoApp.Spec.SyncPolicy = &v1alpha1.SyncPolicy{
 									Automated: &v1alpha1.SyncPolicyAutomated{
@@ -153,7 +154,8 @@ func (a *mockArgoProcessor) TestConsume(t *testing.T, ctx context.Context, expec
 
 							appsKnownToArgo[env.Name] = envAppsKnownToArgo
 						}
-						a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, envAppsKnownToArgo)
+
+						a.ProcessAppChange(ctx, appsKnownToArgo, appInfo, currentAppDetails, overview)
 					}
 				}
 
@@ -172,6 +174,31 @@ func (a *mockArgoProcessor) TestConsume(t *testing.T, ctx context.Context, expec
 		case <-ctx.Done():
 			return nil
 		}
+	}
+}
+
+func (a *mockArgoProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {
+	for _, argoApp := range appsKnownToArgo {
+		if argoApp.Annotations["com.freiheit.kuberpult/application"] == appName && argoApp.Annotations["com.freiheit.kuberpult/environment"] == envName {
+			return argoApp
+		}
+	}
+	return nil
+}
+
+func (a *mockArgoProcessor) ProcessAppChange(ctx context.Context, appsKnownToArgo map[string]map[string]*v1alpha1.Application, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse) {
+	if ok := appsKnownToArgo[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
+		a.DeleteArgoApps(ctx, appsKnownToArgo[appInfo.EnvironmentName], appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
+	}
+
+	if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] != nil { //If there is a deployment for this app on this environment
+		argoApp := a.isKnownArgoApp(appInfo.ApplicationName, appInfo.EnvironmentName, appsKnownToArgo[appInfo.EnvironmentName])
+		if argoApp == nil {
+			a.CreateArgoApp(ctx, overview, appInfo)
+		} else {
+			a.UpdateArgoApp(ctx, overview, appInfo, argoApp)
+		}
+
 	}
 }
 
@@ -995,57 +1022,51 @@ func (a *mockArgoProcessor) GetManageArgoAppsEnabled() bool {
 	return a.ManageArgoAppsEnabled
 }
 
-func (a *mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
-	var existingApp *v1alpha1.Application
-	selfManaged, err := IsSelfManagedFilterActive(team, a)
+func (a *mockArgoProcessor) CreateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo) {
+	selfManaged, err := IsSelfManagedFilterActive(appInfo.TeamName, a)
 	if err != nil {
 		logger.FromContext(ctx).Error("detecting self manage:", zap.Error(err))
 	}
 	if selfManaged {
-		for _, argoApp := range appsKnownToArgo {
-			if argoApp.Name == fmt.Sprintf("%s-%s", env.Name, appName) && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
-				existingApp = argoApp
-				break
+		appToCreate := CreateArgoApplication(overview, appInfo)
+		appToCreate.ResourceVersion = ""
+		upsert := false
+		validate := false
+		appCreateRequest := &application.ApplicationCreateRequest{
+			XXX_NoUnkeyedLiteral: struct{}{},
+			XXX_unrecognized:     nil,
+			XXX_sizecache:        0,
+			Application:          appToCreate,
+			Upsert:               &upsert,
+			Validate:             &validate,
+		}
+		err := a.ApplicationClient.Create(ctx, appCreateRequest)
+		if err != nil {
+			// We check if the application was created in the meantime
+			if status.Code(err) != codes.InvalidArgument {
+				logger.FromContext(ctx).Error("creating "+appToCreate.Name+",env "+appInfo.EnvironmentName, zap.Error(err))
 			}
 		}
+	}
+}
+func (a *mockArgoProcessor) UpdateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo, existingApp *v1alpha1.Application) {
+	appToUpdate := CreateArgoApplication(overview, appInfo)
+	appUpdateRequest := &application.ApplicationUpdateRequest{
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+		Validate:             conversion.Bool(false),
+		Application:          appToUpdate,
+		Project:              conversion.FromString(appToUpdate.Spec.Project),
+	}
 
-		if existingApp == nil {
-			appToCreate := CreateArgoApplication(overview, appName, team, env)
-			appToCreate.ResourceVersion = ""
-			upsert := false
-			validate := false
-			appCreateRequest := &application.ApplicationCreateRequest{
-				Application: appToCreate,
-				Upsert:      &upsert,
-				Validate:    &validate,
-			}
-			err := a.ApplicationClient.Create(ctx, appCreateRequest)
-			if err != nil {
-				// We check if the application was created in the meantime
-				if status.Code(err) != codes.InvalidArgument {
-					logger.FromContext(ctx).Error("creating application: %w")
-				}
-			}
-		} else {
-			appToUpdate := CreateArgoApplication(overview, appName, team, env)
-			appUpdateRequest := &application.ApplicationUpdateRequest{
-				XXX_NoUnkeyedLiteral: struct{}{},
-				XXX_unrecognized:     nil,
-				XXX_sizecache:        0,
-				Validate:             conversion.Bool(false),
-				Application:          appToUpdate,
-				Project:              conversion.FromString(appToUpdate.Spec.Project),
-			}
-			//We have to exclude the unexported type destination and the syncPolicy
-			//exhaustruct:ignore
-			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
-				cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
-				cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
-
-			if diff != "" {
-				a.ApplicationClient.Update(ctx, appUpdateRequest)
-			}
-		}
+	//We have to exclude the unexported type destination and the syncPolicy
+	//exhaustruct:ignore
+	diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
+		cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
+		cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
+	if diff != "" {
+		a.ApplicationClient.Update(ctx, appUpdateRequest)
 	}
 }
 
