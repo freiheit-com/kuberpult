@@ -47,7 +47,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 	envConfig, errCode, errMessage := s.validateCreateEnvironmentRequest(req)
 	if envConfig == nil {
 		w.WriteHeader(errCode)
-		fmt.Fprintf(w, errMessage) //nolint:errcheck
+		fmt.Fprint(w, errMessage) //nolint:errcheck
 		return
 	}
 	_, err := s.BatchClient.ProcessBatch(req.Context(),

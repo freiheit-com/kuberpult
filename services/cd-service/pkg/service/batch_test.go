@@ -866,6 +866,11 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 						Action: &api.BatchAction_CreateEnvironment{
 							CreateEnvironment: &api.CreateEnvironmentRequest{
 								Environment: "env",
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										ConcreteEnvName: "placeholder",
+									},
+								},
 							},
 						},
 					},
@@ -877,7 +882,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 				},
 			},
 			ExpectedEnvironments: map[string]config.EnvironmentConfig{
-				"env": config.EnvironmentConfig{},
+				"env": {
+					ArgoCd: &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
+				},
 			},
 		},
 		{
@@ -893,6 +900,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: conversion.Bool(true),
 									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										ConcreteEnvName: "placeholder",
+									},
 								},
 							},
 						},
@@ -907,6 +917,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			ExpectedEnvironments: map[string]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					ArgoCd:   &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
 				},
 			},
 		},
@@ -923,6 +934,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: conversion.FromString("other-env"),
 									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										ConcreteEnvName: "placeholder",
+									},
 								},
 							},
 						},
@@ -937,6 +951,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			ExpectedEnvironments: map[string]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Environment: "other-env"},
+					ArgoCd: &config.EnvironmentConfigArgoCd{
+						ConcreteEnvName: "placeholder",
+					},
 				},
 			},
 		},
