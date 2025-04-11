@@ -905,11 +905,12 @@ type DBEnvironmentLock struct {
 }
 
 type LockMetadata struct {
-	CreatedByName  string
-	CreatedByEmail string
-	Message        string
-	CiLink         string
-	CreatedAt      time.Time
+	CreatedByName     string
+	CreatedByEmail    string
+	Message           string
+	CiLink            string
+	CreatedAt         time.Time
+	SuggestedLifeTime string
 }
 
 type ReleaseWithManifest struct {

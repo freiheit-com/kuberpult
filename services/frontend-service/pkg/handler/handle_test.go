@@ -58,6 +58,9 @@ func TestServer_Handle(t *testing.T) {
 	exampleKeyRing := openpgp.EntityList{exampleKey}
 	exampleEnvironment := "development"
 	exampleLockId := "test"
+	lifeTime2h := "2h"
+	lifeTimeEmpty := ""
+	lifeTime3d := "3d"
 	exampleConfig := `{
    "upstream":{
       "environment": "development"
@@ -86,9 +89,10 @@ func TestServer_Handle(t *testing.T) {
 	}
 	exampleConfigSignature := signatureBuffer.String()
 	lockRequestJSON, _ := json.Marshal(putLockRequest{
-		Message:   "test message",
-		Signature: exampleLockSignature,
-		CiLink:    "www.test.com",
+		Message:           "test message",
+		Signature:         exampleLockSignature,
+		CiLink:            "www.test.com",
+		SuggestedLifeTime: "3d",
 	})
 
 	tests := []struct {
@@ -656,7 +660,7 @@ func TestServer_Handle(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{"message":"test message"}`)),
+				Body: io.NopCloser(strings.NewReader(`{"message":"test message", "suggestedLifeTime": "2h"}`)),
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -667,9 +671,10 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentLock{
 							CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
-								Environment: "development",
-								LockId:      "test",
-								Message:     "test message",
+								Environment:       "development",
+								LockId:            "test",
+								Message:           "test message",
+								SuggestedLifeTime: &lifeTime2h,
 							},
 						},
 					},
@@ -697,10 +702,11 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentLock{
 							CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
-								Environment: "development",
-								LockId:      "test",
-								Message:     "test message",
-								CiLink:      "www.test.com",
+								Environment:       "development",
+								LockId:            "test",
+								Message:           "test message",
+								CiLink:            "www.test.com",
+								SuggestedLifeTime: &lifeTimeEmpty,
 							},
 						},
 					},
@@ -730,10 +736,11 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentLock{
 							CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
-								Environment: "development",
-								LockId:      "test",
-								Message:     "test message",
-								CiLink:      "www.test.com",
+								Environment:       "development",
+								LockId:            "test",
+								Message:           "test message",
+								CiLink:            "www.test.com",
+								SuggestedLifeTime: &lifeTime3d,
 							},
 						},
 					},
@@ -947,11 +954,12 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentApplicationLock{
 							CreateEnvironmentApplicationLock: &api.CreateEnvironmentApplicationLockRequest{
-								Environment: "development",
-								Application: "service",
-								LockId:      "test",
-								Message:     "test message",
-								CiLink:      "www.test.com",
+								Environment:       "development",
+								Application:       "service",
+								LockId:            "test",
+								Message:           "test message",
+								CiLink:            "www.test.com",
+								SuggestedLifeTime: &lifeTimeEmpty,
 							},
 						},
 					},
@@ -1072,7 +1080,7 @@ func TestServer_Handle(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{"message":"test message"}`)),
+				Body: io.NopCloser(strings.NewReader(`{"message":"test message", "suggestedLifeTime": "3d"}`)),
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -1083,10 +1091,11 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentTeamLock{
 							CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
-								Environment: "development",
-								Team:        "sre-team",
-								LockId:      "test",
-								Message:     "test message",
+								Environment:       "development",
+								Team:              "sre-team",
+								LockId:            "test",
+								Message:           "test message",
+								SuggestedLifeTime: &lifeTime3d,
 							},
 						},
 					},
