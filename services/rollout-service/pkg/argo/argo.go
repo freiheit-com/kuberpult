@@ -178,8 +178,8 @@ func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, en
 
 func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appsKnownToArgo map[string]map[string]*v1alpha1.Application, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse) {
 	logger.FromContext(ctx).Sugar().Debugf("Processing app %q on environment %q", appInfo.ApplicationName, appInfo.EnvironmentName)
-	if ok := appsKnownToArgo[appInfo.EnvironmentName]; ok != nil {
-		a.DeleteArgoApps(ctx, appsKnownToArgo[appInfo.EnvironmentName], appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.EnvironmentName])
+	if ok := appsKnownToArgo[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
+		a.DeleteArgoApps(ctx, appsKnownToArgo[appInfo.EnvironmentName], appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
 	}
 
 	if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] != nil { //If there is a deployment for this app on this environment
@@ -362,7 +362,6 @@ func calculateFinalizers() []string {
 }
 
 func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment) {
-	fmt.Println("DeleteArgoApps")
 	toDelete := make([]*v1alpha1.Application, 0)
 	deleteSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplications")
 	defer deleteSpan.Finish()
