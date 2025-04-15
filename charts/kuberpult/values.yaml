@@ -287,6 +287,7 @@ ingress:
   iap:
     enabled: false
     secretName: null
+    timeoutSec: 30
   tls:
     host: null
     secretName: kuberpult-tls-secret

@@ -220,6 +220,9 @@ spec:
   healthCheck:
     requestPath: /healthz
     type: HTTP
+  {{- if .Values.ingress.iap.timeoutSec }}
+  timeoutSec: {{.Values.ingress.iap.timeoutSec}}
+  {{- end }}
   iap:
     enabled: true
     oauthclientCredentials:
