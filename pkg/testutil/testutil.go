@@ -367,6 +367,10 @@ func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath st
 	t.Logf("Database %s created successfully", newDbName)
 
 	dbConfig.DbName = newDbName
+	err = dbHandler.DB.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to close database connection %s: %w", newDbName, err)
+	}
 
 	return dbConfig, nil
 }
