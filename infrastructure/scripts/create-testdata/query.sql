@@ -30,4 +30,4 @@ SELECT
     (SELECT result FROM app_was_created) AS "App created in apps table",
     (SELECT result FROM env_has_app) AS "Environment has App",
     (SELECT result FROM app_has_release) AS "App has Release(s)",
-    ((SELECT result FROM env_has_app) = (SELECT result FROM app_has_release)) AS "All consistent";
+    ((SELECT result FROM env_has_app) = (SELECT result FROM app_has_release) AND (SELECT result FROM app_has_release) = (SELECT result FROM app_was_created)) AS "All consistent";
