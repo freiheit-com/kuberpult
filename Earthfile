@@ -9,7 +9,7 @@ deps:
         FROM golang:1.24-bookworm
         RUN apt update && apt install --auto-remove ca-certificates tzdata libgit2-dev libsqlite3-dev -y
     ELSE
-        FROM golang:1.24-alpine3.18
+        FROM golang:1.24-alpine3.21
         RUN apk add --no-cache ca-certificates tzdata bash libgit2-dev sqlite-dev alpine-sdk
     END
 

@@ -1,5 +1,5 @@
-FROM golang:1.24.4-alpine3.17 as golang
-FROM docker:23.0.6-cli-alpine3.17
+FROM golang:1.24.2-alpine3.21 as golang
+FROM docker:28.0.2-cli-alpine3.21
 
 COPY --from=golang /usr/local/go/ /usr/local/go/
 ENV PATH /usr/local/go/bin:$PATH
