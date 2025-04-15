@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package locks
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -78,7 +79,7 @@ func readCreateTeamLockArgs(args []string) (*CreateTeamLockCommandLineArguments,
 	}
 
 	if ok, msg := argsValidCreateTeamLock(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil
@@ -158,7 +159,7 @@ func readDeleteTeamLockArgs(args []string) (*DeleteTeamLockCommandLineArguments,
 	}
 
 	if ok, msg := argsValidDeleteTeamLock(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil

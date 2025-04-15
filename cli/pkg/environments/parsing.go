@@ -33,6 +33,7 @@ Copyright freiheit.com
 package environments
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"strings"
@@ -68,7 +69,7 @@ func readDeleteEnvironmentArgs(args []string) (*DeleteEnvironmentCommandLineArgu
 	}
 
 	if ok, msg := argsValidDeleteEnvironment(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil
