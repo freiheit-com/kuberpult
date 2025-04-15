@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package release
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -220,17 +221,17 @@ func readArgs(args []string) (*commandLineArguments, error) {
 	}
 
 	if ok, msg := environmentsManifestsPaired(args); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	if !cmdArgs.skipSignatures && !cmdArgs.useDexAuthentication {
 		if ok, msg := manifestsSignaturesPaired(args); !ok {
-			return nil, fmt.Errorf(msg)
+			return nil, errors.New(msg)
 		}
 	}
 
 	if ok, msg := argsValid(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil
