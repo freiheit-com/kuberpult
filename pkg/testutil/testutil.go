@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"os"
 	"os/exec"
 	"strconv"
@@ -216,7 +217,7 @@ func NewIncrementalUUIDGeneratorForPageSizeTest() uuid.GenerateUUIDs {
 
 // CreateMigrationsPath detects if it's running withing earthly/CI or locally and adapts the path to the migrations accordingly
 func CreateMigrationsPath(numDirs int) (string, error) {
-	const subDir = "/database/migrations/sqlite"
+	const subDir = "/database/migrations/postgres"
 	_, err := os.Stat("/kp")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -312,17 +313,76 @@ func RunDockerComposeUp(workdir string) error {
 	return nil
 }
 
-func SetupPostgresContainer(t *testing.T) error {
+func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*db.DBConfig, error) {
 	root, err := GetGitRootDirectory()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	t.Logf("git root dir: %s", root)
 	err = RunDockerComposeUp(root)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	t.Log("Docker Compose started successfully")
-	return nil
+	dbConfig := &db.DBConfig{
+		// the options here must be the same as provided by docker-compose-unittest.yml
+		DbHost:     "localhost",
+		DbPort:     "5432",
+		DriverName: "postgres",
+		DbName:     "kuberpult",
+		DbPassword: "mypassword",
+		DbUser:     "postgres",
+		SSLMode:    "disable",
+		//DriverName:     "sqlite3",
+		MigrationsPath: migrationsPath,
+		WriteEslOnly:   writeEslOnly,
+	}
+
+	dbHandler, err := db.Connect(ctx, *dbConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect: %w", err)
+	}
+
+	var newDbName = fmt.Sprintf("unittest_%s", simpleHash(rawNewDbName))
+	t.Logf("Test '%s' will use database '%s'", rawNewDbName, newDbName)
+	deleteDBQuery := fmt.Sprintf("DROP DATABASE IF EXISTS %s;", newDbName)
+	_, err = dbHandler.DB.ExecContext(
+		ctx,
+		deleteDBQuery,
+	)
+	if err != nil {
+		// this could mean that the database is in use
+		return nil, fmt.Errorf("failed to cleanup database %s: %w", newDbName, err)
+	}
+	createDBQuery := fmt.Sprintf("CREATE DATABASE %s;", newDbName)
+	_, err = dbHandler.DB.ExecContext(
+		ctx,
+		createDBQuery,
+		//"hellodb",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create database %s: %w", newDbName, err)
+	}
+	t.Logf("Database %s created successfully", newDbName)
+
+	dbConfig.DbName = newDbName
+
+	return dbConfig, nil
+}
+
+func sanitizeDbName(rawName string) string {
+	var result = rawName
+	result = strings.ReplaceAll(result, "/", "_")
+	result = strings.ReplaceAll(result, "-", "_")
+	return result
+}
+
+// simpleHash is a basic hash function for strings
+func simpleHash(s string) string {
+	var hash uint32 = 0
+	for _, char := range s {
+		hash = hash*31 + uint32(char) // Multiply by a prime number and add the character value
+	}
+	return fmt.Sprintf("%08d", hash)
 }

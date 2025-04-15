@@ -69,10 +69,15 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig := &db.DBConfig{
-		MigrationsPath: migrationsPath,
-		DriverName:     "sqlite3",
+	dbConfig, err := testutil.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
 	}
+	//
+	//dbConfig := &db.DBConfig{
+	//	MigrationsPath: migrationsPath,
+	//	DriverName:     "sqlite3",
+	//}
 
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
@@ -100,7 +105,7 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	}
 
 	if dbConfig != nil {
-		dbConfig.DbHost = dir
+		//dbConfig.DbHost = dir
 
 		migErr := db.RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {
