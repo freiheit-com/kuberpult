@@ -14,6 +14,7 @@ deps:
     RUN tar -xzf trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && mv trivy /usr/local/bin/trivy && trivy --version
     WORKDIR /trivy
     COPY templates templates
+    COPY .trivyignore .trivyignore
 
 scan-all:
     FROM +deps
