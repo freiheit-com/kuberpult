@@ -24,8 +24,8 @@ deps:
         SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
         echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
 
-    ARG GO_CI_LINT_VERSION="v1.64.0"
-    RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
+    ARG GO_CI_LINT_VERSION="v2.1.2"
+    RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$GO_CI_LINT_VERSION
 
     RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.3.1.tar.gz -O exhaustruct.tar.gz
     RUN echo b9691e2632f00c67a24d0482d0691d1aa51937f6b4a51817478efda4a2ed69d9 exhaustruct.tar.gz | sha256sum -c
