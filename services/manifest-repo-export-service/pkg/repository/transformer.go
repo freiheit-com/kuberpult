@@ -1564,11 +1564,11 @@ func (c *DeleteEnvFromApp) Transform(
 	}
 
 	if c.Application == "" {
-		return "", fmt.Errorf(thisSprintf("Need to provide the application"))
+		return "", fmt.Errorf("DeleteEnvFromApp app '%s' on env '%s': Need to provide the application", c.Application, c.Environment)
 	}
 
 	if c.Environment == "" {
-		return "", fmt.Errorf(thisSprintf("Need to provide the environment"))
+		return "", fmt.Errorf("DeleteEnvFromApp app '%s' on env '%s': Need to provide the environment", c.Application, c.Environment)
 	}
 
 	envAppDir := environmentApplicationDirectory(fs, c.Environment, c.Application)

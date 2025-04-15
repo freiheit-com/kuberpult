@@ -1389,7 +1389,7 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
+		return fmt.Errorf("checkUserPermissions: user not found: %v", err)
 	}
 
 	config, err := s.GetEnvironmentConfig(ctx, transaction, env)
@@ -1397,7 +1397,7 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 		return err
 	}
 	if config == nil {
-		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: environment not found: %s", env))
+		return fmt.Errorf("checkUserPermissions: environment not found: %s", env)
 	}
 	group := mapper.DeriveGroupName(*config, env)
 
@@ -1429,7 +1429,7 @@ func (s *State) checkUserPermissionsCreateEnvironment(ctx context.Context, RBACC
 	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
+		return fmt.Errorf("checkUserPermissions: user not found: %v", err)
 	}
 	envGroup := "*"
 	// If an env group is provided on the request, use it on the permission.

@@ -314,7 +314,7 @@ func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBA
 				return nil, err
 			}
 			if teams[t] >= 1 {
-				return nil, fmt.Errorf("team " + t + " listed more than one time")
+				return nil, fmt.Errorf("team %s listed more than one time", t)
 			}
 
 			AddUsersToTeam(t, u, teamPermissions)
