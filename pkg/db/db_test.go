@@ -4669,13 +4669,19 @@ func setupDB(t *testing.T) *DBHandler {
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
-	cfg := DBConfig{
-		MigrationsPath: dir,
-		DriverName:     "sqlite3",
-		DbHost:         tmpDir,
+
+	dbConfig, err := testutil.SetupPostgresContainer(t, dir, false)
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
 	}
 
-	migErr := RunDBMigrations(ctx, cfg)
+	//cfg := DBConfig{
+	//	MigrationsPath: dir,
+	//	DriverName:     "sqlite3",
+	//	DbHost:         tmpDir,
+	//}
+
+	migErr := RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
