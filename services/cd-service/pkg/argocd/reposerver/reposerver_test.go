@@ -311,8 +311,20 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
+	err = testutil.SetupPostgresContainer(t)
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
+	}
 	dbConfig := &db.DBConfig{
-		DriverName:     "sqlite3",
+		// the options here must be the same as provided by docker-compose-unittest.yml
+		DbHost:     "localhost",
+		DbPort:     "5432",
+		DriverName: "postgres",
+		DbName:     "kuberpult",
+		DbPassword: "mypassword",
+		DbUser:     "postgres",
+		SSLMode:    "disable",
+		//DriverName:     "sqlite3",
 		MigrationsPath: migrationsPath,
 		WriteEslOnly:   writeEslOnly,
 	}
@@ -337,7 +349,7 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 		URL:                 remoteDir,
 		ArgoCdGenerateFiles: true,
 	}
-	dbConfig.DbHost = dir
+	//dbConfig.DbHost = dir
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
