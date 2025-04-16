@@ -136,17 +136,17 @@ func RunDockerComposeUp(workdir string) error {
 }
 
 func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
-	root, err := GetGitRootDirectory()
-	if err != nil {
-		return nil, err
-	}
-	t.Logf("git root dir: %s", root)
-	err = RunDockerComposeUp(root)
-	if err != nil {
-		return nil, err
-	}
-
-	t.Log("Docker Compose started successfully")
+	//root, err := GetGitRootDirectory()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//t.Logf("git root dir: %s", root)
+	//err = RunDockerComposeUp(root)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//t.Log("Docker Compose started successfully")
 	dbConfig := &DBConfig{
 		// the options here must be the same as provided by docker-compose-unittest.yml
 		DbHost:     "localhost",
@@ -159,6 +159,9 @@ func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath st
 		//DriverName:     "sqlite3",
 		MigrationsPath: migrationsPath,
 		WriteEslOnly:   writeEslOnly,
+
+		MaxIdleConnections: 0,
+		MaxOpenConnections: 0,
 	}
 
 	dbHandler, err := Connect(ctx, *dbConfig)

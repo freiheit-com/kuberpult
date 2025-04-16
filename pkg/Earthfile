@@ -18,7 +18,13 @@ test:
     FROM +deps
     ARG GO_TEST_ARGS
     WORKDIR pkg
-    RUN go test $GO_TEST_ARGS ./... -coverprofile=coverage.out
+    WITH DOCKER --compose docker-compose-unittest.yml
+        RUN --no-cache \
+            echo "starting docker compose for unit tests..." ;\
+            go test $GO_TEST_ARGS ./... -coverprofile=coverage.out ;\
+            echo "done with unit tests in docker compose"
+    END
+#    RUN go test $GO_TEST_ARGS ./... -coverprofile=coverage.out
     RUN go tool cover -html=coverage.out -o coverage.html
     SAVE ARTIFACT coverage.html AS LOCAL coverage.html
 
