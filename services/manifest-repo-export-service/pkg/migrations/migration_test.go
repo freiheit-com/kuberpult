@@ -32,7 +32,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestRunMigrations(t *testing.T) {
+func TestMigrationsCutoff(t *testing.T) {
 	type TestCase struct {
 		name                     string
 		kuberpultVersionToInsert *api.KuberpultVersion
@@ -102,9 +102,9 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig := &db.DBConfig{
-		MigrationsPath: migrationsPath,
-		DriverName:     "sqlite3",
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
 	}
 
 	dir := t.TempDir()
