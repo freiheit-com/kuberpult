@@ -760,7 +760,7 @@ func TestArgoEvents(t *testing.T) {
 // SetupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func SetupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
-	dir, err := testutil.CreateMigrationsPath(2)
+	dir, err := db.CreateMigrationsPath(2)
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)

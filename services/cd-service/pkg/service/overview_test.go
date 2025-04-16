@@ -431,7 +431,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -685,7 +685,7 @@ func TestOverviewService(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 			if tc.DB {
-				migrationsPath, err := testutil.CreateMigrationsPath(4)
+				migrationsPath, err := db.CreateMigrationsPath(4)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -1031,7 +1031,7 @@ func TestGetApplicationDetails(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1398,7 +1398,7 @@ func TestGetAllAppLocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1550,7 +1550,7 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1821,7 +1821,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -2077,7 +2077,7 @@ func TestCalculateWarnings(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -2550,7 +2550,7 @@ func TestDeploymentHistory(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatal(err)
 			}

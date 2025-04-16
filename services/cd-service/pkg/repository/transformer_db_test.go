@@ -293,7 +293,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		},
 	}
 
-	dir, err := testutil.CreateMigrationsPath(2)
+	dir, err := db.CreateMigrationsPath(2)
 	if err != nil {
 		t.Fatalf("setup error could not detect dir \n%v", err)
 		return

@@ -216,11 +216,11 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 
 func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *RepositoryConfig) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig, err := testutil.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
@@ -1325,7 +1325,7 @@ func convertToSet(list []uint64) map[int]bool {
 
 func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
