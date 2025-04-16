@@ -30,9 +30,9 @@ import (
 
 // simpleHash is a basic hash function for strings
 func simpleHash(s string) string {
-	var hash uint32 = 0
+	var hash uint64 = 0
 	for _, char := range s {
-		hash = hash*31 + uint32(char) // Multiply by a prime number and add the character value
+		hash = hash*31 + uint64(char) // Multiply by a prime number and add the character value
 	}
 	return fmt.Sprintf("%08d", hash)
 }

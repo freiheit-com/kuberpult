@@ -10,6 +10,7 @@ services:
       - POSTGRES_DB=kuberpult
     ports:
       - "5432:5432"
+    command: -c config_file=/etc/postgresql.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 1s
