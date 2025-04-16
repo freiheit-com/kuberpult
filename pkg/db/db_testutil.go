@@ -184,7 +184,6 @@ func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath st
 	_, err = dbHandler.DB.ExecContext(
 		ctx,
 		createDBQuery,
-		//"hellodb",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database %s: %w", newDbName, err)

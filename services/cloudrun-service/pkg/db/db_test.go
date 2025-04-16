@@ -175,20 +175,25 @@ func isEventProcessed(ctx context.Context, eventId int64, dbHandler *db.DBHandle
 }
 func setupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
-	dir, _ := db.CreateMigrationsPath(4)
-	tmpDir := t.TempDir()
-	cfg := db.DBConfig{
-		MigrationsPath: dir,
-		DriverName:     "sqlite3",
-		DbHost:         tmpDir,
-	}
+	migrationsPath, _ := db.CreateMigrationsPath(4)
 
-	migErr := db.RunDBMigrations(ctx, cfg)
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbConfig.MigrationsPath = migrationsPath
+	//cfg := db.DBConfig{
+	//	MigrationsPath: dir,
+	//	DriverName:     "sqlite3",
+	//	DbHost:         tmpDir,
+	//}
+
+	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := db.Connect(ctx, cfg)
+	dbHandler, err := db.Connect(ctx, *dbConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
