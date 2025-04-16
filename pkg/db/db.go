@@ -103,7 +103,7 @@ func (h *DBHandler) AllowParallelTransactions() bool {
 
 func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 	if cfg.DriverName != "postgres" {
-		return nil, fmt.Errorf("WRONG TEST SETUP with sqlite")
+		return nil, fmt.Errorf("WRONG TEST SETUP with sqlite, adapt your test to work with postgres")
 	}
 	db, driver, err := GetConnectionAndDriverWithRetries(ctx, cfg)
 
