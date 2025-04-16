@@ -19,7 +19,14 @@ FROM alpine:3.21
 ARG UID=1000
 ARG DIR
 LABEL org.opencontainers.image.source https://github.com/freiheit-com/kuberpult
-RUN apk --update add ca-certificates tzdata libgit2 git sqlite-libs
+RUN apk --update add ca-certificates tzdata git sqlite-libs cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl make
+RUN git clone https://github.com/libgit2/libgit2.git && \
+    cd libgit2 && \
+    git checkout v1.5.0 && \
+    mkdir build && cd build && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=ON && \
+    cmake --build . --target install && \
+    cd ../.. && rm -rf libgit2
 RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
 RUN chown -R kp:kp /kp
 ENV TZ=Europe/Berlin
