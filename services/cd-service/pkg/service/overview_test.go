@@ -431,16 +431,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -685,16 +676,7 @@ func TestOverviewService(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 			if tc.DB {
-				migrationsPath, err := db.CreateMigrationsPath(4)
-				if err != nil {
-					t.Fatal(err)
-				}
-				dbConfig := &db.DBConfig{
-					DriverName:     "sqlite3",
-					MigrationsPath: migrationsPath,
-					WriteEslOnly:   false,
-				}
-				repo, err = setupRepositoryTestWithDB(t, dbConfig)
+				_, err := setupRepositoryTestWithDB(t)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -1031,16 +1013,7 @@ func TestGetApplicationDetails(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1398,16 +1371,8 @@ func TestGetAllAppLocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1550,16 +1515,7 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1820,17 +1776,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -2076,17 +2022,7 @@ func TestCalculateWarnings(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -2549,18 +2485,7 @@ func TestDeploymentHistory(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}

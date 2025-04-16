@@ -242,16 +242,7 @@ func TestBatchServiceWorks(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
@@ -407,16 +398,7 @@ func TestBatchServiceFails(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
@@ -528,16 +510,7 @@ func TestBatchServiceErrors(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
@@ -615,16 +588,7 @@ func TestBatchServiceLimit(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
@@ -679,8 +643,12 @@ func TestBatchServiceLimit(t *testing.T) {
 	}
 }
 
-func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.Repository, error) {
+func setupRepositoryTestWithDB(t *testing.T) (repository.Repository, error) {
 	ctx := context.Background()
+	migrationsPath, err := db.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -688,6 +656,11 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 	cmd.Start()
 	cmd.Wait()
 	t.Logf("test created dir: %s", localDir)
+
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
+	}
 
 	repoCfg := repository.RepositoryConfig{
 		URL:                 remoteDir,
@@ -721,7 +694,7 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 }
 
 func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
-	return setupRepositoryTestWithDB(t, nil)
+	return setupRepositoryTestWithDB(t)
 }
 
 func TestReleaseTrain(t *testing.T) {
@@ -817,16 +790,7 @@ func TestReleaseTrain(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
@@ -1086,16 +1050,8 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
