@@ -3522,7 +3522,7 @@ func TestDatadogQueueMetric(t *testing.T) {
 				// because we cannot be sure at this point what the size of the queue was during measurement
 				msg := fmt.Sprintf("expected %d gauges but got %d\n",
 					tc.expectedGauges, len(mockClient.gauges))
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 		})
 	}
