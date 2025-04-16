@@ -1,6 +1,6 @@
 FROM alpine:3.21
 
-RUN apk --update add --no-cache go protoc make pkgconfig git cmake gettext cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl
+RUN apk --update add --no-cache go protoc make pkgconfig git cmake gettext cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
 RUN git clone https://github.com/libgit2/libgit2.git && \
     cd libgit2 && \
     git checkout v1.5.0 && \

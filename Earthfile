@@ -11,7 +11,7 @@ deps:
     ELSE
         FROM golang:1.24-alpine3.21
         RUN apk add --no-cache ca-certificates tzdata bash sqlite-dev alpine-sdk
-        RUN apk add --no-cache make git cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl
+        RUN apk add --no-cache make git cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
         RUN git clone https://github.com/libgit2/libgit2.git && \
             cd libgit2 && \
             git checkout v1.5.0 && \

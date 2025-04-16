@@ -3,7 +3,7 @@ FROM docker:28.0.2-cli-alpine3.21
 
 COPY --from=golang /usr/local/go/ /usr/local/go/
 ENV PATH /usr/local/go/bin:$PATH
-RUN apk add --no-cache go protoc make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl
+RUN apk add --no-cache go protoc make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
 RUN git clone https://github.com/libgit2/libgit2.git && \
     cd libgit2 && \
     git checkout v1.5.0 && \
