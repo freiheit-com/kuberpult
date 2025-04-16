@@ -175,7 +175,7 @@ func isEventProcessed(ctx context.Context, eventId int64, dbHandler *db.DBHandle
 }
 func setupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
-	dir, _ := testutil.CreateMigrationsPath(4)
+	dir, _ := db.CreateMigrationsPath(4)
 	tmpDir := t.TempDir()
 	cfg := db.DBConfig{
 		MigrationsPath: dir,

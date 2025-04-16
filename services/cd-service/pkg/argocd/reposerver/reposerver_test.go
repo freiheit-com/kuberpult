@@ -307,11 +307,11 @@ func TestGetRevisionMetadata(t *testing.T) {
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (repository.Repository, *repository.RepositoryConfig) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(5)
+	migrationsPath, err := db.CreateMigrationsPath(5)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig, err := testutil.SetupPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}

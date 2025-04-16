@@ -420,7 +420,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatal(err)
 			}

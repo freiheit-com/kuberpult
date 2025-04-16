@@ -175,7 +175,7 @@ func TestGetManifests(t *testing.T) {
 	} {
 		tc := tc // TODO SRX-SRRONB: Remove after switching to go v1.22
 		t.Run(tc.name, func(t *testing.T) {
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatal(err)
 			}

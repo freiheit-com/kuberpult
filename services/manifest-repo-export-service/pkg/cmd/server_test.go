@@ -86,7 +86,7 @@ func SetupRepositoryTestWithDB(t *testing.T) repository.Repository {
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (repository.Repository, *db.DBHandler) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}

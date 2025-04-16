@@ -65,11 +65,11 @@ func (e errMatcher) Is(err error) bool {
 
 func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig, err := testutil.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
