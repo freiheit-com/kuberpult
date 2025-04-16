@@ -66,7 +66,7 @@ clean:
 	git clean -Xfd
 
 test:
-	$(EARTHLY) +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
+	$(EARTHLY) -P +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
 
 test-go: $(GO_FILES) proto
 	$(GO) test $(GO_TEST_ARGS) ./...
