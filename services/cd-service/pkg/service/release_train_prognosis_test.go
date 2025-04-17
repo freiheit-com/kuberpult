@@ -423,7 +423,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutil.MakeTestContext("holla")
 
 			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, environmentSetup...)
