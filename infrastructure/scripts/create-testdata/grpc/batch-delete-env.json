@@ -1,0 +1,9 @@
+{
+  "actions": [
+    {
+      "delete_environment": {
+        "environment": "development"
+      }
+    }
+  ]
+}

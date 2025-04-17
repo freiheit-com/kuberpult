@@ -89,18 +89,19 @@ type Config struct {
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
 
-	DbOption              string   `default:"NO_DB" split_words:"true"`
-	DbLocation            string   `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance    string   `default:"" split_words:"true"`
-	DbName                string   `default:"" split_words:"true"`
-	DbUserName            string   `default:"" split_words:"true"`
-	DbUserPassword        string   `default:"" split_words:"true"`
-	DbAuthProxyPort       string   `default:"5432" split_words:"true"`
-	DbMigrationsLocation  string   `default:"" split_words:"true"`
+	DbOption             string `default:"NO_DB" split_words:"true"`
+	DbLocation           string `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance   string `default:"" split_words:"true"`
+	DbName               string `default:"" split_words:"true"`
+	DbUserName           string `default:"" split_words:"true"`
+	DbUserPassword       string `default:"" split_words:"true"`
+	DbAuthProxyPort      string `default:"5432" split_words:"true"`
+	DbMigrationsLocation string `default:"" split_words:"true"`
+	DbWriteEslTableOnly  bool   `default:"false" split_words:"true"`
+	DbMaxIdleConnections uint   `required:"true" split_words:"true"`
+	DbMaxOpenConnections uint   `required:"true" split_words:"true"`
+
 	DexDefaultRoleEnabled bool     `default:"false" split_words:"true"`
-	DbWriteEslTableOnly   bool     `default:"false" split_words:"true"`
-	DbMaxIdleConnections  uint     `required:"true" split_words:"true"`
-	DbMaxOpenConnections  uint     `required:"true" split_words:"true"`
 	CheckCustomMigrations bool     `default:"false" split_words:"true"`
 	ReleaseVersionsLimit  uint     `default:"20" split_words:"true"`
 	DeploymentType        string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
@@ -117,7 +118,8 @@ type Config struct {
 	MigrationServerSecure bool   `required:"true" split_words:"true"`
 	GrpcMaxRecvMsgSize    int    `required:"true" split_words:"true"`
 
-	Version string `required:"true" split_words:"true"`
+	Version  string `required:"true" split_words:"true"`
+	LockType string `required:"true" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -137,6 +139,12 @@ func RunServer() {
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
 		}
+		var lockType service.LockType
+		lockType, err = service.ParseLockType(c.LockType)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("config.parse.error.lock", zap.Error(err))
+		}
+
 		if c.EnableProfiling {
 			ddFilename := c.DatadogApiKeyLocation
 			if ddFilename == "" {
@@ -426,6 +434,7 @@ func RunServer() {
 				},
 				Register: func(srv *grpc.Server) {
 					api.RegisterBatchServiceServer(srv, &service.BatchServer{
+						DBHandler:  dbHandler,
 						Repository: repo,
 						RBACConfig: auth.RBACConfig{
 							DexEnabled: c.DexEnabled,
@@ -435,6 +444,7 @@ func RunServer() {
 						Config: service.BatchServerConfig{
 							WriteCommitData:      c.GitWriteCommitData,
 							AllowedCILinkDomains: c.AllowedDomains,
+							LockType:             lockType,
 						},
 					})
 

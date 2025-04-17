@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"math"
 	"net/url"
 	"reflect"
@@ -361,8 +362,10 @@ type transformerRunner struct {
 }
 
 func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, fmt.Sprintf("Transformer_%s", t.GetDBEventType()))
+	defer span.Finish()
 	_, err := t.Transform(ctx, r.State, r, transaction)
-	return err
+	return onErr(err)
 }
 
 func (r *transformerRunner) AddAppEnv(app string, env string, team string) {
@@ -607,25 +610,9 @@ func (c *CreateApplicationVersion) Transform(
 
 	for i := range sortedKeys {
 		env := sortedKeys[i]
-		// Add application to the environment if not exist
-		envInfo, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, env)
+		err = state.DBHandler.DBAppendAppToEnvironment(ctx, transaction, env, c.Application)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		found := false
-		if envInfo != nil && envInfo.Applications != nil {
-			for _, app := range envInfo.Applications {
-				if app == c.Application {
-					found = true
-					break
-				}
-			}
-		}
-		if envInfo != nil && !found {
-			err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env, envInfo.Config, append(envInfo.Applications, c.Application))
-			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
 		}
 
 		err = state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig, true)
@@ -1166,18 +1153,8 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("UndeployApplication: all environments nil")
 	}
 	for _, envName := range allEnvs {
-		env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: could not get environment %s: %v", envName, err)
-		}
-		newEnvApps := make([]string, 0)
-		for _, app := range env.Applications {
-			if app != u.Application {
-				newEnvApps = append(newEnvApps, app)
-			}
-		}
 		t.AddAppEnv(u.Application, envName, dbApp.Metadata.Team)
-		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, newEnvApps)
+		err = state.DBHandler.DBRemoveAppFromEnvironment(ctx, transaction, envName, u.Application)
 		if err != nil {
 			return "", fmt.Errorf("UndeployApplication: could not write environment: %v", err)
 		}
@@ -1212,8 +1189,6 @@ func (u *DeleteEnvFromApp) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DeleteEnvFromApp")
-	defer span.Finish()
 	err := state.checkUserPermissions(ctx, transaction, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig, true)
 	if err != nil {
 		return "", err
@@ -1248,22 +1223,7 @@ func (u *DeleteEnvFromApp) Transform(
 		}
 	}
 
-	env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, u.Environment)
-	if err != nil {
-		return "", fmt.Errorf("Couldn't read environment: %s from environments table, error: %w", u.Environment, err)
-	}
-	if env == nil {
-		return "", fmt.Errorf("Attempting to delete an environment that doesn't exist in the environments table")
-	}
-	newApps := make([]string, 0)
-	if env.Applications != nil {
-		for _, app := range env.Applications {
-			if app != u.Application {
-				newApps = append(newApps, app)
-			}
-		}
-	}
-	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, env.Name, env.Config, newApps)
+	err = state.DBHandler.DBRemoveAppFromEnvironment(ctx, transaction, u.Environment, u.Application)
 	if err != nil {
 		return "", fmt.Errorf("Couldn't write environment: %s into environments table, error: %w", u.Environment, err)
 	}
@@ -1336,8 +1296,6 @@ func (c *CleanupOldApplicationVersions) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "CleanupOldApplicationVersions")
-	defer span.Finish()
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
@@ -2185,9 +2143,6 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DeployApplicationVersion")
-	defer span.Finish()
-
 	err := state.checkUserPermissions(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig, true)
 	if err != nil {
 		return "", err

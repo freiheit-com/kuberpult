@@ -20,11 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
-	"sync"
-
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"sync"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -37,15 +36,43 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type LockType string
+
+const (
+	LockTypeGo   LockType = "go"
+	LockTypeDb   LockType = "db"
+	LockTypeNone LockType = "none"
+)
+
+func ParseLockType(raw string) (LockType, error) {
+	if raw == string(LockTypeDb) {
+		return LockTypeDb, nil
+	} else if raw == string(LockTypeGo) {
+		return LockTypeGo, nil
+	} else if raw == string(LockTypeNone) {
+		return LockTypeNone, nil
+	} else {
+		return "", fmt.Errorf(
+			"invalid lock type: '%s' - valid lock types are: '%s', '%s', '%s'",
+			raw,
+			string(LockTypeNone),
+			string(LockTypeDb),
+			string(LockTypeGo),
+		)
+	}
+}
+
 type BatchServerConfig struct {
 	WriteCommitData      bool
 	AllowedCILinkDomains []string //Transformers that create releases or deploy them can only accept CI links from these domains
+	LockType             LockType
 }
 
 type BatchServer struct {
 	Repository repository.Repository
 	RBACConfig auth.RBACConfig
 	Config     BatchServerConfig
+	DBHandler  *db.DBHandler
 }
 
 // see maxBatchActions in store.tsx
@@ -456,20 +483,36 @@ func (d *BatchServer) ProcessBatch(
 		transformers = append(transformers, transformer)
 		results = append(results, result)
 	}
-	if requiresIsolation { // This solution is not scalable and doesn't work when we have multiple cd-service pods. Ref: SRX-8JRR7Q
+	if requiresIsolation {
 		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
 		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-Lock")
-		isolatedTransformersLock.Lock()
+		if d.Config.LockType == LockTypeGo {
+			// This solution (go locks) is not scalable and doesn't work when we have multiple cd-service pods
+			isolatedTransformersLock.Lock()
+			defer isolatedTransformersLock.Unlock()
+		}
 		isolationSpan.Finish()
-		defer isolatedTransformersLock.Unlock()
 	} else {
 		// we also use a read lock, so that destructive and non-destructive transformers cannot run in parallel:
 		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-RLock")
-		isolatedTransformersLock.RLock()
+		if d.Config.LockType == LockTypeGo {
+			isolatedTransformersLock.RLock()
+			defer isolatedTransformersLock.RUnlock()
+		}
 		isolationSpan.Finish()
-		defer isolatedTransformersLock.RUnlock()
 	}
-	err = d.Repository.Apply(ctx, transformers...)
+
+	if d.Config.LockType == LockTypeDb {
+		isShared := !requiresIsolation
+		err = d.DBHandler.WithAdvisoryLock(ctx, isShared, db.LockIsolateTransformers, func(ctx context.Context) error {
+			return d.Repository.Apply(ctx, transformers...)
+		})
+	} else {
+		if d.Config.LockType == LockTypeNone {
+			logger.FromContext(ctx).Sugar().Warnf("not locking at all")
+		}
+		err = d.Repository.Apply(ctx, transformers...)
+	}
 	if err != nil {
 		logger.FromContext(ctx).Sugar().Warnf("error in Repository.Apply: %v", err)
 		if errors.Is(err, repository.ErrQueueFull) {
