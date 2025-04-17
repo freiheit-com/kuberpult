@@ -217,19 +217,15 @@ func TestApplyQueuePanic(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
+			dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+			if err != nil {
+				t.Fatalf("SetupPostgres: %v", err)
 			}
-
-			dir := t.TempDir()
 
 			repoCfg := RepositoryConfig{
 				ArgoCdGenerateFiles:   true,
 				MaximumCommitsPerPush: 3,
 			}
-			dbConfig.DbHost = dir
 
 			migErr := db.RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
@@ -312,20 +308,16 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
+			dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+			if err != nil {
+				t.Fatalf("SetupPostgres: %v", err)
 			}
-
-			dir := t.TempDir()
 
 			repoCfg := RepositoryConfig{
 				ArgoCdGenerateFiles:   true,
 				MaximumCommitsPerPush: 3,
 				NetworkTimeout:        networkTimeout,
 			}
-			dbConfig.DbHost = dir
 
 			migErr := db.RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
