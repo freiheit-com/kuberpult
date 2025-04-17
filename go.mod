@@ -6,24 +6,24 @@ toolchain go1.24.1
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.5.0
-	github.com/MicahParks/keyfunc/v2 v2.1.0
-	github.com/argoproj/argo-cd/v2 v2.10.18
+	github.com/MicahParks/keyfunc/v3 v3.3.11
+	github.com/argoproj/argo-cd/v3 v3.0.0
 	github.com/blendle/zapdriver v1.3.1
-	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/go-git/go-billy/v5 v5.6.0
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang-jwt/jwt/v4 v4.5.2
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/golang-migrate/migrate/v4 v4.17.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
-	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.1
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lestrrat-go/jwx/v2 v2.0.21
+	github.com/lestrrat-go/jwx/v3 v3.0.0
 	github.com/lib/pq v1.10.9
 	github.com/libgit2/git2go/v34 v34.0.0
 	github.com/mattn/go-shellwords v1.0.12
@@ -233,7 +233,7 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.29.11
 	k8s.io/apiserver => k8s.io/apiserver v0.29.7
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.29.7
-	k8s.io/client-go => k8s.io/client-go v0.29.7
+	k8s.io/client-go => k8s.io/client-go v11.0.0+incompatible
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.29.7
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.29.7
 	k8s.io/code-generator => k8s.io/code-generator v0.29.11
