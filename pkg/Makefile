@@ -25,7 +25,6 @@ GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 
 all:
-#	earthly -P  --build-arg CONTEXT=../ +build-all
 	earthly -P +build-all
 lint:
 	earthly +lint
