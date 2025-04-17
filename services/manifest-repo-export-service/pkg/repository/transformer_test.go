@@ -73,11 +73,6 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
-	//
-	//dbConfig := &db.DBConfig{
-	//	MigrationsPath: migrationsPath,
-	//	DriverName:     "sqlite3",
-	//}
 
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")

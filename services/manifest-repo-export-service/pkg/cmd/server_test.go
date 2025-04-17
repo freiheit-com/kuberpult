@@ -17,15 +17,11 @@ Copyright freiheit.com*/
 package cmd
 
 import (
-	"context"
-	"os/exec"
-	"path"
 	"testing"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
 
 func TestCalculateProcessDelay(t *testing.T) {
@@ -77,67 +73,4 @@ func TestCalculateProcessDelay(t *testing.T) {
 			}
 		})
 	}
-}
-
-func SetupRepositoryTestWithDB(t *testing.T) repository.Repository {
-	r, _ := SetupRepositoryTestWithDBOptions(t, false)
-	return r
-}
-
-func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (repository.Repository, *db.DBHandler) {
-	ctx := context.Background()
-	migrationsPath, err := db.CreateMigrationsPath(4)
-	if err != nil {
-		t.Fatalf("CreateMigrationsPath error: %v", err)
-	}
-	dbConfig := &db.DBConfig{
-		DriverName:     "sqlite3",
-		MigrationsPath: migrationsPath,
-		WriteEslOnly:   writeEslOnly,
-	}
-
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	err = cmd.Start()
-	if err != nil {
-		t.Fatalf("error starting %v", err)
-		return nil, nil
-	}
-	err = cmd.Wait()
-	if err != nil {
-		t.Fatalf("error waiting %v", err)
-		return nil, nil
-	}
-	t.Logf("test created dir: %s", localDir)
-
-	repoCfg := repository.RepositoryConfig{
-		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
-		ArgoCdGenerateFiles: true,
-	}
-	dbConfig.DbHost = dir
-
-	migErr := db.RunDBMigrations(ctx, *dbConfig)
-	if migErr != nil {
-		t.Fatal(migErr)
-	}
-
-	dbHandler, err := db.Connect(ctx, *dbConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-	repoCfg.DBHandler = dbHandler
-
-	repo, err := repository.New(
-		testutil.MakeTestContext(),
-		repoCfg,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo, dbHandler
 }
