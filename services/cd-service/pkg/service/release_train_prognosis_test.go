@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 
@@ -420,16 +419,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}

@@ -668,7 +668,6 @@ func setupRepositoryTestWithDB(t *testing.T) (repository.Repository, error) {
 		DisableQueue:        true,
 	}
 	if dbConfig != nil {
-		dbConfig.DbHost = dir
 
 		migErr := db.RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {
