@@ -29,6 +29,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type queue struct {
@@ -41,9 +42,11 @@ type transformerBatch struct {
 	ctx          context.Context
 	transformers []Transformer
 	result       chan error
+	span         tracer.Span
 }
 
 func (t *transformerBatch) finish(err error) {
+	defer t.span.Finish()
 	select {
 	case t.result <- err:
 		close(t.result)
@@ -52,11 +55,17 @@ func (t *transformerBatch) finish(err error) {
 }
 
 func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "queue.add")
+	// we do not finish the span here, because the "add" function returns immediately
+	span.SetTag("numTransformers", len(transformers))
+	span.SetTag("queueSizeStart", len(q.transformerBatches)) // queue size at the start of the span
+
 	resultChannel := make(chan error, 1)
 	e := transformerBatch{
 		ctx:          ctx,
 		transformers: transformers,
 		result:       resultChannel,
+		span:         span,
 	}
 
 	defer q.GaugeQueueSize(ctx)
