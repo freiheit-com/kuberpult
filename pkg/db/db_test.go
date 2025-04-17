@@ -58,37 +58,6 @@ func createMigrationFolder(dbLocation string) (string, error) {
 	return loc, os.Mkdir(loc, os.ModePerm)
 }
 
-func TestConnection(t *testing.T) {
-	tcs := []struct {
-		Name string
-	}{
-		{
-			Name: "Ping DB",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			ctx := context.Background()
-			t.Parallel()
-			dir := t.TempDir()
-			cfg := DBConfig{
-				DriverName: "sqlite3",
-				DbHost:     dir,
-			}
-			db, err := Connect(ctx, cfg)
-			if err != nil {
-				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
-			}
-			defer db.DB.Close()
-			pingErr := db.DB.Ping()
-			if pingErr != nil {
-				t.Fatalf("Error DB. Error: %v\n", err)
-			}
-		})
-	}
-}
-
 func TestMigrationScript(t *testing.T) {
 	tcs := []struct {
 		Name          string
@@ -107,7 +76,7 @@ CREATE TABLE IF NOT EXISTS apps
     PRIMARY KEY (appname)
 );
 
-INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('1713218400', 'my-test-app', 'AppStateChangeMigrate', '{}');`,
+INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 09:38:15', 'my-test-app', 'AppStateChangeMigrate', '{}');`,
 			expectedData: []string{"my-test-app"},
 		},
 	}
@@ -117,11 +86,8 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('1713218400'
 			t.Parallel()
 			ctx := context.Background()
 			dbDir := t.TempDir()
-			cfg := DBConfig{
-				DriverName:     "sqlite3",
-				DbHost:         dbDir,
-				MigrationsPath: dbDir + "/migrations",
-			}
+			_, dbConfig := SetupRepositoryTestWithDBMigrationPath(t, dbDir, false)
+			dbConfig.MigrationsPath = dbConfig.MigrationsPath + "/migrations"
 			loc, mkdirErr := createMigrationFolder(dbDir)
 			if mkdirErr != nil {
 				t.Fatalf("Error creating migrations folder. Error: %v\n", mkdirErr)
@@ -131,15 +97,15 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('1713218400'
 			migrationFileNameAbsPath := path.Join(loc, strconv.FormatInt(ts, 10)+"_testing.up.sql")
 			wErr := os.WriteFile(migrationFileNameAbsPath, []byte(tc.migrationFile), os.ModePerm)
 			if wErr != nil {
-				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
+				t.Fatalf("Error creating migration file. Error: %v\n", wErr)
 			}
 
-			migErr := RunDBMigrations(ctx, cfg)
+			migErr := RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(ctx, cfg)
+			db, err := Connect(ctx, *dbConfig)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -268,7 +234,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 
-			dbHandler := SetupRepositoryTestWithDB(t)
+			dbHandler, _ := SetupRepositoryTestWithDB(t, true)
 			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, writeAllReleases)
 				if err2 != nil {
@@ -338,7 +304,7 @@ func TestCustomMigrationsApps(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 
-			dbHandler := SetupRepositoryTestWithDB(t)
+			dbHandler, _ := SetupRepositoryTestWithDB(t, true)
 			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.RunAllCustomMigrationsForApps(ctx, tc.allAppsFunc)
 				if err2 != nil {
@@ -390,7 +356,7 @@ func TestMigrationCommitEvent(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 
-			dbHandler := SetupRepositoryTestWithDB(t)
+			dbHandler, _ := SetupRepositoryTestWithDB(t, true)
 			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.RunCustomMigrationsEventSourcingLight(ctx)
 				if err2 != nil {
@@ -499,23 +465,20 @@ func TestCommitEvents(t *testing.T) {
 			ctx := context.Background()
 			dbDir := t.TempDir()
 
-			dir, err := testutil.CreateMigrationsPath(2)
+			dir, err := CreateMigrationsPath(2)
 			if err != nil {
 				t.Fatalf("setup error could not detect dir \n%v", err)
 				return
 			}
+			_, dbConfig := SetupRepositoryTestWithDBMigrationPath(t, dbDir, false)
+			dbConfig.MigrationsPath = dir
 
-			cfg := DBConfig{
-				DriverName:     "sqlite3",
-				DbHost:         dbDir,
-				MigrationsPath: dir,
-			}
-			migErr := RunDBMigrations(ctx, cfg)
+			migErr := RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(ctx, cfg)
+			db, err := Connect(ctx, *dbConfig)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -649,23 +612,22 @@ func TestReadLockPreventedEvents(t *testing.T) {
 			ctx := context.Background()
 			dbDir := t.TempDir()
 
-			dir, err := testutil.CreateMigrationsPath(2)
+			dir, err := CreateMigrationsPath(2)
 			if err != nil {
 				t.Fatalf("setup error could not detect dir \n%v", err)
 				return
 			}
 
-			cfg := DBConfig{
-				DriverName:     "sqlite3",
-				DbHost:         dbDir,
-				MigrationsPath: dir,
-			}
-			migErr := RunDBMigrations(ctx, cfg)
+			_, dbConfig := SetupRepositoryTestWithDBMigrationPath(t, dbDir, false)
+			//dbConfig.MigrationsPath = dbConfig.MigrationsPath + "/migrations"
+			dbConfig.MigrationsPath = dir
+
+			migErr := RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(ctx, cfg)
+			db, err := Connect(ctx, *dbConfig)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -3175,7 +3137,7 @@ func TestReadWriteEslEvent(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteEslEventInternal(ctx, tc.EventType, transaction, tc.EventData, tc.EventMetadata)
 				if err != nil {
 					return err
@@ -3310,7 +3272,7 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
 				if err != nil {
 					return err
@@ -4665,57 +4627,15 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
 	ctx := context.Background()
-	dir, err := testutil.CreateMigrationsPath(2)
+	dir, err := CreateMigrationsPath(2)
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
-	cfg := DBConfig{
-		MigrationsPath: dir,
-		DriverName:     "sqlite3",
-		DbHost:         tmpDir,
-	}
 
-	migErr := RunDBMigrations(ctx, cfg)
-	if migErr != nil {
-		t.Fatal(migErr)
-	}
-
-	dbHandler, err := Connect(ctx, cfg)
+	dbConfig, err := SetupPostgresContainer(ctx, t, dir, false, t.Name())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("SetupPostgres: %v", err)
 	}
-
-	return dbHandler
-}
-
-func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
-	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(2)
-	if err != nil {
-		t.Fatalf("CreateMigrationsPath error: %v", err)
-	}
-	dbConfig := &DBConfig{
-		MigrationsPath: migrationsPath,
-		DriverName:     "sqlite3",
-	}
-
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	err = cmd.Start()
-	if err != nil {
-		t.Fatalf("error starting %v", err)
-		return nil
-	}
-	err = cmd.Wait()
-	if err != nil {
-		t.Fatalf("error waiting %v", err)
-		return nil
-	}
-	t.Logf("test created dir: %s", localDir)
-
-	dbConfig.DbHost = dir
 
 	migErr := RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
@@ -4726,7 +4646,49 @@ func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return dbHandler
+}
+
+func SetupRepositoryTestWithDB(t *testing.T, runMigrations bool) (*DBHandler, *DBConfig) {
+	migrationsPath, err := CreateMigrationsPath(2)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	return SetupRepositoryTestWithDBMigrationPath(t, migrationsPath, runMigrations)
+}
+
+func SetupRepositoryTestWithDBMigrationPath(t *testing.T, migrationsPath string, runMigrations bool) (*DBHandler, *DBConfig) {
+	ctx := context.Background()
+	dbConfig, err := SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil, nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil, nil
+	}
+	t.Logf("test created dir: %s", localDir)
+
+	if runMigrations {
+		migErr := RunDBMigrations(ctx, *dbConfig)
+		if migErr != nil {
+			t.Fatal(migErr)
+		}
+	}
+
+	dbHandler, err := Connect(ctx, *dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dbHandler, dbConfig
 }
 
 func TestReadReleasesWithoutEnvironments(t *testing.T) {

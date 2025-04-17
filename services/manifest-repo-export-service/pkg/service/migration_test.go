@@ -44,7 +44,7 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
-func TestRunMigrations(t *testing.T) {
+func TestEnsureCustomMigrationApplied(t *testing.T) {
 	type TestCase struct {
 		name                      string
 		requestedKuberpultVersion *api.KuberpultVersion
