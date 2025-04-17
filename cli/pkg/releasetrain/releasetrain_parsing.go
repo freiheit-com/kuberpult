@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package releasetrain
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -74,7 +75,7 @@ func readArgs(args []string) (*ReleaseTrainCommandLineArguments, error) {
 	}
 
 	if ok, msg := releaseTrainArgsValid(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil

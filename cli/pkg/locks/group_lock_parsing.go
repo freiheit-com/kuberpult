@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package locks
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -74,7 +75,7 @@ func readCreateGroupLockArgs(args []string) (*CreateEnvGroupLockCommandLineArgum
 	}
 
 	if ok, msg := argsValidCreateEnvGroupLock(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil
@@ -150,7 +151,7 @@ func readDeleteGroupLockArgs(args []string) (*DeleteEnvGroupLockCommandLineArgum
 	}
 
 	if ok, msg := argsValidDeleteEnvGroupLock(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil

@@ -159,8 +159,7 @@ func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClie
 	if config.CdServerSecure {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
-			msg := "failed to read CA certificates"
-			return nil, nil, fmt.Errorf(msg)
+			return nil, nil, fmt.Errorf("failed to read CA certificates")
 		}
 		//exhaustruct:ignore
 		cred = credentials.NewTLS(&tls.Config{

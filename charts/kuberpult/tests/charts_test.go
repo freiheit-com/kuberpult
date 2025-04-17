@@ -709,10 +709,10 @@ db:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				targetDocument := out["kuberpult-cd-service"]
 				for _, env := range tc.ExpectedEnvs {
@@ -1234,10 +1234,10 @@ db:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				for index := range out {
 					t.Logf("deployment found: %s", index)
@@ -1409,10 +1409,10 @@ frontend:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				targetDocument := out["kuberpult-frontend-service"]
 				for _, env := range tc.ExpectedEnvs {
@@ -1662,10 +1662,10 @@ argocd:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				targetDocument := out["kuberpult-rollout-service"]
 				for _, env := range tc.ExpectedEnvs {
@@ -1832,11 +1832,11 @@ ingress:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 
 			if out, err := getIngress(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				if ExpectedIngress != nil && ExpectedIngress.Spec.Rules != nil && out.Spec.Rules != nil {
 					for i := range ExpectedIngress.Spec.Rules {
@@ -2079,10 +2079,10 @@ argocd:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if deployments, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				cdPodAnnotations := deployments["kuberpult-cd-service"].Spec.Template.ObjectMeta.Annotations
 				filterDDVersion(cdPodAnnotations)
@@ -2106,7 +2106,7 @@ argocd:
 				}
 			}
 			if service, err := getServices(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				if diff := cmp.Diff(tc.ExpectedCdServiceAnnotations, service["kuberpult-cd-service"].ObjectMeta.Annotations); diff != "" {
 					t.Fatalf("wrong cd service annotations (-want, +got):\n%s", diff)
@@ -2235,10 +2235,10 @@ manifestRepoExport:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				_, found := out["kuberpult-manifest-repo-export-service"]
 				if found != tc.ShouldExist {

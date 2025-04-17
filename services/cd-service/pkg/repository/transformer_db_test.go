@@ -4368,7 +4368,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				}
 				msg := fmt.Sprintf("expected %d gauges but got %d\nActual:\n%v\n",
 					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 			sortGauges := func(gaugesList []Gauge) {
 				sort.Slice(gaugesList, func(i, j int) bool {
