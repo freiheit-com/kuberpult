@@ -18,7 +18,7 @@ The manifest-repo-export-service uploads the following metrics to Datadog (if `m
 * `git_sync_failed` - Number of the applications that have failed git sync status
 
 ### `rollout-service` Metrics
-The rollout-service uploads the following metrics to datadog:
+The rollout-service uploads the following metrics to datadog, if `rollout.enabled: true`:
 * `argo_events_fill_rate` - Number of events that are currently in the argo events queue divided by its capacity
 * `kuberpult_events_fill_rate` - Number of events that are currently in the kuberpult events queue divided by its capacity
 * `dora_failed_events` - Number of failed attempts to send dora events to revolution
