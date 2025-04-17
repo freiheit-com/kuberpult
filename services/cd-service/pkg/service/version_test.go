@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/google/go-cmp/cmp"
@@ -175,16 +174,7 @@ func TestGetManifests(t *testing.T) {
 	} {
 		tc := tc // TODO SRX-SRRONB: Remove after switching to go v1.22
 		t.Run(tc.name, func(t *testing.T) {
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err := setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
