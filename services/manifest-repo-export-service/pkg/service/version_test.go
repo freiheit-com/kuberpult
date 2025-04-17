@@ -43,7 +43,7 @@ import (
 
 func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := testutil.CreateMigrationsPath()
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
