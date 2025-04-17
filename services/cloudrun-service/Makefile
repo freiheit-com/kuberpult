@@ -28,7 +28,7 @@ ALL_GO_FILES := $(GO_FILES) $(PKG_GO_FILES)
 SERVICE_NAME := $(shell basename $$PWD)
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cloudrun-service:${VERSION}
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cloudrun-service:${VERSION}
-EARTHLY := earthly
+EARTHLY := earthly -P
 GARBAGE := *.sentinel
 proto:
 	$(MAKE) -C../../pkg/api all
