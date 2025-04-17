@@ -191,7 +191,7 @@ func (c *MockClient) Incr(name string, tags []string, rate float64) error {
 	return nil
 }
 
-func TestArgoConection(t *testing.T) {
+func TestArgoConnection(t *testing.T) {
 	makeGauge := func(name string, val float64, tags []string, rate float64) Gauge {
 		return Gauge{
 			Name:  name,
@@ -760,22 +760,21 @@ func TestArgoEvents(t *testing.T) {
 // SetupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func SetupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
-	dir, err := db.CreateMigrationsPath(2)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	tmpDir := t.TempDir()
-	t.Logf("directory for DB migrations: %s", dir)
+	t.Logf("directory for DB migrations: %s", migrationsPath)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
-	cfg := db.DBConfig{
-		MigrationsPath: dir,
-		DriverName:     "sqlite3",
-		DbHost:         tmpDir,
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
 	}
 
-	migErr := db.RunDBMigrations(ctx, cfg)
+	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := db.Connect(ctx, cfg)
+	dbHandler, err := db.Connect(ctx, *dbConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

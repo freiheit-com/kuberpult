@@ -133,8 +133,6 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	}
 
 	if dbConfig != nil {
-		dbConfig.DbHost = dir
-
 		migErr := db.RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {
 			t.Fatal(migErr)

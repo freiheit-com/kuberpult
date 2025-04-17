@@ -182,11 +182,6 @@ func setupDB(t *testing.T) *db.DBHandler {
 		t.Fatal(err)
 	}
 	dbConfig.MigrationsPath = migrationsPath
-	//cfg := db.DBConfig{
-	//	MigrationsPath: dir,
-	//	DriverName:     "sqlite3",
-	//	DbHost:         tmpDir,
-	//}
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {

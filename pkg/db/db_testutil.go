@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"os"
 	"os/exec"
 	"strings"
@@ -135,18 +136,7 @@ func RunDockerComposeUp(workdir string) error {
 	return nil
 }
 
-func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
-	//root, err := GetGitRootDirectory()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//t.Logf("git root dir: %s", root)
-	//err = RunDockerComposeUp(root)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//t.Log("Docker Compose started successfully")
+func SetupPostgresContainer(ctx context.Context, _ *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
 	dbConfig := &DBConfig{
 		// the options here must be the same as provided by docker-compose-unittest.yml
 		DbHost:     "localhost",
@@ -156,7 +146,7 @@ func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath st
 		DbPassword: "mypassword",
 		DbUser:     "postgres",
 		SSLMode:    "disable",
-		//DriverName:     "sqlite3",
+
 		MigrationsPath: migrationsPath,
 		WriteEslOnly:   writeEslOnly,
 
@@ -170,7 +160,7 @@ func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath st
 	}
 
 	var newDbName = fmt.Sprintf("unittest_%s", simpleHash(rawNewDbName))
-	t.Logf("Test '%s' will use database '%s'", rawNewDbName, newDbName)
+	logger.FromContext(ctx).Sugar().Infof("Test '%s' will use database '%s'", rawNewDbName, newDbName)
 	deleteDBQuery := fmt.Sprintf("DROP DATABASE IF EXISTS %s;", newDbName)
 	_, err = dbHandler.DB.ExecContext(
 		ctx,
@@ -188,7 +178,7 @@ func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath st
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database %s: %w", newDbName, err)
 	}
-	t.Logf("Database %s created successfully", newDbName)
+	logger.FromContext(ctx).Sugar().Infof("Database %s created successfully", newDbName)
 
 	dbConfig.DbName = newDbName
 	err = dbHandler.DB.Close()

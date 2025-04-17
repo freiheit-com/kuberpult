@@ -4676,7 +4676,7 @@ func SetupRepositoryTestWithDBMigrationPath(t *testing.T, migrationsPath string,
 		return nil, nil
 	}
 	t.Logf("test created dir: %s", localDir)
-	
+
 	if runMigrations {
 		migErr := RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {
