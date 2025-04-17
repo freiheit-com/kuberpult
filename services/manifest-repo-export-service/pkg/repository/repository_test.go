@@ -245,7 +245,6 @@ func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *Reposi
 		t.Fatalf("error waiting %v", err)
 		return nil, nil, nil
 	}
-	//dbConfig.DbHost = dir
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
