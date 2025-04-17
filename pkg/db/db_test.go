@@ -88,7 +88,6 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 
 			dbDir := t.TempDir()
 			_, dbConfig := SetupRepositoryTestWithDBMigrationPath(t, dbDir, false)
 			dbConfig.MigrationsPath = dbConfig.MigrationsPath + "/migrations"
-			//dbConfig.DbHost = dbDir
 			loc, mkdirErr := createMigrationFolder(dbDir)
 			if mkdirErr != nil {
 				t.Fatalf("Error creating migrations folder. Error: %v\n", mkdirErr)
@@ -619,11 +618,6 @@ func TestReadLockPreventedEvents(t *testing.T) {
 				return
 			}
 
-			//cfg := DBConfig{
-			//	DriverName:     "sqlite3",
-			//	DbHost:         dbDir,
-			//	MigrationsPath: dir,
-			//}
 			_, dbConfig := SetupRepositoryTestWithDBMigrationPath(t, dbDir, false)
 			//dbConfig.MigrationsPath = dbConfig.MigrationsPath + "/migrations"
 			dbConfig.MigrationsPath = dir
@@ -4643,12 +4637,6 @@ func setupDB(t *testing.T) *DBHandler {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
 
-	//cfg := DBConfig{
-	//	MigrationsPath: dir,
-	//	DriverName:     "sqlite3",
-	//	DbHost:         tmpDir,
-	//}
-
 	migErr := RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
@@ -4688,9 +4676,7 @@ func SetupRepositoryTestWithDBMigrationPath(t *testing.T, migrationsPath string,
 		return nil, nil
 	}
 	t.Logf("test created dir: %s", localDir)
-
-	//dbConfig.DbHost = dir
-
+	
 	if runMigrations {
 		migErr := RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {

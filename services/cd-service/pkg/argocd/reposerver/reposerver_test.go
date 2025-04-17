@@ -336,7 +336,6 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 		URL:                 remoteDir,
 		ArgoCdGenerateFiles: true,
 	}
-	//dbConfig.DbHost = dir
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {

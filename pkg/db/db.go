@@ -150,7 +150,7 @@ func GetConnectionAndDriverWithRetries(ctx context.Context, cfg DBConfig) (*sql.
 		if err == nil {
 			return db, driver, nil
 		}
-		d := time.Second * 10
+		d := time.Second * 2
 		l.Warnf("could not connect to db, will try again in %v for %d more times, error: %v", d, i, err)
 		time.Sleep(d)
 	}
