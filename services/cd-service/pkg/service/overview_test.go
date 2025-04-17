@@ -676,7 +676,8 @@ func TestOverviewService(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 			if tc.DB {
-				_, err := setupRepositoryTestWithDB(t)
+				var err error
+				repo, err = setupRepositoryTestWithDB(t)
 				if err != nil {
 					t.Fatal(err)
 				}
