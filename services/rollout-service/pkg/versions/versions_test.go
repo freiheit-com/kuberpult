@@ -30,7 +30,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -952,22 +951,22 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
-	dir, err := testutil.CreateMigrationsPath(2)
-	tmpDir := t.TempDir()
-	t.Logf("directory for DB migrations: %s", dir)
-	t.Logf("tmp dir for DB data: %s", tmpDir)
-	cfg := db.DBConfig{
-		MigrationsPath: dir,
-		DriverName:     "sqlite3",
-		DbHost:         tmpDir,
+	migrationsPath, err := db.CreateMigrationsPath(4)
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	migErr := db.RunDBMigrations(ctx, cfg)
+	tmpDir := t.TempDir()
+	t.Logf("directory for DB migrations: %s", migrationsPath)
+	t.Logf("tmp dir for DB data: %s", tmpDir)
+
+	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
 	}
 
-	dbHandler, err := db.Connect(ctx, cfg)
+	dbHandler, err := db.Connect(ctx, *dbConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

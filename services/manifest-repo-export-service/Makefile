@@ -62,7 +62,7 @@ build: bin/main
 
 build-pr:
 	echo "build on pull request"
-	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=pr-$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) -P --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=pr-$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 build-main:
 	echo "build on main"
@@ -91,7 +91,7 @@ test-dependancies:
 	make -C ../../pkg/api test
 
 test:
-	$(EARTHLY) +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
+	$(EARTHLY) -P +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
 
 docker:
 	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)

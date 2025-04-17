@@ -307,14 +307,13 @@ func TestGetRevisionMetadata(t *testing.T) {
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (repository.Repository, *repository.RepositoryConfig) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(5)
+	migrationsPath, err := db.CreateMigrationsPath(5)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig := &db.DBConfig{
-		DriverName:     "sqlite3",
-		MigrationsPath: migrationsPath,
-		WriteEslOnly:   writeEslOnly,
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
 	}
 
 	dir := t.TempDir()
@@ -337,7 +336,6 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 		URL:                 remoteDir,
 		ArgoCdGenerateFiles: true,
 	}
-	dbConfig.DbHost = dir
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
