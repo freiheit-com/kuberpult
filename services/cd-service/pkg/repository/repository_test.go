@@ -29,7 +29,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
@@ -922,95 +921,186 @@ func (resolver TestWebhookResolver) Resolve(insecure bool, req *http.Request) (*
 	return response, nil
 }
 
+type mockTransformer struct {
+	sleepTime   time.Duration
+	t           *testing.T
+	waitChannel chan struct{}
+}
+
+func (m *mockTransformer) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (commitMsg string, e error) {
+	m.t.Logf("starting to sleep...")
+	<-m.waitChannel
+	//time.Sleep(m.sleepTime)
+	m.t.Logf("done sleeping.")
+	return "", nil
+}
+func (*mockTransformer) GetDBEventType() db.EventType {
+	return "mockEvent"
+}
+func (*mockTransformer) SetEslVersion(_ db.TransformerID) {
+	// nothing to do
+}
+func (*mockTransformer) GetEslVersion() db.TransformerID {
+	panic("getEslVersion")
+}
+
+type nilTransformer struct {
+}
+
+func (m *nilTransformer) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (commitMsg string, e error) {
+	return "", nil
+}
+func (*nilTransformer) GetDBEventType() db.EventType {
+	return "nilEvent"
+}
+func (*nilTransformer) SetEslVersion(_ db.TransformerID) {
+	// nothing to do
+}
+func (*nilTransformer) GetEslVersion() db.TransformerID {
+	panic("getEslVersion")
+}
+
 func TestLimit(t *testing.T) {
-	transformers := []Transformer{
-		&CreateEnvironment{
-			Environment: "production",
-			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-		},
-		&CreateApplicationVersion{
-			Application: "test",
-			Manifests: map[string]string{
-				"production": "manifest",
-			},
-			Version: 1,
-		},
-		&CreateApplicationVersion{
-			Application: "test",
-			Manifests: map[string]string{
-				"production": "manifest2",
-			},
-			Version: 2,
-		},
+	type Result struct {
+		T  Transformer
+		ch chan struct{}
 	}
+	var funTransformers = func(numTransformers uint) []Result {
+		result := []Result{}
+		for i := uint(0); i < numTransformers; i++ {
+			var ch = make(chan struct{}, 1)
+			var t = &mockTransformer{
+				sleepTime:   time.Millisecond * 500,
+				t:           t,
+				waitChannel: ch,
+			}
+			result = append(result, Result{
+				ch: ch,
+				T:  t,
+			})
+		}
+		return result
+	}
+	var noopTransformer = &nilTransformer{}
+	//
+	//transformers := []Transformer{
+	//	&mockTransformer{
+	//		sleepTime: time.Second * 3,
+	//		t:         t,
+	//	},
+	//}
 	tcs := []struct {
-		Name               string
-		numberBatchActions int
-		ShouldSucceed      bool
-		limit              int
-		Setup              []Transformer
-		ExpectedError      error
+		// GIVEN
+		Name                string
+		InitialTransformers uint
+		QueueCapacity       uint // max queue size
+
+		// WHEN
+
+		// THEN
+		ExpectedError error
 	}{
 		{
-			Name:               "less than maximum number of requests",
-			ShouldSucceed:      true,
-			limit:              5,
-			numberBatchActions: 1,
-			Setup:              transformers,
-			ExpectedError:      nil,
+			Name:                "size 1: queue full",
+			QueueCapacity:       1,
+			InitialTransformers: 1,
+			//Setup:               funTransformers(1),
+			ExpectedError: errMatcher{"queue is full. Queue Capacity: 1."},
 		},
 		{
-			Name:               "more than the maximum number of requests",
-			numberBatchActions: 10,
-			limit:              5,
-			ShouldSucceed:      false,
-			Setup:              transformers,
-			ExpectedError:      errMatcher{"queue is full. Queue Capacity: 5."},
+			Name:                "size 1: queue has room",
+			QueueCapacity:       1,
+			InitialTransformers: 0,
+			//Setup:               funTransformers(0),
+			ExpectedError: nil,
+		},
+		{
+			Name:                "size 2: queue full",
+			QueueCapacity:       2,
+			InitialTransformers: 2,
+			//Setup:               funTransformers(2),
+			ExpectedError: errMatcher{"queue is full. Queue Capacity: 2."},
+		},
+		{
+			Name:                "size 2: queue has room",
+			QueueCapacity:       2,
+			InitialTransformers: 1,
+			//Setup:               funTransformers(1),
+			ExpectedError: nil,
+		},
+		{
+			Name:                "size 20: queue full",
+			QueueCapacity:       20,
+			InitialTransformers: 20,
+			//Setup:               funTransformers(20),
+			ExpectedError: errMatcher{"queue is full. Queue Capacity: 2."},
+		},
+		{
+			Name:                "size 20: queue has room",
+			QueueCapacity:       20,
+			InitialTransformers: 19,
+			//Setup:               funTransformers(19),
+			ExpectedError: nil,
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 
-			repo := SetupRepositoryTestWithDB(t)
+			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity)
 			ctx := testutil.MakeTestContext()
-			for _, tr := range tc.Setup {
-				errCh := repo.(*repository).applyDeferred(ctx, tr)
-				select {
-				case e := <-repo.(*repository).queue.transformerBatches:
-					repo.(*repository).ProcessQueueOnce(ctx, e)
-				default:
-				}
-				select {
-				case err := <-errCh:
-					if err != nil {
-						t.Fatal(err)
-					}
-				default:
-				}
+			var setupTransformers = funTransformers(tc.InitialTransformers)
+			var allChannels = []chan struct{}{}
+			for _, tr := range setupTransformers {
+				repo.(*repository).applyDeferred(ctx, tr.T)
+				//select {
+				//case e := <-repo.(*repository).queue.transformerBatches:
+				//	repo.(*repository).ProcessQueueOnce(ctx, e)
+				//default:
+				//}
+				//err := <-errChan
+				//if err != nil {
+				//	t.Errorf("unexpected error in setup: %v", err)
+				//}
+				allChannels = append(allChannels, tr.ch)
 			}
 
-			expectedErrorNumber := tc.numberBatchActions - tc.limit
-			actualErrorNumber := 0
-			for i := 0; i < tc.numberBatchActions; i++ {
-				errCh := repo.(*repository).applyDeferred(ctx, transformers[0])
+			var actualError error = nil
+			var backgroundRoutine = make(chan struct{}, 1)
+			go func() {
+				//for i := 0; i < 1; i++ {
+				//t.Logf("starting index %d", i)
+
+				errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
+				//var c0 = allChannels[0]
+				//c0 <- struct{}{} // write into channel to make the transformer continue
+				//select {
+				//case e := <-repo.(*repository).queue.transformerBatches:
+				//	repo.(*repository).ProcessQueueOnce(ctx, e)
+				//default:
+				//}
 				select {
 				case err := <-errCh:
-					if tc.ShouldSucceed {
-						t.Fatalf("Got an error at iteration %d and was not expecting it %v\n", i, err)
-					}
-					//Should get some errors, check if they are the ones we expect
-					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-						t.Errorf("error mismatch (-want, +got):\n%s", diff)
-					}
-					actualErrorNumber += 1
-				default:
-					// If there is no error,
+					actualError = err
 				}
+				//}
+				backgroundRoutine <- struct{}{} // we're done
+			}()
+
+			<-backgroundRoutine // wait until the background routine is done
+
+			// allow all transformers to continue, so that our noopTransformer can get queued.
+			// we have to wait for it, otherwise we're not guaranteed to get a result from `errCh`
+			for i := range allChannels {
+				allChannels[i] <- struct{}{}
 			}
-			if expectedErrorNumber > 0 && expectedErrorNumber != actualErrorNumber {
-				t.Errorf("error number mismatch expected: %d, got %d", expectedErrorNumber, actualErrorNumber)
+
+			var expErrStr = fmt.Sprintf("%v", tc.ExpectedError)
+			var actErrStr = fmt.Sprintf("%v", actualError)
+			if expErrStr != actErrStr {
+				t.Errorf("error mismatch, expected '%s', got '%s'", expErrStr, actErrStr)
 			}
+
 		})
 	}
 }
