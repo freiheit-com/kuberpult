@@ -65,6 +65,7 @@ type ArgoAppProcessor struct {
 	ArgoAppsMetricsEnabled  bool
 	ManageArgoAppsFilter    []string
 	DDMetrics               statsd.ClientInterface
+	KnownApps               map[string]map[string]*v1alpha1.Application
 }
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) ArgoAppProcessor {
@@ -78,6 +79,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		trigger:                 make(chan *ArgoOverview, triggerChannelSize),
 		ArgoApps:                make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
 		DDMetrics:               ddMetrics,
+		KnownApps:               map[string]map[string]*v1alpha1.Application{},
 	}
 }
 
@@ -103,14 +105,16 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) error {
 }
 
 func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
-	hlth.ReportReady("event-consuming")
+	if hlth != nil {
+		hlth.ReportReady("event-consuming")
+	}
+
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
-	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{} //EnvName => AppName => Deployment
 	for {
 		select {
 		case argoOv := <-a.trigger:
 			l.Info("self-manage.trigger")
-			a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
+			a.ProcessArgoOverview(ctx, l, argoOv)
 			a.GaugeKuberpultEventsQueueFillRate(ctx)
 		case <-ctx.Done():
 			return nil
@@ -118,10 +122,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			select {
 			case argoOv := <-a.trigger:
 				l.Info("self-manage.trigger")
-				a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
+				a.ProcessArgoOverview(ctx, l, argoOv)
 				a.GaugeKuberpultEventsQueueFillRate(ctx)
 			case ev := <-a.ArgoApps:
-				a.ProcessArgoWatchEvent(ctx, l, appsKnownToArgo, ev)
+				a.ProcessArgoWatchEvent(ctx, l, ev)
 				a.GaugeArgoAppsQueueFillRate(ctx)
 			case <-ctx.Done():
 				return nil
@@ -135,7 +139,7 @@ type ArgoOverview struct {
 	Overview   *api.GetOverviewResponse              //Standard overview. Only information regarding environments should be retrieved from this overview.
 }
 
-func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, appsKnownToArgo map[string]map[string]*v1alpha1.Application, argoOv *ArgoOverview) {
+func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, argoOv *ArgoOverview) {
 	overview := argoOv.Overview
 	for currentApp, currentAppDetails := range argoOv.AppDetails {
 		span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
@@ -153,7 +157,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 							ParentEnvironmentName:        parentEnvironment.Name,
 							ArgoEnvironmentConfiguration: cfg,
 						}
-						a.ProcessAppChange(ctx, appsKnownToArgo, appInfo, currentAppDetails, overview)
+						a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
 					}
 				} else {
 					appInfo := &AppInfo{
@@ -163,7 +167,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 						ParentEnvironmentName:        parentEnvironment.Name,
 						ArgoEnvironmentConfiguration: parentEnvironment.Config.Argocd,
 					}
-					a.ProcessAppChange(ctx, appsKnownToArgo, appInfo, currentAppDetails, overview)
+					a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
 				}
 
 			}
@@ -176,14 +180,14 @@ func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, en
 	return commonPrefix + "-" + envName + "-" + argoCDConfig.ConcreteEnvName
 }
 
-func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appsKnownToArgo map[string]map[string]*v1alpha1.Application, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse) {
+func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse) {
 	logger.FromContext(ctx).Sugar().Debugf("Processing app %q on environment %q", appInfo.ApplicationName, appInfo.EnvironmentName)
-	if ok := appsKnownToArgo[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
-		a.DeleteArgoApps(ctx, appsKnownToArgo[appInfo.EnvironmentName], appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
+	if ok := a.KnownApps[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
+		a.DeleteArgoApps(ctx, a.KnownApps[appInfo.EnvironmentName], appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
 	}
 
 	if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] != nil { //If there is a deployment for this app on this environment
-		argoApp := a.isKnownArgoApp(appInfo.ApplicationName, appInfo.EnvironmentName, appsKnownToArgo[appInfo.EnvironmentName])
+		argoApp := a.isKnownArgoApp(appInfo.ApplicationName, appInfo.EnvironmentName, a.KnownApps[appInfo.EnvironmentName])
 		if argoApp == nil {
 			a.CreateArgoApp(ctx, overview, appInfo)
 		} else {
@@ -197,21 +201,21 @@ func isAAEnv(config *api.EnvironmentConfig) bool {
 	return config.ArgoConfigs != nil && len(config.ArgoConfigs.Configs) > 1
 }
 
-func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, appsKnownToArgo map[string]map[string]*v1alpha1.Application, ev *v1alpha1.ApplicationWatchEvent) {
+func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, ev *v1alpha1.ApplicationWatchEvent) {
 	envName, appName := getEnvironmentAndName(ev.Application.Annotations)
 	if appName == "" {
 		return
 	}
-	if appsKnownToArgo[envName] == nil {
-		appsKnownToArgo[envName] = map[string]*v1alpha1.Application{}
+	if a.KnownApps[envName] == nil {
+		a.KnownApps[envName] = map[string]*v1alpha1.Application{}
 	}
 	switch ev.Type {
 	case "ADDED", "MODIFIED":
 		l.Info("created/updated:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
-		appsKnownToArgo[envName][appName] = &ev.Application
+		a.KnownApps[envName][appName] = &ev.Application
 	case "DELETED":
 		l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
-		delete(appsKnownToArgo[envName], appName)
+		delete(a.KnownApps[envName], appName)
 	}
 }
 
@@ -295,14 +299,6 @@ func (a *ArgoAppProcessor) UpdateArgoApp(ctx context.Context, overview *api.GetO
 	}
 }
 
-func (a *ArgoAppProcessor) CreateArgoApplication() {
-
-}
-
-func (a *ArgoAppProcessor) DeleteArgoApplication() {
-
-}
-
 func (a *ArgoAppProcessor) ShouldSendArgoAppsMetrics() bool {
 	return a.DDMetrics != nil && a.ArgoAppsMetricsEnabled
 }
@@ -372,6 +368,7 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 		deleteAppSpan.SetTag("application", toDelete[i].Name)
 		deleteAppSpan.SetTag("namespace", toDelete[i].Namespace)
 		deleteAppSpan.SetTag("operation", "delete")
+		fmt.Println("About to delete ApplicationClient")
 		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
 			Cascade:              nil,
 			PropagationPolicy:    nil,
