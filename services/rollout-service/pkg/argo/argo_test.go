@@ -19,28 +19,22 @@ package argo
 import (
 	"context"
 	"fmt"
-	"io"
-	"testing"
-	"time"
-
-	"go.uber.org/zap"
-
-	"k8s.io/apimachinery/pkg/watch"
-
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/conversion"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"io"
+	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -85,99 +79,113 @@ type mockApplicationServiceClient struct {
 	grpc.ClientStream
 }
 
+// These mock methods are not needed, but we still need to define them for us to be able to use this as an argo application
+// client inside the ArgoAppProcessor. The interesting methods are Create, Update and Delete
+func (m *mockApplicationServiceClient) List(ctx context.Context, in *application.ApplicationQuery, opts ...grpc.CallOption) (*v1alpha1.ApplicationList, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) ListResourceEvents(ctx context.Context, in *application.ApplicationResourceEventsQuery, opts ...grpc.CallOption) (*core.EventList, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) Get(ctx context.Context, in *application.ApplicationQuery, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) GetApplicationSyncWindows(ctx context.Context, in *application.ApplicationSyncWindowsQuery, opts ...grpc.CallOption) (*application.ApplicationSyncWindowsResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) RevisionMetadata(ctx context.Context, in *application.RevisionMetadataQuery, opts ...grpc.CallOption) (*v1alpha1.RevisionMetadata, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) RevisionChartDetails(ctx context.Context, in *application.RevisionMetadataQuery, opts ...grpc.CallOption) (*v1alpha1.ChartDetails, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) GetManifests(ctx context.Context, in *application.ApplicationManifestQuery, opts ...grpc.CallOption) (*argorepo.ManifestResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) GetManifestsWithFiles(ctx context.Context, opts ...grpc.CallOption) (application.ApplicationService_GetManifestsWithFilesClient, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) UpdateSpec(ctx context.Context, in *application.ApplicationUpdateSpecRequest, opts ...grpc.CallOption) (*v1alpha1.ApplicationSpec, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) Patch(ctx context.Context, in *application.ApplicationPatchRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) Sync(ctx context.Context, in *application.ApplicationSyncRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) ManagedResources(ctx context.Context, in *application.ResourcesQuery, opts ...grpc.CallOption) (*application.ManagedResourcesResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) ResourceTree(ctx context.Context, in *application.ResourcesQuery, opts ...grpc.CallOption) (*v1alpha1.ApplicationTree, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) WatchResourceTree(ctx context.Context, in *application.ResourcesQuery, opts ...grpc.CallOption) (application.ApplicationService_WatchResourceTreeClient, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) Rollback(ctx context.Context, in *application.ApplicationRollbackRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) TerminateOperation(ctx context.Context, in *application.OperationTerminateRequest, opts ...grpc.CallOption) (*application.OperationTerminateResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) GetResource(ctx context.Context, in *application.ApplicationResourceRequest, opts ...grpc.CallOption) (*application.ApplicationResourceResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) PatchResource(ctx context.Context, in *application.ApplicationResourcePatchRequest, opts ...grpc.CallOption) (*application.ApplicationResourceResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) ListResourceActions(ctx context.Context, in *application.ApplicationResourceRequest, opts ...grpc.CallOption) (*application.ResourceActionsListResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) RunResourceAction(ctx context.Context, in *application.ResourceActionRunRequest, opts ...grpc.CallOption) (*application.ApplicationResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) DeleteResource(ctx context.Context, in *application.ApplicationResourceDeleteRequest, opts ...grpc.CallOption) (*application.ApplicationResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) PodLogs(ctx context.Context, in *application.ApplicationPodLogsQuery, opts ...grpc.CallOption) (application.ApplicationService_PodLogsClient, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) ListLinks(ctx context.Context, in *application.ListAppLinksRequest, opts ...grpc.CallOption) (*application.LinksResponse, error) {
+	panic("implement me")
+}
+
+func (m *mockApplicationServiceClient) ListResourceLinks(ctx context.Context, in *application.ApplicationResourceRequest, opts ...grpc.CallOption) (*application.LinksResponse, error) {
+	panic("implement me")
+}
+
 type ArgoApp struct {
 	App       *v1alpha1.Application
 	LastEvent string
 }
 
-type mockArgoProcessor struct {
-	trigger               chan *ArgoOverview
-	lastOverview          *ArgoOverview
-	argoApps              chan *v1alpha1.ApplicationWatchEvent
-	ApplicationClient     *mockApplicationServiceClient
-	HealthReporter        *setup.HealthReporter
-	ManageArgoAppsEnabled bool
-	ManageArgoAppsFilter  []string
-}
-
-func (a *mockArgoProcessor) Push(ctx context.Context, last *ArgoOverview) error {
-	a.lastOverview = last
-	select {
-	case a.trigger <- a.lastOverview:
-		return nil
-	default:
-		return fmt.Errorf("failed to push to mock argo app")
-	}
-}
-
-func (a *mockArgoProcessor) checkEvent(ev *v1alpha1.ApplicationWatchEvent) bool {
-	for _, argoApp := range a.ApplicationClient.Apps {
-		if argoApp.App.Name == ev.Application.Name && string(ev.Type) == argoApp.LastEvent {
-			return true
-		}
-	}
-	return false
-}
-
-func (a *mockArgoProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
-	return nil
-}
-
-func (a *mockArgoProcessor) TestConsume(t *testing.T, ctx context.Context, expectedTypes []string, existingArgoApps bool, syncDisable bool) error {
-	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
-	envAppsKnownToArgo := make(map[string]*v1alpha1.Application)
-
+// Simulates receiving events from ARGO. Sends those to the  argoAppsChannel from the argo app processor.
+func ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter, appClient application.ApplicationServiceClient, argoAppsChannel chan *v1alpha1.ApplicationWatchEvent) error {
 	for {
-		select {
-		case argoOverview := <-a.trigger:
-			overview := argoOverview.Overview
-			for currentApp, currentAppDetails := range argoOverview.AppDetails {
-				for _, envGroup := range overview.EnvironmentGroups {
-					for _, env := range envGroup.Environments {
-						if ok := appsKnownToArgo[env.Name]; ok != nil {
-							envAppsKnownToArgo = appsKnownToArgo[env.Name]
-							a.DeleteArgoApps(ctx, envAppsKnownToArgo, currentApp, currentAppDetails.Deployments[env.Name])
-						}
-						if existingArgoApps {
-							argoApp := CreateArgoApplication(overview, currentApp, currentAppDetails.Application.Team, env)
-							if syncDisable {
-								argoApp.Spec.SyncPolicy = &v1alpha1.SyncPolicy{
-									Automated: &v1alpha1.SyncPolicyAutomated{
-										Prune:      false,
-										SelfHeal:   false,
-										AllowEmpty: false,
-									},
-								}
-							}
-							envAppsKnownToArgo[currentApp] = argoApp
-
-							appsKnownToArgo[env.Name] = envAppsKnownToArgo
-						}
-						a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, envAppsKnownToArgo)
-					}
-				}
-
-			}
-		case ev := <-a.argoApps:
-			switch ev.Type {
-			case "ADDED", "MODIFIED", "DELETED":
-				if ev.Type != watch.EventType(expectedTypes[0]) {
-					t.Fatalf("expected type to be %s, but got %s", expectedTypes[0], ev.Type)
-				}
-				if len(expectedTypes) > 1 {
-					expectedTypes = expectedTypes[1:]
-				}
-			}
-
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
-func (a *mockArgoProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error {
-	for {
-		watch, err := a.ApplicationClient.Watch(ctx, &application.ApplicationQuery{})
+		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
 				// context is cancelled -> we are shutting down
@@ -196,7 +204,7 @@ func (a *mockArgoProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthR
 		}
 
 		if ev.Type == "ADDED" || ev.Type == "MODIFIED" || ev.Type == "DELETED" {
-			a.argoApps <- ev
+			argoAppsChannel <- ev
 		}
 	}
 }
@@ -216,17 +224,18 @@ func (m *mockApplicationServiceClient) Watch(ctx context.Context, qry *applicati
 	return m, nil
 }
 
-func (m *mockApplicationServiceClient) Delete(ctx context.Context, req *application.ApplicationDeleteRequest) {
+func (m *mockApplicationServiceClient) Delete(ctx context.Context, req *application.ApplicationDeleteRequest, opts ...grpc.CallOption) (*application.ApplicationResponse, error) {
 	for _, app := range m.Apps {
 		if app.App.Name == *req.Name {
 			deleteApp := &ArgoApp{App: app.App, LastEvent: "DELETED"}
 			m.Apps = append(m.Apps, deleteApp)
-			return
+			return nil, nil
 		}
 	}
+	return nil, nil
 }
 
-func (m *mockApplicationServiceClient) Update(ctx context.Context, req *application.ApplicationUpdateRequest) {
+func (m *mockApplicationServiceClient) Update(ctx context.Context, req *application.ApplicationUpdateRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
 	for _, a := range m.Apps {
 		if a.App.Name == req.Application.Name {
 			updateApp := &ArgoApp{App: a.App, LastEvent: "MODIFIED"}
@@ -234,10 +243,12 @@ func (m *mockApplicationServiceClient) Update(ctx context.Context, req *applicat
 			break
 		}
 	}
+
+	return nil, nil
 	// If reached here, no application in the request is known to argo
 }
 
-func (m *mockApplicationServiceClient) Create(ctx context.Context, req *application.ApplicationCreateRequest) error {
+func (m *mockApplicationServiceClient) Create(ctx context.Context, req *application.ApplicationCreateRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
 	newApp := &ArgoApp{
 		App:       req.Application,
 		LastEvent: "ADDED",
@@ -245,12 +256,11 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 	for _, existingArgoApp := range m.Apps {
 		if existingArgoApp.App.Name == req.Application.Name {
 			// App alrady exists
-			return nil
+			return nil, nil
 		}
 	}
 	m.Apps = append(m.Apps, newApp)
-
-	return nil
+	return nil, nil
 }
 
 func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedConsumed int) {
@@ -264,6 +274,28 @@ func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedCon
 	}
 	if expectedConsumed != m.current && m.current < len(m.Steps) {
 		t.Errorf("expected to consume all %d replies, only consumed %d", len(m.Steps), m.current)
+	}
+}
+
+func (m *mockApplicationServiceClient) checkApplications(t *testing.T, expectedApps []ArgoAppMetadata) {
+	if len(m.Apps) != len(expectedApps) {
+		t.Errorf("mismatch on number of applications, want %d got %d", len(expectedApps), len(m.Apps))
+	}
+	for idx, app := range m.Apps {
+		currAppMetadata := ArgoAppToMetaData(app)
+		if diff := cmp.Diff(expectedApps[idx], currAppMetadata); diff != "" {
+			t.Errorf("argo app mismatch (-want, +got):\n%s", diff)
+		}
+	}
+}
+
+func ArgoAppToMetaData(app *ArgoApp) ArgoAppMetadata {
+	return ArgoAppMetadata{
+		Name:              app.App.Annotations["com.freiheit.kuberpult/application"],
+		Environment:       app.App.Annotations["com.freiheit.kuberpult/environment"],
+		ParentEnvironment: app.App.Annotations["com.freiheit.kuberpult/aa-parent-environment"],
+		Event:             app.LastEvent,
+		ManifestPath:      app.App.Annotations["argocd.argoproj.io/manifest-generate-paths"],
 	}
 }
 
@@ -293,7 +325,6 @@ func TestArgoConsume(t *testing.T) {
 							Team: "footeam",
 							Releases: []*api.Release{
 								{
-
 									Version:        1,
 									SourceCommitId: "00001",
 								},
@@ -795,27 +826,28 @@ func TestArgoConsume(t *testing.T) {
 				lastEvent: make(chan *ArgoEvent, 10),
 			}
 			hlth := &setup.HealthServer{}
-			argoProcessor := &mockArgoProcessor{
+			argoProcessor := &ArgoAppProcessor{
 				lastOverview:          tc.ArgoOverview,
 				ApplicationClient:     as,
 				trigger:               make(chan *ArgoOverview, 10),
-				argoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
 				ManageArgoAppsEnabled: true,
-				ManageArgoAppsFilter:  []string{"non", "*"},
+				ManageArgoAppsFilter:  []string{"*"},
+				KnownApps:             map[string]map[string]*v1alpha1.Application{},
 			}
+
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			errCh := make(chan error)
 			go func() {
-				errCh <- argoProcessor.TestConsume(t, ctx, tc.ExpectedConsumedTypes, tc.ExistingArgoApps, tc.SyncDisable)
+				errCh <- argoProcessor.Consume(ctx, hlth.Reporter("consume"))
 			}()
 
 			go func() {
-				errCh <- argoProcessor.ConsumeArgo(ctx, hlth.Reporter("consume-argo"))
+				errCh <- ConsumeArgo(ctx, hlth.Reporter("consume-argo"), as, argoProcessor.ArgoApps)
 			}()
 
 			argoProcessor.Push(ctx, tc.ArgoOverview)
-			//We add a delay so that all the events are reported by the application client
-			time.Sleep(10 * time.Second)
+
 			err := <-errCh
 
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
@@ -946,13 +978,14 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 				lastEvent: make(chan *ArgoEvent, 10),
 			}
 			hlth := &setup.HealthServer{}
-			argoProcessor := &mockArgoProcessor{
+			argoProcessor := &ArgoAppProcessor{
 				lastOverview:          tc.Overview,
 				ApplicationClient:     as,
 				trigger:               make(chan *ArgoOverview, 10),
-				argoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
 				ManageArgoAppsEnabled: tc.ArgoManageEnabled,
 				ManageArgoAppsFilter:  tc.ArgoManageFilter,
+				KnownApps:             map[string]map[string]*v1alpha1.Application{},
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 
@@ -963,89 +996,9 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 				}
 			}
 			if isActive != tc.ExpectedOutput {
-				t.Fatalf("expected processor to have done %v operations but it did %v", tc.ExpectedOutput, len(argoProcessor.argoApps))
+				t.Fatalf("expected processor to have done %v operations but it did %v", tc.ExpectedOutput, len(argoProcessor.ArgoApps))
 			}
 		})
-	}
-}
-
-func (a *mockArgoProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment) {
-	toDelete := make([]*v1alpha1.Application, 0)
-	for _, argoApp := range argoApps {
-		if argoApp.Name == fmt.Sprintf("%s-%s", appName, appName) {
-			break
-
-		}
-		toDelete = append(toDelete, argoApp)
-	}
-
-	for i := range toDelete {
-		a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
-			Name: conversion.FromString(toDelete[i].Name),
-		})
-
-	}
-}
-
-func (a *mockArgoProcessor) GetManageArgoAppsFilter() []string {
-	return a.ManageArgoAppsFilter
-}
-
-func (a *mockArgoProcessor) GetManageArgoAppsEnabled() bool {
-	return a.ManageArgoAppsEnabled
-}
-
-func (a *mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
-	var existingApp *v1alpha1.Application
-	selfManaged, err := IsSelfManagedFilterActive(team, a)
-	if err != nil {
-		logger.FromContext(ctx).Error("detecting self manage:", zap.Error(err))
-	}
-	if selfManaged {
-		for _, argoApp := range appsKnownToArgo {
-			if argoApp.Name == fmt.Sprintf("%s-%s", env.Name, appName) && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
-				existingApp = argoApp
-				break
-			}
-		}
-
-		if existingApp == nil {
-			appToCreate := CreateArgoApplication(overview, appName, team, env)
-			appToCreate.ResourceVersion = ""
-			upsert := false
-			validate := false
-			appCreateRequest := &application.ApplicationCreateRequest{
-				Application: appToCreate,
-				Upsert:      &upsert,
-				Validate:    &validate,
-			}
-			err := a.ApplicationClient.Create(ctx, appCreateRequest)
-			if err != nil {
-				// We check if the application was created in the meantime
-				if status.Code(err) != codes.InvalidArgument {
-					logger.FromContext(ctx).Error("creating application: %w")
-				}
-			}
-		} else {
-			appToUpdate := CreateArgoApplication(overview, appName, team, env)
-			appUpdateRequest := &application.ApplicationUpdateRequest{
-				XXX_NoUnkeyedLiteral: struct{}{},
-				XXX_unrecognized:     nil,
-				XXX_sizecache:        0,
-				Validate:             conversion.Bool(false),
-				Application:          appToUpdate,
-				Project:              conversion.FromString(appToUpdate.Spec.Project),
-			}
-			//We have to exclude the unexported type destination and the syncPolicy
-			//exhaustruct:ignore
-			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
-				cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
-				cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
-
-			if diff != "" {
-				a.ApplicationClient.Update(ctx, appUpdateRequest)
-			}
-		}
 	}
 }
 
@@ -1055,4 +1008,487 @@ type ArgoEvent struct {
 	SyncStatusCode   v1alpha1.SyncStatusCode
 	HealthStatusCode health.HealthStatusCode
 	OperationState   *v1alpha1.OperationState
+}
+
+type ArgoAppMetadata struct {
+	Name              string
+	Environment       string
+	ParentEnvironment string
+	Event             string
+	ManifestPath      string
+}
+
+// Receiving information kuberpult applications triggers changes in
+func TestReactToKuberpultEvents(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		KnowArgoApps     []ArgoAppMetadata
+		ExpectedArgoApps []ArgoAppMetadata
+		ArgoOverview     []*ArgoOverview
+	}{
+		{
+			Name:         "create an app",
+			KnowArgoApps: []ArgoAppMetadata{},
+			ArgoOverview: []*ArgoOverview{
+				{
+					AppDetails: map[string]*api.GetAppDetailsResponse{
+						"foo": {
+							Application: &api.Application{
+								Team: "footeam",
+								Releases: []*api.Release{
+									{
+										Version:        1,
+										SourceCommitId: "00001",
+									},
+								},
+							},
+							Deployments: map[string]*api.Deployment{
+								"staging": {
+									Version: 1,
+									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+										DeployTime: "123456789",
+									},
+								},
+							},
+						},
+					},
+					Overview: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+
+								EnvironmentGroupName: "staging-group",
+								Environments: []*api.Environment{
+									{
+										Name:     "staging",
+										Priority: api.Priority_UPSTREAM,
+										Config: &api.EnvironmentConfig{
+											Argocd: &api.EnvironmentConfig_ArgoCD{
+												Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+													Name:   "staging",
+													Server: "test-server",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						GitRevision: "1234",
+					},
+				},
+			},
+			ExpectedArgoApps: []ArgoAppMetadata{
+				{
+					Name:              "foo",
+					Environment:       "staging",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+			},
+		},
+		{
+			Name: "create an app for an AA environment",
+			ArgoOverview: []*ArgoOverview{
+				{
+					AppDetails: map[string]*api.GetAppDetailsResponse{
+						"foo": {
+							Application: &api.Application{
+								Team: "footeam",
+								Releases: []*api.Release{
+									{
+										Version:        1,
+										SourceCommitId: "00001",
+									},
+								},
+							},
+							Deployments: map[string]*api.Deployment{
+								"staging": {
+									Version: 1,
+									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+										DeployTime: "123456789",
+									},
+								},
+							},
+						},
+					},
+					Overview: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+
+								EnvironmentGroupName: "staging-group",
+								Environments: []*api.Environment{
+									{
+										Name:     "staging",
+										Priority: api.Priority_UPSTREAM,
+										Config: &api.EnvironmentConfig{
+											ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
+												CommonEnvPrefix: "test",
+												Configs: []*api.EnvironmentConfig_ArgoCD{
+													{
+														ConcreteEnvName: "de-1",
+														Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+															Name:   "staging",
+															Server: "test-server",
+														},
+													},
+													{
+														ConcreteEnvName: "de-2",
+														Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+															Name:   "staging",
+															Server: "test-server",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						GitRevision: "1234",
+					},
+				},
+			},
+			//Expected annotation information of created apps
+			ExpectedArgoApps: []ArgoAppMetadata{
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-1",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-2",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+			},
+		},
+		{
+			Name: "updates an already existing app on AA env",
+			KnowArgoApps: []ArgoAppMetadata{
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-1",
+					ParentEnvironment: "staging",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-2",
+					ParentEnvironment: "staging",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+			},
+			ArgoOverview: []*ArgoOverview{
+				{
+					AppDetails: map[string]*api.GetAppDetailsResponse{
+						"foo": {
+							Application: &api.Application{
+								Team: "footeam",
+								Releases: []*api.Release{
+									{
+
+										Version:        1,
+										SourceCommitId: "00001",
+									},
+								},
+							},
+							Deployments: map[string]*api.Deployment{
+								"staging": {
+									Version: 1,
+									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+										DeployTime: "123456789",
+									},
+								},
+							},
+						},
+					},
+					Overview: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "staging-group",
+								Environments: []*api.Environment{
+									{
+										Name:     "staging",
+										Priority: api.Priority_UPSTREAM,
+										Config: &api.EnvironmentConfig{
+											ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
+												CommonEnvPrefix: "test",
+												Configs: []*api.EnvironmentConfig_ArgoCD{
+													{
+														ConcreteEnvName: "de-1",
+														Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+															Name:   "staging",
+															Server: "test-server",
+														},
+													},
+													{
+														ConcreteEnvName: "de-2",
+														Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+															Name:   "staging",
+															Server: "test-server",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						GitRevision: "1234",
+					},
+				},
+			},
+			ExpectedArgoApps: []ArgoAppMetadata{
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-1",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-2",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-1",
+					ParentEnvironment: "staging",
+					Event:             "MODIFIED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-2",
+					ParentEnvironment: "staging",
+					Event:             "MODIFIED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+			},
+		},
+		{
+			Name: "delete gets trigger for all apps on AA env",
+			KnowArgoApps: []ArgoAppMetadata{
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-1",
+					ParentEnvironment: "staging",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-2",
+					ParentEnvironment: "staging",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo2",
+					Environment:       "test-staging-de-1",
+					ParentEnvironment: "staging",
+					ManifestPath:      "/environments/staging/applications/foo2/manifests",
+				},
+				{
+					Name:              "foo2",
+					Environment:       "test-staging-de-2",
+					ParentEnvironment: "staging",
+					ManifestPath:      "/environments/staging/applications/foo2/manifests",
+				},
+			},
+			ArgoOverview: []*ArgoOverview{
+				{
+					AppDetails: map[string]*api.GetAppDetailsResponse{
+						"foo": {
+							Application: &api.Application{
+								Team: "footeam",
+								Releases: []*api.Release{
+									{
+										Version:        1,
+										SourceCommitId: "00012",
+									},
+								},
+							},
+							Deployments: map[string]*api.Deployment{},
+						},
+					},
+					Overview: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "staging-group",
+								Environments: []*api.Environment{
+									{
+										Name:     "staging",
+										Priority: api.Priority_UPSTREAM,
+										Config: &api.EnvironmentConfig{
+											ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
+												CommonEnvPrefix: "test",
+												Configs: []*api.EnvironmentConfig_ArgoCD{
+													{
+														ConcreteEnvName: "de-1",
+														Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+															Name:   "staging",
+															Server: "test-server",
+														},
+													},
+													{
+														ConcreteEnvName: "de-2",
+														Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+															Name:   "staging",
+															Server: "test-server",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						GitRevision: "1234",
+					},
+				},
+			},
+			ExpectedArgoApps: []ArgoAppMetadata{
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-1",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-2",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo2",
+					Environment:       "test-staging-de-1",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/applications/foo2/manifests",
+				},
+				{
+					Name:              "foo2",
+					Environment:       "test-staging-de-2",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/applications/foo2/manifests",
+				},
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-1",
+					ParentEnvironment: "staging",
+					Event:             "DELETED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+				{
+					Name:              "foo",
+					Environment:       "test-staging-de-2",
+					ParentEnvironment: "staging",
+					Event:             "DELETED",
+					ManifestPath:      "/environments/staging/applications/foo/manifests",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			as := &mockApplicationServiceClient{
+				Steps: []step{
+					{
+						RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+						CancelContext: true,
+					},
+				},
+				cancel:    cancel,
+				t:         t,
+				lastEvent: make(chan *ArgoEvent, 10),
+			}
+			hlth := &setup.HealthServer{}
+			argoProcessor := &ArgoAppProcessor{
+				lastOverview:          tc.ArgoOverview[0],
+				ApplicationClient:     as,
+				trigger:               make(chan *ArgoOverview, 10),
+				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				ManageArgoAppsEnabled: true,
+				ManageArgoAppsFilter:  []string{"*"},
+				KnownApps:             map[string]map[string]*v1alpha1.Application{},
+			}
+			argoProcessor.PopulateAppsToKnownApps(tc.KnowArgoApps)
+			as.PopulateApps(tc.KnowArgoApps)
+			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
+			errCh := make(chan error)
+			go func() {
+				errCh <- ConsumeArgo(ctx, hlth.Reporter("consume-argo"), as, argoProcessor.ArgoApps)
+			}()
+
+			go func() {
+				errCh <- argoProcessor.Consume(ctx, hlth.Reporter("consume"))
+			}()
+
+			for _, ov := range tc.ArgoOverview {
+				argoProcessor.Push(ctx, ov)
+			}
+			err1 := <-errCh
+			if err1 != nil {
+				t.Fatalf("unexpected error on channel: %v", err1)
+			}
+			err2 := <-errCh
+			if err2 != nil {
+				t.Fatalf("unexpected error on channel: %v", err2)
+			}
+
+			as.checkApplications(t, tc.ExpectedArgoApps)
+		})
+	}
+}
+
+func (a *ArgoAppProcessor) PopulateAppsToKnownApps(appInfo []ArgoAppMetadata) {
+	for _, currentAppInfo := range appInfo {
+		if a.KnownApps[currentAppInfo.Environment] == nil {
+			a.KnownApps[currentAppInfo.Environment] = map[string]*v1alpha1.Application{}
+		}
+		a.KnownApps[currentAppInfo.Environment][currentAppInfo.Name] = &v1alpha1.Application{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: currentAppInfo.Environment + "-" + currentAppInfo.Name,
+				Annotations: map[string]string{
+					"com.freiheit.kuberpult/application": currentAppInfo.Name,
+					"com.freiheit.kuberpult/environment": currentAppInfo.Environment,
+				},
+			},
+		}
+	}
+}
+
+func (a *mockApplicationServiceClient) PopulateApps(appInfo []ArgoAppMetadata) {
+	for _, currentAppInfo := range appInfo {
+		a.Apps = append(a.Apps, &ArgoApp{
+			App: &v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: currentAppInfo.Environment + "-" + currentAppInfo.Name,
+					Annotations: map[string]string{
+						"com.freiheit.kuberpult/application":           currentAppInfo.Name,
+						"com.freiheit.kuberpult/environment":           currentAppInfo.Environment,
+						"com.freiheit.kuberpult/aa-parent-environment": currentAppInfo.ParentEnvironment,
+						"argocd.argoproj.io/manifest-generate-paths":   currentAppInfo.ManifestPath,
+					},
+				},
+			},
+			LastEvent: "ADDED",
+		})
+	}
 }

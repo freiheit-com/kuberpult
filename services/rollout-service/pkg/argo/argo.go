@@ -48,7 +48,8 @@ type SimplifiedApplicationServiceClient interface {
 type Processor interface {
 	Push(ctx context.Context, last *ArgoOverview) error
 	Consume(ctx context.Context, hlth *setup.HealthReporter) error
-	CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application)
+	CreateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo)
+	UpdateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo, existingApp *v1alpha1.Application)
 	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment)
 	GetManageArgoAppsFilter() []string
 	GetManageArgoAppsEnabled() bool
@@ -64,6 +65,7 @@ type ArgoAppProcessor struct {
 	ArgoAppsMetricsEnabled  bool
 	ManageArgoAppsFilter    []string
 	DDMetrics               statsd.ClientInterface
+	KnownApps               map[string]map[string]*v1alpha1.Application
 }
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) ArgoAppProcessor {
@@ -77,6 +79,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		trigger:                 make(chan *ArgoOverview, triggerChannelSize),
 		ArgoApps:                make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
 		DDMetrics:               ddMetrics,
+		KnownApps:               map[string]map[string]*v1alpha1.Application{},
 	}
 }
 
@@ -102,14 +105,16 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) error {
 }
 
 func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
-	hlth.ReportReady("event-consuming")
+	if hlth != nil {
+		hlth.ReportReady("event-consuming")
+	}
+
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
-	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{} //EnvName => AppName => Deployment
 	for {
 		select {
 		case argoOv := <-a.trigger:
 			l.Info("self-manage.trigger")
-			a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
+			a.ProcessArgoOverview(ctx, l, argoOv)
 			a.GaugeKuberpultEventsQueueFillRate(ctx)
 		case <-ctx.Done():
 			return nil
@@ -117,10 +122,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			select {
 			case argoOv := <-a.trigger:
 				l.Info("self-manage.trigger")
-				a.ProcessArgoOverview(ctx, l, appsKnownToArgo, argoOv)
+				a.ProcessArgoOverview(ctx, l, argoOv)
 				a.GaugeKuberpultEventsQueueFillRate(ctx)
 			case ev := <-a.ArgoApps:
-				a.ProcessArgoWatchEvent(ctx, l, appsKnownToArgo, ev)
+				a.ProcessArgoWatchEvent(ctx, l, ev)
 				a.GaugeArgoAppsQueueFillRate(ctx)
 			case <-ctx.Done():
 				return nil
@@ -134,115 +139,164 @@ type ArgoOverview struct {
 	Overview   *api.GetOverviewResponse              //Standard overview. Only information regarding environments should be retrieved from this overview.
 }
 
-func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, appsKnownToArgo map[string]map[string]*v1alpha1.Application, argoOv *ArgoOverview) {
+func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, argoOv *ArgoOverview) {
 	overview := argoOv.Overview
 	for currentApp, currentAppDetails := range argoOv.AppDetails {
 		span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
 		defer span.Finish()
 		span.SetTag("kuberpult-app", currentApp)
 		for _, envGroup := range overview.EnvironmentGroups {
-			for _, env := range envGroup.Environments {
-				if ok := appsKnownToArgo[env.Name]; ok != nil {
-					a.DeleteArgoApps(ctx, appsKnownToArgo[env.Name], currentApp, currentAppDetails.Deployments[env.Name])
+			for _, parentEnvironment := range envGroup.Environments {
+				if isAAEnv(parentEnvironment.Config) {
+					for _, cfg := range parentEnvironment.Config.ArgoConfigs.Configs { //Active/Active environments have multiple argo cd configurations
+						targetEnvName := a.extractFullyQualifiedEnvironmentName(parentEnvironment.Config.ArgoConfigs.CommonEnvPrefix, parentEnvironment.Name, cfg)
+						appInfo := &AppInfo{
+							ApplicationName:              currentApp,
+							EnvironmentName:              targetEnvName,
+							TeamName:                     currentAppDetails.Application.Team,
+							ParentEnvironmentName:        parentEnvironment.Name,
+							ArgoEnvironmentConfiguration: cfg,
+						}
+						a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
+					}
+				} else {
+					appInfo := &AppInfo{
+						ApplicationName:              currentApp,
+						EnvironmentName:              parentEnvironment.Name,
+						TeamName:                     currentAppDetails.Application.Team,
+						ParentEnvironmentName:        parentEnvironment.Name,
+						ArgoEnvironmentConfiguration: parentEnvironment.Config.Argocd,
+					}
+					a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
 				}
 
-				if currentAppDetails.Deployments[env.Name] != nil { //If there is a deployment for this app on this environment
-					a.CreateOrUpdateApp(ctx, overview, currentApp, currentAppDetails.Application.Team, env, appsKnownToArgo[env.Name])
-				}
 			}
 		}
 		span.Finish()
 	}
 }
 
-func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, appsKnownToArgo map[string]map[string]*v1alpha1.Application, ev *v1alpha1.ApplicationWatchEvent) {
+func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, envName string, argoCDConfig *api.EnvironmentConfig_ArgoCD) string {
+	return commonPrefix + "-" + envName + "-" + argoCDConfig.ConcreteEnvName
+}
+
+func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse) {
+	logger.FromContext(ctx).Sugar().Debugf("Processing app %q on environment %q", appInfo.ApplicationName, appInfo.EnvironmentName)
+	if ok := a.KnownApps[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
+		a.DeleteArgoApps(ctx, a.KnownApps[appInfo.EnvironmentName], appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
+	}
+
+	if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] != nil { //If there is a deployment for this app on this environment
+		argoApp := a.isKnownArgoApp(appInfo.ApplicationName, appInfo.EnvironmentName, a.KnownApps[appInfo.EnvironmentName])
+		if argoApp == nil {
+			a.CreateArgoApp(ctx, overview, appInfo)
+		} else {
+			a.UpdateArgoApp(ctx, overview, appInfo, argoApp)
+		}
+
+	}
+}
+
+func isAAEnv(config *api.EnvironmentConfig) bool {
+	return config.ArgoConfigs != nil && len(config.ArgoConfigs.Configs) > 1
+}
+
+func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, ev *v1alpha1.ApplicationWatchEvent) {
 	envName, appName := getEnvironmentAndName(ev.Application.Annotations)
 	if appName == "" {
 		return
 	}
-	if appsKnownToArgo[envName] == nil {
-		appsKnownToArgo[envName] = map[string]*v1alpha1.Application{}
+	if a.KnownApps[envName] == nil {
+		a.KnownApps[envName] = map[string]*v1alpha1.Application{}
 	}
 	switch ev.Type {
 	case "ADDED", "MODIFIED":
 		l.Info("created/updated:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
-		appsKnownToArgo[envName][appName] = &ev.Application
+		a.KnownApps[envName][appName] = &ev.Application
 	case "DELETED":
 		l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
-		delete(appsKnownToArgo[envName], appName)
+		delete(a.KnownApps[envName], appName)
 	}
 }
 
-func (a *ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, appName, team string, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
-	t := team
+type AppInfo struct {
+	ApplicationName              string
+	TeamName                     string
+	EnvironmentName              string
+	ParentEnvironmentName        string
+	ArgoEnvironmentConfiguration *api.EnvironmentConfig_ArgoCD
+}
 
-	var existingApp *v1alpha1.Application
-	selfManaged, err := IsSelfManagedFilterActive(t, a)
+func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {
+	for _, argoApp := range appsKnownToArgo {
+		if argoApp.Annotations["com.freiheit.kuberpult/application"] == appName && argoApp.Annotations["com.freiheit.kuberpult/environment"] == envName {
+			return argoApp
+		}
+	}
+	return nil
+}
+
+func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo) {
+	selfManaged, err := IsSelfManagedFilterActive(appInfo.TeamName, a)
 	if err != nil {
 		logger.FromContext(ctx).Error("detecting self manage:", zap.Error(err))
 	}
 	if selfManaged {
-		for _, argoApp := range appsKnownToArgo {
-			if argoApp.Annotations["com.freiheit.kuberpult/application"] == appName && argoApp.Annotations["com.freiheit.kuberpult/environment"] == env.Name {
-				existingApp = argoApp
-				break
+		createSpan, ctx := tracer.StartSpanFromContext(ctx, "CreateApplication")
+		createSpan.SetTag("application", appInfo.ApplicationName)
+		createSpan.SetTag("environment", appInfo.EnvironmentName)
+		createSpan.SetTag("operation", "create")
+		appToCreate := CreateArgoApplication(overview, appInfo)
+		appToCreate.ResourceVersion = ""
+		upsert := false
+		validate := false
+		appCreateRequest := &application.ApplicationCreateRequest{
+			XXX_NoUnkeyedLiteral: struct{}{},
+			XXX_unrecognized:     nil,
+			XXX_sizecache:        0,
+			Application:          appToCreate,
+			Upsert:               &upsert,
+			Validate:             &validate,
+		}
+		_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
+		if err != nil {
+			// We check if the application was created in the meantime
+			if status.Code(err) != codes.InvalidArgument {
+
+				logger.FromContext(ctx).Sugar().Errorf("creating %s, env %s: %v", appToCreate.Name, appInfo.EnvironmentName, err)
 			}
 		}
+		createSpan.Finish()
+	}
+}
 
-		if existingApp == nil {
-			createSpan, ctx := tracer.StartSpanFromContext(ctx, "CreateApplication")
-			createSpan.SetTag("application", appName)
-			createSpan.SetTag("environment", env.Name)
-			createSpan.SetTag("operation", "create")
-			appToCreate := CreateArgoApplication(overview, appName, team, env)
-			appToCreate.ResourceVersion = ""
-			upsert := false
-			validate := false
-			appCreateRequest := &application.ApplicationCreateRequest{
-				XXX_NoUnkeyedLiteral: struct{}{},
-				XXX_unrecognized:     nil,
-				XXX_sizecache:        0,
-				Application:          appToCreate,
-				Upsert:               &upsert,
-				Validate:             &validate,
-			}
-			_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
-			if err != nil {
-				// We check if the application was created in the meantime
-				if status.Code(err) != codes.InvalidArgument {
-					logger.FromContext(ctx).Error("creating "+appToCreate.Name+",env "+env.Name, zap.Error(err))
-				}
-			}
-			createSpan.Finish()
-		} else {
-			appToUpdate := CreateArgoApplication(overview, appName, team, env)
-			appUpdateRequest := &application.ApplicationUpdateRequest{
-				XXX_NoUnkeyedLiteral: struct{}{},
-				XXX_unrecognized:     nil,
-				XXX_sizecache:        0,
-				Validate:             conversion.Bool(false),
-				Application:          appToUpdate,
-				Project:              conversion.FromString(appToUpdate.Spec.Project),
-			}
+func (a *ArgoAppProcessor) UpdateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo, existingApp *v1alpha1.Application) {
+	appToUpdate := CreateArgoApplication(overview, appInfo)
+	appUpdateRequest := &application.ApplicationUpdateRequest{
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+		Validate:             conversion.Bool(false),
+		Application:          appToUpdate,
+		Project:              conversion.FromString(appToUpdate.Spec.Project),
+	}
 
-			//We have to exclude the unexported type destination and the syncPolicy
-			//exhaustruct:ignore
-			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
-				cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
-				cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
-			if diff != "" {
-				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
-				updateSpan.SetTag("application", appName)
-				updateSpan.SetTag("environment", env.Name)
-				updateSpan.SetTag("operation", "update")
-				updateSpan.SetTag("argoDiff", diff)
-				_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
-				if err != nil {
-					logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
-				}
-				updateSpan.Finish()
-			}
+	//We have to exclude the unexported type destination and the syncPolicy
+	//exhaustruct:ignore
+	diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
+		cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
+		cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
+	if diff != "" {
+		updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
+		updateSpan.SetTag("application", appInfo.ApplicationName)
+		updateSpan.SetTag("environment", appInfo.EnvironmentName)
+		updateSpan.SetTag("operation", "update")
+		updateSpan.SetTag("argoDiff", diff)
+		_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
+		if err != nil {
+			logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+appInfo.EnvironmentName, zap.Error(err))
 		}
+		updateSpan.Finish()
 	}
 }
 
@@ -333,39 +387,40 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 	}
 }
 
-func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team string, env *api.Environment) *v1alpha1.Application {
+func CreateArgoApplication(overview *api.GetOverviewResponse, appInfo *AppInfo) *v1alpha1.Application {
 	applicationNs := ""
 
 	annotations := make(map[string]string)
 	labels := make(map[string]string)
 
-	manifestPath := filepath.Join("environments", env.Name, "applications", appName, "manifests")
+	manifestPath := filepath.Join("environments", appInfo.ParentEnvironmentName, "applications", appInfo.ApplicationName, "manifests")
 
-	annotations["com.freiheit.kuberpult/application"] = appName
-	annotations["com.freiheit.kuberpult/environment"] = env.Name
+	annotations["com.freiheit.kuberpult/application"] = appInfo.ApplicationName
+	annotations["com.freiheit.kuberpult/environment"] = appInfo.EnvironmentName
+	annotations["com.freiheit.kuberpult/aa-parent-environment"] = appInfo.ParentEnvironmentName
 	annotations["com.freiheit.kuberpult/self-managed"] = "true"
 	// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
 	// It has to start with a "/" to be absolute to the git repo.
 	// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
 	annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
-	labels["com.freiheit.kuberpult/team"] = team
+	labels["com.freiheit.kuberpult/team"] = appInfo.TeamName
 
-	if env.Config.Argocd.Destination.Namespace != nil {
-		applicationNs = *env.Config.Argocd.Destination.Namespace
-	} else if env.Config.Argocd.Destination.ApplicationNamespace != nil {
-		applicationNs = *env.Config.Argocd.Destination.ApplicationNamespace
+	if appInfo.ArgoEnvironmentConfiguration.Destination.Namespace != nil {
+		applicationNs = *appInfo.ArgoEnvironmentConfiguration.Destination.Namespace
+	} else if appInfo.ArgoEnvironmentConfiguration.Destination.ApplicationNamespace != nil {
+		applicationNs = *appInfo.ArgoEnvironmentConfiguration.Destination.ApplicationNamespace
 	}
 
 	applicationDestination := v1alpha1.ApplicationDestination{
-		Name:      env.Config.Argocd.Destination.Name,
+		Name:      appInfo.ArgoEnvironmentConfiguration.Destination.Name,
 		Namespace: applicationNs,
-		Server:    env.Config.Argocd.Destination.Server,
+		Server:    appInfo.ArgoEnvironmentConfiguration.Destination.Server,
 	}
 
 	var ignoreDifferences []v1alpha1.ResourceIgnoreDifferences = nil
-	if len(env.Config.Argocd.IgnoreDifferences) > 0 {
-		ignoreDifferences = make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
-		for index, value := range env.Config.Argocd.IgnoreDifferences {
+	if len(appInfo.ArgoEnvironmentConfiguration.IgnoreDifferences) > 0 {
+		ignoreDifferences = make([]v1alpha1.ResourceIgnoreDifferences, len(appInfo.ArgoEnvironmentConfiguration.IgnoreDifferences))
+		for index, value := range appInfo.ArgoEnvironmentConfiguration.IgnoreDifferences {
 			difference := v1alpha1.ResourceIgnoreDifferences{
 				Group:                 value.Group,
 				Kind:                  value.Kind,
@@ -380,7 +435,7 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team stri
 	}
 	//exhaustruct:ignore
 	ObjectMeta := metav1.ObjectMeta{
-		Name:        fmt.Sprintf("%s-%s", env.Name, appName),
+		Name:        fmt.Sprintf("%s-%s", appInfo.EnvironmentName, appInfo.ApplicationName),
 		Annotations: annotations,
 		Labels:      labels,
 		Finalizers:  calculateFinalizers(),
@@ -399,13 +454,13 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appName, team stri
 			// We always allow empty, because it makes it easier to delete apps/environments
 			AllowEmpty: true,
 		},
-		SyncOptions: env.Config.Argocd.SyncOptions,
+		SyncOptions: appInfo.ArgoEnvironmentConfiguration.SyncOptions,
 	}
 	//exhaustruct:ignore
 	Spec := v1alpha1.ApplicationSpec{
 		Source:            Source,
 		SyncPolicy:        SyncPolicy,
-		Project:           env.Name,
+		Project:           appInfo.EnvironmentName,
 		Destination:       applicationDestination,
 		IgnoreDifferences: ignoreDifferences,
 	}
