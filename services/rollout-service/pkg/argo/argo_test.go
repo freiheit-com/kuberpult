@@ -851,7 +851,7 @@ func TestArgoConsume(t *testing.T) {
 			err := <-errCh
 
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatasdasch (-want, +got):\n%s", diff)
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			as.testAllConsumed(t, tc.ExpectedConsumed)
 		})
@@ -1022,7 +1022,6 @@ type ArgoAppMetadata struct {
 func TestReactToKuberpultEvents(t *testing.T) {
 	tcs := []struct {
 		Name             string
-		ExpectedError    error
 		KnowArgoApps     []ArgoAppMetadata
 		ExpectedArgoApps []ArgoAppMetadata
 		ArgoOverview     []*ArgoOverview
@@ -1446,11 +1445,11 @@ func TestReactToKuberpultEvents(t *testing.T) {
 			}
 			err1 := <-errCh
 			if err1 != nil {
-				t.Fatalf("error on channel: %v", err1)
+				t.Fatalf("unexpected error on channel: %v", err1)
 			}
 			err2 := <-errCh
 			if err2 != nil {
-				t.Fatalf("error on channel: %v", err2)
+				t.Fatalf("unexpected error on channel: %v", err2)
 			}
 
 			as.checkApplications(t, tc.ExpectedArgoApps)
