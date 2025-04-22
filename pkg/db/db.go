@@ -22,13 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"path"
 	"slices"
 	"strings"
 	"time"
-
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
@@ -2111,7 +2110,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context
 		GROUP BY
 			envname, appname) AS latest
 	JOIN
-		deployment_attempts AS deployment_attempts
+		deployment_attempts AS deployment_attempts 
 	ON
 		latest.latestRelease=deployment_attempts.eslVersion
 		AND latest.envName=deployment_attempts.envName
@@ -2389,7 +2388,7 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 				return fmt.Errorf("could not get env: %s, error: %w", envName, err)
 			}
 
-			if env.Applications == nil || len(env.Applications) == 0 {
+			if len(env.Applications) == 0 {
 				if allEnvsApps == nil {
 					allEnvsApps, err = h.FindEnvsAppsFromReleases(ctx, transaction)
 					if err != nil {
