@@ -368,7 +368,6 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 		deleteAppSpan.SetTag("application", toDelete[i].Name)
 		deleteAppSpan.SetTag("namespace", toDelete[i].Namespace)
 		deleteAppSpan.SetTag("operation", "delete")
-		fmt.Println("About to delete ApplicationClient")
 		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
 			Cascade:              nil,
 			PropagationPolicy:    nil,
