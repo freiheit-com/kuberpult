@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package locks
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -78,7 +79,7 @@ func readCreateAppLockArgs(args []string) (*CreateAppLockCommandLineArguments, e
 	}
 
 	if ok, msg := argsValidCreateAppLock(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil
@@ -156,7 +157,7 @@ func readDeleteAppLockArgs(args []string) (*DeleteAppLockCommandLineArguments, e
 	}
 
 	if ok, msg := argsValidDeleteAppLock(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil

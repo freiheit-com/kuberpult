@@ -135,14 +135,12 @@ func runServer(ctx context.Context) error {
 		return err
 	}
 	if c.GitAuthorEmail == "" {
-		msg := "DefaultGitAuthorEmail must not be empty"
-		logger.FromContext(ctx).Error(msg)
-		return fmt.Errorf(msg)
+		logger.FromContext(ctx).Error("DefaultGitAuthorEmail must not be empty")
+		return fmt.Errorf("DefaultGitAuthorEmail must not be empty")
 	}
 	if c.GitAuthorName == "" {
-		msg := "DefaultGitAuthorName must not be empty"
-		logger.FromContext(ctx).Error(msg)
-		return fmt.Errorf(msg)
+		logger.FromContext(ctx).Error("DefaultGitAuthorName must not be empty")
+		return fmt.Errorf("DefaultGitAuthorName must not be empty")
 	}
 
 	var jwks *keyfunc.JWKS = nil
@@ -176,8 +174,7 @@ func runServer(ctx context.Context) error {
 	if c.CdServerSecure {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
-			msg := "failed to read CA certificates"
-			return fmt.Errorf(msg)
+			return fmt.Errorf("failed to read CA certificates")
 		}
 		//exhaustruct:ignore
 		cred = credentials.NewTLS(&tls.Config{

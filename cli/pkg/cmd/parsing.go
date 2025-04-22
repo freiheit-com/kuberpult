@@ -17,8 +17,10 @@ Copyright freiheit.com*/
 package cmd
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
 
@@ -74,7 +76,7 @@ func argsValid(cmdArgs *commandLineArguments) (bool, string) {
 
 func convertToParams(cmdArgs *commandLineArguments) (*kuberpultClientParameters, error) {
 	if ok, msg := argsValid(cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	params := kuberpultClientParameters{} //exhaustruct:ignore
