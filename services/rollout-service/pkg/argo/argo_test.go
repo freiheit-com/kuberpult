@@ -84,47 +84,38 @@ type mockApplicationServiceClient struct {
 // These mock methods are not needed, but we still need to define them for us to be able to use this as an argo application
 // client inside the ArgoAppProcessor. The interesting methods are Create, Update and Delete
 func (m *mockApplicationServiceClient) List(ctx context.Context, in *application.ApplicationQuery, opts ...grpc.CallOption) (*v1alpha1.ApplicationList, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) ListResourceEvents(ctx context.Context, in *application.ApplicationResourceEventsQuery, opts ...grpc.CallOption) (*core.EventList, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) Get(ctx context.Context, in *application.ApplicationQuery, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) GetApplicationSyncWindows(ctx context.Context, in *application.ApplicationSyncWindowsQuery, opts ...grpc.CallOption) (*application.ApplicationSyncWindowsResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) RevisionMetadata(ctx context.Context, in *application.RevisionMetadataQuery, opts ...grpc.CallOption) (*v1alpha1.RevisionMetadata, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) RevisionChartDetails(ctx context.Context, in *application.RevisionMetadataQuery, opts ...grpc.CallOption) (*v1alpha1.ChartDetails, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) GetManifests(ctx context.Context, in *application.ApplicationManifestQuery, opts ...grpc.CallOption) (*argorepo.ManifestResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) GetManifestsWithFiles(ctx context.Context, opts ...grpc.CallOption) (application.ApplicationService_GetManifestsWithFilesClient, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) UpdateSpec(ctx context.Context, in *application.ApplicationUpdateSpecRequest, opts ...grpc.CallOption) (*v1alpha1.ApplicationSpec, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
@@ -134,7 +125,6 @@ func (m *mockApplicationServiceClient) Patch(ctx context.Context, in *applicatio
 }
 
 func (m *mockApplicationServiceClient) Sync(ctx context.Context, in *application.ApplicationSyncRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
@@ -144,37 +134,30 @@ func (m *mockApplicationServiceClient) ManagedResources(ctx context.Context, in 
 }
 
 func (m *mockApplicationServiceClient) ResourceTree(ctx context.Context, in *application.ResourcesQuery, opts ...grpc.CallOption) (*v1alpha1.ApplicationTree, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) WatchResourceTree(ctx context.Context, in *application.ResourcesQuery, opts ...grpc.CallOption) (application.ApplicationService_WatchResourceTreeClient, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) Rollback(ctx context.Context, in *application.ApplicationRollbackRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) TerminateOperation(ctx context.Context, in *application.OperationTerminateRequest, opts ...grpc.CallOption) (*application.OperationTerminateResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) GetResource(ctx context.Context, in *application.ApplicationResourceRequest, opts ...grpc.CallOption) (*application.ApplicationResourceResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) PatchResource(ctx context.Context, in *application.ApplicationResourcePatchRequest, opts ...grpc.CallOption) (*application.ApplicationResourceResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) ListResourceActions(ctx context.Context, in *application.ApplicationResourceRequest, opts ...grpc.CallOption) (*application.ResourceActionsListResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
@@ -184,22 +167,18 @@ func (m *mockApplicationServiceClient) RunResourceAction(ctx context.Context, in
 }
 
 func (m *mockApplicationServiceClient) DeleteResource(ctx context.Context, in *application.ApplicationResourceDeleteRequest, opts ...grpc.CallOption) (*application.ApplicationResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) PodLogs(ctx context.Context, in *application.ApplicationPodLogsQuery, opts ...grpc.CallOption) (application.ApplicationService_PodLogsClient, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) ListLinks(ctx context.Context, in *application.ListAppLinksRequest, opts ...grpc.CallOption) (*application.LinksResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (m *mockApplicationServiceClient) ListResourceLinks(ctx context.Context, in *application.ApplicationResourceRequest, opts ...grpc.CallOption) (*application.LinksResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
