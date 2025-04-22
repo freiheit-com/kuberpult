@@ -76,11 +76,12 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 			Env:     "",
 			Team:    "",
 			Metadata: LockMetadata{
-				CreatedByName:  "",
-				CreatedByEmail: "",
-				Message:        "",
-				CiLink:         "",
-				CreatedAt:      time.Time{},
+				CreatedByName:     "",
+				CreatedByEmail:    "",
+				Message:           "",
+				CiLink:            "",
+				CreatedAt:         time.Time{},
+				SuggestedLifeTime: "",
 			},
 		}
 		var metadata string
@@ -145,11 +146,12 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 			Env:     "",
 			Team:    "",
 			Metadata: LockMetadata{
-				CreatedByName:  "",
-				CreatedByEmail: "",
-				Message:        "",
-				CiLink:         "",
-				CreatedAt:      time.Time{},
+				CreatedByName:     "",
+				CreatedByEmail:    "",
+				Message:           "",
+				CiLink:            "",
+				CreatedAt:         time.Time{},
+				SuggestedLifeTime: "",
 			},
 		}
 		var metadata string
@@ -312,11 +314,12 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 			Env:     "",
 			Deleted: true,
 			Metadata: LockMetadata{
-				CiLink:         "",
-				CreatedByName:  "",
-				CreatedByEmail: "",
-				CreatedAt:      time.Time{},
-				Message:        "",
+				CiLink:            "",
+				CreatedByName:     "",
+				CreatedByEmail:    "",
+				CreatedAt:         time.Time{},
+				Message:           "",
+				SuggestedLifeTime: "",
 			},
 		}
 		var metadata string
@@ -544,11 +547,12 @@ func (h *DBHandler) processTeamLockRows(ctx context.Context, err error, rows *sq
 			Env:     "",
 			Team:    "",
 			Metadata: LockMetadata{
-				CreatedByName:  "",
-				CreatedByEmail: "",
-				Message:        "",
-				CiLink:         "",
-				CreatedAt:      time.Time{},
+				CreatedByName:     "",
+				CreatedByEmail:    "",
+				Message:           "",
+				CiLink:            "",
+				CreatedAt:         time.Time{},
+				SuggestedLifeTime: "",
 			},
 		}
 		var metadata string
