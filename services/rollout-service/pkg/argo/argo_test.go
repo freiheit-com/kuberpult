@@ -19,14 +19,9 @@ package argo
 import (
 	"context"
 	"fmt"
-	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
-	"io"
-	core "k8s.io/api/core/v1"
-	"testing"
-	"time"
-
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -36,7 +31,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"io"
+	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -120,7 +118,6 @@ func (m *mockApplicationServiceClient) UpdateSpec(ctx context.Context, in *appli
 }
 
 func (m *mockApplicationServiceClient) Patch(ctx context.Context, in *application.ApplicationPatchRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
@@ -129,7 +126,6 @@ func (m *mockApplicationServiceClient) Sync(ctx context.Context, in *application
 }
 
 func (m *mockApplicationServiceClient) ManagedResources(ctx context.Context, in *application.ResourcesQuery, opts ...grpc.CallOption) (*application.ManagedResourcesResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
@@ -162,7 +158,6 @@ func (m *mockApplicationServiceClient) ListResourceActions(ctx context.Context, 
 }
 
 func (m *mockApplicationServiceClient) RunResourceAction(ctx context.Context, in *application.ResourceActionRunRequest, opts ...grpc.CallOption) (*application.ApplicationResponse, error) {
-	//TODO implement me
 	panic("implement me")
 }
 
@@ -852,12 +847,11 @@ func TestArgoConsume(t *testing.T) {
 			}()
 
 			argoProcessor.Push(ctx, tc.ArgoOverview)
-			//We add a delay so that all the events are reported by the application client
-			time.Sleep(1000 * time.Millisecond)
+
 			err := <-errCh
 
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				t.Errorf("error mismatasdasch (-want, +got):\n%s", diff)
 			}
 			as.testAllConsumed(t, tc.ExpectedConsumed)
 		})
@@ -1415,7 +1409,12 @@ func TestReactToKuberpultEvents(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
-				Steps:     make([]step, 0),
+				Steps: []step{
+					{
+						RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+						CancelContext: true,
+					},
+				},
 				cancel:    cancel,
 				t:         t,
 				lastEvent: make(chan *ArgoEvent, 10),
@@ -1445,9 +1444,14 @@ func TestReactToKuberpultEvents(t *testing.T) {
 			for _, ov := range tc.ArgoOverview {
 				argoProcessor.Push(ctx, ov)
 			}
-
-			//We add a delay so that all the events are reported by the application client
-			time.Sleep(10 * time.Second)
+			err1 := <-errCh
+			if err1 != nil {
+				t.Fatalf("error on channel: %v", err1)
+			}
+			err2 := <-errCh
+			if err2 != nil {
+				t.Fatalf("error on channel: %v", err2)
+			}
 
 			as.checkApplications(t, tc.ExpectedArgoApps)
 		})

@@ -262,7 +262,8 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 		if err != nil {
 			// We check if the application was created in the meantime
 			if status.Code(err) != codes.InvalidArgument {
-				logger.FromContext(ctx).Error("creating "+appToCreate.Name+",env "+appInfo.EnvironmentName, zap.Error(err))
+
+				logger.FromContext(ctx).Sugar().Errorf("creating %s, env %s: %v", appToCreate.Name, appInfo.EnvironmentName, err)
 			}
 		}
 		createSpan.Finish()
