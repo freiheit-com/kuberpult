@@ -1389,7 +1389,7 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
+		return fmt.Errorf("checkUserPermissions: user not found: %v", err)
 	}
 
 	config, err := s.GetEnvironmentConfig(ctx, transaction, env)
@@ -1397,7 +1397,7 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 		return err
 	}
 	if config == nil {
-		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: environment not found: %s", env))
+		return fmt.Errorf("checkUserPermissions: environment not found: %s", env)
 	}
 	group := mapper.DeriveGroupName(*config, env)
 
@@ -1429,7 +1429,7 @@ func (s *State) checkUserPermissionsCreateEnvironment(ctx context.Context, RBACC
 	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
+		return fmt.Errorf("checkUserPermissions: user not found: %v", err)
 	}
 	envGroup := "*"
 	// If an env group is provided on the request, use it on the permission.
@@ -2203,6 +2203,10 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 	lockPreventedDeployment := false
+	team, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+	if err != nil {
+		return "", fmt.Errorf("could not determine team for deployment: %w", err)
+	}
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
@@ -2216,11 +2220,6 @@ func (c *DeployApplicationVersion) Transform(
 		appLocks, err = state.GetEnvironmentApplicationLocks(ctx, transaction, c.Environment, c.Application)
 		if err != nil {
 			return "", err
-		}
-
-		team, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
-		if err != nil {
-			return "", fmt.Errorf("could not determine team for deployment: %w", err)
 		}
 		teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, c.Environment, string(team))
 		if err != nil {
@@ -2326,11 +2325,7 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 	}
-	teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
-	if err != nil {
-		return "", err
-	}
-	t.AddAppEnv(c.Application, c.Environment, teamOwner)
+	t.AddAppEnv(c.Application, c.Environment, team)
 	s := State{
 		MinorRegexes:         state.MinorRegexes,
 		MaxNumThreads:        state.MaxNumThreads,

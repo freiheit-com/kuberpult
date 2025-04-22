@@ -356,8 +356,7 @@ func RunServer() {
 			if c.MigrationServerSecure {
 				systemRoots, err := x509.SystemCertPool()
 				if err != nil {
-					msg := "failed to read CA certificates"
-					return fmt.Errorf(msg)
+					return fmt.Errorf("failed to read CA certificates")
 				}
 				//exhaustruct:ignore
 				cred = credentials.NewTLS(&tls.Config{

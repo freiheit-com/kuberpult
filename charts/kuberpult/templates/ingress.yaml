@@ -18,6 +18,10 @@
 {{ fail "Values.ingress.exposeReleaseEndpoint cannot be used anymore. Use the frontend service to call the /release endpoint"}}
 {{ end -}}
 
+{{- if (and (ne .Values.ingress.pathType "Prefix") (ne .Values.ingress.pathType "Exact") (ne .Values.ingress.pathType "ImplementationSpecific")) }}
+{{ fail "ingress.pathType must be either Prefix, Exact, or ImplementationSpecific"}}
+{{ end -}}
+
 {{- if .Values.ingress.create }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -41,21 +45,21 @@ spec:
       paths:
 {{- if .Values.ingress.allowedPaths.oldRestApi }}
 # Old Rest API:
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /release
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /environments
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /environment-groups
         backend:
           service:
@@ -65,7 +69,7 @@ spec:
 {{- end }}
 {{- if .Values.ingress.allowedPaths.restApi }}
 # New API:
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api/
         backend:
           service:
@@ -75,28 +79,28 @@ spec:
 {{- end }}
 {{- if .Values.ingress.allowedPaths.dex }}
 # Dex (UI Authorization flow):
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /dex
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /callback
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /token
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /login
         backend:
           service:
@@ -106,7 +110,7 @@ spec:
 {{- end }}
 {{- if .Values.ingress.allowedPaths.ui }}
 # UI bootstrapping:
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /ui/
         backend:
           service:
@@ -120,21 +124,21 @@ spec:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /static/js/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /static/css/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /favicon.png
         backend:
           service:
@@ -142,63 +146,63 @@ spec:
             port:
               name: http
 # GRPC over HTTP for UI:
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.OverviewService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.BatchService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.FrontendConfigService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.RolloutService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.GitService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.VersionService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.EnvironmentService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.ReleaseTrainPrognosisService/
         backend:
           service:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: Prefix
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.EslService/
         backend:
           service:
@@ -220,6 +224,9 @@ spec:
   healthCheck:
     requestPath: /healthz
     type: HTTP
+  {{- if .Values.ingress.iap.timeoutSec }}
+  timeoutSec: {{.Values.ingress.iap.timeoutSec}}
+  {{- end }}
   iap:
     enabled: true
     oauthclientCredentials:

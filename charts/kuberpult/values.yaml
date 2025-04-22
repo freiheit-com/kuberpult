@@ -266,6 +266,9 @@ ingress:
   # set to false, if you want to use your own ingress:
   create: false
   private: true
+  # PathType supports values "Prefix", "Exact", and "ImplementationSpecific"
+  # See https://kubernetes.io/docs/concepts/services-networking/ingress/#path-types
+  pathType: Prefix
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     kubernetes.io/ingress.allow-http: "false"
@@ -287,6 +290,7 @@ ingress:
   iap:
     enabled: false
     secretName: null
+    timeoutSec: 30
   tls:
     host: null
     secretName: kuberpult-tls-secret
