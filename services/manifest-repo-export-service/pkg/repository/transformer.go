@@ -1243,12 +1243,11 @@ func (c *CreateEnvironment) Transform(
 	_ *sql.Tx,
 ) (string, error) {
 	if tCtx.ShouldMinimizeGitData() {
-		return fmt.Sprintf("create environment %q, but did not generate any kuberpult files", c.Environment), nil
+		return GetNoOpMessage(c)
 	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
-		return "", err
 	}
 	configFile := fs.Join(envDir, "config.json")
 	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)

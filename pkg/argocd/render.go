@@ -56,7 +56,9 @@ func (e *EnvironmentInfo) GetFullyQualifiedName() string {
 func Render(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData) (map[ApiVersion][]byte, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "Render")
 	defer span.Finish()
-
+	if info.ArgoCDConfig == nil {
+		return nil, fmt.Errorf("no ArgoCd configured for environment %s", info.GetFullyQualifiedName())
+	}
 	result := map[ApiVersion][]byte{}
 	if content, err := RenderV1Alpha1(gitUrl, gitBranch, info, appsData); err != nil {
 		return nil, err

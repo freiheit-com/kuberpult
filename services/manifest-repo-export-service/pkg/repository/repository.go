@@ -816,17 +816,17 @@ func isAAEnv(config config.EnvironmentConfig) bool {
 	return config.ArgoCdConfigs != nil && len(config.ArgoCdConfigs.ArgoCdConfigurations) > 1
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env string, config config.EnvironmentConfig) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env string, cfg config.EnvironmentConfig) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	if !r.config.ArgoCdGenerateFiles {
 		return nil
 	}
-	if isAAEnv(config) {
-		for _, currentArgoCdConfiguration := range config.ArgoCdConfigs.ArgoCdConfigurations {
+	if isAAEnv(cfg) {
+		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
 			environmentInfo := &argocd.EnvironmentInfo{
 				ArgoCDConfig:          currentArgoCdConfiguration,
-				CommonPrefix:          *config.ArgoCdConfigs.CommonEnvPrefix,
+				CommonPrefix:          *cfg.ArgoCdConfigs.CommonEnvPrefix,
 				ParentEnvironmentName: env,
 				IsAAEnv:               true,
 			}
@@ -836,8 +836,20 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			}
 		}
 	} else {
+
+		if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
+			logger.FromContext(ctx).Sugar().Warnf("No argo cd configuration found for environment %q.", env)
+			return nil
+		}
+		conf := &config.EnvironmentConfigArgoCd{}
+		if cfg.ArgoCd == nil {
+			conf = cfg.ArgoCdConfigs.ArgoCdConfigurations[0]
+		} else {
+			conf = cfg.ArgoCd
+		}
+
 		environmentInfo := &argocd.EnvironmentInfo{
-			ArgoCDConfig:          config.ArgoCd,
+			ArgoCDConfig:          conf,
 			CommonPrefix:          "",
 			ParentEnvironmentName: env,
 			IsAAEnv:               false,
