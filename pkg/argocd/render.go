@@ -39,15 +39,28 @@ type AppData struct {
 	TeamName string
 }
 
-func Render(ctx context.Context, gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) (map[ApiVersion][]byte, error) {
+type EnvironmentInfo struct {
+	ArgoCDConfig          *config.EnvironmentConfigArgoCd
+	CommonPrefix          string
+	ParentEnvironmentName string
+	IsAAEnv               bool
+}
+
+func (e *EnvironmentInfo) GetFullyQualifiedName() string {
+	if e.IsAAEnv {
+		return e.CommonPrefix + "-" + e.ParentEnvironmentName + "-" + e.ArgoCDConfig.ConcreteEnvName
+	}
+	return e.ParentEnvironmentName
+}
+
+func Render(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData) (map[ApiVersion][]byte, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "Render")
 	defer span.Finish()
-
-	if config.ArgoCd == nil {
-		return nil, fmt.Errorf("no ArgoCd configured for environment %s", env)
+	if info.ArgoCDConfig == nil {
+		return nil, fmt.Errorf("no ArgoCd configured for environment %s", info.GetFullyQualifiedName())
 	}
 	result := map[ApiVersion][]byte{}
-	if content, err := RenderV1Alpha1(gitUrl, gitBranch, config, env, appsData); err != nil {
+	if content, err := RenderV1Alpha1(gitUrl, gitBranch, info, appsData); err != nil {
 		return nil, err
 	} else {
 		result[V1Alpha1] = content
@@ -55,21 +68,22 @@ func Render(ctx context.Context, gitUrl string, gitBranch string, config config.
 	return result, nil
 }
 
-func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) ([]byte, error) {
+func RenderV1Alpha1(gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData) ([]byte, error) {
 	applicationNs := ""
-	if config.ArgoCd.Destination.Namespace != nil {
-		applicationNs = *config.ArgoCd.Destination.Namespace
-	} else if config.ArgoCd.Destination.ApplicationNamespace != nil {
-		applicationNs = *config.ArgoCd.Destination.ApplicationNamespace
+	config := info.ArgoCDConfig
+	if config.Destination.Namespace != nil {
+		applicationNs = *config.Destination.Namespace
+	} else if config.Destination.ApplicationNamespace != nil {
+		applicationNs = *config.Destination.ApplicationNamespace
 	}
 	applicationDestination := v1alpha1.ApplicationDestination{
-		Name:      config.ArgoCd.Destination.Name,
+		Name:      config.Destination.Name,
 		Namespace: applicationNs,
-		Server:    config.ArgoCd.Destination.Server,
+		Server:    config.Destination.Server,
 	}
 	buf := []string{}
 	syncWindows := v1alpha1.SyncWindows{}
-	for _, w := range config.ArgoCd.SyncWindows {
+	for _, w := range config.SyncWindows {
 		apps := []string{"*"}
 		if len(w.Apps) > 0 {
 			apps = w.Apps
@@ -83,7 +97,7 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 		})
 	}
 	accessEntries := []v1alpha1.AccessEntry{}
-	for _, w := range config.ArgoCd.ClusterResourceWhitelist {
+	for _, w := range config.ClusterResourceWhitelist {
 		accessEntries = append(accessEntries, v1alpha1.AccessEntry{
 			Kind:  w.Kind,
 			Group: w.Group,
@@ -92,10 +106,10 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 
 	appProjectNs := ""
 	appProjectDestination := applicationDestination
-	if config.ArgoCd.Destination.Namespace != nil {
-		appProjectNs = *config.ArgoCd.Destination.Namespace
-	} else if config.ArgoCd.Destination.AppProjectNamespace != nil {
-		appProjectNs = *config.ArgoCd.Destination.AppProjectNamespace
+	if config.Destination.Namespace != nil {
+		appProjectNs = *config.Destination.Namespace
+	} else if config.Destination.AppProjectNamespace != nil {
+		appProjectNs = *config.Destination.AppProjectNamespace
 	}
 	appProjectDestination.Namespace = appProjectNs
 
@@ -105,10 +119,10 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 			Annotations: nil,
 			Labels:      nil,
 			Finalizers:  nil,
-			Name:        env,
+			Name:        info.GetFullyQualifiedName(),
 		},
 		Spec: v1alpha1.AppProjectSpec{
-			Description:              env,
+			Description:              info.GetFullyQualifiedName(),
 			SourceRepos:              []string{"*"},
 			Destinations:             []v1alpha1.ApplicationDestination{appProjectDestination},
 			SyncWindows:              syncWindows,
@@ -120,13 +134,13 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 	} else {
 		buf = append(buf, string(content))
 	}
-	ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(config.ArgoCd.IgnoreDifferences))
-	for index, value := range config.ArgoCd.IgnoreDifferences {
+	ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(config.IgnoreDifferences))
+	for index, value := range config.IgnoreDifferences {
 		ignoreDifferences[index] = v1alpha1.ResourceIgnoreDifferences(value)
 	}
-	syncOptions := config.ArgoCd.SyncOptions
+	syncOptions := config.SyncOptions
 	for _, appData := range appsData {
-		appManifest, err := RenderAppEnv(gitUrl, gitBranch, config.ArgoCd.ApplicationAnnotations, env, appData, applicationDestination, ignoreDifferences, syncOptions)
+		appManifest, err := RenderAppEnv(gitUrl, gitBranch, config.ApplicationAnnotations, info, appData, applicationDestination, ignoreDifferences, syncOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -135,17 +149,18 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 	return ([]byte)(strings.Join(buf, "---\n")), nil
 }
 
-func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[string]string, env string, appData AppData, destination v1alpha1.ApplicationDestination, ignoreDifferences []v1alpha1.ResourceIgnoreDifferences, syncOptions v1alpha1.SyncOptions) (string, error) {
+func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[string]string, info *EnvironmentInfo, appData AppData, destination v1alpha1.ApplicationDestination, ignoreDifferences []v1alpha1.ResourceIgnoreDifferences, syncOptions v1alpha1.SyncOptions) (string, error) {
 	name := appData.AppName
 	annotations := map[string]string{}
 	labels := map[string]string{}
-	manifestPath := filepath.Join("environments", env, "applications", name, "manifests")
+	manifestPath := filepath.Join("environments", info.ParentEnvironmentName, "applications", name, "manifests")
 	for k, v := range applicationAnnotations {
 		annotations[k] = v
 	}
 	annotations["com.freiheit.kuberpult/team"] = appData.TeamName
 	annotations["com.freiheit.kuberpult/application"] = name
-	annotations["com.freiheit.kuberpult/environment"] = env
+	annotations["com.freiheit.kuberpult/environment"] = info.GetFullyQualifiedName()
+	annotations["com.freiheit.kuberpult/aa-parent-environment"] = info.ParentEnvironmentName
 	// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
 	// It has to start with a "/" to be absolute to the git repo.
 	// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
@@ -154,13 +169,13 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 	app := v1alpha1.Application{
 		TypeMeta: v1alpha1.ApplicationTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-%s", env, name),
+			Name:        fmt.Sprintf("%s-%s", info.GetFullyQualifiedName(), name),
 			Annotations: annotations,
 			Labels:      labels,
 			Finalizers:  calculateFinalizers(),
 		},
 		Spec: v1alpha1.ApplicationSpec{
-			Project: env,
+			Project: info.GetFullyQualifiedName(),
 			Source: v1alpha1.ApplicationSource{
 				RepoURL:        gitUrl,
 				Path:           manifestPath,

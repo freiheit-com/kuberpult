@@ -802,7 +802,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 		return err
 	}
 	for env, config := range configs {
-		if config.ArgoCd != nil {
+		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
 			err := r.updateArgoCdApps(ctx, transaction, &state, env, config)
 			if err != nil {
 				return err
@@ -812,14 +812,63 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	return nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env string, config config.EnvironmentConfig) error {
+func isAAEnv(config config.EnvironmentConfig) bool {
+	return config.ArgoCdConfigs != nil && len(config.ArgoCdConfigs.ArgoCdConfigurations) > 1
+}
+
+func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env string, cfg config.EnvironmentConfig) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	if !r.config.ArgoCdGenerateFiles {
 		return nil
 	}
+	if isAAEnv(cfg) {
+		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
+			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
+			logger.FromContext(ctx).Sugar().Warnf("No argo cd configuration found for environment %q.", env)
+			return nil
+		}
+		var conf *config.EnvironmentConfigArgoCd
+
+		if cfg.ArgoCd == nil {
+			conf = cfg.ArgoCdConfigs.ArgoCdConfigurations[0]
+		} else {
+			conf = cfg.ArgoCd
+		}
+
+		err := r.processApp(ctx, transaction, state, env, nil, conf, false)
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env string, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool) error {
+	prefix := ""
+	if commonEnvPrefix != nil {
+		prefix = *commonEnvPrefix
+	}
+	environmentInfo := &argocd.EnvironmentInfo{
+		ArgoCDConfig:          currentArgoCdConfiguration,
+		CommonPrefix:          prefix,
+		ParentEnvironmentName: env,
+		IsAAEnv:               isAAEnv,
+	}
+	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo)
+	return err
+}
+
+func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo) error {
 	fs := state.Filesystem
-	if apps, err := state.GetEnvironmentApplications(ctx, transaction, env); err != nil {
+	if apps, err := state.GetEnvironmentApplications(ctx, transaction, info.ParentEnvironmentName); err != nil {
 		return err
 	} else {
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
@@ -834,7 +883,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			if oneAppData == nil {
 				return fmt.Errorf("skipping app %s because it was not found in the database", appName)
 			}
-			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, appName)
+			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, info.ParentEnvironmentName, appName)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -856,7 +905,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 
 		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
 		defer spanRenderAndWrite.Finish()
-		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
+		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, info, appData); err != nil {
 			return err
 		} else {
 			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
@@ -865,7 +914,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
 				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
+				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", info.GetFullyQualifiedName()))
 				if err := util.WriteFile(fs, target, content, 0666); err != nil {
 					return err
 				}

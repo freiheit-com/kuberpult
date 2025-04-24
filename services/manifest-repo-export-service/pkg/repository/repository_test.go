@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -412,17 +413,166 @@ func TestArgoCDFileGeneration(t *testing.T) {
 			TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
 		},
 	}
+	commonName := "common"
 	tcs := []struct {
 		Name                string
 		shouldGenerateFiles bool
+		TransformerSetup    []Transformer
+		ExpectedFiles       []string
 	}{
 		{
 			Name:                "ArgoCD files should NOT be generated",
 			shouldGenerateFiles: false,
+			TransformerSetup:    transformers,
+			ExpectedFiles:       make([]string, 0),
 		},
 		{
 			Name:                "Argo CD files should be generated",
 			shouldGenerateFiles: true,
+			TransformerSetup:    transformers,
+			ExpectedFiles:       make([]string, 0),
+		},
+		{
+			Name:                "Create argo files for normal env",
+			shouldGenerateFiles: true,
+			TransformerSetup: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Server: "development",
+						},
+					}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			ExpectedFiles: []string{
+				"argocd/v1alpha1/production.yaml",
+			},
+		},
+		{
+			Name:                "Create argo files for normal AA env",
+			shouldGenerateFiles: true,
+			TransformerSetup: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &commonName,
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{
+									Destination: config.ArgoCdDestination{
+										Server: "development",
+									},
+									ConcreteEnvName: "test-1",
+								},
+								{
+									Destination: config.ArgoCdDestination{
+										Server: "development",
+									},
+									ConcreteEnvName: "test-2",
+								},
+							},
+						},
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"development": "manifest",
+					},
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			ExpectedFiles: []string{
+				"argocd/v1alpha1/common-development-test-1.yaml",
+				"argocd/v1alpha1/common-development-test-2.yaml",
+			},
+		},
+		{
+			Name:                "Create argo files for normal AA env",
+			shouldGenerateFiles: true,
+			TransformerSetup: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &commonName,
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{
+									Destination: config.ArgoCdDestination{
+										Server: "development",
+									},
+									ConcreteEnvName: "test-1",
+								},
+								{
+									Destination: config.ArgoCdDestination{
+										Server: "development",
+									},
+									ConcreteEnvName: "test-2",
+								},
+							},
+						},
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"development": "manifest",
+					},
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			ExpectedFiles: []string{
+				"argocd/v1alpha1/common-development-test-1.yaml",
+				"argocd/v1alpha1/common-development-test-2.yaml",
+			},
+		},
+		{
+			Name:                "Creating an AA env with only one config is same as regular env",
+			shouldGenerateFiles: true,
+			TransformerSetup: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &commonName,
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{
+									Destination: config.ArgoCdDestination{
+										Server: "development",
+									},
+									ConcreteEnvName: "test-1",
+								},
+							},
+						},
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"staging": "manifest",
+					},
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			ExpectedFiles: []string{
+				"argocd/v1alpha1/staging.yaml",
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -446,6 +596,46 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				}}, []string{"test"})
 				if err != nil {
 					t.Fatalf("could not create environment production: %v", err)
+				}
+				err = dbHandler.DBWriteEnvironment(ctx, transaction, "development", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					ArgoCdConfigs: &config.ArgoCDConfigs{
+						CommonEnvPrefix: &commonName,
+						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+							{
+								Destination: config.ArgoCdDestination{
+									Server: "development",
+								},
+								ConcreteEnvName: "test-1",
+							},
+							{
+								Destination: config.ArgoCdDestination{
+									Server: "development",
+								},
+								ConcreteEnvName: "test-2",
+							},
+						},
+					},
+				}, []string{"test"})
+				if err != nil {
+					t.Fatalf("could not create environment development: %v", err)
+				}
+				err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					ArgoCdConfigs: &config.ArgoCDConfigs{
+						CommonEnvPrefix: &commonName,
+						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+							{
+								Destination: config.ArgoCdDestination{
+									Namespace: &commonName,
+									Server:    "development",
+								},
+								ConcreteEnvName: "test-1",
+							},
+						},
+					},
+				}, []string{"test"})
+
+				if err != nil {
+					t.Fatalf("could not create environment staging: %v", err)
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
@@ -485,6 +675,14 @@ func TestArgoCDFileGeneration(t *testing.T) {
 			} else { //Argo CD dir exists
 				if !tc.shouldGenerateFiles {
 					t.Fatalf("ArgoCD files should not have been generated. Found ArgoCD directory.")
+				}
+			}
+
+			for _, currFileName := range tc.ExpectedFiles {
+				if _, err := state.Filesystem.Stat(currFileName); errors.Is(err, os.ErrNotExist) {
+					if tc.shouldGenerateFiles {
+						t.Fatalf("Expected %q file, but none was found. Filesystem content:\n%s", currFileName, strings.Join(listFiles(state.Filesystem), "\n"))
+					}
 				}
 			}
 
