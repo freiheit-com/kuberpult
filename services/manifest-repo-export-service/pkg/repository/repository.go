@@ -841,7 +841,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			logger.FromContext(ctx).Sugar().Warnf("No argo cd configuration found for environment %q.", env)
 			return nil
 		}
-		conf := &config.EnvironmentConfigArgoCd{}
+		var conf *config.EnvironmentConfigArgoCd
 		if cfg.ArgoCd == nil {
 			conf = cfg.ArgoCdConfigs.ArgoCdConfigurations[0]
 		} else {
