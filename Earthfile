@@ -46,6 +46,8 @@ deps:
     RUN mkdir -p database/migrations
     COPY database/migrations database/migrations
     COPY go.mod go.sum ./
+    COPY docker-compose-unittest.yml ./
+
     RUN go mod download
 
     SAVE ARTIFACT go.mod

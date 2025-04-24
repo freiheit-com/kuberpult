@@ -59,11 +59,11 @@ build: bin/main
 
 build-pr:
 	echo "build on pull request"
-	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=pr-$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) -P --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=pr-$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 build-main:
 	echo "build on main"
-	$(EARTHLY) --push +build-main --registry=$(IMAGE_REGISTRY) --tag=main-$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) -P --push +build-main --registry=$(IMAGE_REGISTRY) --tag=main-$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 .PHONY: cleanup-pr
 cleanup-pr:
@@ -88,7 +88,7 @@ test-dependencies:
 	make -C ../../pkg/api test
 
 test:
-	$(EARTHLY) +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
+	$(EARTHLY) -P +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
 	$(EARTHLY) +unit-test-ui
 
 test-go: $(ALL_GO_FILES) | proto

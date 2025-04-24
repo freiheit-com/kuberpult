@@ -213,23 +213,19 @@ func TestApplyQueuePanic(t *testing.T) {
 			t.Parallel()
 			// create a remote
 			ctx := testutil.MakeTestContext()
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
+			dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+			if err != nil {
+				t.Fatalf("SetupPostgres: %v", err)
 			}
-
-			dir := t.TempDir()
 
 			repoCfg := RepositoryConfig{
 				ArgoCdGenerateFiles:   true,
 				MaximumCommitsPerPush: 3,
 			}
-			dbConfig.DbHost = dir
 
 			migErr := db.RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
@@ -308,24 +304,20 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
+			dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+			if err != nil {
+				t.Fatalf("SetupPostgres: %v", err)
 			}
-
-			dir := t.TempDir()
 
 			repoCfg := RepositoryConfig{
 				ArgoCdGenerateFiles:   true,
 				MaximumCommitsPerPush: 3,
 				NetworkTimeout:        networkTimeout,
 			}
-			dbConfig.DbHost = dir
 
 			migErr := db.RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
@@ -1110,7 +1102,7 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 
 func SetupRepositoryBenchmark(t *testing.B, writeEslOnly bool) (Repository, *db.DBHandler) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}

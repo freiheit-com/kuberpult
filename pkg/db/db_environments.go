@@ -128,6 +128,7 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 		SELECT created, name, json, applications
 		FROM environments
 		WHERE name IN (?` + strings.Repeat(",?", len(environmentNames)-1) + `)
+		ORDER BY name
 		LIMIT ?
 	`)
 	span.SetTag("query", selectQuery)
@@ -186,7 +187,8 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 
 	selectQuery := h.AdaptQuery(`
 		SELECT name
-		FROM environments;
+		FROM environments
+		ORDER BY name;
 	`)
 
 	rows, err := transaction.QueryContext(ctx, selectQuery)

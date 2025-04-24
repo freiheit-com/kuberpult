@@ -18,9 +18,7 @@ package testutil
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -209,22 +207,4 @@ func NewIncrementalUUIDGeneratorForPageSizeTest() uuid.GenerateUUIDs {
 		gen: &fakeGenBase,
 	}
 	return fakeGen
-}
-
-// CreateMigrationsPath detects if it's running withing earthly/CI or locally and adapts the path to the migrations accordingly
-func CreateMigrationsPath(numDirs int) (string, error) {
-	const subDir = "/database/migrations/sqlite"
-	_, err := os.Stat("/kp")
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			wd, err := os.Getwd()
-			if err != nil {
-				return "", err
-			}
-			// this ".." sequence is necessary, because Getwd() returns the path of this go file (when running in an idea like goland):
-			return wd + strings.Repeat("/..", numDirs) + subDir, nil
-		}
-		return "", err
-	}
-	return "/kp" + subDir, nil
 }
