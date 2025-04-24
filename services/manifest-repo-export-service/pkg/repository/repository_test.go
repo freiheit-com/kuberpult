@@ -594,7 +594,9 @@ func TestArgoCDFileGeneration(t *testing.T) {
 						Server: "development",
 					},
 				}}, []string{"test"})
-
+				if err != nil {
+					t.Fatalf("could not create environment production: %v", err)
+				}
 				err = dbHandler.DBWriteEnvironment(ctx, transaction, "development", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
 					ArgoCdConfigs: &config.ArgoCDConfigs{
 						CommonEnvPrefix: &commonName,
@@ -614,6 +616,9 @@ func TestArgoCDFileGeneration(t *testing.T) {
 						},
 					},
 				}, []string{"test"})
+				if err != nil {
+					t.Fatalf("could not create environment development: %v", err)
+				}
 				err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
 					ArgoCdConfigs: &config.ArgoCDConfigs{
 						CommonEnvPrefix: &commonName,
@@ -630,7 +635,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				}, []string{"test"})
 
 				if err != nil {
-					t.Fatalf("could not create environment production: %v", err)
+					t.Fatalf("could not create environment staging: %v", err)
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,

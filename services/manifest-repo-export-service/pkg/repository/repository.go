@@ -824,42 +824,46 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	}
 	if isAAEnv(cfg) {
 		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
-			environmentInfo := &argocd.EnvironmentInfo{
-				ArgoCDConfig:          currentArgoCdConfiguration,
-				CommonPrefix:          *cfg.ArgoCdConfigs.CommonEnvPrefix,
-				ParentEnvironmentName: env,
-				IsAAEnv:               true,
-			}
-			err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo)
+			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
-
 		if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
 			logger.FromContext(ctx).Sugar().Warnf("No argo cd configuration found for environment %q.", env)
 			return nil
 		}
 		var conf *config.EnvironmentConfigArgoCd
+
 		if cfg.ArgoCd == nil {
 			conf = cfg.ArgoCdConfigs.ArgoCdConfigurations[0]
 		} else {
 			conf = cfg.ArgoCd
 		}
 
-		environmentInfo := &argocd.EnvironmentInfo{
-			ArgoCDConfig:          conf,
-			CommonPrefix:          "",
-			ParentEnvironmentName: env,
-			IsAAEnv:               false,
-		}
-		err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo)
+		err := r.processApp(ctx, transaction, state, env, nil, conf, false)
+
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env string, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool) error {
+	prefix := ""
+	if commonEnvPrefix != nil {
+		prefix = *commonEnvPrefix
+	}
+	environmentInfo := &argocd.EnvironmentInfo{
+		ArgoCDConfig:          currentArgoCdConfiguration,
+		CommonPrefix:          prefix,
+		ParentEnvironmentName: env,
+		IsAAEnv:               isAAEnv,
+	}
+	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo)
+	return err
 }
 
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo) error {
