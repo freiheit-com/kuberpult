@@ -1248,6 +1248,7 @@ func (c *CreateEnvironment) Transform(
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
+		return "", err
 	}
 	configFile := fs.Join(envDir, "config.json")
 	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
