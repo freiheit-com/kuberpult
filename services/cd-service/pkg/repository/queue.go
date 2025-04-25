@@ -72,6 +72,27 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 	}
 }
 
+func (q *queue) add2(ctx context.Context, transformers []Transformer) (<-chan error, bool) {
+	resultChannel := make(chan error, 1)
+	e := transformerBatch{
+		ctx:          ctx,
+		transformers: transformers,
+		result:       resultChannel,
+	}
+
+	defer q.GaugeQueueSize(ctx)
+
+	select {
+	case q.transformerBatches <- e:
+		return resultChannel, true
+	default:
+		//Channel is full, we don't want to put anything else there.
+		ErrQueueFull = fmt.Errorf("queue is full. Queue Capacity: %d.", cap(q.transformerBatches))
+		e.finish(ErrQueueFull)
+		return resultChannel, false
+	}
+}
+
 func makeQueueN(size uint) queue {
 	return queue{
 		transformerBatches: make(chan transformerBatch, size),
