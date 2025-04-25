@@ -960,27 +960,6 @@ func (*nilTransformer) GetEslVersion() db.TransformerID {
 	panic("getEslVersion")
 }
 
-type Result struct {
-	T  Transformer
-	ch chan struct{}
-}
-
-var funTransformers = func(t *testing.T, numTransformers uint) []Result {
-	result := []Result{}
-	for i := uint(0); i < numTransformers; i++ {
-		var ch = make(chan struct{}, 1)
-		var t = &mockTransformer{
-			sleepTime:   time.Millisecond * 500,
-			t:           t,
-			waitChannel: ch,
-		}
-		result = append(result, Result{
-			ch: ch,
-			T:  t,
-		})
-	}
-	return result
-}
 var noopTransformer = &nilTransformer{}
 
 func TestLimitTooSmall(t *testing.T) {
@@ -1008,48 +987,31 @@ func TestLimitTooSmall(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity)
 			ctx := testutil.MakeTestContext()
-			var setupTransformers = funTransformers(t, tc.QueueCapacity) // we fill it exactly to capacity
-			var allChannels = []chan struct{}{}
 			var i = 0
-			for _, tr := range setupTransformers {
+			for range tc.QueueCapacity {
 				t.Logf("adding setup transformers %d", i)
 				noop := &nilTransformer{}
 				errCh := repo.(*repository).applyDeferred(ctx, noop)
 				if errCh == nil {
 					t.Errorf("unexpected error in setup")
 				}
-				allChannels = append(allChannels, tr.ch)
 				i++
 			}
 
 			var actualError error = nil
-			var backgroundRoutine = make(chan struct{}, 1)
-			go func() {
-				t.Logf("go: applyDeferred")
 
-				errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
-				select {
-				case e := <-repo.(*repository).queue.transformerBatches:
-					t.Logf("go: ProcessQueueOnce start")
-					repo.(*repository).ProcessQueueOnce(ctx, e)
-					t.Logf("go: ProcessQueueOnce end")
-				default:
-				}
-				select {
-				case err := <-errCh:
-					actualError = err
-				}
-				backgroundRoutine <- struct{}{} // we're done
-			}()
-
-			<-backgroundRoutine // wait until the background routine is done
-
-			// allow all transformers to continue, so that our noopTransformer can get queued.
-			// we have to wait for it, otherwise we're not guaranteed to get a result from `errCh`
-			for i := range allChannels {
-				allChannels[i] <- struct{}{}
+			errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
+			select {
+			case e := <-repo.(*repository).queue.transformerBatches:
+				repo.(*repository).ProcessQueueOnce(ctx, e)
+			default:
+			}
+			select {
+			case err := <-errCh:
+				actualError = err
 			}
 
 			var expectedError = errMatcher{fmt.Sprintf("queue is full. Queue Capacity: %d.", tc.QueueCapacity)}
@@ -1062,59 +1024,8 @@ func TestLimitTooSmall(t *testing.T) {
 	}
 }
 
-func TestDebugQueue(t *testing.T) {
-
-	var c = make(chan string, 2)
-
-	var add = func(elem string) bool {
-		select {
-		case c <- elem:
-			return true
-		default:
-			//Channel is full, we don't want to put anything else there.
-			return false
-		}
-	}
-
-	t.Logf("len: 0==%d", len(c))
-	t.Logf("added: %v", add("a"))
-	//c <- "a"
-	t.Logf("len: 1==%d", len(c))
-	t.Logf("added: %v", add("b"))
-
-	t.Logf("len: 1==%d", len(c))
-	t.Logf("added: %v", add("c"))
-	//add("b")
-	//c <- "b"
-	t.Logf("len: 2==%d", len(c))
-	<-c
-	t.Logf("len: 1==%d", len(c))
-	<-c
-	t.Logf("len: 0==%d", len(c))
-
-	//return
-
-	repo, _ := SetupRepositoryTestWithAllOptions(t, false, 2)
-	r := repo.(*repository)
-	ctx := testutil.MakeTestContext()
-	//var setupTransformers = funTransformers(tc.InitialTransformers)
-	//var allChannels = []chan struct{}{}
-	//var i = 0
-	for i := 0; i < 10; i++ {
-		t.Logf("adding setup transformers %d", i)
-		noop := &nilTransformer{}
-		errCh, wasAdded := r.applyDeferred2(ctx, noop)
-		if errCh == nil {
-			t.Errorf("unexpected error in setup")
-		}
-		t.Logf("add succcess: %v", wasAdded)
-		t.Logf("queue size: %d", len(r.queue.transformerBatches))
-	}
-}
-
 func TestLimitFitsExactly(t *testing.T) {
 	tcs := []struct {
-		// GIVEN
 		Name          string
 		QueueCapacity uint // max queue size
 	}{
@@ -1138,77 +1049,51 @@ func TestLimitFitsExactly(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-
+			t.Parallel()
 			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity)
 			ctx := testutil.MakeTestContext()
-			var setupTransformers = funTransformers(t, tc.QueueCapacity-1) // we fill it so that 1 element still fits in
-			var allChannels = []chan struct{}{}
 			var errChannels = make([]<-chan error, 0)
 			var i = 0
-			for _, tr := range setupTransformers {
+			for range tc.QueueCapacity - 1 { // we fill it so that 1 element still fits in
 				t.Logf("adding setup transformers %d", i)
 				noop := &nilTransformer{}
 				errCh := repo.(*repository).applyDeferred(ctx, noop)
 				if errCh == nil {
 					t.Errorf("unexpected error in setup")
 				}
-				allChannels = append(allChannels, tr.ch)
 				errChannels = append(errChannels, errCh)
 				i++
 			}
 
 			var actualError error = nil
-			var backgroundRoutine = make(chan struct{}, 1)
-			go func() {
-				t.Logf("go: applyDeferred")
 
-				// first put int the new transformer, this should return a channel with error queue is full:
-				errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
+			// first put int the new transformer, this should return a channel with error queue is full:
+			errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
 
-				// then make sure all previous error channels are waited for:
-				for i2 := range errChannels {
-					e := <-repo.(*repository).queue.transformerBatches
-					//t.Logf("go: ProcessQueueOnce start")
-					repo.(*repository).ProcessQueueOnce(ctx, e)
+			// then make sure all previous error channels are waited for:
+			for i2 := range errChannels {
+				e := <-repo.(*repository).queue.transformerBatches
+				repo.(*repository).ProcessQueueOnce(ctx, e)
 
-					errCh := errChannels[i2]
-					err := <-errCh
-					if err != nil {
-						t.Errorf("initial channel return an error: %v", err)
-					}
+				errCh := errChannels[i2]
+				err := <-errCh
+				if err != nil {
+					t.Errorf("initial channel return an error: %v", err)
 				}
-
-				// now process the new transformer:
-
-				select {
-				case e := <-repo.(*repository).queue.transformerBatches:
-					t.Logf("go: ProcessQueueOnce start")
-					repo.(*repository).ProcessQueueOnce(ctx, e)
-					t.Logf("go: ProcessQueueOnce end")
-				default:
-				}
-				select {
-				case err := <-errCh:
-					actualError = err
-				}
-				backgroundRoutine <- struct{}{} // we're done
-			}()
-
-			<-backgroundRoutine // wait until the background routine is done
-
-			// allow all transformers to continue, so that our noopTransformer can get queued.
-			// we have to wait for it, otherwise we're not guaranteed to get a result from `errCh`
-			for i := range allChannels {
-				allChannels[i] <- struct{}{}
 			}
-			//
-			//	var expectedError = errMatcher{fmt.Sprintf("queue is full. Queue Capacity: %d.", tc.QueueCapacity)}
-			//	var expErrStr = fmt.Sprintf("%v", expectedError)
-			//	var actErrStr = fmt.Sprintf("%v", actualError)
-			//	if expErrStr != actErrStr {
-			//		t.Errorf("error mismatch, expected '%s', got '%s'", expErrStr, actErrStr)
-			//	}
-			//})
+
+			// now process the new transformer:
+			select {
+			case e := <-repo.(*repository).queue.transformerBatches:
+				t.Logf("go: ProcessQueueOnce start")
+				repo.(*repository).ProcessQueueOnce(ctx, e)
+				t.Logf("go: ProcessQueueOnce end")
+			default:
+			}
+			select {
+			case err := <-errCh:
+				actualError = err
+			}
 
 			var expectedErr error = nil
 			var expErrStr = fmt.Sprintf("%v", expectedErr)
