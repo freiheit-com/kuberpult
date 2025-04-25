@@ -921,29 +921,6 @@ func (resolver TestWebhookResolver) Resolve(insecure bool, req *http.Request) (*
 	return response, nil
 }
 
-type mockTransformer struct {
-	sleepTime   time.Duration
-	t           *testing.T
-	waitChannel chan struct{}
-}
-
-func (m *mockTransformer) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (commitMsg string, e error) {
-	m.t.Logf("starting to sleep...")
-	<-m.waitChannel
-	//time.Sleep(m.sleepTime)
-	m.t.Logf("done sleeping.")
-	return "", nil
-}
-func (*mockTransformer) GetDBEventType() db.EventType {
-	return "mockEvent"
-}
-func (*mockTransformer) SetEslVersion(_ db.TransformerID) {
-	// nothing to do
-}
-func (*mockTransformer) GetEslVersion() db.TransformerID {
-	panic("getEslVersion")
-}
-
 type nilTransformer struct {
 }
 
