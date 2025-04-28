@@ -266,11 +266,12 @@ func (h *DBHandler) DBRemoveAppFromEnvironment(ctx context.Context, tx *sql.Tx, 
 	if err != nil {
 		return err
 	}
-	if dbEnv != nil { // if this is nil, then there was no change made in `addAppToEnvironment`
-		err = h.insertEnvironmentHistoryRow(ctx, tx, environmentName, dbEnv.Config, dbEnv.Applications, false)
-		if err != nil {
-			return err
-		}
+	if dbEnv == nil {
+		return fmt.Errorf("environment does not exist: '%s'", environmentName)
+	}
+	err = h.insertEnvironmentHistoryRow(ctx, tx, environmentName, dbEnv.Config, dbEnv.Applications, false)
+	if err != nil {
+		return err
 	}
 	return nil
 }

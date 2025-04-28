@@ -1225,7 +1225,7 @@ func (u *DeleteEnvFromApp) Transform(
 
 	err = state.DBHandler.DBRemoveAppFromEnvironment(ctx, transaction, u.Environment, u.Application)
 	if err != nil {
-		return "", fmt.Errorf("Couldn't write environment: %s into environments table, error: %w", u.Environment, err)
+		return "", fmt.Errorf("Couldn't write environment '%s' into environments table, error: %w", u.Environment, err)
 	}
 	t.DeleteEnvFromApp(u.Application, u.Environment)
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
