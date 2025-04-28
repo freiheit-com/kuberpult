@@ -89,11 +89,11 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 				}
 				return err
 			}
-			environment, application := getEnvironmentAndName(ev.Application.Annotations)
+			concreteEnvironment, application, parentEnvironment := getArgoApplicationData(ev.Application.Annotations)
 			if application == "" {
 				continue
 			}
-			k := Key{Application: application, Environment: environment}
+			k := ArgoAppData{Application: application, Environment: concreteEnvironment, ParentEnvironment: parentEnvironment}
 
 			var eventDiscarded = false
 			switch ev.Type {
@@ -147,8 +147,8 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 	})
 }
 
-func getEnvironmentAndName(annotations map[string]string) (string, string) {
-	return annotations["com.freiheit.kuberpult/environment"], annotations["com.freiheit.kuberpult/application"]
+func getArgoApplicationData(annotations map[string]string) (string, string, string) {
+	return annotations["com.freiheit.kuberpult/environment"], annotations["com.freiheit.kuberpult/application"], annotations["com.freiheit.kuberpult/aa-parent-environment"]
 }
 
 type ArgoEvent struct {
