@@ -217,13 +217,13 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 
 func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *RepositoryConfig) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig := &db.DBConfig{
-		MigrationsPath: migrationsPath,
-		DriverName:     "sqlite3",
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
 	}
 
 	dir := t.TempDir()
@@ -240,7 +240,6 @@ func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *Reposi
 		t.Fatalf("error waiting %v", err)
 		return nil, nil, nil
 	}
-	dbConfig.DbHost = dir
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
@@ -1518,13 +1517,13 @@ func convertToSet(list []uint64) map[int]bool {
 
 func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig := &db.DBConfig{
-		MigrationsPath: migrationsPath,
-		DriverName:     "sqlite3",
+	dbConfig, err := db.SetupPostgresContainer(ctx, nil, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
 
 	dir := t.TempDir()
@@ -1553,7 +1552,6 @@ func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 	}
 
 	if dbConfig != nil {
-		dbConfig.DbHost = dir
 
 		migErr := db.RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {

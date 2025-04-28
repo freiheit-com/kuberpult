@@ -29,7 +29,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
@@ -213,23 +212,19 @@ func TestApplyQueuePanic(t *testing.T) {
 			t.Parallel()
 			// create a remote
 			ctx := testutil.MakeTestContext()
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
+			dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+			if err != nil {
+				t.Fatalf("SetupPostgres: %v", err)
 			}
-
-			dir := t.TempDir()
 
 			repoCfg := RepositoryConfig{
 				ArgoCdGenerateFiles:   true,
 				MaximumCommitsPerPush: 3,
 			}
-			dbConfig.DbHost = dir
 
 			migErr := db.RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
@@ -308,24 +303,20 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
+			migrationsPath, err := db.CreateMigrationsPath(4)
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
+			dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+			if err != nil {
+				t.Fatalf("SetupPostgres: %v", err)
 			}
-
-			dir := t.TempDir()
 
 			repoCfg := RepositoryConfig{
 				ArgoCdGenerateFiles:   true,
 				MaximumCommitsPerPush: 3,
 				NetworkTimeout:        networkTimeout,
 			}
-			dbConfig.DbHost = dir
 
 			migErr := db.RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
@@ -930,95 +921,164 @@ func (resolver TestWebhookResolver) Resolve(insecure bool, req *http.Request) (*
 	return response, nil
 }
 
-func TestLimit(t *testing.T) {
-	transformers := []Transformer{
-		&CreateEnvironment{
-			Environment: "production",
-			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-		},
-		&CreateApplicationVersion{
-			Application: "test",
-			Manifests: map[string]string{
-				"production": "manifest",
-			},
-			Version: 1,
-		},
-		&CreateApplicationVersion{
-			Application: "test",
-			Manifests: map[string]string{
-				"production": "manifest2",
-			},
-			Version: 2,
-		},
-	}
+type nilTransformer struct {
+}
+
+func (m *nilTransformer) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (commitMsg string, e error) {
+	return "", nil
+}
+func (*nilTransformer) GetDBEventType() db.EventType {
+	return "nilEvent"
+}
+func (*nilTransformer) SetEslVersion(_ db.TransformerID) {
+	// nothing to do
+}
+func (*nilTransformer) GetEslVersion() db.TransformerID {
+	panic("getEslVersion")
+}
+
+var noopTransformer = &nilTransformer{}
+
+func TestLimitTooSmall(t *testing.T) {
 	tcs := []struct {
-		Name               string
-		numberBatchActions int
-		ShouldSucceed      bool
-		limit              int
-		Setup              []Transformer
-		ExpectedError      error
+		Name          string
+		QueueCapacity uint // max queue size
 	}{
 		{
-			Name:               "less than maximum number of requests",
-			ShouldSucceed:      true,
-			limit:              5,
-			numberBatchActions: 1,
-			Setup:              transformers,
-			ExpectedError:      nil,
+			Name:          "size 1: queue full",
+			QueueCapacity: 1,
 		},
 		{
-			Name:               "more than the maximum number of requests",
-			numberBatchActions: 10,
-			limit:              5,
-			ShouldSucceed:      false,
-			Setup:              transformers,
-			ExpectedError:      errMatcher{"queue is full. Queue Capacity: 5."},
+			Name:          "size 2: queue full",
+			QueueCapacity: 2,
+		},
+		{
+			Name:          "size 5: queue full",
+			QueueCapacity: 15,
+		},
+		{
+			Name:          "size 1000: queue full",
+			QueueCapacity: 1000,
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-
-			repo := SetupRepositoryTestWithDB(t)
+			t.Parallel()
+			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false)
 			ctx := testutil.MakeTestContext()
-			for _, tr := range tc.Setup {
-				errCh := repo.(*repository).applyDeferred(ctx, tr)
-				select {
-				case e := <-repo.(*repository).queue.transformerBatches:
-					repo.(*repository).ProcessQueueOnce(ctx, e)
-				default:
+			var i = 0
+			for range tc.QueueCapacity {
+				t.Logf("adding setup transformers %d", i)
+				noop := &nilTransformer{}
+				errCh := repo.(*repository).applyDeferred(ctx, noop)
+				if errCh == nil {
+					t.Errorf("unexpected error in setup")
 				}
-				select {
-				case err := <-errCh:
-					if err != nil {
-						t.Fatal(err)
-					}
-				default:
+				i++
+			}
+
+			var actualError error = nil
+
+			errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
+			select {
+			case e := <-repo.(*repository).queue.transformerBatches:
+				repo.(*repository).ProcessQueueOnce(ctx, e)
+			default:
+			}
+			select {
+			case err := <-errCh:
+				actualError = err
+			}
+
+			var expectedError = errMatcher{fmt.Sprintf("queue is full. Queue Capacity: %d.", tc.QueueCapacity)}
+			var expErrStr = fmt.Sprintf("%v", expectedError)
+			var actErrStr = fmt.Sprintf("%v", actualError)
+			if expErrStr != actErrStr {
+				t.Errorf("error mismatch, expected '%s', got '%s'", expErrStr, actErrStr)
+			}
+		})
+	}
+}
+
+func TestLimitFitsExactly(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		QueueCapacity uint // max queue size
+	}{
+		{
+			Name:          "size 1: queue has room",
+			QueueCapacity: 1,
+		},
+		{
+			Name:          "size 2: queue has room",
+			QueueCapacity: 2,
+		},
+		{
+			Name:          "size 20: queue has room",
+			QueueCapacity: 20,
+		},
+		{
+			Name:          "size 1000: queue has room",
+			QueueCapacity: 1000,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false)
+			ctx := testutil.MakeTestContext()
+			var errChannels = make([]<-chan error, 0)
+			var i = 0
+			for range tc.QueueCapacity - 1 { // we fill it so that 1 element still fits in
+				t.Logf("adding setup transformers %d", i)
+				noop := &nilTransformer{}
+				errCh := repo.(*repository).applyDeferred(ctx, noop)
+				if errCh == nil {
+					t.Errorf("unexpected error in setup")
+				}
+				errChannels = append(errChannels, errCh)
+				i++
+			}
+
+			var actualError error = nil
+
+			// first put int the new transformer, this should return a channel with error queue is full:
+			errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
+
+			// then make sure all previous error channels are waited for:
+			for i2 := range errChannels {
+				e := <-repo.(*repository).queue.transformerBatches
+				repo.(*repository).ProcessQueueOnce(ctx, e)
+
+				errCh := errChannels[i2]
+				err := <-errCh
+				if err != nil {
+					t.Errorf("initial channel return an error: %v", err)
 				}
 			}
 
-			expectedErrorNumber := tc.numberBatchActions - tc.limit
-			actualErrorNumber := 0
-			for i := 0; i < tc.numberBatchActions; i++ {
-				errCh := repo.(*repository).applyDeferred(ctx, transformers[0])
-				select {
-				case err := <-errCh:
-					if tc.ShouldSucceed {
-						t.Fatalf("Got an error at iteration %d and was not expecting it %v\n", i, err)
-					}
-					//Should get some errors, check if they are the ones we expect
-					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-						t.Errorf("error mismatch (-want, +got):\n%s", diff)
-					}
-					actualErrorNumber += 1
-				default:
-					// If there is no error,
-				}
+			// now process the new transformer:
+			select {
+			case e := <-repo.(*repository).queue.transformerBatches:
+				t.Logf("go: ProcessQueueOnce start")
+				repo.(*repository).ProcessQueueOnce(ctx, e)
+				t.Logf("go: ProcessQueueOnce end")
+			default:
 			}
-			if expectedErrorNumber > 0 && expectedErrorNumber != actualErrorNumber {
-				t.Errorf("error number mismatch expected: %d, got %d", expectedErrorNumber, actualErrorNumber)
+			select {
+			case err := <-errCh:
+				actualError = err
 			}
+
+			var expectedErr error = nil
+			var expErrStr = fmt.Sprintf("%v", expectedErr)
+			var actErrStr = fmt.Sprintf("%v", actualError)
+			if expErrStr != actErrStr {
+				t.Errorf("error mismatch, expected '%s', got '%s'", expErrStr, actErrStr)
+			}
+
 		})
 	}
 }
@@ -1110,7 +1170,7 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 
 func SetupRepositoryBenchmark(t *testing.B, writeEslOnly bool) (Repository, *db.DBHandler) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
