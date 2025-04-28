@@ -239,6 +239,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	return nil
 }
 
+// DBAppendAppToEnvironment returns an error if the env does not exist yet
 func (h *DBHandler) DBAppendAppToEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, newApp string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBAppendAppToEnvironment")
 	span.SetTag("environment", environmentName)
@@ -248,15 +249,17 @@ func (h *DBHandler) DBAppendAppToEnvironment(ctx context.Context, tx *sql.Tx, en
 	if err != nil {
 		return err
 	}
-	if dbEnv != nil { // if this is nil, then there was no change made in `addAppToEnvironment`
-		err = h.insertEnvironmentHistoryRow(ctx, tx, environmentName, dbEnv.Config, dbEnv.Applications, false)
-		if err != nil {
-			return err
-		}
+	if dbEnv == nil {
+		return fmt.Errorf("append to env with environment that does not exist: '%s'", environmentName)
+	}
+	err = h.insertEnvironmentHistoryRow(ctx, tx, environmentName, dbEnv.Config, dbEnv.Applications, false)
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
+// DBRemoveAppFromEnvironment returns an error if the env does not exist yet
 func (h *DBHandler) DBRemoveAppFromEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, toDeleteApp string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBRemoveAppFromEnvironment")
 	span.SetTag("environment", environmentName)
@@ -267,7 +270,7 @@ func (h *DBHandler) DBRemoveAppFromEnvironment(ctx context.Context, tx *sql.Tx, 
 		return err
 	}
 	if dbEnv == nil {
-		return fmt.Errorf("environment does not exist: '%s'", environmentName)
+		return fmt.Errorf("remove from env with environment does not exist: '%s'", environmentName)
 	}
 	err = h.insertEnvironmentHistoryRow(ctx, tx, environmentName, dbEnv.Config, dbEnv.Applications, false)
 	if err != nil {
