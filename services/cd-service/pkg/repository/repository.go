@@ -644,10 +644,6 @@ func (r *repository) applyDeferred(ctx context.Context, transformers ...Transfor
 	return r.queue.add(ctx, transformers)
 }
 
-func (r *repository) applyDeferred2(ctx context.Context, transformers ...Transformer) (<-chan error, bool) {
-	return r.queue.add2(ctx, transformers)
-}
-
 func (r *repository) GetQueue() queue {
 	return r.queue
 }
