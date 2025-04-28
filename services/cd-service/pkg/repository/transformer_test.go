@@ -3312,10 +3312,10 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 }
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
-	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5)
+	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true)
 }
 
-func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint) (Repository, *db.DBHandler) {
+func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint, startProcessQueue bool) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -3343,14 +3343,25 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	}
 	repoCfg.DBHandler = dbHandler
 
-	repo, _, err := New2(
-		testutil.MakeTestContext(),
-		repoCfg,
-	)
-	if err != nil {
-		t.Fatal(err)
+	if startProcessQueue {
+		repo, err := New(
+			testutil.MakeTestContext(),
+			repoCfg,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return repo, dbHandler
+	} else {
+		repo, _, err := New2(
+			testutil.MakeTestContext(),
+			repoCfg,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return repo, dbHandler
 	}
-	return repo, dbHandler
 }
 
 // Injects an error in the filesystem of the state

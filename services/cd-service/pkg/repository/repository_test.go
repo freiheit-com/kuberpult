@@ -965,7 +965,7 @@ func TestLimitTooSmall(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity)
+			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false)
 			ctx := testutil.MakeTestContext()
 			var i = 0
 			for range tc.QueueCapacity {
@@ -1027,7 +1027,7 @@ func TestLimitFitsExactly(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity)
+			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false)
 			ctx := testutil.MakeTestContext()
 			var errChannels = make([]<-chan error, 0)
 			var i = 0
