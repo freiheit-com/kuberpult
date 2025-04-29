@@ -31,6 +31,12 @@ type Dispatcher struct {
 	versionClient versions.VersionClient
 }
 
+type ArgoAppData struct {
+	Environment       string
+	Application       string
+	ParentEnvironment string
+}
+
 func NewDispatcher(sink ArgoEventProcessor, vc versions.VersionClient) *Dispatcher {
 	rs := &Dispatcher{
 		sink:          sink,
@@ -39,9 +45,9 @@ func NewDispatcher(sink ArgoEventProcessor, vc versions.VersionClient) *Dispatch
 	return rs
 }
 
-func (r *Dispatcher) Dispatch(ctx context.Context, k Key, ev *v1alpha1.ApplicationWatchEvent) *ArgoEvent {
+func (r *Dispatcher) Dispatch(ctx context.Context, k ArgoAppData, ev *v1alpha1.ApplicationWatchEvent) *ArgoEvent {
 	revision := ev.Application.Status.Sync.Revision
-	version, err := r.versionClient.GetVersion(ctx, revision, k.Environment, k.Application)
+	version, err := r.versionClient.GetVersion(ctx, revision, k.ParentEnvironment, k.Application)
 	if err != nil {
 		logger.FromContext(ctx).Sugar().Warnf("error getting version %q for app %q on environment %q: %v", revision, k.Application, k.Environment, err)
 		return nil
@@ -50,7 +56,7 @@ func (r *Dispatcher) Dispatch(ctx context.Context, k Key, ev *v1alpha1.Applicati
 		logger.FromContext(ctx).Sugar().Infof("version %q for app %q on environment %q not found.", revision, k.Application, k.Environment)
 		return nil
 	}
-	return r.sendEvent(ctx, k, version, ev)
+	return r.sendEvent(ctx, Key{Environment: k.Environment, Application: k.Application}, version, ev)
 }
 
 func (r *Dispatcher) sendEvent(ctx context.Context, k Key, version *versions.VersionInfo, ev *v1alpha1.ApplicationWatchEvent) *ArgoEvent {
