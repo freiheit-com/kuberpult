@@ -117,9 +117,10 @@ func TestDispatcher(t *testing.T) {
 				lastEvent: nil,
 			}
 			dispatcher := NewDispatcher(aep, dvc)
-			key := Key{
-				Application: tc.Application,
-				Environment: tc.Environment,
+			key := ArgoAppData{
+				Application:       tc.Application,
+				Environment:       tc.Environment,
+				ParentEnvironment: tc.Environment,
 			}
 			dispatcher.Dispatch(ctx, key, event)
 			gotEvent := aep.lastEvent != nil

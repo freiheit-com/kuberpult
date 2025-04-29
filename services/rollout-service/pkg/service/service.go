@@ -37,6 +37,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const ARGO_APP_ENVIRONMENT_TAG = "com.freiheit.kuberpult/environment"
+const ARGO_APP_PARENT_ENVIRONMENT_TAG = "com.freiheit.kuberpult/aa-parent-environment"
+const ARGO_APP_APPLICATION_TAG = "com.freiheit.kuberpult/application"
+
 // this is a simpler version of ApplicationServiceClient from the application package
 type SimplifiedApplicationServiceClient interface {
 	Watch(ctx context.Context, qry *application.ApplicationQuery, opts ...grpc.CallOption) (application.ApplicationService_WatchClient, error)
@@ -93,6 +97,10 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 			if application == "" {
 				continue
 			}
+			if parentEnvironment == "" {
+				parentEnvironment = concreteEnvironment //For backwards compatibility, older apps might not have the aa-parent-environment tag
+			}
+
 			k := ArgoAppData{Application: application, Environment: concreteEnvironment, ParentEnvironment: parentEnvironment}
 
 			var eventDiscarded = false
@@ -148,7 +156,7 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 }
 
 func getArgoApplicationData(annotations map[string]string) (string, string, string) {
-	return annotations["com.freiheit.kuberpult/environment"], annotations["com.freiheit.kuberpult/application"], annotations["com.freiheit.kuberpult/aa-parent-environment"]
+	return annotations[ARGO_APP_ENVIRONMENT_TAG], annotations[ARGO_APP_APPLICATION_TAG], annotations[ARGO_APP_PARENT_ENVIRONMENT_TAG]
 }
 
 type ArgoEvent struct {

@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"sync"
 	"time"
@@ -119,7 +118,6 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEve
 		Application: ev.Application,
 		Environment: ev.Environment,
 	}
-	fmt.Printf("Attempting to broadcast event for %q on %q...\n", k.Application, k.Environment)
 	if b.state[k] == nil {
 		//exhaustruct:ignore
 		b.state[k] = &appState{}
@@ -127,10 +125,8 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEve
 	logger.FromContext(ctx).Sugar().Infof("Received current argo event: %v", ev)
 	msg := b.state[k].applyArgoEvent(&ev)
 	if msg == nil {
-		fmt.Println("Skipped event")
 		return nil
 	}
-	fmt.Printf("Broadcasting... %v", msg)
 	logger.FromContext(ctx).Sugar().Infof("argo event Applied! broadcasting: %v", ev)
 	desub := []chan *BroadcastEvent{}
 	for l := range b.listener {
@@ -212,7 +208,6 @@ func (b *Broadcast) StreamStatus(_ *api.StreamStatusRequest, svc api.RolloutServ
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Sent status %v", streamStatus(r))
 		case <-ctx.Done():
 			err := ctx.Err()
 			if errors.Is(err, context.Canceled) {

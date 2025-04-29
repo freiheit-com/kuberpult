@@ -87,13 +87,14 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName, en
 		}
 	}(row)
 
-	event := ArgoEvent{
-		App:       "",
-		Env:       "",
-		JsonEvent: []byte(""),
-		Discarded: false,
-	}
+	var toReturn *ArgoEvent
 	if row.Next() {
+		event := ArgoEvent{
+			App:       "",
+			Env:       "",
+			JsonEvent: []byte(""),
+			Discarded: false,
+		}
 		err := row.Scan(&event.App, &event.Env, &event.JsonEvent, &event.Discarded)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -101,10 +102,14 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName, en
 			}
 			return nil, onErr(fmt.Errorf("Error table for next argo_cd_events. Error: %w\n", err))
 		}
+		toReturn = &event
+	} else {
+		toReturn = nil
 	}
+
 	err = closeRows(row)
 	if err != nil {
 		return nil, onErr(err)
 	}
-	return &event, nil
+	return toReturn, nil
 }
