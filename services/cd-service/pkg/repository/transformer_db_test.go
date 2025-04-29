@@ -3276,6 +3276,16 @@ func TestUndeployTransformerDB(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, &CreateEnvironment{Environment: "production"})
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Did no expect error but got):\n%+v", err)
+			}
+			err = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
 					return err

@@ -3627,7 +3627,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: errMatcher{"Couldn't write environment '' into environments table, error: environment does not exist: ''"},
+				TransformerError: errMatcher{"Couldn't write environment '' into environments table, error: remove from env with environment does not exist: ''"},
 			},
 			shouldSucceed: false,
 		},
