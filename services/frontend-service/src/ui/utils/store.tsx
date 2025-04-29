@@ -1328,7 +1328,7 @@ class RolloutStatusGetter {
         return status.rolloutStatus;
     }
 
-    getAllAppStatusForAAEnv(
+    getAppStatusForAAEnv(
         application: string,
         applicationVersion: number | undefined,
         parentEnvironmentName: string,
