@@ -1328,7 +1328,7 @@ class RolloutStatusGetter {
         return status.rolloutStatus;
     }
 
-    getAppStatusForAAEnv(
+    getAllAppStatusForAAEnv(
         application: string,
         applicationVersion: number | undefined,
         parentEnvironmentName: string,
@@ -1356,6 +1356,7 @@ class RolloutStatusGetter {
         config: EnvironmentConfig | undefined
     ): RolloutStatus | undefined {
         const statuses = this.getAllAppStatusForAAEnv(application, applicationVersion, parentEnvironmentName, config);
+
         if (statuses.length === 0 || statuses.filter((curr) => curr[1] !== undefined).length === 0) {
             return undefined;
         }
