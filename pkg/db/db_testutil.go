@@ -94,11 +94,11 @@ func waitForHealthyContainers(directory string) error {
 
 		// Parse the output to check if all services are healthy
 		output := out.String()
-		fmt.Println(output) // Print the current status for debugging
 		if allServicesHealthy(output) {
 			fmt.Println("All services are up and healthy")
 			return nil
 		}
+		fmt.Println(output) // Print the current status for debugging
 
 		// Wait before retrying
 		time.Sleep(retryInterval)

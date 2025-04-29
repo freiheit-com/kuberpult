@@ -2085,6 +2085,7 @@ func TestDeploymentHistory(t *testing.T) {
 	versionOne := int64(1)
 	versionTwo := int64(2)
 	dev := "dev"
+	staging := "staging"
 
 	tcs := []struct {
 		Name             string
@@ -2427,6 +2428,13 @@ func TestDeploymentHistory(t *testing.T) {
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
 						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &staging,
 					},
 				},
 				&repository.CreateApplicationVersion{
