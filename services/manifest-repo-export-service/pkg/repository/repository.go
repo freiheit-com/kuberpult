@@ -881,7 +881,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
 			}
 			if oneAppData == nil {
-				return fmt.Errorf("skipping app %s because it was not found in the database", appName)
+				return fmt.Errorf("skipping app '%s' because it was not found in the apps table", appName)
 			}
 			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, info.ParentEnvironmentName, appName)
 			if err != nil {

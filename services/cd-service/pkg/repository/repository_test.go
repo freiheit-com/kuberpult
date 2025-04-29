@@ -216,7 +216,7 @@ func TestApplyQueuePanic(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
-			dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+			dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 			if err != nil {
 				t.Fatalf("SetupPostgres: %v", err)
 			}
@@ -307,7 +307,7 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CreateMigrationsPath error: %v", err)
 			}
-			dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+			dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 			if err != nil {
 				t.Fatalf("SetupPostgres: %v", err)
 			}
@@ -571,14 +571,15 @@ func TestApplyQueue(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo := SetupRepositoryTestWithDB(t)
+			repo, _ := SetupRepositoryTestWithAllOptions(t, false, 100, true)
 			ctx := testutil.MakeTestContext()
 			repoInternal := repo.(*repository)
 			// Block the worker so that we have multiple items in the queue
 			finished := make(chan struct{})
 			started := make(chan struct{}, 1)
+			var applyErr error = nil
 			go func() {
-				repo.Apply(testutil.MakeTestContext(), &SlowTransformer{finished: finished, started: started})
+				applyErr = repo.Apply(testutil.MakeTestContext(), &SlowTransformer{finished: finished, started: started})
 			}()
 			<-started
 			// The worker go routine is now blocked. We can move some items into the queue now.
@@ -591,6 +592,9 @@ func TestApplyQueue(t *testing.T) {
 				if action.Transformer != nil {
 					results[i] = repoInternal.applyDeferred(ctx, action.Transformer)
 				} else {
+					_ = repoInternal.applyDeferred(ctx, &CreateEnvironment{
+						Environment: "development",
+					})
 					tf := &CreateApplicationVersion{
 						Application: "foo",
 						Manifests: map[string]string{
@@ -608,8 +612,13 @@ func TestApplyQueue(t *testing.T) {
 			finished <- struct{}{}
 			// Check for the correct errors
 			for i, action := range tc.Actions {
-				if err := <-results[i]; err != nil && err.Error() != action.ExpectedError.Error() {
-					t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
+				err := <-results[i]
+				expErrStr := ""
+				if action.ExpectedError != nil {
+					expErrStr = action.ExpectedError.Error()
+				}
+				if err != nil && err.Error() != expErrStr {
+					t.Errorf("result[%d] error is not \"%s\" but got \"%v\"", i, expErrStr, err)
 				}
 			}
 			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -619,7 +628,9 @@ func TestApplyQueue(t *testing.T) {
 				}
 				return nil
 			})
-
+			if applyErr != nil {
+				t.Fatalf("could not run slow transformer: %v", applyErr)
+			}
 		})
 	}
 }

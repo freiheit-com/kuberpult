@@ -560,7 +560,7 @@ func TestOverviewService(t *testing.T) {
 			DB:   true,
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
-					Environment: "development",
+					Environment: dev,
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
@@ -582,7 +582,7 @@ func TestOverviewService(t *testing.T) {
 					TransformerEslVersion: 1,
 					Application:           "test",
 					Manifests: map[string]string{
-						"dev": "v1",
+						dev: "v1",
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -598,7 +598,7 @@ func TestOverviewService(t *testing.T) {
 					TransformerEslVersion: 2,
 					Application:           "test",
 					Manifests: map[string]string{
-						"dev": "v2",
+						dev: "v2",
 					},
 				},
 			},
@@ -624,7 +624,7 @@ func TestOverviewService(t *testing.T) {
 					t.Errorf("dev environmentGroup has wrong name: %q", devGroup.EnvironmentGroupName)
 				}
 				dev := devGroup.Environments[0]
-				if dev.Name != "development" {
+				if dev.Name != "dev" {
 					t.Errorf("development environment has wrong name: %q", dev.Name)
 				}
 				if dev.Config.Upstream == nil {
@@ -707,7 +707,7 @@ func TestOverviewService(t *testing.T) {
 }
 
 func TestGetApplicationDetails(t *testing.T) {
-	var dev = "dev"
+	//var dev = "dev"
 	var env = "development"
 	var secondEnv = "development2"
 	var stagingGroup = "stagingGroup"
@@ -785,7 +785,17 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: &env,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &secondEnv,
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -841,7 +851,17 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: &env,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &secondEnv,
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -933,7 +953,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: &env,
 					},
 				},
 				&repository.CreateEnvironment{
@@ -2065,6 +2085,7 @@ func TestDeploymentHistory(t *testing.T) {
 	versionOne := int64(1)
 	versionTwo := int64(2)
 	dev := "dev"
+	staging := "staging"
 
 	tcs := []struct {
 		Name             string
@@ -2407,6 +2428,13 @@ func TestDeploymentHistory(t *testing.T) {
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
 						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &staging,
 					},
 				},
 				&repository.CreateApplicationVersion{

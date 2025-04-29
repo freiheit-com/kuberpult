@@ -4632,7 +4632,7 @@ func setupDB(t *testing.T) *DBHandler {
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
 
-	dbConfig, err := SetupPostgresContainer(ctx, t, dir, false, t.Name())
+	dbConfig, err := ConnectToPostgresContainer(ctx, t, dir, false, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
@@ -4660,7 +4660,7 @@ func SetupRepositoryTestWithDB(t *testing.T, runMigrations bool) (*DBHandler, *D
 
 func SetupRepositoryTestWithDBMigrationPath(t *testing.T, migrationsPath string, runMigrations bool) (*DBHandler, *DBConfig) {
 	ctx := context.Background()
-	dbConfig, err := SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")

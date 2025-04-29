@@ -17,16 +17,13 @@ Copyright freiheit.com*/
 package db
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
-	"time"
 )
 
 // simpleHash is a basic hash function for strings
@@ -56,87 +53,7 @@ func CreateMigrationsPath(numDirs int) (string, error) {
 	return "/kp" + subDir, nil
 }
 
-// GetGitRootDirectory runs `git rev-parse --show-toplevel` and returns the top-level directory of the git repository
-func GetGitRootDirectory() (string, error) {
-	// Create the command for "git rev-parse --show-toplevel"
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-
-	// Capture the output
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	// Run the command
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to run 'git rev-parse --show-toplevel': %w", err)
-	}
-
-	// Return the output as a string, trimming any extra whitespace
-	return strings.TrimSpace(out.String()), nil
-}
-
-// waitForHealthyContainers checks the health status of all services
-// and waits until they are all marked as healthy.
-func waitForHealthyContainers(directory string) error {
-	const maxRetries = 30
-	const retryInterval = 5 * time.Second
-
-	for i := 0; i < maxRetries; i++ {
-		// Run "docker compose ps" to check the health status
-		cmd := exec.Command("docker", "compose", "ps")
-		cmd.Dir = directory
-
-		var out bytes.Buffer
-		cmd.Stdout = &out
-
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to run 'docker compose ps': %w", err)
-		}
-
-		// Parse the output to check if all services are healthy
-		output := out.String()
-		fmt.Println(output) // Print the current status for debugging
-		if allServicesHealthy(output) {
-			fmt.Println("All services are up and healthy")
-			return nil
-		}
-
-		// Wait before retrying
-		time.Sleep(retryInterval)
-	}
-
-	return fmt.Errorf("timed out waiting for services to become healthy")
-}
-
-// allServicesHealthy parses the output of "docker compose ps" and checks if all services are healthy.
-func allServicesHealthy(output string) bool {
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		if strings.Contains(line, "unhealthy") || strings.Contains(line, "starting") {
-			return false
-		}
-	}
-	return true
-}
-func RunDockerComposeUp(workdir string) error {
-	// Create the command for "docker compose up -d"
-	cmd := exec.Command("docker", "compose", "-f", "docker-compose-unittest.yml", "up", "-d")
-	cmd.Dir = workdir
-
-	// Run the command and capture the output
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to run 'docker compose up -d': %w\nOutput: %s", err, string(output))
-	}
-
-	err = waitForHealthyContainers(workdir)
-	if err != nil {
-		return fmt.Errorf("failed to wait or all docker services to be up: %w", err)
-	}
-
-	return nil
-}
-
-func SetupPostgresContainer(ctx context.Context, _ *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
+func ConnectToPostgresContainer(ctx context.Context, t *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
 	dbConfig := &DBConfig{
 		// the options here must be the same as provided by docker-compose-unittest.yml
 		DbHost:     "localhost",
@@ -178,6 +95,7 @@ func SetupPostgresContainer(ctx context.Context, _ *testing.T, migrationsPath st
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database %s: %w", newDbName, err)
 	}
+	t.Logf("Database %s created successfully", newDbName)
 	logger.FromContext(ctx).Sugar().Infof("Database %s created successfully", newDbName)
 
 	dbConfig.DbName = newDbName
