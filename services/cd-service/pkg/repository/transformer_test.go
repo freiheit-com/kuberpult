@@ -1047,11 +1047,17 @@ func TestUndeployErrors(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, &CreateEnvironment{Environment: "production"})
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return nil
+			})
+			_ = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
-
 				return nil
 			})
 
