@@ -479,6 +479,15 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			Name: "Create a single application version without deploying it",
 			// no need to bother with environments here
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+				},
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -495,7 +504,14 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					EventType:     "new-release",
 					EventJson:     "{}",
-					TransformerID: 1,
+					TransformerID: 2,
+				},
+				{
+					Uuid:          "00000000-0000-0000-0000-000000000002",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					EventType:     "deployment",
+					EventJson:     "{}",
+					TransformerID: 2,
 				},
 			},
 		},
@@ -503,6 +519,15 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			Name: "Create a single application version and deploy it",
 			// no need to bother with environments here
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+				},
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -521,11 +546,18 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 			expectedDBEvents: []db.EventRow{
 				{
-					Uuid:          "00000000-0000-0000-0000-000000000002",
+					Uuid:          "00000000-0000-0000-0000-000000000003",
 					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					EventType:     "deployment",
 					EventJson:     "{}",
-					TransformerID: 2,
+					TransformerID: 3,
+				},
+				{
+					Uuid:          "00000000-0000-0000-0000-000000000004",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					EventType:     "replaced-by",
+					EventJson:     "{}",
+					TransformerID: 3,
 				},
 			},
 		},
