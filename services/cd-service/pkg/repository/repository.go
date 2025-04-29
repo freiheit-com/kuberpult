@@ -644,6 +644,10 @@ func (r *repository) applyDeferred(ctx context.Context, transformers ...Transfor
 	return r.queue.add(ctx, transformers)
 }
 
+func (r *repository) GetQueue() queue {
+	return r.queue
+}
+
 func (r *repository) State() *State {
 	s, err := r.StateAt()
 	if err != nil {

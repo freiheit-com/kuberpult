@@ -3312,23 +3312,25 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 }
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
+	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true)
+}
+
+func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint, startProcessQueue bool) (Repository, *db.DBHandler) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig := &db.DBConfig{
-		DriverName:     "sqlite3",
-		MigrationsPath: migrationsPath,
-		WriteEslOnly:   writeEslOnly,
+	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
 	}
-
-	dir := t.TempDir()
 
 	repoCfg := RepositoryConfig{
 		ArgoCdGenerateFiles: true,
+		MaximumQueueSize:    queueSize,
+		//MaximumQueueSize: 100,
 	}
-	dbConfig.DbHost = dir
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
@@ -3341,48 +3343,25 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Reposito
 	}
 	repoCfg.DBHandler = dbHandler
 
-	repo, err := New(
-		testutil.MakeTestContext(),
-		repoCfg,
-	)
-	if err != nil {
-		t.Fatal(err)
+	if startProcessQueue {
+		repo, err := New(
+			testutil.MakeTestContext(),
+			repoCfg,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return repo, dbHandler
+	} else {
+		repo, _, err := New2(
+			testutil.MakeTestContext(),
+			repoCfg,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return repo, dbHandler
 	}
-	return repo, dbHandler
-}
-
-func setupRepositoryTest(t *testing.T) Repository {
-	repo, _ := setupRepositoryTestWithPath(t)
-	return repo
-}
-
-func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	err := cmd.Start()
-	if err != nil {
-		t.Errorf("could not start git init")
-		return nil, ""
-	}
-	err = cmd.Wait()
-	if err != nil {
-		t.Errorf("could not wait for git init to finish")
-		return nil, ""
-	}
-	repo, err := New(
-		testutil.MakeTestContext(),
-		RepositoryConfig{
-			URL:                   remoteDir,
-			WriteCommitData:       true,
-			MaximumCommitsPerPush: 5,
-			ArgoCdGenerateFiles:   true,
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo, remoteDir
 }
 
 // Injects an error in the filesystem of the state
