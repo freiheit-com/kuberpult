@@ -278,6 +278,10 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		{
 			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "", Latest: false}},
+				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
@@ -303,7 +307,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				},
 			},
 			expectedError: &TransformerBatchApplyError{
-				Index:            3,
+				Index:            4,
 				TransformerError: errMatcher{"UndeployApplication: error last release is not un-deployed application version of 'app1'"},
 			},
 		},
