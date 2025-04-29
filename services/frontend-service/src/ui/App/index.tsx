@@ -185,6 +185,8 @@ export const App: React.FC = () => {
                 .subscribe(
                     (result) => {
                         UpdateRolloutStatus(result);
+                        // eslint-disable-next-line no-console
+                        console.log(result);
                     },
                     (error) => {
                         if (error.code === 12) {

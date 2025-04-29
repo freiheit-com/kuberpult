@@ -20,6 +20,7 @@ import {
     BatchAction,
     BatchRequest,
     Environment,
+    EnvironmentConfig,
     EnvironmentGroup,
     GetAppDetailsResponse,
     GetCommitInfoResponse,
@@ -1301,6 +1302,7 @@ class RolloutStatusGetter {
         if (statusPerEnv === undefined) {
             return undefined;
         }
+
         const status = statusPerEnv[environment];
         if (status === undefined) {
             return undefined;
@@ -1310,6 +1312,28 @@ class RolloutStatusGetter {
             return RolloutStatus.ROLLOUT_STATUS_PENDING;
         }
         return status.rolloutStatus;
+    }
+
+    getAppStatusForAAEnv(
+        application: string,
+        applicationVersion: number | undefined,
+        parentEnvironmentName: string,
+        config: EnvironmentConfig | undefined
+    ): [string, RolloutStatus | undefined][] {
+        if (!config || !config.argoConfigs || config.argoConfigs.configs.length < 2) {
+            return [];
+        }
+        const statuses: [string, RolloutStatus | undefined][] = [];
+        config.argoConfigs.configs.forEach((current) => {
+            const currentConcreteEnvironmentName =
+                config.argoConfigs?.commonEnvPrefix + '-' + parentEnvironmentName + '-' + current.concreteEnvName;
+
+            statuses.push([
+                currentConcreteEnvironmentName,
+                this.getAppStatus(application, applicationVersion, currentConcreteEnvironmentName),
+            ]);
+        });
+        return statuses;
     }
 }
 
