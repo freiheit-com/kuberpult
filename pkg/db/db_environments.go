@@ -250,7 +250,8 @@ func (h *DBHandler) DBAppendAppToEnvironment(ctx context.Context, tx *sql.Tx, en
 		return err
 	}
 	if dbEnv == nil {
-		return fmt.Errorf("append to env with environment that does not exist: '%s'", environmentName)
+		// we did not add the app to the env, because it was already there
+		return nil
 	}
 	err = h.insertEnvironmentHistoryRow(ctx, tx, environmentName, dbEnv.Config, dbEnv.Applications, false)
 	if err != nil {
@@ -356,6 +357,8 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 	return nil
 }
 
+// addAppToEnvironment returns the env if the app was added to env, and nil if the app was already there.
+// If the env does not exist an error is returned.
 func (h *DBHandler) addAppToEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, newApp string) (*DBEnvironment, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "addAppToEnvironment")
 	defer span.Finish()
@@ -364,6 +367,16 @@ func (h *DBHandler) addAppToEnvironment(ctx context.Context, tx *sql.Tx, environ
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("attempting to write to the environmets table without a transaction")
+	}
+	// first we check if the env exists.
+	// (We could do this in the statement below, but it's easy to confuse "env does not exist" with "app already exists in env",
+	//  so we split it up into 2 queries)
+	env, err := h.DBSelectEnvironment(ctx, tx, environmentName)
+	if err != nil {
+		return nil, err
+	}
+	if env == nil {
+		return nil, fmt.Errorf("could not add app to env, env does not exist: %s", environmentName)
 	}
 	updateQuery := h.AdaptQuery(`
 		UPDATE environments

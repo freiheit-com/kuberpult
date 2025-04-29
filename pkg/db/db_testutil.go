@@ -117,26 +117,8 @@ func allServicesHealthy(output string) bool {
 	}
 	return true
 }
-func RunDockerComposeUp(workdir string) error {
-	// Create the command for "docker compose up -d"
-	cmd := exec.Command("docker", "compose", "-f", "docker-compose-unittest.yml", "up", "-d")
-	cmd.Dir = workdir
 
-	// Run the command and capture the output
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to run 'docker compose up -d': %w\nOutput: %s", err, string(output))
-	}
-
-	err = waitForHealthyContainers(workdir)
-	if err != nil {
-		return fmt.Errorf("failed to wait or all docker services to be up: %w", err)
-	}
-
-	return nil
-}
-
-func SetupPostgresContainer(ctx context.Context, _ *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
+func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
 	dbConfig := &DBConfig{
 		// the options here must be the same as provided by docker-compose-unittest.yml
 		DbHost:     "localhost",
@@ -178,6 +160,7 @@ func SetupPostgresContainer(ctx context.Context, _ *testing.T, migrationsPath st
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database %s: %w", newDbName, err)
 	}
+	t.Logf("Database %s created successfully", newDbName)
 	logger.FromContext(ctx).Sugar().Infof("Database %s created successfully", newDbName)
 
 	dbConfig.DbName = newDbName
