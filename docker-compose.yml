@@ -52,51 +52,51 @@ services:
       - ./services/cd-service:/kp/kuberpult
     stop_grace_period: 0.5s
     depends_on:
-      manifest-repo-export-service:
-        condition: service_healthy
+#      manifest-repo-export-service:
+#        condition: service_healthy
       postgres:
         condition: service_healthy
-  manifest-repo-export-service:
-    image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:local
-    environment:
-      - LOG_LEVEL=INFO
-      - KUBERPULT_DB_LOCATION=postgres
-      - KUBERPULT_DB_MIGRATIONS_LOCATION=/migrations/postgres
-      - KUBERPULT_DB_OPTION=postgreSQL
-      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
-      - KUBERPULT_DB_NAME=kuberpult
-      - KUBERPULT_DB_USER_NAME=postgres
-      - KUBERPULT_DB_USER_PASSWORD=mypassword
-      - KUBERPULT_DB_AUTH_PROXY_PORT=5432
-      - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
-      - KUBERPULT_GIT_BRANCH=master
-      - KUBERPULT_GIT_SSH_KEY=/etc/ssh/identity
-      - KUBERPULT_GIT_SSH_KNOWN_HOSTS=/etc/ssh/ssh_known_hosts
-      - KUBERPULT_ENABLE_METRICS=false
-      - KUBERPULT_DOGSTATSD_ADDR=127.0.0.1:8125
-      - KUBERPULT_ARGO_CD_GENERATE_FILES=true
-      - KUBERPULT_RELEASE_VERSIONS_LIMIT=20
-      - KUBERPULT_NETWORK_TIMEOUT_SECONDS=120
-      - KUBERPULT_DB_SSL_MODE=disable
-      - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=5
-      - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=1
-      - KUBERPULT_MINIMIZE_EXPORTED_DATA=true
-      - KUBERPULT_VERSION=v0.1.2
-      - KUBERPULT_CHECK_CUSTOM_MIGRATIONS=false
-    volumes:
-      - ./services/cd-service:/kp/kuberpult
-    ports:
-      - "8090:8080"
-      - "8444:8443"
-    stop_grace_period: 0.5s
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz"]
-      interval: 1s
-      timeout: 5s
-      retries: 50
-    depends_on:
-      postgres:
-        condition: service_healthy
+#  manifest-repo-export-service:
+#    image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:local
+#    environment:
+#      - LOG_LEVEL=INFO
+#      - KUBERPULT_DB_LOCATION=postgres
+#      - KUBERPULT_DB_MIGRATIONS_LOCATION=/migrations/postgres
+#      - KUBERPULT_DB_OPTION=postgreSQL
+#      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
+#      - KUBERPULT_DB_NAME=kuberpult
+#      - KUBERPULT_DB_USER_NAME=postgres
+#      - KUBERPULT_DB_USER_PASSWORD=mypassword
+#      - KUBERPULT_DB_AUTH_PROXY_PORT=5432
+#      - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
+#      - KUBERPULT_GIT_BRANCH=master
+#      - KUBERPULT_GIT_SSH_KEY=/etc/ssh/identity
+#      - KUBERPULT_GIT_SSH_KNOWN_HOSTS=/etc/ssh/ssh_known_hosts
+#      - KUBERPULT_ENABLE_METRICS=false
+#      - KUBERPULT_DOGSTATSD_ADDR=127.0.0.1:8125
+#      - KUBERPULT_ARGO_CD_GENERATE_FILES=true
+#      - KUBERPULT_RELEASE_VERSIONS_LIMIT=20
+#      - KUBERPULT_NETWORK_TIMEOUT_SECONDS=120
+#      - KUBERPULT_DB_SSL_MODE=disable
+#      - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=5
+#      - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=1
+#      - KUBERPULT_MINIMIZE_EXPORTED_DATA=true
+#      - KUBERPULT_VERSION=v0.1.2
+#      - KUBERPULT_CHECK_CUSTOM_MIGRATIONS=false
+#    volumes:
+#      - ./services/cd-service:/kp/kuberpult
+#    ports:
+#      - "8090:8080"
+#      - "8444:8443"
+#    stop_grace_period: 0.5s
+#    healthcheck:
+#      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz"]
+#      interval: 1s
+#      timeout: 5s
+#      retries: 50
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
   frontend-service:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:local
     # Note: this `container_name` needs to be the same as in `package.json`
@@ -121,19 +121,21 @@ services:
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=8
     ports:
       - "8081:8081"
+#      - "8080:8080"
+      - "1234:1234"
     depends_on:
       - cd-service
     volumes:
       - .:/kp/kuberpult
     stop_grace_period: 0.5s
-  ui:
-    image: ui:local
-    container_name: kuberpult-ui
-    ports:
-      - "3000:3000"
-    depends_on:
-      - frontend-service
-    volumes:
-      - ./services/frontend-service/src:/kp/src
-      - ./services/frontend-service/public:/kp/public
-    stop_grace_period: 0.5s
+#  ui:
+#    image: ui:local
+#    container_name: kuberpult-ui
+#    ports:
+#      - "3000:3000"
+#    depends_on:
+#      - frontend-service
+#    volumes:
+#      - ./services/frontend-service/src:/kp/src
+#      - ./services/frontend-service/public:/kp/public
+#    stop_grace_period: 0.5s

@@ -3,12 +3,33 @@ syntax = "proto3";
 option go_package = "github.com/freiheit-com/kuberpult/pkg/api";
 
 import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 package api.v1;
 
+// Define your messages (data transfer objects)
+message GetRequest {
+  string id = 1;
+}
+
+message GetResponse {
+  string name = 1;
+  int32 age = 2;
+}
+
+// Define your service
+service ExampleService {
+  // gRPC method
+  rpc GetEntity(GetRequest) returns (GetResponse) {
+    option (google.api.http) = {
+      get: "/v1/entity/{id}"
+    };
+  }
+}
 
 service GitService {
   rpc GetGitTags (GetGitTagsRequest) returns (GetGitTagsResponse) {}
+//  rpc GetGitTags2 (GetGitTagsRequest) returns (GetGitTagsResponse) {}
   // By "Product" we mean the entire collection of apps
   rpc GetProductSummary(GetProductSummaryRequest) returns(GetProductSummaryResponse) {}
   rpc GetCommitInfo(GetCommitInfoRequest) returns(GetCommitInfoResponse) {}
