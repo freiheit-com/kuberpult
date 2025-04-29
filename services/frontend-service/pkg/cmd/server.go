@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"io"
 	"net/http"
 	"os"
@@ -345,6 +346,7 @@ func runServer(ctx context.Context) error {
 		Config:                      c,
 		KeyRing:                     pgpKeyRing,
 		AzureAuth:                   c.AzureEnableAuth,
+		User:                        defaultUser,
 	}
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
@@ -490,6 +492,10 @@ func runServer(ctx context.Context) error {
 		NextHandler: authHandler,
 	}
 
+	publicApiServer := &handler.PublicApiServer{
+		S: httpHandler,
+	}
+
 	setup.Run(ctx, setup.ServerConfig{
 		GRPC:       nil,
 		Background: nil,
@@ -501,6 +507,14 @@ func runServer(ctx context.Context) error {
 				Port:      "8081",
 				Register: func(mux *http.ServeMux) {
 					mux.Handle("/", corsHandler)
+				},
+			},
+			{
+				BasicAuth: nil,
+				Shutdown:  nil,
+				Port:      "5555",
+				Register: func(mux *http.ServeMux) {
+					publicapi.HandlerFromMux(publicApiServer, mux)
 				},
 			},
 		},

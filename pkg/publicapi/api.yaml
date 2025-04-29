@@ -1,0 +1,74 @@
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Generate models
+paths:
+  /openapi.yaml:
+    get:
+      operationId: getPublicApiSchema
+      parameters: []
+      responses:
+        200:
+          content:
+            application/yaml:
+              schema: {}
+    options:
+      operationId: getPublicApiSchemaOptions
+      description: "This is required for browsers to allow swagger-ui to load swagger.yaml from a different port (CORS)"
+      parameters: []
+      responses:
+        200:
+          content:
+            application/yaml:
+              schema: {}
+
+  /api/commit-deployments/{commitHash}:
+    get:
+      operationId: getCommitDeployments
+      parameters:
+        - name: commitHash
+          in: path
+          required: true
+          schema:
+            type: string
+          description: A path parameter example
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetCommitDeploymentInfoResponse"
+                description: "hello"
+components:
+  schemas:
+    GetCommitDeploymentInfoResponse:
+      type: object
+      properties:
+        DeploymentStatus:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/AppCommitDeploymentStatus'
+    AppCommitDeploymentStatus:
+      type: object
+      properties:
+        DeploymentStatus:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CommitDeploymentStatus'
+    CommitDeploymentStatus:
+      type: integer
