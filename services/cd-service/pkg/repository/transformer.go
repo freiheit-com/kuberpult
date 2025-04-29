@@ -612,7 +612,7 @@ func (c *CreateApplicationVersion) Transform(
 		env := sortedKeys[i]
 		err = state.DBHandler.DBAppendAppToEnvironment(ctx, transaction, env, c.Application)
 		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
+			return "", grpc.PublicError(ctx, err)
 		}
 
 		err = state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig, true)
