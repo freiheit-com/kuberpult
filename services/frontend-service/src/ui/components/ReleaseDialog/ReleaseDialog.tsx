@@ -217,14 +217,16 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const syncStatus = useGitSyncStatus((getter) => getter.getAppStatus(app, env.name));
     const appGitSyncStatus = gitSyncStatus.get();
 
-    const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
-    const appRolloutStatuses = useRolloutStatus((getter) =>
-        getter.getAppStatusForAAEnv(app, deployment?.version, env.name, env.config)
+    let appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
+    const aaEnvRolloutStatus = useRolloutStatus((getter) =>
+        getter.getMostInterestingStatusAAEnv(app, deployment?.version, env.name, env.config)
     );
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
     const appEnvLocks = useMemo(() => appDetails?.details?.appLocks?.[env.name]?.locks ?? [], [appDetails, env]);
-
+    if (env.config?.argoConfigs?.configs && env.config?.argoConfigs?.configs.length > 0) {
+        appRolloutStatus = aaEnvRolloutStatus;
+    }
     const plannedLockRemovals = actions
         .filter(
             (action) =>
@@ -376,10 +378,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     )}
                     {appGitSyncStatus.enabled ? (
                         <GitSyncStatusDescription status={syncStatus}></GitSyncStatusDescription>
-                    ) : env.config?.argoConfigs ? (
-                        appRolloutStatuses[0][1] !== undefined && (
-                            <RolloutStatusDescription status={appRolloutStatuses[0][1]} />
-                        )
                     ) : (
                         appRolloutStatus !== undefined && <RolloutStatusDescription status={appRolloutStatus} />
                     )}
