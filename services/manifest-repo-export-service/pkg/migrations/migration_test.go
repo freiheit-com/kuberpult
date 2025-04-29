@@ -102,7 +102,7 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}

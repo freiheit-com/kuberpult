@@ -661,7 +661,7 @@ func setupRepositoryTestWithAllOptions(t *testing.T, withBackgroundJob bool) (re
 	cmd.Wait()
 	t.Logf("test created dir: %s", localDir)
 
-	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}

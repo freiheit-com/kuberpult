@@ -177,7 +177,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
 	migrationsPath, _ := db.CreateMigrationsPath(4)
 
-	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}

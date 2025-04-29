@@ -77,7 +77,7 @@ func GetGitRootDirectory() (string, error) {
 // waitForHealthyContainers checks the health status of all services
 // and waits until they are all marked as healthy.
 func waitForHealthyContainers(directory string) error {
-	const maxRetries = 30
+	const maxRetries = 5
 	const retryInterval = 5 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
@@ -118,7 +118,14 @@ func allServicesHealthy(output string) bool {
 	return true
 }
 
-func SetupPostgresContainer(ctx context.Context, t *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
+func ConnectToPostgresContainer(ctx context.Context, t *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
+	// we expect the postgres container to be up already:
+	gitRootDir, err := GetGitRootDirectory()
+	err = waitForHealthyContainers(gitRootDir)
+	if err != nil {
+		return nil, err
+	}
+
 	dbConfig := &DBConfig{
 		// the options here must be the same as provided by docker-compose-unittest.yml
 		DbHost:     "localhost",

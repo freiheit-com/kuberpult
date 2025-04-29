@@ -311,7 +311,7 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
