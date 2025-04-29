@@ -52,9 +52,8 @@ import (
 )
 
 const (
-	envAcceptance      = "acceptance"
-	envProduction      = "production"
-	additionalVersions = 7
+	envAcceptance = "acceptance"
+	envProduction = "production"
 )
 
 var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
