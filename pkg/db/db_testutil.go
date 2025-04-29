@@ -121,6 +121,9 @@ func allServicesHealthy(output string) bool {
 func ConnectToPostgresContainer(ctx context.Context, t *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
 	// we expect the postgres container to be up already:
 	gitRootDir, err := GetGitRootDirectory()
+	if err != nil {
+		return nil, err
+	}
 	err = waitForHealthyContainers(gitRootDir)
 	if err != nil {
 		return nil, err
