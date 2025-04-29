@@ -236,30 +236,16 @@ kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: aa-development-dev-1
+  name: development
   namespace: ${ARGO_NAMESPACE}
 spec:
-  description: test-env-1
+  description: test-env
   destinations:
-  - name: ""
+  - name: "dest1"
     namespace: '*'
     server: https://kubernetes.default.svc
   sourceRepos:
-  - ssh://git@server.git.svc.cluster.local/git/repos/manifests
----
-apiVersion: argoproj.io/v1alpha1
-kind: AppProject
-metadata:
-  name: aa-development-dev-2
-  namespace: ${ARGO_NAMESPACE}
-spec:
-  description: test-env-2
-  destinations:
-  - name: ""
-    namespace: '*'
-    server: https://kubernetes.default.svc
-  sourceRepos:
-  - 'ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests'
+  - '*'
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
