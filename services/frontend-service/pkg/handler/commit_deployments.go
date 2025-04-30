@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"net/http"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -38,6 +39,9 @@ func (s Server) handleCommitDeployments(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	ctx := r.Context()
+
+	user, err := auth.ReadUserFromContext(ctx)
+	ctx = auth.WriteUserToGrpcContext(ctx, user)
 	resp, err := s.CommitDeploymentsClient.GetCommitDeploymentInfo(ctx, &api.GetCommitDeploymentInfoRequest{
 		CommitId: commitHash,
 	})

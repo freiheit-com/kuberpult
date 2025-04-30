@@ -21,10 +21,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	publicserver "github.com/freiheit-com/kuberpult/pkg/publicapi"
-	"github.com/labstack/echo/v4"
+	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -128,45 +126,6 @@ func RunServer() {
 	if err != nil {
 		fmt.Printf("error: %v %#v", err, err)
 	}
-}
-
-type MyEchoRouter struct {
-}
-
-func (e *MyEchoRouter) CONNECT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route {
-	return nil
-}
-
-func (e *MyEchoRouter) DELETE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route {
-	return nil
-}
-
-func (e *MyEchoRouter) GET(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route {
-	return nil
-}
-
-func (e *MyEchoRouter) HEAD(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route {
-	return nil
-}
-
-func (e *MyEchoRouter) OPTIONS(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route {
-	return nil
-}
-
-func (e *MyEchoRouter) PATCH(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route {
-	return nil
-}
-
-func (e *MyEchoRouter) POST(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route {
-	return nil
-}
-
-func (e *MyEchoRouter) PUT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route {
-	return nil
-}
-
-func (e *MyEchoRouter) TRACE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route {
-	return nil
 }
 
 func runServer(ctx context.Context) error {
@@ -350,9 +309,6 @@ func runServer(ctx context.Context) error {
 	api.RegisterEslServiceServer(gsrv, gproxy)
 	api.RegisterVersionServiceServer(gsrv, gproxy)
 
-	//public_api.RegisterExampleServiceServer(gsrv, gproxy)
-	//publicapi.RegisterExamplesServiceServer(gsrv, gproxy)
-
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{
 			ArgoCd: &config.ArgoCdConfig{
@@ -535,133 +491,34 @@ func runServer(ctx context.Context) error {
 		NextHandler: authHandler,
 	}
 
-	//exampleServer := &MyExampleServer{}
-
-	corsHandler = corsHandler
-	//myMux := http.NewServeMux()
-
-	// Start the gRPC server
-	//grpcPort := ":8443"
-	//restPort := ":8081"
-	//go func() {
-	//	listener, err := net.Listen("tcp", grpcPort)
-	//	if err != nil {
-	//		logger.FromContext(ctx).Sugar().Fatalf("Failed to listen on port %s: %v", grpcPort, err)
-	//	}
-	//
-	//	grpcServer := grpc.NewServer()
-	//	//api.RegisterExampleServiceHandlerFromEndpoint
-	//	api.RegisterExampleServiceServer(grpcServer, exampleServer)
-	//	//public_api.(grpcServer, exampleServer)
-	//	//api.
-	//
-	//	logger.FromContext(ctx).Sugar().Infof("gRPC server listening on %s", grpcPort)
-	//	if err := grpcServer.Serve(listener); err != nil {
-	//		logger.FromContext(ctx).Sugar().Fatalf("Failed to serve gRPC server: %v", err)
-	//		panic(err)
-	//	}
-	//}()
-
-	//go func() {
-	logger.FromContext(ctx).Sugar().Warn("starting with http...")
-
-	//opts := []grpc.DialOption{grpc.WithInsecure()}
-	//api.RegisterExampleServiceServer(myMux, exampleServer)
-	//if err != nil {
-	//	logger.FromContext(ctx).Sugar().Fatalf("Failed to serve HTTP gateway: %v", err)
-	//	panic(err)
-	//}
-	//api.RegisterExampleServiceServer()
-
-	//err = http.ListenAndServe(restPort, myMux)
-	//if err != nil {
-	//	logger.FromContext(ctx).Sugar().Fatalf("Failed to serve HTTP gateway: %v", err)
-	//	panic(err)
-	//}
-	//}()
-
-	// Create an instance of your server implementation
-	server := &MyServer{}
-	router := &MyEchoRouter{}
-
-	// Use the generated RegisterHandlers to bind your implementation to the HTTP server
-	mux = http.NewServeMux()
-	publicserver.RegisterHandlers(router, server)
-
-	// Start the HTTP server
-	log.Println("Starting server on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
-
-	//setup.Run(ctx, setup.ServerConfig{
-	//	GRPC: &setup.GRPCConfig{
-	//		Shutdown: nil,
-	//		Port:     "8443",
-	//		Opts:     nil,
-	//		Register: func(srv *grpc.Server) {
-	//			//public_api.RegisterExampleServiceServer(srv, gproxy)
-	//			public_api.RegisterExampleServiceServer(srv, exampleServer)
-	//		},
-	//	},
-	//	Background: nil,
-	//	Shutdown:   nil,
-	//	HTTP: []setup.HTTPConfig{
-	//		{
-	//			BasicAuth: nil,
-	//			Shutdown:  nil,
-	//			Port:      "8081",
-	//			Register: func(mux *http.ServeMux) {
-	//				mux.Handle("/", corsHandler)
-	//			},
-	//		},
-	//	},
-	//})
-
+	server := &handler.PublicApiServer{
+		S: httpHandler,
+	}
+	setup.Run(ctx, setup.ServerConfig{
+		GRPC:       nil,
+		Background: nil,
+		Shutdown:   nil,
+		HTTP: []setup.HTTPConfig{
+			{
+				BasicAuth: nil,
+				Shutdown:  nil,
+				Port:      "8081",
+				Register: func(mux *http.ServeMux) {
+					mux.Handle("/", corsHandler)
+				},
+			},
+			{
+				BasicAuth: nil,
+				Shutdown:  nil,
+				Port:      "6666",
+				Register: func(mux *http.ServeMux) {
+					myapi2.HandlerFromMux(server, mux)
+				},
+			},
+		},
+	})
 	return nil
 }
-
-type MyServer struct{}
-
-func (s *MyServer) GetClient(ctx echo.Context) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *MyServer) UpdateClient(ctx echo.Context) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-// Example method implementation for getting users
-//func (s *MyServer) GetUsers(ctx context.Context, params publicapi.GetUsersParams) (UserList, error) {
-//	// Replace this with your logic to fetch and return users
-//	users := UserList{
-//		{ID: 1, Name: "John Doe"},
-//		{ID: 2, Name: "Jane Doe"},
-//	}
-//	return users, nil
-//}
-//
-//// Example method implementation for creating a new user
-//func (s *MyServer) CreateUser(ctx context.Context, newUser NewUser) (User, error) {
-//	// Replace this with your logic to create and return the new user
-//	createdUser := User{
-//		ID:   3,
-//		Name: newUser.Name,
-//	}
-//	return createdUser, nil
-//}
-//
-//type MyExampleServer struct {
-//	api.ExampleServiceServer
-//}
-//
-//func (s *MyExampleServer) GetEntity(ctx context.Context, req *api.GetRequest) (*api.GetResponse, error) {
-//	logger.FromContext(ctx).Sugar().Warnf("Received request for ID: %s", req.GetId())
-//	return &api.GetResponse{
-//		Name: "Example Name",
-//		Age:  30,
-//	}, nil
-//}
 
 type Auth struct {
 	HttpServer  http.Handler
@@ -790,15 +647,6 @@ type GrpcProxy struct {
 	ReleaseTrainPrognosisClient    api.ReleaseTrainPrognosisServiceClient
 	EslServiceClient               api.EslServiceClient
 }
-
-//func (p *GrpcProxy) GetEntity(ctx context.Context, _ *public_api.GetRequest) (*public_api.GetResponse, error) {
-//	logger.FromContext(ctx).Sugar().Error("GetEntity called!")
-//
-//	return &public_api.GetResponse{
-//		Name: "Sven",
-//		Age:  42,
-//	}, nil
-//}
 
 func (p *GrpcProxy) ProcessBatch(
 	ctx context.Context,

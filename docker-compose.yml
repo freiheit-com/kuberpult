@@ -122,7 +122,7 @@ services:
     ports:
       - "8081:8081"
 #      - "8080:8080"
-      - "1234:1234"
+      - "6666:6666"
     depends_on:
       - cd-service
     volumes:

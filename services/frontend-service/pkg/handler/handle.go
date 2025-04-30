@@ -162,3 +162,13 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", dexResponse.Status, string(v)), http.StatusBadGateway)
 	}
 }
+
+type PublicApiServer struct {
+	S Server
+}
+
+func (s *PublicApiServer) GetCommitDeployments(w http.ResponseWriter, r *http.Request, commitHash string) {
+	w.WriteHeader(200)
+	s.S.handleCommitDeployments(w, r, commitHash) // TODO SU
+	w.Write([]byte("getCommitDeployments\n"))
+}

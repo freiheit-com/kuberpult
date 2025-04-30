@@ -1,38 +1,21 @@
 package main
 
 import (
-	"github.com/freiheit-com/kuberpult/services/test-service/myapi2"
-	"github.com/labstack/echo/v4"
+	//"github.com/freiheit-com/kuberpult/services/test-service/pub"
 	"log"
 	"net/http"
 )
 
 type MyServer struct{}
 
-func (s *MyServer) GetUsers(ctx echo.Context, params string) (string, error) {
-	return "holla", nil
-}
-
-func (s *MyServer) CreateUser(ctx echo.Context, newUser string) (string, error) {
-	return "42", nil
-}
-
-//func (s *MyServer) GetClient(ctx echo.Context) error {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (s *MyServer) UpdateClient(ctx echo.Context) error {
-//	//TODO implement me
-//	panic("implement me")
-//}
-
 func (s *MyServer) GetClient(w http.ResponseWriter, r *http.Request) {
-	panic("implement me")
+	w.WriteHeader(200)
+	w.Write([]byte("hello world get client"))
 }
 
 func (s *MyServer) UpdateClient(w http.ResponseWriter, r *http.Request) {
-	panic("implement me")
+	w.WriteHeader(200)
+	w.Write([]byte("hello world update client"))
 }
 
 func main() {
