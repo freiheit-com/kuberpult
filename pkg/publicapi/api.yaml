@@ -1,0 +1,40 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Generate models
+paths:
+  /api/commit-deployments/{commitHash}:
+    get:
+      operationId: getCommitDeployments
+      parameters:
+        - name: commitHash
+          in: path
+          required: true
+          schema:
+            type: string
+          description: A path parameter example
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetCommitDeploymentInfoResponse"
+                description: "hello"
+components:
+  schemas:
+    GetCommitDeploymentInfoResponse:
+      type: object
+      properties:
+        DeploymentStatus:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/AppCommitDeploymentStatus'
+    AppCommitDeploymentStatus:
+      type: object
+      properties:
+        DeploymentStatus:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CommitDeploymentStatus'
+    CommitDeploymentStatus:
+      type: integer

@@ -39,9 +39,14 @@ func (s Server) handleCommitDeployments(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	ctx := r.Context()
+	fmt.Printf("hello public api: %v\n", s.User)
 
-	user, err := auth.ReadUserFromContext(ctx)
-	ctx = auth.WriteUserToGrpcContext(ctx, user)
+	logger.FromContext(ctx).Sugar().Errorf("Hello world public api - user=%v", s.User)
+	ctx = auth.WriteUserToContext(ctx, s.User)
+	ctx = auth.WriteUserToGrpcContext(ctx, s.User)
+
+	//user, err := auth.ReadUserFromContext(ctx)
+	//ctx = auth.WriteUserToGrpcContext(ctx, *user)
 	resp, err := s.CommitDeploymentsClient.GetCommitDeploymentInfo(ctx, &api.GetCommitDeploymentInfoRequest{
 		CommitId: commitHash,
 	})

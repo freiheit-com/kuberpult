@@ -1,0 +1,9 @@
+package: publicapi
+generate:
+  # NOTE another server must be added!
+#  chi-server: true
+#  strict-server: true
+#  iris-server: true
+  std-http-server: true
+  models: true
+output: publicapi/server.gen.go

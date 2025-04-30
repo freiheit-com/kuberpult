@@ -346,6 +346,7 @@ func runServer(ctx context.Context) error {
 		Config:                      c,
 		KeyRing:                     pgpKeyRing,
 		AzureAuth:                   c.AzureEnableAuth,
+		User:                        defaultUser,
 	}
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
@@ -494,6 +495,7 @@ func runServer(ctx context.Context) error {
 	server := &handler.PublicApiServer{
 		S: httpHandler,
 	}
+
 	setup.Run(ctx, setup.ServerConfig{
 		GRPC:       nil,
 		Background: nil,
@@ -512,6 +514,12 @@ func runServer(ctx context.Context) error {
 				Shutdown:  nil,
 				Port:      "6666",
 				Register: func(mux *http.ServeMux) {
+					//authHandler2 := &Auth{
+					//	HttpServer:  mux,
+					//	DefaultUser: defaultUser,
+					//	KeyRing:     pgpKeyRing,
+					//	Policy:      policy,
+					//}
 					myapi2.HandlerFromMux(server, mux)
 				},
 			},
