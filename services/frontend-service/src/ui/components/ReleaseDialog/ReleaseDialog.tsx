@@ -347,7 +347,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     };
 
     return (
-        <li key={env.name} className={classNames('env-card')}>
+        <li id={env.name} key={env.name} className={classNames('env-card')}>
             <div className="env-card-header">
                 <EnvironmentChip
                     env={env}

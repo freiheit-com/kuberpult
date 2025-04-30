@@ -35,18 +35,16 @@ import {
 } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
-import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
+const getNode = (overrides: ReleaseDialogProps) => (
+    <MemoryRouter>
+        <ReleaseDialog {...overrides} />
+    </MemoryRouter>
+);
+const getWrapper = (overrides: ReleaseDialogProps) => render(getNode(overrides));
 
 describe('Release Dialog', () => {
-    const getNode = (overrides: ReleaseDialogProps) => (
-        <MemoryRouter>
-            <ReleaseDialog {...overrides} />
-        </MemoryRouter>
-    );
-    const getWrapper = (overrides: ReleaseDialogProps) => render(getNode(overrides));
-
     interface dataT {
         name: string;
         props: ReleaseDialogProps;
@@ -959,13 +957,6 @@ describe('Release Dialog CI Links', () => {
 });
 
 describe('Rollout Status for AA environments', () => {
-    const getNode = (overrides: ReleaseDialogProps) => (
-        <MemoryRouter>
-            <ReleaseDialog {...overrides} />
-        </MemoryRouter>
-    );
-    const getWrapper = (overrides: ReleaseDialogProps) => render(getNode(overrides));
-
     interface dataT {
         name: string;
         props: ReleaseDialogProps;
@@ -1148,18 +1139,14 @@ describe('Rollout Status for AA environments', () => {
             ],
             expectedStatusIcon: RolloutStatus.ROLLOUT_STATUS_ERROR,
             expectedRolloutDetails: {
-                prod: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
-                dev: RolloutStatus.ROLLOUT_STATUS_ERROR,
+                prod: RolloutStatus.ROLLOUT_STATUS_ERROR,
+                dev: RolloutStatus.ROLLOUT_STATUS_PROGRESSING,
             },
             teamName: 'test me team',
         },
     ];
 
     const setTheStore = (testcase: dataT) => {
-        const asMap: { [key: string]: Environment } = {};
-        testcase.envs.forEach((obj) => {
-            asMap[obj.name] = obj;
-        });
         UpdateOverview.set({
             environmentGroups: [
                 {
@@ -1185,25 +1172,51 @@ describe('Rollout Status for AA environments', () => {
     };
 
     describe.each(data)(`Rollout Status`, (testcase) => {
-        it(testcase.name, () => {
-            const status = testcase.rolloutStatus;
-            if (status === undefined) {
-                return;
-            }
-
+        it(testcase.name, async () => {
             // when
             setTheStore(testcase);
-            //const { container } = getWrapper(testcase.props);
-            // for (const [a, status] of Object.entries(testcase.rolloutStatus)) {
-            //     const li = expect(
-            //         document.getElementsByClassName('rollout__description_' + status.rolloutStatusName)[0]
-            //     ).toHaveTextContent(RolloutStatusDescription(status.rolloutStatus));
-            //     // eslint-disable-next-line no-console
-            //     console.log(container);
-            //     expect(li).toBeNull();
-            //     expect(status).toBeNull();
-            //     //expect(document.querySelectorAll('.rollout__description_' + descr.environment)).toHaveLength(count);
-            // }
+            getWrapper(testcase.props);
+            for (const [envName, status] of Object.entries(testcase.expectedRolloutDetails)) {
+                expect(
+                    document
+                        .getElementById(envName)
+                        ?.getElementsByClassName('rollout__description_' + rolloutStatusName(status))[0] //each should only have 1
+                ).toHaveTextContent(rolloutStatusTextContent(status));
+            }
         });
     });
 });
+
+const rolloutStatusTextContent = (status: RolloutStatus): string => {
+    switch (status) {
+        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
+            return '✓ Done';
+        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
+            return '↻ In progress';
+        case RolloutStatus.ROLLOUT_STATUS_PENDING:
+            return '⧖ Pending';
+        case RolloutStatus.ROLLOUT_STATUS_ERROR:
+            return '! Failed';
+        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
+            return '⚠ Unhealthy';
+        default:
+            return '? Unknown';
+    }
+};
+
+const rolloutStatusName = (status: RolloutStatus): string => {
+    switch (status) {
+        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
+            return 'successful';
+        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
+            return 'progressing';
+        case RolloutStatus.ROLLOUT_STATUS_PENDING:
+            return 'pending';
+        case RolloutStatus.ROLLOUT_STATUS_ERROR:
+            return 'error';
+        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
+            return 'unhealthy';
+        default:
+            return 'unknown';
+    }
+};
