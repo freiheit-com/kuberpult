@@ -1334,11 +1334,11 @@ class RolloutStatusGetter {
         parentEnvironmentName: string,
         config: EnvironmentConfig | undefined
     ): [string, RolloutStatus | undefined][] {
-        if (!config || !config.argoConfigs || config.argoConfigs.configs.length < 2) {
+        if (!IsAAEnvironment(config)) {
             return [];
         }
         const statuses: [string, RolloutStatus | undefined][] = [];
-        config.argoConfigs.configs.forEach((current) => {
+        config?.argoConfigs?.configs.forEach((current) => {
             const currentConcreteEnvironmentName =
                 config.argoConfigs?.commonEnvPrefix + '-' + parentEnvironmentName + '-' + current.concreteEnvName;
 
@@ -1356,9 +1356,10 @@ class RolloutStatusGetter {
         config: EnvironmentConfig | undefined
     ): RolloutStatus | undefined {
         const statuses = this.getAllAppStatusForAAEnv(application, applicationVersion, parentEnvironmentName, config);
-        if (statuses.length === 0) {
+        if (statuses.length === 0 || statuses.filter((curr) => curr[1] !== undefined).length === 0) {
             return undefined;
         }
+
         let mostInteresting: RolloutStatus = RolloutStatus.ROLLOUT_STATUS_SUCCESFUL;
 
         statuses.forEach((curr) => {
@@ -1379,6 +1380,9 @@ class RolloutStatusGetter {
         return idx;
     };
 }
+
+export const IsAAEnvironment = (config: EnvironmentConfig | undefined): boolean =>
+    config !== undefined && config.argoConfigs !== undefined && config.argoConfigs.configs.length > 1;
 
 export const useRolloutStatus = <T,>(f: (getter: RolloutStatusGetter) => T): T =>
     useEntireRolloutStatus((data) => f(new RolloutStatusGetter(data)));

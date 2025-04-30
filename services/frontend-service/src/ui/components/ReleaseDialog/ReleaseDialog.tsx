@@ -20,6 +20,7 @@ import {
     addAction,
     getPriorityClassName,
     gitSyncStatus,
+    IsAAEnvironment,
     showSnackbarWarn,
     useActions,
     useAppDetailsForApp,
@@ -224,7 +225,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
     const appEnvLocks = useMemo(() => appDetails?.details?.appLocks?.[env.name]?.locks ?? [], [appDetails, env]);
-    if (env.config?.argoConfigs?.configs && env.config?.argoConfigs?.configs.length > 0) {
+    if (IsAAEnvironment(env.config)) {
         appRolloutStatus = aaEnvRolloutStatus;
     }
     const plannedLockRemovals = actions

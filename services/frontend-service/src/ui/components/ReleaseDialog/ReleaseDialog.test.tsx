@@ -35,6 +35,7 @@ import {
 } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
 
@@ -953,6 +954,256 @@ describe('Release Dialog CI Links', () => {
                         ?.getAttribute('href')
                 ).toContain(curr.ciLink)
             );
+        });
+    });
+});
+
+describe('Rollout Status for AA environments', () => {
+    const getNode = (overrides: ReleaseDialogProps) => (
+        <MemoryRouter>
+            <ReleaseDialog {...overrides} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: ReleaseDialogProps) => render(getNode(overrides));
+
+    interface dataT {
+        name: string;
+        props: ReleaseDialogProps;
+        appDetails: { [p: string]: AppDetailsResponse };
+        rels: Release[];
+        envs: Environment[];
+        teamName: string;
+        rolloutStatus: {
+            application: string;
+            environment: string;
+            rolloutStatus: RolloutStatus;
+            rolloutStatusName: string;
+        }[];
+        expectedStatusIcon: RolloutStatus;
+        expectedRolloutDetails: { [name: string]: RolloutStatus };
+    }
+
+    const data: dataT[] = [
+        {
+            name: 'normal rollout status',
+            props: {
+                app: 'test1',
+                version: 2,
+            },
+            appDetails: {
+                test1: {
+                    details: {
+                        application: {
+                            name: 'test1',
+                            releases: [
+                                {
+                                    sourceCommitId: 'cafe',
+                                    sourceMessage: 'the other commit message 2',
+                                    version: 2,
+                                    createdAt: new Date(2002),
+                                    undeployVersion: false,
+                                    prNumber: 'PR123',
+                                    sourceAuthor: 'nobody',
+                                    displayVersion: '2',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: [],
+                                    ciLink: 'www.somewebsite.com',
+                                },
+                                {
+                                    sourceCommitId: 'cafe',
+                                    sourceMessage: 'the other commit message 3',
+                                    version: 3,
+                                    createdAt: new Date(2002),
+                                    undeployVersion: false,
+                                    prNumber: 'PR123',
+                                    sourceAuthor: 'nobody',
+                                    displayVersion: '3',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: [],
+                                    ciLink: 'www.somewebsite.com',
+                                },
+                            ],
+                            sourceRepoUrl: 'http://test2.com',
+                            team: 'example',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {
+                            prod: {
+                                version: 2,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                                deploymentMetaData: {
+                                    ciLink: 'www.somewebsite.com',
+                                    deployAuthor: 'somebody',
+                                    deployTime: 'sometime',
+                                },
+                            },
+                            dev: {
+                                version: 3,
+                                queuedVersion: 666,
+                                undeployVersion: false,
+                                deploymentMetaData: {
+                                    ciLink: 'www.somewebsite.com',
+                                    deployAuthor: 'somebody',
+                                    deployTime: 'sometime',
+                                },
+                            },
+                        },
+                    },
+                    appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
+                    errorMessage: '',
+                },
+            },
+            envs: [
+                {
+                    config: {
+                        argoConfigs: {
+                            configs: [
+                                {
+                                    concreteEnvName: 'test-1',
+                                    syncWindows: [],
+                                    accessList: [],
+                                    applicationAnnotations: {},
+                                    ignoreDifferences: [],
+                                    syncOptions: [],
+                                },
+                                {
+                                    concreteEnvName: 'test-2',
+                                    syncWindows: [],
+                                    accessList: [],
+                                    applicationAnnotations: {},
+                                    ignoreDifferences: [],
+                                    syncOptions: [],
+                                },
+                            ],
+                            commonEnvPrefix: 'aa',
+                        },
+                    },
+                    name: 'prod',
+                    distanceToUpstream: 0,
+                    priority: Priority.OTHER,
+                },
+                {
+                    name: 'dev',
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+
+            rels: [
+                {
+                    sourceCommitId: 'cafe',
+                    sourceMessage: 'the other commit message 3',
+                    version: 3,
+                    createdAt: new Date(2002),
+                    undeployVersion: false,
+                    prNumber: 'PR123',
+                    sourceAuthor: 'nobody',
+                    displayVersion: '3',
+                    isMinor: false,
+                    isPrepublish: false,
+                    environments: [],
+                    ciLink: 'www.somewebsite.com',
+                },
+                {
+                    sourceCommitId: 'cafe',
+                    sourceMessage: 'the other commit message 2',
+                    version: 2,
+                    createdAt: new Date(2002),
+                    undeployVersion: false,
+                    prNumber: 'PR123',
+                    sourceAuthor: 'nobody',
+                    displayVersion: '2',
+                    isMinor: false,
+                    isPrepublish: false,
+                    environments: [],
+                    ciLink: 'www.somewebsite.com',
+                },
+            ],
+            rolloutStatus: [
+                {
+                    application: 'test1',
+                    environment: 'aa-prod-test-1',
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_ERROR,
+                    rolloutStatusName: 'error',
+                },
+                {
+                    application: 'test1',
+                    environment: 'aa-prod-test-2',
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_PENDING,
+                    rolloutStatusName: 'pending',
+                },
+                {
+                    application: 'test1',
+                    environment: 'dev',
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_PROGRESSING,
+                    rolloutStatusName: 'progressing',
+                },
+            ],
+            expectedStatusIcon: RolloutStatus.ROLLOUT_STATUS_ERROR,
+            expectedRolloutDetails: {
+                prod: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                dev: RolloutStatus.ROLLOUT_STATUS_ERROR,
+            },
+            teamName: 'test me team',
+        },
+    ];
+
+    const setTheStore = (testcase: dataT) => {
+        const asMap: { [key: string]: Environment } = {};
+        testcase.envs.forEach((obj) => {
+            asMap[obj.name] = obj;
+        });
+        UpdateOverview.set({
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: testcase.envs,
+                    distanceToUpstream: 2,
+                    priority: Priority.UNRECOGNIZED,
+                },
+            ],
+        });
+        updateAppDetails.set(testcase.appDetails);
+        const status = testcase.rolloutStatus;
+        if (status !== undefined) {
+            for (const app of status) {
+                UpdateRolloutStatus({
+                    application: app.application,
+                    environment: app.environment,
+                    version: 1,
+                    rolloutStatus: app.rolloutStatus,
+                });
+            }
+        }
+    };
+
+    describe.each(data)(`Rollout Status`, (testcase) => {
+        it(testcase.name, () => {
+            const status = testcase.rolloutStatus;
+            if (status === undefined) {
+                return;
+            }
+
+            // when
+            setTheStore(testcase);
+            //const { container } = getWrapper(testcase.props);
+            // for (const [a, status] of Object.entries(testcase.rolloutStatus)) {
+            //     const li = expect(
+            //         document.getElementsByClassName('rollout__description_' + status.rolloutStatusName)[0]
+            //     ).toHaveTextContent(RolloutStatusDescription(status.rolloutStatus));
+            //     // eslint-disable-next-line no-console
+            //     console.log(container);
+            //     expect(li).toBeNull();
+            //     expect(status).toBeNull();
+            //     //expect(document.querySelectorAll('.rollout__description_' + descr.environment)).toHaveLength(count);
+            // }
         });
     });
 });
