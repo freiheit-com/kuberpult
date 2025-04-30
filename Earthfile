@@ -73,6 +73,9 @@ rollout-service:
 frontend-service:
     BUILD ./services/frontend-service+$target --UID=$UID --service=frontend-service
 
+reposerver-service:
+    BUILD ./services/reposerver-service+$target --UID=$UID --service=reposerver-service
+
 ui:
     BUILD ./services/frontend-service+$target-ui
 
@@ -95,6 +98,7 @@ test-all:
     BUILD ./services/cd-service+unit-test --service=cd-service
     BUILD ./services/manifest-repo-export-service+unit-test --service=manifest-repo-export-service
     BUILD ./services/rollout-service+unit-test --service=rollout-service
+    BUILD ./services/reposerver-service+unit-test --service=reposerver-service
     BUILD ./services/frontend-service+unit-test --service=frontend-service
     BUILD ./services/frontend-service+unit-test-ui
 
