@@ -52,9 +52,8 @@ import (
 )
 
 const (
-	envAcceptance      = "acceptance"
-	envProduction      = "production"
-	additionalVersions = 7
+	envAcceptance = "acceptance"
+	envProduction = "production"
 )
 
 var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
@@ -278,6 +277,10 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		{
 			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "", Latest: false}},
+				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
@@ -303,7 +306,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				},
 			},
 			expectedError: &TransformerBatchApplyError{
-				Index:            3,
+				Index:            4,
 				TransformerError: errMatcher{"UndeployApplication: error last release is not un-deployed application version of 'app1'"},
 			},
 		},
@@ -475,6 +478,15 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			Name: "Create a single application version without deploying it",
 			// no need to bother with environments here
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+				},
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -491,7 +503,14 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					EventType:     "new-release",
 					EventJson:     "{}",
-					TransformerID: 1,
+					TransformerID: 2,
+				},
+				{
+					Uuid:          "00000000-0000-0000-0000-000000000002",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					EventType:     "deployment",
+					EventJson:     "{}",
+					TransformerID: 2,
 				},
 			},
 		},
@@ -499,6 +518,15 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			Name: "Create a single application version and deploy it",
 			// no need to bother with environments here
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+				},
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -517,11 +545,18 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 			expectedDBEvents: []db.EventRow{
 				{
-					Uuid:          "00000000-0000-0000-0000-000000000002",
+					Uuid:          "00000000-0000-0000-0000-000000000003",
 					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					EventType:     "deployment",
 					EventJson:     "{}",
-					TransformerID: 2,
+					TransformerID: 3,
+				},
+				{
+					Uuid:          "00000000-0000-0000-0000-000000000004",
+					CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					EventType:     "replaced-by",
+					EventJson:     "{}",
+					TransformerID: 3,
 				},
 			},
 		},
@@ -1011,11 +1046,17 @@ func TestUndeployErrors(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, &CreateEnvironment{Environment: "production"})
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return nil
+			})
+			_ = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
-
 				return nil
 			})
 
@@ -3321,7 +3362,7 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig, err := db.SetupPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
@@ -3329,7 +3370,6 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	repoCfg := RepositoryConfig{
 		ArgoCdGenerateFiles: true,
 		MaximumQueueSize:    queueSize,
-		//MaximumQueueSize: 100,
 	}
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
@@ -3628,7 +3668,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: errMatcher{"Attempting to delete an environment that doesn't exist in the environments table"},
+				TransformerError: errMatcher{"Couldn't write environment '' into environments table, error: remove from env with environment does not exist: ''"},
 			},
 			shouldSucceed: false,
 		},

@@ -35,6 +35,11 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
+const (
+	appName      = "app-default"
+	appNameOther = "app-other"
+)
+
 func TestGetManifests(t *testing.T) {
 	type testCase struct {
 		name    string
@@ -44,8 +49,6 @@ func TestGetManifests(t *testing.T) {
 		wantErr error
 	}
 
-	appName := "app-default"
-	appNameOther := "app-other"
 	fixtureRequest := func(mods ...func(*api.GetManifestsRequest)) *api.GetManifestsRequest {
 		req := &api.GetManifestsRequest{
 			Application: appName,
@@ -114,7 +117,8 @@ func TestGetManifests(t *testing.T) {
 
 			return &testCase{
 				name: "happy path",
-				setup: append(fixtureSetupEnv(),
+				setup: append(
+					fixtureSetupEnv(),
 					fixtureRelease(appNameOther, 1),
 					fixtureRelease(appNameOther, 2),
 					fixtureRelease(appName, 1),
@@ -172,23 +176,26 @@ func TestGetManifests(t *testing.T) {
 			wantErr: status.Errorf(codes.NotFound, "no releases found for application %s", appName),
 		},
 	} {
-		tc := tc // TODO SRX-SRRONB: Remove after switching to go v1.22
 		t.Run(tc.name, func(t *testing.T) {
-			repo, err := setupRepositoryTestWithDB(t)
+			repo, err := setupRepositoryTestWithAllOptions(t, false)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
 			ctx := testutil.MakeTestContext()
 			sv := &VersionServiceServer{Repository: repo}
 
-			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.setup...)
-				if err2 != nil {
-					return err2
+			for i, setup := range tc.setup {
+				err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, setup)
+					if err2 != nil {
+						return err2
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("unexpected error during setup[%d]: err=%v\ntransformer=%v", i, err, setup.GetDBEventType())
 				}
-
-				return nil
-			})
+			}
 			got, err := sv.GetManifests(context.Background(), tc.req)
 			if diff := cmp.Diff(tc.wantErr, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)

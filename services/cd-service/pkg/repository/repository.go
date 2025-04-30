@@ -1057,6 +1057,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 	return groupEnvNames, nil
 }
 
+// returns all apps of this environment
 func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
 	return s.GetEnvironmentApplicationsFromDB(ctx, transaction, environment)
 }
