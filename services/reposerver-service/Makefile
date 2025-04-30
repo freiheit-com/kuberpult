@@ -20,7 +20,7 @@ include ../../Makefile.variables
 
 MAKEFLAGS += --no-builtin-rules
 
-export CGO_ENABLED=0
+export CGO_ENABLED=1
 IMAGE_REGISTRY?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-reposerver-service:$(VERSION)
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-reposerver-service:${VERSION}
