@@ -35,7 +35,6 @@ import {
 } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
-import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
 const getNode = (overrides: ReleaseDialogProps) => (
