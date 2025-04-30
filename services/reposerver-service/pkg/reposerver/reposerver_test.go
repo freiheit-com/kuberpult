@@ -20,27 +20,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
+	"testing"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"os"
-	"os/exec"
-	"path"
-	"path/filepath"
-	"regexp"
-	"strings"
-	"testing"
-	"time"
 
 	v1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
-	"github.com/argoproj/argo-cd/v2/reposerver/cache"
-	"github.com/argoproj/argo-cd/v2/reposerver/metrics"
-	argosrv "github.com/argoproj/argo-cd/v2/reposerver/repository"
-	"github.com/argoproj/argo-cd/v2/util/argo"
-	cacheutil "github.com/argoproj/argo-cd/v2/util/cache"
-	"github.com/argoproj/argo-cd/v2/util/git"
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -59,20 +47,24 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
-const appVersion = 1
-
-var createOneAppInDevelopment []repository.Transformer = []repository.Transformer{
-	&repository.CreateEnvironment{
-		Environment: "development",
-		Config: config.EnvironmentConfig{
-			Upstream: &config.EnvironmentConfigUpstream{
-				Latest: true,
+var devEnvironment db.DBEnvironment = db.DBEnvironment{
+	Name: "development",
+	Config: config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{
+			Latest: true,
+		},
+		ArgoCd: &config.EnvironmentConfigArgoCd{
+			Destination: config.ArgoCdDestination{
+				Server: "development",
 			},
 		},
 	},
-	&repository.CreateApplicationVersion{
-		Application: "app",
-		Version:     appVersion,
+}
+
+var appRelease db.DBReleaseWithMetaData = db.DBReleaseWithMetaData{
+	ReleaseNumber: 1,
+	App:           "app",
+	Manifests: db.DBReleaseManifests{
 		Manifests: map[string]string{
 			"development": `
 api: v1
@@ -95,55 +87,7 @@ data:
 	},
 }
 
-var createOneAppInDevelopmentAndTesting []repository.Transformer = []repository.Transformer{
-	&repository.CreateEnvironment{
-		Environment: "development",
-		Config: config.EnvironmentConfig{
-			Upstream: &config.EnvironmentConfigUpstream{
-				Latest: true,
-			},
-			ArgoCd: &config.EnvironmentConfigArgoCd{
-				Destination: config.ArgoCdDestination{
-					Server: "development",
-				},
-			},
-		},
-	},
-	&repository.CreateEnvironment{
-		Environment: "testing",
-		Config: config.EnvironmentConfig{
-			Upstream: &config.EnvironmentConfigUpstream{
-				Latest: true,
-			},
-			ArgoCd: &config.EnvironmentConfigArgoCd{
-				Destination: config.ArgoCdDestination{
-					Server: "testing",
-				},
-			},
-		},
-	},
-	&repository.CreateApplicationVersion{
-		Application: "app",
-		Manifests: map[string]string{
-			"development": `
-api: v1
-kind: ConfigMap
-metadata:
-  name: something
-  namespace: something
-data:
-  key: value`,
-			"testing": `
-api: v1
-kind: ConfigMap
-metadata:
-  name: something
-  namespace: something
-data:
-  key: value`,
-		},
-	},
-}
+var appVersion int64 = 1
 
 func TestToRevision(t *testing.T) {
 	tcs := []struct {
@@ -192,7 +136,8 @@ func TestToRevision(t *testing.T) {
 func TestGenerateManifest(t *testing.T) {
 	tcs := []struct {
 		Name              string
-		Setup             []repository.Transformer
+		SetupEnv          db.DBEnvironment
+		SetupReleases     []db.DBReleaseWithMetaData
 		Request           *argorepo.ManifestRequest
 		ExpectedResponse  *argorepo.ManifestResponse
 		ExpectedError     error
@@ -200,8 +145,9 @@ func TestGenerateManifest(t *testing.T) {
 		DBOnlyTest        bool
 	}{
 		{
-			Name:  "generates a manifest for HEAD",
-			Setup: createOneAppInDevelopment,
+			Name:          "generates a manifest for HEAD",
+			SetupEnv:      devEnvironment,
+			SetupReleases: []db.DBReleaseWithMetaData{appRelease},
 			Request: &argorepo.ManifestRequest{
 				Revision: "HEAD",
 				Repo: &v1alpha1.Repository{
@@ -221,8 +167,9 @@ func TestGenerateManifest(t *testing.T) {
 			},
 		},
 		{
-			Name:  "generates a manifest for the branch itself",
-			Setup: createOneAppInDevelopment,
+			Name:          "generates a manifest for the branch itself",
+			SetupEnv:      devEnvironment,
+			SetupReleases: []db.DBReleaseWithMetaData{appRelease},
 			Request: &argorepo.ManifestRequest{
 				Revision: "master",
 				Repo: &v1alpha1.Repository{
@@ -245,30 +192,43 @@ func TestGenerateManifest(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name+"_with_db", func(t *testing.T) {
-			repo, cfg := SetupRepositoryTestWithDBOptions(t, false)
+			dbHandler := SetupRepositoryTestWithDBOptions(t, false)
 			ctx := testutil.MakeTestContext()
-			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Setup...)
-				if err2 != nil {
-					return err2
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteEnvironment(ctx, transaction, tc.SetupEnv.Name, tc.SetupEnv.Config, tc.SetupEnv.Applications)
+				if err != nil {
+					return err
+				}
+
+				for _, release := range tc.SetupReleases {
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, release.App, db.AppStateChangeCreate, db.DBAppMetaData{})
+					if err != nil {
+						return err
+					}
+
+					err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+					if err != nil {
+						return err
+					}
+
+					err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+						App:     release.App,
+						Env:     tc.SetupEnv.Name,
+						Version: &appVersion,
+					})
+					if err != nil {
+						return err
+					}
 				}
 
 				return nil
 			})
-			// These two values change every run:
-			if tc.Request.Repo.Repo == "<the-repo-url>" {
-				tc.Request.Repo.Repo = cfg.URL
-			}
+
 			if tc.ExpectedResponse != nil {
-				tc.ExpectedResponse.Revision = ToRevision(appVersion)
-				mn := make([]string, 0)
-				for _, m := range tc.ExpectedResponse.Manifests {
-					mn = append(mn, strings.ReplaceAll(m, "<the-repo-url>", cfg.URL))
-				}
-				tc.ExpectedResponse.Manifests = mn
+				tc.ExpectedResponse.Revision = ToRevision(uint64(appVersion))
 			}
 
-			srv := New(repo, *cfg)
+			srv := New(dbHandler)
 			resp, err := srv.GenerateManifest(context.Background(), tc.Request)
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
@@ -305,7 +265,7 @@ func TestGetRevisionMetadata(t *testing.T) {
 	}
 }
 
-func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (repository.Repository, *repository.RepositoryConfig) {
+func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) *db.DBHandler {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(5)
 	if err != nil {
@@ -314,27 +274,6 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
-	}
-
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	err = cmd.Start()
-	if err != nil {
-		t.Fatalf("error starting %v", err)
-		return nil, nil
-	}
-	err = cmd.Wait()
-	if err != nil {
-		t.Fatalf("error waiting %v", err)
-		return nil, nil
-	}
-	t.Logf("test created dir: %s", localDir)
-
-	repoCfg := repository.RepositoryConfig{
-		URL:                 remoteDir,
-		ArgoCdGenerateFiles: true,
 	}
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
@@ -346,42 +285,6 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 	if err != nil {
 		t.Fatal(err)
 	}
-	repoCfg.DBHandler = dbHandler
 
-	repo, err := repository.New(
-		testutil.MakeTestContext(),
-		repoCfg,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo, &repoCfg
-}
-
-func testArgoServer(t *testing.T) argorepo.RepoServerServiceServer {
-	argoRoot := t.TempDir()
-	t.Cleanup(
-		func() {
-			// argocd chmods all its directories in such a way that they can't be listed.
-			// this makes a lot of sense until you actually want to remove them cleanly.
-			os.Chmod(argoRoot, 0700)
-			dirs, _ := os.ReadDir(argoRoot)
-			for _, dir := range dirs {
-				os.Chmod(filepath.Join(argoRoot, dir.Name()), 0700)
-			}
-		})
-	asrv := argosrv.NewService(
-		metrics.NewMetricsServer(),
-		cache.NewCache(cacheutil.NewCache(cacheutil.NewInMemoryCache(time.Hour)), time.Hour, time.Hour),
-		argosrv.RepoServerInitConstants{},
-		argo.NewResourceTracking(),
-		&git.NoopCredsStore{},
-		argoRoot,
-	)
-	err := asrv.Init()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return asrv
-
+	return dbHandler
 }

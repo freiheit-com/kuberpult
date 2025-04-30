@@ -239,6 +239,47 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 	return nil
 }
 
+// DBAppendAppToEnvironment returns an error if the env does not exist yet
+func (h *DBHandler) DBAppendAppToEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, newApp string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBAppendAppToEnvironment")
+	span.SetTag("environment", environmentName)
+	span.SetTag("app", newApp)
+	defer span.Finish()
+	dbEnv, err := h.addAppToEnvironment(ctx, tx, environmentName, newApp)
+	if err != nil {
+		return err
+	}
+	if dbEnv == nil {
+		// we did not add the app to the env, because it was already there
+		return nil
+	}
+	err = h.insertEnvironmentHistoryRow(ctx, tx, environmentName, dbEnv.Config, dbEnv.Applications, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DBRemoveAppFromEnvironment returns an error if the env does not exist yet
+func (h *DBHandler) DBRemoveAppFromEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, toDeleteApp string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBRemoveAppFromEnvironment")
+	span.SetTag("environment", environmentName)
+	span.SetTag("app", toDeleteApp)
+	defer span.Finish()
+	dbEnv, err := h.deleteAppFromEnvironment(ctx, tx, environmentName, toDeleteApp)
+	if err != nil {
+		return err
+	}
+	if dbEnv == nil {
+		return fmt.Errorf("remove from env with environment does not exist: '%s'", environmentName)
+	}
+	err = h.insertEnvironmentHistoryRow(ctx, tx, environmentName, dbEnv.Config, dbEnv.Applications, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironment")
 	defer span.Finish()
@@ -270,7 +311,7 @@ func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environ
 // actual changes in tables
 
 func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
+	span, _ := tracer.StartSpanFromContext(ctx, "upsertEnvironmentsRow")
 	defer span.Finish()
 	if h == nil {
 		return nil
@@ -285,13 +326,12 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 		DO UPDATE SET created = excluded.created, name = excluded.name, json = excluded.json, applications = excluded.applications;
 	`)
 	span.SetTag("query", insertQuery)
+	span.SetTag("queryEnvironment", environmentName)
+	span.SetTag("queryApplications", applications)
 
 	jsonToInsert, err := json.Marshal(environmentConfig)
 	if err != nil {
 		return fmt.Errorf("error while marshalling the environment config %v, error: %w", environmentConfig, err)
-	}
-	if err != nil {
-		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
 	}
 
 	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
@@ -317,6 +357,98 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 	return nil
 }
 
+// addAppToEnvironment returns the env if the app was added to env, and nil if the app was already there.
+// If the env does not exist an error is returned.
+func (h *DBHandler) addAppToEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, newApp string) (*DBEnvironment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "addAppToEnvironment")
+	defer span.Finish()
+	if h == nil {
+		return nil, fmt.Errorf("addAppToEnvironment: no dbHandler")
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("attempting to write to the environmets table without a transaction")
+	}
+	// first we check if the env exists.
+	// (We could do this in the statement below, but it's easy to confuse "env does not exist" with "app already exists in env",
+	//  so we split it up into 2 queries)
+	env, err := h.DBSelectEnvironment(ctx, tx, environmentName)
+	if err != nil {
+		return nil, err
+	}
+	if env == nil {
+		return nil, fmt.Errorf("could not add app to env, env does not exist: %s", environmentName)
+	}
+	updateQuery := h.AdaptQuery(`
+		UPDATE environments
+		SET 
+			applications = COALESCE(applications::jsonb, '[]'::jsonb) || json_build_array(?::text)::jsonb
+		WHERE name = (?)
+			AND NOT (applications::jsonb @> json_build_array(to_json(?::text))::jsonb)
+		RETURNING created, name, json, applications;
+	`)
+	span.SetTag("query", updateQuery)
+	span.SetTag("queryEnvironment", environmentName)
+	span.SetTag("queryNewApp", newApp)
+
+	row, err := tx.QueryContext(
+		ctx,
+		updateQuery,
+		newApp,
+		environmentName,
+		newApp,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("addAppToEnvironment: could not add app %s to environment %s to environments table, error: %w", newApp, environmentName, err)
+	}
+	dbEnv, err := h.processEnvironmentRow(ctx, row)
+	if err != nil {
+		return nil, fmt.Errorf("addAppToEnvironment: could not process row of environment %s and new app %s, error: %w", environmentName, newApp, err)
+	}
+	if dbEnv == nil {
+		return nil, nil
+	}
+	return dbEnv, nil
+}
+
+func (h *DBHandler) deleteAppFromEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, deleteThisApp string) (*DBEnvironment, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "deleteAppFromEnvironment")
+	defer span.Finish()
+	if h == nil {
+		return nil, fmt.Errorf("deleteAppFromEnvironment: no dbHandler")
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("deleteAppFromEnvironment: attempting to write to the environmets table without a transaction")
+	}
+	updateQuery := h.AdaptQuery(`
+		UPDATE environments
+		SET 
+			applications = COALESCE(applications::jsonb, '[]'::jsonb) - (?)
+		WHERE name = (?)
+		RETURNING created, name, json, applications;
+	`)
+	span.SetTag("query", updateQuery)
+	span.SetTag("queryEnvironment", environmentName)
+	span.SetTag("queryRemovedApp", deleteThisApp)
+
+	row, err := tx.QueryContext(
+		ctx,
+		updateQuery,
+		deleteThisApp,
+		environmentName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("deleteAppFromEnvironment: could not delete app %s to environment %s to environments table, error: %w", deleteThisApp, environmentName, err)
+	}
+	dbEnv, err := h.processEnvironmentRow(ctx, row)
+	if err != nil {
+		return nil, fmt.Errorf("deleteAppFromEnvironment: could not process row of environment %s and new app %s, error: %w", environmentName, deleteThisApp, err)
+	}
+	if dbEnv == nil {
+		return nil, nil
+	}
+	return dbEnv, nil
+}
+
 func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.Tx, environmentName string) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteEnvironmentRow")
 	defer span.Finish()
@@ -338,7 +470,7 @@ func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.T
 }
 
 func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string, deleted bool) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
+	span, _ := tracer.StartSpanFromContext(ctx, "insertEnvironmentHistoryRow")
 	defer span.Finish()
 	if h == nil {
 		return nil
@@ -355,9 +487,6 @@ func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx,
 	jsonToInsert, err := json.Marshal(environmentConfig)
 	if err != nil {
 		return fmt.Errorf("error while marshalling the environment config %v, error: %w", environmentConfig, err)
-	}
-	if err != nil {
-		return fmt.Errorf("error while selecting environment %s from database, error: %w", environmentName, err)
 	}
 
 	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
