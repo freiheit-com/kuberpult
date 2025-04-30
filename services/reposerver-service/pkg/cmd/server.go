@@ -133,13 +133,6 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
-	log.Infof("Running SQL Migrations")
-	migErr := db.RunDBMigrations(ctx, dbCfg)
-	if migErr != nil {
-		logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
-	}
-	logger.FromContext(ctx).Info("Finished with basic database migration.")
-
 	// Shutdown channel is used to terminate server side streams.
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
