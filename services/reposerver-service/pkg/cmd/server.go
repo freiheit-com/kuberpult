@@ -153,6 +153,7 @@ func Run(ctx context.Context) error {
 				reflection.Register(srv)
 			},
 		},
+		Background: []setup.BackgroundTaskConfig{},
 		Shutdown: func(ctx context.Context) error {
 			close(shutdownCh)
 			return nil
