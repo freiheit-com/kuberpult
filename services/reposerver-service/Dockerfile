@@ -6,8 +6,8 @@ WORKDIR /kp/
 RUN apk --update add ca-certificates tzdata
 
 # reposerver-service:
-ADD services/reposerver-service/cmd/server/ /kp/services/rollout-service/cmd/server/
-ADD services/reposerver-service/pkg /kp/services/rollout-service/pkg
+ADD services/reposerver-service/cmd/server/ /kp/services/reposerver-service/cmd/server/
+ADD services/reposerver-service/pkg /kp/services/reposerver-service/pkg
 
 # global pkg:
 ADD pkg /kp/pkg
