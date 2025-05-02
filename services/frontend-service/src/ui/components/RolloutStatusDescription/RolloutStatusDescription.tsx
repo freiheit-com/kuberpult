@@ -103,13 +103,7 @@ export const AAEnvironmentRolloutDescription: React.FC<{
                                     <tr key={currentStatus[0]}>
                                         <td className={'tooltip-text'}>{currentStatus[0]}</td>
                                         <td>
-                                            <RolloutStatusDescription
-                                                status={
-                                                    currentStatus[1]
-                                                        ? currentStatus[1]
-                                                        : RolloutStatus.ROLLOUT_STATUS_UNKNOWN
-                                                }
-                                            />
+                                            <RolloutStatusDescription status={currentStatus[1]} />
                                         </td>
                                     </tr>
                                 )
