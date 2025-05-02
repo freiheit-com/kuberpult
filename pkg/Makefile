@@ -35,10 +35,15 @@ api/v1/api.EnvironmentConfig_grpc.pb.go api/v1/api.pb.go api/v1/api.pb.gw.go api
 	if grep -q '^import "google/api/annotations.proto"' $< || grep -q '^import "google/api/http.proto"' $< ; then echo 'Instead of using google.api.http protobuf annotations we write HTTP handlers by hand' ; exit 1 ; fi
 	buf generate
 
+publicapi: publicapi/server-gen.go
+publicapi/server-gen.go:
+#	go tool oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package myapi3 publicapi/api.yaml
+#	ls publicapi
+
 release: #no-op
 clean:
 	rm -f api/v1/*.go
-proto: api/v1/api_grpc.pb.go
+proto: api/v1/api_grpc.pb.go publicapi
 
 build-pr: all
 build-main: all

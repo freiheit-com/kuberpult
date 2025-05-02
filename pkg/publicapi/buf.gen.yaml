@@ -1,0 +1,8 @@
+version: v1
+plugins:
+  - name: go
+    out: gen/go
+  - name: go-grpc
+    out: gen/go
+  - name: grpc-gateway
+    out: gen/go

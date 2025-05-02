@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"net/http"
 	"net/url"
 	"strings"
@@ -41,6 +42,7 @@ type Server struct {
 	Config                      config.ServerConfig
 	KeyRing                     openpgp.KeyRing
 	AzureAuth                   bool
+	User                        auth.User
 }
 
 func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
@@ -161,4 +163,17 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 		}
 		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", dexResponse.Status, string(v)), http.StatusBadGateway)
 	}
+}
+
+type PublicApiServer struct {
+	S Server
+	//User auth.User
+}
+
+func (s *PublicApiServer) GetCommitDeployments(w http.ResponseWriter, r *http.Request, commitHash string) {
+	//w.WriteHeader(200)
+	logger.FromContext(r.Context()).Sugar().Error("Hello world getCommitDeployments")
+	fmt.Println("hello commit")
+	s.S.handleCommitDeployments(w, r, commitHash) // TODO SU
+	w.Write([]byte("getCommitDeployments\n"))
 }

@@ -25,3 +25,5 @@ plugins:
     opt:
       - require_unimplemented_servers=false
       - paths=source_relative
+  - name: grpc-gateway
+    out: .

@@ -34,6 +34,7 @@ deps:
 
     ARG GO_CI_LINT_VERSION="v1.64.0"
     RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
+    RUN go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
 
     RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.3.1.tar.gz -O exhaustruct.tar.gz
     RUN echo b9691e2632f00c67a24d0482d0691d1aa51937f6b4a51817478efda4a2ed69d9 exhaustruct.tar.gz | sha256sum -c

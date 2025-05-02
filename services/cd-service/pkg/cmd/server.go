@@ -423,7 +423,7 @@ func RunServer() {
 						if c.EnableTracing {
 							handler = httptrace.WrapHandler(handler, datadogNameCd, "/")
 						}
-						mux.Handle("/", handler)
+						mux.Handle("/", repositoryService)
 					},
 				},
 			},
