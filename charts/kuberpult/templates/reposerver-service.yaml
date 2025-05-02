@@ -168,8 +168,6 @@ spec:
 {{- end }}
         - name: KUBERPULT_DB_LOCATION
           value: "{{ .Values.db.location }}"
-        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
-          value: /migrations/postgres
         - name: KUBERPULT_DB_NAME
           value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
@@ -204,25 +202,6 @@ spec:
         - name: DD_TRACE_PARTIAL_FLUSH_MIN_SPANS
           value: "{{ .Values.datadogTracing.partialFlushMinSpans }}"
 {{- end }}
-        volumeMounts:
-        - name: repository
-          # The repository volume, an emptyDir, is mounted to the kp directory.
-          # The reposerver-service creates the repository inside this directory in /kp/repository.
-          # We mount the volume to the parent because kubernetes volumes belong to root.
-          # This way the container can create /kp/repository itself without any permission issues.
-          mountPath: /kp/
-        - name: ssh
-          mountPath: /etc/ssh
-      volumes:
-      - name: repository
-        # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
-        # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
-        # Because of an issue in gitlib2, this actually happens.
-        emptyDir:
-          sizeLimit: {{ .Values.git.emptyDirSize }}
-      - name: ssh
-        secret:
-          secretName: kuberpult-ssh
 ---
 apiVersion: v1
 kind: Service

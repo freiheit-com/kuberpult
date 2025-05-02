@@ -272,6 +272,7 @@ rollout:
     # If `KuberpultEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding kuberpult events received by the
     # rollout service. Useful for diagnosing possible bottlenecks on rollout service
     kuberpultEventsMetricsEnabled: false
+# Standalone reposerver service for interacting with argocd
 reposerver:
   enabled: false 
   service:
@@ -286,10 +287,6 @@ reposerver:
     requests:
       cpu: 500m
       memory: 250Mi
-  # The maximum message size in megabytes the client can receive.
-  grpcMaxRecvMsgSize: 4
-  # Size of the channel that holds the Kuberpult Events received by the rollout service.
-  kuberpultEventsChannelSize: 50
   probes:
     liveness:
       periodSeconds: 10
