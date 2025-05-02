@@ -148,6 +148,7 @@ cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT}"
 manifest_repo_export_imagename="${IMAGE_REGISTRY}/kuberpult-manifest-repo-export-service:${IMAGE_TAG_KUBERPULT}"
 frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_KUBERPULT}"
 rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBERPULT}"
+reposerver_imagename="${IMAGE_REGISTRY}/kuberpult-reposerver-service:${IMAGE_TAG_KUBERPULT}"
 
 print "cd image: $cd_imagename"
 print "frontend image: $frontend_imagename"
@@ -163,6 +164,8 @@ then
   docker pull "$frontend_imagename"
   print 'pulling rollout service...'
   docker pull "$rollout_imagename"
+  print 'pulling reposerver service...'
+  docker pull "$reposerver_imagename"
 else
   print 'not pulling cd or frontend service...'
 fi
@@ -188,7 +191,7 @@ print 'loading docker images into kind...'
 print "$cd_imagename"
 print "$frontend_imagename"
 (
-  for image in "$cd_imagename" "$manifest_repo_export_imagename" "$rollout_imagename" "$frontend_imagename" "$ARGOCD_IMAGE_URI" "$DEX_IMAGE_URI" "$CLOUDSQL_PROXY_IMAGE_URI" "$REDIS_IMAGE_URI"
+  for image in "$cd_imagename" "$manifest_repo_export_imagename" "$rollout_imagename" "$reposerver_imagename" "$frontend_imagename" "$ARGOCD_IMAGE_URI" "$DEX_IMAGE_URI" "$CLOUDSQL_PROXY_IMAGE_URI" "$REDIS_IMAGE_URI"
   do
     kind load docker-image "${image}" &
   done
@@ -215,7 +218,7 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   params:
     controller.repo.server.plaintext: "true"
     server.repo.server.plaintext: "true"
-    repo.server: kuberpult-cd-service:8443
+    repo.server: kuberpult-reposerver-service:8443
   rbac:
     policy.csv: |
       p, role:kuberpult, applications, get, */*, allow

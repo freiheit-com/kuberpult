@@ -288,6 +288,10 @@ spec:
           value: "false"
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.cd.grpcMaxRecvMsgSize }}"
+{{- if .Values.reposerver.enabled }}
+        - name: KUBERPULT_REPOSERVER_ENABLED
+          value: "true"
+{{- end }}
         volumeMounts:
         - name: ssh
           mountPath: /etc/ssh
