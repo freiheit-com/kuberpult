@@ -41,7 +41,7 @@ UNIT_TEST:
     COPY pkg pkg
 
     IF [ "$use_docker" = "true" ]
-        WITH DOCKER --compose $location
+        WITH DOCKER --compose ../../docker-compose-unittest.yml
             RUN --no-cache \
                 echo "Started docker compose for unit tests." ;\
                 go test $GO_TEST_ARGS ./... -coverprofile=coverage.out
