@@ -20,7 +20,7 @@ import { Tooltip } from '../tooltip/tooltip';
 const ROLLOUT_STATUS_UNKNOWN_DESCRIPTION =
     "ArgoCD hasn't reported any information about this application on this environment.";
 
-const ROLLOUT_STATUS_SUCCESFUL_DESCRIPTION = 'ArgoCD has successfully synced this application this environment.';
+const ROLLOUT_STATUS_SUCCESSFUL_DESCRIPTION = 'ArgoCD has successfully synced this application this environment.';
 const ROLLOUT_STATUS_PROGRESSING_DESCRIPTION =
     'ArgoCD has picked up these changes for this application on this environment, but has not applied them yet. This process might take a while.';
 const ROLLOUT_STATUS_PENDING_DESCRIPTION = 'ArgoCD has not yet picked up these changes.';
@@ -37,7 +37,7 @@ export const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (pr
     switch (status) {
         case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
             span = <span className="rollout__description_successful">✓ Done</span>;
-            tooltipContent = ROLLOUT_STATUS_SUCCESFUL_DESCRIPTION;
+            tooltipContent = ROLLOUT_STATUS_SUCCESSFUL_DESCRIPTION;
             break;
         case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
             span = <span className="rollout__description_progressing">↻ In progress</span>;
