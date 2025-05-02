@@ -701,6 +701,40 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test reposerver enabled",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+reposerver:
+  enabled: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REPOSERVER_ENABLED",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test reposerver disabled",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REPOSERVER_ENABLED",
+					Value: "",
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1742,11 +1776,6 @@ db:
 					if CheckForEnvVariable(t, env, &targetDocument) {
 						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
 					}
-				}
-
-				cdServiceDocument := out["kuberpult-cd-service"]
-				if !CheckForEnvVariable(t, core.EnvVar{Name: "KUBERPULT_REPOSERVER_ENABLED", Value: "true"}, &cdServiceDocument) {
-					t.Fatal("Environment variable KUBERPULT_REPOSERVER_ENABLED with value true was expected, but not found in cd-service.")
 				}
 			}
 		})
