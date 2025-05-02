@@ -1729,8 +1729,6 @@ func TestHelmChartsKuberpultReposerverEnvVariables(t *testing.T) {
 			Values: `
 git:
   url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
 reposerver:
   enabled: true
 db:
@@ -2340,6 +2338,58 @@ manifestRepoExport:
 				t.Fatalf("%v", err)
 			} else {
 				_, found := out["kuberpult-manifest-repo-export-service"]
+				if found != tc.ShouldExist {
+					t.Fatalf("Expected existence: %t, got: %t", tc.ShouldExist, found)
+				}
+			}
+		})
+	}
+}
+
+func TestReposerverServiceDisabled(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		Values      string
+		ShouldExist bool
+	}{
+		{
+			Name: "Disabled Reposerver Service",
+			Values: `
+git:
+  url: "testURL"
+reposerver:
+  enabled: false
+db:
+  dbOption: "postgreSQL"
+`,
+			ShouldExist: false,
+		},
+		{
+			Name: "Enabled Reposerver Service",
+			Values: `
+git:
+  url: "testURL"
+reposerver:
+  enabled: true
+db:
+  dbOption: "postgreSQL"
+`,
+			ShouldExist: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf("%v", err)
+			} else {
+				_, found := out["kuberpult-reposerver-service"]
 				if found != tc.ShouldExist {
 					t.Fatalf("Expected existence: %t, got: %t", tc.ShouldExist, found)
 				}
