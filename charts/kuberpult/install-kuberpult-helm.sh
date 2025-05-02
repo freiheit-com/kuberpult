@@ -58,6 +58,16 @@ rollout:
       cpu: 0.05
   persistArgoEvents: true
   argoEventsBatchSize: 1
+reposerver:
+  enabled: true
+  grpcMaxRecvMsgSize: 4
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
 manifestRepoExport:
   eslProcessingIdleTimeSeconds: 15
   resources:

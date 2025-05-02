@@ -1,0 +1,244 @@
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com
+
+{{- if not (eq .Values.db.dbOption "postgreSQL") }}
+{{ fail ".Values.db.dbOption does not contain a valid value (postgreSQL)."}}
+{{ end -}}
+
+# the reposerver service is only enabled, if the DB is enabled and the `enabled` flag is true
+{{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.reposerver.enabled))}}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuberpult-reposerver-service
+  labels:
+    app: kuberpult-reposerver-service
+{{- if .Values.datadogTracing.enabled }}
+    tags.datadoghq.com/service: kuberpult-reposerver-service
+    tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
+    tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
+{{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kuberpult-reposerver-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-reposerver-service
+{{- if .Values.datadogTracing.enabled }}
+        tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
+        tags.datadoghq.com/service: kuberpult-reposerver-service
+        tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
+{{- end }}
+      annotations:
+{{- if .Values.datadogTracing.enabled }}
+        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-reposerver-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
+{{- end }}
+{{- if .Values.reposerver.pod.annotations }}
+{{ .Values.reposerver.pod.annotations | toYaml | indent 8}}
+{{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.db.k8sServiceAccountName)) }}
+      serviceAccountName: {{ .Values.db.k8sServiceAccountName }}
+{{- end }}
+      containers:
+{{- if .Values.db.cloudSqlProxyEnabled }}
+      - name: cloud-sql-proxy
+        # It is recommended to use the latest version of the Cloud SQL Auth Proxy
+        # Make sure to update on a regular schedule!
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args:
+          # If connecting from a VPC-native GKE cluster, you can use the
+          # following flag to have the proxy connect over private IP
+          - "--private-ip"
+
+          # Enable structured logging with LogEntry format:
+          - "--structured-logs"
+
+          # Replace DB_PORT with the port the proxy should listen on
+
+          - "--port={{ .Values.db.authProxyPort }}"
+
+          - {{ .Values.db.dbConnectionName | quote }}
+        securityContext:
+          # The default Cloud SQL Auth Proxy image runs as the
+          # "nonroot" user and group (uid: 65532) by default.
+          runAsNonRoot: true
+        # You should use resource requests/limits as a best practice to prevent
+        # pods from consuming too many resources and affecting the execution of
+        # other pods. You should adjust the following values based on what your
+        # application needs. For details, see
+        # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        resources:
+          requests:
+            # The proxy's memory use scales linearly with the number of active
+            # connections. Fewer open connections will use less memory. Adjust
+            # this value based on your application's requirements.
+            memory: {{ .Values.db.requests.memory }}
+            # The proxy's CPU use scales linearly with the amount of IO between
+            # the database and the application. Adjust this value based on your
+            # application's requirements.
+            cpu:  {{ .Values.db.requests.cpu }}
+{{- end }}
+      - name: service
+        image: "{{ .Values.hub }}/{{ .Values.reposerver.image }}:{{ $.Chart.AppVersion }}"
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+          - name: grpc
+            containerPort: 8443
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: {{ .Values.reposerver.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.reposerver.probes.readiness.periodSeconds }}
+          successThreshold: {{ .Values.reposerver.probes.readiness.successThreshold }}
+          timeoutSeconds: {{ .Values.reposerver.probes.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.reposerver.probes.readiness.failureThreshold }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: {{ .Values.reposerver.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.reposerver.probes.liveness.periodSeconds }}
+          successThreshold: {{ .Values.reposerver.probes.liveness.successThreshold }}
+          timeoutSeconds: {{ .Values.reposerver.probes.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.reposerver.probes.liveness.failureThreshold }}
+        resources:
+          limits:
+            cpu: "{{ .Values.reposerver.resources.limits.cpu }}"
+            memory: "{{ .Values.reposerver.resources.limits.memory }}"
+          requests:
+            cpu: "{{ .Values.reposerver.resources.requests.cpu }}"
+            memory: "{{ .Values.reposerver.resources.requests.memory }}"
+        env:
+        - name: KUBERPULT_VERSION
+          value: {{ $.Chart.AppVersion | quote}}
+        - name: LOG_FORMAT
+          value: {{ .Values.log.format | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.log.level | quote }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_AGENT_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_ENV
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/env']
+        - name: DD_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/service']
+        - name: DD_VERSION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/version']
+        - name: KUBERPULT_ENABLE_TRACING
+          value: "{{ .Values.datadogTracing.enabled }}"
+{{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_API_KEY_LOCATION
+          value: "/etc/datadog/api-key"
+{{- end }}
+        - name: KUBERPULT_DB_LOCATION
+          value: "{{ .Values.db.location }}"
+        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
+          value: /migrations/postgres
+        - name: KUBERPULT_DB_NAME
+          value: "{{ .Values.db.dbName }}"
+        - name: KUBERPULT_DB_USER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: username
+        - name: KUBERPULT_DB_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: password
+        - name: KUBERPULT_DB_SSL_MODE
+          value: "{{ .Values.db.sslMode }}"
+        - name: KUBERPULT_DB_OPTION # { NO_DB, postgreSQL}
+          value: {{ .Values.db.dbOption }}
+        - name: KUBERPULT_DB_AUTH_PROXY_PORT
+          value: "{{ .Values.db.authProxyPort }}"
+        - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
+          value: "{{ .Values.db.connections.reposerver.maxOpen }}"
+        - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
+          value: "{{ .Values.db.connections.reposerver.maxIdle }}"
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_DEBUG
+          value: "{{ .Values.datadogTracing.debugging }}"
+{{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_PARTIAL_FLUSH_ENABLED
+          value: "{{ .Values.datadogTracing.partialFlushEnabled }}"
+{{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_PARTIAL_FLUSH_MIN_SPANS
+          value: "{{ .Values.datadogTracing.partialFlushMinSpans }}"
+{{- end }}
+        volumeMounts:
+        - name: repository
+          # The repository volume, an emptyDir, is mounted to the kp directory.
+          # The reposerver-service creates the repository inside this directory in /kp/repository.
+          # We mount the volume to the parent because kubernetes volumes belong to root.
+          # This way the container can create /kp/repository itself without any permission issues.
+          mountPath: /kp/
+        - name: ssh
+          mountPath: /etc/ssh
+      volumes:
+      - name: repository
+        # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
+        # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
+        # Because of an issue in gitlib2, this actually happens.
+        emptyDir:
+          sizeLimit: {{ .Values.git.emptyDirSize }}
+      - name: ssh
+        secret:
+          secretName: kuberpult-ssh
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-reposerver-service
+{{- if .Values.reposerver.service.annotations }}
+  annotations:
+{{ .Values.reposerver.service.annotations | toYaml | indent 4}}
+{{- end }}
+spec:
+  ports:
+  - name: grpc
+    port: 8443
+    targetPort: grpc
+  selector:
+    app: kuberpult-reposerver-service
+  type: NodePort
+
+{{- end }}
