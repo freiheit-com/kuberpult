@@ -701,6 +701,40 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test reposerver enabled",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+reposerver:
+  enabled: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REPOSERVER_ENABLED",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test reposerver disabled",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REPOSERVER_ENABLED",
+					Value: "",
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1683,6 +1717,69 @@ argocd:
 	}
 }
 
+func TestHelmChartsKuberpultReposerverEnvVariables(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Values          string
+		ExpectedEnvs    []core.EnvVar
+		ExpectedMissing []core.EnvVar
+	}{
+		{
+			Name: "Test db max connections",
+			Values: `
+git:
+  url: "testURL"
+reposerver:
+  enabled: true
+db:
+  dbOption: "postgreSQL"
+  connections:
+    reposerver:
+      maxOpen: 777
+      maxIdle: 321
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_MAX_OPEN_CONNECTIONS",
+					Value: "777",
+				},
+				{
+					Name:  "KUBERPULT_DB_MAX_IDLE_CONNECTIONS",
+					Value: "321",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf("%v", err)
+			} else {
+				targetDocument := out["kuberpult-reposerver-service"]
+				for _, env := range tc.ExpectedEnvs {
+					if !CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
+					}
+				}
+				for _, env := range tc.ExpectedMissing {
+					if CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestIngress(t *testing.T) {
 	ingressClassGcePrivate := "gce-private"
 	tcs := []struct {
@@ -2241,6 +2338,58 @@ manifestRepoExport:
 				t.Fatalf("%v", err)
 			} else {
 				_, found := out["kuberpult-manifest-repo-export-service"]
+				if found != tc.ShouldExist {
+					t.Fatalf("Expected existence: %t, got: %t", tc.ShouldExist, found)
+				}
+			}
+		})
+	}
+}
+
+func TestReposerverServiceDisabled(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		Values      string
+		ShouldExist bool
+	}{
+		{
+			Name: "Disabled Reposerver Service",
+			Values: `
+git:
+  url: "testURL"
+reposerver:
+  enabled: false
+db:
+  dbOption: "postgreSQL"
+`,
+			ShouldExist: false,
+		},
+		{
+			Name: "Enabled Reposerver Service",
+			Values: `
+git:
+  url: "testURL"
+reposerver:
+  enabled: true
+db:
+  dbOption: "postgreSQL"
+`,
+			ShouldExist: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf("%v", err)
+			} else {
+				_, found := out["kuberpult-reposerver-service"]
 				if found != tc.ShouldExist {
 					t.Fatalf("Expected existence: %t, got: %t", tc.ShouldExist, found)
 				}

@@ -173,6 +173,9 @@ db:
     rollout:
       maxOpen: 100
       maxIdle: 20
+    reposerver:
+      maxOpen: 5
+      maxIdle: 2
   # Kuberpult only checks for custom migrations if this flag is enabled. Otherwise, it skips them entirely, assuming
   # that there is no information we want to migrate from an existing manifest repository to the database.
   # You should only enable this flag, if you want to do a one-step upgrade of kuberpult from a (relatively old) version that still uses git as storage.
@@ -269,7 +272,34 @@ rollout:
     # If `KuberpultEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding kuberpult events received by the
     # rollout service. Useful for diagnosing possible bottlenecks on rollout service
     kuberpultEventsMetricsEnabled: false
-
+# Standalone reposerver service for interacting with argocd
+reposerver:
+  enabled: false
+  service:
+    annotations: {}
+  pod:
+    annotations: {}
+  image: kuberpult-reposerver-service
+  resources:
+    limits:
+      cpu: 500m
+      memory: 250Mi
+    requests:
+      cpu: 500m
+      memory: 250Mi
+  probes:
+    liveness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
+      initialDelaySeconds: 5
+    readiness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
+      initialDelaySeconds: 5
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
   # set to false, if you want to use your own ingress:

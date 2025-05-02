@@ -108,10 +108,6 @@ func Run(ctx context.Context) error {
 		return err
 	}
 	logger.FromContext(ctx).Info("startup", zap.String("kuberpultVersion", kuberpultVersionRaw))
-	dbMigrationLocation, err := valid.ReadEnvVar("KUBERPULT_DB_MIGRATIONS_LOCATION")
-	if err != nil {
-		return err
-	}
 
 	dbCfg := db.DBConfig{
 		DbHost:         dbLocation,
@@ -120,7 +116,7 @@ func Run(ctx context.Context) error {
 		DbName:         dbName,
 		DbPassword:     dbPassword,
 		DbUser:         dbUserName,
-		MigrationsPath: dbMigrationLocation,
+		MigrationsPath: "",
 		WriteEslOnly:   false,
 		SSLMode:        sslMode,
 
