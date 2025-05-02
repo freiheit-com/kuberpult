@@ -16,6 +16,8 @@ Copyright freiheit.com*/
 import { RolloutStatus } from '../../../api/api';
 import React from 'react';
 import { Tooltip } from '../tooltip/tooltip';
+import { Argo, Git } from '../../../images';
+import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
 
 const ROLLOUT_STATUS_UNKNOWN_DESCRIPTION =
     "ArgoCD hasn't reported any information about this application on this environment.";
@@ -58,6 +60,50 @@ export const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (pr
     }
     return (
         <Tooltip tooltipContent={<div className="mdc-tooltip__title_ release__details">{tooltipContent}</div>}>
+            {span}
+        </Tooltip>
+    );
+};
+
+export const AAEnvironmentRolloutDescription: React.FC<{ statuses: [string, RolloutStatus | undefined][] }> = (
+    props
+) => {
+    const { statuses } = props;
+    const span = <span className="rollout__description_unknown">? Unknown</span>;
+    const tooltipContents = (
+        <div className="mdc-tooltip__title_ release__details">
+            {statuses.length > 0 && (
+                <table className="release__environment_status">
+                    <thead>
+                        <tr>
+                            <th className={'tooltip-text'}>Environment group</th>
+                            {
+                                <th className="release-card__statusth tooltip-text">
+                                    Rollout Status <Argo className="status-logo" />
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {statuses.map((currentStatus) => (
+                            <tr key={currentStatus[0]}>
+                                <td className={'tooltip-text'}>{currentStatus[0]}</td>
+                                <td>
+                                    <RolloutStatusDescription
+                                        status={
+                                            currentStatus[1] ? currentStatus[1] : RolloutStatus.ROLLOUT_STATUS_UNKNOWN
+                                        }
+                                    />
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+        </div>
+    );
+    return (
+        <Tooltip tooltipContent={<div className="mdc-tooltip__title_ release__details">{tooltipContents}</div>}>
             {span}
         </Tooltip>
     );
