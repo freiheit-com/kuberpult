@@ -20,6 +20,7 @@ import {
     BatchAction,
     BatchRequest,
     Environment,
+    EnvironmentConfig,
     EnvironmentGroup,
     GetAppDetailsResponse,
     GetCommitInfoResponse,
@@ -1285,6 +1286,20 @@ const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>(
 class RolloutStatusGetter {
     private readonly store: RolloutStatusStore;
 
+    private readonly environmentPriorities: RolloutStatus[] = [
+        // Error is not recoverable by waiting and requires manual intervention
+        RolloutStatus.ROLLOUT_STATUS_ERROR,
+
+        // These states may resolve by waiting longer
+        RolloutStatus.ROLLOUT_STATUS_PROGRESSING,
+        RolloutStatus.ROLLOUT_STATUS_UNHEALTHY,
+        RolloutStatus.ROLLOUT_STATUS_PENDING,
+        RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
+
+        // This is the only successful state
+        RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+    ];
+
     constructor(store: RolloutStatusStore) {
         this.store = store;
     }
@@ -1301,6 +1316,7 @@ class RolloutStatusGetter {
         if (statusPerEnv === undefined) {
             return undefined;
         }
+
         const status = statusPerEnv[environment];
         if (status === undefined) {
             return undefined;
@@ -1311,7 +1327,62 @@ class RolloutStatusGetter {
         }
         return status.rolloutStatus;
     }
+
+    getAllAppStatusForAAEnv(
+        application: string,
+        applicationVersion: number | undefined,
+        parentEnvironmentName: string,
+        config: EnvironmentConfig | undefined
+    ): [string, RolloutStatus | undefined][] {
+        if (!IsAAEnvironment(config)) {
+            return [];
+        }
+        const statuses: [string, RolloutStatus | undefined][] = [];
+        config?.argoConfigs?.configs.forEach((current) => {
+            const currentConcreteEnvironmentName =
+                config.argoConfigs?.commonEnvPrefix + '-' + parentEnvironmentName + '-' + current.concreteEnvName;
+
+            statuses.push([
+                currentConcreteEnvironmentName,
+                this.getAppStatus(application, applicationVersion, currentConcreteEnvironmentName),
+            ]);
+        });
+        return statuses;
+    }
+    getMostInterestingStatusAAEnv(
+        application: string,
+        applicationVersion: number | undefined,
+        parentEnvironmentName: string,
+        config: EnvironmentConfig | undefined
+    ): RolloutStatus | undefined {
+        const statuses = this.getAllAppStatusForAAEnv(application, applicationVersion, parentEnvironmentName, config);
+        if (statuses.length === 0 || statuses.filter((curr) => curr[1] !== undefined).length === 0) {
+            return undefined;
+        }
+
+        let mostInteresting: RolloutStatus = RolloutStatus.ROLLOUT_STATUS_SUCCESFUL;
+
+        statuses.forEach((curr) => {
+            const currRolloutStatus = curr[1] ? curr[1] : RolloutStatus.ROLLOUT_STATUS_UNKNOWN;
+
+            if (this.getStatusPriority(mostInteresting) > this.getStatusPriority(currRolloutStatus)) {
+                mostInteresting = currRolloutStatus;
+            }
+        });
+        return mostInteresting;
+    }
+
+    private getStatusPriority = (status: RolloutStatus): RolloutStatus => {
+        const idx = this.environmentPriorities.indexOf(status);
+        if (idx === -1) {
+            return this.environmentPriorities.length;
+        }
+        return idx;
+    };
 }
+
+export const IsAAEnvironment = (config: EnvironmentConfig | undefined): boolean =>
+    config !== undefined && config.argoConfigs !== undefined && config.argoConfigs.configs.length > 1;
 
 export const useRolloutStatus = <T,>(f: (getter: RolloutStatusGetter) => T): T =>
     useEntireRolloutStatus((data) => f(new RolloutStatusGetter(data)));

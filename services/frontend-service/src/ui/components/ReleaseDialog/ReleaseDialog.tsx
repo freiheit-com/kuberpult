@@ -20,6 +20,7 @@ import {
     addAction,
     getPriorityClassName,
     gitSyncStatus,
+    IsAAEnvironment,
     showSnackbarWarn,
     useActions,
     useAppDetailsForApp,
@@ -216,11 +217,17 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
 
     const syncStatus = useGitSyncStatus((getter) => getter.getAppStatus(app, env.name));
     const appGitSyncStatus = gitSyncStatus.get();
-    const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
+
+    let appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
+    const aaEnvRolloutStatus = useRolloutStatus((getter) =>
+        getter.getMostInterestingStatusAAEnv(app, deployment?.version, env.name, env.config)
+    );
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
     const appEnvLocks = useMemo(() => appDetails?.details?.appLocks?.[env.name]?.locks ?? [], [appDetails, env]);
-
+    if (IsAAEnvironment(env.config)) {
+        appRolloutStatus = aaEnvRolloutStatus;
+    }
     const plannedLockRemovals = actions
         .filter(
             (action) =>
@@ -340,7 +347,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     };
 
     return (
-        <li key={env.name} className={classNames('env-card')}>
+        <li id={env.name} key={env.name} className={classNames('env-card')}>
             <div className="env-card-header">
                 <EnvironmentChip
                     env={env}

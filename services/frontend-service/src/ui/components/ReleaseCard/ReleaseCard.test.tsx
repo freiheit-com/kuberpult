@@ -636,6 +636,113 @@ describe('Release Card Rollout Status', () => {
                 staging: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
             },
         },
+        {
+            name: 'shows most interesting status with AA environments',
+            props: { app: 'test1', version: 2 },
+            appDetails: commonAppDetails,
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    sourceAuthor: 'author',
+                    prNumber: '666',
+                    createdAt: new Date(2023, 6, 6),
+                    displayVersion: '2',
+                    isMinor: false,
+                    isPrepublish: false,
+                    environments: [],
+                    ciLink: '',
+                },
+            ],
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: [
+                        {
+                            name: 'development',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                        {
+                            name: 'development2',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+                {
+                    environmentGroupName: 'staging',
+                    environments: [
+                        {
+                            config: {
+                                argoConfigs: {
+                                    configs: [
+                                        {
+                                            concreteEnvName: 'test-1',
+                                            syncWindows: [],
+                                            accessList: [],
+                                            applicationAnnotations: {},
+                                            ignoreDifferences: [],
+                                            syncOptions: [],
+                                        },
+                                        {
+                                            concreteEnvName: 'test-2',
+                                            syncWindows: [],
+                                            accessList: [],
+                                            applicationAnnotations: {},
+                                            ignoreDifferences: [],
+                                            syncOptions: [],
+                                        },
+                                    ],
+                                    commonEnvPrefix: 'aa',
+                                },
+                            },
+                            name: 'staging',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+            ],
+            rolloutStatus: [
+                {
+                    environment: 'development',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                },
+                {
+                    environment: 'development2',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                },
+                {
+                    environment: 'aa-staging-test-1',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                },
+                {
+                    environment: 'aa-staging-test-2',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_ERROR,
+                },
+            ],
+
+            expectedStatusIcon: RolloutStatus.ROLLOUT_STATUS_ERROR,
+            expectedRolloutDetails: {
+                dev: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                staging: RolloutStatus.ROLLOUT_STATUS_ERROR,
+            },
+        },
     ];
 
     describe.each(data)(`Renders a Release Card`, (testcase) => {

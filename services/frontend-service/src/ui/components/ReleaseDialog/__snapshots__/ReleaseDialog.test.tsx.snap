@@ -165,6 +165,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
               >
                 <li
                   class="env-card"
+                  id="prod"
                 >
                   <div
                     class="env-card-header"
@@ -496,6 +497,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
               >
                 <li
                   class="env-card"
+                  id="prod"
                 >
                   <div
                     class="env-card-header"
@@ -827,6 +829,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
               >
                 <li
                   class="env-card"
+                  id="prod"
                 >
                   <div
                     class="env-card-header"
@@ -998,6 +1001,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 </li>
                 <li
                   class="env-card"
+                  id="dev"
                 >
                   <div
                     class="env-card-header"
