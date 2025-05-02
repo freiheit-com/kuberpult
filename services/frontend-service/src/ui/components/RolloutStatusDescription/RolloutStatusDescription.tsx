@@ -97,18 +97,23 @@ export const AAEnvironmentRolloutDescription: React.FC<{
                         </tr>
                     </thead>
                     <tbody>
-                        {statuses.map((currentStatus) => (
-                            <tr key={currentStatus[0]}>
-                                <td className={'tooltip-text'}>{currentStatus[0]}</td>
-                                <td>
-                                    <RolloutStatusDescription
-                                        status={
-                                            currentStatus[1] ? currentStatus[1] : RolloutStatus.ROLLOUT_STATUS_UNKNOWN
-                                        }
-                                    />
-                                </td>
-                            </tr>
-                        ))}
+                        {statuses.map(
+                            (currentStatus) =>
+                                currentStatus[1] !== undefined && (
+                                    <tr key={currentStatus[0]}>
+                                        <td className={'tooltip-text'}>{currentStatus[0]}</td>
+                                        <td>
+                                            <RolloutStatusDescription
+                                                status={
+                                                    currentStatus[1]
+                                                        ? currentStatus[1]
+                                                        : RolloutStatus.ROLLOUT_STATUS_UNKNOWN
+                                                }
+                                            />
+                                        </td>
+                                    </tr>
+                                )
+                        )}
                     </tbody>
                 </table>
             )}

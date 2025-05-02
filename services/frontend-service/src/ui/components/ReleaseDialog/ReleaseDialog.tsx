@@ -21,6 +21,8 @@ import {
     getPriorityClassName,
     gitSyncStatus,
     IsAAEnvironment,
+    rolloutStatus,
+    RolloutStatusGetter,
     showSnackbarWarn,
     useActions,
     useAppDetailsForApp,
@@ -32,6 +34,7 @@ import {
     useReleaseDifference,
     useReleaseOptional,
     useRolloutStatus,
+    useRolloutStatusAAEnv,
     useTeamFromApplication,
     useTeamLocks,
 } from '../../utils/store';
@@ -228,12 +231,14 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
     const appEnvLocks = useMemo(() => appDetails?.details?.appLocks?.[env.name]?.locks ?? [], [appDetails, env]);
-    const aaEnvRolloutStatuses = useRolloutStatus((getter) =>
-        getter.getAllAppStatusForAAEnv(app, deployment?.version, env.name, env.config)
-    );
+
+    //Rollout statuses in case this is an AA environment
+    const allRolloutStatusesAA = useRolloutStatusAAEnv(app, deployment?.version, env.name, env.config);
+
     if (IsAAEnvironment(env.config)) {
         appRolloutStatus = aaEnvRolloutStatus;
     }
+
     const plannedLockRemovals = actions
         .filter(
             (action) =>
@@ -389,7 +394,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                         appRolloutStatus !== undefined &&
                         (IsAAEnvironment(env.config) ? (
                             <AAEnvironmentRolloutDescription
-                                statuses={aaEnvRolloutStatuses}
+                                statuses={allRolloutStatusesAA}
                                 mostInteresting={appRolloutStatus}
                             />
                         ) : (
