@@ -49,7 +49,10 @@ import {
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
 import { DeployLockButtons } from '../button/DeployLockButtons';
-import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
+import {
+    AAEnvironmentRolloutDescription,
+    RolloutStatusDescription,
+} from '../RolloutStatusDescription/RolloutStatusDescription';
 import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
 import { Link } from 'react-router-dom';
 
@@ -225,6 +228,9 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
     const appEnvLocks = useMemo(() => appDetails?.details?.appLocks?.[env.name]?.locks ?? [], [appDetails, env]);
+    const aaEnvRolloutStatuses = useRolloutStatus((getter) =>
+        getter.getAllAppStatusForAAEnv(app, deployment?.version, env.name, env.config)
+    );
     if (IsAAEnvironment(env.config)) {
         appRolloutStatus = aaEnvRolloutStatus;
     }
@@ -380,7 +386,15 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     {appGitSyncStatus.enabled ? (
                         <GitSyncStatusDescription status={syncStatus}></GitSyncStatusDescription>
                     ) : (
-                        appRolloutStatus !== undefined && <RolloutStatusDescription status={appRolloutStatus} />
+                        appRolloutStatus !== undefined &&
+                        (IsAAEnvironment(env.config) ? (
+                            <AAEnvironmentRolloutDescription
+                                statuses={aaEnvRolloutStatuses}
+                                mostInteresting={appRolloutStatus}
+                            />
+                        ) : (
+                            <RolloutStatusDescription status={appRolloutStatus} />
+                        ))
                     )}
                 </div>
             </div>

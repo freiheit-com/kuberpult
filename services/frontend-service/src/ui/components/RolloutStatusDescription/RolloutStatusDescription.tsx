@@ -14,10 +14,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import { RolloutStatus } from '../../../api/api';
-import React from 'react';
+import React, { JSX } from 'react';
 import { Tooltip } from '../tooltip/tooltip';
-import { Argo, Git } from '../../../images';
-import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
+import { Argo } from '../../../images';
 
 const ROLLOUT_STATUS_UNKNOWN_DESCRIPTION =
     "ArgoCD hasn't reported any information about this application on this environment.";
@@ -34,49 +33,62 @@ const ROLLOUT_STATUS_UNHEALTHY_DESCRIPTION =
 export const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) => {
     const { status } = props;
 
-    let span = <span className="rollout__description_unknown">? Unknown</span>;
-    let tooltipContent = ROLLOUT_STATUS_UNKNOWN_DESCRIPTION;
-    switch (status) {
-        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
-            span = <span className="rollout__description_successful">✓ Done</span>;
-            tooltipContent = ROLLOUT_STATUS_SUCCESSFUL_DESCRIPTION;
-            break;
-        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
-            span = <span className="rollout__description_progressing">↻ In progress</span>;
-            tooltipContent = ROLLOUT_STATUS_PROGRESSING_DESCRIPTION;
-            break;
-        case RolloutStatus.ROLLOUT_STATUS_PENDING:
-            span = <span className="rollout__description_pending">⧖ Pending</span>;
-            tooltipContent = ROLLOUT_STATUS_PENDING_DESCRIPTION;
-            break;
-        case RolloutStatus.ROLLOUT_STATUS_ERROR:
-            span = <span className="rollout__description_error">! Failed</span>;
-            tooltipContent = ROLLOUT_STATUS_ERROR_DESCRIPTION;
-            break;
-        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
-            span = <span className="rollout__description_unhealthy">⚠ Unhealthy</span>;
-            tooltipContent = ROLLOUT_STATUS_UNHEALTHY_DESCRIPTION;
-            break;
-    }
     return (
-        <Tooltip tooltipContent={<div className="mdc-tooltip__title_ release__details">{tooltipContent}</div>}>
-            {span}
+        <Tooltip
+            tooltipContent={
+                <div className="mdc-tooltip__title_ release__details">{RolloutDescriptionInfo(status)}</div>
+            }>
+            {RolloutDescriptionSpan(status)}
         </Tooltip>
     );
 };
 
-export const AAEnvironmentRolloutDescription: React.FC<{ statuses: [string, RolloutStatus | undefined][] }> = (
-    props
-) => {
-    const { statuses } = props;
-    const span = <span className="rollout__description_unknown">? Unknown</span>;
+const RolloutDescriptionInfo = (status: RolloutStatus): string => {
+    switch (status) {
+        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
+            return ROLLOUT_STATUS_SUCCESSFUL_DESCRIPTION;
+        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
+            return ROLLOUT_STATUS_PROGRESSING_DESCRIPTION;
+        case RolloutStatus.ROLLOUT_STATUS_PENDING:
+            return ROLLOUT_STATUS_PENDING_DESCRIPTION;
+        case RolloutStatus.ROLLOUT_STATUS_ERROR:
+            return ROLLOUT_STATUS_ERROR_DESCRIPTION;
+        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
+            return ROLLOUT_STATUS_UNHEALTHY_DESCRIPTION;
+    }
+    return ROLLOUT_STATUS_UNKNOWN_DESCRIPTION;
+};
+
+const RolloutDescriptionSpan = (status: RolloutStatus): JSX.Element => {
+    switch (status) {
+        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
+            return <span className="rollout__description_successful">✓ Done</span>;
+        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
+            return <span className="rollout__description_progressing">↻ In progress</span>;
+        case RolloutStatus.ROLLOUT_STATUS_PENDING:
+            return <span className="rollout__description_pending">⧖ Pending</span>;
+        case RolloutStatus.ROLLOUT_STATUS_ERROR:
+            return <span className="rollout__description_error">! Failed</span>;
+        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
+            return <span className="rollout__description_unhealthy">⚠ Unhealthy</span>;
+    }
+    return <span className="rollout__description_unknown">? Unknown</span>;
+};
+
+export const AAEnvironmentRolloutDescription: React.FC<{
+    statuses: [string, RolloutStatus | undefined][];
+    mostInteresting: RolloutStatus;
+}> = (props) => {
+    const { statuses, mostInteresting } = props;
+    const span = RolloutDescriptionSpan(mostInteresting);
     const tooltipContents = (
         <div className="mdc-tooltip__title_ release__details">
+            {<b className={'tooltip-text'}>{RolloutDescriptionInfo(mostInteresting)}</b>}
             {statuses.length > 0 && (
                 <table className="release__environment_status">
                     <thead>
                         <tr>
-                            <th className={'tooltip-text'}>Environment group</th>
+                            <th className={'tooltip-text'}>Environment</th>
                             {
                                 <th className="release-card__statusth tooltip-text">
                                     Rollout Status <Argo className="status-logo" />
