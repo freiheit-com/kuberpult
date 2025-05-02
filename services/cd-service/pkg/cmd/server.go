@@ -120,6 +120,8 @@ type Config struct {
 
 	Version  string `required:"true" split_words:"true"`
 	LockType string `required:"true" split_words:"true"`
+
+	ReposerverEnabled bool `default:"false" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -469,7 +471,12 @@ func RunServer() {
 					})
 					api.RegisterEslServiceServer(srv, &service.EslServiceServer{Repository: repo})
 					reflection.Register(srv)
-					reposerver.Register(srv, repo, cfg)
+
+					if !c.ReposerverEnabled {
+						logger.FromContext(ctx).Warn("cd-service's reposerver is deprecated. Please use the standalone reposerver-service.")
+						reposerver.Register(srv, repo, cfg)
+					}
+
 					if dbHandler != nil {
 						api.RegisterCommitDeploymentServiceServer(srv, &service.CommitDeploymentServer{DBHandler: dbHandler})
 					}
