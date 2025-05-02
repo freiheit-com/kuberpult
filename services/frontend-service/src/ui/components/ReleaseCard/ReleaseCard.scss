@@ -85,6 +85,12 @@ Copyright freiheit.com*/
     background-color: var(--mdc-theme-surface);
 }
 
+.release__details_AA {
+    @extend .release__details;
+    max-width: min-content;
+}
+
+
 .release__environments {
     align-self: center;
     z-index: 2;
@@ -96,6 +102,14 @@ Copyright freiheit.com*/
     margin-left: -10px;
     border-spacing: 10px;
 }
+
+.release__AA_environment_status {
+    margin-top: 10px;
+    margin-left: -10px;
+    border-spacing: 10px;
+    min-width: max-content;
+}
+
 .status-logo {
     width: 20%;
     height: auto;

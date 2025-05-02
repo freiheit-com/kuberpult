@@ -82,10 +82,10 @@ export const AAEnvironmentRolloutDescription: React.FC<{
     const { statuses, mostInteresting } = props;
     const span = RolloutDescriptionSpan(mostInteresting);
     const tooltipContents = (
-        <div className="mdc-tooltip__title_ release__details">
+        <div className="mdc-tooltip__title_ release__details_AA">
             {<b className={'tooltip-text'}>{RolloutDescriptionInfo(mostInteresting)}</b>}
             {statuses.length > 0 && (
-                <table className="release__environment_status">
+                <table className="release__AA_environment_status">
                     <thead>
                         <tr>
                             <th className={'tooltip-text'}>Environment</th>
