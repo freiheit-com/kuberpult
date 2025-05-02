@@ -21,8 +21,6 @@ import {
     getPriorityClassName,
     gitSyncStatus,
     IsAAEnvironment,
-    rolloutStatus,
-    RolloutStatusGetter,
     showSnackbarWarn,
     useActions,
     useAppDetailsForApp,

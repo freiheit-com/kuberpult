@@ -1396,7 +1396,7 @@ export const useRolloutStatusAAEnv = (
     applicationVersion: number | undefined,
     parentEnvironmentName: string,
     config: EnvironmentConfig | undefined
-) =>
+): [string, RolloutStatus | undefined][] =>
     new RolloutStatusGetter(useEntireRolloutStatus((m) => m)).getAllAppStatusForAAEnv(
         application,
         applicationVersion,
