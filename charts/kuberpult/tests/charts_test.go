@@ -1743,6 +1743,11 @@ db:
 						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
 					}
 				}
+
+				cdServiceDocument := out["kuberpult-cd-service"]
+				if !CheckForEnvVariable(t, core.EnvVar{Name: "KUBERPULT_REPOSERVER_ENABLED", Value: "true"}, &cdServiceDocument) {
+					t.Fatal("Environment variable KUBERPULT_REPOSERVER_ENABLED with value true was expected, but not found in cd-service.")
+				}
 			}
 		})
 	}

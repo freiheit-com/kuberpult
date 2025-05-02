@@ -274,7 +274,7 @@ rollout:
     kuberpultEventsMetricsEnabled: false
 # Standalone reposerver service for interacting with argocd
 reposerver:
-  enabled: false 
+  enabled: false
   service:
     annotations: {}
   pod:
