@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
-import { addAction, DisplayLock, displayLockUniqueId, GetTargetFutureDate } from '../../utils/store';
+import { addAction, DisplayLock, GetTargetFutureDate } from '../../utils/store';
 import classNames from 'classnames';
 import { useCallback } from 'react';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
