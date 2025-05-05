@@ -26,11 +26,20 @@ const millisecondsPerDay = 1000 * 60 * 60 * 24;
 export const isOutdated = (dateAdded: Date | undefined): boolean =>
     dateAdded ? (Date.now().valueOf() - dateAdded.valueOf()) / millisecondsPerDay > 2 : true;
 
+export const isOutdatedLifetime = (lifetime: Date | undefined): boolean =>
+    lifetime ? Date.now().valueOf() - lifetime.valueOf() > 0 : true;
+
 export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     const { lock } = props;
+    const targetLifetimeDate = GetTargetFutureDate(lock.date, lock.suggestedLifetime);
     const allClassNames = classNames('lock-display-info', {
         'date-display--outdated': isOutdated(lock.date),
         'date-display--normal': !isOutdated(lock.date),
+    });
+
+    const classNamesLifetime = classNames('lock-display-info', {
+        'date-display--outdated': isOutdatedLifetime(targetLifetimeDate),
+        'date-display--normal': !isOutdatedLifetime(targetLifetimeDate),
     });
     const deleteLock = useCallback(() => {
         if (lock.application) {
@@ -67,6 +76,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
             });
         }
     }, [lock.application, lock.environment, lock.lockId, lock.team]);
+
     return (
         <div className="lock-display">
             <div className="lock-display__table">
@@ -90,6 +100,14 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     )}
 
                     <div className="lock-display-info">{lock.authorEmail}</div>
+                    {targetLifetimeDate ? (
+                        <FormattedDate
+                            createdAt={targetLifetimeDate}
+                            className={classNames(classNamesLifetime, 'lifetime-date')}
+                        />
+                    ) : (
+                        <div className="lock-display-info lifetime-date">{'-'}</div>
+                    )}
                     <Button
                         className="lock-display-info lock-action service-action--delete"
                         onClick={deleteLock}
@@ -100,4 +118,22 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
             </div>
         </div>
     );
+};
+
+const GetTargetFutureDate = (current: Date | undefined, increment: string): Date | undefined => {
+    if (!current || increment === '') return undefined;
+    const msPerMinute = 1000 * 60;
+    const msPerHour = msPerMinute * 60;
+    const msPerDay = msPerHour * 24;
+    const msPerWeek = msPerDay * 7;
+
+    if (increment.indexOf('w') !== -1) {
+        return new Date(current.valueOf() + msPerWeek * parseInt(increment.split('w')[0]));
+    } else if (increment.indexOf('d') !== -1) {
+        return new Date(current.valueOf() + msPerDay * parseInt(increment.split('d')[0]));
+    } else if (increment.indexOf('h') !== -1) {
+        return new Date(current.valueOf() + msPerHour * parseInt(increment.split('h')[0]));
+    }
+
+    return undefined;
 };
