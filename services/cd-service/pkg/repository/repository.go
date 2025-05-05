@@ -685,10 +685,11 @@ type Actor struct {
 }
 
 type Lock struct {
-	Message   string
-	CreatedBy Actor
-	CreatedAt time.Time
-	CiLink    string
+	Message           string
+	CreatedBy         Actor
+	CreatedAt         time.Time
+	CiLink            string
+	SuggestedLifetime string
 }
 
 func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
@@ -716,8 +717,9 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
 			},
-			CreatedAt: lock.Created,
-			CiLink:    lock.Metadata.CiLink,
+			CreatedAt:         lock.Created,
+			CiLink:            lock.Metadata.CiLink,
+			SuggestedLifetime: lock.Metadata.SuggestedLifeTime,
 		}
 		result[lock.LockID] = genericLock
 	}
@@ -753,8 +755,9 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
 			},
-			CreatedAt: lock.Created,
-			CiLink:    lock.Metadata.CiLink,
+			CreatedAt:         lock.Created,
+			CiLink:            lock.Metadata.CiLink,
+			SuggestedLifetime: lock.Metadata.SuggestedLifeTime,
 		}
 		result[lock.LockID] = genericLock
 	}
@@ -787,8 +790,9 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
 			},
-			CreatedAt: lock.Created,
-			CiLink:    lock.Metadata.CiLink,
+			CreatedAt:         lock.Created,
+			CiLink:            lock.Metadata.CiLink,
+			SuggestedLifetime: lock.Metadata.SuggestedLifeTime,
 		}
 
 		result[lock.LockID] = genericLock
