@@ -45,6 +45,7 @@ import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
 import { DisplayLockInlineRenderer } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { ConfirmationDialog } from '../dialog/ConfirmationDialog';
 import { Textfield } from '../textfield/textfield';
+import { Tooltip } from '../tooltip/tooltip';
 
 export enum ActionTypes {
     Deploy,
@@ -474,6 +475,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
     const appDetails = useAppDetails((m) => m);
     const actions = useActions();
     const [lockMessage, setLockMessage] = useState('');
+    const [suggestedLockLifeTime, setSuggestedLockLifeTime] = useState('');
     const api = useApi;
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
     const allApps = useApplications();
@@ -519,6 +521,27 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 }
             });
             setLockMessage('');
+        }
+        if (suggestedLockLifeTime) {
+            const pattern = /^[1-9][0-9]*(h|d|w)$/;
+            if (!pattern.test(suggestedLockLifeTime)) {
+                showSnackbarError('Suggested lock lifetime is not valid. It should be a number followed by h,d, or w');
+                setSuggestedLockLifeTime('');
+                setDialogState({ showConfirmationDialog: false });
+                return;
+            }
+            lockCreationList.forEach((action) => {
+                if (action.action?.$case === 'createEnvironmentLock') {
+                    action.action.createEnvironmentLock.suggestedLifeTime = suggestedLockLifeTime;
+                }
+                if (action.action?.$case === 'createEnvironmentApplicationLock') {
+                    action.action.createEnvironmentApplicationLock.suggestedLifeTime = suggestedLockLifeTime;
+                }
+                if (action.action?.$case === 'createEnvironmentTeamLock') {
+                    action.action.createEnvironmentTeamLock.suggestedLifeTime = suggestedLockLifeTime;
+                }
+            });
+            setSuggestedLockLifeTime('');
         }
         if (authReady) {
             interface LocksToInvalidate {
@@ -581,15 +604,16 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
             setDialogState({ showConfirmationDialog: false });
         }
     }, [
-        actions,
-        api,
-        authHeader,
+        lockMessage,
+        suggestedLockLifeTime,
         authReady,
         lockCreationList,
-        lockMessage,
+        api,
+        actions,
+        authHeader,
         allApps,
-        environmentLocks,
         appLocks,
+        environmentLocks,
         teamLocks,
         appDetails,
     ]);
@@ -604,10 +628,14 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
         setLockMessage(e.target.value);
     }, []);
 
+    const updateSuggestedLockLifeTime = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+        setSuggestedLockLifeTime(e.target.value);
+    }, []);
+
     const showApply = useMemo(() => actions.length > 0, [actions.length]);
     const canApply = useMemo(
-        () => actions.length > 0 && (!newLockExists || lockMessage),
-        [actions.length, lockMessage, newLockExists]
+        () => actions.length > 0 && (!newLockExists || lockMessage) && (!newLockExists || suggestedLockLifeTime),
+        [actions.length, suggestedLockLifeTime, lockMessage, newLockExists]
     );
     const appLocksRendered =
         conflictingLocks.appLocks.length === 0 ? undefined : (
@@ -697,9 +725,27 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     </div>
                 </nav>
                 {newLockExists && (
-                    <div className="mdc-drawer-sidebar mdc-drawer-sidebar-footer-input">
-                        <Textfield placeholder="Lock message" value={lockMessage} onChange={updateMessage} />
-                    </div>
+                    <>
+                        <div className="mdc-drawer-sidebar mdc-drawer-sidebar-footer-input">
+                            <Tooltip
+                                className="mdc-text-field mdc-text-field-tooltip"
+                                tooltipContent={
+                                    <span>
+                                        This is the suggested lifetime for the lock. After this time, it won’t be
+                                        deleted automatically, but others may consider removing it.
+                                    </span>
+                                }>
+                                <Textfield
+                                    placeholder="Suggested Lifetime e.g. 2d"
+                                    value={suggestedLockLifeTime}
+                                    onChange={updateSuggestedLockLifeTime}
+                                />
+                            </Tooltip>
+                        </div>
+                        <div className="mdc-drawer-sidebar mdc-drawer-sidebar-footer-input">
+                            <Textfield placeholder="Lock message" value={lockMessage} onChange={updateMessage} />
+                        </div>
+                    </>
                 )}
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
                     <Button
