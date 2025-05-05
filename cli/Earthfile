@@ -30,7 +30,7 @@ lint:
     
 test:
     FROM +source-code
-    DO go-build+UNIT_TEST
+    DO go-build+UNIT_TEST --use_docker=false
 
 compile:
     FROM +source-code
