@@ -41,12 +41,6 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
         'date-display--outdated': isOutdatedLifetime(targetLifetimeDate),
         'date-display--normal': !isOutdatedLifetime(targetLifetimeDate),
     });
-    // eslint-disable-next-line no-console
-    console.log('Date lifetime: ' + lock.date + '.');
-    // eslint-disable-next-line no-console
-    console.log('Suggested lifetime: ' + lock.suggestedLifetime + '.');
-    // eslint-disable-next-line no-console
-    console.log('targetLifetimeDate: ' + targetLifetimeDate + '.');
     const deleteLock = useCallback(() => {
         if (lock.application) {
             addAction({

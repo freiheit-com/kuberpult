@@ -218,8 +218,6 @@ describe('Test suggested lifetime', () => {
                     <LockDisplay key={displayLockUniqueId(testcase.lock)} lock={testcase.lock} />{' '}
                 </BrowserRouter>
             );
-            // eslint-disable-next-line no-console
-            console.log(container.innerHTML);
             const result = document.getElementsByClassName('lifetime-date');
             expect(result[0]).toHaveTextContent(testcase.lock.suggestedLifetime ? 'in 24 hours' : '-');
         });
