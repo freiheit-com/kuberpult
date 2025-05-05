@@ -37,12 +37,32 @@ const applicationFieldHeaders = [
     'Message',
     'Author Name',
     'Author Email',
+    'Lifetime',
     '',
 ];
 
-const teamFieldHeaders = ['Date', 'Environment', 'Team', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''];
+const teamFieldHeaders = [
+    'Date',
+    'Environment',
+    'Team',
+    'Lock Id',
+    'Message',
+    'Author Name',
+    'Author Email',
+    'Lifetime',
+    '',
+];
 
-const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''];
+const environmentFieldHeaders = [
+    'Date',
+    'Environment',
+    'Lock Id',
+    'Message',
+    'Author Name',
+    'Author Email',
+    'Lifetime',
+    '',
+];
 export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');

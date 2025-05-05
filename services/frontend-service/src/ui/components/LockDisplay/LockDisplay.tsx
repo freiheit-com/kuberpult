@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
-import { addAction, DisplayLock } from '../../utils/store';
+import { addAction, DisplayLock, GetTargetFutureDate } from '../../utils/store';
 import classNames from 'classnames';
 import { useCallback } from 'react';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
@@ -32,6 +32,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
         'date-display--outdated': isOutdated(lock.date),
         'date-display--normal': !isOutdated(lock.date),
     });
+
     const deleteLock = useCallback(() => {
         if (lock.application) {
             addAction({
@@ -67,6 +68,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
             });
         }
     }, [lock.application, lock.environment, lock.lockId, lock.team]);
+
     return (
         <div className="lock-display">
             <div className="lock-display__table">
@@ -90,6 +92,14 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     )}
 
                     <div className="lock-display-info">{lock.authorEmail}</div>
+                    {lock.suggestedLifetime && lock.date ? (
+                        <FormattedDate
+                            createdAt={GetTargetFutureDate(lock.date, lock.suggestedLifetime)}
+                            className={allClassNames}
+                        />
+                    ) : (
+                        <div className="lock-display-info">{'-'}</div>
+                    )}
                     <Button
                         className="lock-display-info lock-action service-action--delete"
                         onClick={deleteLock}
