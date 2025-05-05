@@ -62,6 +62,7 @@ export const LocksPage: React.FC = () => {
                     authorName: lock.createdBy?.name,
                     authorEmail: lock.createdBy?.email,
                     ciLink: lock.ciLink,
+                    suggestedLifetime: lock.suggestedLifetime,
                 });
             }
         });
@@ -84,6 +85,7 @@ export const LocksPage: React.FC = () => {
                         authorName: lock.createdBy?.name,
                         authorEmail: lock.createdBy?.email,
                         ciLink: lock.ciLink,
+                        suggestedLifetime: lock.suggestedLifetime,
                     })
                 );
             });

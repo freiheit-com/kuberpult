@@ -101,6 +101,7 @@ export const makeDisplayLock = (input: Partial<DisplayLock>): DisplayLock => ({
     authorEmail: 'default@example.com',
     authorName: 'default',
     ciLink: input.ciLink ? input.ciLink : '',
+    suggestedLifetime: input.suggestedLifetime ? input.suggestedLifetime : '',
     ...input,
 });
 

@@ -99,6 +99,7 @@ describe('Release Dialog', () => {
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
         ciLink: '',
+        suggestedLifetime: '',
     };
     const testAppLock2: Lock = {
         lockId: 'testlockId2',
@@ -106,6 +107,7 @@ describe('Release Dialog', () => {
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
         ciLink: '',
+        suggestedLifetime: '',
     };
     const testApplock3: Lock = {
         lockId: 'testlockId3',
@@ -113,6 +115,7 @@ describe('Release Dialog', () => {
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
         ciLink: '',
+        suggestedLifetime: '',
     };
 
     const app1Details: AppDetailsResponse = {

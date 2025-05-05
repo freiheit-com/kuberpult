@@ -69,6 +69,7 @@ describe('Test delete lock button', () => {
         lockId: 'test-lock-id',
         message: 'test-lock-123',
         ciLink: '',
+        suggestedLifetime: '',
     };
     const data: dataT[] = [
         {
@@ -127,12 +128,14 @@ describe('Test link to ciLink', () => {
         lockId: 'test-lock-id-2',
         message: 'test-lock-123',
         ciLink: 'somelink',
+        suggestedLifetime: '',
     };
     const lockWithoutLink = {
         environment: 'test-env',
         lockId: 'test-lock-id',
         message: 'test-lock-123',
         ciLink: '',
+        suggestedLifetime: '',
     };
     const data: dataT[] = [
         {
