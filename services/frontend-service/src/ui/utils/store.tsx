@@ -1288,8 +1288,11 @@ type RolloutStatusStore = {
     };
 };
 
-const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({ enabled: false, applications: {} });
-class RolloutStatusGetter {
+export const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({
+    enabled: false,
+    applications: {},
+});
+export class RolloutStatusGetter {
     private readonly store: RolloutStatusStore;
 
     private readonly environmentPriorities: RolloutStatus[] = [
@@ -1310,7 +1313,7 @@ class RolloutStatusGetter {
         this.store = store;
     }
 
-    getAppStatus(
+    public getAppStatus(
         application: string,
         applicationVersion: number | undefined,
         environment: string
@@ -1362,6 +1365,7 @@ class RolloutStatusGetter {
         config: EnvironmentConfig | undefined
     ): RolloutStatus | undefined {
         const statuses = this.getAllAppStatusForAAEnv(application, applicationVersion, parentEnvironmentName, config);
+
         if (statuses.length === 0 || statuses.filter((curr) => curr[1] !== undefined).length === 0) {
             return undefined;
         }
@@ -1392,6 +1396,19 @@ export const IsAAEnvironment = (config: EnvironmentConfig | undefined): boolean 
 
 export const useRolloutStatus = <T,>(f: (getter: RolloutStatusGetter) => T): T =>
     useEntireRolloutStatus((data) => f(new RolloutStatusGetter(data)));
+
+export const useRolloutStatusAAEnv = (
+    application: string,
+    applicationVersion: number | undefined,
+    parentEnvironmentName: string,
+    config: EnvironmentConfig | undefined
+): [string, RolloutStatus | undefined][] =>
+    new RolloutStatusGetter(useEntireRolloutStatus((m) => m)).getAllAppStatusForAAEnv(
+        application,
+        applicationVersion,
+        parentEnvironmentName,
+        config
+    );
 
 export const UpdateRolloutStatus = (ev: StreamStatusResponse): void => {
     rolloutStatus.set((data: RolloutStatusStore) => ({
