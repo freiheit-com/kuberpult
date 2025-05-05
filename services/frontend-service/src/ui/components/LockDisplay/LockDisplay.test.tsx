@@ -213,7 +213,7 @@ describe('Test suggested lifetime', () => {
 
     describe.each(data)('suggested lifetime on locks', (testcase) => {
         it(testcase.name, () => {
-            const { container } = render(
+            render(
                 <BrowserRouter>
                     <LockDisplay key={displayLockUniqueId(testcase.lock)} lock={testcase.lock} />{' '}
                 </BrowserRouter>
