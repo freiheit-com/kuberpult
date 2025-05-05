@@ -25,6 +25,7 @@ const makeLock = (id: string): Lock => ({
     message: id,
     lockId: id,
     ciLink: '',
+    suggestedLifetime: '',
 });
 
 describe('EnvironmentChip', () => {

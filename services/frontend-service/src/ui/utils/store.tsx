@@ -63,6 +63,7 @@ export interface DisplayLock {
     authorName?: string;
     authorEmail?: string;
     ciLink: string;
+    suggestedLifetime: string;
 }
 
 export const displayLockUniqueId = (displayLock: DisplayLock): string =>
@@ -661,6 +662,7 @@ export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] => {
                               authorName: lock.createdBy?.name,
                               authorEmail: lock.createdBy?.email,
                               ciLink: lock.ciLink,
+                              suggestedLifetime: lock.suggestedLifetime,
                           }))
                         : []
                 )
@@ -692,6 +694,7 @@ export const useAppLocks = (allAppLocks: Map<string, AllAppLocks>): DisplayLock[
                     authorName: lock.createdBy?.name,
                     authorEmail: lock.createdBy?.email,
                     ciLink: lock.ciLink,
+                    suggestedLifetime: lock.suggestedLifetime,
                 })
             );
         });
@@ -776,6 +779,7 @@ export const useDisplayApplicationLocks = (appName: string): DisplayApplicationL
                                   authorName: currentLock.authorName,
                                   authorEmail: currentLock.authorEmail,
                                   ciLink: currentLock.ciLink,
+                                  suggestedLifetime: currentLock.suggestedLifetime,
                               },
                               application: appName,
                               environment: env,
@@ -862,6 +866,7 @@ export const useEnvironmentLock = (lockId: string): DisplayLock => {
                     authorEmail: lock.createdBy?.email,
                     environment: env,
                     ciLink: lock.ciLink,
+                    suggestedLifetime: lock.suggestedLifetime,
                 };
             }
         }
@@ -903,6 +908,7 @@ export const useAllLocks = (): AllLocks => {
                 authorName: lock.createdBy?.name,
                 authorEmail: lock.createdBy?.email,
                 ciLink: lock.ciLink,
+                suggestedLifetime: lock.suggestedLifetime,
             };
             environmentLocks.push(displayLock);
         }

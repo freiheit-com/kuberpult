@@ -350,7 +350,13 @@ describe('Action details', () => {
             action: {
                 action: {
                     $case: 'createEnvironmentLock',
-                    createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    createEnvironmentLock: {
+                        environment: 'foo',
+                        lockId: 'ui-v2-1337',
+                        message: 'bar',
+                        ciLink: '',
+                        suggestedLifeTime: '',
+                    },
                 },
             },
             expectedDetails: {
@@ -377,6 +383,7 @@ describe('Action details', () => {
                     environment: 'foo',
                     message: 'bar',
                     ciLink: '',
+                    suggestedLifetime: '',
                 },
             ],
             expectedDetails: {
@@ -401,6 +408,7 @@ describe('Action details', () => {
                         lockId: 'ui-v2-1337',
                         message: 'bar',
                         ciLink: '',
+                        suggestedLifeTime: '',
                     },
                 },
             },
@@ -434,6 +442,7 @@ describe('Action details', () => {
                     message: 'bar',
                     application: 'bar',
                     ciLink: '',
+                    suggestedLifetime: '',
                 },
             ],
             expectedDetails: {
@@ -459,6 +468,7 @@ describe('Action details', () => {
                         lockId: 'ui-v2-1339',
                         message: 'bar',
                         ciLink: '',
+                        suggestedLifeTime: '',
                     },
                 },
             },
@@ -488,6 +498,7 @@ describe('Action details', () => {
                     message: 'bar',
                     team: 'bar',
                     ciLink: '',
+                    suggestedLifetime: '',
                 },
             ],
             expectedDetails: {

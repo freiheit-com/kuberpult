@@ -182,7 +182,14 @@ describe('Release Dialog', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     prod: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
+                        locks: [
+                            {
+                                message: 'envLock',
+                                lockId: 'ui-envlock',
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                        ],
                     },
                 },
             },
@@ -218,7 +225,9 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
+                                locks: [
+                                    { message: 'appLock', lockId: 'ui-applock', ciLink: '', suggestedLifetime: '' },
+                                ],
                             },
                         },
                         teamLocks: {},
@@ -283,7 +292,7 @@ describe('Release Dialog', () => {
                 allTeamLocks: {},
                 allEnvLocks: {
                     prod: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '', suggestedLifetime: '' }],
                     },
                 },
             },
@@ -319,7 +328,9 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
+                                locks: [
+                                    { message: 'appLock', lockId: 'ui-applock', ciLink: '', suggestedLifetime: '' },
+                                ],
                             },
                         },
                         teamLocks: {},
@@ -385,17 +396,19 @@ describe('Release Dialog', () => {
                     dev: {
                         teamLocks: {
                             test1: {
-                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock', ciLink: '' }],
+                                locks: [
+                                    { message: 'teamLock', lockId: 'ui-teamlock', ciLink: '', suggestedLifetime: '' },
+                                ],
                             },
                         },
                     },
                 },
                 allEnvLocks: {
                     prod: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '', suggestedLifetime: '' }],
                     },
                     dev: {
-                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '' }],
+                        locks: [{ message: 'envLock', lockId: 'ui-envlock', ciLink: '', suggestedLifetime: '' }],
                     },
                 },
             },
@@ -445,15 +458,21 @@ describe('Release Dialog', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
+                                locks: [
+                                    { message: 'appLock', lockId: 'ui-applock', ciLink: '', suggestedLifetime: '' },
+                                ],
                             },
                             dev: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
+                                locks: [
+                                    { message: 'appLock', lockId: 'ui-applock', ciLink: '', suggestedLifetime: '' },
+                                ],
                             },
                         },
                         teamLocks: {
                             dev: {
-                                locks: [{ message: 'teamLock', lockId: 'ui-teamlock', ciLink: '' }],
+                                locks: [
+                                    { message: 'teamLock', lockId: 'ui-teamlock', ciLink: '', suggestedLifetime: '' },
+                                ],
                             },
                         },
                         deployments: {
@@ -862,7 +881,9 @@ describe('Release Dialog CI Links', () => {
                         },
                         appLocks: {
                             production: {
-                                locks: [{ message: 'appLock', lockId: 'ui-applock', ciLink: '' }],
+                                locks: [
+                                    { message: 'appLock', lockId: 'ui-applock', ciLink: '', suggestedLifetime: '' },
+                                ],
                             },
                         },
                         teamLocks: {},

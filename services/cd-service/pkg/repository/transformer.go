@@ -2854,8 +2854,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					Email: envLocks[lockId].CreatedBy.Email,
 					Name:  envLocks[lockId].CreatedBy.Name,
 				},
-				LockId: lockId,
-				CiLink: envLocks[lockId].CiLink,
+				LockId:            lockId,
+				CiLink:            envLocks[lockId].CiLink,
+				SuggestedLifetime: envLocks[lockId].SuggestedLifetime,
 			}
 			locksList = append(locksList, newLock)
 		}
@@ -2966,8 +2967,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 						Email: appLocks[lockId].CreatedBy.Email,
 						Name:  appLocks[lockId].CreatedBy.Name,
 					},
-					LockId: lockId,
-					CiLink: appLocks[lockId].CiLink,
+					LockId:            lockId,
+					CiLink:            appLocks[lockId].CiLink,
+					SuggestedLifetime: appLocks[lockId].SuggestedLifetime,
 				}
 				locksList = append(locksList, newLock)
 			}
@@ -3039,8 +3041,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 							Email: teamLocks[lockId].CreatedBy.Email,
 							Name:  teamLocks[lockId].CreatedBy.Name,
 						},
-						LockId: lockId,
-						CiLink: teamLocks[lockId].CiLink,
+						LockId:            lockId,
+						CiLink:            teamLocks[lockId].CiLink,
+						SuggestedLifetime: teamLocks[lockId].SuggestedLifetime,
 					}
 					locksList = append(locksList, newLock)
 

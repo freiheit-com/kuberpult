@@ -838,7 +838,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         },
         appLocks: {
             foo2: {
-                locks: [{ message: 'test lock', lockId: '321', ciLink: '' }],
+                locks: [{ message: 'test lock', lockId: '321', ciLink: '', suggestedLifetime: '' }],
             },
         },
         teamLocks: {},
@@ -855,7 +855,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         appLocks: {},
         teamLocks: {
             foo2: {
-                locks: [{ message: 'test team lock', lockId: 't-1000', ciLink: '' }],
+                locks: [{ message: 'test team lock', lockId: 't-1000', ciLink: '', suggestedLifetime: '' }],
             },
         },
     };
@@ -871,14 +871,14 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         appLocks: {
             foo2: {
                 locks: [
-                    { message: 'test lock', lockId: '321', ciLink: '' },
-                    { message: 'test app lock', lockId: 'a-1', ciLink: '' },
+                    { message: 'test lock', lockId: '321', ciLink: '', suggestedLifetime: '' },
+                    { message: 'test app lock', lockId: 'a-1', ciLink: '', suggestedLifetime: '' },
                 ],
             },
         },
         teamLocks: {
             foo2: {
-                locks: [{ message: 'test team lock', lockId: 't-1000', ciLink: '' }],
+                locks: [{ message: 'test team lock', lockId: 't-1000', ciLink: '', suggestedLifetime: '' }],
             },
         },
     };
@@ -895,14 +895,14 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         appLocks: {
             foo2: {
                 locks: [
-                    { message: 'test lock', lockId: '321', ciLink: '' },
-                    { message: 'test lock', lockId: '321', ciLink: '' },
+                    { message: 'test lock', lockId: '321', ciLink: '', suggestedLifetime: '' },
+                    { message: 'test lock', lockId: '321', ciLink: '', suggestedLifetime: '' },
                 ],
             },
         },
         teamLocks: {
             foo2: {
-                locks: [{ message: 'test team lock', lockId: 't-1000', ciLink: '' }],
+                locks: [{ message: 'test team lock', lockId: 't-1000', ciLink: '', suggestedLifetime: '' }],
             },
         },
     };
