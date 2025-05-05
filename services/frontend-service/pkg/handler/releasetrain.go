@@ -38,26 +38,32 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
 
-	if s.AzureAuth {
-		if req.Body == nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "missing request body")
-			return
-		}
-		signature, err := io.ReadAll(req.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Can't read request body %s", err)
-			return
-		}
+	tf := &api.ReleaseTrainRequest{
+		CommitHash: "",
+		Target:     target,
+		Team:       teamParam,
+		TargetType: api.ReleaseTrainRequest_UNKNOWN,
+		CiLink:     "",
+	}
 
+	var body executeReleaseTrainRequest
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		decodeError := err.Error()
+		if !errors.Is(err, io.EOF) { //no body, might be valid if not using azure auth
+			http.Error(w, decodeError, http.StatusBadRequest)
+			return
+		}
+	}
+
+	if s.AzureAuth {
+		signature := body.Signature
 		if len(signature) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
 			return
 		}
 
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), bytes.NewReader(signature), nil); err != nil {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), bytes.NewReader([]byte(signature)), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
 				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
@@ -69,30 +75,7 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		}
 	}
 
-	tf := &api.ReleaseTrainRequest{
-		CommitHash: "",
-		Target:     target,
-		Team:       teamParam,
-		TargetType: api.ReleaseTrainRequest_UNKNOWN,
-		CiLink:     "",
-	}
-	if req.Body != nil {
-		type releaseTrainBody struct {
-			CiLink string `json:"ciLink,omitempty"`
-		}
-		var body releaseTrainBody
-		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-			decodeError := err.Error()
-			if errors.Is(err, io.EOF) {
-				tf.CiLink = "" //If no body, CI link is empty
-			} else {
-				http.Error(w, decodeError, http.StatusBadRequest)
-				return
-			}
-		} else {
-			tf.CiLink = body.CiLink
-		}
-	}
+	tf.CiLink = body.CiLink
 
 	response, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
@@ -128,23 +111,37 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 		TargetType: TargetType,
 		CiLink:     "",
 	}
-	if req.Body != nil {
-		type releaseTrainBody struct {
-			CiLink string `json:"ciLink,omitempty"`
-		}
-		var body releaseTrainBody
-		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-			decodeError := err.Error()
-			if errors.Is(err, io.EOF) {
-				tf.CiLink = "" //If no body, CI link is empty
-			} else {
-				http.Error(w, decodeError, http.StatusBadRequest)
-				return
-			}
-		} else {
-			tf.CiLink = body.CiLink
+
+	var body executeReleaseTrainRequest
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		decodeError := err.Error()
+		if !errors.Is(err, io.EOF) { //no body, might be valid if not using azure auth
+			http.Error(w, decodeError, http.StatusBadRequest)
+			return
 		}
 	}
+
+	if s.AzureAuth {
+		signature := body.Signature
+		if len(signature) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
+			return
+		}
+
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), bytes.NewReader([]byte(signature)), nil); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "Invalid signature")
+			return
+		}
+	}
+
+	tf.CiLink = body.CiLink
 
 	response, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
