@@ -89,6 +89,7 @@ export const makeLock = (input: Partial<Lock>): Lock => ({
         email: 'default@example.com',
     },
     ciLink: '',
+    suggestedLifetime: '',
     ...input,
 });
 
