@@ -46,12 +46,18 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		CiLink:     "",
 	}
 
-	var body executeReleaseTrainRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		decodeError := err.Error()
-		if !errors.Is(err, io.EOF) { //no body, might be valid if not using azure auth
-			http.Error(w, decodeError, http.StatusBadRequest)
-			return
+	body := executeReleaseTrainRequest{
+		Signature: "",
+		CiLink:    "",
+	}
+
+	if req.Body != nil {
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			decodeError := err.Error()
+			if !errors.Is(err, io.EOF) { //no body, might be valid if not using azure auth
+				http.Error(w, decodeError, http.StatusBadRequest)
+				return
+			}
 		}
 	}
 
@@ -112,12 +118,18 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 		CiLink:     "",
 	}
 
-	var body executeReleaseTrainRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		decodeError := err.Error()
-		if !errors.Is(err, io.EOF) { //no body, might be valid if not using azure auth
-			http.Error(w, decodeError, http.StatusBadRequest)
-			return
+	body := executeReleaseTrainRequest{
+		Signature: "",
+		CiLink:    "",
+	}
+
+	if req.Body != nil {
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			decodeError := err.Error()
+			if !errors.Is(err, io.EOF) { //no body, might be valid if not using azure auth
+				http.Error(w, decodeError, http.StatusBadRequest)
+				return
+			}
 		}
 	}
 

@@ -391,6 +391,42 @@ func TestServer_Handle(t *testing.T) {
 			},
 		},
 		{
+			name:             "release train - Azure enabled - ci link",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(strings.NewReader(exampleSignature)),
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "development",
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"target\":\"development\"}",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", CiLink: "www.somelink.com"},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:             "release train - Azure enabled - missing signature",
 			AzureAuthEnabled: true,
 			KeyRing:          exampleKeyRing,
