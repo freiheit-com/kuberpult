@@ -37,7 +37,7 @@ const applicationFieldHeaders = [
     'Message',
     'Author Name',
     'Author Email',
-    'Lifetime',
+    'End Of life',
     '',
 ];
 
@@ -49,7 +49,7 @@ const teamFieldHeaders = [
     'Message',
     'Author Name',
     'Author Email',
-    'Lifetime',
+    'End Of life',
     '',
 ];
 
@@ -60,7 +60,7 @@ const environmentFieldHeaders = [
     'Message',
     'Author Name',
     'Author Email',
-    'Lifetime',
+    'End Of life',
     '',
 ];
 export const LocksPage: React.FC = () => {

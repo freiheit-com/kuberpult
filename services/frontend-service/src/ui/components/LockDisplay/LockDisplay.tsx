@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
-import { addAction, DisplayLock, GetTargetFutureDate } from '../../utils/store';
+import { addAction, DisplayLock, displayLockUniqueId, GetTargetFutureDate } from '../../utils/store';
 import classNames from 'classnames';
 import { useCallback } from 'react';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
@@ -26,13 +26,27 @@ const millisecondsPerDay = 1000 * 60 * 60 * 24;
 export const isOutdated = (dateAdded: Date | undefined): boolean =>
     dateAdded ? (Date.now().valueOf() - dateAdded.valueOf()) / millisecondsPerDay > 2 : true;
 
+export const isOutdatedLifetime = (lifetime: Date | undefined): boolean =>
+    lifetime ? Date.now().valueOf() - lifetime.valueOf() > 0 : true;
+
 export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     const { lock } = props;
+    const targetLifetimeDate = GetTargetFutureDate(lock.date, lock.suggestedLifetime);
     const allClassNames = classNames('lock-display-info', {
         'date-display--outdated': isOutdated(lock.date),
         'date-display--normal': !isOutdated(lock.date),
     });
 
+    const classNamesLifetime = classNames('lock-display-info', {
+        'date-display--outdated': isOutdatedLifetime(targetLifetimeDate),
+        'date-display--normal': !isOutdatedLifetime(targetLifetimeDate),
+    });
+    // eslint-disable-next-line no-console
+    console.log('Date lifetime: ' + lock.date + '.');
+    // eslint-disable-next-line no-console
+    console.log('Suggested lifetime: ' + lock.suggestedLifetime + '.');
+    // eslint-disable-next-line no-console
+    console.log('targetLifetimeDate: ' + targetLifetimeDate + '.');
     const deleteLock = useCallback(() => {
         if (lock.application) {
             addAction({
@@ -92,13 +106,13 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     )}
 
                     <div className="lock-display-info">{lock.authorEmail}</div>
-                    {lock.suggestedLifetime && lock.date ? (
+                    {targetLifetimeDate ? (
                         <FormattedDate
-                            createdAt={GetTargetFutureDate(lock.date, lock.suggestedLifetime)}
-                            className={allClassNames}
+                            createdAt={targetLifetimeDate}
+                            className={classNames(classNamesLifetime, 'lifetime-date')}
                         />
                     ) : (
-                        <div className="lock-display-info">{'-'}</div>
+                        <div className="lock-display-info lifetime-date">{'-'}</div>
                     )}
                     <Button
                         className="lock-display-info lock-action service-action--delete"

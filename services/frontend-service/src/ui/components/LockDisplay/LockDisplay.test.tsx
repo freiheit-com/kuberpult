@@ -171,3 +171,57 @@ describe('Test link to ciLink', () => {
         });
     });
 });
+
+describe('Test suggested lifetime', () => {
+    interface dataT {
+        name: string;
+        lock: DisplayLock;
+    }
+    const lockWithSuggestedLifetime = {
+        environment: 'test-env',
+        lockId: 'test-lock-id-2',
+        message: 'test-lock-123',
+        ciLink: '',
+        suggestedLifetime: '1d',
+        date: new Date(),
+    };
+    const lockWithoutSL = {
+        environment: 'test-env',
+        lockId: 'test-lock-id',
+        message: 'test-lock-123',
+        ciLink: '',
+        suggestedLifetime: '',
+    };
+    const data: dataT[] = [
+        {
+            name: 'Environment Lock with lifetime',
+            lock: lockWithSuggestedLifetime,
+        },
+        {
+            name: 'App Lock with lifetime',
+            lock: { ...lockWithSuggestedLifetime, application: 'test-app' },
+        },
+        {
+            name: 'Team Lock with lifetime',
+            lock: { ...lockWithSuggestedLifetime, team: 'test-team' },
+        },
+        {
+            name: 'Environment Lock without lifetime',
+            lock: lockWithoutSL,
+        },
+    ];
+
+    describe.each(data)('suggested lifetime on locks', (testcase) => {
+        it(testcase.name, () => {
+            const { container } = render(
+                <BrowserRouter>
+                    <LockDisplay key={displayLockUniqueId(testcase.lock)} lock={testcase.lock} />{' '}
+                </BrowserRouter>
+            );
+            // eslint-disable-next-line no-console
+            console.log(container.innerHTML);
+            const result = document.getElementsByClassName('lifetime-date');
+            expect(result[0]).toHaveTextContent(testcase.lock.suggestedLifetime ? 'in 24 hours' : '-');
+        });
+    });
+});

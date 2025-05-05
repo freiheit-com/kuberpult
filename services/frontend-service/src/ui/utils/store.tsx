@@ -1541,7 +1541,8 @@ class GitSyncStatusGetter {
     }
 }
 
-export const GetTargetFutureDate = (current: Date, increment: string): Date => {
+export const GetTargetFutureDate = (current: Date | undefined, increment: string): Date | undefined => {
+    if (!current || increment === '') return undefined;
     const msPerMinute = 1000 * 60;
     const msPerHour = msPerMinute * 60;
     const msPerDay = msPerHour * 24;
@@ -1555,5 +1556,5 @@ export const GetTargetFutureDate = (current: Date, increment: string): Date => {
         return new Date(current.valueOf() + msPerHour * parseInt(increment.split('h')[0]));
     }
 
-    return new Date(current.valueOf());
+    return undefined;
 };

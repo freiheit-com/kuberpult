@@ -24,7 +24,7 @@ const getRelativeDate = (current: Date, target: Date | undefined): string => {
     const msPerMonth = msPerDay * 30;
     const msPerYear = msPerDay * 365;
 
-    if (elapsedTime > 0) {
+    if (elapsedTime >= 0) {
         if (elapsedTime < msPerMinute) {
             return 'just now';
         } else if (elapsedTime < msPerHour) {
@@ -50,9 +50,7 @@ const getRelativeDate = (current: Date, target: Date | undefined): string => {
         }
     } else {
         elapsedTime = Math.abs(elapsedTime);
-        if (elapsedTime < msPerMinute) {
-            return 'ends now';
-        } else if (elapsedTime < msPerHour) {
+        if (elapsedTime < msPerHour) {
             return Math.round(elapsedTime / msPerMinute) === 1
                 ? `in 1 minute`
                 : `in ${Math.round(elapsedTime / msPerMinute)} minutes`;
