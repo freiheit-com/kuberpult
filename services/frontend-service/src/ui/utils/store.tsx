@@ -1557,21 +1557,3 @@ class GitSyncStatusGetter {
         return mostInteresting;
     }
 }
-
-export const GetTargetFutureDate = (current: Date | undefined, increment: string): Date | undefined => {
-    if (!current || increment === '') return undefined;
-    const msPerMinute = 1000 * 60;
-    const msPerHour = msPerMinute * 60;
-    const msPerDay = msPerHour * 24;
-    const msPerWeek = msPerDay * 7;
-
-    if (increment.indexOf('w') !== -1) {
-        return new Date(current.valueOf() + msPerWeek * parseInt(increment.split('w')[0]));
-    } else if (increment.indexOf('d') !== -1) {
-        return new Date(current.valueOf() + msPerDay * parseInt(increment.split('d')[0]));
-    } else if (increment.indexOf('h') !== -1) {
-        return new Date(current.valueOf() + msPerHour * parseInt(increment.split('h')[0]));
-    }
-
-    return undefined;
-};

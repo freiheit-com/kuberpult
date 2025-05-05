@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
-import { addAction, DisplayLock, GetTargetFutureDate } from '../../utils/store';
+import { addAction, DisplayLock } from '../../utils/store';
 import classNames from 'classnames';
 import { useCallback } from 'react';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
@@ -118,4 +118,22 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
             </div>
         </div>
     );
+};
+
+export const GetTargetFutureDate = (current: Date | undefined, increment: string): Date | undefined => {
+    if (!current || increment === '') return undefined;
+    const msPerMinute = 1000 * 60;
+    const msPerHour = msPerMinute * 60;
+    const msPerDay = msPerHour * 24;
+    const msPerWeek = msPerDay * 7;
+
+    if (increment.indexOf('w') !== -1) {
+        return new Date(current.valueOf() + msPerWeek * parseInt(increment.split('w')[0]));
+    } else if (increment.indexOf('d') !== -1) {
+        return new Date(current.valueOf() + msPerDay * parseInt(increment.split('d')[0]));
+    } else if (increment.indexOf('h') !== -1) {
+        return new Date(current.valueOf() + msPerHour * parseInt(increment.split('h')[0]));
+    }
+
+    return undefined;
 };
