@@ -100,7 +100,7 @@ argocd:
     enabled: true
 manageArgoApplications:
   enabled: true
-  filter: "sreteam"
+  filter: "*"
 datadogProfiling:
   enabled: false
   apiKey: invalid-3
