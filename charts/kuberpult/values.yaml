@@ -522,5 +522,5 @@ revolution:
 # Whether the rollout service should self-manage applications
 manageArgoApplications:
   enabled: false
-  # List of teams that should be self managed by the rollout service.
+  # DEPRECATED: List of teams that should be self managed by the rollout service.
   filter: []
