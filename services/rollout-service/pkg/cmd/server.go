@@ -303,7 +303,7 @@ func runServer(ctx context.Context, config Config) error {
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
 
-	if checkAppFilterDeprecation(config.ManageArgoApplicationsFilter) { // '*' means all apps for all teams are self managed
+	if checkAppFilterDeprecation(config.ManageArgoApplicationsFilter) {
 		logger.FromContext(ctx).Sugar().Warn("Application filter feature is deprecated. In the future, either all applications will be self managed or none at all, regardless of team.")
 	}
 
