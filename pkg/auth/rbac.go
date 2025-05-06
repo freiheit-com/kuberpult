@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"google.golang.org/grpc/codes"
@@ -328,7 +329,7 @@ type PermissionError struct {
 	User        string
 	Role        string
 	Action      string
-	Environment string
+	Environment types.EnvName
 	Team        string
 }
 
@@ -377,14 +378,14 @@ func (e TeamPermissionError) GRPCStatus() *status.Status {
 }
 
 // Checks user permissions on the RBAC policy.
-func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup, application, action string) error {
+func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, team string, envGroup types.EnvName, application, action string) error {
 	// If the action is environment independent, the env format is <ENVIRONMENT_GROUP>:*
 	if isEnvironmentIndependent(action) {
 		env = "*"
 	}
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
-	for _, pEnvGroup := range []string{envGroup, "*"} {
-		for _, pEnv := range []string{env, "*"} {
+	for _, pEnvGroup := range []types.EnvName{envGroup, "*"} {
+		for _, pEnv := range []types.EnvName{env, "*"} {
 			for _, pApplication := range []string{application, "*"} {
 				// Check if the permission exists on the policy.
 				if rbacConfig.Policy == nil {

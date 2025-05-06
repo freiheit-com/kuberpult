@@ -22,11 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type DBReleaseMetaData struct {
@@ -41,7 +43,7 @@ type DBReleaseMetaData struct {
 }
 
 type DBReleaseManifests struct {
-	Manifests map[string]string
+	Manifests map[types.EnvName]string
 }
 
 type DBReleaseWithMetaData struct {
@@ -50,7 +52,7 @@ type DBReleaseWithMetaData struct {
 	App           string
 	Manifests     DBReleaseManifests
 	Metadata      DBReleaseMetaData
-	Environments  []string
+	Environments  []types.EnvName
 }
 
 // SELECTS
@@ -150,7 +152,7 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
 }
 
-func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (map[string]map[uint64][]string, error) {
+func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (map[string]map[uint64][]types.EnvName, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -343,7 +345,7 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
-	envs := make([]string, 0)
+	envs := make([]types.EnvName, 0)
 	for env := range release.Manifests.Manifests {
 		envs = append(envs, env)
 	}
@@ -394,7 +396,7 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
-	envs := make([]string, 0)
+	envs := make([]types.EnvName, 0)
 	for env := range release.Manifests.Manifests {
 		envs = append(envs, env)
 	}
@@ -497,7 +499,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 
 		// handle manifests
 		var manifestData = DBReleaseManifests{
-			Manifests: map[string]string{},
+			Manifests: map[types.EnvName]string{},
 		}
 		if withManifests {
 			err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
@@ -506,7 +508,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			}
 		}
 		row.Manifests = manifestData
-		environments := make([]string, 0)
+		environments := make([]types.EnvName, 0)
 		if environmentsStr.Valid && environmentsStr.String != "" {
 			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
 			if err != nil {
@@ -526,7 +528,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	return result, nil
 }
 
-func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (map[string]map[uint64][]string, error) {
+func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (map[string]map[uint64][]types.EnvName, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -537,7 +539,7 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 		}
 	}(rows)
 	//exhaustruct:ignore
-	var result = make(map[string]map[uint64][]string)
+	var result = make(map[string]map[uint64][]types.EnvName)
 	for rows.Next() {
 		var environmentsStr sql.NullString
 		var appName string
@@ -549,7 +551,7 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 			}
 			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
 		}
-		environments := make([]string, 0)
+		environments := make([]types.EnvName, 0)
 		if environmentsStr.Valid && environmentsStr.String != "" {
 			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
 			if err != nil {
@@ -557,7 +559,7 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 			}
 		}
 		if _, exists := result[appName]; !exists {
-			result[appName] = make(map[uint64][]string)
+			result[appName] = make(map[uint64][]types.EnvName)
 		}
 		result[appName][releaseVersion] = environments
 	}

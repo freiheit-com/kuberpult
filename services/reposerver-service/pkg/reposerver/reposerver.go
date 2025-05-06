@@ -21,12 +21,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
@@ -61,7 +64,7 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 	if len(split) != 5 {
 		return nil, fmt.Errorf("unexpected path: '%s'", include)
 	}
-	envName := split[1]
+	envName := types.EnvName(split[1])
 	appName := split[3]
 
 	type ReleaseResult struct {

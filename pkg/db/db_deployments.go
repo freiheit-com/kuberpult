@@ -26,6 +26,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -47,7 +48,7 @@ type DeploymentMetadata struct {
 type Deployment struct {
 	Created       time.Time
 	App           string
-	Env           string
+	Env           types.EnvName
 	Version       *int64
 	Metadata      DeploymentMetadata
 	TransformerID TransformerID
@@ -55,7 +56,7 @@ type Deployment struct {
 
 // SELECT
 
-func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
+func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector types.EnvName) (*Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -83,7 +84,7 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Context, tx *sql.Tx, appName string) (map[string]Deployment, error) {
+func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Context, tx *sql.Tx, appName string) (map[types.EnvName]Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsForApplication")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -109,7 +110,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	return processAllLatestDeploymentsForApp(rows)
 }
 
-func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName string) (map[string]*int64, error) {
+func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName types.EnvName) (map[string]*int64, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsOnEnvironment")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -554,7 +555,7 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 		toReturn = &Deployment{
 			Created:       row.Created,
 			App:           row.App,
-			Env:           row.Env,
+			Env:           types.EnvName(row.Env),
 			Version:       row.ReleaseVersion,
 			Metadata:      resultJson,
 			TransformerID: row.TransformerID,
@@ -573,8 +574,8 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 	return toReturn, nil
 }
 
-func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[string]Deployment, error) {
-	result := make(map[string]Deployment)
+func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[types.EnvName]Deployment, error) {
+	result := make(map[types.EnvName]Deployment)
 	for rows.Next() {
 		var curr = Deployment{
 			Created: time.Time{},
@@ -677,7 +678,7 @@ func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Ro
 	return &Deployment{
 		Created:       row.Created,
 		App:           row.App,
-		Env:           row.Env,
+		Env:           types.EnvName(row.Env),
 		Version:       row.ReleaseVersion,
 		Metadata:      resultJson,
 		TransformerID: row.TransformerID,
@@ -714,12 +715,12 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 	return deployments, nil
 }
 
-func (h *DBHandler) MapEnvNamesToDeployment(ctx context.Context, transaction *sql.Tx, id TransformerID) (map[string]Deployment, error) {
+func (h *DBHandler) MapEnvNamesToDeployment(ctx context.Context, transaction *sql.Tx, id TransformerID) (map[types.EnvName]Deployment, error) {
 	deployments, err := h.DBSelectDeploymentsByTransformerID(ctx, transaction, id)
 	if err != nil {
 		return nil, err
 	}
-	deploymentsMap := make(map[string]Deployment)
+	deploymentsMap := make(map[types.EnvName]Deployment)
 
 	for _, currentDeployment := range deployments {
 		deploymentsMap[currentDeployment.Env] = currentDeployment

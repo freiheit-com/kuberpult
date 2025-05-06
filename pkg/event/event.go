@@ -24,6 +24,7 @@ import (
 	"slices"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/go-git/go-billy/v5"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
@@ -46,7 +47,7 @@ type eventType struct {
 // NewRelease is an event that denotes that a commit has been released
 // for the first time.
 type NewRelease struct {
-	Environments map[string]struct{} `fs:"environments"`
+	Environments map[types.EnvName]struct{} `fs:"environments"`
 }
 
 func (_ *NewRelease) eventType() string {
@@ -54,7 +55,7 @@ func (_ *NewRelease) eventType() string {
 }
 
 func (ev *NewRelease) toProto(trg *api.Event) {
-	envs := make([]string, 0, len(ev.Environments))
+	envs := make([]types.EnvName, 0, len(ev.Environments))
 	for env := range ev.Environments {
 		envs = append(envs, env)
 	}

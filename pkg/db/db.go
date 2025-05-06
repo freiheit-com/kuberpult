@@ -22,12 +22,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"path"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
@@ -890,7 +892,7 @@ type EnvironmentLock struct {
 	EslVersion EslVersion
 	Created    time.Time
 	LockID     string
-	Env        string
+	Env        types.EnvName
 	Deleted    bool
 	Metadata   LockMetadata
 }
@@ -955,7 +957,7 @@ type WriteAllEventsFun = func(ctx context.Context, transaction *sql.Tx, dbHandle
 type GetAllAppsFun = func() (map[string]string, error)
 
 // return value is a map from environment name to environment config
-type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.EnvironmentConfig, error)
+type GetAllEnvironmentsFun = func(ctx context.Context) (map[types.EnvName]config.EnvironmentConfig, error)
 
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
@@ -1431,7 +1433,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 	return nil, nil // no rows, but also no error
 }
 
-func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) (*EnvironmentLock, error) {
+func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string) (*EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslEventLaterThan")
 	defer span.Finish()
 
@@ -1491,7 +1493,7 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 			EslVersion: row.EslVersion,
 			Created:    row.Created,
 			LockID:     row.LockID,
-			Env:        row.Env,
+			Env:        types.EnvName(row.Env),
 			Deleted:    row.Deleted,
 			Metadata:   resultJson,
 		}, nil
@@ -1505,7 +1507,7 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 
 }
 
-func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID, environment string, metadata LockMetadata) error {
+func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
 	defer span.Finish()
 	if h == nil {
@@ -1642,7 +1644,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 			EslVersion: row.EslVersion,
 			Created:    row.Created,
 			LockID:     row.LockID,
-			Env:        row.Env,
+			Env:        types.EnvName(row.Env),
 			Deleted:    row.Deleted,
 			Metadata:   resultJson,
 		})
@@ -1731,7 +1733,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 			EslVersion: row.EslVersion,
 			Created:    row.Created,
 			LockID:     row.LockID,
-			Env:        row.Env,
+			Env:        types.EnvName(row.Env),
 			Deleted:    row.Deleted,
 			Metadata:   resultJson,
 		})
@@ -1744,7 +1746,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 	return envLocks, nil
 }
 
-func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx, environment string) (*AllEnvLocksGo, error) {
+func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx, environment types.EnvName) (*AllEnvLocksGo, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironmentLocks")
 	defer span.Finish()
 	if h == nil {
@@ -1810,7 +1812,7 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 	return nil, nil
 }
 
-func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, environment string, lockIDs []string) ([]EnvironmentLock, error) {
+func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockIDs []string) ([]EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentLockSet")
 	defer span.Finish()
 
@@ -1876,7 +1878,7 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 				EslVersion: row.EslVersion,
 				Created:    row.Created,
 				LockID:     row.LockID,
-				Env:        row.Env,
+				Env:        types.EnvName(row.Env),
 				Deleted:    row.Deleted,
 				Metadata:   resultJson,
 			})
@@ -1893,7 +1895,7 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 	return envLocks, nil
 }
 
-func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction *sql.Tx, previousVersion int64, environment string, lockIds []string) error {
+func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction *sql.Tx, previousVersion int64, environment types.EnvName, lockIds []string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllEnvironmentLocks")
 	defer span.Finish()
 	slices.Sort(lockIds) // we don't really *need* the sorting, it's just for convenience
@@ -1923,7 +1925,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 	return nil
 }
 
-func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment, lockID string) error {
+func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
 	defer span.Finish()
 	if h == nil {
@@ -1969,21 +1971,21 @@ type AllEnvLocksJson struct {
 type AllEnvLocksRow struct {
 	Version     int64
 	Created     time.Time
-	Environment string
+	Environment types.EnvName
 	Data        string
 }
 
 type AllEnvLocksGo struct {
 	Version     int64
 	Created     time.Time
-	Environment string
+	Environment types.EnvName
 	AllEnvLocksJson
 }
 
 type QueuedDeployment struct {
 	EslVersion EslVersion
 	Created    time.Time
-	Env        string
+	Env        types.EnvName
 	App        string
 	Version    *int64
 }
@@ -2061,7 +2063,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 	return queuedDeployments, nil
 }
 
-func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName, appName string) (*QueuedDeployment, error) {
+func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName string) (*QueuedDeployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
 	defer span.Finish()
 
@@ -2083,7 +2085,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context, tx *sql.Tx, environmentName string) ([]*QueuedDeployment, error) {
+func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context, tx *sql.Tx, environmentName types.EnvName) ([]*QueuedDeployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttemptOfAllApps")
 	defer span.Finish()
 
@@ -2171,7 +2173,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context
 	return h.processDeploymentAttemptsRows(ctx, rows, err)
 }
 
-func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string, version *int64) error {
+func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName string, version *int64) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
@@ -2190,7 +2192,7 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 	})
 }
 
-func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName, appName string) error {
+func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
@@ -2382,7 +2384,7 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 		if err != nil {
 			return fmt.Errorf("could not get environments, error: %w", err)
 		}
-		var allEnvsApps map[string][]string
+		var allEnvsApps map[types.EnvName][]string
 		for _, envName := range allEnvironments {
 			env, err := h.DBSelectEnvironment(ctx, transaction, envName)
 			if err != nil {
@@ -2409,14 +2411,14 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 	})
 }
 
-func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[string][]string, error) {
-	envsApps := make(map[string][]string)
+func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[types.EnvName][]string, error) {
+	envsApps := make(map[types.EnvName][]string)
 	releases, err := h.DBSelectAllManifestsForAllReleases(ctx, tx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get all environments for all releases, error: %w", err)
 	}
 	for app, versionEnvs := range releases {
-		envSet := make(map[string]struct{})
+		envSet := make(map[types.EnvName]struct{})
 		for _, envs := range versionEnvs {
 			for _, env := range envs {
 				envSet[env] = struct{}{}

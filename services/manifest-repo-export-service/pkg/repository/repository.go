@@ -22,10 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 	"io"
 	"os"
 	"path/filepath"
@@ -34,6 +30,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -541,12 +543,12 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 
 type AppEnv struct {
 	App  string
-	Env  string
+	Env  types.EnvName
 	Team string
 }
 
 type RootApp struct {
-	Env string
+	Env types.EnvName
 	//argocd/v1alpha1/development2.yaml
 }
 
@@ -561,7 +563,7 @@ type CommitIds struct {
 	Current  *git.Oid
 }
 
-func (r *TransformerResult) AddAppEnv(app string, env string, team string) {
+func (r *TransformerResult) AddAppEnv(app string, env types.EnvName, team string) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
 		App:  app,
 		Env:  env,
@@ -569,7 +571,7 @@ func (r *TransformerResult) AddAppEnv(app string, env string, team string) {
 	})
 }
 
-func (r *TransformerResult) AddRootApp(env string) {
+func (r *TransformerResult) AddRootApp(env types.EnvName) {
 	r.DeletedRootApps = append(r.DeletedRootApps, RootApp{
 		Env: env,
 	})
@@ -816,7 +818,7 @@ func isAAEnv(config config.EnvironmentConfig) bool {
 	return config.ArgoCdConfigs != nil && len(config.ArgoCdConfigs.ArgoCdConfigurations) > 1
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env string, cfg config.EnvironmentConfig) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	if !r.config.ArgoCdGenerateFiles {
@@ -851,7 +853,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env string, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool) error {
+func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool) error {
 	prefix := ""
 	if commonEnvPrefix != nil {
 		prefix = *commonEnvPrefix
@@ -1019,8 +1021,8 @@ func decodeJsonFile(fs billy.Filesystem, path string, out interface{}) error {
 	}
 }
 
-func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*config.EnvironmentConfig, error) {
-	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
+func (s *State) GetEnvironmentConfigFromManifest(environmentName types.EnvName) (*config.EnvironmentConfig, error) {
+	fileName := s.Filesystem.Join("environments", string(environmentName), "config.json")
 	var envConfig config.EnvironmentConfig
 	if err := decodeJsonFile(s.Filesystem, fileName, &envConfig); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -1030,33 +1032,34 @@ func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*confi
 	return &envConfig, nil
 }
 
-func (s *State) GetAllEnvironmentConfigsFromManifest() (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetAllEnvironmentConfigsFromManifest() (map[types.EnvName]config.EnvironmentConfig, error) {
 	envs, err := s.Filesystem.ReadDir("environments")
 	if err != nil {
 		return nil, err
 	}
-	result := map[string]config.EnvironmentConfig{}
+	result := map[types.EnvName]config.EnvironmentConfig{}
 	for _, env := range envs {
-		c, err := s.GetEnvironmentConfigFromManifest(env.Name())
+		envName := types.EnvName(env.Name())
+		c, err := s.GetEnvironmentConfigFromManifest(envName)
 		if err != nil {
 			return nil, err
 
 		}
-		result[env.Name()] = *c
+		result[envName] = *c
 	}
 	return result, nil
 }
-func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[string]config.EnvironmentConfig, []string, error) {
+func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[types.EnvName]config.EnvironmentConfig, []types.EnvName, error) {
 	configs, err := s.GetAllEnvironmentConfigsFromManifest()
 	if err != nil {
 		return nil, nil, err
 	}
 	// sorting the environments to get a deterministic order of events:
-	var envNames []string = nil
+	var envNames []types.EnvName = nil
 	for envName := range configs {
 		envNames = append(envNames, envName)
 	}
-	sort.Strings(envNames)
+	sort.Slice(envNames, func(i, j int) bool { return envNames[i] < envNames[j] })
 	return configs, envNames, nil
 }
 
@@ -1074,7 +1077,7 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 	}
 
 	for _, appName := range apps {
-		deploymentsForApp := map[string]int64{}
+		deploymentsForApp := map[types.EnvName]int64{}
 		for _, envName := range envNames {
 			var version *uint64
 			version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
@@ -1148,10 +1151,10 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 			repoRelease.SourceCommitId = ""
 		}
 
-		var manifestsMap = map[string]string{}
+		var manifestsMap = map[types.EnvName]string{}
 		for index := range manifests {
 			manifest := manifests[index]
-			manifestsMap[manifest.Environment] = manifest.Content
+			manifestsMap[types.EnvName(manifest.Environment)] = manifest.Content
 		}
 
 		now, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
@@ -1176,7 +1179,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				IsPrepublish:    false,
 				CiLink:          "",
 			},
-			Environments: []string{},
+			Environments: []types.EnvName{},
 		}
 		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, dbRelease)
 		if err != nil {
@@ -1365,7 +1368,7 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 	return nil
 }
 
-func (s *State) GetEnvironmentLocksFromManifest(environment string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentLocksFromManifest(environment types.EnvName) (map[string]Lock, error) {
 	base := s.GetEnvLocksDir(environment)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -1482,12 +1485,12 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 	return nil
 }
 
-func (s *State) GetEnvironmentApplicationsFromManifest(environment string) ([]string, error) {
-	appDir := s.Filesystem.Join("environments", environment, "applications")
+func (s *State) GetEnvironmentApplicationsFromManifest(environment types.EnvName) ([]string, error) {
+	appDir := s.Filesystem.Join("environments", string(environment), "applications")
 	return names(s.Filesystem, appDir)
 }
 
-func (s *State) GetEnvironmentApplicationLocksFromManifest(environment, application string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentApplicationLocksFromManifest(environment types.EnvName, application string) (map[string]Lock, error) {
 	base := s.GetAppLocksDir(environment, application)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -1571,7 +1574,7 @@ func (s *State) WriteCurrentTeamLocks(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (s *State) GetEnvironmentTeamLocksFromManifest(environment, team string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentTeamLocksFromManifest(environment types.EnvName, team string) (map[string]Lock, error) {
 	base := s.GetTeamLocksDir(environment, team)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -1592,8 +1595,8 @@ func (s *State) GetEnvironmentTeamLocksFromManifest(environment, team string) (m
 }
 
 // for use with custom migrations, otherwise use the two functions above
-func (s *State) GetAllEnvironments(_ context.Context) (map[string]config.EnvironmentConfig, error) {
-	result := map[string]config.EnvironmentConfig{}
+func (s *State) GetAllEnvironments(_ context.Context) (map[types.EnvName]config.EnvironmentConfig, error) {
+	result := map[types.EnvName]config.EnvironmentConfig{}
 
 	fileSys := s.Filesystem
 
@@ -1614,7 +1617,7 @@ func (s *State) GetAllEnvironments(_ context.Context) (map[string]config.Environ
 		if err != nil {
 			return nil, fmt.Errorf("error while unmarshaling the database JSON, error: %w", err)
 		}
-		result[envName.Name()] = cfg
+		result[types.EnvName(envName.Name())] = cfg
 	}
 
 	return result, nil
@@ -1678,22 +1681,22 @@ type Lock struct {
 	CreatedAt time.Time
 }
 
-func (s *State) GetEnvLocksDir(environment string) string {
-	return s.Filesystem.Join("environments", environment, "locks")
+func (s *State) GetEnvLocksDir(environment types.EnvName) string {
+	return s.Filesystem.Join("environments", string(environment), "locks")
 }
 
-func (s *State) GetEnvLockDir(environment string, lockId string) string {
+func (s *State) GetEnvLockDir(environment types.EnvName, lockId string) string {
 	return s.Filesystem.Join(s.GetEnvLocksDir(environment), lockId)
 }
 
-func (s *State) GetAppLocksDir(environment string, application string) string {
-	return s.Filesystem.Join("environments", environment, "applications", application, "locks")
+func (s *State) GetAppLocksDir(environment types.EnvName, application string) string {
+	return s.Filesystem.Join("environments", string(environment), "applications", application, "locks")
 }
-func (s *State) GetTeamLocksDir(environment string, team string) string {
-	return s.Filesystem.Join("environments", environment, "teams", team, "locks")
+func (s *State) GetTeamLocksDir(environment types.EnvName, team string) string {
+	return s.Filesystem.Join("environments", string(environment), "teams", team, "locks")
 }
 
-func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[string]Lock, error) {
 	dbLocks, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
 	if err != nil {
 		return nil, err
@@ -1774,7 +1777,7 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 	return result, nil
 }
 
-func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *sql.Tx, environment, team string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName, team string) (map[string]Lock, error) {
 	if team == "" {
 		return map[string]Lock{}, nil
 	}
@@ -1836,19 +1839,19 @@ func (s *State) GetDeploymentMetaData(environment, application string) (string, 
 	return string(author), deployedAt, nil
 }
 
-func (s *State) DeleteTeamLockIfEmpty(ctx context.Context, environment string, team string) error {
+func (s *State) DeleteTeamLockIfEmpty(ctx context.Context, environment types.EnvName, team string) error {
 	dir := s.GetTeamLocksDir(environment, team)
 	_, err := s.DeleteDirIfEmpty(dir)
 	return err
 }
 
-func (s *State) DeleteAppLockIfEmpty(ctx context.Context, environment string, application string) error {
+func (s *State) DeleteAppLockIfEmpty(ctx context.Context, environment types.EnvName, application string) error {
 	dir := s.GetAppLocksDir(environment, application)
 	_, err := s.DeleteDirIfEmpty(dir)
 	return err
 }
 
-func (s *State) DeleteEnvLockIfEmpty(ctx context.Context, environment string) error {
+func (s *State) DeleteEnvLockIfEmpty(ctx context.Context, environment types.EnvName) error {
 	dir := s.GetEnvLocksDir(environment)
 	_, err := s.DeleteDirIfEmpty(dir)
 	return err
@@ -1885,16 +1888,16 @@ func (s *State) DeleteDirIfEmpty(directoryName string) (SuccessReason, error) {
 	return DirNotEmpty, nil
 }
 
-func (s *State) GetQueuedVersionFromManifest(environment string, application string) (*uint64, error) {
+func (s *State) GetQueuedVersionFromManifest(environment types.EnvName, application string) (*uint64, error) {
 	return s.readSymlink(environment, application, queueFileName)
 }
 
-func (s *State) DeleteQueuedVersion(environment string, application string) error {
-	queuedVersion := s.Filesystem.Join("environments", environment, "applications", application, queueFileName)
+func (s *State) DeleteQueuedVersion(environment types.EnvName, application string) error {
+	queuedVersion := s.Filesystem.Join("environments", string(environment), "applications", application, queueFileName)
 	return s.Filesystem.Remove(queuedVersion)
 }
 
-func (s *State) DeleteQueuedVersionIfExists(environment string, application string) error {
+func (s *State) DeleteQueuedVersionIfExists(environment types.EnvName, application string) error {
 	queuedVersion, err := s.GetQueuedVersionFromManifest(environment, application)
 	if err != nil {
 		return err
@@ -1905,7 +1908,7 @@ func (s *State) DeleteQueuedVersionIfExists(environment string, application stri
 	return s.DeleteQueuedVersion(environment, application)
 }
 
-func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment, application string) (*uint64, error) {
+func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (*uint64, error) {
 	depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
 	if err != nil {
 		return nil, err
@@ -1917,13 +1920,13 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	return &v, nil
 }
 
-func (s *State) GetEnvironmentApplicationVersionFromManifest(environment string, application string) (*uint64, error) {
+func (s *State) GetEnvironmentApplicationVersionFromManifest(environment types.EnvName, application string) (*uint64, error) {
 	return s.readSymlink(environment, application, "version")
 }
 
 // returns nil if there is no file
-func (s *State) readSymlink(environment string, application string, symlinkName string) (*uint64, error) {
-	version := s.Filesystem.Join("environments", environment, "applications", application, symlinkName)
+func (s *State) readSymlink(environment types.EnvName, application string, symlinkName string) (*uint64, error) {
+	version := s.Filesystem.Join("environments", string(environment), "applications", application, symlinkName)
 	if lnk, err := s.Filesystem.Readlink(version); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// if the link does not exist, we return nil
@@ -1931,7 +1934,7 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 		}
 		return nil, fmt.Errorf("failed reading symlink %q: %w", version, err)
 	} else {
-		target := s.Filesystem.Join("environments", environment, "applications", application, lnk)
+		target := s.Filesystem.Join("environments", string(environment), "applications", application, lnk)
 		if stat, err := s.Filesystem.Stat(target); err != nil {
 			// if the file that the link points to does not exist, that's an error
 			return nil, fmt.Errorf("failed stating %q: %w", target, err)
@@ -1956,14 +1959,14 @@ func (s *State) GetTeamName(application string) (string, error) {
 
 var InvalidJson = errors.New("JSON file is not valid")
 
-func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFor string) bool {
+func envExists(envConfigs map[types.EnvName]config.EnvironmentConfig, envNameToSearchFor types.EnvName) bool {
 	if _, found := envConfigs[envNameToSearchFor]; found {
 		return true
 	}
 	return false
 }
 
-func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[types.EnvName]config.EnvironmentConfig, error) {
 	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
@@ -1975,14 +1978,14 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
 	}
-	ret := make(map[string]config.EnvironmentConfig)
+	ret := make(map[types.EnvName]config.EnvironmentConfig)
 	for _, env := range *envs {
 		ret[env.Name] = env.Config
 	}
 	return ret, nil
 }
 
-func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transaction *sql.Tx) (map[string]config.EnvironmentConfig, error) {
+func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transaction *sql.Tx) (map[types.EnvName]config.EnvironmentConfig, error) {
 	logger := logger.FromContext(ctx)
 	envConfigs, err := s.GetAllEnvironmentConfigsFromManifest()
 	if err != nil {
@@ -2012,12 +2015,12 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 	return envConfigs, err
 }
 
-func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *sql.Tx, envGroup string) ([]string, error) {
+func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *sql.Tx, envGroup types.EnvName) ([]types.EnvName, error) {
 	allEnvConfigs, err := s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
-	groupEnvNames := []string{}
+	groupEnvNames := []types.EnvName{}
 	for env := range allEnvConfigs {
 		envConfig := allEnvConfigs[env]
 		g := envConfig.EnvironmentGroup
@@ -2028,11 +2031,11 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 	if len(groupEnvNames) == 0 {
 		return nil, fmt.Errorf("No environment found with given group '%s'", envGroup)
 	}
-	sort.Strings(groupEnvNames)
+	sort.Slice(groupEnvNames, func(i, j int) bool { return groupEnvNames[i] < groupEnvNames[j] })
 	return groupEnvNames, nil
 }
 
-func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
+func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]string, error) {
 	envInfo, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environment)
 	if err != nil {
 		return make([]string, 0), err
@@ -2278,7 +2281,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 // ProcessQueue checks if there is something in the queue
 // deploys if necessary
 // deletes the queue
-func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment string, application string) (string, error) {
+func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment types.EnvName, application string) (string, error) {
 	queuedVersion, err := s.GetQueuedVersionFromManifest(environment, application)
 	queueDeploymentMessage := ""
 	if err != nil {

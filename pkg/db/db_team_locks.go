@@ -22,15 +22,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type TeamLock struct {
 	Created  time.Time
 	LockID   string
-	Env      string
+	Env      types.EnvName
 	Team     string
 	Metadata LockMetadata
 }
@@ -38,7 +40,7 @@ type TeamLock struct {
 type TeamLockHistory struct {
 	Created  time.Time
 	LockID   string
-	Env      string
+	Env      types.EnvName
 	Team     string
 	Metadata LockMetadata
 	Deleted  bool
@@ -46,7 +48,7 @@ type TeamLockHistory struct {
 
 // SELECTS
 
-func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (map[string]map[string][]TeamLock, error) {
+func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (map[types.EnvName]map[string][]TeamLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocksOfAllEnvs")
 	defer span.Finish()
 	if h == nil {
@@ -68,7 +70,7 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 	if err != nil {
 		return nil, fmt.Errorf("could not read team lock from DB. Error: %w\n", err)
 	}
-	teamLocks := make(map[string]map[string][]TeamLock)
+	teamLocks := make(map[types.EnvName]map[string][]TeamLock)
 	for rows.Next() {
 		var row = TeamLock{
 			Created: time.Time{},
@@ -180,7 +182,7 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 	return nil, nil
 }
 
-func (h *DBHandler) DBSelectTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment string) ([]TeamLock, error) {
+func (h *DBHandler) DBSelectTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]TeamLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLocksForEnv")
 	defer span.Finish()
 
@@ -218,7 +220,7 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 	return h.processTeamLockRows(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environment, teamName, lockID string) (*TeamLock, error) {
+func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName, lockID string) (*TeamLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLock")
 	defer span.Finish()
 
@@ -247,7 +249,7 @@ func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	return &result[0], nil
 }
 
-func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, environment, teamName string) ([]string, error) {
+func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName string) ([]string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocks")
 	defer span.Finish()
 	if h == nil {
@@ -349,7 +351,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 }
 
 // INSERT, UPDATE, DELETES
-func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, environment, teamName string, metadata LockMetadata) error {
+func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteTeamLock")
 	defer span.Finish()
 
@@ -370,7 +372,7 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID, env
 	return nil
 }
 
-func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environment, teamName string, lockIDs []string) ([]TeamLock, error) {
+func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName string, lockIDs []string) ([]TeamLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockSet")
 	defer span.Finish()
 
@@ -396,7 +398,7 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 	return teamLocks, nil
 }
 
-func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment, teamName, lockID string) error {
+func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName, lockID string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteTeamLock")
 	defer span.Finish()
 
@@ -429,7 +431,7 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 
 // actual changes in tables
 
-func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, lockID, environment, teamName string, metadata LockMetadata) error {
+func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertTeamLockRow")
 	defer span.Finish()
 	upsertQuery := h.AdaptQuery(`
@@ -467,7 +469,7 @@ func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, lockId, environment, teamName string) error {
+func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName, teamName string) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteTeamLockRow")
 	defer span.Finish()
 	deleteQuery := h.AdaptQuery(`
@@ -491,7 +493,7 @@ func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID, environment, teamName string, metadata LockMetadata, deleted bool) error {
+func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata, deleted bool) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertTeamLockHistoryRow")
 	defer span.Finish()
 	upsertQuery := h.AdaptQuery(`

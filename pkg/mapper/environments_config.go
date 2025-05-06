@@ -21,18 +21,19 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 type EnvSortOrder = map[string]int
 
-func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.EnvironmentGroup {
+func MapEnvironmentsToGroups(envs map[types.EnvName]config.EnvironmentConfig) []*api.EnvironmentGroup {
 	var result = []*api.EnvironmentGroup{}
 	var buckets = map[string]*api.EnvironmentGroup{}
 	// first, group all envs into buckets by groupName
 	for envName, env := range envs {
 		var groupName = DeriveGroupName(env, envName)
-		var groupNameCopy = groupName + "" // without this copy, unexpected pointer things happen :/
-		var bucket, ok = buckets[groupName]
+		var groupNameCopy = string(groupName + "") // without this copy, unexpected pointer things happen :/
+		var bucket, ok = buckets[string(groupName)]
 		if !ok {
 			bucket = &api.EnvironmentGroup{
 				DistanceToUpstream:   0,
@@ -45,7 +46,7 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		var newEnv = &api.Environment{
 			DistanceToUpstream: 0,
 			Priority:           api.Priority_PROD,
-			Name:               envName,
+			Name:               string(envName),
 			Config: &api.EnvironmentConfig{
 				Argocd:           nil,
 				Upstream:         TransformUpstream(env.Upstream),
@@ -84,7 +85,7 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 				tmpDistancesToUpstreamByEnv[environment.Name] = 100
 			} else {
 				upstreamEnv := environment.Config.Upstream.GetEnvironment()
-				if _, exists := envs[upstreamEnv]; !exists { // upstreamEnv is not exists!
+				if _, exists := envs[types.EnvName(upstreamEnv)]; !exists { // upstreamEnv is not exists!
 					tmpDistancesToUpstreamByEnv[upstreamEnv] = 666
 				}
 				// and remember the rest:
@@ -184,7 +185,7 @@ func calculateGroupPriority(distanceToUpstream, downstreamDepth uint32) api.Prio
 }
 
 // either the groupName is set in the config, or we use the envName as a default
-func DeriveGroupName(env config.EnvironmentConfig, envName string) string {
+func DeriveGroupName(env config.EnvironmentConfig, envName types.EnvName) types.EnvName {
 	var groupName = env.EnvironmentGroup
 	if groupName == nil {
 		groupName = &envName
@@ -309,9 +310,10 @@ func TransformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 		}
 	}
 	if upstream.Environment != "" {
+		envName := string(upstream.Environment)
 		return &api.EnvironmentConfig_Upstream{
 			Latest:      nil,
-			Environment: &upstream.Environment,
+			Environment: &envName,
 		}
 	}
 	return nil
