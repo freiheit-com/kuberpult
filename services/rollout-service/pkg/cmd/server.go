@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"net/url"
-	"slices"
 	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
@@ -304,7 +303,7 @@ func runServer(ctx context.Context, config Config) error {
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
 
-	if len(config.ManageArgoApplicationsFilter) > 1 || !slices.Contains(config.ManageArgoApplicationsFilter, "*") { // '*' means all apps for all teams are self managed
+	if checkAppFilterDeprecation(config.ManageArgoApplicationsFilter) { // '*' means all apps for all teams are self managed
 		logger.FromContext(ctx).Sugar().Warn("Application filter feature is deprecated. In the future, either all applications will be self managed or none at all, regardless of team.")
 	}
 
@@ -409,4 +408,8 @@ func runServer(ctx context.Context, config Config) error {
 		},
 	})
 	return nil
+}
+
+func checkAppFilterDeprecation(filter []string) bool {
+	return len(filter) > 1 || (len(filter) == 1 && filter[0] != "*") //We are going to keep the functionality of []string{"*"} for the future
 }
