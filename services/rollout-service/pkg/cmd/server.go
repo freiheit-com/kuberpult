@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"net/url"
+	"slices"
 	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
@@ -302,6 +303,10 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
+
+	if len(config.ManageArgoApplicationsFilter) > 1 || !slices.Contains(config.ManageArgoApplicationsFilter, "*") {
+		logger.FromContext(ctx).Sugar().Warn("Application filter feature is deprecated. F")
+	}
 
 	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.KuberpultEventsMetricsEnabled, config.ArgoEventsMetricsEnabled, config.ManageArgoApplicationsFilter, *dbHandler, config.KuberpultEventsChannelSize, config.ArgoEventsChannelSize, ddMetrics)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
