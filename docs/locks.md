@@ -42,3 +42,7 @@ App Locks are useful to prevent a single deployment.
 3) Click on the lock icon to delete it.
 4) Submit planned actions.
 
+## Suggested Lifetime
+Each lock has a field called 'Suggested Lifetime'. After this time, it won't be deleted automatically, but others may consider removing it.
+This lifetime is shown in the locks table. This field is mandatory when creating the lock using UI, but it's not mandatory when we're creating it using API.
+
