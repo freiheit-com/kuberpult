@@ -304,8 +304,8 @@ func runServer(ctx context.Context, config Config) error {
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
 
-	if len(config.ManageArgoApplicationsFilter) > 1 || !slices.Contains(config.ManageArgoApplicationsFilter, "*") {
-		logger.FromContext(ctx).Sugar().Warn("Application filter feature is deprecated. F")
+	if len(config.ManageArgoApplicationsFilter) > 1 || !slices.Contains(config.ManageArgoApplicationsFilter, "*") { // '*' means all apps for all teams are self managed
+		logger.FromContext(ctx).Sugar().Warn("Application filter feature is deprecated. In the future, either all applications will be self managed or none at all, regardless of team.")
 	}
 
 	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.KuberpultEventsMetricsEnabled, config.ArgoEventsMetricsEnabled, config.ManageArgoApplicationsFilter, *dbHandler, config.KuberpultEventsChannelSize, config.ArgoEventsChannelSize, ddMetrics)
