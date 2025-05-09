@@ -22,3 +22,8 @@ type putLockRequest struct {
 	CiLink            string `json:"ciLink,omitempty"`
 	SuggestedLifeTime string `json:"suggestedLifeTime,omitempty"`
 }
+
+type releaseTrainRequest struct {
+	Signature string `json:"signature,omitempty"`
+	CiLink    string `json:"ciLink,omitempty"`
+}
