@@ -286,9 +286,9 @@ func TestServer_Handle(t *testing.T) {
 				Body: io.NopCloser(strings.NewReader(`{"cilink":"https://google.com"}`)),
 			},
 			expectedResp: &http.Response{
-				StatusCode: http.StatusInternalServerError,
+				StatusCode: http.StatusBadRequest,
 			},
-			expectedBody: "Internal: Invalid Signature: EOF",
+			expectedBody: "Missing signature in request body",
 		},
 		{
 			name:             "release train api with CI Link - Azure enabled - invalid signature",

@@ -63,6 +63,11 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 				return
 			}
 		} else {
+			if len(request.Signature) == 0 {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("Missing signature in request body")) //nolint:errcheck
+				return
+			}
 			signatureReader = strings.NewReader(request.Signature)
 		}
 	}
