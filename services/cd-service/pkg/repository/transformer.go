@@ -244,17 +244,17 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 			GaugeEnvLockMetric(ctx, state, transaction, envName)
 		}
 
-		envFromDb, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+		envApps, err := state.GetEnvironmentApplicationsFromDB(ctx, transaction, envName)
 		if err != nil {
 			return fmt.Errorf("failed to read environment from the db: %v", err)
 		}
 
 		// in the future apps might be sorted, but currently they aren't
-		slices.Sort(envFromDb.Applications)
+		slices.Sort(envApps)
 		var appCounter = 0
 
 		//Get all locks at once, avoid round trips to DB
-		allAppLocks, err := state.DBHandler.DBSelectAllActiveAppLocksForSliceApps(ctx, transaction, envFromDb.Applications)
+		allAppLocks, err := state.DBHandler.DBSelectAllActiveAppLocksForSliceApps(ctx, transaction, envApps)
 		if err != nil {
 			return err
 		}
@@ -276,7 +276,7 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 		}
 
 		appCounter = 0
-		for _, appName := range envFromDb.Applications {
+		for _, appName := range envApps {
 			appCounter = appCounter + 1
 			actualEven := appCounter%2 == 0
 			if actualEven == even {
@@ -1934,6 +1934,7 @@ func (c *CreateEnvironment) Transform(
 	}
 
 	// write to environments table
+	// We don't use environment applications column anymore, but for backward compatibility we keep it updated
 	environmentApplications := make([]string, 0)
 	if env != nil {
 		environmentApplications = env.Applications

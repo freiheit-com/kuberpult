@@ -5391,6 +5391,275 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 	}
 }
 
+func TestDBSelectEnvironmentApplications(t *testing.T) {
+	tcs := []struct {
+		Name                            string
+		Releases                        []DBReleaseWithMetaData
+		Environments                    []DBEnvironment
+		ExpectedEnvironmentApplications map[string][]string
+	}{
+		{
+			Name: "one Release",
+			Releases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manifest2"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "staging",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":     {"app1"},
+				"staging": {"app1"},
+			},
+		},
+		{
+			Name: "One environment without apps",
+			Releases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":     {"app1"},
+				"staging": {},
+			},
+		},
+		{
+			Name: "Multiple releases and environments",
+			Releases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "production": "manifest3"}},
+				},
+				{
+					ReleaseNumber: 20,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"staging": "manifest2"}},
+				},
+				{
+					ReleaseNumber: 10,
+					App:           "app2",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					ReleaseNumber: 10,
+					App:           "app3",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					ReleaseNumber: 20,
+					App:           "app3",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"production": "manifest3"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "staging",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "production",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":        {"app1", "app2", "app3"},
+				"staging":    {"app1"},
+				"production": {"app1", "app3"},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, environment := range tc.Environments {
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]string, 0))
+					if err != nil {
+						return fmt.Errorf("error while writing environment, error: %w", err)
+					}
+				}
+				for _, release := range tc.Releases {
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				for envName, expectedApps := range tc.ExpectedEnvironmentApplications {
+					apps, err := dbHandler.DBSelectEnvironmentApplications(ctx, transaction, envName)
+					if err != nil {
+						return fmt.Errorf("Couldn't retrieve environment %s applications, error: %w", envName, err)
+					}
+					if diff := cmp.Diff(expectedApps, apps); diff != "" {
+						return fmt.Errorf("environment applications mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+		})
+	}
+}
+
+func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
+	tcs := []struct {
+		Name                            string
+		FirstReleases                   []DBReleaseWithMetaData
+		SecondReleases                  []DBReleaseWithMetaData
+		Environments                    []DBEnvironment
+		ExpectedEnvironmentApplications map[string][]string
+	}{
+		{
+			Name: "Environment added afterwards",
+			FirstReleases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			SecondReleases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 20,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"staging": "manifest2"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "staging",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":     {"app1"},
+				"staging": {},
+			},
+		},
+		{
+			Name: "New app added afterwards",
+			FirstReleases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					ReleaseNumber: 20,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"staging": "manifest2"}},
+				},
+			},
+			SecondReleases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app2",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manifest2"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "staging",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":     {"app1"},
+				"staging": {"app1"},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			firstReleaseTime, err := WithTransactionT(dbHandler, ctx, 1, false, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
+				for _, environment := range tc.Environments {
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]string, 0))
+					if err != nil {
+						return nil, fmt.Errorf("error while writing environment, error: %w", err)
+					}
+				}
+				for _, release := range tc.FirstReleases {
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+					if err != nil {
+						return nil, fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				firstReleaseTime := time.Now()
+				return &firstReleaseTime, nil
+			})
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, release := range tc.SecondReleases {
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+
+				for envName, expectedApps := range tc.ExpectedEnvironmentApplications {
+					apps, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
+					if err != nil {
+						return fmt.Errorf("Couldn't retrieve environment %s applications, error: %w", envName, err)
+					}
+					if diff := cmp.Diff(expectedApps, apps); diff != "" {
+						return fmt.Errorf("environment applications mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+		})
+	}
+}
+
 // DBInsertReleaseWithoutEnvironment inserts a release with mismatching manifest and environments into the database.
 // This behaviour is intended to test the `DBSelectReleasesWithoutEnvironments` method which exists only for migration purposes.
 func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
