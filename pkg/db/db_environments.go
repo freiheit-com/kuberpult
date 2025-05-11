@@ -252,7 +252,7 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 }
 
 func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName string, ts time.Time) ([]string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplicationsAtTimestamp")
 	defer span.Finish()
 	queryParams := []any{ts, `["` + envName + `"]`, `["` + envName + `",%`, `%,"` + envName + `"]`, `%,"` + envName + `",%`}
 	selectQuery := h.AdaptQuery(`

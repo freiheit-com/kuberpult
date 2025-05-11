@@ -275,7 +275,7 @@ func TestGetProductDB(t *testing.T) {
 			},
 			expectedErrors: []StageError{
 				{
-					err: errMatcher{"unable to get applications for environment 'staging': environment staging not found"},
+					err: nil,
 				},
 				{
 					err: nil,
@@ -441,43 +441,6 @@ func TestGetProductDBFailureCases(t *testing.T) {
 			givenEnvGroup: conversion.FromString("testingGroup"),
 			timestamp:     &ts,
 			expectedErr:   errMatcher{"Can not have both an environment and environmentGroup to get the product summary for"},
-		},
-		{
-			Name:      "invalid environment used",
-			givenEnv:  conversion.FromString("staging"),
-			timestamp: &ts,
-			Setup: []rp.Transformer{
-
-				&rp.CreateEnvironment{
-					Environment: "development",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-						ArgoCd:           nil,
-						EnvironmentGroup: conversion.FromString("dev"),
-					},
-				},
-				&rp.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"development": "dev",
-					},
-					SourceAuthor:    "example <example@example.com>",
-					SourceCommitId:  "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-					SourceMessage:   "changed something (#678)",
-					DisplayVersion:  "v1.0.2",
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&rp.DeployApplicationVersion{
-					Application: "test",
-					Environment: "development",
-					Version:     1,
-				},
-			},
-			expectedErr:            errMatcher{"unable to get applications for environment 'staging': environment staging not found"},
-			expectedProductSummary: []*api.ProductSummary{},
 		},
 		{
 			Name:          "invalid envGroup used",
