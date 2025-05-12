@@ -228,42 +228,28 @@ func (o *OverviewServiceServer) GetAppDetails(
 				continue
 			}
 
-			environment, ok := envMap[envName]
-			if !ok {
-				logger.FromContext(ctx).Sugar().Warnf("could not obtain environment %s for app %s: %w", envName, appName, err)
-				continue
+			deployment := &api.Deployment{
+				Version:         uint64(*currentDeployment.Version),
+				QueuedVersion:   0,
+				UndeployVersion: false,
+				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+					CiLink:       currentDeployment.Metadata.CiLink,
+					DeployAuthor: currentDeployment.Metadata.DeployedByName,
+					DeployTime:   currentDeployment.Created.String(),
+				},
 			}
-			foundApp := false // only apps that are active on that environment should be returned here
-			for _, appInEnv := range environment.Applications {
-				if appInEnv == appName {
-					foundApp = true
-					break
-				}
-			}
-			if foundApp {
-				deployment := &api.Deployment{
-					Version:         uint64(*currentDeployment.Version),
-					QueuedVersion:   0,
-					UndeployVersion: false,
-					DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-						CiLink:       currentDeployment.Metadata.CiLink,
-						DeployAuthor: currentDeployment.Metadata.DeployedByName,
-						DeployTime:   currentDeployment.Created.String(),
-					},
-				}
 
-				queuedVersion, ok := queuedVersions[envName]
-				if !ok || queuedVersion == nil {
-					deployment.QueuedVersion = 0
-				} else {
-					deployment.QueuedVersion = *queuedVersion
-				}
-
-				if deploymentRelease != nil {
-					deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
-				}
-				response.Deployments[envName] = deployment
+			queuedVersion, ok := queuedVersions[envName]
+			if !ok || queuedVersion == nil {
+				deployment.QueuedVersion = 0
+			} else {
+				deployment.QueuedVersion = *queuedVersion
 			}
+
+			if deploymentRelease != nil {
+				deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
+			}
+			response.Deployments[envName] = deployment
 		}
 		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
 		result.Warnings = CalculateWarnings(deployments, appLocks, envGroups)

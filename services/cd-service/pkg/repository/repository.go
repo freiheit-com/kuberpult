@@ -1071,31 +1071,25 @@ func (s *State) GetEnvironmentApplicationsAtTimestamp(ctx context.Context, trans
 }
 
 func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment string) ([]string, error) {
-	envInfo, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environment)
+	envApps, err := s.DBHandler.DBSelectEnvironmentApplications(ctx, transaction, environment)
 	if err != nil {
 		return nil, err
 	}
-	if envInfo == nil {
-		return nil, fmt.Errorf("environment %s not found", environment)
-	}
-	if envInfo.Applications == nil {
+	if envApps == nil {
 		return make([]string, 0), nil
 	}
-	return envInfo.Applications, nil
+	return envApps, nil
 }
 
 func (s *State) GetEnvironmentApplicationsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, environment string, ts time.Time) ([]string, error) {
-	envInfo, err := s.DBHandler.DBSelectEnvironmentAtTimestamp(ctx, transaction, environment, ts)
+	envApps, err := s.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, environment, ts)
 	if err != nil {
 		return nil, err
 	}
-	if envInfo == nil {
-		return nil, fmt.Errorf("environment %s not found", environment)
-	}
-	if envInfo.Applications == nil {
+	if envApps == nil {
 		return make([]string, 0), nil
 	}
-	return envInfo.Applications, nil
+	return envApps, nil
 }
 
 // GetApplications returns all apps that exist in any env

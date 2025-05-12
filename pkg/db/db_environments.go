@@ -91,30 +91,6 @@ func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environ
 	return h.processEnvironmentRow(ctx, rows)
 }
 
-func (h *DBHandler) DBSelectEnvironmentAtTimestamp(ctx context.Context, tx *sql.Tx, environmentName string, ts time.Time) (*DBEnvironment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(`
-		SELECT created, name, json, applications
-		FROM environments_history
-		WHERE name=? AND deleted=false AND created <= ? 
-		ORDER BY version DESC
-		LIMIT 1;
-	`)
-	span.SetTag("query", selectQuery)
-
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		environmentName,
-		ts,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not query the environments table for environment %s, error: %w", environmentName, err)
-	}
-	return h.processEnvironmentRow(ctx, rows)
-}
-
 func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, environmentNames []string) (*[]DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
 	defer span.Finish()
@@ -213,6 +189,124 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 				return nil, nil
 			}
 			return nil, fmt.Errorf("error while scanning environments row, error: %w", err)
+		}
+		result = append(result, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("error while closing rows, error: %w", err)
+	}
+	return result, nil
+}
+
+func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transaction *sql.Tx, envName string) ([]string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplications")
+	defer span.Finish()
+
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("no transaction provided when selecting environment applications")
+	}
+	acceptableEnvFormats := []any{`["` + envName + `"]`, `["` + envName + `",%`, `%,"` + envName + `"]`, `%,"` + envName + `",%`}
+
+	selectQuery := h.AdaptQuery(`
+		select DISTINCT appname FROM releases r WHERE 
+			r.environments = ? 
+			OR r.environments LIKE ? 
+			OR r.environments LIKE ?
+			OR r.environments LIKE ?; 
+	`)
+
+	rows, err := transaction.QueryContext(ctx, selectQuery, acceptableEnvFormats...)
+	if err != nil {
+		return nil, fmt.Errorf("error while executing query to get all environments, error: %w", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row on releases table, error: %w", err)
+		}
+	}(rows)
+
+	result := []string{}
+	for rows.Next() {
+		//exhaustruct:ignore
+		var row string
+		err := rows.Scan(&row)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error while scanning releases row, error: %w", err)
+		}
+		result = append(result, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("error while closing rows, error: %w", err)
+	}
+	return result, nil
+}
+
+func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName string, ts time.Time) ([]string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplicationsAtTimestamp")
+	defer span.Finish()
+	queryParams := []any{ts, `["` + envName + `"]`, `["` + envName + `",%`, `%,"` + envName + `"]`, `%,"` + envName + `",%`}
+	selectQuery := h.AdaptQuery(`
+	SELECT DISTINCT 
+		releases_history.appname
+	FROM (
+		SELECT
+			MAX(version) AS latest,
+			appname,
+			releaseversion
+		FROM
+			releases_history	
+		WHERE created <= ?
+		GROUP BY
+			appname, releaseversion
+		) AS latest
+	JOIN
+		releases_history AS releases_history
+	ON
+		latest.latest=releases_history.version
+		AND latest.appname=releases_history.appname
+		AND latest.releaseversion=releases_history.releaseversion
+	WHERE releases_history.environments = ? 
+		OR releases_history.environments LIKE ?
+		OR releases_history.environments LIKE ? 
+		OR releases_history.environments LIKE ?
+		AND releases_history.deleted=false; `)
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		queryParams...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query the releases_history table %s, error: %w", envName, err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row on releases_history table, error: %w", err)
+		}
+	}(rows)
+
+	result := []string{}
+	for rows.Next() {
+		//exhaustruct:ignore
+		var row string
+		err := rows.Scan(&row)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error while scanning releases_history row, error: %w", err)
 		}
 		result = append(result, row)
 	}

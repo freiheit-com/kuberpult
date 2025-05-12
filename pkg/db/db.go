@@ -2389,6 +2389,7 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 				return fmt.Errorf("could not get env: %s, error: %w", envName, err)
 			}
 
+			// We don't use environment applications column anymore, but for backward compatibility we keep it updated
 			if len(env.Applications) == 0 {
 				if allEnvsApps == nil {
 					allEnvsApps, err = h.FindEnvsAppsFromReleases(ctx, transaction)
