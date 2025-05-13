@@ -94,6 +94,10 @@ func TestServer_Handle(t *testing.T) {
 		CiLink:            "www.test.com",
 		SuggestedLifeTime: "3d",
 	})
+	releaseTrainRequestJSON, _ := json.Marshal(releaseTrainRequest{
+		Signature: exampleSignature,
+		CiLink:    "https://google.com",
+	})
 
 	tests := []struct {
 		name                                 string
@@ -233,6 +237,74 @@ func TestServer_Handle(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name:             "release train api with CI Link - Azure enabled",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(bytes.NewReader(releaseTrainRequestJSON)),
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "development",
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"target\":\"development\"}",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", TargetType: api.ReleaseTrainRequest_ENVIRONMENT, CiLink: "https://google.com"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "release train api with CI Link - Azure enabled - missing signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(strings.NewReader(`{"cilink":"https://google.com"}`)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Missing signature in request body",
+		},
+		{
+			name:             "release train api with CI Link - Azure enabled - invalid signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(strings.NewReader(`{"cilink":"https://google.com", "signature": "uncool"}`)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			expectedBody: "Internal: Invalid Signature: EOF",
 		},
 		{
 			name: "release train",
