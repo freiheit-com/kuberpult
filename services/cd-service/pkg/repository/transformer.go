@@ -2677,9 +2677,18 @@ func (c *ReleaseTrain) Transform(
 		}
 		for _, envName := range envNames {
 			trainGroup := conversion.FromString(targetGroupName)
-			envNameLocal := envName
 			releaseTrainErrGroup.Go(func() error {
-				return c.runEnvReleaseTrainBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs, allLatestReleases)
+				return t.Execute(ctx, &envReleaseTrain{
+					Parent:                 c,
+					Env:                    envName,
+					EnvConfigs:             configs,
+					EnvGroupConfigs:        envGroupConfigs,
+					WriteCommitData:        c.WriteCommitData,
+					TrainGroup:             trainGroup,
+					TransformerEslVersion:  c.TransformerEslVersion,
+					CiLink:                 c.CiLink,
+					AllLatestReleasesCache: allLatestReleases,
+				}, transaction)
 			})
 		}
 		err := releaseTrainErrGroup.Wait()
