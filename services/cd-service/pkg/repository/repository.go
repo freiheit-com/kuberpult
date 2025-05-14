@@ -641,6 +641,8 @@ func (r *repository) notifyChangedApps(changes *TransformerResult) {
 }
 
 func (r *repository) applyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "applyDeferred")
+	defer span.Finish()
 	return r.queue.add(ctx, transformers)
 }
 
