@@ -244,6 +244,8 @@ func runServer(ctx context.Context) error {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
 		}
 		policy, err = auth.ReadRbacPolicy(true, c.DexRbacPolicyPath)
+		logger.FromContext(ctx).Sugar().Warnf("Policy Groups: %v", policy.Groups)
+		logger.FromContext(ctx).Sugar().Warnf("Policy Permissions: %v", policy.Permissions)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error getting RBAC policy: ", zap.Error(err))
 		}
