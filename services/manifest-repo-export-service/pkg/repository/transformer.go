@@ -1505,7 +1505,6 @@ func (u *ReleaseTrain) Transform(
 	}
 
 	if len(deployments) == 0 {
-		// if t.ChangedAppsCount() == prevChangedApps {
 		return GetNoOpMessage(u)
 	}
 
