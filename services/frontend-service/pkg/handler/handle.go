@@ -181,7 +181,7 @@ func (s *PublicApiServer) setCorsHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")   // Or "application/json"
 }
 
-var _ publicapi.ServerInterface = &PublicApiServer{}
+var _ publicapi.ServerInterface = &PublicApiServer{} //exhaustruct:ignore
 
 func (s *PublicApiServer) GetPublicApiSchema(w http.ResponseWriter, _ *http.Request) {
 	specFile := "api.yaml" // Or openapi.json
