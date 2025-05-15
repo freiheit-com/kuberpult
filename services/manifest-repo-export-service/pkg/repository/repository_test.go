@@ -1217,7 +1217,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			},
 		},
 		{
-			Name: "Create Application Version creates new commits",
+			Name: "Create Application Version with no deployments does not create new commits",
 			setup: []Transformer{
 				&CreateEnvironment{
 					Environment: "production",
@@ -1240,7 +1240,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
 				},
 			},
-			shouldCreateCommit: true,
+			shouldCreateCommit: false,
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
@@ -1259,7 +1259,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			},
 		},
 		{
-			Name: "Deployments should create new commits",
+			Name: "Create Application Version with deployments should create new commits",
 			setup: []Transformer{
 				&CreateEnvironment{
 					Environment:         "production",
@@ -1273,7 +1273,67 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "manifest",
 					},
+					Team:                  "team-123",
+					Version:               1,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+					TransformerEslVersion: 2,
+				},
+			},
+			shouldCreateCommit: true,
+			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
+				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+					Team: "team-123",
+				})
+				if err != nil {
+					return err
+				}
+				version := int64(1)
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: uint64(version),
+					App:           "test",
+					Environments:  []string{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+						"production": "manifest",
+					}},
+				})
+				if err != nil {
+					return err
+				}
+
+				return dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+					Version:       &version,
+					App:           "test",
+					Env:           "production",
+					TransformerID: 2,
+				})
+			},
+		},
+		{
+			Name: "Deployments creates new commits",
+			setup: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{ArgoCd: &config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Server: "development",
+						},
+					}},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+			},
+			targetTransformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
 					Team:                "team-123",
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+				},
+				&DeployApplicationVersion{
+					Application:         "test",
+					Environment:         "production",
 					Version:             1,
 					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
 				},
@@ -1352,9 +1412,10 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "manifest",
 					},
-					Team:                "team",
-					Version:             1,
-					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+					Team:                  "team",
+					Version:               1,
+					TransformerMetadata:   TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+					TransformerEslVersion: 2,
 				},
 				&CreateEnvironmentLock{
 					Environment:           "production",
@@ -1376,13 +1437,24 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
+				version := int64(1)
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumber: uint64(version),
 					App:           "test",
 					Environments:  []string{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
 						"production": "manifest",
 					}},
+				})
+				if err != nil {
+					return err
+				}
+
+				return dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+					Version:       &version,
+					App:           "test",
+					Env:           "production",
+					TransformerID: 2,
 				})
 			},
 		},
