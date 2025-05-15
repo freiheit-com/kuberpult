@@ -62,7 +62,7 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-		} else {
+		} else if s.AzureAuth {
 			if len(request.Signature) == 0 {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte("Missing signature in request body")) //nolint:errcheck
