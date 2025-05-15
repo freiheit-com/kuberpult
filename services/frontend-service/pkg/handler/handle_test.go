@@ -209,7 +209,7 @@ func TestServer_Handle(t *testing.T) {
 			req: &http.Request{
 				Method: http.MethodPut,
 				URL: &url.URL{
-					Path: "/api/environments/development/releasetrain",
+					Path: "/environments/development/releasetrain",
 				},
 				Body: io.NopCloser(strings.NewReader(`{"cilink":"https://google.com"}`)),
 			},
@@ -232,7 +232,7 @@ func TestServer_Handle(t *testing.T) {
 				Actions: []*api.BatchAction{
 					{
 						Action: &api.BatchAction_ReleaseTrain{
-							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", TargetType: api.ReleaseTrainRequest_ENVIRONMENT, CiLink: "https://google.com"},
+							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", CiLink: "https://google.com"},
 						},
 					},
 				},
