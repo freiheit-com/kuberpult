@@ -46,13 +46,13 @@ func (s Server) handleCommitDeployments(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, fmt.Sprintf("failed to get commit deployments from server: %v", err), http.StatusInternalServerError)
 		return
 	}
-	json, err := json.Marshal(resp)
+	jsonResponse, err := json.Marshal(resp)
 	if err != nil {
 		logger.FromContext(ctx).Error("failed to get commit deployments from server: failed to marshal response", zap.Error(err))
 		http.Error(w, fmt.Sprintf("failed to marshal response: %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(json)
+	_, _ = w.Write(jsonResponse)
 	_, _ = w.Write([]byte("\n"))
 }

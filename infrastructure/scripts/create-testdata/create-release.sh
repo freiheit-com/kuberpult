@@ -10,8 +10,13 @@ name=${1}
 applicationOwnerTeam=${2:-sreteam}
 prev=${3:-""}
 
+function debug() {
+    echo "$@" > /dev/stderr
+}
+
 # 40 is the length of a full git commit hash.
 commit_id=$(head -c 20 /dev/urandom | sha1sum | awk '{print $1}') # SHA-1 produces 40-character hashes 
+debug "commit id is: ${commit_id}"
 authors[0]="urbansky"
 authors[1]="Medo"
 authors[2]="Hannes"

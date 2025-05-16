@@ -192,7 +192,11 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	if sourceCommitId, ok := form.Value["source_commit_id"]; ok {
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
+		} else {
+			logger.FromContext(ctx).Sugar().Warnf("commit id not valid: '%s'", sourceCommitId)
 		}
+	} else {
+		logger.FromContext(ctx).Sugar().Warnf("commit id not found: '%s'", sourceCommitId)
 	}
 
 	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
@@ -365,7 +369,11 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	if sourceCommitId, ok := form.Value["source_commit_id"]; ok {
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
+		} else {
+			logger.FromContext(ctx).Sugar().Warnf("commit id not valid: '%s'", sourceCommitId)
 		}
+	} else {
+		logger.FromContext(ctx).Sugar().Warnf("commit id not found: '%s'", sourceCommitId)
 	}
 
 	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
