@@ -145,6 +145,7 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	// RBAC Role of the user. only mandatory if DEX is enabled.
 	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
+		logger.FromContext(ctx).Sugar().Warnf("roles in header: %v", rolesInHeader)
 		if len(rolesInHeader) == 0 {
 			return useDexDefaultRole(ctx, x.DexDefaultRoleEnabled, u)
 		}
