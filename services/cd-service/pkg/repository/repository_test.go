@@ -21,14 +21,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
 	"net/http"
 	"net/http/httptest"
-	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
+
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
@@ -636,77 +637,24 @@ func TestApplyQueue(t *testing.T) {
 }
 
 func getTransformer(i int) (Transformer, error) {
-	transformerType := i % 5
-	switch transformerType {
-	case 0:
-		return &CreateApplicationVersion{
-			Application: "foo",
-			Manifests: map[string]string{
-				"development": fmt.Sprintf("%d", i),
-			},
-			Version: uint64(i),
-		}, nil
-	case 1:
-	case 2:
-		return &CreateApplicationVersion{
-			Application: "foo",
-			Manifests: map[string]string{
-				"development": fmt.Sprintf("%d", i),
-			},
-			Version: uint64(i),
-		}, nil
-	case 3:
-		return &ErrorTransformer{}, TransformerError
-	case 4:
-		return &InvalidJsonTransformer{}, InvalidJson
-	}
-	return &ErrorTransformer{}, TransformerError
-}
-
-func createGitWithCommit(remote string, local string, t *testing.B) {
-	cmd := exec.Command("git", "init", "--bare", remote)
-	cmd.Start()
-	cmd.Wait()
-
-	cmd = exec.Command("git", "clone", remote, local) // Clone git dir
-	_, err := cmd.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd = exec.Command("touch", "a") // Add a new file to git
-	cmd.Dir = local
-	_, err = cmd.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd = exec.Command("git", "add", "a") // Add a new file to git
-	cmd.Dir = local
-	_, err = cmd.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cmd = exec.Command("git", "commit", "-m", "adding") // commit the new file
-	cmd.Dir = local
-	cmd.Env = []string{
-		"GIT_AUTHOR_NAME=kuberpult",
-		"GIT_COMMITTER_NAME=kuberpult",
-		"EMAIL=test@kuberpult.com",
-	}
-	_, err = cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			t.Logf("stderr: %s\n", exitErr.Stderr)
-			t.Logf("stderr: %s\n", err)
-		}
-		t.Fatal(err)
-	}
-	cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
-	cmd.Dir = local
-	_, err = cmd.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
+	// transformerType := i % 5
+	// switch transformerType {
+	// case 0:
+	// case 1:
+	// case 2:
+	return &CreateApplicationVersion{
+		Application: "foo",
+		Manifests: map[string]string{
+			"development": fmt.Sprintf("%d", i),
+		},
+		Version: uint64(i),
+	}, nil
+	// case 3:
+	// 	return &ErrorTransformer{}, TransformerError
+	// case 4:
+	// 	return &InvalidJsonTransformer{}, InvalidJson
+	// }
+	// return &ErrorTransformer{}, TransformerError
 }
 
 func TestProcessQueueOnce(t *testing.T) {
@@ -1179,24 +1127,21 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 	}
 }
 
-func SetupRepositoryBenchmark(t *testing.B, writeEslOnly bool) (Repository, *db.DBHandler) {
+func SetupRepositoryBenchmark(t *testing.B) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig := &db.DBConfig{
-		DriverName:     "sqlite3",
-		MigrationsPath: migrationsPath,
-		WriteEslOnly:   writeEslOnly,
-	}
 
-	dir := t.TempDir()
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, fmt.Sprintf("%s_%d", t.Name(), t.N))
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
 
 	repoCfg := RepositoryConfig{
 		ArgoCdGenerateFiles: true,
 	}
-	dbConfig.DbHost = dir
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
@@ -1221,7 +1166,7 @@ func SetupRepositoryBenchmark(t *testing.B, writeEslOnly bool) (Repository, *db.
 
 func BenchmarkApplyQueue(t *testing.B) {
 	t.StopTimer()
-	repo, _ := SetupRepositoryBenchmark(t, false)
+	repo, _ := SetupRepositoryBenchmark(t)
 	ctx := testutil.MakeTestContext()
 	dbHandler := repo.State().DBHandler
 
@@ -1232,6 +1177,16 @@ func BenchmarkApplyQueue(t *testing.B) {
 	expectedReleases := make(map[int]bool, t.N)
 
 	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+		if err != nil {
+			return err
+		}
+
+		err = dbHandler.DBWriteEnvironment(ctx, transaction, "development", config.EnvironmentConfig{}, []string{"foo"})
+		if err != nil {
+			return err
+		}
+
 		expectedResults[0] = nil
 		results[0] = nil
 		t.StartTimer()

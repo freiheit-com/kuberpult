@@ -53,7 +53,7 @@ func CreateMigrationsPath(numDirs int) (string, error) {
 	return "/kp" + subDir, nil
 }
 
-func ConnectToPostgresContainer(ctx context.Context, t *testing.T, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
+func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
 	dbConfig := &DBConfig{
 		// the options here must be the same as provided by docker-compose-unittest.yml
 		DbHost:     "localhost",

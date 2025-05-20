@@ -58,7 +58,9 @@ BENCH_TEST:
     ARG GO_TEST_ARGS
     CACHE --sharing locked --id go-cache $(go env GOCACHE)
     COPY pkg pkg
-    RUN go test $GO_TEST_ARGS -bench=. ./...
+    WITH DOCKER --compose ../../docker-compose-unittest.yml
+        RUN --no-cache go test $GO_TEST_ARGS -bench=. ./...
+    END
 
 LINT:
     FUNCTION
