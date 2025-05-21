@@ -197,7 +197,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                           <div
                             class="tooltip-container"
                             data-tooltip-delay-hide="50"
-                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div><span class=\\"lock-warning-text\\"> This Lock&#x27;s suggested lifetime is passed! </span></div>"
                             data-tooltip-id="kuberpult-tooltip"
                             data-tooltip-place="bottom"
                             id="tooltipenv-group-chip-id-ui-envlock"
@@ -213,7 +213,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                                 <svg
                                   class="env-card-env-lock-icon fixed-size"
                                 >
-                                  Locks_White.svg
+                                  Locks_Red_Small.svg
                                 </svg>
                               </button>
                             </div>
@@ -529,7 +529,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                           <div
                             class="tooltip-container"
                             data-tooltip-delay-hide="50"
-                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div><span class=\\"lock-warning-text\\"> This Lock&#x27;s suggested lifetime is passed! </span></div>"
                             data-tooltip-id="kuberpult-tooltip"
                             data-tooltip-place="bottom"
                             id="tooltipenv-group-chip-id-ui-envlock"
@@ -545,7 +545,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                                 <svg
                                   class="env-card-env-lock-icon fixed-size"
                                 >
-                                  Locks_White.svg
+                                  Locks_Red_Small.svg
                                 </svg>
                               </button>
                             </div>
@@ -861,7 +861,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           <div
                             class="tooltip-container"
                             data-tooltip-delay-hide="50"
-                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div><span class=\\"lock-warning-text\\"> This Lock&#x27;s suggested lifetime is passed! </span></div>"
                             data-tooltip-id="kuberpult-tooltip"
                             data-tooltip-place="bottom"
                             id="tooltipenv-group-chip-id-ui-envlock"
@@ -877,7 +877,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                                 <svg
                                   class="env-card-env-lock-icon fixed-size"
                                 >
-                                  Locks_White.svg
+                                  Locks_Red_Small.svg
                                 </svg>
                               </button>
                             </div>
@@ -1033,7 +1033,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           <div
                             class="tooltip-container"
                             data-tooltip-delay-hide="50"
-                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                            data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div><span class=\\"lock-warning-text\\"> This Lock&#x27;s suggested lifetime is passed! </span></div>"
                             data-tooltip-id="kuberpult-tooltip"
                             data-tooltip-place="bottom"
                             id="tooltipenv-group-chip-id-ui-envlock"
@@ -1049,7 +1049,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                                 <svg
                                   class="env-card-env-lock-icon fixed-size"
                                 >
-                                  Locks_White.svg
+                                  Locks_Red_Small.svg
                                 </svg>
                               </button>
                             </div>
@@ -1077,7 +1077,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                             <svg
                               class="env-card-app-lock"
                             >
-                              Locks.svg
+                              Locks_Red.svg
                             </svg>
                           </button>
                         </div>

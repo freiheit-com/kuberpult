@@ -120,7 +120,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     );
 };
 
-const GetTargetFutureDate = (current: Date | undefined, increment: string): Date | undefined => {
+export const GetTargetFutureDate = (current: Date | undefined, increment: string): Date | undefined => {
     if (!current || increment === '') return undefined;
     const msPerMinute = 1000 * 60;
     const msPerHour = msPerMinute * 60;

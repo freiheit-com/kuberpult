@@ -37,7 +37,7 @@ import {
     useTeamLocks,
 } from '../../utils/store';
 import { Button } from '../button';
-import { Close, Locks, SortAscending, SortDescending } from '../../../images';
+import { Close, Locks, LocksRed, SortAscending, SortDescending } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import {
@@ -56,6 +56,7 @@ import {
 } from '../RolloutStatusDescription/RolloutStatusDescription';
 import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
 import { Link } from 'react-router-dom';
+import { GetTargetFutureDate, isOutdatedLifetime } from '../LockDisplay/LockDisplay';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -76,11 +77,16 @@ export const AppLock: React.FC<{
             },
         });
     }, [app, env.name, lock.lockId]);
+    let lockIcon = <Locks className="env-card-app-lock" />;
+    const targetLifetimeDate = GetTargetFutureDate(lock.createdAt, lock.suggestedLifetime);
+    if (isOutdatedLifetime(targetLifetimeDate)) {
+        lockIcon = <LocksRed className="env-card-app-lock" />;
+    }
     return (
         <div
             title={'App Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
             onClick={deleteAppLock}>
-            <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
+            <Button icon={lockIcon} className={'button-lock'} highlightEffect={false} />
         </div>
     );
 };
@@ -98,11 +104,16 @@ export const TeamLock: React.FC<{
             },
         });
     }, [team, env.name, lock.lockId]);
+    let lockIcon = <Locks className="env-card-app-lock" />;
+    const targetLifetimeDate = GetTargetFutureDate(lock.createdAt, lock.suggestedLifetime);
+    if (isOutdatedLifetime(targetLifetimeDate)) {
+        lockIcon = <LocksRed className="environment-lock-icon" />;
+    }
     return (
         <div
             title={'Team Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
             onClick={deleteTeamLock}>
-            <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
+            <Button icon={lockIcon} className={'button-lock'} highlightEffect={false} />
         </div>
     );
 };
