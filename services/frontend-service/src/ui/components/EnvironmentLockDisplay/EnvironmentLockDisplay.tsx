@@ -72,7 +72,7 @@ export const DisplayLockRenderer: React.FC<{ lock: DisplayLock }> = (props) => {
             <div>ID: {lock.lockId}</div>
             <div>Click to unlock.</div>
             {isOutdatedLifetime(targetLifetimeDate) ? (
-                <span className="lock-warning-text"> This Lock's suggested lifetime is passed! </span>
+                <span className="lock-warning-text"> This Lock's suggested lifetime has passed! </span>
             ) : (
                 ''
             )}
