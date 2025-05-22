@@ -16,7 +16,7 @@ Copyright freiheit.com*/
 import * as React from 'react';
 import classNames from 'classnames';
 import { Tooltip } from '../tooltip/tooltip';
-import { Locks } from '../../../images';
+import { Locks, LocksRed } from '../../../images';
 import { Button } from '../button';
 import {
     addAction,
@@ -27,6 +27,7 @@ import {
 } from '../../utils/store';
 import { DisplayLockRenderer } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { ArgoAppEnvLink } from '../../utils/Links';
+import { GetTargetFutureDate, isOutdatedLifetime } from '../LockDisplay/LockDisplay';
 
 export const ApplicationLockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     const { lock } = props;
@@ -43,7 +44,11 @@ export const ApplicationLockDisplay: React.FC<{ lock: DisplayLock }> = (props) =
         });
     }, [lock]);
     const content = <DisplayLockRenderer lock={lock} />;
-    const lockIcon = <Locks className="application-lock-icon" />;
+    let lockIcon = <Locks className="application-lock-icon" />;
+    const targetLifetimeDate = GetTargetFutureDate(lock.date, lock.suggestedLifetime);
+    if (isOutdatedLifetime(targetLifetimeDate)) {
+        lockIcon = <LocksRed className="application-lock-icon" />;
+    }
     return (
         <Tooltip tooltipContent={content} id={'env-group-chip-id-' + lock.lockId}>
             <div>
