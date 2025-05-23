@@ -126,7 +126,11 @@ WHERE releaseVersion IS NOT NULL;
 }
 
 func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in *api.GetDeploymentCommitInfoRequest) (*api.GetDeploymentCommitInfoResponse, error) {
-	deploymentCommitInfo := &api.GetDeploymentCommitInfoResponse{}
+	deploymentCommitInfo := &api.GetDeploymentCommitInfoResponse{
+		Author:        "",
+		CommitId:      "",
+		CommitMessage: "",
+	}
 	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		deployment, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, in.Application, in.Environment)
 		if err != nil {
