@@ -23,3 +23,7 @@ On the overview (home page), you can already see that:
 On the history page, you can see the same information as on the overview:
 ![](../assets/img/whatsdeployed/history.png)
 
+### API
+If you want to know the commit information of the currently deployed version of an application on an environment you can call this endpoint:
+`GET https://your.kuberpult.host.example.com/api/environments/${targetEnvironmentName}/applications/${targetAppName}/commit`
+

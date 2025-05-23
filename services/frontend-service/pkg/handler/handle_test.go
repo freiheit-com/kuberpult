@@ -1345,6 +1345,19 @@ func TestServer_Handle(t *testing.T) {
 			},
 			expectedBody: "unsupported method 'GET'\n",
 		},
+		{
+			name: "environment application commitInfo",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/api/environments/development/applications/testapp/commit",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: `{"author":"testauthor","commit_id":"testcommitId","commit_message":"testmessage"}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1352,9 +1365,11 @@ func TestServer_Handle(t *testing.T) {
 			releaseTrainPrognosisClient := &mockReleaseTrainPrognosisServiceClient{
 				response: tt.releaseTrainPrognosisResponse,
 			}
+			commitInfoClient := &mockCommitDeploymentServiceClient{}
 			s := Server{
 				BatchClient:                 batchClient,
 				ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+				CommitDeploymentsClient:     commitInfoClient,
 				KeyRing:                     tt.KeyRing,
 				AzureAuth:                   tt.AzureAuthEnabled,
 			}

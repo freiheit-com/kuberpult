@@ -50,6 +50,17 @@ func (m mockCommitDeploymentServiceClient) GetCommitDeploymentInfo(ctx context.C
 	}, nil
 }
 
+func (m mockCommitDeploymentServiceClient) GetDeploymentCommitInfo(ctx context.Context, in *api.GetDeploymentCommitInfoRequest, opts ...grpc.CallOption) (*api.GetDeploymentCommitInfoResponse, error) {
+	if m.failGrpcCall == true {
+		return nil, fmt.Errorf("some error")
+	}
+	return &api.GetDeploymentCommitInfoResponse{
+		Author:        "testauthor",
+		CommitId:      "testcommitId",
+		CommitMessage: "testmessage",
+	}, nil
+}
+
 func TestHandleCommitDeployments(t *testing.T) {
 	tcs := []struct {
 		name               string
