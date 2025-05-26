@@ -17,18 +17,18 @@ Copyright freiheit.com*/
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"go.uber.org/zap"
 	json "google.golang.org/protobuf/encoding/protojson"
 )
 
-func (s Server) handleCommitDeployments(w http.ResponseWriter, r *http.Request, tail string) {
+func (s Server) handleCommitDeployments(ctx context.Context, w http.ResponseWriter, r *http.Request, tail string) {
 	commitHash, tail := xpath.Shift(tail)
 	if commitHash == "" {
 		http.Error(w, "missing commit hash", http.StatusBadRequest)
@@ -38,8 +38,6 @@ func (s Server) handleCommitDeployments(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "invalid path", http.StatusNotFound)
 		return
 	}
-	ctx := r.Context()
-	ctx = auth.WriteUserToGrpcContext(ctx, s.User)
 	resp, err := s.CommitDeploymentsClient.GetCommitDeploymentInfo(ctx, &api.GetCommitDeploymentInfoRequest{
 		CommitId: commitHash,
 	})
