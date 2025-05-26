@@ -125,6 +125,35 @@ WHERE releaseVersion IS NOT NULL;
 	}, nil
 }
 
+func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in *api.GetDeploymentCommitInfoRequest) (*api.GetDeploymentCommitInfoResponse, error) {
+	deploymentCommitInfo := &api.GetDeploymentCommitInfoResponse{
+		Author:        "",
+		CommitId:      "",
+		CommitMessage: "",
+	}
+	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		deployment, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, in.Application, in.Environment)
+		if err != nil {
+			return err
+		}
+		if deployment == nil {
+			return nil
+		}
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, deployment.App, uint64(*deployment.Version), true)
+		if err != nil {
+			return err
+		}
+		deploymentCommitInfo.Author = release.Metadata.SourceAuthor
+		deploymentCommitInfo.CommitMessage = release.Metadata.SourceMessage
+		deploymentCommitInfo.CommitId = release.Metadata.SourceCommitId
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return deploymentCommitInfo, nil
+}
+
 func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []string, environmentReleases map[string]uint64) (*api.AppCommitDeploymentStatus, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "getCommitDeploymentInfoForApp")
 	defer span.Finish()

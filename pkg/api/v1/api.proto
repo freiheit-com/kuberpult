@@ -871,6 +871,7 @@ enum CommitDeploymentStatus {
 }
 
 service CommitDeploymentService {
+  rpc GetDeploymentCommitInfo (GetDeploymentCommitInfoRequest) returns (GetDeploymentCommitInfoResponse) {}
   rpc GetCommitDeploymentInfo (GetCommitDeploymentInfoRequest) returns (GetCommitDeploymentInfoResponse) {}
 }
 
@@ -884,4 +885,15 @@ message AppCommitDeploymentStatus {
 
 message GetCommitDeploymentInfoResponse {
     map<string,AppCommitDeploymentStatus> deployment_status = 1;
+}
+
+message GetDeploymentCommitInfoRequest {
+  string environment = 1;
+  string application = 2;
+}
+
+message GetDeploymentCommitInfoResponse {
+  string author = 1;
+  string commit_id = 2;
+  string commit_message = 3;
 }
