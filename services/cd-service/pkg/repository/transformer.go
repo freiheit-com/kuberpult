@@ -1500,11 +1500,12 @@ func (c *DeleteEnvironmentLock) Transform(
 		return "", err
 	}
 	s := State{
-		MinorRegexes:         state.MinorRegexes,
-		MaxNumThreads:        state.MaxNumThreads,
-		DBHandler:            state.DBHandler,
-		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
-		CloudRunClient:       state.CloudRunClient,
+		MinorRegexes:              state.MinorRegexes,
+		MaxNumThreads:             state.MaxNumThreads,
+		DBHandler:                 state.DBHandler,
+		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
+		CloudRunClient:            state.CloudRunClient,
+		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
 	err = s.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, c.Environment, c.LockId)
 	if err != nil {
@@ -2283,11 +2284,12 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	t.AddAppEnv(c.Application, c.Environment, team)
 	s := State{
-		MinorRegexes:         state.MinorRegexes,
-		MaxNumThreads:        state.MaxNumThreads,
-		DBHandler:            state.DBHandler,
-		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
-		CloudRunClient:       state.CloudRunClient,
+		MinorRegexes:              state.MinorRegexes,
+		MaxNumThreads:             state.MaxNumThreads,
+		DBHandler:                 state.DBHandler,
+		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
+		CloudRunClient:            state.CloudRunClient,
+		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
 	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application)
 	if err != nil {
@@ -2543,8 +2545,8 @@ type ReleaseTrainPrognosis struct {
 	EnvironmentPrognoses map[string]ReleaseTrainEnvironmentPrognosis
 }
 
-func failedPrognosis(err error) ReleaseTrainEnvironmentPrognosis {
-	return ReleaseTrainEnvironmentPrognosis{
+func failedPrognosis(err error) *ReleaseTrainEnvironmentPrognosis {
+	return &ReleaseTrainEnvironmentPrognosis{
 		SkipCause:     nil,
 		Error:         err,
 		Locks:         nil,
@@ -2622,7 +2624,7 @@ func (c *ReleaseTrain) Prognosis(
 			}
 		}
 
-		envPrognoses[envName] = envPrognosis
+		envPrognoses[envName] = *envPrognosis
 	}
 
 	return ReleaseTrainPrognosis{
@@ -2675,12 +2677,60 @@ func (c *ReleaseTrain) Transform(
 		if state.MaxNumThreads > 0 {
 			releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
 		}
-		for _, envName := range envNames {
-			trainGroup := conversion.FromString(targetGroupName)
-			envNameLocal := envName
-			releaseTrainErrGroup.Go(func() error {
-				return c.runEnvReleaseTrainBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs, allLatestReleases)
-			})
+		if state.ParallelismOneTransaction {
+			type ChannelData struct {
+				prognosis *ReleaseTrainEnvironmentPrognosis
+				train     *envReleaseTrain
+			}
+			var prognosisResultChannel = make(chan *ChannelData, 42)
+			expectedNumPrognoses := len(envNames)
+			for _, envName := range envNames {
+				trainGroup := conversion.FromString(targetGroupName)
+				envNameLocal := envName
+				releaseTrainErrGroup.Go(func() error {
+					span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Transform")
+					defer span.Finish()
+
+					train := &envReleaseTrain{
+						Parent:                 c,
+						Env:                    envName,
+						EnvConfigs:             configs,
+						EnvGroupConfigs:        envGroupConfigs,
+						WriteCommitData:        c.WriteCommitData,
+						TrainGroup:             trainGroup,
+						TransformerEslVersion:  c.TransformerEslVersion,
+						CiLink:                 c.CiLink,
+						AllLatestReleasesCache: allLatestReleases,
+					}
+
+					prognosis, err := train.runEnvPrognosisBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs, allLatestReleases)
+					if err != nil {
+						return onErr(err)
+					}
+					prognosisResultChannel <- &ChannelData{
+						prognosis: prognosis,
+						train:     train,
+					}
+					return nil
+				})
+			}
+			for i := 0; i < expectedNumPrognoses; i++ {
+				// waiting for prognoses to be done
+				var result = <-prognosisResultChannel
+				_, err := result.train.applyPrognosis(ctx, state, t, transaction, result.prognosis, span)
+				if err != nil {
+					return "", fmt.Errorf("prognosis could not be applied for env '%s': %w", result.train.Env, err)
+				}
+
+			}
+		} else {
+			for _, envName := range envNames {
+				trainGroup := conversion.FromString(targetGroupName)
+				envNameLocal := envName
+				releaseTrainErrGroup.Go(func() error {
+					return c.runEnvReleaseTrainBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs, allLatestReleases)
+				})
+			}
 		}
 		err := releaseTrainErrGroup.Wait()
 		if err != nil {
@@ -2732,6 +2782,26 @@ func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *
 	return err
 }
 
+func (c *envReleaseTrain) runEnvPrognosisBackground(
+	ctx context.Context,
+	state *State,
+	_ TransformerContext,
+	envName string,
+	_ *string,
+	_ map[string]config.EnvironmentConfig,
+	_ map[string]config.EnvironmentConfig,
+	releases map[string][]int64,
+) (*ReleaseTrainEnvironmentPrognosis, error) {
+	result, err := db.WithTransactionT(state.DBHandler, ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*ReleaseTrainEnvironmentPrognosis, error) {
+		prognosis := c.prognosis(ctx, state, transaction, releases)
+		return prognosis, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to run background prognosis for env %s: %w", envName, err)
+	}
+	return result, err
+}
+
 type AllLatestReleasesCache map[string][]int64
 
 type envReleaseTrain struct {
@@ -2758,14 +2828,14 @@ func (c *envReleaseTrain) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) ReleaseTrainEnvironmentPrognosis {
+func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) *ReleaseTrainEnvironmentPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
 	defer span.Finish()
 	span.SetTag("env", c.Env)
 
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
-		return ReleaseTrainEnvironmentPrognosis{
+		return &ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 			},
@@ -2793,7 +2863,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	upstreamLatest := envConfig.Upstream.Latest
 	upstreamEnvName := envConfig.Upstream.Environment
 	if !upstreamLatest && upstreamEnvName == "" {
-		return ReleaseTrainEnvironmentPrognosis{
+		return &ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 			},
@@ -2804,7 +2874,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	}
 
 	if upstreamLatest && upstreamEnvName != "" {
-		return ReleaseTrainEnvironmentPrognosis{
+		return &ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 			},
@@ -2817,7 +2887,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	if !upstreamLatest {
 		_, ok := c.EnvConfigs[upstreamEnvName]
 		if !ok {
-			return ReleaseTrainEnvironmentPrognosis{
+			return &ReleaseTrainEnvironmentPrognosis{
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
 				},
@@ -2869,7 +2939,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				Version:   0,
 			}
 		}
-		return ReleaseTrainEnvironmentPrognosis{
+		return &ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 			},
@@ -3066,7 +3136,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			Version:   versionToDeploy,
 		}
 	}
-	return ReleaseTrainEnvironmentPrognosis{
+	return &ReleaseTrainEnvironmentPrognosis{
 		SkipCause:     nil,
 		Error:         nil,
 		Locks:         nil,
@@ -3083,24 +3153,19 @@ func (c *envReleaseTrain) Transform(
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Transform")
 	defer span.Finish()
 
-	renderEnvironmentSkipCause := func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
-		envConfig := c.EnvGroupConfigs[c.Env]
-		upstreamEnvName := envConfig.Upstream.Environment
-		switch SkipCause.SkipCause {
-		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM:
-			return fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", c.Env)
-		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV:
-			return fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", c.Env)
-		case api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV:
-			return fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", c.Env)
-		case api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND:
-			return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, c.Env)
-		case api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED:
-			return fmt.Sprintf("Target Environment '%s' is locked - skipping.", c.Env)
-		default:
-			return fmt.Sprintf("Environment '%s' is skipped for an unrecognized reason", c.Env)
-		}
-	}
+	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache)
+
+	return c.applyPrognosis(ctx, state, t, transaction, prognosis, span)
+}
+
+func (c *envReleaseTrain) applyPrognosis(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+	prognosis *ReleaseTrainEnvironmentPrognosis,
+	span tracer.Span,
+) (string, error) {
 	allApps, err := state.GetApplications(ctx, transaction)
 	if err != nil {
 		return "", err
@@ -3110,32 +3175,8 @@ func (c *envReleaseTrain) Transform(
 		return "", err
 	}
 
-	renderApplicationSkipCause := func(SkipCause *api.ReleaseTrainAppPrognosis_SkipCause, appName string) string {
-		envConfig := c.EnvGroupConfigs[c.Env]
-		upstreamEnvName := envConfig.Upstream.Environment
-		var currentlyDeployedVersion uint64
-		if latestDeploymentVersion, found := allLatestDeployments[appName]; found && latestDeploymentVersion != nil {
-			currentlyDeployedVersion = uint64(*latestDeploymentVersion)
-		}
-		teamName, _ := state.GetTeamName(ctx, transaction, appName)
-		switch SkipCause.SkipCause {
-		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
-			return fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)
-		case api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION:
-			return fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, currentlyDeployedVersion)
-		case api.ReleaseTrainAppSkipCause_APP_IS_LOCKED:
-			return fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env)
-		case api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV:
-			return fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env)
-		case api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED:
-			return fmt.Sprintf("skipping application %q in environment %q due to team lock on team %q", appName, c.Env, teamName)
-		case api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION:
-			return fmt.Sprintf("skipping application %q in environment %q because the user team %q is not the same as the apllication", appName, c.Env, teamName)
-		default:
-			return fmt.Sprintf("skipping application %q in environment %q for an unrecognized reason", appName, c.Env)
-		}
-	}
-	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache)
+	renderApplicationSkipCause := c.renderApplicationSkipCause(ctx, state, allLatestDeployments, transaction)
+	renderEnvironmentSkipCause := c.renderEnvironmentSkipCause()
 
 	if prognosis.Error != nil {
 		return "", prognosis.Error
@@ -3244,6 +3285,60 @@ func (c *envReleaseTrain) Transform(
 		"The release train deployed %d services from '%s' to '%s'%s",
 		c.Env, deployedApps, source, c.Env, teamInfo,
 	), nil
+}
+
+func (c *envReleaseTrain) renderEnvironmentSkipCause() func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
+	return func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
+		envConfig := c.EnvGroupConfigs[c.Env]
+		upstreamEnvName := envConfig.Upstream.Environment
+		switch SkipCause.SkipCause {
+		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM:
+			return fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", c.Env)
+		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV:
+			return fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", c.Env)
+		case api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV:
+			return fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", c.Env)
+		case api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND:
+			return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, c.Env)
+		case api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED:
+			return fmt.Sprintf("Target Environment '%s' is locked - skipping.", c.Env)
+		default:
+			return fmt.Sprintf("Environment '%s' is skipped for an unrecognized reason", c.Env)
+		}
+	}
+}
+
+func (c *envReleaseTrain) renderApplicationSkipCause(
+	ctx context.Context,
+	state *State,
+	allLatestDeployments map[string]*int64,
+	transaction *sql.Tx,
+) func(SkipCause *api.ReleaseTrainAppPrognosis_SkipCause, appName string) string {
+	return func(SkipCause *api.ReleaseTrainAppPrognosis_SkipCause, appName string) string {
+		envConfig := c.EnvGroupConfigs[c.Env]
+		upstreamEnvName := envConfig.Upstream.Environment
+		var currentlyDeployedVersion uint64
+		if latestDeploymentVersion, found := allLatestDeployments[appName]; found && latestDeploymentVersion != nil {
+			currentlyDeployedVersion = uint64(*latestDeploymentVersion)
+		}
+		teamName, _ := state.GetTeamName(ctx, transaction, appName)
+		switch SkipCause.SkipCause {
+		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
+			return fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)
+		case api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION:
+			return fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, currentlyDeployedVersion)
+		case api.ReleaseTrainAppSkipCause_APP_IS_LOCKED:
+			return fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env)
+		case api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV:
+			return fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env)
+		case api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED:
+			return fmt.Sprintf("skipping application %q in environment %q due to team lock on team %q", appName, c.Env, teamName)
+		case api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION:
+			return fmt.Sprintf("skipping application %q in environment %q because the user team %q is not the same as the apllication", appName, c.Env, teamName)
+		default:
+			return fmt.Sprintf("skipping application %q in environment %q for an unrecognized reason", appName, c.Env)
+		}
+	}
 }
 
 // skippedServices is a helper Transformer to generate the "skipped
