@@ -109,7 +109,7 @@ func TestHandleCommitDeployments(t *testing.T) {
 					failGrpcCall: tc.failGrpcCall,
 				},
 			}
-			s.handleCommitDeployments(w, req, tc.inputTail)
+			s.handleCommitDeployments(req.Context(), w, req, tc.inputTail)
 			if w.Code != tc.expectedStatusCode {
 				t.Errorf("expected status code %d, got %d", tc.expectedStatusCode, w.Code)
 			}

@@ -77,7 +77,7 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 	case "release":
 		s.handleApiRelease(w, req, tail)
 	case "commit-deployments":
-		s.handleCommitDeployments(w, req, tail)
+		s.handleCommitDeployments(req.Context(), w, req, tail)
 	default:
 		http.Error(w, fmt.Sprintf("unknown endpoint 'api/%s'", group), http.StatusNotFound)
 	}
@@ -170,7 +170,7 @@ type PublicApiServer struct {
 	S Server
 }
 
-func (s *PublicApiServer) GetPublicApiSchemaOptions(w http.ResponseWriter, r *http.Request) {
+func (s *PublicApiServer) GetPublicApiSchemaOptions(w http.ResponseWriter, _ *http.Request) {
 	s.setCorsHeaders(w)
 	w.WriteHeader(http.StatusOK)
 }
@@ -210,5 +210,12 @@ func (s *PublicApiServer) GetPublicApiSchema(w http.ResponseWriter, _ *http.Requ
 
 func (s *PublicApiServer) GetCommitDeployments(w http.ResponseWriter, r *http.Request, commitHash string) {
 	s.setCorsHeaders(w)
-	s.S.handleCommitDeployments(w, r, commitHash)
+	ctx := r.Context()
+	ctx = auth.WriteUserToGrpcContext(ctx, auth.User{
+		Email:          s.S.User.Email,
+		Name:           s.S.User.Name,
+		DexAuthContext: nil,
+	})
+
+	s.S.handleCommitDeployments(ctx, w, r, commitHash)
 }
