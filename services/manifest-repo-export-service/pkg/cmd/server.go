@@ -374,11 +374,11 @@ func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*se
 			Migration: migrationFunc,
 		},
 		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
+			Version:   migrations.CreateKuberpultVersion(0, 0, 1),
 			Migration: migrateReleases,
 		},
 		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
+			Version:   migrations.CreateKuberpultVersion(0, 0, 2),
 			Migration: migrateEnvApps,
 		},
 		// New migrations should be added here:
