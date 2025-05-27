@@ -79,6 +79,10 @@ kuberpult: compose-down
 	earthly +all-services --UID=$(USER_UID)
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
+reset-db: compose-down
+	# This deletes the volume of the default db location:
+	docker volume rm kuberpult_pgdata
+
 kuberpult-freshdb: compose-down
 	earthly +all-services --UID=$(USER_UID)
 	docker compose up 
