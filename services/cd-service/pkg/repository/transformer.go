@@ -2684,6 +2684,7 @@ func (c *ReleaseTrain) Transform(
 			type ChannelData struct {
 				prognosis *ReleaseTrainEnvironmentPrognosis
 				train     *envReleaseTrain
+				error     error
 			}
 			var prognosisResultChannel = make(chan *ChannelData, channelSize)
 			for _, envName := range envNames {
@@ -2705,11 +2706,17 @@ func (c *ReleaseTrain) Transform(
 						AllLatestReleasesCache: allLatestReleases,
 					}
 
-					prognosis, err := train.runEnvPrognosisBackground(ctx, state, t, envNameLocal, trainGroup, envGroupConfigs, configs, allLatestReleases)
+					prognosis, err := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
 					if err != nil {
-						return onErr(err)
+						prognosisResultChannel <- &ChannelData{
+							error:     onErr(err),
+							prognosis: prognosis,
+							train:     train,
+						}
+						return nil
 					}
 					prognosisResultChannel <- &ChannelData{
+						error:     nil,
 						prognosis: prognosis,
 						train:     train,
 					}
@@ -2719,11 +2726,13 @@ func (c *ReleaseTrain) Transform(
 			for i := 0; i < expectedNumPrognoses; i++ {
 				// waiting for prognoses to be done
 				var result = <-prognosisResultChannel
+				if result.error != nil {
+					return "", fmt.Errorf("prognosis could not be applied for env '%s': %w", result.train.Env, err)
+				}
 				_, err := result.train.applyPrognosis(ctx, state, t, transaction, result.prognosis, span)
 				if err != nil {
 					return "", fmt.Errorf("prognosis could not be applied for env '%s': %w", result.train.Env, err)
 				}
-
 			}
 		} else {
 			for _, envName := range envNames {
@@ -2787,11 +2796,7 @@ func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *
 func (c *envReleaseTrain) runEnvPrognosisBackground(
 	ctx context.Context,
 	state *State,
-	_ TransformerContext,
 	envName string,
-	_ *string,
-	_ map[string]config.EnvironmentConfig,
-	_ map[string]config.EnvironmentConfig,
 	releases map[string][]int64,
 ) (*ReleaseTrainEnvironmentPrognosis, error) {
 	result, err := db.WithTransactionT(state.DBHandler, ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*ReleaseTrainEnvironmentPrognosis, error) {
