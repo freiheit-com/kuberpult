@@ -2674,16 +2674,18 @@ func (c *ReleaseTrain) Transform(
 
 	if isEnvGroup && state.DBHandler.AllowParallelTransactions() {
 		releaseTrainErrGroup, _ := errgroup.WithContext(ctx)
+		expectedNumPrognoses := len(envNames)
+		var channelSize = expectedNumPrognoses
 		if state.MaxNumThreads > 0 {
 			releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
+			channelSize = state.MaxNumThreads
 		}
 		if state.ParallelismOneTransaction {
 			type ChannelData struct {
 				prognosis *ReleaseTrainEnvironmentPrognosis
 				train     *envReleaseTrain
 			}
-			var prognosisResultChannel = make(chan *ChannelData, 42)
-			expectedNumPrognoses := len(envNames)
+			var prognosisResultChannel = make(chan *ChannelData, channelSize)
 			for _, envName := range envNames {
 				trainGroup := conversion.FromString(targetGroupName)
 				envNameLocal := envName
