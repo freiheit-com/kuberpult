@@ -77,7 +77,7 @@ func readCreateAppLockArgs(args []string) (*CreateAppLockCommandLineArguments, e
 	fs.Var(&cmdArgs.message, "message", "lock message")
 	fs.Var(&cmdArgs.application, "application", "application to lock")
 	fs.Var(&cmdArgs.ciLink, "ci_link", "the link to the CI run that created this lock")
-	fs.Var(&cmdArgs.suggestedLifetime, "suggested_lifetime", "the suggested lifetime for the lock e.g. 4h, 2d")
+	fs.Var(&cmdArgs.suggestedLifetime, "suggested_lifetime", "the suggested lifetime for the lock e.g. 4h, 2d, 1w")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
