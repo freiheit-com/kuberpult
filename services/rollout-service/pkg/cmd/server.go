@@ -198,10 +198,10 @@ func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClie
 func runServer(ctx context.Context, config Config) error {
 	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
-		grpc_zap.StreamServerInterceptor(grpcServerLogger),
+		grpc_zap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 	}
 	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
-		grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+		grpc_zap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 	}
 
 	if config.EnableTracing {
