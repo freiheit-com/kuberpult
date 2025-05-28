@@ -18,6 +18,7 @@ package cli_utils
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -56,4 +57,13 @@ func (rs *RepeatedInt) String() string {
 		valuesAsStrings = append(valuesAsStrings, fmt.Sprintf("%v", value))
 	}
 	return strings.Join(valuesAsStrings, ",")
+}
+
+func IsValidLifeTime(lifeTime string) bool {
+	pattern := `^[1-9][0-9]*(h|d|w)$`
+	matched, err := regexp.MatchString(pattern, lifeTime)
+	if err != nil {
+		return false
+	}
+	return matched
 }

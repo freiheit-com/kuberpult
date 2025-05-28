@@ -38,6 +38,7 @@ type CreateEnvironmentLockParameters struct {
 	Message              string
 	CiLink               *string
 	UseDexAuthentication bool
+	SuggestedLifetime    *string
 }
 
 type DeleteEnvironmentLockParameters struct {
@@ -53,6 +54,7 @@ type CreateAppLockParameters struct {
 	Application          string
 	CiLink               *string
 	UseDexAuthentication bool
+	SuggestedLifetime    *string
 }
 type DeleteAppLockParameters struct {
 	Environment          string
@@ -67,6 +69,7 @@ type CreateTeamLockParameters struct {
 	Message              string
 	Team                 string
 	CiLink               *string
+	SuggestedLifeTime    *string
 	UseDexAuthentication bool
 }
 
@@ -82,6 +85,7 @@ type CreateEnvironmentGroupLockParameters struct {
 	LockId               string
 	Message              string
 	CiLink               *string
+	SuggestedLifeTime    *string
 	UseDexAuthentication bool
 }
 type DeleteEnvironmentGroupLockParameters struct {
@@ -91,8 +95,9 @@ type DeleteEnvironmentGroupLockParameters struct {
 }
 
 type LockJsonData struct {
-	Message string `json:"message"`
-	CiLink  string `json:"ciLink,omitempty"`
+	Message           string `json:"message"`
+	CiLink            string `json:"ciLink,omitempty"`
+	SuggestedLifeTime string `json:"suggestedLifeTime,omitempty"`
 }
 
 type HttpInfo struct {
@@ -120,12 +125,17 @@ func HandleLockRequest(requestParams kutil.RequestParameters, authParams kutil.A
 
 func (e *CreateEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
-		Message: e.Message,
-		CiLink:  "",
+		Message:           e.Message,
+		CiLink:            "",
+		SuggestedLifeTime: "",
 	}
 
 	if e.CiLink != nil {
 		d.CiLink = *e.CiLink
+	}
+
+	if e.SuggestedLifetime != nil {
+		d.SuggestedLifeTime = *e.SuggestedLifetime
 	}
 
 	var jsonData, err = json.Marshal(d)
@@ -159,12 +169,17 @@ func (e *DeleteEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 
 func (e *CreateAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
-		Message: e.Message,
-		CiLink:  "",
+		Message:           e.Message,
+		CiLink:            "",
+		SuggestedLifeTime: "",
 	}
 
 	if e.CiLink != nil {
 		d.CiLink = *e.CiLink
+	}
+
+	if e.SuggestedLifetime != nil {
+		d.SuggestedLifeTime = *e.SuggestedLifetime
 	}
 
 	var jsonData, err = json.Marshal(d)
@@ -198,12 +213,16 @@ func (e *DeleteAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 
 func (e *CreateTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
-		Message: e.Message,
-		CiLink:  "",
+		Message:           e.Message,
+		CiLink:            "",
+		SuggestedLifeTime: "",
 	}
 
 	if e.CiLink != nil {
 		d.CiLink = *e.CiLink
+	}
+	if e.SuggestedLifeTime != nil {
+		d.SuggestedLifeTime = *e.SuggestedLifeTime
 	}
 
 	var jsonData, err = json.Marshal(d)
@@ -237,12 +256,16 @@ func (e *DeleteTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 
 func (e *CreateEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	d := LockJsonData{
-		Message: e.Message,
-		CiLink:  "",
+		Message:           e.Message,
+		CiLink:            "",
+		SuggestedLifeTime: "",
 	}
 
 	if e.CiLink != nil {
 		d.CiLink = *e.CiLink
+	}
+	if e.SuggestedLifeTime != nil {
+		d.SuggestedLifeTime = *e.SuggestedLifeTime
 	}
 
 	var jsonData, err = json.Marshal(d)
