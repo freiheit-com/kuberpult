@@ -78,7 +78,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 		}
 
 		if ts == nil {
-			return nil, fmt.Errorf("could not find timestamp that corresponds to the given commit hash")
+			return nil, fmt.Errorf("could not find timestamp that corresponds to the given commit hash '%s'", in.ManifestRepoCommitHash)
 		}
 		if in.Environment != nil && *in.Environment != "" {
 			//Single environment
