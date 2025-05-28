@@ -569,6 +569,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := logger.Wrap(r.Context(), func(ctx context.Context) error {
 		span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
 		defer span.Finish()
+		span.SetTag("uri", r.URL)
 		var user *auth.User = nil
 		var err error
 		var source string
