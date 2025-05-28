@@ -165,10 +165,10 @@ func runServer(ctx context.Context) error {
 	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
-		grpc_zap.StreamServerInterceptor(grpcServerLogger),
+		grpc_zap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 	}
 	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
-		grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+		grpc_zap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 	}
 
 	var cred credentials.TransportCredentials = insecure.NewCredentials()

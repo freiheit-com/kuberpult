@@ -26,6 +26,8 @@ package logger
 import (
 	"context"
 	"fmt"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	"google.golang.org/grpc/codes"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"os"
 
@@ -92,4 +94,12 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
 	err = inner(WithLogger(ctx, logger))
 
 	return err
+}
+
+func DisableLogging() []grpc_zap.Option {
+	return []grpc_zap.Option{
+		grpc_zap.WithLevels(func(code codes.Code) zapcore.Level {
+			return zapcore.InvalidLevel // disables logging entirely for gRPC middleware
+		}),
+	}
 }
