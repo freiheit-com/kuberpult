@@ -3368,8 +3368,9 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	}
 
 	repoCfg := RepositoryConfig{
-		ArgoCdGenerateFiles: true,
-		MaximumQueueSize:    queueSize,
+		ArgoCdGenerateFiles:       true,
+		MaximumQueueSize:          queueSize,
+		ParallelismOneTransaction: true,
 	}
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
