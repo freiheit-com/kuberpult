@@ -229,6 +229,10 @@ func (*reposerver) GetRevisionChartDetails(context.Context, *argorepo.RepoServer
 	return nil, notImplemented
 }
 
+func (r *reposerver) UpdateRevisionForPaths(_ context.Context, _ *argorepo.UpdateRevisionForPathsRequest) (*argorepo.UpdateRevisionForPathsResponse, error) {
+	return nil, notImplemented
+}
+
 func New(repo repository.Repository, config repository.RepositoryConfig) argorepo.RepoServerServiceServer {
 	return &reposerver{repo, config}
 }
