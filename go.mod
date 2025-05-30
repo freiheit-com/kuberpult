@@ -43,7 +43,7 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/DataDog/dd-trace-go.v1 v1.73.1
 	k8s.io/apimachinery v0.33.1
-	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
+	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -131,6 +131,8 @@ require (
 )
 
 require (
+	cloud.google.com/go/auth v0.16.1 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/DataDog/appsec-internal-go v1.9.0 // indirect
@@ -240,7 +242,6 @@ require (
 	github.com/tklauser/numcpus v0.8.0 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/collector/component v0.120.0 // indirect
 	go.opentelemetry.io/collector/pdata v1.26.0 // indirect
