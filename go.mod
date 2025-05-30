@@ -7,7 +7,7 @@ toolchain go1.24.1
 require (
 	github.com/DataDog/datadog-go/v5 v5.6.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
-	github.com/argoproj/argo-cd/v2 v2.11.0
+	github.com/argoproj/argo-cd/v2 v2.12.0
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coreos/go-oidc/v3 v3.14.1
