@@ -113,7 +113,7 @@ require (
 	go.opentelemetry.io/otel v1.26.0
 	go.opentelemetry.io/otel/trace v1.26.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
-	golang.org/x/sync v0.12.0
+	golang.org/x/sync v0.14.0
 	golang.org/x/term v0.30.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1
@@ -189,7 +189,7 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1 // indirect
-	github.com/opencontainers/image-spec v1.1.0-rc4 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/outcaste-io/ristretto v0.2.3 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
@@ -230,9 +230,9 @@ require (
 	k8s.io/client-go v0.29.7 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
-	oras.land/oras-go/v2 v2.3.0 // indirect
+	oras.land/oras-go/v2 v2.6.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
 
 replace (
