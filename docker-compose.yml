@@ -12,14 +12,14 @@ services:
       interval: 1s
       timeout: 5s
       retries: 3
-  swagger-ui:
-    image: swaggerapi/swagger-ui:latest
-    ports:
-      - "80:8080"
-    environment:
-      QUERY_CONFIG_ENABLED: true # this is to allow using the query parameter "url"
-    depends_on:
-      - cd-service
+#  swagger-ui:
+#    image: swaggerapi/swagger-ui:latest
+#    ports:
+#      - "80:8080"
+#    environment:
+#      QUERY_CONFIG_ENABLED: true # this is to allow using the query parameter "url"
+#    depends_on:
+#      - cd-service
   cd-service:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:local
     environment:
@@ -138,14 +138,14 @@ services:
     volumes:
       - .:/kp/kuberpult
     stop_grace_period: 0.5s
-  ui:
-    image: ui:local
-    container_name: kuberpult-ui
-    ports:
-      - "3000:3000"
-    depends_on:
-      - frontend-service
-    volumes:
-      - ./services/frontend-service/src:/kp/src
-      - ./services/frontend-service/public:/kp/public
-    stop_grace_period: 0.5s
+#  ui:
+#    image: ui:local
+#    container_name: kuberpult-ui
+#    ports:
+#      - "3000:3000"
+#    depends_on:
+#      - frontend-service
+#    volumes:
+#      - ./services/frontend-service/src:/kp/src
+#      - ./services/frontend-service/public:/kp/public
+#    stop_grace_period: 0.5s
