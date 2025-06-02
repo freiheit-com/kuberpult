@@ -265,17 +265,17 @@ func runServer(ctx context.Context) error {
 		grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 		grpc.MaxRecvMsgSize(c.GrpcMaxRecvMsgSize*megaBytes),
 	)
-	cdCon, err := grpc.Dial(c.CdServer, grpcClientOpts...)
+	cdCon, err := grpc.NewClient(c.CdServer, grpcClientOpts...)
 	if err != nil {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
-	exportCon, err := grpc.Dial(c.ManifestExportServer, grpcClientOpts...)
+	exportCon, err := grpc.NewClient(c.ManifestExportServer, grpcClientOpts...)
 	if err != nil {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
 	}
 	var rolloutClient api.RolloutServiceClient = nil
 	if c.RolloutServer != "" {
-		rolloutCon, err := grpc.Dial(c.RolloutServer, grpcClientOpts...)
+		rolloutCon, err := grpc.NewClient(c.RolloutServer, grpcClientOpts...)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.RolloutServer))
 		}
