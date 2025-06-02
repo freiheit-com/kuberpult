@@ -122,3 +122,56 @@ func TestParseArgsCommitDeployments(t *testing.T) {
 		})
 	}
 }
+
+func TestParseArgsDeploymentCommit(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expected      *DeploymentCommitParameters
+		expecterError error
+	}{
+		{
+			name: "valid end and app",
+			args: []string{"--environment", "testenv", "--application", "testapp"},
+			expected: &DeploymentCommitParameters{
+				Env: "testenv",
+				App: "testapp",
+			},
+			expecterError: nil,
+		},
+		{
+			name:          "missing env flag",
+			args:          []string{"--application", "testapp"},
+			expected:      nil,
+			expecterError: fmt.Errorf("the environment name must be set with the --environment flag"),
+		},
+		{
+			name:          "missing app flag",
+			args:          []string{"--environment", "testenv"},
+			expected:      nil,
+			expecterError: fmt.Errorf("the application name must be set with the --application flag"),
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cliArgs, err := ParseArgsDeploymentCommit(tc.args)
+			if err != nil {
+				if tc.expecterError == nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if err.Error() != tc.expecterError.Error() {
+					t.Fatalf("expected %v, got %v", tc.expecterError, err)
+				}
+				return
+			}
+			if cliArgs.Env != tc.expected.Env {
+				t.Errorf("expected %v, got %v", tc.expected, cliArgs)
+			}
+			if cliArgs.App != tc.expected.App {
+				t.Errorf("expected %v, got %v", tc.expected, cliArgs)
+			}
+		})
+	}
+}

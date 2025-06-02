@@ -268,6 +268,34 @@ func handleGetCommitDeployments(kpClientParams kuberpultClientParameters, args [
 	return ReturnCodeSuccess
 }
 
+func handleGetDeploymentCommit(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
+	parsedArgs, err := deployments.ParseArgsDeploymentCommit(args)
+
+	if err != nil {
+		log.Printf("error while parsing command line args, error: %v", err)
+		return ReturnCodeInvalidArguments
+	}
+
+	authParams := kutil.AuthenticationParameters{
+		IapToken:    kpClientParams.iapToken,
+		DexToken:    kpClientParams.dexToken,
+		AuthorName:  kpClientParams.authorName,
+		AuthorEmail: kpClientParams.authorEmail,
+	}
+
+	requestParameters := kutil.RequestParameters{
+		Url:         &kpClientParams.url,
+		Retries:     kpClientParams.retries,
+		HttpTimeout: cli_utils.HttpDefaultTimeout,
+	}
+
+	if err = deployments.HandleGetDeploymentCommit(requestParameters, authParams, parsedArgs); err != nil {
+		log.Printf("error on commit deployments, error: %v", err)
+		return ReturnCodeFailure
+	}
+	return ReturnCodeSuccess
+}
+
 func handleDeleteEnvironment(kpClientParams kuberpultClientParameters, args []string) ReturnCode {
 	parsedArgs, err := environments.ParseArgsDeleteEnvironment(args)
 	if err != nil {
