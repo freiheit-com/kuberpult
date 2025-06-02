@@ -381,7 +381,7 @@ func RunServer() {
 				grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(c.GrpcMaxRecvMsgSize * megaBytes)),
 			}
 
-			rolloutCon, err := grpc.Dial(c.MigrationServer, grpcClientOpts...)
+			rolloutCon, err := grpc.NewClient(c.MigrationServer, grpcClientOpts...)
 			if err != nil {
 				logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.MigrationServer))
 			}

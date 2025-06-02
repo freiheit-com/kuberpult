@@ -182,12 +182,12 @@ func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClie
 		)
 	}
 
-	con, err := grpc.Dial(config.CdServer, grpcClientOpts...)
+	con, err := grpc.NewClient(config.CdServer, grpcClientOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error dialing %s: %w", config.CdServer, err)
 	}
 
-	versionServiceCon, err := grpc.Dial(config.VersionServer, grpcClientOpts...)
+	versionServiceCon, err := grpc.NewClient(config.VersionServer, grpcClientOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error dialing %s: %w", config.VersionServer, err)
 	}
