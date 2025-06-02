@@ -20,30 +20,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"os"
-	"os/exec"
-	"path"
-	"path/filepath"
-	"regexp"
-	"strings"
-	"testing"
-	"time"
-
 	v1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
-	"github.com/argoproj/argo-cd/v2/reposerver/cache"
-	"github.com/argoproj/argo-cd/v2/reposerver/metrics"
-	argosrv "github.com/argoproj/argo-cd/v2/reposerver/repository"
-	"github.com/argoproj/argo-cd/v2/util/argo"
-	cacheutil "github.com/argoproj/argo-cd/v2/util/cache"
-	"github.com/argoproj/argo-cd/v2/util/git"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
+	"os/exec"
+	"path"
+	"regexp"
+	"strings"
+	"testing"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -356,32 +346,4 @@ func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (reposito
 		t.Fatal(err)
 	}
 	return repo, &repoCfg
-}
-
-func testArgoServer(t *testing.T) argorepo.RepoServerServiceServer {
-	argoRoot := t.TempDir()
-	t.Cleanup(
-		func() {
-			// argocd chmods all its directories in such a way that they can't be listed.
-			// this makes a lot of sense until you actually want to remove them cleanly.
-			os.Chmod(argoRoot, 0700)
-			dirs, _ := os.ReadDir(argoRoot)
-			for _, dir := range dirs {
-				os.Chmod(filepath.Join(argoRoot, dir.Name()), 0700)
-			}
-		})
-	asrv := argosrv.NewService(
-		metrics.NewMetricsServer(),
-		cache.NewCache(cacheutil.NewCache(cacheutil.NewInMemoryCache(time.Hour)), time.Hour, time.Hour),
-		argosrv.RepoServerInitConstants{},
-		argo.NewResourceTracking(),
-		&git.NoopCredsStore{},
-		argoRoot,
-	)
-	err := asrv.Init()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return asrv
-
 }
