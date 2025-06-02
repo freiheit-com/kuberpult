@@ -32,6 +32,9 @@ import {
     useLocksConflictingWithActions,
     invalidateAppDetailsForApp,
     useApplications,
+    useAppDetails,
+    AppDetailsResponse,
+    InvalidateAppLocks,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -42,6 +45,7 @@ import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
 import { DisplayLockInlineRenderer } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { ConfirmationDialog } from '../dialog/ConfirmationDialog';
 import { Textfield } from '../textfield/textfield';
+import { Tooltip } from '../tooltip/tooltip';
 
 export enum ActionTypes {
     Deploy,
@@ -78,7 +82,8 @@ export const getActionDetails = (
     { action }: BatchAction,
     appLocks: DisplayLock[],
     envLocks: DisplayLock[],
-    teamLocks: DisplayLock[]
+    teamLocks: DisplayLock[],
+    appDetails: { [key: string]: AppDetailsResponse }
 ): ActionDetails => {
     switch (action?.$case) {
         case 'createEnvironmentLock':
@@ -193,52 +198,46 @@ export const getActionDetails = (
                 type: ActionTypes.Deploy,
                 name: 'Deploy',
                 dialogTitle: 'Please be aware:',
-                summary: ((): string =>
-                    'Deploy version ' +
-                    action.deploy.version +
-                    ' of "' +
-                    action.deploy.application +
-                    '" to ' +
-                    action.deploy.environment)(),
+                summary: ((): string => {
+                    const releaseDiff = calculateReleaseDiff(
+                        action.deploy.version,
+                        action.deploy.environment,
+                        appDetails[action.deploy.application]
+                    );
+                    if (releaseDiff > 0) {
+                        return (
+                            'Rolling back by ' +
+                            releaseDiff +
+                            ' releases down to version ' +
+                            action.deploy.version +
+                            ' of ' +
+                            action.deploy.application +
+                            ' to ' +
+                            action.deploy.environment
+                        );
+                    } else if (releaseDiff < 0) {
+                        return (
+                            'Advancing by ' +
+                            releaseDiff * -1 +
+                            ' releases up to version ' +
+                            action.deploy.version +
+                            ' of ' +
+                            action.deploy.application +
+                            ' to ' +
+                            action.deploy.environment
+                        );
+                    } else {
+                        return (
+                            'Deploy version ' +
+                            action.deploy.version +
+                            ' of "' +
+                            action.deploy.application +
+                            '" to ' +
+                            action.deploy.environment
+                        );
+                    }
+                })(),
 
-                //TODO: The useReleaseDifference Hook is called conditionally. To be fixed in Ref: SRX-41ZF5J.
-                // const releaseDiff = useReleaseDifference(
-                //     action.deploy.version,
-                //     action.deploy.application,
-                //     action.deploy.environment
-                // );
-                // if (releaseDiff < 0) {
-                //     return (
-                //         'Rolling back by ' +
-                //         releaseDiff * -1 +
-                //         ' releases down to version ' +
-                //         action.deploy.version +
-                //         ' of ' +
-                //         action.deploy.application +
-                //         ' to ' +
-                //         action.deploy.environment
-                //     );
-                // } else if (releaseDiff > 0) {
-                //     return (
-                //         'Advancing by ' +
-                //         releaseDiff +
-                //         ' releases up to version ' +
-                //         action.deploy.version +
-                //         ' of ' +
-                //         action.deploy.application +
-                //         ' to ' +
-                //         action.deploy.environment
-                //     );
-                // } else {
-                //     return (
-                //         'Deploy version ' +
-                //         action.deploy.version +
-                //         ' of "' +
-                //         action.deploy.application +
-                //         '" to ' +
-                //         action.deploy.environment
-                //     );
-                // }
                 tooltip: '',
                 environment: action.deploy.environment,
                 application: action.deploy.application,
@@ -299,13 +298,40 @@ export const getActionDetails = (
     }
 };
 
+export const showFailedActionMessage = (
+    e: any,
+    actions: BatchAction[],
+    appLocks: DisplayLock[],
+    envLocks: DisplayLock[],
+    teamLocks: DisplayLock[],
+    appDetails: { [key: string]: AppDetailsResponse }
+): void => {
+    const GrpcErrorPermissionDenied = 7;
+    if (e.code === GrpcErrorPermissionDenied) {
+        showSnackbarError(e.message);
+    } else {
+        const regex = /error at index (\d+) of transformer batch: (.*)/;
+        const match = regex.exec(e.message);
+        if (match && match.length === 3) {
+            const errorMessage = match[2];
+            const failedActionIndex = parseInt(match[1], 10);
+            const failedAction = actions[failedActionIndex];
+            const details = getActionDetails(failedAction, envLocks, appLocks, teamLocks, appDetails);
+            showSnackbarError(`${details.summary} failed: ${errorMessage}. Please try again`);
+        } else {
+            showSnackbarError('Actions were not applied. Please try again');
+        }
+    }
+};
+
 type SideBarListItemProps = {
     children: BatchAction;
 };
 
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
     const { environmentLocks, appLocks, teamLocks } = useAllLocks();
-    const actionDetails = getActionDetails(action, appLocks, environmentLocks, teamLocks);
+    const appDetails = useAppDetails((m) => m);
+    const actionDetails = getActionDetails(action, appLocks, environmentLocks, teamLocks, appDetails);
     const release = useRelease(actionDetails.application ?? '', actionDetails.version ?? 0);
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     const similarLocks = useLocksSimilarTo(action);
@@ -408,6 +434,27 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
     );
 };
 
+const calculateReleaseDiff = (version: number, environment: string, appDetails: AppDetailsResponse): number => {
+    const deployment = appDetails.details?.deployments[environment];
+    if (!deployment) {
+        return 0;
+    }
+    const currentDeployedIndex = appDetails.details?.application?.releases.findIndex(
+        (rel) => rel.version === deployment.version
+    );
+    const newVersionIndex = appDetails.details?.application?.releases.findIndex((rel) => rel.version === version);
+    if (
+        currentDeployedIndex === undefined ||
+        newVersionIndex === undefined ||
+        currentDeployedIndex === -1 ||
+        newVersionIndex === -1
+    ) {
+        return 0;
+    }
+
+    return newVersionIndex - currentDeployedIndex;
+};
+
 export const SideBarList = (): JSX.Element => {
     const actions = useActions();
 
@@ -424,8 +471,11 @@ export const SideBarList = (): JSX.Element => {
 
 export const SideBar: React.FC<{ className?: string }> = (props) => {
     const className = 'mdc-drawer-sidebar--displayed'; //props;
+    const { environmentLocks, appLocks, teamLocks } = useAllLocks();
+    const appDetails = useAppDetails((m) => m);
     const actions = useActions();
     const [lockMessage, setLockMessage] = useState('');
+    const [suggestedLockLifeTime, setSuggestedLockLifeTime] = useState('');
     const api = useApi;
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
     const allApps = useApplications();
@@ -472,9 +522,36 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
             });
             setLockMessage('');
         }
+        if (suggestedLockLifeTime) {
+            const pattern = /^[1-9][0-9]*(h|d|w)$/;
+            if (!pattern.test(suggestedLockLifeTime)) {
+                showSnackbarError('Suggested lock lifetime is not valid. It should be a number followed by h,d, or w');
+                setSuggestedLockLifeTime('');
+                setDialogState({ showConfirmationDialog: false });
+                return;
+            }
+            lockCreationList.forEach((action) => {
+                if (action.action?.$case === 'createEnvironmentLock') {
+                    action.action.createEnvironmentLock.suggestedLifeTime = suggestedLockLifeTime;
+                }
+                if (action.action?.$case === 'createEnvironmentApplicationLock') {
+                    action.action.createEnvironmentApplicationLock.suggestedLifeTime = suggestedLockLifeTime;
+                }
+                if (action.action?.$case === 'createEnvironmentTeamLock') {
+                    action.action.createEnvironmentTeamLock.suggestedLifeTime = suggestedLockLifeTime;
+                }
+            });
+            setSuggestedLockLifeTime('');
+        }
         if (authReady) {
+            interface LocksToInvalidate {
+                envName: string;
+                appName: string;
+                lockId: string;
+            }
             setShowSpinner(true);
             const appNamesToInvalidate: string[] = [];
+            const appLocksToInvalidate: LocksToInvalidate[] = [];
             const lockId = randomLockId();
             for (const action of actions) {
                 if (action.action?.$case === 'deleteEnvFromApp') {
@@ -484,6 +561,11 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     appNamesToInvalidate.push(action.action.deploy.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentApplicationLock') {
+                    appLocksToInvalidate.push({
+                        envName: action.action.deleteEnvironmentApplicationLock.environment,
+                        appName: action.action.deleteEnvironmentApplicationLock.application,
+                        lockId: action.action.deleteEnvironmentApplicationLock.lockId,
+                    });
                     appNamesToInvalidate.push(action.action.deleteEnvironmentApplicationLock.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentTeamLock') {
@@ -512,20 +594,29 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 .catch((e) => {
                     // eslint-disable-next-line no-console
                     console.error('error in batch request: ', e);
-                    const GrpcErrorPermissionDenied = 7;
-                    if (e.code === GrpcErrorPermissionDenied) {
-                        showSnackbarError(e.message);
-                    } else {
-                        showSnackbarError('Actions were not applied. Please try again');
-                    }
+                    showFailedActionMessage(e, actions, appLocks, environmentLocks, teamLocks, appDetails);
                 })
                 .finally(() => {
                     appNamesToInvalidate.forEach((appName) => invalidateAppDetailsForApp(appName));
+                    appLocksToInvalidate.forEach((lock) => InvalidateAppLocks(lock.envName, lock.appName, lock.lockId));
                     setShowSpinner(false);
                 });
             setDialogState({ showConfirmationDialog: false });
         }
-    }, [actions, api, authHeader, authReady, lockCreationList, lockMessage, allApps]);
+    }, [
+        lockMessage,
+        suggestedLockLifeTime,
+        authReady,
+        lockCreationList,
+        api,
+        actions,
+        authHeader,
+        allApps,
+        appLocks,
+        environmentLocks,
+        teamLocks,
+        appDetails,
+    ]);
 
     const showDialog = useCallback(() => {
         setDialogState({ showConfirmationDialog: true });
@@ -537,10 +628,14 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
         setLockMessage(e.target.value);
     }, []);
 
+    const updateSuggestedLockLifeTime = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+        setSuggestedLockLifeTime(e.target.value);
+    }, []);
+
     const showApply = useMemo(() => actions.length > 0, [actions.length]);
     const canApply = useMemo(
-        () => actions.length > 0 && (!newLockExists || lockMessage),
-        [actions.length, lockMessage, newLockExists]
+        () => actions.length > 0 && (!newLockExists || lockMessage) && (!newLockExists || suggestedLockLifeTime),
+        [actions.length, suggestedLockLifeTime, lockMessage, newLockExists]
     );
     const appLocksRendered =
         conflictingLocks.appLocks.length === 0 ? undefined : (
@@ -630,9 +725,27 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     </div>
                 </nav>
                 {newLockExists && (
-                    <div className="mdc-drawer-sidebar mdc-drawer-sidebar-footer-input">
-                        <Textfield placeholder="Lock message" value={lockMessage} onChange={updateMessage} />
-                    </div>
+                    <>
+                        <div className="mdc-drawer-sidebar mdc-drawer-sidebar-footer-input">
+                            <Tooltip
+                                className="mdc-text-field mdc-text-field-tooltip"
+                                tooltipContent={
+                                    <span>
+                                        This is the suggested lifetime for the lock. After this time, it won’t be
+                                        deleted automatically, but others may consider removing it.
+                                    </span>
+                                }>
+                                <Textfield
+                                    placeholder="Suggested Lifetime e.g. 2d"
+                                    value={suggestedLockLifeTime}
+                                    onChange={updateSuggestedLockLifeTime}
+                                />
+                            </Tooltip>
+                        </div>
+                        <div className="mdc-drawer-sidebar mdc-drawer-sidebar-footer-input">
+                            <Textfield placeholder="Lock message" value={lockMessage} onChange={updateMessage} />
+                        </div>
+                    </>
                 )}
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
                     <Button

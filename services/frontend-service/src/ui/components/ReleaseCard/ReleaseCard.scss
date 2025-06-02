@@ -18,11 +18,13 @@ Copyright freiheit.com*/
 .mdc-tooltip__title.release__details {
     white-space: pre-wrap;
     font-height: 7px;
+    color: var(--mdc-theme-on-primary);
 }
 
 .release-card__container {
     display: flex;
     flex-direction: column;
+    color: red;
 }
 
 .release-card {
@@ -61,6 +63,9 @@ Copyright freiheit.com*/
         -webkit-box-orient: vertical;
     }
 }
+.mdc-card__primary-action {
+    color: var(--mdc-theme-on-surface-light);
+}
 
 .release__hash {
     @extend .text-bold;
@@ -73,6 +78,16 @@ Copyright freiheit.com*/
             color: var(--mdc-theme-primary);
         }
     }
+    .tooltip-text {
+        color: var(--mdc-theme-on-surface-light);
+    }
+    border-color: var(--mdc-theme-surface);
+    background-color: var(--mdc-theme-surface);
+}
+
+.release__details_AA {
+    @extend .release__details;
+    max-width: min-content;
 }
 
 .release__environments {
@@ -87,6 +102,17 @@ Copyright freiheit.com*/
     border-spacing: 10px;
 }
 
+.release__AA_environment_status {
+    margin-top: 10px;
+    margin-left: -10px;
+    border-spacing: 10px;
+    min-width: max-content;
+}
+
+.status-logo {
+    width: 20%;
+    height: auto;
+}
 .release__status {
     position: absolute;
     height: $release-card-hash-height;
@@ -106,4 +132,11 @@ Copyright freiheit.com*/
 .rollout__icon_progressing,
 .rollout__icon_pending {
     color: var(--mdc-theme-secondary);
+}
+
+.release-card__statusth {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    width: 130px;
 }

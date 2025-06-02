@@ -15,8 +15,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 import React from 'react';
-import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl } from './store';
+import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useGitSyncStatus, useManifestRepoUrl } from './store';
 import classNames from 'classnames';
+import { Argo } from '../../images';
 
 export const deriveArgoAppLink = (baseUrl: string | undefined, app: string): string | undefined => {
     if (baseUrl) {
@@ -120,17 +121,19 @@ export const ArgoAppEnvLink: React.FC<{ app: string; env: string; namespace: str
 ): JSX.Element => {
     const { app, env, namespace } = props;
     const argoBaseUrl = useArgoCdBaseUrl();
-    if (!argoBaseUrl) {
-        // just render as text, because we do not have a base url:
-        return <span>{env}</span>;
-    }
+    const gitSyncStatusEnabled = useGitSyncStatus((getter) => getter.isEnabled());
     return (
-        <a
-            title={'Opens the app in ArgoCd for this environment'}
-            className={classNames('env-card-link')}
-            href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
-            {env}
-        </a>
+        <>
+            <span className={classNames('env-card-header-name')}>{env}</span>
+            {argoBaseUrl && !gitSyncStatusEnabled && (
+                <a
+                    title={'Opens the app in ArgoCd for this environment'}
+                    className={classNames('env-card-link')}
+                    href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
+                    <Argo className={classNames('argo-logo')}></Argo>
+                </a>
+            )}
+        </>
     );
 };
 
@@ -153,9 +156,16 @@ export const DisplayManifestLink: React.FC<{ displayString: string; app: string;
     props
 ): JSX.Element | null => {
     const { displayString, app, version } = props;
+
+    let manifestLink = '/ui/manifest?app=' + app + '&release=' + version;
     const manifestRepo = useManifestRepoUrl();
     const branch = useBranch();
-    const manifestLink = deriveReleaseDirLink(manifestRepo, branch, app, version);
+
+    if (manifestRepo && manifestRepo !== '') {
+        const relLinkDir = deriveReleaseDirLink(manifestRepo, branch, app, version);
+        manifestLink = relLinkDir ? relLinkDir : manifestLink; //If we cant get a proper repo link, use internal page
+    }
+
     if (manifestLink && version) {
         return (
             <a title={'Opens the release directory in the manifest repository for this release'} href={manifestLink}>
@@ -274,11 +284,12 @@ export const ReleaseTrainLink: React.FC<{ env: string }> = (props): JSX.Element 
     const { env } = props;
 
     const currentLink = window.location.href;
+    const addParam = currentLink.split('?');
 
     return (
         <a
             title={'Opens a preview of release trains on this environment'}
-            href={currentLink + '/' + env + '/releaseTrain'}>
+            href={addParam[0] + '/' + env + '/releaseTrain' + (addParam.length > 1 ? '?' + addParam[1] : '')}>
             Release train details
         </a>
     );

@@ -12,9 +12,18 @@ services:
       interval: 1s
       timeout: 5s
       retries: 3
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    ports:
+      - "80:8080"
+    environment:
+      QUERY_CONFIG_ENABLED: true # this is to allow using the query parameter "url"
+    depends_on:
+      - cd-service
   cd-service:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:local
     environment:
+      - KUBERPULT_LOCK_TYPE=db
       - LOG_LEVEL=INFO
       - KUBERPULT_DISABLE_QUEUE=true
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
@@ -22,17 +31,17 @@ services:
       - KUBERPULT_DB_NAME=kuberpult
       - KUBERPULT_DB_USER_NAME=postgres
       - KUBERPULT_DB_USER_PASSWORD=mypassword
-      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
+      - KUBERPULT_DB_MIGRATIONS_LOCATION=/migrations/postgres
       - KUBERPULT_DB_OPTION=postgreSQL
       - KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false
       - KUBERPULT_GIT_BRANCH=master
-      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
+      - KUBERPULT_GIT_NETWORK_TIMEOUT=120s
       - KUBERPULT_DEX_MOCK=false
       - KUBERPULT_DEX_ENABLED=false
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
       - KUBERPULT_DEX_RBAC_TEAM_PATH=/etc/team.csv
       - KUBERPULT_DEX_MOCK_ROLE=developer
-      - KUBERPULT_GIT_WRITE_COMMIT_DATA=false
+      - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
       - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
       - KUBERPULT_ALLOW_LONG_APP_NAMES=true
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
@@ -40,14 +49,21 @@ services:
       - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=10
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=5
       - KUBERPULT_ALLOWED_DOMAINS=localhost
+      - KUBERPULT_MIGRATION_SERVER=manifest-repo-export-service:8443
+      - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=4
+      - KUBERPULT_MIGRATION_SERVER_SECURE=false
+      - KUBERPULT_VERSION=v0.1.2
+      - KUBERPULT_CHECK_CUSTOM_MIGRATIONS=false
+      - KUBERPULT_REPOSERVER_ENABLED=false
     ports:
       - "8080:8080"
       - "8443:8443"
     volumes:
       - ./services/cd-service:/kp/kuberpult
-      - ./database:/kp/database
     stop_grace_period: 0.5s
     depends_on:
+      manifest-repo-export-service:
+        condition: service_healthy
       postgres:
         condition: service_healthy
   manifest-repo-export-service:
@@ -55,7 +71,7 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - KUBERPULT_DB_LOCATION=postgres
-      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations/postgres/
+      - KUBERPULT_DB_MIGRATIONS_LOCATION=/migrations/postgres
       - KUBERPULT_DB_OPTION=postgreSQL
       - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_DB_NAME=kuberpult
@@ -75,16 +91,20 @@ services:
       - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=5
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=1
       - KUBERPULT_MINIMIZE_EXPORTED_DATA=true
+      - KUBERPULT_VERSION=v0.1.2
+      - KUBERPULT_CHECK_CUSTOM_MIGRATIONS=false
     volumes:
       - ./services/cd-service:/kp/kuberpult
-      - ./database:/kp/database
     ports:
       - "8090:8080"
       - "8444:8443"
     stop_grace_period: 0.5s
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz"]
+      interval: 1s
+      timeout: 5s
+      retries: 50
     depends_on:
-      cd-service:
-        condition: service_started
       postgres:
         condition: service_healthy
   frontend-service:
@@ -94,6 +114,7 @@ services:
     environment:
       - KUBERPULT_CDSERVER=cd-service:8443
       - KUBERPULT_VERSIONSERVER=manifest-repo-export-service:8443
+      - KUBERPULT_MANIFESTEXPORTSERVER=manifest-repo-export-service:8443
       - KUBERPULT_CD_SERVER_SECURE=false
       - LOG_LEVEL=INFO
       - KUBERPULT_ALLOWED_ORIGINS=localhost:*
@@ -110,6 +131,7 @@ services:
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=8
     ports:
       - "8081:8081"
+      - "5555:5555"
     depends_on:
       - cd-service
     volumes:

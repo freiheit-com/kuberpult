@@ -22,9 +22,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type DBDeployment struct {
@@ -85,7 +87,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsForApplication")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
-		SELECT created, appname, releaseVersion, envName, metadata
+		SELECT created, appname, releaseVersion, envName, metadata, transformereslversion
 		FROM deployments
 		WHERE deployments.appname = (?) AND deployments.releaseVersion IS NOT NULL;
 	`)
@@ -164,6 +166,37 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 	return processDeployment(rows)
 }
 
+func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeploymentHistory")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(`
+		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion
+		FROM deployments_history
+		WHERE appName=? AND envName=? and releaseVersion=?
+		ORDER BY created DESC
+		LIMIT 1;
+	`)
+
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appSelector,
+		envSelector,
+		releaseVersion,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment for app %s on env %s for version %v from DB. Error: %w\n", appSelector, envSelector, releaseVersion, err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
+	return processDeployment(rows)
+}
+
 func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, limit int) ([]Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistory")
 	defer span.Finish()
@@ -209,14 +242,38 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 	return result, nil
 }
 
-func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID, limit uint) ([]Deployment, error) {
+func (h *DBHandler) DBSelectDeploymentHistoryCount(ctx context.Context, tx *sql.Tx, envSelector string, startDate time.Time, endDate time.Time) (uint64, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectDeploymentHistoryCount")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(`
+		SELECT COUNT(*) FROM deployments_history
+		WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?);
+	`)
+
+	span.SetTag("query", selectQuery)
+	var result uint64
+	err := tx.QueryRowContext(
+		ctx,
+		selectQuery,
+		startDate,
+		endDate,
+		envSelector,
+	).Scan(&result)
+
+	if err != nil {
+		return 0, onErr(err)
+	}
+
+	return result, nil
+}
+
+func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *sql.Tx, transformerID TransformerID) ([]Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentsByTransformerID")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion
 		FROM deployments
-		WHERE transformereslVersion=?
-		LIMIT ?;
+		WHERE transformereslVersion=?;
 	`)
 
 	span.SetTag("query", selectQuery)
@@ -224,7 +281,6 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 		ctx,
 		selectQuery,
 		transformerID,
-		limit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployments by transformer id from DB. Error: %w\n", err)
@@ -465,20 +521,21 @@ func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, 
 }
 
 // process Rows
-
 func processDeployment(rows *sql.Rows) (*Deployment, error) {
 	var releaseVersion sql.NullInt64
-	var row = &DBDeployment{
-		Created:        time.Time{},
-		ReleaseVersion: nil,
-		App:            "",
-		Env:            "",
-		Metadata:       "",
-		TransformerID:  0,
-	}
+
+	var toReturn *Deployment
 	//exhaustruct:ignore
 	var resultJson = DeploymentMetadata{}
 	if rows.Next() {
+		var row = &DBDeployment{
+			Created:        time.Time{},
+			ReleaseVersion: nil,
+			App:            "",
+			Env:            "",
+			Metadata:       "",
+			TransformerID:  0,
+		}
 		err := rows.Scan(&row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -494,6 +551,16 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, row.Metadata)
 		}
+		toReturn = &Deployment{
+			Created:       row.Created,
+			App:           row.App,
+			Env:           row.Env,
+			Version:       row.ReleaseVersion,
+			Metadata:      resultJson,
+			TransformerID: row.TransformerID,
+		}
+	} else {
+		toReturn = nil
 	}
 	err := rows.Close()
 	if err != nil {
@@ -503,14 +570,7 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 	if err != nil {
 		return nil, fmt.Errorf("deployments: row has error: %v\n", err)
 	}
-	return &Deployment{
-		Created:       row.Created,
-		App:           row.App,
-		Env:           row.Env,
-		Version:       row.ReleaseVersion,
-		Metadata:      resultJson,
-		TransformerID: row.TransformerID,
-	}, nil
+	return toReturn, nil
 }
 
 func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[string]Deployment, error) {
@@ -530,7 +590,7 @@ func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[string]Deployment, e
 		}
 		var releaseVersion sql.NullInt64
 		var jsonMetadata string
-		err := rows.Scan(&curr.Created, &curr.App, &releaseVersion, &curr.Env, &jsonMetadata)
+		err := rows.Scan(&curr.Created, &curr.App, &releaseVersion, &curr.Env, &jsonMetadata, &curr.TransformerID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -652,4 +712,17 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 		return nil, err
 	}
 	return deployments, nil
+}
+
+func (h *DBHandler) MapEnvNamesToDeployment(ctx context.Context, transaction *sql.Tx, id TransformerID) (map[string]Deployment, error) {
+	deployments, err := h.DBSelectDeploymentsByTransformerID(ctx, transaction, id)
+	if err != nil {
+		return nil, err
+	}
+	deploymentsMap := make(map[string]Deployment)
+
+	for _, currentDeployment := range deployments {
+		deploymentsMap[currentDeployment.Env] = currentDeployment
+	}
+	return deploymentsMap, nil
 }

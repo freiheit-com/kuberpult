@@ -19,7 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
-
+	"fmt"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 
@@ -39,9 +39,11 @@ func (o *EnvironmentServiceServer) GetEnvironmentConfig(
 	config, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
 		return state.GetEnvironmentConfig(ctx, transaction, in.Environment)
 	})
-
 	if err != nil {
 		return nil, err
+	}
+	if config == nil {
+		return nil, fmt.Errorf("could not find environment configuration for env: %q", in.Environment)
 	}
 	var out api.GetEnvironmentConfigResponse
 	out.Config = TransformEnvironmentConfigToApi(*config)
@@ -53,7 +55,24 @@ func TransformEnvironmentConfigToApi(in config.EnvironmentConfig) *api.Environme
 		Upstream:         transformUpstreamToApi(in.Upstream),
 		Argocd:           transformArgoCdToApi(in.ArgoCd),
 		EnvironmentGroup: in.EnvironmentGroup,
+		ArgoConfigs:      transformArgoCdConfigsToApi(in.ArgoCdConfigs),
 	}
+}
+
+func transformArgoCdToConfig(conf *api.EnvironmentConfig_ArgoCD) *config.EnvironmentConfigArgoCd {
+	syncWindows := transformSyncWindowsToConfig(conf.SyncWindows)
+	clusterResourceWhitelist := transformAccessListToConfig(conf.AccessList)
+	ignoreDifferences := transformIgnoreDifferencesToConfig(conf.IgnoreDifferences)
+	argocd := &config.EnvironmentConfigArgoCd{
+		Destination:              transformDestinationToConfig(conf.Destination),
+		SyncWindows:              syncWindows,
+		ClusterResourceWhitelist: clusterResourceWhitelist,
+		ApplicationAnnotations:   conf.ApplicationAnnotations,
+		IgnoreDifferences:        ignoreDifferences,
+		SyncOptions:              conf.SyncOptions,
+		ConcreteEnvName:          conf.ConcreteEnvName,
+	}
+	return argocd
 }
 
 func transformUpstreamToConfig(upstream *api.EnvironmentConfig_Upstream) *config.EnvironmentConfigUpstream {
@@ -79,6 +98,7 @@ func transformUpstreamToApi(in *config.EnvironmentConfigUpstream) *api.Environme
 	if in == nil {
 		return nil
 	}
+
 	return &api.EnvironmentConfig_Upstream{
 		Environment: &in.Environment,
 		Latest:      &in.Latest,
@@ -90,13 +110,46 @@ func transformArgoCdToApi(in *config.EnvironmentConfigArgoCd) *api.EnvironmentCo
 		return nil
 	}
 	return &api.EnvironmentConfig_ArgoCD{
-		ApplicationAnnotations: nil,
-		IgnoreDifferences:      nil,
-		SyncOptions:            nil,
+		ApplicationAnnotations: in.ApplicationAnnotations,
+		IgnoreDifferences:      transformIgnoreDifferencesToApi(in.IgnoreDifferences),
+		SyncOptions:            in.SyncOptions,
 		SyncWindows:            transformSyncWindowsToApi(in.SyncWindows),
 		Destination:            transformDestinationToApi(&in.Destination),
 		AccessList:             transformAccessEntryToApi(in.ClusterResourceWhitelist),
+		ConcreteEnvName:        in.ConcreteEnvName,
 	}
+}
+
+func transformArgoCdConfigsToApi(in *config.ArgoCDConfigs) *api.EnvironmentConfig_ArgoConfigs {
+	if in == nil {
+		return nil
+	}
+
+	toReturn := &api.EnvironmentConfig_ArgoConfigs{
+		CommonEnvPrefix: *in.CommonEnvPrefix,
+		Configs:         make([]*api.EnvironmentConfig_ArgoCD, 0),
+	}
+
+	for _, cfg := range in.ArgoCdConfigurations {
+		toReturn.Configs = append(toReturn.Configs, transformArgoCdToApi(cfg))
+	}
+	return toReturn
+}
+
+func transformArgoCdConfigsToConfig(in *api.EnvironmentConfig_ArgoConfigs) *config.ArgoCDConfigs {
+	if in == nil {
+		return nil
+	}
+
+	toReturn := &config.ArgoCDConfigs{
+		CommonEnvPrefix:      &in.CommonEnvPrefix,
+		ArgoCdConfigurations: make([]*config.EnvironmentConfigArgoCd, 0),
+	}
+
+	for _, cfg := range in.Configs {
+		toReturn.ArgoCdConfigurations = append(toReturn.ArgoCdConfigurations, transformArgoCdToConfig(cfg))
+	}
+	return toReturn
 }
 
 func transformSyncWindowsToConfig(syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows) []config.ArgoCdSyncWindow {
@@ -120,6 +173,22 @@ func transformSyncWindowsToApi(in []config.ArgoCdSyncWindow) []*api.EnvironmentC
 			Kind:         syncWindow.Kind,
 			Schedule:     syncWindow.Schedule,
 			Duration:     syncWindow.Duration,
+		})
+	}
+	return out
+}
+
+func transformIgnoreDifferencesToApi(in []config.ArgoCdIgnoreDifference) []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences {
+	var out []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences
+	for _, currentIgnoreDifferences := range in {
+		out = append(out, &api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
+			Kind:                  currentIgnoreDifferences.Kind,
+			Group:                 currentIgnoreDifferences.Group,
+			Name:                  currentIgnoreDifferences.Name,
+			Namespace:             currentIgnoreDifferences.Namespace,
+			JsonPointers:          currentIgnoreDifferences.JSONPointers,
+			JqPathExpressions:     currentIgnoreDifferences.JqPathExpressions,
+			ManagedFieldsManagers: currentIgnoreDifferences.ManagedFieldsManagers,
 		})
 	}
 	return out

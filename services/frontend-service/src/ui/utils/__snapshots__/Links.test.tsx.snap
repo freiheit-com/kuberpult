@@ -3,12 +3,21 @@
 exports[`ArgoAppEnvLink Renders properly  with url 1`] = `
 <body>
   <div>
+    <span
+      class="env-card-header-name"
+    >
+      dev
+    </span>
     <a
       class="env-card-link"
       href="https://example.com/argo/applications/tools/dev-foo"
       title="Opens the app in ArgoCd for this environment"
     >
-      dev
+      <svg
+        class="argo-logo"
+      >
+        argocd.svg
+      </svg>
     </a>
   </div>
 </body>
@@ -17,7 +26,9 @@ exports[`ArgoAppEnvLink Renders properly  with url 1`] = `
 exports[`ArgoAppEnvLink Renders properly  without url 1`] = `
 <body>
   <div>
-    <span>
+    <span
+      class="env-card-header-name"
+    >
       dev
     </span>
   </div>

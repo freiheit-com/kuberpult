@@ -96,6 +96,29 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 					Latest:      conversion.Bool(true),
 				},
 				Argocd: &api.EnvironmentConfig_ArgoCD{
+					IgnoreDifferences: []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
+						{
+							Group:     "diffGroup",
+							Kind:      "diffKind",
+							Name:      "diffName",
+							Namespace: "diffNamespace",
+							JsonPointers: []string{
+								"diffJSONPointer",
+							},
+							JqPathExpressions: []string{
+								"diffJqPathExpression",
+							},
+							ManagedFieldsManagers: []string{
+								"managedFieldsManager",
+							},
+						},
+					},
+					ApplicationAnnotations: map[string]string{
+						"app1": "foo",
+					},
+					SyncOptions: []string{
+						"syncOption",
+					},
 					SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{
 						{
 							Kind:     "syncWindowKind",

@@ -47,32 +47,43 @@ export const ReleaseTrainPage: React.FC = () => {
     if (envName === undefined) {
         return (
             <div>
-                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                <TopAppBar
+                    showAppFilter={false}
+                    showTeamFilter={false}
+                    showWarningFilter={false}
+                    showGitSyncStatus={false}
+                />
                 <main className="main-content">Environment name not provided</main>
             </div>
         );
     }
-
+    let page = <main className="main-content">Backend error</main>;
     switch (releaseTrainPrognosis.releaseTrainPrognosisReady) {
         case ReleaseTrainPrognosisState.LOADING:
             return <Spinner message="Loading release train prognosis" />;
         case ReleaseTrainPrognosisState.ERROR:
-            return (
-                <div>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
-                    <main className="main-content">Backend error</main>
-                </div>
-            );
+            page = <main className="main-content">Backend error</main>;
+            break;
         case ReleaseTrainPrognosisState.NOTFOUND:
-            return (
-                <div>
-                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
-                    <main className="main-content">
-                        The provided environment name {envName} was not found in the manifest repository.
-                    </main>
-                </div>
+            page = (
+                <main className="main-content">
+                    The provided environment name {envName} was not found in the manifest repository.
+                </main>
             );
+            break;
         case ReleaseTrainPrognosisState.READY:
-            return <ReleaseTrainPrognosis releaseTrainPrognosis={releaseTrainPrognosis.response} />;
+            page = <ReleaseTrainPrognosis releaseTrainPrognosis={releaseTrainPrognosis.response} />;
+            break;
     }
+    return (
+        <div className="release-train-prognosis">
+            <TopAppBar
+                showAppFilter={false}
+                showTeamFilter={false}
+                showWarningFilter={false}
+                showGitSyncStatus={false}
+            />
+            {page}
+        </div>
+    );
 };

@@ -30,6 +30,7 @@ func TestRender(t *testing.T) {
 	tcs := []struct {
 		Name           string
 		Destination    v1alpha1.ApplicationDestination
+		eInfo          *EnvironmentInfo
 		ExpectedResult string
 	}{
 		{
@@ -40,6 +41,7 @@ kind: Application
 metadata:
   annotations:
     argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
     com.freiheit.kuberpult/team: ""
@@ -73,7 +75,14 @@ spec:
     syncOptions:
     - ApplyOutOfSyncOnly=true
 `,
+			eInfo: &EnvironmentInfo{
+				ArgoCDConfig:          nil,
+				CommonPrefix:          "does-not-matter",
+				ParentEnvironmentName: "dev",
+				IsAAEnv:               false,
+			},
 		},
+
 		{
 			Name:        "undeploy",
 			Destination: v1alpha1.ApplicationDestination{},
@@ -82,6 +91,7 @@ kind: Application
 metadata:
   annotations:
     argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
     com.freiheit.kuberpult/team: ""
@@ -115,6 +125,12 @@ spec:
     syncOptions:
     - ApplyOutOfSyncOnly=true
 `,
+			eInfo: &EnvironmentInfo{
+				ArgoCDConfig:          nil,
+				CommonPrefix:          "does-not-matter",
+				ParentEnvironmentName: "dev",
+				IsAAEnv:               false,
+			},
 		},
 		{
 			Name: "namespace test",
@@ -126,6 +142,7 @@ kind: Application
 metadata:
   annotations:
     argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
     com.freiheit.kuberpult/team: ""
@@ -160,6 +177,66 @@ spec:
     syncOptions:
     - ApplyOutOfSyncOnly=true
 `,
+			eInfo: &EnvironmentInfo{
+				ArgoCDConfig:          nil,
+				CommonPrefix:          "does-not-matter",
+				ParentEnvironmentName: "dev",
+				IsAAEnv:               false,
+			},
+		},
+		{
+			Name: "AA env test",
+			Destination: v1alpha1.ApplicationDestination{
+				Namespace: "foo",
+			},
+			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    com.freiheit.kuberpult/aa-parent-environment: dev
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: AA-dev-dev-1
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: AA-dev-dev-1-app1
+spec:
+  destination:
+    namespace: foo
+  ignoreDifferences:
+  - group: a.b
+    jqPathExpressions:
+    - c
+    - d
+    kind: bar
+    managedFieldsManagers:
+    - e
+    - f
+    name: foo
+  project: AA-dev-dev-1
+  source:
+    path: environments/dev/applications/app1/manifests
+    repoURL: example.com/github
+    targetRevision: main
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
+`,
+			eInfo: &EnvironmentInfo{
+				ArgoCDConfig: &config.EnvironmentConfigArgoCd{
+					ConcreteEnvName: "dev-1",
+				},
+				CommonPrefix:          "AA",
+				ParentEnvironmentName: "dev",
+				IsAAEnv:               true,
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -180,14 +257,13 @@ spec:
 				destination = tc.Destination
 				GitUrl      = "example.com/github"
 				gitBranch   = "main"
-				env         = "dev"
-				appData     = AppData{
+
+				appData = AppData{
 					AppName: "app1",
 				}
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
-
-			actualResult, err := RenderAppEnv(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences, syncOptions)
+			actualResult, err := RenderAppEnv(GitUrl, gitBranch, annotations, tc.eInfo, appData, destination, ignoreDifferences, syncOptions)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -208,6 +284,7 @@ func TestRenderV1Alpha1(t *testing.T) {
 	}{
 		{
 			name: "without sync window",
+
 			config: config.EnvironmentConfig{
 				ArgoCd: &config.EnvironmentConfigArgoCd{
 					SyncWindows: nil,
@@ -325,6 +402,7 @@ kind: Application
 metadata:
   annotations:
     argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
+    com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
     com.freiheit.kuberpult/team: ""
@@ -380,6 +458,7 @@ kind: Application
 metadata:
   annotations:
     argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
+    com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
     com.freiheit.kuberpult/team: ""
@@ -504,6 +583,7 @@ kind: Application
 metadata:
   annotations:
     argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
+    com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
     com.freiheit.kuberpult/team: some-team
@@ -526,6 +606,63 @@ spec:
       selfHeal: true
 `,
 		},
+		{
+			name: "AA environment",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					ConcreteEnvName: "dev-1",
+					Destination: config.ArgoCdDestination{
+						Namespace:            nil,
+						AppProjectNamespace:  conversion.FromString("bar1"),
+						ApplicationNamespace: nil,
+					},
+				},
+			},
+			appData: []AppData{
+				{
+					AppName:  "app1",
+					TeamName: "some-team",
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: AA-test-env-dev-1
+spec:
+  description: AA-test-env-dev-1
+  destinations:
+  - namespace: bar1
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
+    com.freiheit.kuberpult/aa-parent-environment: test-env
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: AA-test-env-dev-1
+    com.freiheit.kuberpult/team: some-team
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: some-team
+  name: AA-test-env-dev-1-app1
+spec:
+  destination: {}
+  project: AA-test-env-dev-1
+  source:
+    path: environments/test-env/applications/app1/manifests
+    repoURL: https://git.example.com/
+    targetRevision: branch-name
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -534,7 +671,13 @@ spec:
 				gitBranch = "branch-name"
 				env       = "test-env"
 			)
-			got, err := RenderV1Alpha1(gitUrl, gitBranch, tt.config, env, tt.appData)
+			environmentInfo := &EnvironmentInfo{
+				ArgoCDConfig:          tt.config.ArgoCd,
+				ParentEnvironmentName: env,
+				CommonPrefix:          "AA",
+				IsAAEnv:               tt.config.ArgoCd.ConcreteEnvName != "",
+			}
+			got, err := RenderV1Alpha1(gitUrl, gitBranch, environmentInfo, tt.appData)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return

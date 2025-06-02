@@ -22,7 +22,6 @@ import (
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	git "github.com/libgit2/git2go/v34"
 )
 
 func Failing(err error) repository.Repository {
@@ -55,7 +54,7 @@ func (fr *failingRepository) State() *repository.State {
 	return &repository.State{}
 }
 
-func (fr *failingRepository) StateAt(oid *git.Oid) (*repository.State, error) {
+func (fr *failingRepository) StateAt() (*repository.State, error) {
 	//exhaustruct:ignore
 	return &repository.State{}, nil
 }

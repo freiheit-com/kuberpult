@@ -43,13 +43,13 @@ import (
 
 func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig := &db.DBConfig{
-		MigrationsPath: migrationsPath,
-		DriverName:     "sqlite3",
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
 	}
 
 	dir := t.TempDir()
@@ -78,7 +78,6 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	}
 
 	if dbConfig != nil {
-		dbConfig.DbHost = dir
 
 		migErr := db.RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {
@@ -221,13 +220,9 @@ func TestVersion(t *testing.T) {
 						return err
 					}
 				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{"test"})
 				if err != nil {
 					return err
 				}
@@ -443,19 +438,15 @@ func TestGetManifests(t *testing.T) {
 						return err
 					}
 				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertApplication(ctx, transaction, appNameOther, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appNameOther, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName, appNameOther})
 				if err != nil {
 					return err
 				}

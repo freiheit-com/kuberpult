@@ -192,7 +192,11 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	if sourceCommitId, ok := form.Value["source_commit_id"]; ok {
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
+		} else {
+			logger.FromContext(ctx).Sugar().Warnf("commit id not valid: '%s'", sourceCommitId)
 		}
+	} else {
+		logger.FromContext(ctx).Sugar().Warnf("commit id not found: '%s'", sourceCommitId)
 	}
 
 	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
@@ -278,7 +282,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
-	logger.FromContext(ctx).Warn("warning: /release endoint will be deprecated soon, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.\n")
+	logger.FromContext(ctx).Warn("warning: The /release endpoint will be deprecated in the future, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.\n")
 }
 
 func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail string) {
@@ -365,7 +369,11 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	if sourceCommitId, ok := form.Value["source_commit_id"]; ok {
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
+		} else {
+			logger.FromContext(ctx).Sugar().Warnf("commit id not valid: '%s'", sourceCommitId)
 		}
+	} else {
+		logger.FromContext(ctx).Sugar().Warnf("commit id not found: '%s'", sourceCommitId)
 	}
 
 	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {

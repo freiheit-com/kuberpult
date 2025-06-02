@@ -63,9 +63,6 @@ describe('Test Environment Cards', () => {
                     {
                         name: 'env1',
                         distanceToUpstream: 2,
-                        locks: {},
-                        appLocks: {},
-                        teamLocks: {},
                         priority: Priority.PRE_PROD,
                         config: {},
                     },
@@ -87,18 +84,12 @@ describe('Test Environment Cards', () => {
                     {
                         name: 'env1',
                         distanceToUpstream: 2,
-                        locks: {},
-                        appLocks: {},
-                        teamLocks: {},
                         priority: Priority.UPSTREAM,
                         config: {},
                     },
                     {
                         name: 'env2',
                         distanceToUpstream: 2,
-                        locks: {},
-                        appLocks: {},
-                        teamLocks: {},
                         priority: Priority.UPSTREAM,
                         config: {},
                     },

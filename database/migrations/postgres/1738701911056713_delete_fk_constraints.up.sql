@@ -1,0 +1,2 @@
+ALTER TABLE deployments DROP CONSTRAINT IF EXISTS fk_deployments_transformer_id;
+ALTER TABLE deployments_history DROP CONSTRAINT IF EXISTS fk_deployments_transformer_id;

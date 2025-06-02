@@ -21,6 +21,11 @@ import (
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestGetCommitReleaseNumber(t *testing.T) {
@@ -55,47 +60,6 @@ func TestGetCommitReleaseNumber(t *testing.T) {
 	}
 }
 
-func TestGetAllEnvironments(t *testing.T) {
-	tcs := []struct {
-		name             string
-		environmentsJson []byte
-		expected         []string
-	}{
-		{
-			name:             "One environment",
-			environmentsJson: []byte(`["development"]`),
-			expected:         []string{"development"},
-		},
-		{
-			name:             "Two environments",
-			environmentsJson: []byte(`["development", "staging"]`),
-			expected:         []string{"development", "staging"},
-		},
-		{
-			name:             "No environments",
-			environmentsJson: []byte(`[]`),
-			expected:         []string{},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			environments, err := getAllEnvironments(tc.environmentsJson)
-			if err != nil {
-				t.Fatalf("Error getting all environments: %v", err)
-			}
-			if len(environments) != len(tc.expected) {
-				t.Fatalf("Expected %d environments, got %d", len(tc.expected), len(environments))
-			}
-			for i, env := range environments {
-				if env != tc.expected[i] {
-					t.Fatalf("Expected %s, got %s", tc.expected[i], env)
-				}
-			}
-		})
-	}
-}
 func TestGetCommitStatus(t *testing.T) {
 	tcs := []struct {
 		name                string
@@ -187,6 +151,382 @@ func TestGetCommitStatus(t *testing.T) {
 			if !reflect.DeepEqual(status, tc.expectedStatus) {
 				t.Fatalf("Expected %v, got %v", tc.expectedStatus, status)
 			}
+		})
+	}
+}
+
+func TestGetDeploymentCommitInfo(t *testing.T) {
+	devGroup := "development"
+	stageGroup := "staging"
+	tcs := []struct {
+		Name           string
+		Setup          []repository.Transformer
+		EnvName        string
+		AppName        string
+		ExpectedResult *api.GetDeploymentCommitInfoResponse
+	}{
+		{
+			Name: "Simple deployment on development",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &devGroup,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "testapp",
+					Manifests: map[string]string{
+						"development": "manifest",
+					},
+				},
+				&repository.DeployApplicationVersion{
+					Environment: "development",
+					Application: "testapp",
+					Version:     1,
+				},
+			},
+			EnvName: "development",
+			AppName: "testapp",
+			ExpectedResult: &api.GetDeploymentCommitInfoResponse{
+				CommitId:      "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+				Author:        "example <example@example.com>",
+				CommitMessage: "changed something (#678)",
+			},
+		},
+		{
+			Name: "two versions, but taking the first one",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &devGroup,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbee1",
+					SourceAuthor:          "author1",
+					SourceMessage:         "message1",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "testapp",
+					Manifests: map[string]string{
+						"development": "manifest",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbee2",
+					SourceAuthor:          "author2",
+					SourceMessage:         "message2",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "testapp",
+					Manifests: map[string]string{
+						"development": "manifest",
+					},
+				},
+				&repository.DeployApplicationVersion{
+					Environment: "development",
+					Application: "testapp",
+					Version:     2,
+				},
+				&repository.DeployApplicationVersion{
+					Environment: "development",
+					Application: "testapp",
+					Version:     1,
+				},
+			},
+			EnvName: "development",
+			AppName: "testapp",
+			ExpectedResult: &api.GetDeploymentCommitInfoResponse{
+				CommitId:      "deadbeefdeadbeefdeadbeefdeadbeefdeadbee1",
+				Author:        "author1",
+				CommitMessage: "message1",
+			},
+		},
+		{
+			Name: "two apps",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &devGroup,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbee1",
+					SourceAuthor:          "author1",
+					SourceMessage:         "message1",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "testapp1",
+					Manifests: map[string]string{
+						"development": "manifest",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbee2",
+					SourceAuthor:          "author2",
+					SourceMessage:         "message2",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "testapp2",
+					Manifests: map[string]string{
+						"development": "manifest",
+					},
+				},
+				&repository.DeployApplicationVersion{
+					Environment: "development",
+					Application: "testapp1",
+					Version:     1,
+				},
+				&repository.DeployApplicationVersion{
+					Environment: "development",
+					Application: "testapp2",
+					Version:     1,
+				},
+			},
+			EnvName: "development",
+			AppName: "testapp2",
+			ExpectedResult: &api.GetDeploymentCommitInfoResponse{
+				CommitId:      "deadbeefdeadbeefdeadbeefdeadbeefdeadbee2",
+				Author:        "author2",
+				CommitMessage: "message2",
+			},
+		},
+		{
+			Name: "two environments",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &devGroup,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: "development",
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &stageGroup,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbee1",
+					SourceAuthor:          "author1",
+					SourceMessage:         "message1",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "testapp",
+					Manifests: map[string]string{
+						"development": "manifest",
+						"staging":     "manifest",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbee2",
+					SourceAuthor:          "author2",
+					SourceMessage:         "message2",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "testapp",
+					Manifests: map[string]string{
+						"development": "manifest",
+						"staging":     "manifest",
+					},
+				},
+				&repository.DeployApplicationVersion{
+					Environment: "development",
+					Application: "testapp",
+					Version:     1,
+				},
+				&repository.DeployApplicationVersion{
+					Environment: "staging",
+					Application: "testapp",
+					Version:     2,
+				},
+			},
+			EnvName: "staging",
+			AppName: "testapp",
+			ExpectedResult: &api.GetDeploymentCommitInfoResponse{
+				CommitId:      "deadbeefdeadbeefdeadbeefdeadbeefdeadbee2",
+				Author:        "author2",
+				CommitMessage: "message2",
+			},
+		},
+		{
+			Name: "no versions",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &devGroup,
+					},
+				},
+			},
+			EnvName: "development",
+			AppName: "testapp",
+			ExpectedResult: &api.GetDeploymentCommitInfoResponse{
+				CommitId:      "",
+				Author:        "",
+				CommitMessage: "",
+			},
+		},
+		{
+			Name: "no deployments",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &devGroup,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: "development",
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &stageGroup,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbee1",
+					SourceAuthor:          "author1",
+					SourceMessage:         "message1",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           "testapp",
+					Manifests: map[string]string{
+						"development": "manifest",
+						"staging":     "manifest",
+					},
+				},
+			},
+			EnvName: "staging",
+			AppName: "testapp",
+			ExpectedResult: &api.GetDeploymentCommitInfoResponse{
+				CommitId:      "",
+				Author:        "",
+				CommitMessage: "",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			var repo repository.Repository
+			repo, err := setupRepositoryTestWithDB(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			svc := &CommitDeploymentServer{
+				DBHandler: repo.State().DBHandler,
+			}
+
+			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+				t.Fatal(err)
+			}
+
+			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+				Email: "app-email@example.com",
+				Name:  "overview tester",
+			})
+
+			resp, err := svc.GetDeploymentCommitInfo(ctx, &api.GetDeploymentCommitInfoRequest{
+				Environment: tc.EnvName,
+				Application: tc.AppName,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if diff := cmp.Diff(tc.ExpectedResult.Author, resp.Author); diff != "" {
+				t.Fatalf("Author mismatch(-want, +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.ExpectedResult.CommitId, resp.CommitId); diff != "" {
+				t.Fatalf("Commit Id mismatch (-want, +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.ExpectedResult.CommitMessage, resp.CommitMessage); diff != "" {
+				t.Fatalf("Commit message mismatch (-want, +got):\n%s", diff)
+			}
+
 		})
 	}
 }

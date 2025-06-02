@@ -77,6 +77,22 @@ func CheckForEnvVariable(t *testing.T, target core.EnvVar, deployment *apps.Depl
 	return false
 }
 
+func CheckEmptyDirVolume(t *testing.T, targetVolumeName, targetVolumeValue string, deployment apps.Deployment) bool {
+	for _, volume := range deployment.Spec.Template.Spec.Volumes {
+		if volume.Name == targetVolumeName {
+			//Check for volume
+			if volume.EmptyDir.SizeLimit.String() == targetVolumeValue {
+				return true
+			} else {
+				t.Logf("Found '%s' volume. Value mismatch: wanted: '%s', got: '%s'.\n", targetVolumeName, targetVolumeValue, volume)
+			}
+
+		}
+
+	}
+	return false
+}
+
 func searchSimpleKeyValuePair(yaml []string, key string, value string) bool {
 	keyTarget := key + ":"
 	for _, line := range yaml {
@@ -180,6 +196,18 @@ ingress:
 				{
 					Name:  "KUBERPULT_DB_OPTION",
 					Value: "postgreSQL",
+				},
+				{
+					Name:  "KUBERPULT_MIGRATION_SERVER",
+					Value: "kuberpult-manifest-repo-export-service:8443",
+				},
+				{
+					Name:  "KUBERPULT_MIGRATION_SERVER_SECURE",
+					Value: "false",
+				},
+				{
+					Name:  "KUBERPULT_GRPC_MAX_RECV_MSG_SIZE",
+					Value: "4",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -635,6 +663,78 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Check for custom Migrations",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  checkCustomMigrations: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Check for custom Migrations",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  checkCustomMigrations: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test reposerver enabled",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+reposerver:
+  enabled: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REPOSERVER_ENABLED",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test reposerver disabled",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REPOSERVER_ENABLED",
+					Value: "",
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -643,10 +743,10 @@ db:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				targetDocument := out["kuberpult-cd-service"]
 				for _, env := range tc.ExpectedEnvs {
@@ -1168,10 +1268,10 @@ db:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				for index := range out {
 					t.Logf("deployment found: %s", index)
@@ -1343,12 +1443,328 @@ frontend:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				targetDocument := out["kuberpult-frontend-service"]
+				for _, env := range tc.ExpectedEnvs {
+					if !CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
+					}
+				}
+				for _, env := range tc.ExpectedMissing {
+					if CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestHelmChartsKuberpultRolloutEnvVariables(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Values          string
+		ExpectedEnvs    []core.EnvVar
+		ExpectedMissing []core.EnvVar
+	}{
+		{
+			Name: "Test db max connections",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+argocd:
+  server: https://argo:1090
+db:
+  dbOption: "postgreSQL"
+  connections:
+    rollout:
+      maxOpen: 777
+      maxIdle: 321
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_MAX_OPEN_CONNECTIONS",
+					Value: "777",
+				},
+				{
+					Name:  "KUBERPULT_DB_MAX_IDLE_CONNECTIONS",
+					Value: "321",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test persist argo events disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  persistArgoEvents: false
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_PERSIST_ARGO_EVENTS",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_BATCH_SIZE",
+					Value: "does-not-matter",
+				},
+			},
+		},
+		{
+			Name: "Test default argo events batch size",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  persistArgoEvents: true
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_PERSIST_ARGO_EVENTS",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_BATCH_SIZE",
+					Value: "1",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test batch size is configurable",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  persistArgoEvents: true
+  argoEventsBatchSize: 50
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_PERSIST_ARGO_EVENTS",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_BATCH_SIZE",
+					Value: "50",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test Argo Events Channel Size",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  argoEventsChannelSize: 100
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_CHANNEL_SIZE",
+					Value: "100",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test Kuberpult Events Channel Size",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  kuberpultEventsChannelSize: 99
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_KUBERPULT_EVENTS_CHANNEL_SIZE",
+					Value: "99",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test enable all metrics",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  metrics:
+    doraMetricsEnabled: true
+    argoEventsMetricsEnabled: true
+    kuberpultEventsMetricsEnabled: true
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_EVENTS_METRICS_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_KUBERPULT_EVENTS_METRICS_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_DORA_EVENTS_METRICS_ENABLED",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test enable all metrics",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+revolution:
+  dora:
+    enabled: true
+    dryRun: true
+argocd:
+  server: https://argo:1090
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REVOLUTION_DORA_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_REVOLUTION_DORA_DRY_RUN",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf("%v", err)
+			} else {
+				targetDocument := out["kuberpult-rollout-service"]
+				for _, env := range tc.ExpectedEnvs {
+					if !CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
+					}
+				}
+				for _, env := range tc.ExpectedMissing {
+					if CheckForEnvVariable(t, env, &targetDocument) {
+						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestHelmChartsKuberpultReposerverEnvVariables(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Values          string
+		ExpectedEnvs    []core.EnvVar
+		ExpectedMissing []core.EnvVar
+	}{
+		{
+			Name: "Test db max connections",
+			Values: `
+git:
+  url: "testURL"
+reposerver:
+  enabled: true
+db:
+  dbOption: "postgreSQL"
+  connections:
+    reposerver:
+      maxOpen: 777
+      maxIdle: 321
+`,
+
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_MAX_OPEN_CONNECTIONS",
+					Value: "777",
+				},
+				{
+					Name:  "KUBERPULT_DB_MAX_IDLE_CONNECTIONS",
+					Value: "321",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf("%v", err)
+			} else {
+				targetDocument := out["kuberpult-reposerver-service"]
 				for _, env := range tc.ExpectedEnvs {
 					if !CheckForEnvVariable(t, env, &targetDocument) {
 						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
@@ -1513,11 +1929,11 @@ ingress:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 
 			if out, err := getIngress(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				if ExpectedIngress != nil && ExpectedIngress.Spec.Rules != nil && out.Spec.Rules != nil {
 					for i := range ExpectedIngress.Spec.Rules {
@@ -1760,10 +2176,10 @@ argocd:
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
 			if err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			}
 			if deployments, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				cdPodAnnotations := deployments["kuberpult-cd-service"].Spec.Template.ObjectMeta.Annotations
 				filterDDVersion(cdPodAnnotations)
@@ -1787,7 +2203,7 @@ argocd:
 				}
 			}
 			if service, err := getServices(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
+				t.Fatalf("%v", err)
 			} else {
 				if diff := cmp.Diff(tc.ExpectedCdServiceAnnotations, service["kuberpult-cd-service"].ObjectMeta.Annotations); diff != "" {
 					t.Fatalf("wrong cd service annotations (-want, +got):\n%s", diff)
@@ -1864,10 +2280,120 @@ func makeAllIngressPaths(withDex, withUi, withOldApi, withNewApi bool) []network
 			makeIngressPrefixPath("/api.v1.FrontendConfigService/"),
 			makeIngressPrefixPath("/api.v1.RolloutService/"),
 			makeIngressPrefixPath("/api.v1.GitService/"),
+			makeIngressPrefixPath("/api.v1.VersionService/"),
 			makeIngressPrefixPath("/api.v1.EnvironmentService/"),
 			makeIngressPrefixPath("/api.v1.ReleaseTrainPrognosisService/"),
 			makeIngressPrefixPath("/api.v1.EslService/"),
 		)
 	}
 	return result
+}
+func TestManifestExportServiceDisabled(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		Values      string
+		ShouldExist bool
+	}{
+		{
+			Name: "Disabled Export Service",
+			Values: `
+git:
+  url:  "checkThisValue"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+manifestRepoExport:
+  enabled: false
+`,
+			ShouldExist: false,
+		},
+		{
+			Name: "Enabled Export Service",
+			Values: `
+git:
+  url:  "checkThisValue"
+ingress:
+  domainName: "kuberpult-example.com"
+db:
+  dbOption: "postgreSQL"
+  writeEslTableOnly: false
+manifestRepoExport:
+  enabled: true
+`,
+			ShouldExist: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf("%v", err)
+			} else {
+				_, found := out["kuberpult-manifest-repo-export-service"]
+				if found != tc.ShouldExist {
+					t.Fatalf("Expected existence: %t, got: %t", tc.ShouldExist, found)
+				}
+			}
+		})
+	}
+}
+
+func TestReposerverServiceDisabled(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		Values      string
+		ShouldExist bool
+	}{
+		{
+			Name: "Disabled Reposerver Service",
+			Values: `
+git:
+  url: "testURL"
+reposerver:
+  enabled: false
+db:
+  dbOption: "postgreSQL"
+`,
+			ShouldExist: false,
+		},
+		{
+			Name: "Enabled Reposerver Service",
+			Values: `
+git:
+  url: "testURL"
+reposerver:
+  enabled: true
+db:
+  dbOption: "postgreSQL"
+`,
+			ShouldExist: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf("%v", err)
+			} else {
+				_, found := out["kuberpult-reposerver-service"]
+				if found != tc.ShouldExist {
+					t.Fatalf("Expected existence: %t, got: %t", tc.ShouldExist, found)
+				}
+			}
+		})
+	}
 }

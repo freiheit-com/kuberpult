@@ -16,17 +16,22 @@ Copyright freiheit.com*/
 import { render, renderHook } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { MemoryRouter } from 'react-router-dom';
-import { BatchAction, LockBehavior, ReleaseTrainRequest_TargetType } from '../../../api/api';
+import { BatchAction, LockBehavior, ReleaseTrainRequest_TargetType, UndeploySummary } from '../../../api/api';
 import {
     addAction,
-    deleteAction,
-    useActions,
-    updateActions,
-    deleteAllActions,
+    AppDetailsResponse,
+    AppDetailsState,
     appendAction,
+    deleteAction,
+    deleteAllActions,
     DisplayLock,
+    SnackbarStatus,
+    updateActions,
+    updateAppDetails,
+    UpdateSnackbar,
+    useActions,
 } from '../../utils/store';
-import { ActionDetails, ActionTypes, getActionDetails, SideBar } from './SideBar';
+import { ActionDetails, ActionTypes, getActionDetails, showFailedActionMessage, SideBar } from './SideBar';
 
 describe('Sidebar shows list of actions', () => {
     interface dataT {
@@ -345,7 +350,13 @@ describe('Action details', () => {
             action: {
                 action: {
                     $case: 'createEnvironmentLock',
-                    createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    createEnvironmentLock: {
+                        environment: 'foo',
+                        lockId: 'ui-v2-1337',
+                        message: 'bar',
+                        ciLink: '',
+                        suggestedLifeTime: '2h',
+                    },
                 },
             },
             expectedDetails: {
@@ -371,6 +382,8 @@ describe('Action details', () => {
                     lockId: 'ui-v2-1337',
                     environment: 'foo',
                     message: 'bar',
+                    ciLink: '',
+                    suggestedLifetime: '',
                 },
             ],
             expectedDetails: {
@@ -395,6 +408,7 @@ describe('Action details', () => {
                         lockId: 'ui-v2-1337',
                         message: 'bar',
                         ciLink: '',
+                        suggestedLifeTime: '',
                     },
                 },
             },
@@ -427,6 +441,8 @@ describe('Action details', () => {
                     environment: 'foo',
                     message: 'bar',
                     application: 'bar',
+                    ciLink: '',
+                    suggestedLifetime: '',
                 },
             ],
             expectedDetails: {
@@ -452,6 +468,7 @@ describe('Action details', () => {
                         lockId: 'ui-v2-1339',
                         message: 'bar',
                         ciLink: '',
+                        suggestedLifeTime: '1w',
                     },
                 },
             },
@@ -480,6 +497,8 @@ describe('Action details', () => {
                     environment: 'foo',
                     message: 'bar',
                     team: 'bar',
+                    ciLink: '',
+                    suggestedLifetime: '',
                 },
             ],
             expectedDetails: {
@@ -517,6 +536,56 @@ describe('Action details', () => {
                 environment: 'foo',
                 application: 'bread',
                 version: 1337,
+            },
+        },
+        {
+            name: 'test deploy action - forward',
+            action: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'foo',
+                        application: 'bread',
+                        version: 1338,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.Deploy,
+                name: 'Deploy',
+                dialogTitle: 'Please be aware:',
+                summary: 'Advancing by 1 releases up to version 1338 of bread to foo',
+                tooltip: '',
+                environment: 'foo',
+                application: 'bread',
+                version: 1338,
+            },
+        },
+        {
+            name: 'test deploy action - rollback',
+            action: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'foo',
+                        application: 'bread',
+                        version: 1336,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.Deploy,
+                name: 'Deploy',
+                dialogTitle: 'Please be aware:',
+                summary: 'Rolling back by 1 releases down to version 1336 of bread to foo',
+                tooltip: '',
+                environment: 'foo',
+                application: 'bread',
+                version: 1336,
             },
         },
         {
@@ -610,8 +679,76 @@ describe('Action details', () => {
             const envLocks = testcase.envLocks || [];
             const appLocks = testcase.appLocks || [];
             const teamLocks = testcase.teamLocks || [];
-            const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks, teamLocks))
-                .result.current;
+            const appDetails: { [key: string]: AppDetailsResponse } = {
+                bread: {
+                    details: {
+                        application: {
+                            name: 'test2',
+                            releases: [
+                                {
+                                    version: 1338,
+                                    sourceAuthor: 'SomeAuthor',
+                                    sourceMessage: 'some message',
+                                    sourceCommitId: 'somecommitid',
+                                    undeployVersion: true,
+                                    prNumber: '',
+                                    displayVersion: '1337',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: ['foo'],
+                                    ciLink: '',
+                                },
+                                {
+                                    version: 1337,
+                                    sourceAuthor: 'SomeAuthor',
+                                    sourceMessage: 'some message',
+                                    sourceCommitId: 'somecommitid',
+                                    undeployVersion: true,
+                                    prNumber: '',
+                                    displayVersion: '1337',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: ['foo'],
+                                    ciLink: '',
+                                },
+                                {
+                                    version: 1336,
+                                    sourceAuthor: 'SomeAuthor',
+                                    sourceMessage: 'some message',
+                                    sourceCommitId: 'somecommitid',
+                                    undeployVersion: true,
+                                    prNumber: '',
+                                    displayVersion: '1337',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: ['foo'],
+                                    ciLink: '',
+                                },
+                            ],
+                            sourceRepoUrl: 'http://foo.com',
+                            team: 'dummy',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {
+                            foo: {
+                                version: 1337,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                    },
+                    appDetailState: AppDetailsState.READY,
+                    updatedAt: new Date(Date.now()),
+                    errorMessage: '',
+                },
+            };
+            updateAppDetails.set(appDetails);
+            const obtainedDetails = renderHook(() =>
+                getActionDetails(testcase.action, appLocks, envLocks, teamLocks, appDetails)
+            ).result.current;
             expect(obtainedDetails).toStrictEqual(testcase.expectedDetails);
         });
     });
@@ -673,6 +810,7 @@ describe('Action details', () => {
             name: string;
             actions: BatchAction[];
             expectedTitle: string;
+            appDetails: { [key: string]: AppDetailsResponse };
         }
 
         const data: dataT[] = [
@@ -683,6 +821,40 @@ describe('Action details', () => {
                     { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
                 ],
                 expectedTitle: 'Planned Actions (3)',
+                appDetails: {
+                    nmww: {
+                        details: {
+                            application: {
+                                name: 'nmww',
+                                releases: [
+                                    {
+                                        version: 1337,
+                                        sourceAuthor: 'SomeAuthor',
+                                        sourceMessage: 'some message',
+                                        sourceCommitId: 'somecommitid',
+                                        undeployVersion: true,
+                                        prNumber: '',
+                                        displayVersion: '1337',
+                                        isMinor: false,
+                                        isPrepublish: false,
+                                        environments: ['foo'],
+                                        ciLink: '',
+                                    },
+                                ],
+                                sourceRepoUrl: 'http://foo.com',
+                                team: 'dummy',
+                                undeploySummary: UndeploySummary.NORMAL,
+                                warnings: [],
+                            },
+                            appLocks: {},
+                            teamLocks: {},
+                            deployments: {},
+                        },
+                        appDetailState: AppDetailsState.READY,
+                        updatedAt: new Date(Date.now()),
+                        errorMessage: '',
+                    },
+                },
             },
             {
                 name: 'Add another action',
@@ -701,6 +873,40 @@ describe('Action details', () => {
                     },
                 ],
                 expectedTitle: 'Planned Actions (4)',
+                appDetails: {
+                    bread: {
+                        details: {
+                            application: {
+                                name: 'bread',
+                                releases: [
+                                    {
+                                        version: 1337,
+                                        sourceAuthor: 'SomeAuthor',
+                                        sourceMessage: 'some message',
+                                        sourceCommitId: 'somecommitid',
+                                        undeployVersion: false,
+                                        prNumber: '',
+                                        displayVersion: '1337',
+                                        isMinor: false,
+                                        isPrepublish: false,
+                                        environments: ['foo'],
+                                        ciLink: '',
+                                    },
+                                ],
+                                sourceRepoUrl: 'http://foo.com',
+                                team: 'dummy',
+                                undeploySummary: UndeploySummary.NORMAL,
+                                warnings: [],
+                            },
+                            appLocks: {},
+                            teamLocks: {},
+                            deployments: {},
+                        },
+                        appDetailState: AppDetailsState.READY,
+                        updatedAt: new Date(Date.now()),
+                        errorMessage: '',
+                    },
+                },
             },
             {
                 name: 'Add 2 more actions actions',
@@ -709,6 +915,40 @@ describe('Action details', () => {
                     { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'test2' } } },
                 ],
                 expectedTitle: 'Planned Actions (6)',
+                appDetails: {
+                    test2: {
+                        details: {
+                            application: {
+                                name: 'test2',
+                                releases: [
+                                    {
+                                        version: 1337,
+                                        sourceAuthor: 'SomeAuthor',
+                                        sourceMessage: 'some message',
+                                        sourceCommitId: 'somecommitid',
+                                        undeployVersion: true,
+                                        prNumber: '',
+                                        displayVersion: '1337',
+                                        isMinor: false,
+                                        isPrepublish: false,
+                                        environments: ['foo'],
+                                        ciLink: '',
+                                    },
+                                ],
+                                sourceRepoUrl: 'http://foo.com',
+                                team: 'dummy',
+                                undeploySummary: UndeploySummary.NORMAL,
+                                warnings: [],
+                            },
+                            appLocks: {},
+                            teamLocks: {},
+                            deployments: {},
+                        },
+                        appDetailState: AppDetailsState.READY,
+                        updatedAt: new Date(Date.now()),
+                        errorMessage: '',
+                    },
+                },
             },
         ];
 
@@ -723,6 +963,7 @@ describe('Action details', () => {
                 </MemoryRouter>
             );
         };
+
         const getWrapper = (overrides?: {}) => render(getNode(overrides));
         it('Create an action initially', () => {
             updateActions([{ action: { $case: 'undeploy', undeploy: { application: 'test' } } }]);
@@ -730,6 +971,7 @@ describe('Action details', () => {
             expect(container.getElementsByClassName('sub-headline1')[0].textContent).toBe('Planned Actions (1)');
         });
         describe.each(data)('', (testcase) => {
+            updateAppDetails.set(testcase.appDetails);
             it(testcase.name, () => {
                 appendAction(testcase.actions);
                 const { container } = getWrapper({});
@@ -750,6 +992,110 @@ describe('Action details', () => {
                 }
                 expect(container.getElementsByClassName('sub-headline1')[0].textContent).toBe(expected);
             });
+        });
+    });
+});
+
+describe('Action failed after applying ', () => {
+    interface TestError {
+        code: number;
+        message: string;
+        reason?: string;
+    }
+
+    const fakeTransformerBatchError = (index: number, reason: string): TestError => ({
+        code: 1,
+        reason,
+        message: `error at index ${index} of transformer batch: ${reason}`,
+    });
+
+    interface dataT {
+        name: string;
+        actions: BatchAction[];
+        envLocks?: DisplayLock[];
+        appLocks?: DisplayLock[];
+        teamLocks?: DisplayLock[];
+        error: TestError;
+        expectedMessage: string;
+    }
+
+    const data: dataT[] = [
+        {
+            name: 'test one action',
+            actions: [
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    },
+                },
+            ],
+            error: fakeTransformerBatchError(0, 'it failed'),
+            expectedMessage: 'Create new environment lock on foo failed: it failed. Please try again',
+        },
+        {
+            name: 'test multiple actions',
+            actions: [
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    },
+                },
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: {
+                            environment: 'bar',
+                            lockId: 'ui-v1-1337',
+                            message: 'foo',
+                            ciLink: '',
+                        },
+                    },
+                },
+            ],
+            error: fakeTransformerBatchError(1, 'it failed'),
+            expectedMessage: 'Create new environment lock on bar failed: it failed. Please try again',
+        },
+        {
+            name: 'test permission denied error',
+            actions: [
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    },
+                },
+            ],
+            error: { code: 7, message: 'permission denied' },
+            expectedMessage: 'permission denied',
+        },
+        {
+            name: 'test error message not matching regex',
+            actions: [
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar', ciLink: '' },
+                    },
+                },
+            ],
+            error: { code: 1, message: 'something' },
+            expectedMessage: 'Actions were not applied. Please try again',
+        },
+    ];
+
+    describe.each(data)('', (testcase) => {
+        it(testcase.name, () => {
+            const envLocks = testcase.envLocks || [];
+            const appLocks = testcase.appLocks || [];
+            const teamLocks = testcase.teamLocks || [];
+            const appDetails: { [key: string]: AppDetailsResponse } = {};
+            showFailedActionMessage(testcase.error, testcase.actions, appLocks, envLocks, teamLocks, appDetails);
+
+            expect(UpdateSnackbar.get().show).toBe(true);
+            expect(UpdateSnackbar.get().status).toBe(SnackbarStatus.ERROR);
+            expect(UpdateSnackbar.get().content).toBe(testcase.expectedMessage);
         });
     });
 });

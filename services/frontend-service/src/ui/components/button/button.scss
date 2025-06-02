@@ -22,7 +22,7 @@ Copyright freiheit.com*/
     color: black;
 
     &.highlight {
-        background-color: white;
+        background-color: var(--mdc-theme-background);
         color: var(--mdc-theme-primary);
 
         &:focus {
@@ -32,32 +32,23 @@ Copyright freiheit.com*/
     }
 }
 
-.expand-button {
-    border-width: thin;
-    border-radius: 14px;
-    border-color: blue;
-    border-style: groove;
-    .button-popup-deploy {
-        &:disabled {
-            color: grey;
-        }
+.deploy-lock-buttons {
+    height: 36px;
+    margin-right: 10px;
+    display: inline-flex;
+    .mdc-button {
+        margin-right: 10px;
+        border-width: thin;
+        border-radius: 12px 0 0 12px;
+        border-color: var(--mdc-theme-on-surface-light);
+        border-style: groove;
+        width: 205px;
     }
 
-    .first-two {
-        height: 36px;
-        .button-main {
-            border-radius: 12px 0 0 12px;
-            &:disabled {
-                color: white;
-            }
-        }
-        .button-expand {
-            padding: 0;
-            min-width: 36px;
-            .dropdown-arrow {
-                margin-bottom: 40%; // to center the arrow
-                font-size: xx-large;
-            }
+    .button-main {
+        width: 170px;
+        &:disabled {
+            color: white;
         }
     }
 }

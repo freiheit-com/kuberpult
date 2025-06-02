@@ -30,7 +30,10 @@ Spy.mockModule('../utils/AzureAuthProvider', 'AzureAuthProvider');
 
 const mock_GetConfig = Spy('Config');
 const mock_StreamOverview = Spy('Overview');
+const mock_GetAllAppLocks = Spy('AllAppLocks');
+const mock_GetAllEnvTeamLocks = Spy('AllEnvLocks');
 const mock_StreamStatus = Spy('Status');
+const mock_StreamGitSyncStatus = Spy('GitSyncStatus');
 
 jest.mock('../utils/GrpcApi', () => ({
     // useApi is a constant, so we mock it by mocking the module and spying on a getter method instead
@@ -41,9 +44,14 @@ jest.mock('../utils/GrpcApi', () => ({
             }),
             overviewService: () => ({
                 StreamOverview: () => mock_StreamOverview(),
+                GetAllAppLocks: () => mock_GetAllAppLocks(),
+                GetAllEnvTeamLocks: () => mock_GetAllEnvTeamLocks(),
             }),
             rolloutService: () => ({
                 StreamStatus: () => mock_StreamStatus(),
+            }),
+            gitService: () => ({
+                StreamGitSyncStatus: () => mock_StreamGitSyncStatus(),
             }),
         };
     },
@@ -73,6 +81,9 @@ describe('App uses the API', () => {
                 observer.next({ applications: 'test-application' });
             })
         );
+        mock_StreamGitSyncStatus.returns(new Observable(() => {}));
+        mock_GetAllAppLocks.returns(Promise.resolve('test'));
+        mock_GetAllEnvTeamLocks.returns(Promise.resolve('test'));
         mock_GetConfig.returns(Promise.resolve('test-config'));
         AzureAuthSub.set({ authReady: true });
         mock_StreamStatus.returns(
@@ -102,6 +113,13 @@ describe('App uses the API', () => {
                 observer.next({});
             })
         );
+        mock_StreamGitSyncStatus.returns(
+            new Observable((observer) => {
+                observer.next({});
+            })
+        );
+        mock_GetAllAppLocks.returns(Promise.resolve('test'));
+        mock_GetAllEnvTeamLocks.returns(Promise.resolve('test'));
         mock_GetConfig.returns(Promise.resolve('test-config'));
         AzureAuthSub.set({ authReady: true });
 

@@ -21,27 +21,35 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"os"
-	"sort"
-	"strings"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"os"
+	"sort"
+	"strings"
+	"sync"
 )
 
 type GitServer struct {
 	Config     repository.RepositoryConfig
 	Repository repository.Repository
 	PageSize   uint64
+
+	shutdown                    <-chan struct{}
+	streamGitSyncStatusInitFunc sync.Once
+	notify                      notify.Notify
 }
 
 func (s *GitServer) GetProductSummary(_ context.Context, _ *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
@@ -224,4 +232,160 @@ func findCommitID(
 			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
 	}
 	return commitID, nil
+}
+
+func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitSyncStatus")
+	defer span.Finish()
+
+	dbHandler := s.Repository.State().DBHandler
+	response := &api.GetGitSyncStatusResponse{
+		AppStatuses: make(map[string]*api.EnvSyncStatus),
+	}
+	err := dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
+		unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
+		if err != nil {
+			return err
+		}
+
+		syncFailedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.SYNC_FAILED)
+		if err != nil {
+			return err
+		}
+		response.AppStatuses = toApiStatuses(append(unsyncedStatuses, syncFailedStatuses...))
+		return nil
+	})
+	return response, onErr(err)
+}
+
+func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
+	toFill := make(map[string]*api.EnvSyncStatus)
+	for _, currStatus := range statuses {
+		if _, exists := toFill[currStatus.AppName]; !exists {
+			toFill[currStatus.AppName] = &api.EnvSyncStatus{
+				EnvStatus: make(map[string]api.GitSyncStatus),
+			}
+		}
+		var statusToWrite api.GitSyncStatus
+		if currStatus.SyncStatus == db.SYNC_FAILED {
+			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_ERROR
+		} else if currStatus.SyncStatus == db.UNSYNCED {
+			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED
+		} else {
+			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNKNOWN
+		}
+
+		toFill[currStatus.AppName].EnvStatus[currStatus.EnvName] = statusToWrite
+	}
+	return toFill
+}
+
+func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscribe) {
+	s.streamGitSyncStatusInitFunc.Do(func() {
+		ch, unsub := s.Repository.Notify().Subscribe()
+		// Channels obtained from subscribe are by default triggered
+		<-ch
+		go func() {
+			defer unsub()
+			for {
+				select {
+				case <-s.shutdown:
+					return
+				case <-ch:
+
+					s.notify.Notify()
+				}
+			}
+		}()
+	})
+	return s.notify.Subscribe()
+}
+
+func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
+	stream api.GitService_StreamGitSyncStatusServer) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
+	defer span.Finish()
+	ch, unsubscribe := s.subscribeGitSyncStatus()
+	defer unsubscribe()
+	done := stream.Context().Done()
+	for {
+		select {
+		case <-s.shutdown:
+			return nil
+		case <-ch:
+			response, err := s.GetGitSyncStatus(ctx, in)
+			if err != nil {
+				return onErr(err)
+			}
+			if err := stream.Send(response); err != nil {
+				logger.FromContext(ctx).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
+				return onErr(err)
+			}
+		case <-done:
+			return nil
+		}
+	}
+}
+
+func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "RetryFailedEvent")
+	defer span.Finish()
+	dbHandler := s.Repository.State().DBHandler
+	response := &api.RetryFailedEventResponse{}
+	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+		failedEvent, err := dbHandler.DBReadEslFailedEventFromEslVersion(ctx, transaction, in.Eslversion)
+		if err != nil {
+			return err
+		}
+		if failedEvent == nil {
+			return fmt.Errorf("Couldn't find failed event with eslVersion: %d", in.Eslversion)
+		}
+		err = dbHandler.DBWriteEslEventWithJson(ctx, transaction, failedEvent.EventType, failedEvent.EventJson)
+		if err != nil {
+			return err
+		}
+		internal, err := dbHandler.DBReadEslEventInternal(ctx, transaction, false)
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBDeleteFailedEslEvent(ctx, transaction, failedEvent)
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBBulkUpdateAllApps(ctx, transaction, db.TransformerID(internal.EslVersion), db.TransformerID(failedEvent.TransformerEslVersion), db.UNSYNCED)
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBBulkUpdateAllDeployments(ctx, transaction, db.TransformerID(internal.EslVersion), db.TransformerID(failedEvent.TransformerEslVersion))
+		if err != nil {
+			return err
+		}
+		err = repository.MeasureGitSyncStatus(ctx, s.Config.DDMetrics, dbHandler)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("Could not send git sync status metrics to datadog. Error: %v", err)
+		}
+
+		return nil
+	})
+	s.Repository.Notify().Notify() //Notify sync statuses have changed
+	return response, onErr(err)
+}
+
+func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "SkipEslEvent")
+	defer span.Finish()
+
+	dbHandler := s.Repository.State().DBHandler
+
+	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+		failedEvent, err := dbHandler.DBReadEslFailedEventFromEslVersion(ctx, transaction, in.EventEslVersion)
+		if err != nil {
+			return err
+		}
+		if failedEvent == nil {
+			return fmt.Errorf("Couldn't find failed event with eslVersion: %d", in.EventEslVersion)
+		}
+		return dbHandler.DBSkipFailedEslEvent(ctx, transaction, db.TransformerID(in.EventEslVersion))
+	})
+	return &api.SkipEslEventResponse{}, onErr(err)
 }

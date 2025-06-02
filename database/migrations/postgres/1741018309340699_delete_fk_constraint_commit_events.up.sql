@@ -1,0 +1,1 @@
+ALTER TABLE commit_events DROP CONSTRAINT IF EXISTS fk_commit_events_transformer_id;

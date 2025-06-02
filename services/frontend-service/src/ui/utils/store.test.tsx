@@ -21,14 +21,19 @@ import {
     AppDetailsState,
     appendAction,
     DisplayLock,
+    FlushGitSyncStatus,
     FlushRolloutStatus,
     SnackbarStatus,
     UpdateAction,
     updateActions,
+    UpdateAllApplicationLocks,
+    updateAllEnvLocks,
     updateAppDetails,
+    UpdateGitSyncStatus,
     UpdateOverview,
     UpdateRolloutStatus,
     UpdateSnackbar,
+    useGitSyncStatus,
     useLocksConflictingWithActions,
     useLocksSimilarTo,
     useNavigateWithSearchParams,
@@ -36,15 +41,19 @@ import {
     useRolloutStatus,
 } from './store';
 import {
+    AllAppLocks,
     BatchAction,
     Environment,
     EnvironmentGroup,
+    GetAllEnvTeamLocksResponse,
+    GetGitSyncStatusResponse,
     GetOverviewResponse,
     LockBehavior,
     OverviewApplication,
     Priority,
     ReleaseTrainRequest_TargetType,
     RolloutStatus,
+    GitSyncStatus,
     StreamStatusResponse,
     UndeploySummary,
 } from '../../api/api';
@@ -59,11 +68,17 @@ describe('Test useLocksSimilarTo', () => {
         inputAction: BatchAction; // the action we are rendering currently in the sidebar
         expectedLocks: AllLocks;
         OverviewApps: OverviewApplication[];
+        allEnvLocks: GetAllEnvTeamLocksResponse;
+        AppLocks: { [key: string]: AllAppLocks };
     };
 
     const testdata: TestDataStore[] = [
         {
             name: 'empty data',
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {},
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -74,6 +89,7 @@ describe('Test useLocksSimilarTo', () => {
                 },
             },
             OverviewApps: [],
+            AppLocks: {},
             inputEnvGroups: [],
             expectedLocks: {
                 appLocks: [],
@@ -83,6 +99,14 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'one env lock: should not find another lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -93,6 +117,7 @@ describe('Test useLocksSimilarTo', () => {
                 },
             },
             OverviewApps: [],
+            AppLocks: {},
             inputEnvGroups: [
                 {
                     environments: [
@@ -100,11 +125,6 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            appLocks: {},
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -120,6 +140,17 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'two env locks with same ID on different envs: should find the other lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                    staging: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
@@ -130,6 +161,7 @@ describe('Test useLocksSimilarTo', () => {
                 },
             },
             OverviewApps: [],
+            AppLocks: {},
             inputEnvGroups: [
                 {
                     environments: [
@@ -137,21 +169,11 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            appLocks: {},
-                            teamLocks: {},
                         },
                         {
                             name: 'staging',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            appLocks: {},
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -172,12 +194,29 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'env lock and app lock with same ID: deleting the env lock should find the other lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentLock',
                     deleteEnvironmentLock: {
                         environment: 'dev',
                         lockId: 'l1',
+                    },
+                },
+            },
+            AppLocks: {
+                dev: {
+                    appLocks: {
+                        betty: {
+                            locks: [makeLock({ lockId: 'l1' })],
+                        },
                     },
                 },
             },
@@ -189,15 +228,6 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            teamLocks: {},
-                            appLocks: {
-                                betty: {
-                                    locks: [makeLock({ lockId: 'l1' })],
-                                },
-                            },
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -220,6 +250,25 @@ describe('Test useLocksSimilarTo', () => {
         },
         {
             name: 'bug: delete-all button must appear for each entry. 2 Env Locks, 1 App lock exist. 1 Env lock, 1 app lock in cart',
+            allEnvLocks: {
+                allTeamLocks: {
+                    dev: {
+                        teamLocks: {
+                            'test-team': {
+                                locks: [makeLock({ lockId: 'l1' })],
+                            },
+                        },
+                    },
+                },
+                allEnvLocks: {
+                    dev: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                    dev2: {
+                        locks: [makeLock({ lockId: 'l1' })],
+                    },
+                },
+            },
             inputAction: {
                 action: {
                     $case: 'deleteEnvironmentApplicationLock',
@@ -236,6 +285,15 @@ describe('Test useLocksSimilarTo', () => {
                     team: 'test-team',
                 },
             ],
+            AppLocks: {
+                dev: {
+                    appLocks: {
+                        betty: {
+                            locks: [makeLock({ lockId: 'l1' })],
+                        },
+                    },
+                },
+            },
             inputEnvGroups: [
                 {
                     environments: [
@@ -243,29 +301,11 @@ describe('Test useLocksSimilarTo', () => {
                             name: 'dev',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            appLocks: {
-                                betty: {
-                                    locks: [makeLock({ lockId: 'l1' })],
-                                },
-                            },
-                            teamLocks: {
-                                'test-team': {
-                                    locks: [makeLock({ lockId: 'l1' })],
-                                },
-                            },
                         },
                         {
                             name: 'dev2',
                             distanceToUpstream: 0,
                             priority: Priority.UPSTREAM,
-                            locks: {
-                                l1: makeLock({ lockId: 'l1' }),
-                            },
-                            appLocks: {},
-                            teamLocks: {},
                         },
                     ],
                     environmentGroupName: 'group1',
@@ -314,6 +354,8 @@ describe('Test useLocksSimilarTo', () => {
                 lightweightApps: testcase.OverviewApps,
                 environmentGroups: testcase.inputEnvGroups,
             });
+            UpdateAllApplicationLocks.set(testcase.AppLocks);
+            updateAllEnvLocks.set(testcase.allEnvLocks);
             // when
             const actions = renderHook(() => useLocksSimilarTo(testcase.inputAction)).result.current;
             // then
@@ -482,11 +524,132 @@ describe('Rollout Status', () => {
     });
 });
 
+describe('Git Sync Status', () => {
+    type Testcase = {
+        name: string;
+        events: Array<GetGitSyncStatusResponse | { error: true }>;
+        expectedApps: Array<{
+            application: string;
+            environment: string;
+            gitSynStatus: GitSyncStatus | undefined;
+        }>;
+    };
+
+    const testdata: Array<Testcase> = [
+        {
+            name: 'not enabled if empty',
+            events: [],
+
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+                    gitSynStatus: undefined,
+                },
+            ],
+        },
+        {
+            name: 'updates one app',
+            events: [
+                {
+                    appStatuses: {
+                        app1: {
+                            envStatus: {
+                                env1: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                            },
+                        },
+                    },
+                },
+            ],
+
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+
+                    gitSynStatus: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                },
+            ],
+        },
+        {
+            name: 'keep the latest entry per app and environment',
+            events: [
+                {
+                    appStatuses: {
+                        app1: {
+                            envStatus: {
+                                env1: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                            },
+                        },
+                    },
+                },
+                {
+                    appStatuses: {},
+                },
+            ],
+
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+                    gitSynStatus: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
+                },
+            ],
+        },
+        {
+            name: 'flushes the state',
+            events: [
+                {
+                    appStatuses: {
+                        test1: {
+                            envStatus: {
+                                staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                            },
+                        },
+                    },
+                },
+                {
+                    appStatuses: {},
+                },
+                { error: true },
+            ],
+
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+                    gitSynStatus: undefined,
+                },
+            ],
+        },
+    ];
+
+    describe.each(testdata)('with', (testcase) => {
+        it(testcase.name, () => {
+            FlushGitSyncStatus();
+            testcase.events.forEach((ev) => {
+                if ('error' in ev) {
+                    FlushGitSyncStatus();
+                } else {
+                    UpdateGitSyncStatus(ev);
+                }
+            });
+            testcase.expectedApps.forEach((app) => {
+                const syncStatus = renderHook(() =>
+                    useGitSyncStatus((getter) => getter.getAppStatus(app.application, app.environment))
+                );
+                expect(syncStatus.result.current).toEqual(app.gitSynStatus);
+            });
+        });
+    });
+});
+
 describe('Test addAction duplicate detection', () => {
     type TestDataStore = {
         name: string;
         firstAction: BatchAction;
         differentAction: BatchAction;
+        shouldCancel: boolean;
     };
 
     const testdata: TestDataStore[] = [
@@ -500,6 +663,7 @@ describe('Test addAction duplicate detection', () => {
                         lockId: 'foo',
                         message: 'do it',
                         ciLink: '',
+                        suggestedLifeTime: '',
                     },
                 },
             },
@@ -511,9 +675,11 @@ describe('Test addAction duplicate detection', () => {
                         lockId: 'foo',
                         message: 'do it',
                         ciLink: '',
+                        suggestedLifeTime: '',
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'delete environment lock',
@@ -535,6 +701,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'create app lock',
@@ -547,6 +714,7 @@ describe('Test addAction duplicate detection', () => {
                         lockId: 'foo',
                         message: 'do it',
                         ciLink: '',
+                        suggestedLifeTime: '',
                     },
                 },
             },
@@ -559,9 +727,11 @@ describe('Test addAction duplicate detection', () => {
                         lockId: 'foo',
                         message: 'do it',
                         ciLink: '',
+                        suggestedLifeTime: '',
                     },
                 },
             },
+            shouldCancel: true,
         },
         {
             name: 'delete app lock',
@@ -585,6 +755,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: true,
         },
         {
             name: 'create team lock',
@@ -597,6 +768,7 @@ describe('Test addAction duplicate detection', () => {
                         lockId: 'foo',
                         message: 'do it',
                         ciLink: '',
+                        suggestedLifeTime: '',
                     },
                 },
             },
@@ -609,9 +781,11 @@ describe('Test addAction duplicate detection', () => {
                         lockId: 'foo',
                         message: 'do it',
                         ciLink: '',
+                        suggestedLifeTime: '',
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'delete team lock',
@@ -635,6 +809,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'deploy',
@@ -662,6 +837,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: true,
         },
         {
             name: 'undeploy',
@@ -681,6 +857,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
         {
             name: 'prepare undeploy',
@@ -700,6 +877,7 @@ describe('Test addAction duplicate detection', () => {
                     },
                 },
             },
+            shouldCancel: false,
         },
     ];
 
@@ -719,18 +897,18 @@ describe('Test addAction duplicate detection', () => {
             // when
             addAction(testcase.firstAction);
             // then
-            expect(UpdateAction.get().actions.length).toStrictEqual(1);
+            expect(UpdateAction.get().actions.length).toStrictEqual(testcase.shouldCancel ? 0 : 1);
             //and
-            expect(UpdateSnackbar.get().show).toStrictEqual(true);
+            expect(UpdateSnackbar.get().show).toStrictEqual(!testcase.shouldCancel);
 
             // when
             addAction(testcase.differentAction);
             // then
-            expect(UpdateAction.get().actions.length).toStrictEqual(2);
+            expect(UpdateAction.get().actions.length).toStrictEqual(testcase.shouldCancel ? 1 : 2);
             // when
             addAction(testcase.differentAction);
             // then
-            expect(UpdateAction.get().actions.length).toStrictEqual(2);
+            expect(UpdateAction.get().actions.length).toStrictEqual(testcase.shouldCancel ? 0 : 2);
         });
     });
 });
@@ -799,23 +977,45 @@ describe('Test useLocksConflictingWithActions', () => {
     type TestDataStore = {
         name: string;
         actions: BatchAction[];
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         expectedAppLocks: DisplayLock[];
         expectedEnvLocks: DisplayLock[];
         environments: Environment[];
         OverviewApps: OverviewApplication[];
+        AppLocks: {
+            [key: string]: AllAppLocks;
+        };
     };
 
     const testdata: TestDataStore[] = [
         {
             name: 'empty actions empty locks',
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {},
+            },
             actions: [],
             expectedAppLocks: [],
             expectedEnvLocks: [],
             environments: [],
             OverviewApps: [],
+            AppLocks: {},
         },
         {
             name: 'deploy action and related app lock and env lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    dev: {
+                        locks: [
+                            makeLock({
+                                message: 'locked because christmas',
+                                lockId: 'my-env-lock1',
+                            }),
+                        ],
+                    },
+                },
+            },
             actions: [
                 {
                     action: {
@@ -839,12 +1039,12 @@ describe('Test useLocksConflictingWithActions', () => {
             environments: [
                 {
                     name: 'dev',
-                    locks: {
-                        'lock-env-dev': makeLock({
-                            message: 'locked because christmas',
-                            lockId: 'my-env-lock1',
-                        }),
-                    },
+                    distanceToUpstream: 0,
+                    priority: 0,
+                },
+            ],
+            AppLocks: {
+                dev: {
                     appLocks: {
                         app1: {
                             locks: [
@@ -855,11 +1055,8 @@ describe('Test useLocksConflictingWithActions', () => {
                             ],
                         },
                     },
-                    teamLocks: {},
-                    distanceToUpstream: 0,
-                    priority: 0,
                 },
-            ],
+            },
             expectedAppLocks: [
                 makeDisplayLock({
                     lockId: 'app-lock-id',
@@ -878,6 +1075,19 @@ describe('Test useLocksConflictingWithActions', () => {
         },
         {
             name: 'deploy action and unrelated locks',
+            allEnvLocks: {
+                allEnvLocks: {
+                    staging: {
+                        locks: [
+                            makeLock({
+                                message: 'locked because christmas',
+                                lockId: 'my-env-lock1',
+                            }),
+                        ],
+                    },
+                },
+                allTeamLocks: {},
+            },
             OverviewApps: [
                 {
                     name: 'anotherapp',
@@ -890,7 +1100,7 @@ describe('Test useLocksConflictingWithActions', () => {
                         $case: 'deploy',
                         deploy: {
                             environment: 'dev',
-                            application: 'app1',
+                            application: 'app2',
                             version: 1,
                             ignoreAllLocks: false,
                             lockBehavior: LockBehavior.IGNORE,
@@ -901,12 +1111,12 @@ describe('Test useLocksConflictingWithActions', () => {
             environments: [
                 {
                     name: 'staging', // this lock differs by stage
-                    locks: {
-                        'lock-env-dev': makeLock({
-                            message: 'locked because christmas',
-                            lockId: 'my-env-lock1',
-                        }),
-                    },
+                    distanceToUpstream: 0,
+                    priority: 0,
+                },
+            ],
+            AppLocks: {
+                staging: {
                     appLocks: {
                         anotherapp: {
                             locks: [
@@ -917,11 +1127,8 @@ describe('Test useLocksConflictingWithActions', () => {
                             ],
                         },
                     },
-                    teamLocks: {},
-                    distanceToUpstream: 0,
-                    priority: 0,
                 },
-            ],
+            },
             expectedAppLocks: [],
             expectedEnvLocks: [],
         },
@@ -942,7 +1149,8 @@ describe('Test useLocksConflictingWithActions', () => {
                     },
                 ],
             });
-
+            updateAllEnvLocks.set(testcase.allEnvLocks);
+            UpdateAllApplicationLocks.set(testcase.AppLocks);
             // when
             const actualLocks = renderHook(() => useLocksConflictingWithActions()).result.current;
             // then
@@ -1116,9 +1324,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
-                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1168,6 +1373,7 @@ describe('Test Calculate Release Difference', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     version: 12,
@@ -1180,6 +1386,7 @@ describe('Test Calculate Release Difference', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                         },
@@ -1195,6 +1402,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             inputOverview: {
@@ -1204,9 +1412,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: 'exampleEnv',
-                                locks: {},
-                                teamLocks: {},
-                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1251,6 +1456,7 @@ describe('Test Calculate Release Difference', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     version: 12,
@@ -1263,6 +1469,7 @@ describe('Test Calculate Release Difference', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     version: 15,
@@ -1275,6 +1482,7 @@ describe('Test Calculate Release Difference', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                         },
@@ -1290,6 +1498,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             inputOverview: {
@@ -1299,9 +1508,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
-                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1348,6 +1554,7 @@ describe('Test Calculate Release Difference', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     version: 12,
@@ -1360,6 +1567,7 @@ describe('Test Calculate Release Difference', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                         },
@@ -1375,6 +1583,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             inputOverview: {
@@ -1384,9 +1593,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                teamLocks: {},
-                                appLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },
@@ -1431,6 +1637,7 @@ describe('Test Calculate Release Difference', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     version: 12,
@@ -1443,6 +1650,7 @@ describe('Test Calculate Release Difference', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                         },
@@ -1458,6 +1666,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             inputOverview: {
@@ -1467,9 +1676,6 @@ describe('Test Calculate Release Difference', () => {
                         environments: [
                             {
                                 name: envName,
-                                locks: {},
-                                appLocks: {},
-                                teamLocks: {},
                                 distanceToUpstream: 0,
                                 priority: Priority.PROD,
                             },

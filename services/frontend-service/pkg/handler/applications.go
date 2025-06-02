@@ -79,11 +79,12 @@ func (s Server) handlePutApplicationLock(w http.ResponseWriter, req *http.Reques
 	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
 		{Action: &api.BatchAction_CreateEnvironmentApplicationLock{
 			CreateEnvironmentApplicationLock: &api.CreateEnvironmentApplicationLockRequest{
-				Environment: environment,
-				Application: application,
-				LockId:      lockID,
-				Message:     body.Message,
-				CiLink:      body.CiLink,
+				Environment:       environment,
+				Application:       application,
+				LockId:            lockID,
+				Message:           body.Message,
+				CiLink:            body.CiLink,
+				SuggestedLifeTime: &body.SuggestedLifeTime,
 			},
 		}},
 	}})
@@ -170,6 +171,45 @@ func (s Server) handleApplicationReleaseManifests(w http.ResponseWriter, req *ht
 	_, err = w.Write(encoded)
 	if err != nil {
 		logger.FromContext(req.Context()).Error("GetManifests: writing response")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+}
+
+func (s Server) handleAPIEnvironmentApplications(w http.ResponseWriter, req *http.Request, environment, tail string) {
+	application, tail := xpath.Shift(tail)
+	if application == "" {
+		http.Error(w, "missing application ID", http.StatusNotFound)
+		return
+	}
+
+	function, tail := xpath.Shift(tail)
+	switch function {
+	case "commit":
+		s.handleAPIEnvironmentApplicationCommit(w, req, environment, application, tail)
+	default:
+		http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
+	}
+}
+
+func (s Server) handleAPIEnvironmentApplicationCommit(w http.ResponseWriter, req *http.Request, environment, application, tail string) {
+	resp, err := s.CommitDeploymentsClient.GetDeploymentCommitInfo(req.Context(), &api.GetDeploymentCommitInfoRequest{
+		Environment: environment,
+		Application: application,
+	})
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+	encoded, err := json.Marshal(resp)
+	if err != nil {
+		logger.FromContext(req.Context()).Error("GetDeploymentCommitInfo: encoding response")
+		http.Error(w, "GetDeploymentCommitInfo: encoding response", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "applications/json")
+	_, err = w.Write(encoded)
+	if err != nil {
+		logger.FromContext(req.Context()).Error("GetDeploymentCommitInfo: writing response")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }

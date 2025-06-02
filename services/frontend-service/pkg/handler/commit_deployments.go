@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -27,7 +28,7 @@ import (
 	json "google.golang.org/protobuf/encoding/protojson"
 )
 
-func (s Server) handleCommitDeployments(w http.ResponseWriter, r *http.Request, tail string) {
+func (s Server) handleCommitDeployments(ctx context.Context, w http.ResponseWriter, r *http.Request, tail string) {
 	commitHash, tail := xpath.Shift(tail)
 	if commitHash == "" {
 		http.Error(w, "missing commit hash", http.StatusBadRequest)
@@ -37,7 +38,6 @@ func (s Server) handleCommitDeployments(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "invalid path", http.StatusNotFound)
 		return
 	}
-	ctx := r.Context()
 	resp, err := s.CommitDeploymentsClient.GetCommitDeploymentInfo(ctx, &api.GetCommitDeploymentInfoRequest{
 		CommitId: commitHash,
 	})
@@ -46,13 +46,13 @@ func (s Server) handleCommitDeployments(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, fmt.Sprintf("failed to get commit deployments from server: %v", err), http.StatusInternalServerError)
 		return
 	}
-	json, err := json.Marshal(resp)
+	jsonResponse, err := json.Marshal(resp)
 	if err != nil {
 		logger.FromContext(ctx).Error("failed to get commit deployments from server: failed to marshal response", zap.Error(err))
 		http.Error(w, fmt.Sprintf("failed to marshal response: %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(json)
+	_, _ = w.Write(jsonResponse)
 	_, _ = w.Write([]byte("\n"))
 }

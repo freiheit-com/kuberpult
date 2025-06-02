@@ -16,15 +16,18 @@ Copyright freiheit.com*/
 import React, { useMemo } from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
 import {
+    DisplayLock,
     searchCustomFilter,
     sortLocks,
+    useAllApplicationLocks,
+    useAllEnvLocks,
     useApplications,
-    useEnvironments,
     useGlobalLoadingState,
     useTeamLocks,
 } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
+import { Locks } from '../../../api/api';
 
 const applicationFieldHeaders = [
     'Date',
@@ -34,68 +37,84 @@ const applicationFieldHeaders = [
     'Message',
     'Author Name',
     'Author Email',
+    'Suggested Lifetime',
     '',
 ];
 
-const teamFieldHeaders = ['Date', 'Environment', 'Team', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''];
+const teamFieldHeaders = [
+    'Date',
+    'Environment',
+    'Team',
+    'Lock Id',
+    'Message',
+    'Author Name',
+    'Author Email',
+    'Suggested Lifetime',
+    '',
+];
 
-const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''];
+const environmentFieldHeaders = [
+    'Date',
+    'Environment',
+    'Lock Id',
+    'Message',
+    'Author Name',
+    'Author Email',
+    'Suggested Lifetime',
+    '',
+];
 export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');
-    const envs = useEnvironments();
     const allApps = useApplications();
+    const allAppLocks = useAllApplicationLocks((map) => map);
+    const allEnvLocks = useAllEnvLocks((map) => map.allEnvLocks);
     let teamLocks = useTeamLocks(allApps);
-    const envLocks = useMemo(
-        () =>
-            sortLocks(
-                Object.values(envs)
-                    .map((env) =>
-                        Object.values(env.locks).map((lock) => ({
-                            date: lock.createdAt,
-                            environment: env.name,
-                            lockId: lock.lockId,
-                            message: lock.message,
-                            authorName: lock.createdBy?.name,
-                            authorEmail: lock.createdBy?.email,
-                        }))
-                    )
-                    .flat(),
-                'oldestToNewest'
-            ),
-        [envs]
-    );
-
+    const envLocks = useMemo(() => {
+        const allEnvLocksDisplay: DisplayLock[] = [];
+        Object.entries(allEnvLocks).forEach(([env, envLocks]): void => {
+            for (const lock of envLocks?.locks ?? []) {
+                allEnvLocksDisplay.push({
+                    date: lock.createdAt,
+                    environment: env,
+                    lockId: lock.lockId,
+                    message: lock.message,
+                    authorName: lock.createdBy?.name,
+                    authorEmail: lock.createdBy?.email,
+                    ciLink: lock.ciLink,
+                    suggestedLifetime: lock.suggestedLifetime,
+                });
+            }
+        });
+        return sortLocks(allEnvLocksDisplay.flat(), 'oldestToNewest');
+    }, [allEnvLocks]);
     teamLocks = useMemo(() => sortLocks(teamLocks, 'oldestToNewest'), [teamLocks]);
-
-    //Goes through all envs and all apps and checks for locks for each app
-    const appLocks = useMemo(
-        () =>
-            sortLocks(
-                Object.values(envs)
-                    .map((env) =>
-                        allApps
-                            .map((app) =>
-                                env.appLocks[app.name]
-                                    ? env.appLocks[app.name].locks.map((lock) => ({
-                                          date: lock.createdAt,
-                                          environment: env.name,
-                                          application: app.name,
-                                          lockId: lock.lockId,
-                                          message: lock.message,
-                                          authorName: lock.createdBy?.name,
-                                          authorEmail: lock.createdBy?.email,
-                                      }))
-                                    : []
-                            )
-                            .flat()
-                    )
-                    .flat()
-                    .filter((lock) => searchCustomFilter(appNameParam, lock.application)),
-                'oldestToNewest'
-            ),
-        [appNameParam, envs, allApps]
-    );
+    const appLocks = useMemo(() => {
+        const allAppLocksDisplay: DisplayLock[] = [];
+        const map = new Map(Object.entries(allAppLocks));
+        map.forEach((appLocksForEnv, env): void => {
+            const currAppLocks = new Map<string, Locks>(Object.entries(appLocksForEnv.appLocks));
+            currAppLocks.forEach((currentAppInfo, app) => {
+                currentAppInfo.locks.map((lock) =>
+                    allAppLocksDisplay.push({
+                        date: lock.createdAt,
+                        environment: env,
+                        application: app,
+                        lockId: lock.lockId,
+                        message: lock.message,
+                        authorName: lock.createdBy?.name,
+                        authorEmail: lock.createdBy?.email,
+                        ciLink: lock.ciLink,
+                        suggestedLifetime: lock.suggestedLifetime,
+                    })
+                );
+            });
+        });
+        return sortLocks(
+            allAppLocksDisplay.flat().filter((lock) => searchCustomFilter(appNameParam, lock.application)),
+            'oldestToNewest'
+        );
+    }, [allAppLocks, appNameParam]);
 
     const element = useGlobalLoadingState();
     if (element) {
@@ -103,7 +122,12 @@ export const LocksPage: React.FC = () => {
     }
     return (
         <div>
-            <TopAppBar showAppFilter={true} showTeamFilter={false} showWarningFilter={false} />
+            <TopAppBar
+                showAppFilter={true}
+                showTeamFilter={false}
+                showWarningFilter={false}
+                showGitSyncStatus={false}
+            />
             <main className="main-content">
                 <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
                 <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />

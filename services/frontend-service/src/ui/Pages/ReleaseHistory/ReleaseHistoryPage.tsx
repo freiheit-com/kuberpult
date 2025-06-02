@@ -39,7 +39,12 @@ export const ReleaseHistoryPage: React.FC = () => {
     }
     return (
         <div>
-            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+            <TopAppBar
+                showAppFilter={false}
+                showTeamFilter={false}
+                showWarningFilter={false}
+                showGitSyncStatus={false}
+            />
             <main className="main-content">
                 <Releases app={app_name} />
             </main>

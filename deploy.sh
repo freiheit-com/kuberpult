@@ -13,11 +13,11 @@ NAMESPACE="$2"
 URL="$3"
 
 cd "$ROOT"
-for env in $(ls); do
-  if $(test -d "$env"/applications); then
+for env in *; do
+  if test -d "$env"/applications; then
     cd "$env"/applications
-    for appname in $(ls); do
-      if $(test -d $appname); then
+    for appname in *; do
+      if test -d "$appname"; then
         echo "Applying manifest for $appname ..." > /dev/stderr
         manifestsDir="environments/$env/applications/$appname/manifests"
         cat << EOF

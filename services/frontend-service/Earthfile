@@ -29,7 +29,7 @@ lint:
     DO go-build+LINT
     
 docker:
-    FROM alpine:3.18
+    FROM alpine:3.21
     ARG UID=1000
     ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ARG tag="local"
@@ -54,6 +54,7 @@ deps-ui:
 
     COPY ../../+deps/buf /usr/bin/buf
     COPY ../../pkg+artifacts/pkg/api/v1 api
+    COPY ../../pkg+artifacts/pkg/publicapi publicapi
     COPY src src
     COPY public public
     RUN buf generate --path api --timeout 5m

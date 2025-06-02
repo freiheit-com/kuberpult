@@ -15,24 +15,31 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { createStore } from 'react-use-sub';
 import {
+    AllAppLocks,
+    AllTeamLocks,
     BatchAction,
     BatchRequest,
     Environment,
+    EnvironmentConfig,
     EnvironmentGroup,
-    GetFrontendConfigResponse,
-    GetOverviewResponse,
-    Priority,
-    Release,
-    StreamStatusResponse,
-    Warning,
-    GetGitTagsResponse,
-    RolloutStatus,
+    GetAppDetailsResponse,
     GetCommitInfoResponse,
     GetEnvironmentConfigResponse,
-    GetReleaseTrainPrognosisResponse,
     GetFailedEslsResponse,
-    GetAppDetailsResponse,
+    GetFrontendConfigResponse,
+    GetGitSyncStatusResponse,
+    GetGitTagsResponse,
+    GetManifestsResponse,
+    GetOverviewResponse,
+    GetReleaseTrainPrognosisResponse,
+    GitSyncStatus,
+    Locks,
     OverviewApplication,
+    Priority,
+    Release,
+    RolloutStatus,
+    StreamStatusResponse,
+    Warning,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -40,7 +47,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useIsAuthenticated } from '@azure/msal-react';
 import { useApi } from './GrpcApi';
 import { AuthHeader } from './AzureAuthProvider';
-import { LoginPage, isTokenValid } from '../utils/DexAuthProvider';
+import { isTokenValid, LoginPage } from '../utils/DexAuthProvider';
 import { LoadingStateSpinner } from '../utils/LoadingStateSpinner';
 
 // see maxBatchActions in batch.go
@@ -55,6 +62,8 @@ export interface DisplayLock {
     lockId: string;
     authorName?: string;
     authorEmail?: string;
+    ciLink: string;
+    suggestedLifetime: string;
 }
 
 export const displayLockUniqueId = (displayLock: DisplayLock): string =>
@@ -75,10 +84,25 @@ const emptyOverview: EnhancedOverview = {
     branch: '',
     manifestRepoUrl: '',
 };
+
 const [useOverview, UpdateOverview_] = createStore(emptyOverview);
 export const UpdateOverview = UpdateOverview_; // we do not want to export "useOverview". The store.tsx should act like a facade to the data.
 
 export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => loaded);
+
+export const emptyAppLocks: { [key: string]: AllAppLocks } = {};
+export const [useAllApplicationLocks, UpdateAllApplicationLocks] = createStore<{ [key: string]: AllAppLocks }>(
+    emptyAppLocks
+);
+export const emptyEnvLocks: { [key: string]: Locks } = {};
+export const emptyTeamLocks: { [key: string]: AllTeamLocks } = {};
+export const [useAllEnvLocks, updateAllEnvLocks] = createStore<{
+    allEnvLocks: { [key: string]: Locks };
+    allTeamLocks: { [key: string]: AllTeamLocks };
+}>({
+    allEnvLocks: emptyEnvLocks,
+    allTeamLocks: emptyTeamLocks,
+});
 
 type TagsResponse = {
     response: GetGitTagsResponse;
@@ -86,6 +110,13 @@ type TagsResponse = {
 };
 
 export enum CommitInfoState {
+    LOADING,
+    READY,
+    ERROR,
+    NOTFOUND,
+}
+
+export enum ManifestRequestState {
     LOADING,
     READY,
     ERROR,
@@ -105,10 +136,16 @@ export type CommitInfoResponse = {
     commitInfoReady: CommitInfoState;
 };
 
+export type ManifestResponse = {
+    response: GetManifestsResponse | undefined;
+    manifestInfoReady: ManifestRequestState;
+};
+
 export type AppDetailsResponse = {
     details: GetAppDetailsResponse | undefined;
     appDetailState: AppDetailsState;
     updatedAt: Date | undefined;
+    errorMessage: string | undefined;
 };
 
 export enum FailedEslsState {
@@ -137,10 +174,10 @@ const emptyBatch: BatchRequest & { [key: string]: unknown } = { actions: [] };
 
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
-export const refreshTags = (): void => {
+export const refreshTags = (authHeader: AuthHeader): void => {
     const api = useApi;
     api.gitService()
-        .GetGitTags({})
+        .GetGitTags({}, authHeader)
         .then((result: GetGitTagsResponse) => {
             updateTag.set({ response: result, tagsReady: true });
         })
@@ -164,6 +201,7 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
         details: details[appName] ? details[appName].details : undefined,
         appDetailState: AppDetailsState.LOADING,
         updatedAt: undefined,
+        errorMessage: '',
     };
     updateAppDetails.set(details);
     useApi
@@ -171,7 +209,12 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
         .GetAppDetails({ appName: appName }, authHeader)
         .then((result: GetAppDetailsResponse) => {
             const d = updateAppDetails.get();
-            d[appName] = { details: result, appDetailState: AppDetailsState.READY, updatedAt: new Date(Date.now()) };
+            d[appName] = {
+                details: result,
+                appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
+                errorMessage: '',
+            };
             updateAppDetails.set(d);
         })
         .catch((e) => {
@@ -181,12 +224,14 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
                     details: undefined,
                     appDetailState: AppDetailsState.NOTFOUND,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: e.message,
                 };
             } else {
                 details[appName] = {
                     details: undefined,
                     appDetailState: AppDetailsState.ERROR,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: e.message,
                 };
             }
             updateAppDetails.set(details);
@@ -214,17 +259,42 @@ export const getCommitInfo = (commitHash: string, pageNumber: number, authHeader
             }
         });
 };
+
+export const [useManifestInfo, updateManifestInfo] = createStore<ManifestResponse>({
+    response: undefined,
+    manifestInfoReady: ManifestRequestState.LOADING,
+});
+export const getManifest = (applicationName: string, release: string, authHeader: AuthHeader): void => {
+    useApi
+        .versionService()
+        .GetManifests({ application: applicationName, release: release }, authHeader)
+        .then((result: GetManifestsResponse) => {
+            updateManifestInfo.set({ response: result, manifestInfoReady: ManifestRequestState.READY });
+        })
+        .catch((e) => {
+            const GrpcErrorNotFound = 5;
+            if (e.code === GrpcErrorNotFound) {
+                updateManifestInfo.set({ response: undefined, manifestInfoReady: ManifestRequestState.NOTFOUND });
+            } else {
+                showSnackbarError(e.message);
+                updateManifestInfo.set({ response: undefined, manifestInfoReady: ManifestRequestState.ERROR });
+            }
+        });
+};
 export const [useCommitInfo, updateCommitInfo] = createStore<CommitInfoResponse>({
     response: undefined,
     commitInfoReady: CommitInfoState.LOADING,
 });
 
-export const getFailedEsls = (authHeader: AuthHeader): void => {
+export const getFailedEsls = (authHeader: AuthHeader, pageNumber: number): void => {
     useApi
         .eslService()
-        .GetFailedEsls({}, authHeader)
+        .GetFailedEsls({ pageNumber: pageNumber }, authHeader)
         .then((result: GetFailedEslsResponse) => {
-            updateFailedEsls.set({ response: result, failedEslsReady: FailedEslsState.READY });
+            const requestResult: GetFailedEslsResponse = structuredClone(result);
+            const oldEvents = updateFailedEsls.get().response?.failedEsls.slice() ?? [];
+            requestResult.failedEsls = oldEvents.concat(requestResult.failedEsls).slice();
+            updateFailedEsls.set({ response: requestResult, failedEslsReady: FailedEslsState.READY });
         })
         .catch((e) => {
             const GrpcErrorNotFound = 3;
@@ -236,6 +306,24 @@ export const getFailedEsls = (authHeader: AuthHeader): void => {
             }
         });
 };
+
+export const removeFromFailedEsls = (eslversion: number): void => {
+    const r = updateFailedEsls.get();
+
+    const newFailed = updateFailedEsls
+        .get()
+        .response?.failedEsls.filter((curr) => curr.transformerEslVersion !== eslversion);
+    if (!r.response || !newFailed) {
+        return;
+    }
+
+    const newResponse: GetFailedEslsResponse = {
+        failedEsls: newFailed,
+        loadMore: r.response.loadMore,
+    };
+    updateFailedEsls.set({ failedEslsReady: r.failedEslsReady, response: newResponse });
+};
+
 export const [useFailedEsls, updateFailedEsls] = createStore<FailedEslsResponse>({
     response: undefined,
     failedEslsReady: FailedEslsState.LOADING,
@@ -450,7 +538,11 @@ export const addAction = (action: BatchAction): void => {
 
             break;
     }
-    if (isDuplicate) {
+
+    const shouldCancel = ['deploy', 'createEnvironmentApplicationLock', 'deleteEnvironmentApplicationLock'];
+    if (isDuplicate && shouldCancel.includes(action.action?.$case || '')) {
+        deleteAction(action);
+    } else if (isDuplicate) {
         showSnackbarSuccess('This action was already added.');
     } else {
         UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
@@ -554,20 +646,23 @@ export const useEnvironments = (): Environment[] =>
  */
 export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
-export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
-    Object.values(useEnvironments())
+export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] => {
+    const allTeamLocks = useAllEnvLocks((map) => map.allTeamLocks);
+    return Object.keys(allTeamLocks)
         .map((env) =>
             allApps
                 .map((app) =>
-                    env.teamLocks[app.team]
-                        ? env.teamLocks[app.team].locks.map((lock) => ({
+                    allTeamLocks[env].teamLocks[app.team]
+                        ? allTeamLocks[env].teamLocks[app.team].locks.map((lock) => ({
                               date: lock.createdAt,
-                              environment: env.name,
+                              environment: env,
                               team: app.team,
                               lockId: lock.lockId,
                               message: lock.message,
                               authorName: lock.createdBy?.name,
                               authorEmail: lock.createdBy?.email,
+                              ciLink: lock.ciLink,
+                              suggestedLifetime: lock.suggestedLifetime,
                           }))
                         : []
                 )
@@ -582,27 +677,30 @@ export const useTeamLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
                         t.lockId === value.lockId && t.team === value.team && t.environment === value.environment
                 )
         );
+};
 
-export const useAppLocks = (allApps: OverviewApplication[]): DisplayLock[] =>
-    Object.values(useEnvironments())
-        .map((env) =>
-            allApps
-                .map((app) =>
-                    env.appLocks[app.name]
-                        ? env.appLocks[app.name].locks.map((lock) => ({
-                              date: lock.createdAt,
-                              environment: env.name,
-                              application: app.name,
-                              lockId: lock.lockId,
-                              message: lock.message,
-                              authorName: lock.createdBy?.name,
-                              authorEmail: lock.createdBy?.email,
-                          }))
-                        : []
-                )
-                .flat()
-        )
-        .flat();
+export const useAppLocks = (allAppLocks: Map<string, AllAppLocks>): DisplayLock[] => {
+    const allAppLocksDisplay: DisplayLock[] = [];
+    allAppLocks.forEach((appLocksForEnv, env): void => {
+        const currAppLocks = new Map<string, Locks>(Object.entries(appLocksForEnv.appLocks));
+        currAppLocks.forEach((currentAppInfo, app) => {
+            currentAppInfo.locks.map((lock) =>
+                allAppLocksDisplay.push({
+                    date: lock.createdAt,
+                    environment: env,
+                    application: app,
+                    lockId: lock.lockId,
+                    message: lock.message,
+                    authorName: lock.createdBy?.name,
+                    authorEmail: lock.createdBy?.email,
+                    ciLink: lock.ciLink,
+                    suggestedLifetime: lock.suggestedLifetime,
+                })
+            );
+        });
+    });
+    return allAppLocksDisplay;
+};
 /**
  * returns the classname according to the priority of an environment, used to color environments
  */
@@ -661,28 +759,34 @@ export interface DisplayApplicationLock {
 
 export const useDisplayApplicationLocks = (appName: string): DisplayApplicationLock[] => {
     const envGroups = useEnvironmentGroups();
-    const finalLocks = useMemo(() => {
+    const allAppLocks = useAllApplicationLocks((map) => map);
+    const appLocks = useAppLocks(new Map(Object.entries(allAppLocks)));
+    return useMemo(() => {
         const finalLocks: DisplayApplicationLock[] = [];
         Object.values(envGroups).forEach((envGroup) => {
-            Object.values(envGroup.environments).forEach((env) =>
-                env.appLocks[appName]
-                    ? Object.values(env.appLocks[appName].locks).forEach((lock) => {
-                          finalLocks.push({
+            Object.values(envGroup.environments).forEach((env: Environment) =>
+                appLocks.forEach((currentLock) =>
+                    currentLock.application &&
+                    currentLock.application === appName &&
+                    currentLock.environment === env.name
+                        ? finalLocks.push({
                               lock: {
-                                  date: lock.createdAt,
+                                  date: currentLock.date,
                                   application: appName,
                                   environment: env.name,
-                                  lockId: lock.lockId,
-                                  message: lock.message,
-                                  authorName: lock.createdBy?.name,
-                                  authorEmail: lock.createdBy?.email,
+                                  lockId: currentLock.lockId,
+                                  message: currentLock.message,
+                                  authorName: currentLock.authorName,
+                                  authorEmail: currentLock.authorEmail,
+                                  ciLink: currentLock.ciLink,
+                                  suggestedLifetime: currentLock.suggestedLifetime,
                               },
                               application: appName,
                               environment: env,
                               environmentGroup: envGroup,
-                          });
-                      })
-                    : []
+                          })
+                        : []
+                )
             );
         });
         finalLocks.sort((a: DisplayApplicationLock, b: DisplayApplicationLock) => {
@@ -691,8 +795,7 @@ export const useDisplayApplicationLocks = (appName: string): DisplayApplicationL
             return 0;
         });
         return finalLocks;
-    }, [appName, envGroups]);
-    return finalLocks;
+    }, [appName, envGroups, appLocks]);
 };
 
 export const useLocksConflictingWithActions = (): AllLocks => {
@@ -748,18 +851,12 @@ export const useLocksConflictingWithActions = (): AllLocks => {
 
 // return env lock IDs from given env
 export const useFilteredEnvironmentLockIDs = (envName: string): string[] =>
-    useEnvironments()
-        .filter((env) => envName === '' || env.name === envName)
-        .map((env) => Object.values(env.locks))
-        .flat()
-        .map((lock) => lock.lockId);
+    (useAllEnvLocks((map) => map.allEnvLocks)[envName]?.locks ?? []).map((lock) => lock.lockId);
 
 export const useEnvironmentLock = (lockId: string): DisplayLock => {
-    const envs = useEnvironments();
-    for (let i = 0; i < envs.length; i++) {
-        const env = envs[i];
-        for (const locksKey in env.locks) {
-            const lock = env.locks[locksKey];
+    const envLocks = useAllEnvLocks((map) => map.allEnvLocks);
+    for (const env in envLocks) {
+        for (const lock of envLocks[env]?.locks ?? []) {
             if (lock.lockId === lockId) {
                 return {
                     date: lock.createdAt,
@@ -767,7 +864,9 @@ export const useEnvironmentLock = (lockId: string): DisplayLock => {
                     lockId: lock.lockId,
                     authorName: lock.createdBy?.name,
                     authorEmail: lock.createdBy?.email,
-                    environment: env.name,
+                    environment: env,
+                    ciLink: lock.ciLink,
+                    suggestedLifetime: lock.suggestedLifetime,
                 };
             }
         }
@@ -793,21 +892,23 @@ export type AllLocks = {
 };
 
 export const useAllLocks = (): AllLocks => {
-    const envs = useEnvironments();
     const allApps = useApplications();
+    const allAppLocks = useAllApplicationLocks((map) => map);
+    const allEnvLocks = useAllEnvLocks((map) => map.allEnvLocks);
     const teamLocks = useTeamLocks(allApps);
     const environmentLocks: DisplayLock[] = [];
-    const appLocks = useAppLocks(allApps);
-    envs.forEach((env: Environment) => {
-        for (const locksKey in env.locks) {
-            const lock = env.locks[locksKey];
+    const appLocks = useAppLocks(new Map(Object.entries(allAppLocks)));
+    Object.keys(allEnvLocks).forEach((env: string) => {
+        for (const lock of allEnvLocks[env]?.locks ?? []) {
             const displayLock: DisplayLock = {
                 lockId: lock.lockId,
                 date: lock.createdAt,
-                environment: env.name,
+                environment: env,
                 message: lock.message,
                 authorName: lock.createdBy?.name,
                 authorEmail: lock.createdBy?.email,
+                ciLink: lock.ciLink,
+                suggestedLifetime: lock.suggestedLifetime,
             };
             environmentLocks.push(displayLock);
         }
@@ -950,6 +1051,24 @@ export const useRelease = (application: string, version: number): Release | unde
     if (!appDetails || appDetails.appDetailState !== AppDetailsState.READY) return undefined;
 
     return appDetails.details ? appDetails.details.application?.releases.find((r) => r.version === version) : undefined;
+};
+
+export const useReleaseOrGet = (
+    application: string,
+    version: number,
+    authHeader: AuthHeader,
+    authReady: boolean
+): Release | undefined => {
+    const release = useRelease(application, version);
+    if (release === undefined && authReady) {
+        getAppDetails(application, authHeader);
+        const details = updateAppDetails.get();
+        const appDetails = details[application];
+        return appDetails.details
+            ? appDetails.details.application?.releases.find((r) => r.version === version)
+            : undefined;
+    }
+    return release;
 };
 
 export const useReleaseOrLog = (application: string, version: number): Release | undefined => {
@@ -1169,16 +1288,32 @@ type RolloutStatusStore = {
     };
 };
 
-const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({ enabled: false, applications: {} });
-
-class RolloutStatusGetter {
+export const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({
+    enabled: false,
+    applications: {},
+});
+export class RolloutStatusGetter {
     private readonly store: RolloutStatusStore;
+
+    private readonly environmentPriorities: RolloutStatus[] = [
+        // Error is not recoverable by waiting and requires manual intervention
+        RolloutStatus.ROLLOUT_STATUS_ERROR,
+
+        // These states may resolve by waiting longer
+        RolloutStatus.ROLLOUT_STATUS_PROGRESSING,
+        RolloutStatus.ROLLOUT_STATUS_UNHEALTHY,
+        RolloutStatus.ROLLOUT_STATUS_PENDING,
+        RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
+
+        // This is the only successful state
+        RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+    ];
 
     constructor(store: RolloutStatusStore) {
         this.store = store;
     }
 
-    getAppStatus(
+    public getAppStatus(
         application: string,
         applicationVersion: number | undefined,
         environment: string
@@ -1190,6 +1325,7 @@ class RolloutStatusGetter {
         if (statusPerEnv === undefined) {
             return undefined;
         }
+
         const status = statusPerEnv[environment];
         if (status === undefined) {
             return undefined;
@@ -1200,10 +1336,79 @@ class RolloutStatusGetter {
         }
         return status.rolloutStatus;
     }
+
+    getAllAppStatusForAAEnv(
+        application: string,
+        applicationVersion: number | undefined,
+        parentEnvironmentName: string,
+        config: EnvironmentConfig | undefined
+    ): [string, RolloutStatus | undefined][] {
+        if (!IsAAEnvironment(config)) {
+            return [];
+        }
+        const statuses: [string, RolloutStatus | undefined][] = [];
+        config?.argoConfigs?.configs.forEach((current) => {
+            const currentConcreteEnvironmentName =
+                config.argoConfigs?.commonEnvPrefix + '-' + parentEnvironmentName + '-' + current.concreteEnvName;
+
+            statuses.push([
+                currentConcreteEnvironmentName,
+                this.getAppStatus(application, applicationVersion, currentConcreteEnvironmentName),
+            ]);
+        });
+        return statuses;
+    }
+    getMostInterestingStatusAAEnv(
+        application: string,
+        applicationVersion: number | undefined,
+        parentEnvironmentName: string,
+        config: EnvironmentConfig | undefined
+    ): RolloutStatus | undefined {
+        const statuses = this.getAllAppStatusForAAEnv(application, applicationVersion, parentEnvironmentName, config);
+
+        if (statuses.length === 0 || statuses.filter((curr) => curr[1] !== undefined).length === 0) {
+            return undefined;
+        }
+
+        let mostInteresting: RolloutStatus = RolloutStatus.ROLLOUT_STATUS_SUCCESFUL;
+
+        statuses.forEach((curr) => {
+            const currRolloutStatus = curr[1] ? curr[1] : RolloutStatus.ROLLOUT_STATUS_UNKNOWN;
+
+            if (this.getStatusPriority(mostInteresting) > this.getStatusPriority(currRolloutStatus)) {
+                mostInteresting = currRolloutStatus;
+            }
+        });
+        return mostInteresting;
+    }
+
+    private getStatusPriority = (status: RolloutStatus): RolloutStatus => {
+        const idx = this.environmentPriorities.indexOf(status);
+        if (idx === -1) {
+            return this.environmentPriorities.length;
+        }
+        return idx;
+    };
 }
+
+export const IsAAEnvironment = (config: EnvironmentConfig | undefined): boolean =>
+    config !== undefined && config.argoConfigs !== undefined && config.argoConfigs.configs.length > 1;
 
 export const useRolloutStatus = <T,>(f: (getter: RolloutStatusGetter) => T): T =>
     useEntireRolloutStatus((data) => f(new RolloutStatusGetter(data)));
+
+export const useRolloutStatusAAEnv = (
+    application: string,
+    applicationVersion: number | undefined,
+    parentEnvironmentName: string,
+    config: EnvironmentConfig | undefined
+): [string, RolloutStatus | undefined][] =>
+    new RolloutStatusGetter(useEntireRolloutStatus((m) => m)).getAllAppStatusForAAEnv(
+        application,
+        applicationVersion,
+        parentEnvironmentName,
+        config
+    );
 
 export const UpdateRolloutStatus = (ev: StreamStatusResponse): void => {
     rolloutStatus.set((data: RolloutStatusStore) => ({
@@ -1223,9 +1428,21 @@ export const invalidateAppDetailsForApp = (appName: string): void => {
         appDetailState: AppDetailsState.NOTREQUESTED,
         details: undefined,
         updatedAt: undefined,
+        errorMessage: undefined,
     };
     updateAppDetails.set(details);
 };
+
+export const InvalidateAppLocks = (envName: string, appName: string, lockId: string): void => {
+    const appLockDetails = UpdateAllApplicationLocks.get();
+
+    appLockDetails[envName].appLocks[appName].locks = appLockDetails[envName].appLocks[appName].locks.filter(
+        (currLock) => lockId !== currLock.lockId
+    );
+
+    UpdateAllApplicationLocks.set(appLockDetails);
+};
+
 export const EnableRolloutStatus = (): void => {
     rolloutStatus.set({ enabled: true });
 };
@@ -1234,10 +1451,14 @@ export const FlushRolloutStatus = (): void => {
     rolloutStatus.set({ enabled: false, applications: {} });
 };
 
-export const GetEnvironmentConfigPretty = (environmentName: string): Promise<string> =>
+export const FlushGitSyncStatus = (): void => {
+    gitSyncStatus.set({ enabled: false, response: undefined });
+};
+
+export const GetEnvironmentConfigPretty = (environmentName: string, authHeader: AuthHeader): Promise<string> =>
     useApi
         .environmentService()
-        .GetEnvironmentConfig({ environment: environmentName })
+        .GetEnvironmentConfig({ environment: environmentName }, authHeader)
         .then((res: GetEnvironmentConfigResponse) => {
             if (!res.config) {
                 return Promise.reject(new Error('empty response.'));
@@ -1246,3 +1467,93 @@ export const GetEnvironmentConfigPretty = (environmentName: string): Promise<str
         });
 
 export const useArgoCDNamespace = (): string | undefined => useFrontendConfig((c) => c.configs.argoCd?.namespace);
+
+type GitSyncStatusStore = {
+    enabled: boolean;
+    response: GetGitSyncStatusResponse | undefined;
+};
+
+export const useGitSyncStatus = <T,>(f: (getter: GitSyncStatusGetter) => T): T =>
+    useEntireGitSyncStatus((data: GitSyncStatusStore) => f(new GitSyncStatusGetter(data)));
+
+export const [useEntireGitSyncStatus, gitSyncStatus] = createStore<GitSyncStatusStore>({
+    enabled: false,
+    response: undefined,
+});
+
+export const UpdateGitSyncStatus = (ev: GetGitSyncStatusResponse): void => {
+    gitSyncStatus.set({
+        enabled: true,
+        response: ev,
+    });
+};
+
+export const EnableGitSyncStatus = (): void => {
+    gitSyncStatus.set({ enabled: true });
+};
+
+const gitSyncStatusPriority = [
+    GitSyncStatus.GIT_SYNC_STATUS_ERROR,
+    GitSyncStatus.GIT_SYNC_STATUS_UNKNOWN,
+    GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+    GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
+];
+
+export const getStatusPriority = (status: number, priorities: number[]): number => {
+    const idx = priorities.indexOf(status);
+    if (idx === -1) {
+        return priorities.length;
+    }
+    return idx;
+};
+
+class GitSyncStatusGetter {
+    private readonly store: GitSyncStatusStore;
+
+    constructor(store: GitSyncStatusStore) {
+        this.store = store;
+    }
+
+    isEnabled(): boolean {
+        return this.store.enabled;
+    }
+
+    getAppStatus(application: string, environment: string): GitSyncStatus | undefined {
+        if (!this.store.enabled) {
+            return undefined;
+        }
+        const status = this.store.response?.appStatuses[application]?.envStatus[environment];
+
+        return status ? status : GitSyncStatus.GIT_SYNC_STATUS_SYNCED; //Synced by default
+    }
+
+    getHighestPriorityGitStatus(): GitSyncStatus | undefined {
+        if (!this.store.enabled) {
+            return GitSyncStatus.GIT_SYNC_STATUS_UNKNOWN;
+        }
+
+        const statuses = this.store.response?.appStatuses;
+
+        if (!this.store.response || !statuses) {
+            return undefined;
+        }
+
+        let mostInteresting = GitSyncStatus.GIT_SYNC_STATUS_SYNCED;
+
+        for (const [, currentEnvSyncStatus] of Object.entries(this.store.response?.appStatuses)) {
+            for (const [, value] of Object.entries(currentEnvSyncStatus.envStatus)) {
+                if (
+                    getStatusPriority(value, gitSyncStatusPriority) <
+                    getStatusPriority(mostInteresting, gitSyncStatusPriority)
+                ) {
+                    mostInteresting = value;
+                    if (mostInteresting === gitSyncStatusPriority[0]) {
+                        //At least one error, we know this is the most interesting
+                        return mostInteresting;
+                    }
+                }
+            }
+        }
+        return mostInteresting;
+    }
+}

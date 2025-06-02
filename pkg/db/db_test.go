@@ -32,7 +32,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -59,63 +58,26 @@ func createMigrationFolder(dbLocation string) (string, error) {
 	return loc, os.Mkdir(loc, os.ModePerm)
 }
 
-func TestConnection(t *testing.T) {
-	tcs := []struct {
-		Name string
-	}{
-		{
-			Name: "Ping DB",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			ctx := context.Background()
-			t.Parallel()
-			dir := t.TempDir()
-			cfg := DBConfig{
-				DriverName: "sqlite3",
-				DbHost:     dir,
-			}
-			db, err := Connect(ctx, cfg)
-			if err != nil {
-				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
-			}
-			defer db.DB.Close()
-			pingErr := db.DB.Ping()
-			if pingErr != nil {
-				t.Fatalf("Error DB. Error: %v\n", err)
-			}
-		})
-	}
-}
-
 func TestMigrationScript(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		migrationFile string
-		expectedData  *AllApplicationsGo
+		expectedData  []string
 	}{
 		{
 			Name: "Simple migration",
 			migrationFile: `
-CREATE TABLE IF NOT EXISTS all_apps
+CREATE TABLE IF NOT EXISTS apps
 (
-    version BIGINT,
     created TIMESTAMP,
-    json VARCHAR(255),
-    PRIMARY KEY(version)
+    appName VARCHAR,
+    stateChange VARCHAR,
+    metadata VARCHAR,
+    PRIMARY KEY (appname)
 );
 
-INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
-INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
-			expectedData: &AllApplicationsGo{
-				Version: 1,
-				Created: time.Unix(1713218400, 0).UTC(),
-				AllApplicationsJson: AllApplicationsJson{
-					Apps: []string{"my-test-app"},
-				},
-			},
+INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 09:38:15', 'my-test-app', 'AppStateChangeMigrate', '{}');`,
+			expectedData: []string{"my-test-app"},
 		},
 	}
 	for _, tc := range tcs {
@@ -124,11 +86,8 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			t.Parallel()
 			ctx := context.Background()
 			dbDir := t.TempDir()
-			cfg := DBConfig{
-				DriverName:     "sqlite3",
-				DbHost:         dbDir,
-				MigrationsPath: dbDir + "/migrations",
-			}
+			_, dbConfig := SetupRepositoryTestWithDBMigrationPath(t, dbDir, false)
+			dbConfig.MigrationsPath = dbConfig.MigrationsPath + "/migrations"
 			loc, mkdirErr := createMigrationFolder(dbDir)
 			if mkdirErr != nil {
 				t.Fatalf("Error creating migrations folder. Error: %v\n", mkdirErr)
@@ -138,15 +97,15 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			migrationFileNameAbsPath := path.Join(loc, strconv.FormatInt(ts, 10)+"_testing.up.sql")
 			wErr := os.WriteFile(migrationFileNameAbsPath, []byte(tc.migrationFile), os.ModePerm)
 			if wErr != nil {
-				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
+				t.Fatalf("Error creating migration file. Error: %v\n", wErr)
 			}
 
-			migErr := RunDBMigrations(ctx, cfg)
+			migErr := RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(ctx, cfg)
+			db, err := Connect(ctx, *dbConfig)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -275,7 +234,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 
-			dbHandler := SetupRepositoryTestWithDB(t)
+			dbHandler, _ := SetupRepositoryTestWithDB(t, true)
 			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.RunCustomMigrationReleases(ctx, getAllApps, writeAllReleases)
 				if err2 != nil {
@@ -345,7 +304,7 @@ func TestCustomMigrationsApps(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 
-			dbHandler := SetupRepositoryTestWithDB(t)
+			dbHandler, _ := SetupRepositoryTestWithDB(t, true)
 			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.RunAllCustomMigrationsForApps(ctx, tc.allAppsFunc)
 				if err2 != nil {
@@ -356,7 +315,7 @@ func TestCustomMigrationsApps(t *testing.T) {
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
-				if diff := cmp.Diff(tc.expectedAllApps, allApps.Apps); diff != "" {
+				if diff := cmp.Diff(tc.expectedAllApps, allApps); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				for i := range tc.expectedApps {
@@ -397,7 +356,7 @@ func TestMigrationCommitEvent(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 
-			dbHandler := SetupRepositoryTestWithDB(t)
+			dbHandler, _ := SetupRepositoryTestWithDB(t, true)
 			err3 := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := dbHandler.RunCustomMigrationsEventSourcingLight(ctx)
 				if err2 != nil {
@@ -506,23 +465,20 @@ func TestCommitEvents(t *testing.T) {
 			ctx := context.Background()
 			dbDir := t.TempDir()
 
-			dir, err := testutil.CreateMigrationsPath(2)
+			dir, err := CreateMigrationsPath(2)
 			if err != nil {
 				t.Fatalf("setup error could not detect dir \n%v", err)
 				return
 			}
+			_, dbConfig := SetupRepositoryTestWithDBMigrationPath(t, dbDir, false)
+			dbConfig.MigrationsPath = dir
 
-			cfg := DBConfig{
-				DriverName:     "sqlite3",
-				DbHost:         dbDir,
-				MigrationsPath: dir,
-			}
-			migErr := RunDBMigrations(ctx, cfg)
+			migErr := RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(ctx, cfg)
+			db, err := Connect(ctx, *dbConfig)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -656,23 +612,22 @@ func TestReadLockPreventedEvents(t *testing.T) {
 			ctx := context.Background()
 			dbDir := t.TempDir()
 
-			dir, err := testutil.CreateMigrationsPath(2)
+			dir, err := CreateMigrationsPath(2)
 			if err != nil {
 				t.Fatalf("setup error could not detect dir \n%v", err)
 				return
 			}
 
-			cfg := DBConfig{
-				DriverName:     "sqlite3",
-				DbHost:         dbDir,
-				MigrationsPath: dir,
-			}
-			migErr := RunDBMigrations(ctx, cfg)
+			_, dbConfig := SetupRepositoryTestWithDBMigrationPath(t, dbDir, false)
+			//dbConfig.MigrationsPath = dbConfig.MigrationsPath + "/migrations"
+			dbConfig.MigrationsPath = dir
+
+			migErr := RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			db, err := Connect(ctx, cfg)
+			db, err := Connect(ctx, *dbConfig)
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
@@ -1448,7 +1403,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 		AuthorName   string
 		AuthorEmail  string
 		CiLink       string
-		ExpectedLock *ApplicationLock
+		ExpectedLock *ApplicationLockHistory
 	}{
 		{
 			Name:        "Simple application lock",
@@ -1459,12 +1414,11 @@ func TestReadWriteApplicationLock(t *testing.T) {
 			AuthorEmail: "myself@example.com",
 			AppName:     "my-app",
 			CiLink:      "www.test.com",
-			ExpectedLock: &ApplicationLock{
-				Env:        "dev",
-				LockID:     "dev-app-lock",
-				EslVersion: 1,
-				Deleted:    false,
-				App:        "my-app",
+			ExpectedLock: &ApplicationLockHistory{
+				Env:     "dev",
+				LockID:  "dev-app-lock",
+				Deleted: false,
+				App:     "my-app",
 				Metadata: LockMetadata{
 					Message:        "My application lock on dev for my-app",
 					CreatedByName:  "myself",
@@ -1509,7 +1463,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
 				target := actual[0]
-				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(ApplicationLockHistory{}, "Created")); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -1557,11 +1511,9 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 			DeleteLocks: []testLockInfo{},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1634,11 +1586,9 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 			},
 			ExpectedActiveLocks: []ApplicationLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-app-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					App:        "my-app",
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
 					Metadata: LockMetadata{
 						Message:        "My application lock on dev for my-app",
 						CreatedByName:  "myself",
@@ -1696,6 +1646,274 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 	}
 }
 
+func TestReadAllActiveApplicationLockForApps(t *testing.T) {
+
+	type testLockInfo struct {
+		Env         string
+		LockID      string
+		Message     string
+		AppName     string
+		AuthorName  string
+		AuthorEmail string
+		CiLink      string
+	}
+
+	tcs := []struct {
+		Name                string
+		AppNames            []string
+		SetupLocks          []testLockInfo
+		DeleteLocks         []testLockInfo
+		ExpectedActiveLocks []ApplicationLock
+	}{
+		{
+			Name: "Read one lock from one app",
+			AppNames: []string{
+				"my-app",
+			},
+			SetupLocks: []testLockInfo{
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+			},
+			DeleteLocks: []testLockInfo{},
+			ExpectedActiveLocks: []ApplicationLock{
+				{
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
+					Metadata: LockMetadata{
+						Message:        "My application lock on dev for my-app",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+						CiLink:         "www.test.com",
+					},
+				},
+			},
+		},
+		{
+			Name: "Read two locks  from two apps",
+			AppNames: []string{
+				"my-app", "my-app-2",
+			},
+			SetupLocks: []testLockInfo{
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock-2",
+					Message:     "My application lock on dev for my-app-2",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app-2",
+					CiLink:      "www.test.com",
+				},
+			},
+			DeleteLocks: []testLockInfo{},
+			ExpectedActiveLocks: []ApplicationLock{
+				{
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
+					Metadata: LockMetadata{
+						Message:        "My application lock on dev for my-app",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+						CiLink:         "www.test.com",
+					},
+				},
+				{
+					Env:    "dev",
+					LockID: "dev-app-lock-2",
+					App:    "my-app-2",
+					Metadata: LockMetadata{
+						Message:        "My application lock on dev for my-app-2",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+						CiLink:         "www.test.com",
+					},
+				},
+			},
+		},
+		{
+			Name: "Don't read deleted lock",
+			AppNames: []string{
+				"my-app",
+			},
+			SetupLocks: []testLockInfo{
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+			},
+			DeleteLocks: []testLockInfo{
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+			},
+			ExpectedActiveLocks: nil,
+		},
+		{
+			Name: "Only read not deleted locks",
+			AppNames: []string{
+				"my-app", "my-app-2",
+			},
+			SetupLocks: []testLockInfo{
+				{
+					Env:         "dev",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+				{
+					Env:         "staging",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+				{
+					Env:         "staging",
+					LockID:      "dev-app-lock-staging",
+					Message:     "My application lock on stagibg for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+				{
+					Env:         "staging",
+					LockID:      "dev-app-lock-staging-2",
+					Message:     "My application lock on stagibg for my-app-2",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app-2",
+					CiLink:      "www.test.com",
+				},
+			},
+			DeleteLocks: []testLockInfo{
+				{
+					Env:         "staging",
+					LockID:      "dev-app-lock",
+					Message:     "My application lock on dev for my-app",
+					AuthorName:  "myself",
+					AuthorEmail: "myself@example.com",
+					AppName:     "my-app",
+					CiLink:      "www.test.com",
+				},
+			},
+			ExpectedActiveLocks: []ApplicationLock{
+				{
+					Env:    "dev",
+					LockID: "dev-app-lock",
+					App:    "my-app",
+					Metadata: LockMetadata{
+						Message:        "My application lock on dev for my-app",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+						CiLink:         "www.test.com",
+					},
+				},
+				{
+					Env:    "staging",
+					LockID: "dev-app-lock-staging",
+					App:    "my-app",
+					Metadata: LockMetadata{
+						Message:        "My application lock on stagibg for my-app",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+						CiLink:         "www.test.com",
+					},
+				},
+				{
+					Env:    "staging",
+					LockID: "dev-app-lock-staging-2",
+					App:    "my-app-2",
+					Metadata: LockMetadata{
+						Message:        "My application lock on stagibg for my-app-2",
+						CreatedByName:  "myself",
+						CreatedByEmail: "myself@example.com",
+						CiLink:         "www.test.com",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+
+				for _, lockInfo := range tc.SetupLocks {
+					err := dbHandler.DBWriteApplicationLock(ctx, transaction, lockInfo.LockID, lockInfo.Env, lockInfo.AppName, LockMetadata{
+						CreatedByName:  lockInfo.AuthorName,
+						CreatedByEmail: lockInfo.AuthorEmail,
+						Message:        lockInfo.Message,
+						CiLink:         lockInfo.CiLink,
+					})
+					if err != nil {
+						return err
+					}
+
+				}
+
+				for _, lockInfo := range tc.DeleteLocks {
+					err := dbHandler.DBDeleteApplicationLock(ctx, transaction, lockInfo.Env, lockInfo.AppName, lockInfo.LockID)
+					if err != nil {
+						return err
+					}
+				}
+
+				activeLocks, err := dbHandler.DBSelectAllActiveAppLocksForSliceApps(ctx, transaction, tc.AppNames)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(tc.ExpectedActiveLocks, activeLocks, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestReadAllActiveTeamLock(t *testing.T) {
 
 	type testLockInfo struct {
@@ -1732,11 +1950,9 @@ func TestReadAllActiveTeamLock(t *testing.T) {
 			DeleteLocks: []testLockInfo{},
 			ExpectedActiveLocks: []TeamLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-team-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					Team:       "my-team",
+					Env:    "dev",
+					LockID: "dev-team-lock",
+					Team:   "my-team",
 					Metadata: LockMetadata{
 						Message:        "My team lock on dev for my-team",
 						CreatedByName:  "myself",
@@ -1771,7 +1987,7 @@ func TestReadAllActiveTeamLock(t *testing.T) {
 					CiLink:      "www.test.com",
 				},
 			},
-			ExpectedActiveLocks: nil,
+			ExpectedActiveLocks: []TeamLock{},
 		},
 		{
 			Name:     "Only read active locks",
@@ -1809,11 +2025,9 @@ func TestReadAllActiveTeamLock(t *testing.T) {
 			},
 			ExpectedActiveLocks: []TeamLock{
 				{
-					Env:        "dev",
-					LockID:     "dev-team-lock",
-					EslVersion: 1,
-					Deleted:    false,
-					Team:       "my-team",
+					Env:    "dev",
+					LockID: "dev-team-lock",
+					Team:   "my-team",
 					Metadata: LockMetadata{
 						Message:        "My team lock on dev for my-team",
 						CreatedByName:  "myself",
@@ -1880,7 +2094,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 		AppName       string
 		AuthorName    string
 		AuthorEmail   string
-		ExpectedLocks []ApplicationLock
+		ExpectedLocks []ApplicationLockHistory
 		ExpectedError error
 	}{
 		{
@@ -1891,13 +2105,12 @@ func TestDeleteApplicationLock(t *testing.T) {
 			Message:     "My lock on dev",
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
-			ExpectedLocks: []ApplicationLock{
+			ExpectedLocks: []ApplicationLockHistory{
 				{ //Sort DESC
-					Env:        "dev",
-					App:        "myApp",
-					LockID:     "dev-lock",
-					EslVersion: 2,
-					Deleted:    true,
+					Env:     "dev",
+					App:     "myApp",
+					LockID:  "dev-lock",
+					Deleted: true,
 					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
@@ -1905,11 +2118,10 @@ func TestDeleteApplicationLock(t *testing.T) {
 					},
 				},
 				{
-					Env:        "dev",
-					LockID:     "dev-lock",
-					App:        "myApp",
-					EslVersion: 1,
-					Deleted:    false,
+					Env:     "dev",
+					LockID:  "dev-lock",
+					App:     "myApp",
+					Deleted: false,
 					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
@@ -1959,8 +2171,8 @@ func TestDeleteApplicationLock(t *testing.T) {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
 
-				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(ApplicationLock{}, "Created")); diff != "" {
-					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
+				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(ApplicationLockHistory{}, "Created")); diff != "" {
+					t.Fatalf("app locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
@@ -2041,7 +2253,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
 					if err != nil {
 						return err
 					}
@@ -2103,12 +2315,12 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version, false)
+				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version)
 				if err != nil {
 					return err
 				}
 
-				err = dbHandler.DBDeleteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, false)
+				err = dbHandler.DBDeleteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName)
 				if err != nil {
 					return err
 				}
@@ -2190,7 +2402,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
 					if err != nil {
 						return err
 					}
@@ -2282,7 +2494,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version, false)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
 					if err != nil {
 						return err
 					}
@@ -2323,7 +2535,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 		AuthorName   string
 		AuthorEmail  string
 		CiLink       string
-		ExpectedLock *TeamLock
+		ExpectedLock *TeamLockHistory
 	}{
 		{
 			Name:        "Simple application lock",
@@ -2334,12 +2546,10 @@ func TestReadWriteTeamLock(t *testing.T) {
 			AuthorEmail: "myself@example.com",
 			TeamName:    "my-team",
 			CiLink:      "www.test.com",
-			ExpectedLock: &TeamLock{
-				Env:        "dev",
-				LockID:     "dev-team-lock",
-				EslVersion: 1,
-				Deleted:    false,
-				Team:       "my-team",
+			ExpectedLock: &TeamLockHistory{
+				Env:    "dev",
+				LockID: "dev-team-lock",
+				Team:   "my-team",
 				Metadata: LockMetadata{
 					Message:        "My team lock on dev for my-team",
 					CreatedByName:  "myself",
@@ -2384,7 +2594,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 					t.Fatalf("number of team locks mismatch (-want, +got):\n%s", diff)
 				}
 				target := actual[0]
-				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(TeamLock{}, "Created")); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(TeamLockHistory{}, "Created")); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -2405,7 +2615,7 @@ func TestDeleteTeamLock(t *testing.T) {
 		TeamName      string
 		AuthorName    string
 		AuthorEmail   string
-		ExpectedLocks []TeamLock
+		ExpectedLocks []TeamLockHistory
 		ExpectedError error
 	}{
 		{
@@ -2416,25 +2626,22 @@ func TestDeleteTeamLock(t *testing.T) {
 			Message:     "My lock on dev for my-team",
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
-			ExpectedLocks: []TeamLock{
+			ExpectedLocks: []TeamLockHistory{
 				{ //Sort DESC
-					Env:        "dev",
-					Team:       "my-team",
-					LockID:     "dev-lock",
-					EslVersion: 2,
-					Deleted:    true,
+					Env:    "dev",
+					Team:   "my-team",
+					LockID: "dev-lock",
 					Metadata: LockMetadata{
 						Message:        "My lock on dev for my-team",
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
 					},
+					Deleted: true,
 				},
 				{
-					Env:        "dev",
-					LockID:     "dev-lock",
-					Team:       "my-team",
-					EslVersion: 1,
-					Deleted:    false,
+					Env:    "dev",
+					LockID: "dev-lock",
+					Team:   "my-team",
 					Metadata: LockMetadata{
 						Message:        "My lock on dev for my-team",
 						CreatedByName:  "myself",
@@ -2484,7 +2691,7 @@ func TestDeleteTeamLock(t *testing.T) {
 					t.Fatalf("number of team locks mismatch (-want, +got):\n%s", diff)
 				}
 
-				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(TeamLock{}, "Created")); diff != "" {
+				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(TeamLockHistory{}, "Created")); diff != "" {
 					t.Fatalf("team locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -2930,7 +3137,7 @@ func TestReadWriteEslEvent(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteEslEventInternal(ctx, tc.EventType, transaction, tc.EventData, tc.EventMetadata)
 				if err != nil {
 					return err
@@ -2966,77 +3173,93 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 
 	tcs := []struct {
 		Name   string
-		Events []EslEventRow
+		Events []EslFailedEventRow
 		Limit  int
 	}{
 		{
 			Name: "Write and read once",
-			Events: []EslEventRow{
+			Events: []EslFailedEventRow{
 				{
-					EventType:  EvtCreateApplicationVersion,
-					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 1,
+					EventType:             EvtCreateApplicationVersion,
+					EventJson:             string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:               time.Now(),
+					EslVersion:            1,
+					Reason:                "",
+					TransformerEslVersion: 0,
 				},
 			},
 			Limit: 1,
 		},
 		{
 			Name: "Write and read multiple",
-			Events: []EslEventRow{
+			Events: []EslFailedEventRow{
 				{
-					EventType:  EvtCreateApplicationVersion,
-					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 1,
+					EventType:             EvtCreateApplicationVersion,
+					EventJson:             string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:               time.Now(),
+					EslVersion:            1,
+					Reason:                "",
+					TransformerEslVersion: 0,
 				},
 				{
-					EventType:  EvtCreateEnvironmentApplicationLock,
-					EventJson:  string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 2,
+					EventType:             EvtCreateEnvironmentApplicationLock,
+					EventJson:             string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:               time.Now(),
+					EslVersion:            2,
+					Reason:                "unexpected error",
+					TransformerEslVersion: 0,
 				},
 				{
-					EventType:  EvtCreateEnvironment,
-					EventJson:  string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 3,
+					EventType:             EvtCreateEnvironment,
+					EventJson:             string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:               time.Now(),
+					EslVersion:            3,
+					Reason:                "unknown error",
+					TransformerEslVersion: 0,
 				},
 			},
 			Limit: 3,
 		},
 		{
 			Name: "More than limit",
-			Events: []EslEventRow{
+			Events: []EslFailedEventRow{
 				{
-					EventType:  EvtCreateApplicationVersion,
-					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 1,
+					EventType:             EvtCreateApplicationVersion,
+					EventJson:             string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:               time.Now(),
+					EslVersion:            1,
+					Reason:                "failed to create app version",
+					TransformerEslVersion: 0,
 				},
 				{
-					EventType:  EvtCreateEnvironmentGroupLock,
-					EventJson:  string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 2,
+					EventType:             EvtCreateEnvironmentGroupLock,
+					EventJson:             string(`{"env":"dev2","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:               time.Now(),
+					EslVersion:            2,
+					Reason:                "",
+					TransformerEslVersion: 0,
 				},
 				{
-					EventType:  EvtCreateEnvironment,
-					EventJson:  string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 3,
+					EventType:             EvtCreateEnvironment,
+					EventJson:             string(`{"env":"dev3","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:               time.Now(),
+					EslVersion:            3,
+					Reason:                "unexpected error",
+					TransformerEslVersion: 0,
 				},
 			},
 			Limit: 2,
 		},
 		{
 			Name: "Less than limit",
-			Events: []EslEventRow{
+			Events: []EslFailedEventRow{
 				{
-					EventType:  EvtCreateApplicationVersion,
-					EventJson:  string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
-					Created:    time.Now(),
-					EslVersion: 1,
+					EventType:             EvtCreateApplicationVersion,
+					EventJson:             string(`{"env":"dev","app":"my-app","lockId":"ui-v2-ke1up","message":"test","metadata":{"authorEmail":"testemail@example.com","authorName":"testauthor"}}`),
+					Created:               time.Now(),
+					EslVersion:            1,
+					Reason:                "",
+					TransformerEslVersion: 0,
 				},
 			},
 			Limit: 3,
@@ -3049,15 +3272,20 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
-			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
 				for _, event := range tc.Events {
-					err := dbHandler.DBWriteFailedEslEvent(ctx, transaction, &event)
+					err := dbHandler.DBWriteFailedEslEvent(ctx, transaction, "event_sourcing_light_failed_history", &event)
 					if err != nil {
 						return err
 					}
 				}
 
-				actualEvents, err := dbHandler.DBReadLastFailedEslEvents(ctx, transaction, tc.Limit)
+				actualEvents, err := dbHandler.DBReadLastFailedEslEvents(ctx, transaction, 25, 0)
 				if err != nil {
 					return err
 				}
@@ -3077,6 +3305,12 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 					if diff := cmp.Diff(tc.Events[reverse_index].EventJson, actualEvent.EventJson); diff != "" {
 						t.Fatalf("event json mismatch (-want, +got):\n%s", diff)
 					}
+					if diff := cmp.Diff(tc.Events[reverse_index].Reason, actualEvent.Reason); diff != "" {
+						t.Fatalf("event reason mismatch (-want, +got):\n%s", diff)
+					}
+					if diff := cmp.Diff(tc.Events[reverse_index].TransformerEslVersion, actualEvent.TransformerEslVersion); diff != "" {
+						t.Fatalf("event transformer mismatch (-want, +got):\n%s", diff)
+					}
 				}
 
 				return nil
@@ -3091,41 +3325,24 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 func TestReadWriteAllEnvironments(t *testing.T) {
 	type TestCase struct {
 		Name           string
-		AllEnvsToWrite [][]string
-		ExpectedEntry  *DBAllEnvironments
+		AllEnvsToWrite []string
+		ExpectedEntry  []string
 	}
 	testCases := []TestCase{
 		{
-			Name: "create entry with one environment entry only",
-			AllEnvsToWrite: [][]string{
-				{"development"},
-			},
-			ExpectedEntry: &DBAllEnvironments{
-				Version:      1,
-				Environments: []string{"development"},
-			},
+			Name:           "create entry with one environment entry only",
+			AllEnvsToWrite: []string{"development"},
+			ExpectedEntry:  []string{"development"},
 		},
 		{
-			Name: "create entries with increasing length",
-			AllEnvsToWrite: [][]string{
-				{"development"},
-				{"development", "production"},
-				{"development", "production", "staging"},
-			},
-			ExpectedEntry: &DBAllEnvironments{
-				Version:      3,
-				Environments: []string{"development", "production", "staging"},
-			},
+			Name:           "create entries with increasing length",
+			AllEnvsToWrite: []string{"development", "production", "staging"},
+			ExpectedEntry:  []string{"development", "production", "staging"},
 		},
 		{
-			Name: "ensure that environments are sorted",
-			AllEnvsToWrite: [][]string{
-				{"staging", "development", "production"},
-			},
-			ExpectedEntry: &DBAllEnvironments{
-				Version:      1,
-				Environments: []string{"development", "production", "staging"},
-			},
+			Name:           "ensure that environments are sorted",
+			AllEnvsToWrite: []string{"staging", "development", "production"},
+			ExpectedEntry:  []string{"development", "production", "staging"},
 		},
 	}
 	for _, tc := range testCases {
@@ -3135,31 +3352,31 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
 
-			for _, allEnvs := range tc.AllEnvsToWrite {
+			for _, envName := range tc.AllEnvsToWrite {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteAllEnvironments(ctx, transaction, allEnvs)
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envName, config.EnvironmentConfig{}, []string{})
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
 					return nil
 				})
 				if err != nil {
-					t.Fatalf("error while running the transaction for writing all environments %v to the database, error: %v", allEnvs, err)
+					t.Fatalf("error while running the transaction for writing environments %v to the database, error: %v", tc.AllEnvsToWrite, err)
 				}
 			}
 
-			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*DBAllEnvironments, error) {
+			allEnvsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]string, error) {
 				allEnvsEntry, err := dbHandler.DBSelectAllEnvironments(ctx, transaction)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
 				}
-				return allEnvsEntry, nil
+				return &allEnvsEntry, nil
 			})
 
 			if err != nil {
 				t.Fatalf("error while running the transaction for selecting the target all environment, error: %v", err)
 			}
-			if diff := cmp.Diff(allEnvsEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(DBAllEnvironments{}, "Created")); diff != "" {
+			if diff := cmp.Diff(*allEnvsEntry, tc.ExpectedEntry); diff != "" {
 				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, allEnvsEntry, diff)
 			}
 		})
@@ -3169,22 +3386,15 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 func TestReadWriteAllApplications(t *testing.T) {
 	type TestCase struct {
 		Name           string
-		AllAppsToWrite [][]string
-		ExpectedEntry  *AllApplicationsGo
+		AllAppsToWrite []string
+		ExpectedEntry  []string
 	}
 
 	testCases := []TestCase{
 		{
-			Name: "test that app are ordered",
-			AllAppsToWrite: [][]string{
-				{"my_app", "ze_app", "the_app"},
-			},
-			ExpectedEntry: &AllApplicationsGo{
-				Version: 1,
-				AllApplicationsJson: AllApplicationsJson{
-					Apps: []string{"my_app", "the_app", "ze_app"},
-				},
-			},
+			Name:           "test that app are ordered",
+			AllAppsToWrite: []string{"my_app", "ze_app", "the_app"},
+			ExpectedEntry:  []string{"my_app", "the_app", "ze_app"},
 		},
 	}
 	for _, tc := range testCases {
@@ -3194,32 +3404,32 @@ func TestReadWriteAllApplications(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
 
-			for version, allApps := range tc.AllAppsToWrite {
-				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteAllApplications(ctx, transaction, int64(version), allApps)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, appname := range tc.AllAppsToWrite {
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appname, AppStateChangeCreate, DBAppMetaData{})
 					if err != nil {
-						return fmt.Errorf("error while writing application, error: %w", err)
+						return err
 					}
-					return nil
-				})
-				if err != nil {
-					t.Fatalf("error while running the transaction for writing all applications %v to the database, error: %v", allApps, err)
 				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing all applications %v to the database, error: %v", tc.AllAppsToWrite, err)
 			}
 
-			allAppsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*AllApplicationsGo, error) {
+			allAppsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]string, error) {
 				allAppsEntry, err := dbHandler.DBSelectAllApplications(ctx, transaction)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting application entry, error: %w", err)
 				}
-				return allAppsEntry, nil
+				return &allAppsEntry, nil
 			})
 
 			if err != nil {
 				t.Fatalf("error while running the transaction for selecting the target all applications, error: %v", err)
 			}
-			if diff := cmp.Diff(allAppsEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(AllApplicationsGo{}, "Created")); diff != "" {
-				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, allAppsEntry, diff)
+			if diff := cmp.Diff(*allAppsEntry, tc.ExpectedEntry); diff != "" {
+				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, *allAppsEntry, diff)
 			}
 		})
 	}
@@ -3817,105 +4027,103 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 	}
 }
 
-func TestReadWriteOverviewCache(t *testing.T) {
-	var upstreamLatest = true
-	var dev = "dev"
-	type TestCase struct {
-		Name      string
-		Overviews []*api.GetOverviewResponse
-	}
-	tcs := []TestCase{
+func TestDBWriteReadUnsynced(t *testing.T) {
+	tcs := []struct {
+		Name               string
+		SyncDataToWrite    []GitSyncData
+		ExpectedSyncEvents map[int][]EnvApp
+	}{
 		{
-			Name: "Read and write",
-			Overviews: []*api.GetOverviewResponse{
-				&api.GetOverviewResponse{
-					EnvironmentGroups: []*api.EnvironmentGroup{
-						{
-							EnvironmentGroupName: "dev",
-							Environments: []*api.Environment{
-								{
-									Name: "development",
-									Config: &api.EnvironmentConfig{
-										Upstream: &api.EnvironmentConfig_Upstream{
-											Latest: &upstreamLatest,
-										},
-										Argocd:           &api.EnvironmentConfig_ArgoCD{},
-										EnvironmentGroup: &dev,
-									},
-									Priority: api.Priority_YOLO,
-								},
-							},
-							Priority: api.Priority_YOLO,
-						},
+			Name: "Read Unsynced apps for transformer",
+			SyncDataToWrite: []GitSyncData{
+				{
+					AppName:       "app-1",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(1),
+					SyncStatus:    UNSYNCED,
+				},
+				{
+					AppName:       "app-2",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(2),
+					SyncStatus:    UNSYNCED,
+				},
+				{
+					AppName:       "app-3",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+				{
+					AppName:       "app-4",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+			},
+			ExpectedSyncEvents: map[int][]EnvApp{
+				1: {
+					{
+						AppName: "app-1",
+						EnvName: "env-1",
 					},
-					LightweightApps: []*api.OverviewApplication{
-						{
-							Name: "test",
-							Team: "team-123",
-						},
+				},
+				2: {
+					{
+						AppName: "app-2",
+						EnvName: "env-1",
 					},
-					GitRevision: "0",
+				},
+				3: {
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
 				},
 			},
 		},
 		{
-			Name: "Read and write multiple",
-			Overviews: []*api.GetOverviewResponse{
-				&api.GetOverviewResponse{
-					EnvironmentGroups: []*api.EnvironmentGroup{
-						{
-							EnvironmentGroupName: "dev",
-							Environments: []*api.Environment{
-								{
-									Name: "development",
-									Config: &api.EnvironmentConfig{
-										Upstream: &api.EnvironmentConfig_Upstream{
-											Latest: &upstreamLatest,
-										},
-										Argocd:           &api.EnvironmentConfig_ArgoCD{},
-										EnvironmentGroup: &dev,
-									},
-									Priority: api.Priority_YOLO,
-								},
-							},
-							Priority: api.Priority_YOLO,
-						},
-					},
-					LightweightApps: []*api.OverviewApplication{
-						{
-							Name: "test",
-							Team: "team-123",
-						},
-					},
-					GitRevision: "0",
+			Name: "Read Unsynced apps for transformer, some synced",
+			SyncDataToWrite: []GitSyncData{
+				{
+					AppName:       "app-1",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(1),
+					SyncStatus:    SYNCED,
 				},
-				&api.GetOverviewResponse{
-					EnvironmentGroups: []*api.EnvironmentGroup{
-						{
-							EnvironmentGroupName: "test",
-							Environments: []*api.Environment{
-								{
-									Name: "testing",
-									Config: &api.EnvironmentConfig{
-										Upstream: &api.EnvironmentConfig_Upstream{
-											Latest: &upstreamLatest,
-										},
-										Argocd:           &api.EnvironmentConfig_ArgoCD{},
-										EnvironmentGroup: &dev,
-									},
-									Priority: api.Priority_CANARY,
-								},
-							},
-							Priority: api.Priority_CANARY,
-						},
+				{
+					AppName:       "app-2",
+					EnvName:       "env-1",
+					TransformerID: EslVersion(2),
+					SyncStatus:    SYNCED,
+				},
+				{
+					AppName:       "app-3",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+				{
+					AppName:       "app-4",
+					EnvName:       "env-3",
+					TransformerID: EslVersion(3),
+					SyncStatus:    UNSYNCED,
+				},
+			},
+			ExpectedSyncEvents: map[int][]EnvApp{
+				3: {
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
 					},
-					LightweightApps: []*api.OverviewApplication{
-						{
-							Name: "test2",
-							Team: "team-123",
-						},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
 					},
-					GitRevision: "0",
 				},
 			},
 		},
@@ -3929,27 +4137,294 @@ func TestReadWriteOverviewCache(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				for _, overview := range tc.Overviews {
-					err := dbHandler.WriteOverviewCache(ctx, transaction, overview)
+				for _, currentSyncData := range tc.SyncDataToWrite {
+					err := dbHandler.DBWriteNewSyncEvent(ctx, transaction, &currentSyncData)
 					if err != nil {
-						return fmt.Errorf("error while writing release, error: %w", err)
+						return fmt.Errorf("error while writing currentSyncData, error: %w", err)
 					}
 				}
-
-				result, err := dbHandler.ReadLatestOverviewCache(ctx, transaction)
-				if err != nil {
-					return fmt.Errorf("error while selecting release, error: %w", err)
+				for tId, currentExpecteSyncStatus := range tc.ExpectedSyncEvents {
+					changes, err := dbHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, TransformerID(tId))
+					if err != nil {
+						return fmt.Errorf("error while writing currentSyncData, error: %w", err)
+					}
+					if diff := cmp.Diff(currentExpecteSyncStatus, changes); diff != "" {
+						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+					}
 				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+		})
+	}
+}
 
-				opts := getOverviewIgnoredTypes()
-				if diff := cmp.Diff(tc.Overviews[len(tc.Overviews)-1], result, opts); diff != "" {
-					return fmt.Errorf("overview cache ESL ID mismatch (-want +got):\n%s", diff)
+func TestBulkUpdateUnsynced(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		UnsyncedData        []EnvApp
+		TargetTransformerID int
+	}{
+		{
+			Name:                "Update all from SYNCED to Unsynced",
+			TargetTransformerID: 0,
+			UnsyncedData: []EnvApp{
+				{
+					AppName: "app-1",
+					EnvName: "env-1",
+				},
+				{
+					AppName: "app-2",
+					EnvName: "env-1",
+				},
+				{
+					AppName: "app-3",
+					EnvName: "env-3",
+				},
+				{
+					AppName: "app-4",
+					EnvName: "env-3",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+
+				err := dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, TransformerID(0), tc.UnsyncedData, UNSYNCED)
+				if err != nil {
+					return err
+				}
+				err = dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, TransformerID(0), SYNCED)
+				if err != nil {
+					return err
+				}
+				for _, curr := range tc.UnsyncedData {
+					status, err := dbHandler.DBRetrieveSyncStatus(ctx, transaction, curr.AppName, curr.EnvName)
+					if err != nil {
+						return err
+					}
+					if status == nil || status.SyncStatus != SYNCED {
+						t.Fatalf("UNSYNCED app should be SYNCED: Appname: %q, Envname: %q", curr.AppName, curr.EnvName)
+					}
 				}
 
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+				t.Fatalf("error while running the transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestBulkInsertFunction(t *testing.T) {
+	tcs := []struct {
+		Name                 string
+		ExpectedNumberOfApps int
+		BatchSize            int
+		expectedError        error
+	}{
+		{
+			Name:                 "Insert No apps",
+			ExpectedNumberOfApps: 0,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "one app",
+			ExpectedNumberOfApps: 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "One batch, just shy",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE - 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "Just enough",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "Two batches, one too many",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "Many apps batches",
+			ExpectedNumberOfApps: 15*BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:            BULK_INSERT_BATCH_SIZE,
+		},
+		{
+			Name:                 "Batch size 0",
+			ExpectedNumberOfApps: BULK_INSERT_BATCH_SIZE + 1,
+			BatchSize:            0,
+			expectedError:        errMatcher{msg: "batch size needs to be a positive number"},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				n := 0
+				envApps := make([]EnvApp, 0)
+				for n < tc.ExpectedNumberOfApps {
+					appName := "app-" + strconv.Itoa(n)
+					envName := "env-" + strconv.Itoa(n)
+					envApps = append(envApps, EnvApp{AppName: appName, EnvName: envName})
+					n += 1
+				}
+				err := dbHandler.executeBulkInsert(ctx, transaction, envApps, time.Now(), TransformerID(0), UNSYNCED, tc.BatchSize)
+				if err != nil {
+					if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+					}
+					return nil
+				} else {
+					if tc.expectedError != nil {
+						t.Fatalf("expected error but got none\n")
+					}
+				}
+
+				apps, err := dbHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, TransformerID(0))
+				if err != nil {
+					t.Fatalf("did not expect error here but got\n %s", err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedNumberOfApps, len(apps)); diff != "" {
+					t.Fatalf("mismatch number of apps (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestBulkReadUnsynced(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		UnsyncedData        map[TransformerID][]EnvApp
+		TargetTransformerID int
+	}{
+		{
+			Name:                "All for one transformer",
+			TargetTransformerID: 0,
+			UnsyncedData: map[TransformerID][]EnvApp{
+				0: {
+					{
+						AppName: "app-1",
+						EnvName: "env-1",
+					},
+					{
+						AppName: "app-2",
+						EnvName: "env-1",
+					},
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
+				},
+			},
+		},
+		{
+			Name:                "Split",
+			TargetTransformerID: 0,
+			UnsyncedData: map[TransformerID][]EnvApp{
+				0: {
+					{
+						AppName: "app-1",
+						EnvName: "env-1",
+					},
+					{
+						AppName: "app-2",
+						EnvName: "env-1",
+					},
+				},
+				1: {
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
+				},
+			},
+		},
+		{
+			Name:                "Maps to no transformer",
+			TargetTransformerID: 3,
+			UnsyncedData: map[TransformerID][]EnvApp{ //transformer ID -> EnvApp
+				0: {
+					{
+						AppName: "app-1",
+						EnvName: "env-1",
+					},
+					{
+						AppName: "app-2",
+						EnvName: "env-1",
+					},
+				},
+				1: {
+					{
+						AppName: "app-3",
+						EnvName: "env-3",
+					},
+					{
+						AppName: "app-4",
+						EnvName: "env-3",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for tId, currEnvApps := range tc.UnsyncedData {
+					err := dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, TransformerID(tId), currEnvApps, UNSYNCED)
+					if err != nil {
+						return err
+					}
+					apps, err := dbHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, TransformerID(tId))
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(currEnvApps, apps); diff != "" {
+						return fmt.Errorf("unsynced apps mismatch (-want +got):\n%s", diff)
+					}
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction error: %v", err)
 			}
 		})
 	}
@@ -4152,57 +4627,15 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 // setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
 func setupDB(t *testing.T) *DBHandler {
 	ctx := context.Background()
-	dir, err := testutil.CreateMigrationsPath(2)
+	dir, err := CreateMigrationsPath(2)
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
-	cfg := DBConfig{
-		MigrationsPath: dir,
-		DriverName:     "sqlite3",
-		DbHost:         tmpDir,
-	}
 
-	migErr := RunDBMigrations(ctx, cfg)
-	if migErr != nil {
-		t.Fatal(migErr)
-	}
-
-	dbHandler, err := Connect(ctx, cfg)
+	dbConfig, err := ConnectToPostgresContainer(ctx, t, dir, false, t.Name())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("SetupPostgres: %v", err)
 	}
-
-	return dbHandler
-}
-
-func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
-	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(2)
-	if err != nil {
-		t.Fatalf("CreateMigrationsPath error: %v", err)
-	}
-	dbConfig := &DBConfig{
-		MigrationsPath: migrationsPath,
-		DriverName:     "sqlite3",
-	}
-
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	err = cmd.Start()
-	if err != nil {
-		t.Fatalf("error starting %v", err)
-		return nil
-	}
-	err = cmd.Wait()
-	if err != nil {
-		t.Fatalf("error waiting %v", err)
-		return nil
-	}
-	t.Logf("test created dir: %s", localDir)
-
-	dbConfig.DbHost = dir
 
 	migErr := RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
@@ -4213,7 +4646,49 @@ func SetupRepositoryTestWithDB(t *testing.T) *DBHandler {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return dbHandler
+}
+
+func SetupRepositoryTestWithDB(t *testing.T, runMigrations bool) (*DBHandler, *DBConfig) {
+	migrationsPath, err := CreateMigrationsPath(2)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	return SetupRepositoryTestWithDBMigrationPath(t, migrationsPath, runMigrations)
+}
+
+func SetupRepositoryTestWithDBMigrationPath(t *testing.T, migrationsPath string, runMigrations bool) (*DBHandler, *DBConfig) {
+	ctx := context.Background()
+	dbConfig, err := ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Fatalf("error starting %v", err)
+		return nil, nil
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("error waiting %v", err)
+		return nil, nil
+	}
+	t.Logf("test created dir: %s", localDir)
+
+	if runMigrations {
+		migErr := RunDBMigrations(ctx, *dbConfig)
+		if migErr != nil {
+			t.Fatal(migErr)
+		}
+	}
+
+	dbHandler, err := Connect(ctx, *dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dbHandler, dbConfig
 }
 
 func TestReadReleasesWithoutEnvironments(t *testing.T) {
@@ -4273,6 +4748,914 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
 			}
 
+		})
+	}
+}
+
+func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
+
+	tcs := []struct {
+		Name             string
+		EnvironmentLocks []EnvironmentLock
+		Expected         map[string][]EnvironmentLock
+	}{
+		{
+			Name: "Retrieve All Environment locks",
+			EnvironmentLocks: []EnvironmentLock{
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId1",
+					Env:        "development",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author1",
+						CreatedByEmail: "email1",
+						Message:        "message1",
+						CiLink:         "cilink1",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId2",
+					Env:        "staging",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author2",
+						CreatedByEmail: "email2",
+						Message:        "message2",
+						CiLink:         "cilink2",
+						CreatedAt:      time.Now(),
+					},
+				},
+			},
+			Expected: map[string][]EnvironmentLock{
+				"development": {
+					{
+						EslVersion: 1,
+						Created:    time.Now(),
+						LockID:     "lockId1",
+						Env:        "development",
+						Deleted:    false,
+						Metadata: LockMetadata{
+							CreatedByName:  "author1",
+							CreatedByEmail: "email1",
+							Message:        "message1",
+							CiLink:         "cilink1",
+							CreatedAt:      time.Now(),
+						},
+					},
+				},
+				"staging": {
+					{
+						EslVersion: 1,
+						Created:    time.Now(),
+						LockID:     "lockId2",
+						Env:        "staging",
+						Deleted:    false,
+						Metadata: LockMetadata{
+							CreatedByName:  "author2",
+							CreatedByEmail: "email2",
+							Message:        "message2",
+							CiLink:         "cilink2",
+							CreatedAt:      time.Now(),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Different esl versions and deleted",
+			EnvironmentLocks: []EnvironmentLock{
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId1",
+					Env:        "development",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author1",
+						CreatedByEmail: "email1",
+						Message:        "message1",
+						CiLink:         "cilink1",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId2",
+					Env:        "staging",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author2",
+						CreatedByEmail: "email2",
+						Message:        "message2",
+						CiLink:         "cilink2",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 2,
+					Created:    time.Now(),
+					LockID:     "lockId1",
+					Env:        "development",
+					Deleted:    false,
+					Metadata: LockMetadata{
+						CreatedByName:  "author3",
+						CreatedByEmail: "email3",
+						Message:        "message3",
+						CiLink:         "cilink3",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					EslVersion: 1,
+					Created:    time.Now(),
+					LockID:     "lockId4",
+					Env:        "development",
+					Deleted:    true,
+					Metadata: LockMetadata{
+						CreatedByName:  "author4",
+						CreatedByEmail: "email4",
+						Message:        "message4",
+						CiLink:         "cilink4",
+						CreatedAt:      time.Now(),
+					},
+				},
+			},
+			Expected: map[string][]EnvironmentLock{
+				"development": {
+					{
+						EslVersion: 2,
+						Created:    time.Now(),
+						LockID:     "lockId1",
+						Env:        "development",
+						Deleted:    false,
+						Metadata: LockMetadata{
+							CreatedByName:  "author3",
+							CreatedByEmail: "email3",
+							Message:        "message3",
+							CiLink:         "cilink3",
+							CreatedAt:      time.Now(),
+						},
+					},
+				},
+				"staging": {
+					{
+						EslVersion: 1,
+						Created:    time.Now(),
+						LockID:     "lockId2",
+						Env:        "staging",
+						Deleted:    false,
+						Metadata: LockMetadata{
+							CreatedByName:  "author2",
+							CreatedByEmail: "email2",
+							Message:        "message2",
+							CiLink:         "cilink2",
+							CreatedAt:      time.Now(),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, envLock := range tc.EnvironmentLocks {
+					err := dbHandler.DBWriteEnvironmentLockInternal(ctx, transaction, envLock, envLock.EslVersion-1)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				envLocks, err := dbHandler.DBSelectAllEnvLocksOfAllEnvs(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+				if diff := cmp.Diff(tc.Expected, envLocks, cmpopts.IgnoreFields(EnvironmentLock{}, "Created"), cmpopts.IgnoreFields(LockMetadata{}, "CreatedAt")); diff != "" {
+					return fmt.Errorf("releases mismatch (-want +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
+func TestDBSelectAllTeamLocksOfAllEnvs(t *testing.T) {
+
+	tcs := []struct {
+		Name      string
+		TeamLocks []TeamLock
+		Expected  map[string]map[string][]TeamLock
+	}{
+		{
+			Name: "Retrieve All Environment locks",
+			TeamLocks: []TeamLock{
+				{
+					Created: time.Now(),
+					LockID:  "lockId1",
+					Env:     "development",
+					Team:    "team1",
+					Metadata: LockMetadata{
+						CreatedByName:  "author1",
+						CreatedByEmail: "email1",
+						Message:        "message1",
+						CiLink:         "cilink1",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					Created: time.Now(),
+					LockID:  "lockId3",
+					Env:     "development",
+					Team:    "team2",
+					Metadata: LockMetadata{
+						CreatedByName:  "author3",
+						CreatedByEmail: "email3",
+						Message:        "message3",
+						CiLink:         "cilink3",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					Created: time.Now(),
+					LockID:  "lockId2",
+					Env:     "staging",
+					Team:    "team2",
+					Metadata: LockMetadata{
+						CreatedByName:  "author2",
+						CreatedByEmail: "email2",
+						Message:        "message2",
+						CiLink:         "cilink2",
+						CreatedAt:      time.Now(),
+					},
+				},
+			},
+			Expected: map[string]map[string][]TeamLock{
+				"development": {
+					"team1": {
+						{
+							Created: time.Now(),
+							LockID:  "lockId1",
+							Env:     "development",
+							Team:    "team1",
+							Metadata: LockMetadata{
+								CreatedByName:  "author1",
+								CreatedByEmail: "email1",
+								Message:        "message1",
+								CiLink:         "cilink1",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+					"team2": {
+						{
+							Created: time.Now(),
+							LockID:  "lockId3",
+							Env:     "development",
+							Team:    "team2",
+							Metadata: LockMetadata{
+								CreatedByName:  "author3",
+								CreatedByEmail: "email3",
+								Message:        "message3",
+								CiLink:         "cilink3",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+				},
+				"staging": {
+					"team2": {
+						{
+							Created: time.Now(),
+							LockID:  "lockId2",
+							Env:     "staging",
+							Team:    "team2",
+							Metadata: LockMetadata{
+								CreatedByName:  "author2",
+								CreatedByEmail: "email2",
+								Message:        "message2",
+								CiLink:         "cilink2",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Different esl versions and deleted",
+			TeamLocks: []TeamLock{
+				{
+					Created: time.Now(),
+					LockID:  "lockId1",
+					Env:     "development",
+					Team:    "team1",
+					Metadata: LockMetadata{
+						CreatedByName:  "author1",
+						CreatedByEmail: "email1",
+						Message:        "message1",
+						CiLink:         "cilink1",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					Created: time.Now(),
+					LockID:  "lockId2",
+					Env:     "staging",
+					Team:    "team2",
+					Metadata: LockMetadata{
+						CreatedByName:  "author2",
+						CreatedByEmail: "email2",
+						Message:        "message2",
+						CiLink:         "cilink2",
+						CreatedAt:      time.Now(),
+					},
+				},
+				{
+					Created: time.Now(),
+					LockID:  "lockId1",
+					Env:     "development",
+					Team:    "team1",
+					Metadata: LockMetadata{
+						CreatedByName:  "author3",
+						CreatedByEmail: "email3",
+						Message:        "message3",
+						CiLink:         "cilink3",
+						CreatedAt:      time.Now(),
+					},
+				},
+			},
+			Expected: map[string]map[string][]TeamLock{
+				"development": {
+					"team1": {
+						{
+							Created: time.Now(),
+							LockID:  "lockId1",
+							Env:     "development",
+							Team:    "team1",
+							Metadata: LockMetadata{
+								CreatedByName:  "author3",
+								CreatedByEmail: "email3",
+								Message:        "message3",
+								CiLink:         "cilink3",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+				},
+				"staging": {
+					"team2": {
+						{
+							Created: time.Now(),
+							LockID:  "lockId2",
+							Env:     "staging",
+							Team:    "team2",
+							Metadata: LockMetadata{
+								CreatedByName:  "author2",
+								CreatedByEmail: "email2",
+								Message:        "message2",
+								CiLink:         "cilink2",
+								CreatedAt:      time.Now(),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, teamLock := range tc.TeamLocks {
+					err := dbHandler.DBWriteTeamLock(ctx, transaction, teamLock.LockID, teamLock.Env, teamLock.Team, teamLock.Metadata)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				teamLocks, err := dbHandler.DBSelectAllTeamLocksOfAllEnvs(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting release, error: %w", err)
+				}
+				if diff := cmp.Diff(tc.Expected, teamLocks, cmpopts.IgnoreFields(TeamLock{}, "Created"), cmpopts.IgnoreFields(LockMetadata{}, "CreatedAt")); diff != "" {
+					return fmt.Errorf("releases mismatch (-want +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
+func TestDbUpdateAllDeployments(t *testing.T) {
+	const oldId = 1
+	const newId = 2
+	const app = "my-app"
+
+	tcs := []struct {
+		Name                     string
+		InitialDeployments       []Deployment
+		ExpectedDeploymentsNewID []Deployment
+		ExpectedDeploymentsOldId []Deployment
+	}{
+		{
+			Name:                     "no deployments",
+			InitialDeployments:       []Deployment{},
+			ExpectedDeploymentsNewID: []Deployment{},
+			ExpectedDeploymentsOldId: []Deployment{},
+		},
+		{
+			Name: "change single deployment",
+			InitialDeployments: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+			},
+			ExpectedDeploymentsNewID: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+			},
+		},
+		{
+			Name: "change multiple deployments",
+			InitialDeployments: []Deployment{
+				{
+					Created: time.Now(),
+					App:     app,
+					Env:     "development-2",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+			},
+			ExpectedDeploymentsOldId: []Deployment{},
+			ExpectedDeploymentsNewID: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development-2",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+			},
+		},
+		{
+			Name: "change multiple deployments, but with other that should not change",
+			InitialDeployments: []Deployment{
+				{
+					Created: time.Now(),
+					App:     app,
+					Env:     "development",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development-2",
+					App:     "my-app",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: oldId,
+				},
+				{
+					Created: time.Now(),
+					App:     "my-app",
+					Env:     "development-3",
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 3,
+				},
+			},
+			ExpectedDeploymentsNewID: []Deployment{
+				{
+					Created: time.Now(),
+					Env:     "development",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+				{
+					Created: time.Now(),
+					Env:     "development-2",
+					App:     app,
+					Metadata: DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: newId,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteEslEventWithJson(ctx, transaction, EvtMigrationTransformer, "{}")
+				if err != nil {
+					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+				}
+				err = dbHandler.DBWriteEslEventWithJson(ctx, transaction, EvtMigrationTransformer, "{}")
+				if err != nil {
+					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+				}
+				err = dbHandler.DBWriteEslEventWithJson(ctx, transaction, EvtMigrationTransformer, "{}")
+				if err != nil {
+					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+				}
+				for _, deployment := range tc.InitialDeployments {
+					err := dbHandler.upsertDeploymentRow(ctx, transaction, deployment)
+					if err != nil {
+						return fmt.Errorf("error while writing deployment, error: %w", err)
+					}
+				}
+
+				err = dbHandler.DBBulkUpdateAllDeployments(ctx, transaction, newId, oldId)
+
+				if err != nil {
+					return fmt.Errorf("error while writing deployments, error: %w", err)
+				}
+
+				actualDeploymentsNewId, err := dbHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, newId)
+				if err != nil {
+					return fmt.Errorf("error while reading deployments, error: %w", err)
+				}
+
+				if diff := cmp.Diff(tc.ExpectedDeploymentsNewID, actualDeploymentsNewId, cmpopts.IgnoreFields(Deployment{}, "Created")); diff != "" {
+					return fmt.Errorf("deployments with new ID mismatch (-want +got):\n%s", diff)
+				}
+
+				actualDeploymentsOldId, err := dbHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, oldId)
+				if err != nil {
+					return fmt.Errorf("error while reading deployments, error: %w", err)
+				}
+
+				if len(actualDeploymentsOldId) != 0 {
+					return fmt.Errorf("no deployments should have old transformer ID, got \n%v", actualDeploymentsOldId)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
+			}
+
+		})
+	}
+}
+
+func TestDBSelectEnvironmentApplications(t *testing.T) {
+	tcs := []struct {
+		Name                            string
+		Releases                        []DBReleaseWithMetaData
+		Environments                    []DBEnvironment
+		ExpectedEnvironmentApplications map[string][]string
+	}{
+		{
+			Name: "one Release",
+			Releases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manifest2"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "staging",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":     {"app1"},
+				"staging": {"app1"},
+			},
+		},
+		{
+			Name: "One environment without apps",
+			Releases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":     {"app1"},
+				"staging": {},
+			},
+		},
+		{
+			Name: "Multiple releases and environments",
+			Releases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "production": "manifest3"}},
+				},
+				{
+					ReleaseNumber: 20,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"staging": "manifest2"}},
+				},
+				{
+					ReleaseNumber: 10,
+					App:           "app2",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					ReleaseNumber: 10,
+					App:           "app3",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					ReleaseNumber: 20,
+					App:           "app3",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"production": "manifest3"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "staging",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "production",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":        {"app1", "app2", "app3"},
+				"staging":    {"app1"},
+				"production": {"app1", "app3"},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, environment := range tc.Environments {
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]string, 0))
+					if err != nil {
+						return fmt.Errorf("error while writing environment, error: %w", err)
+					}
+				}
+				for _, release := range tc.Releases {
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				for envName, expectedApps := range tc.ExpectedEnvironmentApplications {
+					apps, err := dbHandler.DBSelectEnvironmentApplications(ctx, transaction, envName)
+					if err != nil {
+						return fmt.Errorf("Couldn't retrieve environment %s applications, error: %w", envName, err)
+					}
+					if diff := cmp.Diff(expectedApps, apps); diff != "" {
+						return fmt.Errorf("environment applications mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+		})
+	}
+}
+
+func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
+	tcs := []struct {
+		Name                            string
+		FirstReleases                   []DBReleaseWithMetaData
+		SecondReleases                  []DBReleaseWithMetaData
+		Environments                    []DBEnvironment
+		ExpectedEnvironmentApplications map[string][]string
+	}{
+		{
+			Name: "Environment added afterwards",
+			FirstReleases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+			},
+			SecondReleases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 20,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"staging": "manifest2"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "staging",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":     {"app1"},
+				"staging": {},
+			},
+		},
+		{
+			Name: "New app added afterwards",
+			FirstReleases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
+				},
+				{
+					ReleaseNumber: 20,
+					App:           "app1",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"staging": "manifest2"}},
+				},
+			},
+			SecondReleases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumber: 10,
+					App:           "app2",
+					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1", "staging": "manifest2"}},
+				},
+			},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "staging",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			ExpectedEnvironmentApplications: map[string][]string{
+				"dev":     {"app1"},
+				"staging": {"app1"},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			firstReleaseTime, err := WithTransactionT(dbHandler, ctx, 1, false, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
+				for _, environment := range tc.Environments {
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]string, 0))
+					if err != nil {
+						return nil, fmt.Errorf("error while writing environment, error: %w", err)
+					}
+				}
+				for _, release := range tc.FirstReleases {
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+					if err != nil {
+						return nil, fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				firstReleaseTime := time.Now()
+				return &firstReleaseTime, nil
+			})
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, release := range tc.SecondReleases {
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+
+				for envName, expectedApps := range tc.ExpectedEnvironmentApplications {
+					apps, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
+					if err != nil {
+						return fmt.Errorf("Couldn't retrieve environment %s applications, error: %w", envName, err)
+					}
+					if diff := cmp.Diff(expectedApps, apps); diff != "" {
+						return fmt.Errorf("environment applications mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
 		})
 	}
 }

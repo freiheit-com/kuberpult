@@ -55,6 +55,7 @@ export const Textfield = (props: TextfieldProps): JSX.Element => {
                 </i>
             )}
             <input
+                id={'application-filter-input'}
                 type="search"
                 className="mdc-text-field__input"
                 defaultValue={value}

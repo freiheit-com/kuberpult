@@ -20,8 +20,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
@@ -41,6 +43,7 @@ type Server struct {
 	Config                      config.ServerConfig
 	KeyRing                     openpgp.KeyRing
 	AzureAuth                   bool
+	User                        auth.User
 }
 
 func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
@@ -74,7 +77,7 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 	case "release":
 		s.handleApiRelease(w, req, tail)
 	case "commit-deployments":
-		s.handleCommitDeployments(w, req, tail)
+		s.handleCommitDeployments(req.Context(), w, req, tail)
 	default:
 		http.Error(w, fmt.Sprintf("unknown endpoint 'api/%s'", group), http.StatusNotFound)
 	}
@@ -161,4 +164,58 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 		}
 		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", dexResponse.Status, string(v)), http.StatusBadGateway)
 	}
+}
+
+type PublicApiServer struct {
+	S Server
+}
+
+func (s *PublicApiServer) GetPublicApiSchemaOptions(w http.ResponseWriter, _ *http.Request) {
+	s.setCorsHeaders(w)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *PublicApiServer) setCorsHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")                                       // Or "application/json"
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS") // Or "application/json"
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")   // Or "application/json"
+}
+
+var _ publicapi.ServerInterface = &PublicApiServer{} //exhaustruct:ignore
+
+func (s *PublicApiServer) GetPublicApiSchema(w http.ResponseWriter, _ *http.Request) {
+	specFile := "api.yaml" // Or openapi.json
+	currentDir, err := os.Getwd()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error reading current dir: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	dir := currentDir + "/kp/kuberpult/pkg/publicapi/"
+	content, err := os.ReadFile(dir + specFile)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error reading OpenAPI spec: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/yaml") // Or "application/json"
+	s.setCorsHeaders(w)
+
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(content)
+	if err != nil {
+		fmt.Printf("Error writing response: %v\n", err)
+	}
+}
+
+func (s *PublicApiServer) GetCommitDeployments(w http.ResponseWriter, r *http.Request, commitHash string) {
+	s.setCorsHeaders(w)
+	ctx := r.Context()
+	ctx = auth.WriteUserToGrpcContext(ctx, auth.User{
+		Email:          s.S.User.Email,
+		Name:           s.S.User.Name,
+		DexAuthContext: nil,
+	})
+
+	s.S.handleCommitDeployments(ctx, w, r, commitHash)
 }

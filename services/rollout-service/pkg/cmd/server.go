@@ -21,12 +21,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"net/url"
 	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
@@ -49,13 +51,31 @@ import (
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 )
 
+type contextKey string
+
+const DdMetricsKey contextKey = "ddMetrics"
+
 type Config struct {
 	CdServer       string `default:"kuberpult-cd-service:8443"`
 	CdServerSecure bool   `default:"false" split_words:"true"`
 	VersionServer  string `default:"kuberpult-manifest-repo-export-service:8443"`
 	EnableTracing  bool   `default:"false" split_words:"true"`
+	EnableMetrics  bool   `default:"false" split_words:"true"`
+	DogstatsdAddr  string `default:"127.0.0.1:8125" split_words:"true"`
 
 	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
+
+	DbOption             string `default:"NO_DB" split_words:"true"`
+	DbLocation           string `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance   string `default:"" split_words:"true"`
+	DbName               string `default:"" split_words:"true"`
+	DbUserName           string `default:"" split_words:"true"`
+	DbUserPassword       string `default:"" split_words:"true"`
+	DbAuthProxyPort      string `default:"5432" split_words:"true"`
+	DbMigrationsLocation string `default:"" split_words:"true"`
+	DbMaxIdleConnections uint   `required:"true" split_words:"true"`
+	DbMaxOpenConnections uint   `required:"true" split_words:"true"`
+	DbSslMode            string `default:"verify-full" split_words:"true"`
 
 	ArgocdServer                      string `split_words:"true"`
 	ArgocdInsecure                    bool   `default:"false" split_words:"true"`
@@ -69,9 +89,19 @@ type Config struct {
 	RevolutionDoraToken       string        `split_words:"true" default:""`
 	RevolutionDoraConcurrency int           `default:"10" split_words:"true"`
 	RevolutionDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
+	RevolutionDoraDryRun      bool          `split_words:"true" default:"false"`
 
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
+
+	PersistArgoEvents          bool `default:"false" split_words:"true"`
+	ArgoEventsBatchSize        int  `default:"1" split_words:"true"`
+	ArgoEventsChannelSize      int  `default:"50" split_words:"true"`
+	KuberpultEventsChannelSize int  `default:"50" split_words:"true"`
+
+	DoraEventsMetricsEnabled      bool `default:"false" split_words:"true"`
+	ArgoEventsMetricsEnabled      bool `default:"false" split_words:"true"`
+	KuberpultEventsMetricsEnabled bool `default:"false" split_words:"true"`
 
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
@@ -100,10 +130,12 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 		return revolution.Config{}, fmt.Errorf("KUBERPULT_REVOLUTION_DORA_TOKEN must not be empty")
 	}
 	return revolution.Config{
-		URL:         config.RevolutionDoraUrl,
-		Token:       []byte(config.RevolutionDoraToken),
-		Concurrency: config.RevolutionDoraConcurrency,
-		MaxEventAge: config.RevolutionDoraMaxEventAge,
+		URL:            config.RevolutionDoraUrl,
+		Token:          []byte(config.RevolutionDoraToken),
+		Concurrency:    config.RevolutionDoraConcurrency,
+		MaxEventAge:    config.RevolutionDoraMaxEventAge,
+		MetricsEnabled: config.DoraEventsMetricsEnabled,
+		DryRun:         config.RevolutionDoraDryRun,
 	}, nil
 }
 
@@ -127,8 +159,7 @@ func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClie
 	if config.CdServerSecure {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
-			msg := "failed to read CA certificates"
-			return nil, nil, fmt.Errorf(msg)
+			return nil, nil, fmt.Errorf("failed to read CA certificates")
 		}
 		//exhaustruct:ignore
 		cred = credentials.NewTLS(&tls.Config{
@@ -184,9 +215,64 @@ func runServer(ctx context.Context, config Config) error {
 		)
 	}
 
+	//Datadog metrics
+	var ddMetrics statsd.ClientInterface
+	var err error
+	if config.EnableMetrics {
+		ddMetrics, err = statsd.New(config.DogstatsdAddr, statsd.WithNamespace("Kuberpult"))
+		if err != nil {
+			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
+		}
+		ctx = context.WithValue(ctx, DdMetricsKey, ddMetrics)
+	}
+
 	opts, err := config.ClientConfig()
 	if err != nil {
 		return err
+	}
+
+	var dbHandler *db.DBHandler = nil
+	if config.DbOption != "NO_DB" {
+		var dbCfg db.DBConfig
+		if config.DbOption == "postgreSQL" {
+			dbCfg = db.DBConfig{
+				DbHost:         config.DbLocation,
+				DbPort:         config.DbAuthProxyPort,
+				DriverName:     "postgres",
+				DbName:         config.DbName,
+				DbPassword:     config.DbUserPassword,
+				DbUser:         config.DbUserName,
+				MigrationsPath: config.DbMigrationsLocation,
+				WriteEslOnly:   false,
+				SSLMode:        config.DbSslMode,
+
+				MaxIdleConnections: config.DbMaxIdleConnections,
+				MaxOpenConnections: config.DbMaxOpenConnections,
+			}
+		} else if config.DbOption == "sqlite" {
+			dbCfg = db.DBConfig{
+				DbHost:         config.DbLocation,
+				DbPort:         config.DbAuthProxyPort,
+				DriverName:     "sqlite3",
+				DbName:         config.DbName,
+				DbPassword:     config.DbUserPassword,
+				DbUser:         config.DbUserName,
+				MigrationsPath: config.DbMigrationsLocation,
+				WriteEslOnly:   false,
+				SSLMode:        "disable",
+
+				MaxIdleConnections: config.DbMaxIdleConnections,
+				MaxOpenConnections: config.DbMaxOpenConnections,
+			}
+		}
+		dbHandler, err = db.Connect(ctx, dbCfg)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+		}
+		pErr := dbHandler.DB.Ping()
+		if pErr != nil {
+			logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
+		}
 	}
 
 	logger.FromContext(ctx).Info("argocd.connecting", zap.String("argocd.addr", opts.ServerAddr))
@@ -216,14 +302,30 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
-	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.ManageArgoApplicationsFilter)
+
+	if checkAppFilterDeprecation(config.ManageArgoApplicationsFilter) {
+		logger.FromContext(ctx).Sugar().Warn("Application filter feature is deprecated. In the future, either all applications will be self managed or none at all, regardless of team.")
+	}
+
+	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.KuberpultEventsMetricsEnabled, config.ArgoEventsMetricsEnabled, config.ManageArgoApplicationsFilter, *dbHandler, config.KuberpultEventsChannelSize, config.ArgoEventsChannelSize, ddMetrics)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
+	ArgoEventConsumer := service.ArgoEventConsumer{
+		AppClient:           appClient,
+		Dispatcher:          dispatcher,
+		HealthReporter:      nil,
+		ArgoAppProcessor:    versionC.GetArgoProcessor(),
+		DDMetrics:           ddMetrics,
+		DBHandler:           dbHandler,
+		PersistArgoEvents:   config.PersistArgoEvents,
+		ArgoEventsBatchSize: config.ArgoEventsBatchSize,
+	}
 	backgroundTasks := []setup.BackgroundTaskConfig{
 		{
 			Shutdown: nil,
 			Name:     "consume argocd events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return service.ConsumeEvents(ctx, appClient, dispatcher, health)
+				ArgoEventConsumer.HealthReporter = health
+				return ArgoEventConsumer.ConsumeEvents(ctx)
 			},
 		},
 		{
@@ -240,22 +342,9 @@ func runServer(ctx context.Context, config Config) error {
 				return versionC.GetArgoProcessor().Consume(ctx, health)
 			},
 		},
-		{
-			Shutdown: nil,
-			Name:     "consume argo events",
-			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return versionC.GetArgoProcessor().ConsumeArgo(ctx, health)
-			},
-		},
-		{
-			Shutdown: nil,
-			Name:     "dispatch argocd events",
-			Run:      dispatcher.Work,
-		},
 	}
 
 	if config.ArgocdRefreshEnabled {
-
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Shutdown: nil,
 			Name:     "refresh argocd",
@@ -271,7 +360,7 @@ func runServer(ctx context.Context, config Config) error {
 		if err != nil {
 			return err
 		}
-		revolutionDora := revolution.New(revolutionConfig)
+		revolutionDora := revolution.New(revolutionConfig, ddMetrics)
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Shutdown: nil,
 			Name:     "revolution dora",
@@ -319,4 +408,8 @@ func runServer(ctx context.Context, config Config) error {
 		},
 	})
 	return nil
+}
+
+func checkAppFilterDeprecation(filter []string) bool {
+	return len(filter) > 1 || (len(filter) == 1 && filter[0] != "*") //We are going to keep the functionality of []string{"*"} for the future
 }

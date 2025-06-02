@@ -17,35 +17,60 @@ import React, { useEffect } from 'react';
 
 const getRelativeDate = (current: Date, target: Date | undefined): string => {
     if (!target) return '';
-    const elapsedTime = current.valueOf() - target.valueOf();
+    let elapsedTime = current.valueOf() - target.valueOf();
     const msPerMinute = 1000 * 60;
     const msPerHour = msPerMinute * 60;
     const msPerDay = msPerHour * 24;
     const msPerMonth = msPerDay * 30;
     const msPerYear = msPerDay * 365;
 
-    if (elapsedTime < msPerMinute) {
-        return 'just now';
-    } else if (elapsedTime < msPerHour) {
-        return Math.round(elapsedTime / msPerMinute) === 1
-            ? `1 minute ago`
-            : `${Math.round(elapsedTime / msPerMinute)} minutes ago`;
-    } else if (elapsedTime < msPerDay) {
-        return Math.round(elapsedTime / msPerHour) === 1
-            ? '1 hour ago'
-            : `${Math.round(elapsedTime / msPerHour)} hours ago`;
-    } else if (elapsedTime < msPerMonth) {
-        return Math.round(elapsedTime / msPerDay) === 1
-            ? '~ 1 day ago'
-            : `~ ${Math.round(elapsedTime / msPerDay)} days ago`;
-    } else if (elapsedTime < msPerYear) {
-        return Math.round(elapsedTime / msPerMonth) === 1
-            ? '~ 1 month ago'
-            : `~ ${Math.round(elapsedTime / msPerMonth)} months ago`;
+    if (elapsedTime >= 0) {
+        if (elapsedTime < msPerMinute) {
+            return 'just now';
+        } else if (elapsedTime < msPerHour) {
+            return Math.round(elapsedTime / msPerMinute) === 1
+                ? `1 minute ago`
+                : `${Math.round(elapsedTime / msPerMinute)} minutes ago`;
+        } else if (elapsedTime < msPerDay) {
+            return Math.round(elapsedTime / msPerHour) === 1
+                ? '1 hour ago'
+                : `${Math.round(elapsedTime / msPerHour)} hours ago`;
+        } else if (elapsedTime < msPerMonth) {
+            return Math.round(elapsedTime / msPerDay) === 1
+                ? '~ 1 day ago'
+                : `~ ${Math.round(elapsedTime / msPerDay)} days ago`;
+        } else if (elapsedTime < msPerYear) {
+            return Math.round(elapsedTime / msPerMonth) === 1
+                ? '~ 1 month ago'
+                : `~ ${Math.round(elapsedTime / msPerMonth)} months ago`;
+        } else {
+            return Math.round(elapsedTime / msPerYear) === 1
+                ? '~ 1 year ago'
+                : `~ ${Math.round(elapsedTime / msPerYear)} years ago`;
+        }
     } else {
-        return Math.round(elapsedTime / msPerYear) === 1
-            ? '~ 1 year ago'
-            : `~ ${Math.round(elapsedTime / msPerYear)} years ago`;
+        elapsedTime = Math.abs(elapsedTime);
+        if (elapsedTime < msPerHour) {
+            return Math.round(elapsedTime / msPerMinute) === 1
+                ? `in 1 minute`
+                : `in ${Math.round(elapsedTime / msPerMinute)} minutes`;
+        } else if (elapsedTime < msPerDay) {
+            return Math.round(elapsedTime / msPerHour) === 1
+                ? 'in 1 hour'
+                : `in ${Math.round(elapsedTime / msPerHour)} hours`;
+        } else if (elapsedTime < msPerMonth) {
+            return Math.round(elapsedTime / msPerDay) === 1
+                ? 'in ~ 1 day'
+                : `in ~ ${Math.round(elapsedTime / msPerDay)} days`;
+        } else if (elapsedTime < msPerYear) {
+            return Math.round(elapsedTime / msPerMonth) === 1
+                ? 'in ~ 1 month'
+                : `in ~ ${Math.round(elapsedTime / msPerMonth)} months`;
+        } else {
+            return Math.round(elapsedTime / msPerYear) === 1
+                ? 'in ~ 1 year'
+                : `in ~ ${Math.round(elapsedTime / msPerYear)} years`;
+        }
     }
 };
 

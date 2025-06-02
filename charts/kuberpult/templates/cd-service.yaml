@@ -41,6 +41,7 @@ spec:
   # to `pull` and `push` more often due to possible conflicts.
   # Therefore, we only allow 1 instance of the cd-service.
   # If you temporarily need 2, that will also work.
+  # Having more than 1 cd-service pods may create inconsistent state in the database because some of the transformers require isolation, Ref: SRX-8JRR7Q 
   replicas: 1
   selector:
     matchLabels:
@@ -80,8 +81,7 @@ spec:
           # following flag to have the proxy connect over private IP
           - "--private-ip"
 
-          # Enable structured logging with LogEntry format:
-          - "--structured-logs"
+          - "--quiet"
 
           # Replace DB_PORT with the port the proxy should listen on
 
@@ -144,9 +144,11 @@ spec:
             memory: "{{ .Values.cd.resources.requests.memory }}"
         env:
         - name: KUBERPULT_GIT_URL
-          value: {{ required ".Values.git.url is required" .Values.git.url | quote }}
+          value: {{ .Values.git.url | quote }}
         - name: KUBERPULT_GIT_BRANCH
           value: {{ .Values.git.branch | quote }}
+        - name: KUBERPULT_VERSION
+          value: {{ $.Chart.AppVersion | quote}}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
@@ -158,8 +160,6 @@ spec:
           value: {{ .Values.argocd.insecure | quote }}
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
-        - name: KUBERPULT_GIT_WEB_URL
-          value: {{ .Values.git.webUrl | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: KUBERPULT_CACHE_TTL_HOURS
           value: {{ .Values.cd.cacheTtlHours | quote }}
@@ -232,12 +232,12 @@ spec:
           value: "{{ .Values.cd.backendConfig.disableQueue }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
           value: "{{ .Values.git.enableWritingCommitData }}"
-        - name: KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH
-          value: "{{ .Values.git.maximumCommitsPerPush }}"
         - name: KUBERPULT_ENABLE_PROFILING
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
           value: "{{ .Values.cd.backendConfig.queueSize }}"
+        - name: KUBERPULT_MAX_NUMBER_OF_THREADS
+          value: "{{ .Values.cd.maxNumberOfThreads }}"
         - name: KUBERPULT_DB_OPTION # { postgreSQL}
           value: {{ .Values.db.dbOption }}
         - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
@@ -246,7 +246,7 @@ spec:
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
-          value: {{ .Values.db.migrations }}
+          value: /migrations/postgres
 {{- end }}
 {{- if eq .Values.db.dbOption "postgreSQL" }}
         - name: KUBERPULT_DB_NAME
@@ -267,6 +267,10 @@ spec:
           value: "{{ .Values.db.connections.cd.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.cd.maxIdle }}"
+        - name: KUBERPULT_CHECK_CUSTOM_MIGRATIONS
+          value: "{{ .Values.db.checkCustomMigrations }}"
+        - name: KUBERPULT_LOCK_TYPE
+          value: "{{ .Values.cd.lockType }}"
 {{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
@@ -278,14 +282,17 @@ spec:
         - name: KUBERPULT_MINOR_REGEXES
           value: {{ .Values.cd.minorRegexes | join "," | quote }}
 {{- end }}
-        volumeMounts:
-{{- if (eq .Values.db.dbOption "postgreSQL") }}
-        - name: migrations
-          mountPath: {{ .Values.db.migrations }}
-          readOnly: false
+        - name: KUBERPULT_MIGRATION_SERVER
+          value: kuberpult-manifest-repo-export-service:8443
+        - name: KUBERPULT_MIGRATION_SERVER_SECURE
+          value: "false"
+        - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
+          value: "{{ .Values.cd.grpcMaxRecvMsgSize }}"
+{{- if .Values.reposerver.enabled }}
+        - name: KUBERPULT_REPOSERVER_ENABLED
+          value: "true"
 {{- end }}
-        - name: repository
-          mountPath: /repository
+        volumeMounts:
         - name: ssh
           mountPath: /etc/ssh
 {{- if .Values.datadogProfiling.enabled }}
@@ -306,12 +313,6 @@ spec:
           readOnly: true
 {{- end }}
       volumes:
-      - name: repository
-        # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
-        # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
-        # Because of an issue in gitlib2, this actually happens.
-        emptyDir:
-          sizeLimit: 30Gi
       - name: ssh
         secret:
           secretName: kuberpult-ssh
@@ -324,11 +325,6 @@ spec:
       - name: keyring
         configMap:
           name: kuberpult-keyring
-{{- end }}
-{{- if eq .Values.db.dbOption "postgreSQL" }}
-      - name: migrations
-        configMap:
-          name: kuberpult-migrations-cloudsql
 {{- end }}
 {{- if .Values.auth.dexAuth.enabled }}
       - name: kuberpult-rbac

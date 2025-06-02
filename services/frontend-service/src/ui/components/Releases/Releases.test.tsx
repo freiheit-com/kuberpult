@@ -15,8 +15,15 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Releases } from './Releases';
 import { render } from '@testing-library/react';
-import { AppDetailsResponse, AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
 import {
+    AppDetailsResponse,
+    AppDetailsState,
+    UpdateAllApplicationLocks,
+    updateAppDetails,
+    UpdateOverview,
+} from '../../utils/store';
+import {
+    AllAppLocks,
     Environment,
     EnvironmentGroup,
     Lock,
@@ -36,6 +43,9 @@ describe('Release Dialog', () => {
         envGroups: EnvironmentGroup[];
         expectedAppLocksLength: number;
         appDetails: { [p: string]: AppDetailsResponse };
+        AppLocks: {
+            [key: string]: AllAppLocks;
+        };
     };
 
     const releases = [
@@ -51,6 +61,7 @@ describe('Release Dialog', () => {
             isMinor: false,
             isPrepublish: false,
             environments: [],
+            ciLink: '',
         },
         {
             version: 2,
@@ -64,6 +75,7 @@ describe('Release Dialog', () => {
             isMinor: false,
             isPrepublish: false,
             environments: [],
+            ciLink: '',
         },
         {
             version: 3,
@@ -77,6 +89,7 @@ describe('Release Dialog', () => {
             isMinor: false,
             isPrepublish: false,
             environments: [],
+            ciLink: '',
         },
     ];
 
@@ -85,18 +98,24 @@ describe('Release Dialog', () => {
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
+        suggestedLifetime: '',
     };
     const testAppLock2: Lock = {
         lockId: 'testlockId2',
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
+        suggestedLifetime: '',
     };
     const testApplock3: Lock = {
         lockId: 'testlockId3',
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
+        suggestedLifetime: '',
     };
 
     const app1Details: AppDetailsResponse = {
@@ -125,32 +144,16 @@ describe('Release Dialog', () => {
         },
         appDetailState: AppDetailsState.READY,
         updatedAt: new Date(Date.now()),
+        errorMessage: '',
     };
 
     const testEnv1: Environment = {
         name: 'dev',
-        locks: {},
-        appLocks: {
-            test: {
-                locks: [testAppLock],
-            },
-            test2: {
-                locks: [testAppLock2],
-            },
-        },
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     };
     const testEnv2: Environment = {
         name: 'staging',
-        locks: {},
-        appLocks: {
-            test: {
-                locks: [testApplock3],
-            },
-        },
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.PROD,
     };
@@ -193,6 +196,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
                 {
                     version: 2,
@@ -206,6 +210,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
                 {
                     version: 3,
@@ -219,9 +224,22 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             envGroups: [testEnvGroup1],
+            AppLocks: {
+                dev: {
+                    appLocks: {
+                        test: {
+                            locks: [testAppLock],
+                        },
+                        test2: {
+                            locks: [testAppLock2],
+                        },
+                    },
+                },
+            },
             expectedAppLocksLength: 1,
         },
         {
@@ -251,6 +269,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     version: 2,
@@ -264,6 +283,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                                 {
                                     version: 3,
@@ -277,6 +297,7 @@ describe('Release Dialog', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -290,6 +311,7 @@ describe('Release Dialog', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             releases: [
@@ -305,6 +327,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
                 {
                     version: 2,
@@ -318,6 +341,7 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
                 {
                     version: 3,
@@ -331,9 +355,11 @@ describe('Release Dialog', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             envGroups: [],
+            AppLocks: {},
             expectedAppLocksLength: 0,
         },
         {
@@ -362,9 +388,29 @@ describe('Release Dialog', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             releases: [],
+            AppLocks: {
+                dev: {
+                    appLocks: {
+                        test: {
+                            locks: [testAppLock],
+                        },
+                        test2: {
+                            locks: [testAppLock2],
+                        },
+                    },
+                },
+                staging: {
+                    appLocks: {
+                        test: {
+                            locks: [testApplock3],
+                        },
+                    },
+                },
+            },
             envGroups: [testEnvGroup1, testEnvGroup2],
             expectedAppLocksLength: 2,
         },
@@ -378,6 +424,7 @@ describe('Release Dialog', () => {
                 environmentGroups: testcase.envGroups,
             });
             updateAppDetails.set(testcase.appDetails);
+            UpdateAllApplicationLocks.set(testcase.AppLocks);
             render(
                 <MemoryRouter>
                     <Releases app="test" />

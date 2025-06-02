@@ -17,6 +17,7 @@ exports[`Textfield renders correctly using Snapshot 1`] = `
   <input
     aria-label="Floating label"
     class="mdc-text-field__input"
+    id="application-filter-input"
     placeholder="Floating label"
     type="search"
     value=""

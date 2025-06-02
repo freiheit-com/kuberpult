@@ -20,12 +20,17 @@ import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
     AppDetailsState,
+    EnableGitSyncStatus,
     EnableRolloutStatus,
+    FlushGitSyncStatus,
     FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
+    UpdateAllApplicationLocks,
+    updateAllEnvLocks,
     updateAppDetails,
     UpdateFrontendConfig,
+    UpdateGitSyncStatus,
     UpdateOverview,
     UpdateRolloutStatus,
     useKuberpultVersion,
@@ -89,6 +94,32 @@ export const App: React.FC = () => {
                 }
             );
     }, [api]);
+    React.useEffect(() => {
+        if (authReady) {
+            const subscription = api
+                .gitService()
+                .StreamGitSyncStatus({}, authHeader)
+                .pipe(retryWhen(retryStrategy(1)))
+                .subscribe(
+                    (result) => {
+                        UpdateGitSyncStatus(result);
+                    },
+                    (error) => {
+                        if (error.code === 12) {
+                            // Error code 12 means "not implemented". That is what we get when the rollout service is not enabled.
+                            FlushGitSyncStatus();
+                            return;
+                        }
+                        PanicOverview.set({
+                            error: JSON.stringify({ msg: 'error in StreamGitSyncStatus', error }),
+                        });
+                        showSnackbarWarn('Connection Error: Refresh the page');
+                        EnableGitSyncStatus();
+                    }
+                );
+            return (): void => subscription.unsubscribe();
+        }
+    }, [api, authHeader, authReady]);
 
     React.useEffect(() => {
         if (authReady) {
@@ -112,10 +143,29 @@ export const App: React.FC = () => {
                                     appDetailState: AppDetailsState.NOTREQUESTED,
                                     details: undefined,
                                     updatedAt: undefined,
+                                    errorMessage: '',
                                 };
                             }
                         });
                         updateAppDetails.set(details);
+                        // Get App Locks
+                        api.overviewService()
+                            .GetAllAppLocks({}, authHeader)
+                            .then((res) => {
+                                UpdateAllApplicationLocks.set(res.allAppLocks);
+                            })
+                            .catch((e) => {
+                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllAppLocks', e }) });
+                            });
+                        // Get Env Locks
+                        api.overviewService()
+                            .GetAllEnvTeamLocks({}, authHeader)
+                            .then((res) => {
+                                updateAllEnvLocks.set(res);
+                            })
+                            .catch((e) => {
+                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllEnvTeamLocks', e }) });
+                            });
                     },
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });

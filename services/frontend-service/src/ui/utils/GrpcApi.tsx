@@ -28,6 +28,8 @@ export interface Api {
     gitService(): api.GitService;
     // environment service
     environmentService(): api.EnvironmentService;
+    // version service
+    versionService(): api.VersionService;
 }
 
 class GrpcApi implements Api {
@@ -39,6 +41,7 @@ class GrpcApi implements Api {
     _environmentService: api.EnvironmentService;
     _releaseTrainPrognosisService: api.ReleaseTrainPrognosisService;
     _eslService: api.EslService;
+    _versionService: api.VersionService;
     constructor() {
         // eslint-disable-next-line no-restricted-globals
         const gcli = new api.GrpcWebImpl(location.protocol + '//' + location.host, {});
@@ -50,6 +53,7 @@ class GrpcApi implements Api {
         this._environmentService = new api.EnvironmentServiceClientImpl(gcli);
         this._releaseTrainPrognosisService = new api.ReleaseTrainPrognosisServiceClientImpl(gcli);
         this._eslService = new api.EslServiceClientImpl(gcli);
+        this._versionService = new api.VersionServiceClientImpl(gcli);
     }
     overviewService(): api.OverviewService {
         return this._overviewService;
@@ -74,6 +78,9 @@ class GrpcApi implements Api {
     }
     eslService(): api.EslService {
         return this._eslService;
+    }
+    versionService(): api.VersionService {
+        return this._versionService;
     }
 }
 

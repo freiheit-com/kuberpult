@@ -88,6 +88,8 @@ func RunCLI() ReturnCode {
 		return handleReleaseTrain(*kpClientParams, subflags)
 	case "get-commit-deployments":
 		return handleGetCommitDeployments(*kpClientParams, subflags)
+	case "delete-environment":
+		return handleDeleteEnvironment(*kpClientParams, subflags)
 	default:
 		log.Printf("unknown subcommand %s\n", subcommand)
 		return ReturnCodeInvalidArguments

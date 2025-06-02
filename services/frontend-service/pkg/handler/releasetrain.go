@@ -38,26 +38,48 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
 
-	if s.AzureAuth {
-		if req.Body == nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "missing request body")
-			return
-		}
-		signature, err := io.ReadAll(req.Body)
+	var request releaseTrainRequest
+	var signatureReader io.Reader
+
+	if req.Body != nil {
+		body, err := io.ReadAll(req.Body)
+
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "Can't read request body %s", err)
 			return
 		}
 
-		if len(signature) == 0 {
+		if err := json.NewDecoder(bytes.NewReader(body)).Decode(&request); err != nil && !errors.Is(err, io.EOF) {
+			if s.AzureAuth {
+				if len(body) == 0 {
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte("Missing signature in request body")) //nolint:errcheck
+					return
+				}
+				signatureReader = bytes.NewReader(body)
+			} else {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		} else if s.AzureAuth {
+			if len(request.Signature) == 0 {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("Missing signature in request body")) //nolint:errcheck
+				return
+			}
+			signatureReader = strings.NewReader(request.Signature)
+		}
+	}
+
+	if s.AzureAuth {
+		if req.Body == nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
+			fmt.Fprintf(w, "missing request body")
 			return
 		}
 
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), bytes.NewReader(signature), nil); err != nil {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), signatureReader, nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
 				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
@@ -74,24 +96,7 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		Target:     target,
 		Team:       teamParam,
 		TargetType: api.ReleaseTrainRequest_UNKNOWN,
-		CiLink:     "",
-	}
-	if req.Body != nil {
-		type releaseTrainBody struct {
-			CiLink string `json:"ciLink,omitempty"`
-		}
-		var body releaseTrainBody
-		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-			decodeError := err.Error()
-			if errors.Is(err, io.EOF) {
-				tf.CiLink = "" //If no body, CI link is empty
-			} else {
-				http.Error(w, decodeError, http.StatusBadRequest)
-				return
-			}
-		} else {
-			tf.CiLink = body.CiLink
-		}
+		CiLink:     request.CiLink,
 	}
 
 	response, err := s.BatchClient.ProcessBatch(req.Context(),

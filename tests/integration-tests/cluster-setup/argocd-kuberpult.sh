@@ -42,7 +42,7 @@ print "setting up manifest repo"
 waitForDeployment "git" "app.kubernetes.io/name=server"
 portForwardAndWait "git" "deployment/server" "$SSH_HOST_PORT" "22"
 
-git clone ssh://git@localhost:$SSH_HOST_PORT/git/repos/manifests
+git clone ssh://git@localhost:"$SSH_HOST_PORT"/git/repos/manifests
 
 cp -r environments manifests/
 
@@ -204,11 +204,7 @@ $(sed -e "s/^/    /" </kp/kuberpult-keyring.gpg)
 VALUES
 
 # Get helm dependency charts and unzip them
-cp -r database/migrations migrations
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
-helm template -s templates/migrations.yaml ./ -f values.yaml --set git.url=test --set ingress.domainName=kuberpult.example.com > templates/generated-migrations.yaml
-rm -rf migrations
-rm templates/migrations.yaml
 helm template ./ --values vals.yaml > tmp.tmpl
 helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'
@@ -229,7 +225,7 @@ portForwardAndWait "default" deploy/postgres "5432" "5432"
 
 kubectl get deployment
 kubectl get pods
-
+/kp/create-environments.sh
 for i in $(seq 1 3)
 do
    RELEASE_VERSION=$i /kp/create-release.sh echo;

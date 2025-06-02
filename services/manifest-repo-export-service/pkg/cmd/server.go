@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"database/sql"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"strconv"
 	"time"
 
@@ -153,7 +154,11 @@ func Run(ctx context.Context) error {
 	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
-
+	checkCustomMigrationsString, err := valid.ReadEnvVar("KUBERPULT_CHECK_CUSTOM_MIGRATIONS")
+	if err != nil {
+		log.Info("datadog metrics are disabled")
+	}
+	checkCustomMigrations := checkCustomMigrationsString == "true"
 	minimizeExportedData, err := valid.ReadEnvVarBool("KUBERPULT_MINIMIZE_EXPORTED_DATA")
 	if err != nil {
 		return err
@@ -185,6 +190,17 @@ func Run(ctx context.Context) error {
 	}
 	argoCdGenerateFiles := argoCdGenerateFilesString == "true"
 
+	kuberpultVersionRaw, err := valid.ReadEnvVar("KUBERPULT_VERSION")
+	if err != nil {
+		return err
+	}
+	logger.FromContext(ctx).Info("startup", zap.String("kuberpultVersion", kuberpultVersionRaw))
+
+	dbMigrationLocation, err := valid.ReadEnvVar("KUBERPULT_DB_MIGRATIONS_LOCATION")
+	if err != nil {
+		return err
+	}
+
 	var dbCfg db.DBConfig
 	if dbOption == "postgreSQL" {
 		dbCfg = db.DBConfig{
@@ -194,7 +210,7 @@ func Run(ctx context.Context) error {
 			DbName:         dbName,
 			DbPassword:     dbPassword,
 			DbUser:         dbUserName,
-			MigrationsPath: "",
+			MigrationsPath: dbMigrationLocation,
 			WriteEslOnly:   false,
 			SSLMode:        sslMode,
 
@@ -209,7 +225,7 @@ func Run(ctx context.Context) error {
 			DbName:         dbName,
 			DbPassword:     dbPassword,
 			DbUser:         dbUserName,
-			MigrationsPath: "",
+			MigrationsPath: dbMigrationLocation,
 			WriteEslOnly:   false,
 			SSLMode:        sslMode,
 
@@ -249,12 +265,45 @@ func Run(ctx context.Context) error {
 		MinimizeExportedData: minimizeExportedData,
 
 		DBHandler: dbHandler,
-	}
 
+		DDMetrics: ddMetrics,
+	}
 	repo, err := repository.New(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
+
+	log.Infof("Running SQL Migrations")
+
+	migErr := db.RunDBMigrations(ctx, dbCfg)
+	if migErr != nil {
+		logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
+	}
+	logger.FromContext(ctx).Info("Finished with basic database migration.")
+	kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
+	if err != nil {
+		return err
+	}
+	migrationServer := &service.MigrationServer{
+		KuberpultVersion: kuberpultVersion,
+		DBHandler:        dbHandler,
+		Migrations:       getAllMigrations(dbHandler, repo),
+	}
+	if shouldRunCustomMigrations(checkCustomMigrations, minimizeExportedData) {
+		log.Infof("Running Custom Migrations")
+
+		_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+			Version: kuberpultVersion,
+		})
+		if err != nil {
+			return fmt.Errorf("error running custom migrations: %w", err)
+		}
+		log.Infof("Finished Custom Migrations successfully")
+	} else {
+		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if" +
+			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=true.")
+	}
+
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
@@ -272,6 +321,7 @@ func Run(ctx context.Context) error {
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10})
+				api.RegisterMigrationServiceServer(srv, migrationServer)
 				reflection.Register(srv)
 			},
 		},
@@ -281,7 +331,7 @@ func Run(ctx context.Context) error {
 				Name:     "processEsls",
 				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 					reporter.ReportReady("Processing Esls")
-					return processEsls(ctx, repo, dbHandler, ddMetrics, eslProcessingIdleTimeSeconds)
+					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds)
 				},
 			},
 		},
@@ -293,6 +343,52 @@ func Run(ctx context.Context) error {
 	return nil
 }
 
+func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
+	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrations(
+			ctx,
+			repo.State().GetAppsAndTeams,
+			repo.State().WriteCurrentlyDeployed,
+			repo.State().WriteAllReleases,
+			repo.State().WriteCurrentEnvironmentLocks,
+			repo.State().WriteCurrentApplicationLocks,
+			repo.State().WriteCurrentTeamLocks,
+			repo.State().GetAllEnvironments,
+			repo.State().WriteAllQueuedAppVersions,
+			repo.State().WriteAllCommitEvents,
+		)
+	}
+
+	migrateReleases := func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrationReleaseEnvironments(ctx)
+	}
+	migrateEnvApps := func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
+	}
+
+	// Migrations here must be IN ORDER, oldest first:
+	return []*service.Migration{
+		{
+			// This first migration is actually a list of migrations that are done in one step:
+			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
+			Migration: migrationFunc,
+		},
+		{
+			Version:   migrations.CreateKuberpultVersion(0, 0, 1),
+			Migration: migrateReleases,
+		},
+		{
+			Version:   migrations.CreateKuberpultVersion(0, 0, 2),
+			Migration: migrateEnvApps,
+		},
+		// New migrations should be added here:
+		// {
+		//   Version: ...
+		//   Migration: ...
+		// }
+	}
+}
+
 func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds uint64) error {
 	log := logger.FromContext(ctx).Sugar()
 	sleepDuration := createBackOffProvider(time.Second * time.Duration(eslProcessingIdleTimeSeconds))
@@ -302,7 +398,19 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 		var transformer repository.Transformer = nil
 		var esl *db.EslEventRow = nil
 		const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
-		err := dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
+
+		// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation.
+		// This means that there is a possibility that two transaction timestamps collide with the same git hash.
+		// As such, before executing any transformer, we get the current commit hash so that we can then compare it with the
+		// (possibly) new commit hash
+		oldCommitId, err := repo.GetHeadCommitId()
+		if err != nil {
+			d := sleepDuration.NextBackOff()
+			logger.FromContext(ctx).Sugar().Warnf("error getting current commid ID, will try again in %v", d)
+			time.Sleep(d)
+			continue
+		}
+		err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			var err2 error
 			transformer, esl, err2 = handleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
 			return err2
@@ -315,10 +423,24 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			log.Errorf("skipping esl event, because it returned an error: %v", err)
 			// after this many tries, we can just skip it:
 			err2 := dbHandler.WithTransactionR(ctx, transactionRetries, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err3 := dbHandler.DBWriteFailedEslEvent(ctx, transaction, esl)
+				err3 := dbHandler.DBInsertNewFailedESLEvent(ctx, transaction, &db.EslFailedEventRow{
+					EslVersion:            0, // This is overwritten by the DB
+					Created:               esl.Created,
+					EventType:             esl.EventType,
+					EventJson:             esl.EventJson,
+					Reason:                err.Error(),
+					TransformerEslVersion: esl.EslVersion,
+				})
 				if err3 != nil {
 					return err3
 				}
+
+				//If we fail to process the transformer, we say that SYNC has failed
+				err3 = dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
+				if err3 != nil {
+					return err3
+				}
+
 				return db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 			})
 			if err2 != nil {
@@ -330,7 +452,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				sleepDuration.Reset()
 				d := sleepDuration.NextBackOff()
 				measurePushes(ddMetrics, log, false)
-				logger.FromContext(ctx).Sugar().Warnf("event processing skipped, will try again in %v", d)
+				logger.FromContext(ctx).Sugar().Debug("event processing skipped, will try again in %v", d)
 				time.Sleep(d)
 				continue
 			}
@@ -356,16 +478,38 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				if err != nil {
 					return err
 				}
-				return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
+
+				if oldCommitId.String() != commitId.String() { // We only want to write a transaction timestamp if it resulted in a new commit.
+					return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
+				}
+				return nil
 			})
 			if err != nil {
+				//If we fail to push to repo or to update the cutoff, we say that SYNC has failed
+				err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+					return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
+				})
 				err3 := repo.FetchAndReset(ctx)
 				if err3 != nil {
 					d := sleepDuration.NextBackOff()
 					logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
 					time.Sleep(d)
 				}
+			} else {
+				//After a successful transformer processing and pushing to manifest repo, we write that apps are now SYNCED
+				err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+					return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNCED)
+				})
+				if err != nil {
+					logger.FromContext(ctx).Sugar().Warnf("Failed writing sync status after successful operation! Repo has been updated, but sync status has not. Error: %v", err)
+				}
 			}
+		}
+		repo.Notify().Notify() // Notify git sync status
+
+		err = repository.MeasureGitSyncStatus(ctx, ddMetrics, dbHandler)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
 		}
 	}
 }
@@ -453,7 +597,7 @@ func readEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *db.EslVe
 		}
 		return esl, nil
 	} else {
-		log.Warnf("cutoff found, starting at t>cutoff: %d", *eslVersion)
+		log.Debugf("cutoff found, starting at t>cutoff: %d", *eslVersion)
 		esl, err := dbHandler.DBReadEslEventLaterThan(ctx, transaction, *eslVersion)
 		if err != nil {
 			return nil, err
@@ -544,6 +688,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtUndeployApplication:
 		//exhaustruct:ignore
 		return &repository.UndeployApplication{}, nil
+	case db.EvtDeleteEnvironment:
+		//exhaustruct:ignore
+		return &repository.DeleteEnvironment{}, nil
 	}
 	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }
@@ -553,4 +700,8 @@ func checkReleaseVersionLimit(limit uint) error {
 		return releaseVersionsLimitError{limit: limit}
 	}
 	return nil
+}
+
+func shouldRunCustomMigrations(checkCustomMigrations, minimizeGitData bool) bool {
+	return checkCustomMigrations && !minimizeGitData //If `minimizeGitData` is enabled we can't make sure we have all the information on the repository to perform all the migrations
 }

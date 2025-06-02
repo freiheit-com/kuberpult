@@ -21,7 +21,7 @@ MAKEFLAGS += --no-builtin-rules
 SCRIPTS_BASE:=infrastructure/scripts/make
 
 
-MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg
+MAKEDIRS := services/cd-service services/rollout-service services/frontend-service services/reposerver-service charts/kuberpult pkg
 ARTIFACT_REGISTRY_URI := europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
 export USER_UID := $(shell id -u)
@@ -78,6 +78,10 @@ compose-down:
 kuberpult: compose-down
 	earthly +all-services --UID=$(USER_UID)
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
+
+reset-db: compose-down
+	# This deletes the volume of the default db location:
+	docker volume rm kuberpult_pgdata
 
 kuberpult-freshdb: compose-down
 	earthly +all-services --UID=$(USER_UID)

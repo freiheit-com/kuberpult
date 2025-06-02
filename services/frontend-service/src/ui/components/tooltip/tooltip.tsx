@@ -15,12 +15,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Tooltip as TooltipReact } from 'react-tooltip';
 import ReactDOMServer from 'react-dom/server';
+import classNames from 'classnames';
 
 // As long as there is only a single global provider, there is no need to sync its id manually.
 // We currently only provide styling for the default tooltip.
 export const tooltipProviderGlobalID = 'kuberpult-tooltip';
 
 export type TooltipProps = {
+    className?: string;
     children: JSX.Element;
     id: string;
     tooltipContent: JSX.Element;
@@ -29,6 +31,7 @@ export type TooltipProps = {
 
 export const Tooltip = (overrides?: Partial<TooltipProps>): JSX.Element => {
     const props: TooltipProps = {
+        className: '',
         tooltipProviderID: tooltipProviderGlobalID,
         children: <></>,
         id: '',
@@ -36,13 +39,14 @@ export const Tooltip = (overrides?: Partial<TooltipProps>): JSX.Element => {
         ...overrides,
     };
 
-    const { children, tooltipContent, id, tooltipProviderID } = props;
+    const { className, children, tooltipContent, id, tooltipProviderID } = props;
     const delayHide = 50; // for debugging the css, increase this to 1000000
+    const allClassName = classNames('tooltip-container', className);
 
     // The React tooltip really wants us to use a href, but also we don't want to do anything on click:
     return (
         <div
-            className={'tooltip-container'}
+            className={allClassName}
             id={'tooltip' + id}
             data-tooltip-place="bottom"
             data-tooltip-delay-hide={delayHide}

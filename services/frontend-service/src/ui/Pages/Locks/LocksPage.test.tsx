@@ -17,13 +17,23 @@ import { render, renderHook } from '@testing-library/react';
 import { LocksPage } from './LocksPage';
 import {
     DisplayLock,
+    UpdateAllApplicationLocks,
     UpdateOverview,
+    updateAllEnvLocks,
     useAllLocks,
     useEnvironmentLock,
     useFilteredEnvironmentLockIDs,
 } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
-import { Environment, OverviewApplication, Priority } from '../../../api/api';
+import {
+    AllAppLocks,
+    Environment,
+    OverviewApplication,
+    Priority,
+    Locks,
+    AllTeamLocks,
+    GetAllEnvTeamLocksResponse,
+} from '../../../api/api';
 import { fakeLoadEverything, enableDexAuth } from '../../../setupTests';
 
 describe('LocksPage', () => {
@@ -69,6 +79,7 @@ describe('Test env locks', () => {
     interface dataEnvT {
         name: string;
         envs: Environment[];
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
     }
@@ -76,6 +87,10 @@ describe('Test env locks', () => {
     const sampleEnvData: dataEnvT[] = [
         {
             name: 'no locks',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {},
+            },
             envs: [],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
@@ -85,13 +100,18 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
             ],
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    integration: {
+                        locks: [{ message: 'locktest', lockId: 'ui-v2-1337', ciLink: '', suggestedLifetime: '' }],
+                    },
+                },
+            },
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-1337'],
         },
@@ -100,17 +120,40 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                    },
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
             ],
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    integration: {
+                        locks: [
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                            {
+                                message: 'lockfoo',
+                                lockId: 'ui-v2-123',
+                                createdAt: new Date(1995, 11, 16),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                            {
+                                message: 'lockbar',
+                                lockId: 'ui-v2-321',
+                                createdAt: new Date(1995, 11, 15),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                        ],
+                    },
+                },
+            },
             sortOrder: 'newestToOldest',
             expectedLockIDs: ['ui-v2-1337', 'ui-v2-123', 'ui-v2-321'],
         },
@@ -119,17 +162,40 @@ describe('Test env locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                    },
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
             ],
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    integration: {
+                        locks: [
+                            {
+                                message: 'lockbar',
+                                lockId: 'ui-v2-321',
+                                createdAt: new Date(1995, 11, 15),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                            {
+                                message: 'lockfoo',
+                                lockId: 'ui-v2-123',
+                                createdAt: new Date(1995, 11, 16),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                        ],
+                    },
+                },
+            },
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-321', 'ui-v2-123', 'ui-v2-1337'],
         },
@@ -153,6 +219,7 @@ describe('Test env locks', () => {
                     },
                 ],
             });
+            updateAllEnvLocks.set(testcase.allEnvLocks);
             // when
             const obtained = renderHook(() => useAllLocks().environmentLocks).result.current;
             // then
@@ -163,6 +230,7 @@ describe('Test env locks', () => {
     interface dataEnvFilteredT {
         name: string;
         envs: Environment[];
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         filter: string;
         expectedLockIDs: string[];
     }
@@ -170,18 +238,27 @@ describe('Test env locks', () => {
     const sampleFilteredEnvData: dataEnvFilteredT[] = [
         {
             name: 'no locks',
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {},
+            },
             envs: [],
             filter: 'integration',
             expectedLockIDs: [],
         },
         {
             name: 'get one lock',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    integration: {
+                        locks: [{ message: 'locktest', lockId: 'ui-v2-1337', ciLink: '', suggestedLifetime: '' }],
+                    },
+                },
+            },
             envs: [
                 {
                     name: 'integration',
-                    locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -191,25 +268,48 @@ describe('Test env locks', () => {
         },
         {
             name: 'get filtered locks (integration, get 1 lock)',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    integration: {
+                        locks: [
+                            {
+                                message: 'lockfoo',
+                                lockId: 'ui-v2-123',
+                                createdAt: new Date(1995, 11, 16),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                        ],
+                    },
+                    development: {
+                        locks: [
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                            {
+                                message: 'lockbar',
+                                lockId: 'ui-v2-321',
+                                createdAt: new Date(1995, 11, 15),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                        ],
+                    },
+                },
+            },
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                    },
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
                 {
                     name: 'development',
-                    locks: {
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                    },
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -219,25 +319,48 @@ describe('Test env locks', () => {
         },
         {
             name: 'get filtered locks (development, get 2 lock)',
+            allEnvLocks: {
+                allTeamLocks: {},
+                allEnvLocks: {
+                    integration: {
+                        locks: [
+                            {
+                                message: 'lockfoo',
+                                lockId: 'ui-v2-123',
+                                createdAt: new Date(1995, 11, 16),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                        ],
+                    },
+                    development: {
+                        locks: [
+                            {
+                                message: 'lockbar',
+                                lockId: 'ui-v2-321',
+                                createdAt: new Date(1995, 11, 15),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                        ],
+                    },
+                },
+            },
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                    },
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
                 {
                     name: 'development',
-                    locks: {
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                    },
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -260,6 +383,7 @@ describe('Test env locks', () => {
                     },
                 ],
             });
+            updateAllEnvLocks.set(testcase.allEnvLocks);
             // when
             const obtained = renderHook(() => useFilteredEnvironmentLockIDs(testcase.filter)).result.current;
             // then
@@ -269,6 +393,7 @@ describe('Test env locks', () => {
 
     interface dataTranslateEnvLockT {
         name: string;
+        allEnvLocks: GetAllEnvTeamLocksResponse;
         envs: [Environment];
         id: string;
         expectedLock: DisplayLock;
@@ -277,19 +402,26 @@ describe('Test env locks', () => {
     const sampleTranslateEnvLockData: dataTranslateEnvLockT[] = [
         {
             name: 'Translate lockID to DisplayLock',
+            allEnvLocks: {
+                allEnvLocks: {
+                    integration: {
+                        locks: [
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                createdBy: { email: 'kuberpult@fdc.com', name: 'kuberpultUser' },
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                        ],
+                    },
+                },
+                allTeamLocks: {},
+            },
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        locktest: {
-                            message: 'locktest',
-                            lockId: 'ui-v2-1337',
-                            createdAt: new Date(1995, 11, 17),
-                            createdBy: { email: 'kuberpult@fdc.com', name: 'kuberpultUser' },
-                        },
-                    },
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -302,6 +434,8 @@ describe('Test env locks', () => {
                 message: 'locktest',
                 authorEmail: 'kuberpult@fdc.com',
                 authorName: 'kuberpultUser',
+                ciLink: '',
+                suggestedLifetime: '',
             },
         },
     ];
@@ -319,6 +453,7 @@ describe('Test env locks', () => {
                     },
                 ],
             });
+            updateAllEnvLocks.set(testcase.allEnvLocks);
             // when
             const obtained = renderHook(() => useEnvironmentLock(testcase.id)).result.current;
             // then
@@ -332,6 +467,9 @@ describe('Test app locks', () => {
         name: string;
         envs: Environment[];
         OverviewApps: OverviewApplication[];
+        AppLocks: {
+            [key: string]: AllAppLocks;
+        };
         sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
     }
@@ -343,6 +481,7 @@ describe('Test app locks', () => {
             OverviewApps: [],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
+            AppLocks: {},
         },
         {
             name: 'get one lock',
@@ -355,17 +494,19 @@ describe('Test app locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {},
-                    appLocks: {
-                        foo: {
-                            locks: [{ message: 'locktest', lockId: 'ui-v2-1337' }],
-                        },
-                    },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
             ],
+            AppLocks: {
+                integration: {
+                    appLocks: {
+                        foo: {
+                            locks: [{ message: 'locktest', lockId: 'ui-v2-1337', ciLink: '', suggestedLifetime: '' }],
+                        },
+                    },
+                },
+            },
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-1337'],
         },
@@ -380,7 +521,12 @@ describe('Test app locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {},
+                    distanceToUpstream: 0,
+                    priority: 0,
+                },
+            ],
+            AppLocks: {
+                integration: {
                     appLocks: {
                         foo: {
                             locks: [
@@ -388,25 +534,28 @@ describe('Test app locks', () => {
                                     message: 'locktest',
                                     lockId: 'ui-v2-1337',
                                     createdAt: new Date(1995, 11, 17),
+                                    ciLink: '',
+                                    suggestedLifetime: '',
                                 },
                                 {
                                     message: 'lockfoo',
                                     lockId: 'ui-v2-123',
                                     createdAt: new Date(1995, 11, 16),
+                                    ciLink: '',
+                                    suggestedLifetime: '',
                                 },
                                 {
                                     message: 'lockbar',
                                     lockId: 'ui-v2-321',
                                     createdAt: new Date(1995, 11, 15),
+                                    ciLink: '',
+                                    suggestedLifetime: '',
                                 },
                             ],
                         },
                     },
-                    teamLocks: {},
-                    distanceToUpstream: 0,
-                    priority: 0,
                 },
-            ],
+            },
             sortOrder: 'newestToOldest',
             expectedLockIDs: ['ui-v2-1337', 'ui-v2-123', 'ui-v2-321'],
         },
@@ -425,12 +574,12 @@ describe('Test app locks', () => {
             envs: [
                 {
                     name: 'integration',
-                    locks: {
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
-                    },
-                    teamLocks: {},
+                    distanceToUpstream: 0,
+                    priority: 0,
+                },
+            ],
+            AppLocks: {
+                integration: {
                     appLocks: {
                         foo: {
                             locks: [
@@ -438,6 +587,8 @@ describe('Test app locks', () => {
                                     message: 'lockbar',
                                     lockId: 'ui-v2-321',
                                     createdAt: new Date(1995, 11, 15),
+                                    ciLink: '',
+                                    suggestedLifetime: '',
                                 },
                             ],
                         },
@@ -447,19 +598,21 @@ describe('Test app locks', () => {
                                     message: 'lockfoo',
                                     lockId: 'ui-v2-123',
                                     createdAt: new Date(1995, 11, 16),
+                                    ciLink: '',
+                                    suggestedLifetime: '',
                                 },
                                 {
                                     message: 'locktest',
                                     lockId: 'ui-v2-1337',
                                     createdAt: new Date(1995, 11, 17),
+                                    ciLink: '',
+                                    suggestedLifetime: '',
                                 },
                             ],
                         },
                     },
-                    distanceToUpstream: 0,
-                    priority: 0,
                 },
-            ],
+            },
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-321', 'ui-v2-123', 'ui-v2-1337'],
         },
@@ -480,6 +633,7 @@ describe('Test app locks', () => {
                     },
                 ],
             });
+            UpdateAllApplicationLocks.set(testcase.AppLocks);
 
             // when
             const obtained = renderHook(() => useAllLocks().appLocks).result.current;
@@ -492,151 +646,143 @@ describe('Test app locks', () => {
 describe('Test Team locks', () => {
     interface dataAppT {
         name: string;
-        envs: Environment[];
+        allEnvLocks: {
+            allEnvLocks: { [key: string]: Locks };
+            allTeamLocks: { [key: string]: AllTeamLocks };
+        };
         sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
-        OverviewApps: OverviewApplication[];
     }
 
     const sampleAppData: dataAppT[] = [
         {
             name: 'no locks',
-            envs: [],
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {},
+            },
             sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
-            OverviewApps: [],
         },
         {
             name: 'get one lock',
-            OverviewApps: [
-                {
-                    name: 'bar',
-                    team: 'lock-test',
-                },
-            ],
-            envs: [
-                {
-                    name: 'integration',
-                    locks: {},
-                    teamLocks: {
-                        'lock-test': {
-                            locks: [
-                                {
-                                    message: 'locktest',
-                                    lockId: 'ui-v2-1337',
-                                },
-                            ],
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {
+                    integration: {
+                        teamLocks: {
+                            'test-team': {
+                                locks: [
+                                    {
+                                        message: 'locktest',
+                                        lockId: 'ui-v2-1337',
+                                        createdAt: new Date(1995, 11, 17),
+                                        ciLink: '',
+                                        suggestedLifetime: '',
+                                    },
+                                ],
+                            },
                         },
                     },
-                    appLocks: {},
-                    distanceToUpstream: 0,
-                    priority: 0,
                 },
-            ],
+            },
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-1337'],
         },
         {
             name: 'get a few locks (sorted, newestToOldest)',
-            OverviewApps: [
-                {
-                    name: 'bar',
-                    team: 'test-team',
-                },
-            ],
-            envs: [
-                {
-                    name: 'integration',
-                    locks: {},
-                    appLocks: {},
-                    teamLocks: {
-                        'test-team': {
-                            locks: [
-                                {
-                                    message: 'locktest',
-                                    lockId: 'ui-v2-1337',
-                                    createdAt: new Date(1995, 11, 17),
-                                },
-                                {
-                                    message: 'lockfoo',
-                                    lockId: 'ui-v2-123',
-                                    createdAt: new Date(1995, 11, 16),
-                                },
-                                {
-                                    message: 'lockbar',
-                                    lockId: 'ui-v2-321',
-                                    createdAt: new Date(1995, 11, 16),
-                                },
-                            ],
+            allEnvLocks: {
+                allEnvLocks: {},
+                allTeamLocks: {
+                    integration: {
+                        teamLocks: {
+                            'test-team': {
+                                locks: [
+                                    {
+                                        message: 'locktest',
+                                        lockId: 'ui-v2-1337',
+                                        createdAt: new Date(1995, 11, 17),
+                                        ciLink: '',
+                                        suggestedLifetime: '',
+                                    },
+                                    {
+                                        message: 'lockfoo',
+                                        lockId: 'ui-v2-123',
+                                        createdAt: new Date(1995, 11, 16),
+                                        ciLink: '',
+                                        suggestedLifetime: '',
+                                    },
+                                    {
+                                        message: 'lockbar',
+                                        lockId: 'ui-v2-321',
+                                        createdAt: new Date(1995, 11, 16),
+                                        ciLink: '',
+                                        suggestedLifetime: '',
+                                    },
+                                ],
+                            },
                         },
                     },
-                    distanceToUpstream: 0,
-                    priority: 0,
                 },
-            ],
+            },
             sortOrder: 'newestToOldest',
             expectedLockIDs: ['ui-v2-1337', 'ui-v2-123', 'ui-v2-321'],
         },
         {
             name: 'get a few locks (sorted, oldestToNewest)',
-            OverviewApps: [
-                {
-                    name: 'foo',
-                    team: 'test-team',
-                },
-                {
-                    name: 'bar',
-                    team: 'test-team',
-                },
-            ],
-            envs: [
-                {
-                    name: 'integration',
-                    locks: {
-                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
-                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
-                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
+            allEnvLocks: {
+                allEnvLocks: {
+                    integration: {
+                        locks: [
+                            {
+                                message: 'lockfoo',
+                                lockId: 'ui-v2-123',
+                                createdAt: new Date(1995, 11, 16),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                            {
+                                message: 'locktest',
+                                lockId: 'ui-v2-1337',
+                                createdAt: new Date(1995, 11, 17),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                            {
+                                message: 'lockbar',
+                                lockId: 'ui-v2-321',
+                                createdAt: new Date(1995, 11, 15),
+                                ciLink: '',
+                                suggestedLifetime: '',
+                            },
+                        ],
                     },
-                    distanceToUpstream: 0,
-                    priority: 0,
-                    appLocks: {
-                        foo: {
-                            locks: [
-                                {
-                                    message: 'lockbar',
-                                    lockId: 'ui-v2-321',
-                                    createdAt: new Date(1995, 11, 15),
-                                },
-                            ],
-                        },
-                        bar: {
-                            locks: [
-                                {
-                                    message: 'lockfoo',
-                                    lockId: 'ui-v2-123',
-                                    createdAt: new Date(1995, 11, 16),
-                                },
-                            ],
-                        },
-                    },
-                    teamLocks: {
-                        'test-team': {
-                            locks: [
-                                {
-                                    message: 'team lock 1',
-                                    lockId: 'ui-v2-t-lock-1',
-                                    createdAt: new Date(1995, 11, 15),
-                                },
-                                {
-                                    message: 'team lock 2',
-                                    lockId: 'ui-v2-t-lock-2',
-                                    createdAt: new Date(1995, 11, 15),
-                                },
-                            ],
+                },
+                allTeamLocks: {
+                    integration: {
+                        teamLocks: {
+                            'test-team': {
+                                locks: [
+                                    {
+                                        message: 'team lock 1',
+                                        lockId: 'ui-v2-t-lock-1',
+                                        createdAt: new Date(1995, 11, 15),
+                                        ciLink: '',
+                                        suggestedLifetime: '',
+                                    },
+                                    {
+                                        message: 'team lock 2',
+                                        lockId: 'ui-v2-t-lock-2',
+                                        createdAt: new Date(1995, 11, 15),
+                                        ciLink: '',
+                                        suggestedLifetime: '',
+                                    },
+                                ],
+                            },
                         },
                     },
                 },
-            ],
+            },
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-t-lock-1', 'ui-v2-t-lock-2'],
         },
@@ -645,17 +791,7 @@ describe('Test Team locks', () => {
     describe.each(sampleAppData)(`Test Lock IDs`, (testcase) => {
         it(testcase.name, () => {
             // given
-            UpdateOverview.set({
-                lightweightApps: testcase.OverviewApps,
-                environmentGroups: [
-                    {
-                        environments: testcase.envs,
-                        environmentGroupName: 'dontcare',
-                        distanceToUpstream: 0,
-                        priority: Priority.UNRECOGNIZED,
-                    },
-                ],
-            });
+            updateAllEnvLocks.set(testcase.allEnvLocks);
 
             // when
             const obtained = renderHook(() => useAllLocks().teamLocks).result.current;

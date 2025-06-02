@@ -36,6 +36,10 @@ Copyright freiheit.com*/
     }
 }
 
+.mdc-text-field-tooltip {
+    padding: 0;
+}
+
 .mdc-drawer-sidebar-list {
     margin: 5px;
     display: flex;
@@ -47,7 +51,7 @@ Copyright freiheit.com*/
 .mdc-drawer-sidebar-list-item {
     border: 2px solid #f2f5f7;
     border-radius: 10px;
-    background-color: white;
+    background-color: var(--mdc-theme-surface-light);
     padding: 5px;
     width: 100%;
     position: relative;
@@ -60,7 +64,7 @@ Copyright freiheit.com*/
     display: flex;
     flex-direction: column;
     gap: 6px;
-    color: var(--mdc-theme-on-surface);
+    color: var(--mdc-theme-on-surface-light);
     align-items: flex-start;
     @extend .text-regular;
 }
@@ -88,6 +92,7 @@ Copyright freiheit.com*/
     .mdc-button__label {
         font-size: $small-warn-button-font-size;
         font-weight: $small-warn-button-font-weight;
+        color: var(--mdc-theme-on-primary);
     }
     .mdc-button__ripple {
         position: relative;
@@ -108,7 +113,7 @@ Copyright freiheit.com*/
     position: absolute;
     right: 11px;
     top: 11px;
-    color: #4a4a4a;
+    color: var(--mdc-theme-on-surface-light);
 }
 
 .mdc-drawer-sidebar-list-item-delete-icon:hover {
@@ -120,7 +125,7 @@ Copyright freiheit.com*/
     position: relative;
     width: 100%;
     background-color: var(--mdc-theme-primary);
-    height: 85vh;
+    height: 78vh;
 }
 
 .mdc-drawer-sidebar .mdc-drawer-sidebar-footer-input {

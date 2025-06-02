@@ -58,6 +58,9 @@ func TestServer_Handle(t *testing.T) {
 	exampleKeyRing := openpgp.EntityList{exampleKey}
 	exampleEnvironment := "development"
 	exampleLockId := "test"
+	lifeTime2h := "2h"
+	lifeTimeEmpty := ""
+	lifeTime3d := "3d"
 	exampleConfig := `{
    "upstream":{
       "environment": "development"
@@ -86,9 +89,14 @@ func TestServer_Handle(t *testing.T) {
 	}
 	exampleConfigSignature := signatureBuffer.String()
 	lockRequestJSON, _ := json.Marshal(putLockRequest{
-		Message:   "test message",
-		Signature: exampleLockSignature,
-		CiLink:    "www.test.com",
+		Message:           "test message",
+		Signature:         exampleLockSignature,
+		CiLink:            "www.test.com",
+		SuggestedLifeTime: "3d",
+	})
+	releaseTrainRequestJSON, _ := json.Marshal(releaseTrainRequest{
+		Signature: exampleSignature,
+		CiLink:    "https://google.com",
 	})
 
 	tests := []struct {
@@ -201,9 +209,45 @@ func TestServer_Handle(t *testing.T) {
 			req: &http.Request{
 				Method: http.MethodPut,
 				URL: &url.URL{
-					Path: "/api/environments/development/releasetrain",
+					Path: "/environments/development/releasetrain",
 				},
 				Body: io.NopCloser(strings.NewReader(`{"cilink":"https://google.com"}`)),
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "development",
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"target\":\"development\"}",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development", CiLink: "https://google.com"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "release train api with CI Link - Azure enabled",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(bytes.NewReader(releaseTrainRequestJSON)),
 			},
 			batchResponse: &api.BatchResponse{
 				Results: []*api.BatchResult{
@@ -229,6 +273,38 @@ func TestServer_Handle(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name:             "release train api with CI Link - Azure enabled - missing signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(strings.NewReader(`{"cilink":"https://google.com"}`)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Missing signature in request body",
+		},
+		{
+			name:             "release train api with CI Link - Azure enabled - invalid signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(strings.NewReader(`{"cilink":"https://google.com", "signature": "uncool"}`)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			expectedBody: "Internal: Invalid Signature: EOF",
 		},
 		{
 			name: "release train",
@@ -656,7 +732,7 @@ func TestServer_Handle(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{"message":"test message"}`)),
+				Body: io.NopCloser(strings.NewReader(`{"message":"test message", "suggestedLifeTime": "2h"}`)),
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -667,9 +743,10 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentLock{
 							CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
-								Environment: "development",
-								LockId:      "test",
-								Message:     "test message",
+								Environment:       "development",
+								LockId:            "test",
+								Message:           "test message",
+								SuggestedLifeTime: &lifeTime2h,
 							},
 						},
 					},
@@ -697,10 +774,11 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentLock{
 							CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
-								Environment: "development",
-								LockId:      "test",
-								Message:     "test message",
-								CiLink:      "www.test.com",
+								Environment:       "development",
+								LockId:            "test",
+								Message:           "test message",
+								CiLink:            "www.test.com",
+								SuggestedLifeTime: &lifeTimeEmpty,
 							},
 						},
 					},
@@ -730,10 +808,11 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentLock{
 							CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
-								Environment: "development",
-								LockId:      "test",
-								Message:     "test message",
-								CiLink:      "www.test.com",
+								Environment:       "development",
+								LockId:            "test",
+								Message:           "test message",
+								CiLink:            "www.test.com",
+								SuggestedLifeTime: &lifeTime3d,
 							},
 						},
 					},
@@ -947,11 +1026,12 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentApplicationLock{
 							CreateEnvironmentApplicationLock: &api.CreateEnvironmentApplicationLockRequest{
-								Environment: "development",
-								Application: "service",
-								LockId:      "test",
-								Message:     "test message",
-								CiLink:      "www.test.com",
+								Environment:       "development",
+								Application:       "service",
+								LockId:            "test",
+								Message:           "test message",
+								CiLink:            "www.test.com",
+								SuggestedLifeTime: &lifeTimeEmpty,
 							},
 						},
 					},
@@ -1072,7 +1152,7 @@ func TestServer_Handle(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{"message":"test message"}`)),
+				Body: io.NopCloser(strings.NewReader(`{"message":"test message", "suggestedLifeTime": "3d"}`)),
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -1083,10 +1163,11 @@ func TestServer_Handle(t *testing.T) {
 					{
 						Action: &api.BatchAction_CreateEnvironmentTeamLock{
 							CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
-								Environment: "development",
-								Team:        "sre-team",
-								LockId:      "test",
-								Message:     "test message",
+								Environment:       "development",
+								Team:              "sre-team",
+								LockId:            "test",
+								Message:           "test message",
+								SuggestedLifeTime: &lifeTime3d,
 							},
 						},
 					},
@@ -1264,6 +1345,19 @@ func TestServer_Handle(t *testing.T) {
 			},
 			expectedBody: "unsupported method 'GET'\n",
 		},
+		{
+			name: "environment application commitInfo",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/api/environments/development/applications/testapp/commit",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: `{"author":"testauthor","commit_id":"testcommitId","commit_message":"testmessage"}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1271,9 +1365,11 @@ func TestServer_Handle(t *testing.T) {
 			releaseTrainPrognosisClient := &mockReleaseTrainPrognosisServiceClient{
 				response: tt.releaseTrainPrognosisResponse,
 			}
+			commitInfoClient := &mockCommitDeploymentServiceClient{}
 			s := Server{
 				BatchClient:                 batchClient,
 				ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+				CommitDeploymentsClient:     commitInfoClient,
 				KeyRing:                     tt.KeyRing,
 				AzureAuth:                   tt.AzureAuthEnabled,
 			}

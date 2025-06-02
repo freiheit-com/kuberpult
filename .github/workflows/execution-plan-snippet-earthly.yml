@@ -138,6 +138,7 @@ jobs:
       (needs.stageA_build.result != 'cancelled')  &&
       (needs.execution_plan.outputs.stage_b != 'null')
     strategy:
+      fail-fast: false
       matrix:
         data: ${{fromJSON(needs.execution_plan.outputs.stage_b)}}
     name: ${{ matrix.data.directory }} - Build and Publish

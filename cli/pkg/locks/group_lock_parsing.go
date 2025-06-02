@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package locks
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -26,10 +27,11 @@ import (
 )
 
 type CreateEnvGroupLockCommandLineArguments struct {
-	environmentGroup cli_utils.RepeatedString
-	lockId           cli_utils.RepeatedString
-	message          cli_utils.RepeatedString
-	ciLink           cli_utils.RepeatedString
+	environmentGroup  cli_utils.RepeatedString
+	lockId            cli_utils.RepeatedString
+	message           cli_utils.RepeatedString
+	ciLink            cli_utils.RepeatedString
+	suggestedLifetime cli_utils.RepeatedString
 }
 
 func argsValidCreateEnvGroupLock(cmdArgs *CreateEnvGroupLockCommandLineArguments) (result bool, errorMessage string) {
@@ -50,6 +52,13 @@ func argsValidCreateEnvGroupLock(cmdArgs *CreateEnvGroupLockCommandLineArguments
 			return false, fmt.Sprintf("provided invalid --ci_link value '%s'", cmdArgs.ciLink.Values[0])
 		}
 	}
+	if len(cmdArgs.suggestedLifetime.Values) > 1 {
+		return false, "the --suggested_lifetime arg must be set at most once"
+	} else if len(cmdArgs.suggestedLifetime.Values) == 1 {
+		if !cli_utils.IsValidLifeTime(cmdArgs.suggestedLifetime.Values[0]) {
+			return false, fmt.Sprintf("provided invalid --suggested_lifetime value '%s'", cmdArgs.suggestedLifetime.Values[0])
+		}
+	}
 
 	return true, ""
 }
@@ -64,6 +73,7 @@ func readCreateGroupLockArgs(args []string) (*CreateEnvGroupLockCommandLineArgum
 	fs.Var(&cmdArgs.lockId, "lockID", "the ID of the lock you are trying to create")
 	fs.Var(&cmdArgs.message, "message", "lock message")
 	fs.Var(&cmdArgs.ciLink, "ci_link", "the link to the CI run that created this lock")
+	fs.Var(&cmdArgs.suggestedLifetime, "suggested_lifetime", "the suggested lifetime for the lock e.g. 4h, 2d")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -74,7 +84,7 @@ func readCreateGroupLockArgs(args []string) (*CreateEnvGroupLockCommandLineArgum
 	}
 
 	if ok, msg := argsValidCreateEnvGroupLock(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil
@@ -93,12 +103,16 @@ func convertToCreateGroupLockParams(cmdArgs CreateEnvGroupLockCommandLineArgumen
 		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
 		CiLink:               nil,
+		SuggestedLifeTime:    nil,
 	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
 	}
 	if len(cmdArgs.ciLink.Values) == 1 {
 		rp.CiLink = &cmdArgs.ciLink.Values[0]
+	}
+	if len(cmdArgs.suggestedLifetime.Values) == 1 {
+		rp.SuggestedLifeTime = &cmdArgs.suggestedLifetime.Values[0]
 	}
 	return &rp, nil
 }
@@ -150,7 +164,7 @@ func readDeleteGroupLockArgs(args []string) (*DeleteEnvGroupLockCommandLineArgum
 	}
 
 	if ok, msg := argsValidDeleteEnvGroupLock(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil

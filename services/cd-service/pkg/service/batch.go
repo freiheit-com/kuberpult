@@ -20,7 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"sync"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -33,15 +36,43 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type LockType string
+
+const (
+	LockTypeGo   LockType = "go"
+	LockTypeDb   LockType = "db"
+	LockTypeNone LockType = "none"
+)
+
+func ParseLockType(raw string) (LockType, error) {
+	if raw == string(LockTypeDb) {
+		return LockTypeDb, nil
+	} else if raw == string(LockTypeGo) {
+		return LockTypeGo, nil
+	} else if raw == string(LockTypeNone) {
+		return LockTypeNone, nil
+	} else {
+		return "", fmt.Errorf(
+			"invalid lock type: '%s' - valid lock types are: '%s', '%s', '%s'",
+			raw,
+			string(LockTypeNone),
+			string(LockTypeDb),
+			string(LockTypeGo),
+		)
+	}
+}
+
 type BatchServerConfig struct {
 	WriteCommitData      bool
 	AllowedCILinkDomains []string //Transformers that create releases or deploy them can only accept CI links from these domains
+	LockType             LockType
 }
 
 type BatchServer struct {
 	Repository repository.Repository
 	RBACConfig auth.RBACConfig
 	Config     BatchServerConfig
+	DBHandler  *db.DBHandler
 }
 
 // see maxBatchActions in store.tsx
@@ -111,6 +142,54 @@ func ValidateApplication(
 	return nil
 }
 
+func ValidateEnvironment(
+	environmentName string,
+	environmentConfig config.EnvironmentConfig,
+) error {
+	if environmentConfig.ArgoCdConfigs != nil && environmentConfig.ArgoCd != nil {
+		return status.Error(codes.InvalidArgument, "specifying both argocd field and argo_configs is not supported")
+	}
+	if environmentConfig.ArgoCdConfigs == nil && environmentConfig.ArgoCd == nil {
+		return status.Error(codes.InvalidArgument, "exactly one of the argocd or argo_configs fields must be specified")
+	}
+	if !valid.EnvironmentName(environmentName) {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("invalid environment name: '%s'", environmentName))
+	}
+
+	if environmentConfig.ArgoCdConfigs != nil {
+
+		configs := environmentConfig.ArgoCdConfigs.ArgoCdConfigurations
+		commonEnvPrefix := environmentConfig.ArgoCdConfigs.CommonEnvPrefix
+		invalidNames := make([]string, 0)
+		knownNames := make(map[string]struct{})
+
+		if (commonEnvPrefix == nil || *commonEnvPrefix == "") && len(configs) > 1 {
+			return status.Error(codes.InvalidArgument, fmt.Sprintf("a common environment name prefix must be specified for active/active environments: '%s'", environmentName))
+		}
+		for _, currentConfig := range configs { //Each sub-environment must be valid
+			var currentFullEnvironmentName string
+			if commonEnvPrefix == nil || *commonEnvPrefix == "" || len(configs) == 1 { //only 1 config provided, we dont care about prefixes or concrete env names
+				currentFullEnvironmentName = environmentName
+			} else {
+				currentFullEnvironmentName = *commonEnvPrefix + "-" + environmentName + "-" + currentConfig.ConcreteEnvName
+			}
+
+			if !valid.EnvironmentName(currentFullEnvironmentName) {
+				invalidNames = append(invalidNames, currentFullEnvironmentName)
+			}
+
+			if _, exists := knownNames[currentFullEnvironmentName]; exists {
+				return status.Error(codes.InvalidArgument, fmt.Sprintf("environment names must not be the same: %v", invalidNames))
+			}
+			knownNames[currentFullEnvironmentName] = struct{}{}
+		}
+		if len(invalidNames) != 0 {
+			return status.Error(codes.InvalidArgument, fmt.Sprintf("one or more invalid environment names were provided: %v", invalidNames))
+		}
+	}
+	return nil
+}
+
 func (d *BatchServer) processAction(
 	batchAction *api.BatchAction,
 ) (repository.Transformer, *api.BatchResult, error) {
@@ -125,6 +204,7 @@ func (d *BatchServer) processAction(
 			LockId:                act.LockId,
 			Message:               act.Message,
 			CiLink:                act.CiLink,
+			SuggestedLifeTime:     act.SuggestedLifeTime,
 			AllowedDomains:        d.Config.AllowedCILinkDomains,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
@@ -151,6 +231,7 @@ func (d *BatchServer) processAction(
 			LockId:                act.LockId,
 			Message:               act.Message,
 			CiLink:                act.CiLink,
+			SuggestedLifeTime:     act.SuggestedLifeTime,
 			AllowedDomains:        d.Config.AllowedCILinkDomains,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
@@ -178,6 +259,7 @@ func (d *BatchServer) processAction(
 			LockId:                act.LockId,
 			Message:               act.Message,
 			CiLink:                act.CiLink,
+			SuggestedLifeTime:     act.SuggestedLifeTime,
 			AllowedDomains:        d.Config.AllowedCILinkDomains,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
@@ -237,7 +319,7 @@ func (d *BatchServer) processAction(
 			Author:                "",
 			CiLink:                "", //Only gets populated when a release is created or release train is conducted.
 			TransformerEslVersion: 0,
-			SkipOverview:          false,
+			SkipCleanup:           false,
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
@@ -308,26 +390,25 @@ func (d *BatchServer) processAction(
 		}
 		var argocd *config.EnvironmentConfigArgoCd
 		if conf.Argocd != nil {
-			syncWindows := transformSyncWindowsToConfig(conf.Argocd.SyncWindows)
-			clusterResourceWhitelist := transformAccessListToConfig(conf.Argocd.AccessList)
-			ignoreDifferences := transformIgnoreDifferencesToConfig(conf.Argocd.IgnoreDifferences)
-			argocd = &config.EnvironmentConfigArgoCd{
-				Destination:              transformDestinationToConfig(conf.Argocd.Destination),
-				SyncWindows:              syncWindows,
-				ClusterResourceWhitelist: clusterResourceWhitelist,
-				ApplicationAnnotations:   conf.Argocd.ApplicationAnnotations,
-				IgnoreDifferences:        ignoreDifferences,
-				SyncOptions:              conf.Argocd.SyncOptions,
-			}
+			argocd = transformArgoCdToConfig(conf.Argocd)
+		}
+		var configs *config.ArgoCDConfigs
+		if conf.ArgoConfigs != nil {
+			configs = transformArgoCdConfigsToConfig(conf.ArgoConfigs)
 		}
 		upstream := transformUpstreamToConfig(conf.Upstream)
+		internalEnvironmentConfig := config.EnvironmentConfig{
+			Upstream:         upstream,
+			ArgoCd:           argocd,
+			EnvironmentGroup: conf.EnvironmentGroup,
+			ArgoCdConfigs:    configs,
+		}
+		if err := ValidateEnvironment(in.Environment, internalEnvironmentConfig); err != nil {
+			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("processAction: invalid environment. err: %v", err))
+		}
 		transformer := &repository.CreateEnvironment{
-			Environment: in.Environment,
-			Config: config.EnvironmentConfig{
-				Upstream:         upstream,
-				ArgoCd:           argocd,
-				EnvironmentGroup: conf.EnvironmentGroup,
-			},
+			Environment:           in.Environment,
+			Config:                internalEnvironmentConfig,
 			TransformerEslVersion: 0,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 		}
@@ -339,6 +420,7 @@ func (d *BatchServer) processAction(
 			LockId:                act.LockId,
 			Message:               act.Message,
 			CiLink:                act.CiLink,
+			SuggestedLifeTime:     act.SuggestedLifeTime,
 			AllowedDomains:        d.Config.AllowedCILinkDomains,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
@@ -351,35 +433,86 @@ func (d *BatchServer) processAction(
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
+	case *api.BatchAction_DeleteEnvironment:
+		act := action.DeleteEnvironment
+		return &repository.DeleteEnvironment{
+			Environment:           act.Environment,
+			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslVersion: 0,
+		}, nil, nil
 	}
+
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
 }
+
+var isolatedTransformersLock sync.RWMutex
+var isolatedTransformerNames = []db.EventType{db.EvtUndeployApplication, db.EvtDeleteEnvFromApp, db.EvtDeleteEnvironment}
 
 func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (*api.BatchResponse, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "ProcessBatch")
+	defer span.Finish()
+	span.SetTag("BatchActions", len(in.GetActions()))
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return nil, grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err))
+		return nil, onErr(grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err)))
 	}
 	ctx = auth.WriteUserToContext(ctx, *user)
 	if len(in.GetActions()) > maxBatchActions {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
+		return nil, onErr(status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions)))
 	}
 
 	results := make([]*api.BatchResult, 0, len(in.GetActions()))
 	transformers := make([]repository.Transformer, 0, maxBatchActions)
+	requiresIsolation := false
 	for _, batchAction := range in.GetActions() {
 		transformer, result, err := d.processAction(batchAction)
 		if err != nil {
 			// Validation error
-			return nil, err
+			return nil, onErr(err)
+		}
+
+		transformerTypeName := transformer.GetDBEventType()
+		for _, isolatedTransformerName := range isolatedTransformerNames {
+			if isolatedTransformerName == transformerTypeName {
+				requiresIsolation = true
+			}
 		}
 		transformers = append(transformers, transformer)
 		results = append(results, result)
 	}
-	err = d.Repository.Apply(ctx, transformers...)
+	if requiresIsolation {
+		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
+		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-Lock")
+		if d.Config.LockType == LockTypeGo {
+			// This solution (go locks) is not scalable and doesn't work when we have multiple cd-service pods
+			isolatedTransformersLock.Lock()
+			defer isolatedTransformersLock.Unlock()
+		}
+		isolationSpan.Finish()
+	} else {
+		// we also use a read lock, so that destructive and non-destructive transformers cannot run in parallel:
+		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-RLock")
+		if d.Config.LockType == LockTypeGo {
+			isolatedTransformersLock.RLock()
+			defer isolatedTransformersLock.RUnlock()
+		}
+		isolationSpan.Finish()
+	}
+
+	if d.Config.LockType == LockTypeDb {
+		isShared := !requiresIsolation
+		err = d.DBHandler.WithAdvisoryLock(ctx, isShared, db.LockIsolateTransformers, func(ctx context.Context) error {
+			return d.Repository.Apply(ctx, transformers...)
+		})
+	} else {
+		if d.Config.LockType == LockTypeNone {
+			logger.FromContext(ctx).Sugar().Warnf("not locking at all")
+		}
+		err = d.Repository.Apply(ctx, transformers...)
+	}
 	if err != nil {
 		logger.FromContext(ctx).Sugar().Warnf("error in Repository.Apply: %v", err)
 		if errors.Is(err, repository.ErrQueueFull) {
@@ -387,9 +520,10 @@ func (d *BatchServer) ProcessBatch(
 		}
 		var applyErr *repository.TransformerBatchApplyError = repository.UnwrapUntilTransformerBatchApplyError(err)
 		if applyErr != nil {
-			return d.handleError(applyErr, err)
+			resp, handledErr := d.handleError(applyErr, err)
+			return resp, onErr(handledErr)
 		}
-		return nil, err
+		return nil, onErr(err)
 	}
 	return &api.BatchResponse{Results: results}, nil
 }

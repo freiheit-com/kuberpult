@@ -22,7 +22,8 @@ import {
     ReleaseTrainEnvPrognosis_AppsPrognosesWrapper,
     ReleaseTrainEnvSkipCause,
 } from '../../../api/api';
-import { useRelease } from '../../utils/store';
+import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
+import { useReleaseOrGet } from '../../utils/store';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 
 export type ReleaseTrainPrognosisProps = {
@@ -35,7 +36,12 @@ export const ReleaseTrainPrognosis: React.FC<ReleaseTrainPrognosisProps> = (prop
     if (releaseTrainPrognosis === undefined) {
         return (
             <div>
-                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                <TopAppBar
+                    showAppFilter={false}
+                    showTeamFilter={false}
+                    showWarningFilter={false}
+                    showGitSyncStatus={false}
+                />
                 <main className="main-content commit-page">Backend returned empty response</main>
             </div>
         );
@@ -49,7 +55,12 @@ export const ReleaseTrainPrognosis: React.FC<ReleaseTrainPrognosisProps> = (prop
 
     return (
         <div>
-            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+            <TopAppBar
+                showAppFilter={false}
+                showTeamFilter={false}
+                showWarningFilter={false}
+                showGitSyncStatus={false}
+            />
             <main className="main-content commit-page">
                 {Object.entries(envPrognoses)
                     .sort(([envName1, _1], [envName2, _2]) => envName1.localeCompare(envName2))
@@ -201,7 +212,8 @@ const AppPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainAppSkipCaus
 };
 
 const AppPrognosisOutcomeReleaseCell: React.FC<{ appName: string; version: number }> = (props) => {
-    const release = useRelease(props.appName, props.version);
+    const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
+    const release = useReleaseOrGet(props.appName, props.version, authHeader, authReady);
     if (release === undefined) {
         return (
             <p>

@@ -33,6 +33,8 @@ Copyright freiheit.com*/
 @import 'src/ui/components/snackbar/snackbar';
 @import 'src/ui/Pages/CommitInfo/CommitInfoPage';
 @import 'src/ui/Pages/EslWarnings/EslWarningsPage';
+@import 'src/ui/Pages/ReleaseTrain/ReleaseTrainPage';
+@import 'src/ui/Pages/Manifests/ManifestsPage';
 @import 'src/ui/components/ServiceLane/ServiceLane';
 @import 'src/ui/components/ServiceLane/DotsMenu';
 @import 'src/ui/components/ServiceLane/Warnings';
@@ -48,5 +50,8 @@ Copyright freiheit.com*/
 @import 'src/ui/components/EnvironmentConfigDialog/EnvironmentConfigDialog';
 @import 'src/ui/components/CommitInfo/CommitInfo';
 @import 'src/ui/components/EslWarnings/EslWarnings';
+@import 'src/ui/components/Compliance/Compliance';
+@import 'src/ui/components/ProgressBar/ProgressBar';
+@import '../ui/components/GeneralGitSyncStatus/GeneralSyncStatus';
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 @import url('https://fonts.googleapis.com/icon?family=Inter');

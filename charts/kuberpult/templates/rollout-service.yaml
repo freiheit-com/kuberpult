@@ -63,7 +63,48 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.db.k8sServiceAccountName)) }}
+      serviceAccountName: {{ .Values.db.k8sServiceAccountName }}
+{{- end }}
       containers:
+{{- if .Values.db.cloudSqlProxyEnabled }}
+      - name: cloud-sql-proxy
+        # It is recommended to use the latest version of the Cloud SQL Auth Proxy
+        # Make sure to update on a regular schedule!
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args:
+          # If connecting from a VPC-native GKE cluster, you can use the
+          # following flag to have the proxy connect over private IP
+          - "--private-ip"
+
+          # Enable structured logging with LogEntry format:
+          - "--structured-logs"
+
+          # Replace DB_PORT with the port the proxy should listen on
+
+          - "--port={{ .Values.db.authProxyPort }}"
+
+          - {{ .Values.db.dbConnectionName | quote }}
+        securityContext:
+          # The default Cloud SQL Auth Proxy image runs as the
+          # "nonroot" user and group (uid: 65532) by default.
+          runAsNonRoot: true
+        # You should use resource requests/limits as a best practice to prevent
+        # pods from consuming too many resources and affecting the execution of
+        # other pods. You should adjust the following values based on what your
+        # application needs. For details, see
+        # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        resources:
+          requests:
+            # The proxy's memory use scales linearly with the number of active
+            # connections. Fewer open connections will use less memory. Adjust
+            # this value based on your application's requirements.
+            memory: {{ .Values.db.requests.memory }}
+            # The proxy's CPU use scales linearly with the amount of IO between
+            # the database and the application. Adjust this value based on your
+            # application's requirements.
+            cpu:  {{ .Values.db.requests.cpu }}
+{{- end }}
       - name: service
         image: "{{ .Values.hub }}/{{ .Values.rollout.image }}:{{ $.Chart.AppVersion }}"
         ports:
@@ -113,6 +154,10 @@ spec:
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
           value: {{ .Values.log.level | quote }}
+        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
+          value: /migrations/postgres
+        - name: KUBERPULT_DB_AUTH_PROXY_PORT
+          value: "{{ .Values.db.authProxyPort }}"
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:
@@ -168,9 +213,53 @@ spec:
               name: kuberpult-rollout-service
               key: KUBERPULT_REVOLUTION_DORA_TOKEN
         - name: KUBERPULT_REVOLUTION_DORA_MAX_EVENT_AGE
-          value: "2h"
+          value: {{ .Values.revolution.dora.maxAge | quote }}
+        - name: KUBERPULT_REVOLUTION_DORA_DRY_RUN
+          value: {{ .Values.revolution.dora.dryRun | quote }}
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.rollout.grpcMaxRecvMsgSize }}"
+        - name: KUBERPULT_DB_OPTION
+          value: {{ .Values.db.dbOption }} # { postgreSQL}
+        - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
+          value: "false"
+        - name: KUBERPULT_PERSIST_ARGO_EVENTS
+          value: "{{ .Values.rollout.persistArgoEvents }}"
+{{- if .Values.rollout.persistArgoEvents }}
+        - name: KUBERPULT_ARGO_EVENTS_BATCH_SIZE
+          value: "{{ .Values.rollout.argoEventsBatchSize }}"
+{{- end }}
+        - name: KUBERPULT_ARGO_EVENTS_CHANNEL_SIZE
+          value: "{{ .Values.rollout.argoEventsChannelSize }}"
+        - name: KUBERPULT_KUBERPULT_EVENTS_CHANNEL_SIZE
+          value: "{{ .Values.rollout.kuberpultEventsChannelSize }}"
+        - name: KUBERPULT_DORA_EVENTS_METRICS_ENABLED
+          value: "{{ .Values.rollout.metrics.doraMetricsEnabled }}"
+        - name: KUBERPULT_ARGO_EVENTS_METRICS_ENABLED
+          value: "{{ .Values.rollout.metrics.argoEventsMetricsEnabled }}"
+        - name: KUBERPULT_KUBERPULT_EVENTS_METRICS_ENABLED
+          value: "{{ .Values.rollout.metrics.kuberpultEventsMetricsEnabled }}"
+{{- if (eq .Values.db.dbOption "postgreSQL") }}
+        - name: KUBERPULT_DB_LOCATION
+          value: {{ .Values.db.location }}
+        - name: KUBERPULT_DB_NAME
+          value: "{{ .Values.db.dbName }}"
+        - name: KUBERPULT_DB_SSL_MODE
+          value: "{{ .Values.db.sslMode }}"
+        - name: KUBERPULT_DB_USER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: username
+        - name: KUBERPULT_DB_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-db
+              key: password
+        - name: KUBERPULT_DB_MAX_OPEN_CONNECTIONS
+          value: "{{ .Values.db.connections.rollout.maxOpen }}"
+        - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
+          value: "{{ .Values.db.connections.rollout.maxIdle }}"
+{{- end }}
         volumeMounts:
         # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
         - name: tmp

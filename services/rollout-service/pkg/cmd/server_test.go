@@ -59,6 +59,7 @@ func TestService(t *testing.T) {
 			ExpectedError: errMatcher{"connecting to argocd version: dial tcp 127.0.0.1:32761: connect: connection refused"},
 			Config: Config{
 				ArgocdServer: "http://127.0.0.1:32761",
+				DbOption:     "NO_DB",
 			},
 		},
 	}

@@ -12,9 +12,20 @@ service GitService {
   // By "Product" we mean the entire collection of apps
   rpc GetProductSummary(GetProductSummaryRequest) returns(GetProductSummaryResponse) {}
   rpc GetCommitInfo(GetCommitInfoRequest) returns(GetCommitInfoResponse) {}
+  rpc GetGitSyncStatus(GetGitSyncStatusRequest) returns(GetGitSyncStatusResponse) {}
+  rpc StreamGitSyncStatus(GetGitSyncStatusRequest) returns(stream GetGitSyncStatusResponse) {}
+  rpc RetryFailedEvent(RetryFailedEventRequest) returns(RetryFailedEventResponse) {}
+  rpc SkipEslEvent(SkipEslEventRequest) returns (SkipEslEventResponse) {}
 }
 
 message GetGitTagsRequest {
+}
+
+message RetryFailedEventRequest {
+  uint64 eslversion = 1;
+}
+
+message RetryFailedEventResponse {
 }
 
 message GetGitTagsResponse {
@@ -56,6 +67,32 @@ message GetCommitInfoResponse {
   string next_commit_hash = 5;
   string previous_commit_hash = 6;
   bool load_more = 7;
+}
+
+message GetGitSyncStatusRequest {
+
+}
+
+enum GitSyncStatus {
+  GIT_SYNC_STATUS_UNKNOWN = 0;
+  GIT_SYNC_STATUS_SYNCED = 1;
+  GIT_SYNC_STATUS_UNSYNCED = 2;
+  GIT_SYNC_STATUS_ERROR = 3;
+}
+
+message GetGitSyncStatusResponse {
+  map<string, EnvSyncStatus> app_statuses = 1; //AppName -> map[EnvName] GitSyncStatus
+}
+
+message EnvSyncStatus {
+  map<string, GitSyncStatus> env_status = 1; //EnvName -> SyncStatus
+}
+
+message SkipEslEventRequest {
+  uint64 event_esl_version = 1;
+}
+
+message SkipEslEventResponse {
 }
 
 message Event {
@@ -134,6 +171,7 @@ message BatchAction {
     DeleteEnvironmentGroupLockRequest delete_environment_group_lock = 13;
     CreateEnvironmentTeamLockRequest create_environment_team_lock = 14;
     DeleteEnvironmentTeamLockRequest delete_environment_team_lock = 15;
+    DeleteEnvironmentRequest delete_environment = 16;
   }
 }
 
@@ -153,6 +191,7 @@ message CreateEnvironmentLockRequest {
   string lock_id = 2;
   string message = 3;
   string ci_link = 4;
+  optional string suggested_life_time = 5;
 }
 
 message DeleteEnvironmentLockRequest {
@@ -165,6 +204,7 @@ message CreateEnvironmentGroupLockRequest {
   string lock_id = 2;
   string message = 3;
   string ci_link = 4;
+  optional string suggested_life_time = 5;
 }
 
 message DeleteEnvironmentGroupLockRequest {
@@ -179,6 +219,7 @@ message CreateEnvironmentApplicationLockRequest {
   string lock_id = 3;
   string message = 4;
   string ci_link = 5;
+  optional string suggested_life_time = 6;
 }
 
 message DeleteEnvironmentApplicationLockRequest {
@@ -193,6 +234,7 @@ message CreateEnvironmentTeamLockRequest {
   string lock_id = 3;
   string message = 4;
   string ci_link = 5;
+  optional string suggested_life_time = 6;
 }
 
 message DeleteEnvironmentTeamLockRequest {
@@ -315,6 +357,8 @@ message Lock {
   string lock_id = 3;
   google.protobuf.Timestamp created_at = 4;
   Actor created_by = 5;
+  string ci_link = 6;
+  string suggested_lifetime = 7;
 }
 
 message LockedError {
@@ -374,12 +418,34 @@ service VersionService {
   rpc GetManifests (GetManifestsRequest) returns (GetManifestsResponse) {}
 }
 
+service MigrationService {
+  rpc EnsureCustomMigrationApplied (EnsureCustomMigrationAppliedRequest) returns (EnsureCustomMigrationAppliedResponse) {}
+}
+
+message EnsureCustomMigrationAppliedRequest {
+  KuberpultVersion version = 1;
+}
+
+message EnsureCustomMigrationAppliedResponse {
+  bool migrations_applied = 1;
+}
+
+message KuberpultVersion {
+  int32 major = 1;
+  int32 minor = 2;
+  int32 patch = 3;
+}
+
 service OverviewService {
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}
 
   rpc StreamChangedApps (GetChangedAppsRequest) returns (stream GetChangedAppsResponse) {}
   rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
+  rpc GetAllAppLocks (GetAllAppLocksRequest) returns (GetAllAppLocksResponse) {}
+  rpc GetAllEnvTeamLocks (GetAllEnvTeamLocksRequest) returns (GetAllEnvTeamLocksResponse) {}
+
+  rpc StreamDeploymentHistory (DeploymentHistoryRequest) returns (stream DeploymentHistoryResponse) {}
 }
 
 service EnvironmentService {
@@ -392,6 +458,16 @@ message GetChangedAppsResponse {
   repeated GetAppDetailsResponse changed_apps = 1;
 }
 
+message GetAllAppLocksRequest {}
+
+message GetAllAppLocksResponse {
+  map<string, AllAppLocks> all_app_locks = 1; //EnvName -> All app locks for that env
+}
+
+message AllAppLocks {
+  map<string, Locks> app_locks = 1; //AppName -> all locks for that app
+}
+
 message GetAppDetailsRequest {
   string app_name = 1;
 }
@@ -401,6 +477,28 @@ message GetAppDetailsResponse {
   map<string, Deployment> deployments = 2; // Env -> Release
   map<string, Locks> app_locks = 3; //EnvName -> []AppLocks
   map<string, Locks> team_locks= 4; //EnvName -> []TeamLocks
+}
+
+message GetAllEnvTeamLocksRequest {}
+
+message GetAllEnvTeamLocksResponse {
+  map<string, Locks> all_env_locks = 1; //EnvName -> All env locks for that env
+  map<string, AllTeamLocks> all_team_locks = 2; //EnvName -> All team locks for that env
+}
+
+message DeploymentHistoryRequest {
+  google.protobuf.Timestamp start_date = 1;
+  google.protobuf.Timestamp end_date = 2;
+  string environment = 3;
+}
+
+message DeploymentHistoryResponse {
+  string deployment = 1;
+  uint32 progress = 2;
+}
+
+message AllTeamLocks {
+  map<string, Locks> team_locks = 1; //TeamName -> all locks for that team 
 }
 
 
@@ -486,6 +584,11 @@ message EnvironmentConfig {
     optional bool    latest = 2;
   }
 
+  message ArgoConfigs {
+    repeated ArgoCD configs = 1;
+    string common_env_prefix = 2;
+  }
+
   message ArgoCD {
     message SyncWindows {
       string           kind = 1; // "allow" or "deny"
@@ -520,6 +623,7 @@ message EnvironmentConfig {
     map<string, string>               application_annotations = 4;
     repeated IgnoreDifferences        ignore_differences = 5;
     repeated string                   sync_options = 6;
+    string                            concrete_env_name = 7;
   }
 
   Upstream upstream = 1;
@@ -530,12 +634,17 @@ message EnvironmentConfig {
   // So we disable the rule, according to https://buf.build/docs/lint/overview/#comment-ignores
   // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
   optional string environmentGroup = 3; // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
+  ArgoConfigs argo_configs = 4;
 }
 
 
 message CreateEnvironmentRequest {
   string environment = 1;
   EnvironmentConfig config = 2;
+}
+
+message DeleteEnvironmentRequest {
+  string environment = 1;
 }
 
 message GetEnvironmentConfigRequest {
@@ -569,11 +678,8 @@ message UpstreamNotDeployed {
 message Environment {
   string name = 1;
   EnvironmentConfig config = 2;
-  map<string, Lock> locks = 3; //Environment Locks. Lock ID -> Lock
   uint32 distance_to_upstream = 5;
   Priority priority = 6;
-  map<string, Locks> app_locks = 7;  //Application Locks. AppName -> []Locks
-  map<string, Locks> team_locks = 8; //Team Locks. TeamName -> []Locks
 }
 
 message Release {
@@ -588,6 +694,7 @@ message Release {
   bool is_minor = 9;
   bool is_prepublish = 10;
   repeated string environments = 11;
+  string ci_link = 12;
 }
 
 enum UndeploySummary {
@@ -732,7 +839,9 @@ service EslService {
   rpc GetFailedEsls (GetFailedEslsRequest) returns (GetFailedEslsResponse) {}
 }
 
-message GetFailedEslsRequest {}
+message GetFailedEslsRequest {
+  int64 page_number = 1;
+}
 
 message EslItem {
   int64 esl_version = 1;
@@ -741,8 +850,18 @@ message EslItem {
   string json = 4;
 }
 
+message EslFailedItem {
+  int64 esl_version = 1;
+  google.protobuf.Timestamp created_at = 2;
+  string event_type = 3;
+  string json = 4;
+  string reason = 5;
+  int64 transformer_esl_version = 6;
+}
+
 message GetFailedEslsResponse {
-  repeated EslItem failed_esls = 1;
+  repeated EslFailedItem failed_esls = 1;
+  bool load_more = 2; //True if there are more events to load
 }
 
 enum CommitDeploymentStatus {
@@ -752,6 +871,7 @@ enum CommitDeploymentStatus {
 }
 
 service CommitDeploymentService {
+  rpc GetDeploymentCommitInfo (GetDeploymentCommitInfoRequest) returns (GetDeploymentCommitInfoResponse) {}
   rpc GetCommitDeploymentInfo (GetCommitDeploymentInfoRequest) returns (GetCommitDeploymentInfoResponse) {}
 }
 
@@ -765,4 +885,15 @@ message AppCommitDeploymentStatus {
 
 message GetCommitDeploymentInfoResponse {
     map<string,AppCommitDeploymentStatus> deployment_status = 1;
+}
+
+message GetDeploymentCommitInfoRequest {
+  string environment = 1;
+  string application = 2;
+}
+
+message GetDeploymentCommitInfoResponse {
+  string author = 1;
+  string commit_id = 2;
+  string commit_message = 3;
 }

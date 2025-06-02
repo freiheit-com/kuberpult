@@ -19,6 +19,7 @@ import {
     AppDetailsResponse,
     AppDetailsState,
     updateAppDetails,
+    UpdateGitSyncStatus,
     UpdateOverview,
     UpdateRolloutStatus,
 } from '../../utils/store';
@@ -26,10 +27,12 @@ import { MemoryRouter } from 'react-router-dom';
 import {
     Environment,
     EnvironmentGroup,
+    GetGitSyncStatusResponse,
     Priority,
     Release,
     RolloutStatus,
     StreamStatusResponse,
+    GitSyncStatus,
     UndeploySummary,
 } from '../../../api/api';
 import { Spy } from 'spy4js';
@@ -76,6 +79,7 @@ describe('Release Card', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             team: 'test-team',
@@ -89,6 +93,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -104,6 +109,7 @@ describe('Release Card', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             environments: {},
@@ -129,6 +135,7 @@ describe('Release Card', () => {
                                     isMinor: true,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             team: 'test-team',
@@ -142,6 +149,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -157,6 +165,7 @@ describe('Release Card', () => {
                     isMinor: true,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             environments: {},
@@ -182,6 +191,7 @@ describe('Release Card', () => {
                                     isMinor: true,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             team: 'test-team',
@@ -201,6 +211,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -216,14 +227,12 @@ describe('Release Card', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             environments: {
                 foo: {
                     name: 'foo',
-                    locks: {},
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -250,6 +259,7 @@ describe('Release Card', () => {
                                     isMinor: true,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             team: 'test-team',
@@ -269,6 +279,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -284,14 +295,12 @@ describe('Release Card', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             environments: {
                 undeployed: {
                     name: 'undeployed',
-                    locks: {},
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
@@ -318,6 +327,7 @@ describe('Release Card', () => {
                                     isMinor: false,
                                     isPrepublish: false,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             team: 'test-team',
@@ -337,6 +347,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -352,13 +363,11 @@ describe('Release Card', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             environments: {
                 other: {
-                    locks: {},
-                    appLocks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     name: 'other',
@@ -386,6 +395,7 @@ describe('Release Card', () => {
                                     isMinor: true,
                                     isPrepublish: true,
                                     environments: [],
+                                    ciLink: '',
                                 },
                             ],
                             team: 'test-team',
@@ -405,6 +415,7 @@ describe('Release Card', () => {
                     },
                     appDetailState: AppDetailsState.READY,
                     updatedAt: new Date(Date.now()),
+                    errorMessage: '',
                 },
             },
             rels: [
@@ -420,6 +431,7 @@ describe('Release Card', () => {
                     isMinor: true,
                     isPrepublish: true,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             environments: {},
@@ -472,6 +484,58 @@ describe('Release Card', () => {
     });
 });
 
+const commonAppDetails: { [key: string]: AppDetailsResponse } = {
+    test1: {
+        details: {
+            application: {
+                name: '',
+                releases: [
+                    {
+                        version: 2,
+                        sourceMessage: 'test-rel',
+                        undeployVersion: false,
+                        sourceCommitId: 'commit123',
+                        sourceAuthor: 'author',
+                        prNumber: '666',
+                        createdAt: new Date(2023, 6, 6),
+                        displayVersion: '2',
+                        isMinor: false,
+                        isPrepublish: false,
+                        environments: [],
+                        ciLink: '',
+                    },
+                ],
+                team: 'test-team',
+                sourceRepoUrl: '',
+                undeploySummary: UndeploySummary.NORMAL,
+                warnings: [],
+            },
+            deployments: {
+                development: {
+                    version: 2,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+                development2: {
+                    version: 2,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+                staging: {
+                    version: 2,
+                    queuedVersion: 0,
+                    undeployVersion: false,
+                },
+            },
+            appLocks: {},
+            teamLocks: {},
+        },
+        appDetailState: AppDetailsState.READY,
+        updatedAt: new Date(Date.now()),
+        errorMessage: '',
+    },
+};
+
 describe('Release Card Rollout Status', () => {
     const getNode = (overrides: ReleaseCardProps) => (
         <MemoryRouter>
@@ -497,55 +561,7 @@ describe('Release Card Rollout Status', () => {
         {
             name: 'shows success when it is deployed',
             props: { app: 'test1', version: 2 },
-            appDetails: {
-                test1: {
-                    details: {
-                        application: {
-                            name: '',
-                            releases: [
-                                {
-                                    version: 2,
-                                    sourceMessage: 'test-rel',
-                                    undeployVersion: false,
-                                    sourceCommitId: 'commit123',
-                                    sourceAuthor: 'author',
-                                    prNumber: '666',
-                                    createdAt: new Date(2023, 6, 6),
-                                    displayVersion: '2',
-                                    isMinor: false,
-                                    isPrepublish: false,
-                                    environments: [],
-                                },
-                            ],
-                            team: 'test-team',
-                            sourceRepoUrl: '',
-                            undeploySummary: UndeploySummary.NORMAL,
-                            warnings: [],
-                        },
-                        deployments: {
-                            development: {
-                                version: 2,
-                                queuedVersion: 0,
-                                undeployVersion: false,
-                            },
-                            development2: {
-                                version: 2,
-                                queuedVersion: 0,
-                                undeployVersion: false,
-                            },
-                            staging: {
-                                version: 2,
-                                queuedVersion: 0,
-                                undeployVersion: false,
-                            },
-                        },
-                        appLocks: {},
-                        teamLocks: {},
-                    },
-                    appDetailState: AppDetailsState.READY,
-                    updatedAt: new Date(Date.now()),
-                },
-            },
+            appDetails: commonAppDetails,
             rels: [
                 {
                     version: 2,
@@ -559,6 +575,7 @@ describe('Release Card Rollout Status', () => {
                     isMinor: false,
                     isPrepublish: false,
                     environments: [],
+                    ciLink: '',
                 },
             ],
             environmentGroups: [
@@ -567,17 +584,11 @@ describe('Release Card Rollout Status', () => {
                     environments: [
                         {
                             name: 'development',
-                            locks: {},
-                            appLocks: {},
-                            teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },
                         {
                             name: 'development2',
-                            locks: {},
-                            appLocks: {},
-                            teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },
@@ -590,9 +601,6 @@ describe('Release Card Rollout Status', () => {
                     environments: [
                         {
                             name: 'staging',
-                            locks: {},
-                            appLocks: {},
-                            teamLocks: {},
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },
@@ -626,6 +634,113 @@ describe('Release Card Rollout Status', () => {
             expectedRolloutDetails: {
                 dev: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
                 staging: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+            },
+        },
+        {
+            name: 'shows most interesting status with AA environments',
+            props: { app: 'test1', version: 2 },
+            appDetails: commonAppDetails,
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    sourceAuthor: 'author',
+                    prNumber: '666',
+                    createdAt: new Date(2023, 6, 6),
+                    displayVersion: '2',
+                    isMinor: false,
+                    isPrepublish: false,
+                    environments: [],
+                    ciLink: '',
+                },
+            ],
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: [
+                        {
+                            name: 'development',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                        {
+                            name: 'development2',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+                {
+                    environmentGroupName: 'staging',
+                    environments: [
+                        {
+                            config: {
+                                argoConfigs: {
+                                    configs: [
+                                        {
+                                            concreteEnvName: 'test-1',
+                                            syncWindows: [],
+                                            accessList: [],
+                                            applicationAnnotations: {},
+                                            ignoreDifferences: [],
+                                            syncOptions: [],
+                                        },
+                                        {
+                                            concreteEnvName: 'test-2',
+                                            syncWindows: [],
+                                            accessList: [],
+                                            applicationAnnotations: {},
+                                            ignoreDifferences: [],
+                                            syncOptions: [],
+                                        },
+                                    ],
+                                    commonEnvPrefix: 'aa',
+                                },
+                            },
+                            name: 'staging',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+            ],
+            rolloutStatus: [
+                {
+                    environment: 'development',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                },
+                {
+                    environment: 'development2',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                },
+                {
+                    environment: 'aa-staging-test-1',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                },
+                {
+                    environment: 'aa-staging-test-2',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_ERROR,
+                },
+            ],
+
+            expectedStatusIcon: RolloutStatus.ROLLOUT_STATUS_ERROR,
+            expectedRolloutDetails: {
+                dev: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                staging: RolloutStatus.ROLLOUT_STATUS_ERROR,
             },
         },
     ];
@@ -673,3 +788,263 @@ const rolloutStatusName = (status: RolloutStatus): string => {
             return 'unknown';
     }
 };
+
+const gitSyncStatusNames = (status: GitSyncStatus): string => {
+    switch (status) {
+        case GitSyncStatus.GIT_SYNC_STATUS_SYNCED:
+            return 'successful';
+        case GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED:
+            return 'progressing';
+        case GitSyncStatus.GIT_SYNC_STATUS_ERROR:
+            return 'error';
+        default:
+            return 'unknown';
+    }
+};
+
+describe('Release Card Git Sync Status', () => {
+    const getNode = (overrides: ReleaseCardProps) => (
+        <MemoryRouter>
+            <ReleaseCard {...overrides} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: ReleaseCardProps) => render(getNode(overrides));
+
+    type TestData = {
+        name: string;
+        props: {
+            app: string;
+            version: number;
+        };
+        rels: Release[];
+        environmentGroups: EnvironmentGroup[];
+        gitSyncStatus: GetGitSyncStatusResponse;
+        expectedStatusIcon: GitSyncStatus;
+        expectedGitSyncStatusDetails: { [name: string]: GitSyncStatus };
+        appDetails: { [key: string]: AppDetailsResponse };
+    };
+    const data: TestData[] = [
+        {
+            name: 'shows success when it is deployed',
+            props: { app: 'test1', version: 2 },
+            appDetails: commonAppDetails,
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    sourceAuthor: 'author',
+                    prNumber: '666',
+                    createdAt: new Date(2023, 6, 6),
+                    displayVersion: '2',
+                    isMinor: false,
+                    isPrepublish: false,
+                    environments: [],
+                    ciLink: '',
+                },
+            ],
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: [
+                        {
+                            name: 'development',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                        {
+                            name: 'development2',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+                {
+                    environmentGroupName: 'staging',
+                    environments: [
+                        {
+                            name: 'staging',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+            ],
+            gitSyncStatus: {
+                appStatuses: {},
+            },
+
+            expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
+            expectedGitSyncStatusDetails: {
+                dev: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
+                staging: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
+            },
+        },
+        {
+            name: 'shows progressing when it is unsynced',
+            props: { app: 'test1', version: 2 },
+            appDetails: commonAppDetails,
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    sourceAuthor: 'author',
+                    prNumber: '666',
+                    createdAt: new Date(2023, 6, 6),
+                    displayVersion: '2',
+                    isMinor: false,
+                    isPrepublish: false,
+                    environments: [],
+                    ciLink: '',
+                },
+            ],
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: [
+                        {
+                            name: 'development',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                        {
+                            name: 'development2',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+                {
+                    environmentGroupName: 'staging',
+                    environments: [
+                        {
+                            name: 'staging',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+            ],
+            gitSyncStatus: {
+                appStatuses: {
+                    test1: {
+                        envStatus: {
+                            staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                        },
+                    },
+                },
+            },
+
+            expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+            expectedGitSyncStatusDetails: {
+                dev: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
+                staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+            },
+        },
+        {
+            name: 'shows error when it is sync failed',
+            props: { app: 'test1', version: 2 },
+            appDetails: commonAppDetails,
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    sourceAuthor: 'author',
+                    prNumber: '666',
+                    createdAt: new Date(2023, 6, 6),
+                    displayVersion: '2',
+                    isMinor: false,
+                    isPrepublish: false,
+                    environments: [],
+                    ciLink: '',
+                },
+            ],
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: [
+                        {
+                            name: 'development',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                        {
+                            name: 'development2',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+                {
+                    environmentGroupName: 'staging',
+                    environments: [
+                        {
+                            name: 'staging',
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+                    priority: Priority.UNRECOGNIZED,
+                    distanceToUpstream: 0,
+                },
+            ],
+            gitSyncStatus: {
+                appStatuses: {
+                    test1: {
+                        envStatus: {
+                            staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+                            development: GitSyncStatus.GIT_SYNC_STATUS_ERROR,
+                        },
+                    },
+                },
+            },
+
+            expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_ERROR,
+            expectedGitSyncStatusDetails: {
+                dev: GitSyncStatus.GIT_SYNC_STATUS_ERROR,
+                staging: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
+            },
+        },
+    ];
+
+    describe.each(data)(`Renders a Release Card`, (testcase) => {
+        it(testcase.name, () => {
+            // given
+            mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
+            // when
+            UpdateOverview.set({
+                environmentGroups: testcase.environmentGroups,
+            });
+            updateAppDetails.set(testcase.appDetails);
+
+            UpdateGitSyncStatus(testcase.gitSyncStatus);
+            const { container } = getWrapper(testcase.props);
+            // then
+            expect(container.querySelector('.release__status')).not.toBeNull();
+            expect(
+                container.querySelector(
+                    `.release__status .rollout__icon_${gitSyncStatusNames(testcase.expectedStatusIcon)}`
+                )
+            ).not.toBeNull();
+            for (const [envGroup, status] of Object.entries(testcase.expectedGitSyncStatusDetails)) {
+                const row = container.querySelector(`tr[key="${envGroup}"]`);
+                expect(row?.querySelector(`.rollout__description_${gitSyncStatusNames(status)}`)).not.toBeNull();
+            }
+        });
+    });
+});

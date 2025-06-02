@@ -18,17 +18,20 @@ package cmd
 
 import (
 	"context"
-	"database/sql"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
@@ -56,16 +59,14 @@ const (
 	datadogNameCd           = "kuberpult-cd-service"
 	minReleaseVersionsLimit = 5
 	maxReleaseVersionsLimit = 30
+
+	megaBytes int = 1024 * 1024
 )
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl                   string        `required:"true" split_words:"true"`
+	GitUrl                   string        `split_words:"true"`
 	GitBranch                string        `default:"master" split_words:"true"`
-	GitCommitterEmail        string        `default:"kuberpult@freiheit.com" split_words:"true"`
-	GitCommitterName         string        `default:"kuberpult" split_words:"true"`
-	GitSshKey                string        `default:"/etc/ssh/identity" split_words:"true"`
-	GitSshKnownHosts         string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
 	GitNetworkTimeout        time.Duration `default:"1m" split_words:"true"`
 	GitWriteCommitData       bool          `default:"false" split_words:"true"`
 	PgpKeyRingPath           string        `split_words:"true"`
@@ -82,34 +83,45 @@ type Config struct {
 	EnableSqlite             bool          `default:"true" split_words:"true"`
 	DexMock                  bool          `default:"false" split_words:"true"`
 	DexMockRole              string        `default:"Developer" split_words:"true"`
-	GitWebUrl                string        `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 	AllowLongAppNames        bool          `default:"false" split_words:"true"`
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
+	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
 
-	DbOption              string `default:"NO_DB" split_words:"true"`
-	DbLocation            string `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance    string `default:"" split_words:"true"`
-	DbName                string `default:"" split_words:"true"`
-	DbUserName            string `default:"" split_words:"true"`
-	DbUserPassword        string `default:"" split_words:"true"`
-	DbAuthProxyPort       string `default:"5432" split_words:"true"`
-	DbMigrationsLocation  string `default:"" split_words:"true"`
-	DexDefaultRoleEnabled bool   `default:"false" split_words:"true"`
-	DbWriteEslTableOnly   bool   `default:"false" split_words:"true"`
-	DbMaxIdleConnections  uint   `required:"true" split_words:"true"`
-	DbMaxOpenConnections  uint   `required:"true" split_words:"true"`
+	DbOption             string `default:"NO_DB" split_words:"true"`
+	DbLocation           string `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance   string `default:"" split_words:"true"`
+	DbName               string `default:"" split_words:"true"`
+	DbUserName           string `default:"" split_words:"true"`
+	DbUserPassword       string `default:"" split_words:"true"`
+	DbAuthProxyPort      string `default:"5432" split_words:"true"`
+	DbMigrationsLocation string `default:"" split_words:"true"`
+	DbWriteEslTableOnly  bool   `default:"false" split_words:"true"`
+	DbMaxIdleConnections uint   `required:"true" split_words:"true"`
+	DbMaxOpenConnections uint   `required:"true" split_words:"true"`
 
-	ReleaseVersionsLimit uint     `default:"20" split_words:"true"`
-	DeploymentType       string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
-	CloudRunServer       string   `default:"" split_words:"true"`
-	DbSslMode            string   `default:"verify-full" split_words:"true"`
-	MinorRegexes         string   `default:"" split_words:"true"`
-	AllowedDomains       []string `split_words:"true"`
-	CacheTtlHours        uint     `default:"24" split_words:"true"`
+	DexDefaultRoleEnabled bool     `default:"false" split_words:"true"`
+	CheckCustomMigrations bool     `default:"false" split_words:"true"`
+	ReleaseVersionsLimit  uint     `default:"20" split_words:"true"`
+	DeploymentType        string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
+	CloudRunServer        string   `default:"" split_words:"true"`
+	DbSslMode             string   `default:"verify-full" split_words:"true"`
+	MinorRegexes          string   `default:"" split_words:"true"`
+	AllowedDomains        []string `split_words:"true"`
+	CacheTtlHours         uint     `default:"24" split_words:"true"`
 
 	DisableQueue bool `required:"true" split_words:"true"`
+
+	// the cd-service calls the manifest-export on startup, to run custom migrations:
+	MigrationServer       string `required:"false" split_words:"true"`
+	MigrationServerSecure bool   `required:"true" split_words:"true"`
+	GrpcMaxRecvMsgSize    int    `required:"true" split_words:"true"`
+
+	Version  string `required:"true" split_words:"true"`
+	LockType string `required:"true" split_words:"true"`
+
+	ReposerverEnabled bool `default:"false" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -129,6 +141,12 @@ func RunServer() {
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
 		}
+		var lockType service.LockType
+		lockType, err = service.ParseLockType(c.LockType)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("config.parse.error.lock", zap.Error(err))
+		}
+
 		if c.EnableProfiling {
 			ddFilename := c.DatadogApiKeyLocation
 			if ddFilename == "" {
@@ -306,22 +324,13 @@ func RunServer() {
 		}
 
 		cfg := repository.RepositoryConfig{
-			WebhookResolver: nil,
-			URL:             c.GitUrl,
-			Path:            "./repository",
-			CommitterEmail:  c.GitCommitterEmail,
-			CommitterName:   c.GitCommitterName,
-			Credentials: repository.Credentials{
-				SshKey: c.GitSshKey,
-			},
-			Certificates: repository.Certificates{
-				KnownHostsFile: c.GitSshKnownHosts,
-			},
+			WebhookResolver:       nil,
+			URL:                   c.GitUrl,
 			MinorRegexes:          minorRegexes,
+			MaxNumThreads:         c.MaxNumberOfThreads,
 			Branch:                c.GitBranch,
 			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
 			StorageBackend:        c.storageBackend(),
-			WebURL:                c.GitWebUrl,
 			NetworkTimeout:        c.GitNetworkTimeout,
 			DogstatsdEvents:       c.EnableMetrics,
 			WriteCommitData:       c.GitWriteCommitData,
@@ -345,54 +354,58 @@ func RunServer() {
 				Repository: repo,
 			}
 
-		if dbHandler.ShouldUseOtherTables() {
-			// we overwrite InsertApp in order to also update the overview:
-			dbHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-				return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, stateChange, metaData)
-			}
+		if dbHandler.ShouldUseOtherTables() && c.CheckCustomMigrations {
 			//Check for migrations -> for pulling
 			logger.FromContext(ctx).Sugar().Warnf("checking if migrations are required...")
-			if needsMigration, err := dbHandler.NeedsMigrations(ctx); err == nil && needsMigration {
-				logger.FromContext(ctx).Sugar().Warnf("starting to pull the repo")
-				err := repo.Pull(ctx)
-				if err != nil {
-					logger.FromContext(ctx).Fatal("Could not pull repository to perform custom migrations", zap.Error(err))
-				}
-				logger.FromContext(ctx).Sugar().Warnf("running custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
 
-				migErr := dbHandler.RunCustomMigrations(
-					ctx,
-					repo.State().GetAppsAndTeams,
-					repo.State().WriteCurrentlyDeployed,
-					repo.State().WriteAllReleases,
-					repo.State().WriteCurrentEnvironmentLocks,
-					repo.State().WriteCurrentApplicationLocks,
-					repo.State().WriteCurrentTeamLocks,
-					repo.State().GetAllEnvironments,
-					repo.State().WriteAllQueuedAppVersions,
-					repo.State().WriteAllCommitEvents,
-				)
-				if migErr != nil {
-					logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
-				} else {
-					logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
+			var migrationClient api.MigrationServiceClient = nil
+			if c.MigrationServer == "" {
+				logger.FromContext(ctx).Fatal("MigrationServer required when KUBERPULT_CHECK_CUSTOM_MIGRATIONS is enabled")
+			}
+			var cred credentials.TransportCredentials = insecure.NewCredentials()
+			if c.MigrationServerSecure {
+				systemRoots, err := x509.SystemCertPool()
+				if err != nil {
+					return fmt.Errorf("failed to read CA certificates")
 				}
-			} else if err != nil {
-				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(err))
+				//exhaustruct:ignore
+				cred = credentials.NewTLS(&tls.Config{
+					RootCAs: systemRoots,
+				})
 			}
-			logger.FromContext(ctx).Sugar().Warnf("Skipping git-related custom migrations, because all tables contain data.")
-			err = dbHandler.RunCustomMigrationReleaseEnvironments(ctx)
+			grpcClientOpts := []grpc.DialOption{
+				grpc.WithTransportCredentials(cred),
+				grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(c.GrpcMaxRecvMsgSize * megaBytes)),
+			}
+
+			rolloutCon, err := grpc.Dial(c.MigrationServer, grpcClientOpts...)
 			if err != nil {
-				return err
+				logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.MigrationServer))
 			}
-			logger.FromContext(ctx).Sugar().Warnf("Applied custom migration for release environments")
-			err = dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
+			migrationClient = api.NewMigrationServiceClient(rolloutCon)
+
+			kuberpultVersion, err := migrations.ParseKuberpultVersion(c.Version)
 			if err != nil {
-				return err
+				logger.FromContext(ctx).Fatal("env.parse.error", zap.Error(err), zap.String("version", c.Version))
 			}
-			logger.FromContext(ctx).Sugar().Warnf("Applied custom migrations for environment applications")
+
+			response, migErr := migrationClient.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+				Version: kuberpultVersion,
+			})
+
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error ensuring custom migrations are applied", zap.Error(migErr))
+			}
+			if response == nil {
+				logger.FromContext(ctx).Sugar().Fatal("Custom database migrations returned nil response")
+			}
+			if !response.MigrationsApplied {
+				logger.FromContext(ctx).Sugar().Fatalf("Custom database migrations where not applied: %v", response)
+			}
+
+			logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
 		} else {
-			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false")
+			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=%t and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=%t", dbHandler.ShouldUseOtherTables(), c.CheckCustomMigrations)
 		}
 
 		span.Finish()
@@ -423,6 +436,7 @@ func RunServer() {
 				},
 				Register: func(srv *grpc.Server) {
 					api.RegisterBatchServiceServer(srv, &service.BatchServer{
+						DBHandler:  dbHandler,
 						Repository: repo,
 						RBACConfig: auth.RBACConfig{
 							DexEnabled: c.DexEnabled,
@@ -432,6 +446,7 @@ func RunServer() {
 						Config: service.BatchServerConfig{
 							WriteCommitData:      c.GitWriteCommitData,
 							AllowedCILinkDomains: c.AllowedDomains,
+							LockType:             lockType,
 						},
 					})
 
@@ -456,10 +471,14 @@ func RunServer() {
 					})
 					api.RegisterEslServiceServer(srv, &service.EslServiceServer{Repository: repo})
 					reflection.Register(srv)
-					reposerver.Register(srv, repo, cfg)
+
+					if !c.ReposerverEnabled {
+						logger.FromContext(ctx).Warn("cd-service's reposerver is deprecated. Please use the standalone reposerver-service.")
+						reposerver.Register(srv, repo, cfg)
+					}
+
 					if dbHandler != nil {
 						api.RegisterCommitDeploymentServiceServer(srv, &service.CommitDeploymentServer{DBHandler: dbHandler})
-						_, _ = overviewSrv.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: ""})
 					}
 				},
 			},
@@ -472,15 +491,6 @@ func RunServer() {
 						repository.RegularlySendDatadogMetrics(repo, 300, func(repository2 repository.Repository, even bool) {
 							repository.GetRepositoryStateAndUpdateMetrics(ctx, repository2, even)
 						})
-						return nil
-					},
-				},
-				{
-					Shutdown: nil,
-					Name:     "cache cleanup",
-					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
-						reporter.ReportReady("Cache cleanup started")
-						repository.RegularlyCleanupOverviewCache(ctx, repo, 3600, c.CacheTtlHours)
 						return nil
 					},
 				},

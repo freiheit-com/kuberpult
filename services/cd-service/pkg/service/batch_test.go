@@ -139,11 +139,13 @@ func getNBatchActions(N int) []*api.BatchAction {
 
 func TestBatchServiceWorks(t *testing.T) {
 	const prod = "production"
+	var lifeTime2d = "2d"
+	var lifeTime4h = "4h"
+	var lifeTime3w = "3w"
 	tcs := []struct {
 		Name          string
 		Batch         []*api.BatchAction
 		Setup         []repository.Transformer
-		context       context.Context
 		svc           *BatchServer
 		expectedError error
 	}{
@@ -159,7 +161,8 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						prod: "manifest",
 					},
-					Team: "test-team",
+					Team:    "test-team",
+					Version: 1,
 				},
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment: prod,
@@ -167,10 +170,11 @@ func TestBatchServiceWorks(t *testing.T) {
 					Message:     "EnvLock",
 				},
 				&repository.CreateEnvironmentApplicationLock{ // will be deleted by the batch actions
-					Environment: prod,
-					Application: "test",
-					LockId:      "5678",
-					Message:     "AppLock",
+					Environment:       prod,
+					Application:       "test",
+					LockId:            "5678",
+					Message:           "AppLock",
+					SuggestedLifeTime: &lifeTime3w,
 				},
 				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
 					Environment: prod,
@@ -180,9 +184,8 @@ func TestBatchServiceWorks(t *testing.T) {
 				},
 			},
 
-			Batch:   getBatchActions(),
-			context: testutil.MakeTestContext(),
-			svc:     &BatchServer{},
+			Batch: getBatchActions(),
+			svc:   &BatchServer{},
 		},
 		{
 			Name: "testing Dex setup with permissions",
@@ -196,12 +199,14 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "manifest",
 					},
-					Team: "test-team",
+					Team:    "test-team",
+					Version: 1,
 				},
 				&repository.CreateEnvironmentLock{
-					Environment: "production",
-					LockId:      "1234",
-					Message:     "EnvLock",
+					Environment:       "production",
+					LockId:            "1234",
+					Message:           "EnvLock",
+					SuggestedLifeTime: &lifeTime4h,
 				},
 				&repository.CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -210,14 +215,14 @@ func TestBatchServiceWorks(t *testing.T) {
 					Message:     "no message",
 				},
 				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
-					Environment: prod,
-					Team:        "test-team",
-					LockId:      "91011",
-					Message:     "TeamLock",
+					Environment:       prod,
+					Team:              "test-team",
+					LockId:            "91011",
+					Message:           "TeamLock",
+					SuggestedLifeTime: &lifeTime2d,
 				},
 			},
-			Batch:   getBatchActions(),
-			context: testutil.MakeTestContextDexEnabled(),
+			Batch: getBatchActions(),
 			svc: &BatchServer{
 				RBACConfig: auth.RBACConfig{
 					DexEnabled: true,
@@ -237,104 +242,117 @@ func TestBatchServiceWorks(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("error setting up repository test: %v", err)
 			}
-			for _, tr := range tc.Setup {
-				err := repo.Apply(tc.context, tr)
+			ctx := testutil.MakeTestContext()
+			user, err := auth.ReadUserFromContext(ctx)
+			if err != nil {
+				t.Fatalf("error reading user from context")
+			}
+			user.DexAuthContext = &auth.DexAuthContext{
+				Role: []string{"developer"},
+			}
+			ctx = auth.WriteUserToContext(ctx, *user)
+
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
+				if err2 != nil && err2.TransformerError != nil {
+					t.Fatalf("error applying transformers: %v", err2.TransformerError)
+				}
+				return nil
+			})
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+
+				tc.svc.Repository = repo
+				resp, err := tc.svc.ProcessBatch(
+					ctx,
+					&api.BatchRequest{
+						Actions: tc.Batch,
+					},
+				)
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
-			}
-
-			tc.svc.Repository = repo
-			resp, err := tc.svc.ProcessBatch(
-				tc.context,
-				&api.BatchRequest{
-					Actions: tc.Batch,
-				},
-			)
-			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-			}
-			if tc.expectedError != nil {
-				return
-			}
-
-			if len(resp.Results) != len(tc.Batch) {
-				t.Errorf("got wrong number of batch results, expected %d but got %d", len(tc.Batch), len(resp.Results))
-			}
-			// check deployment version
-			{
-				version, err := tc.svc.Repository.State().GetEnvironmentApplicationVersion(tc.context, nil, "production", "test")
-				if err != nil {
-					t.Fatal(err)
+				if tc.expectedError != nil {
+					return nil
 				}
-				if version == nil {
-					t.Errorf("unexpected version: expected 1, actual: %d", version)
+				if len(resp.Results) != len(tc.Batch) {
+					t.Errorf("got wrong number of batch results, expected %d but got %d", len(tc.Batch), len(resp.Results))
 				}
-				if *version != 1 {
-					t.Errorf("unexpected version: expected 1, actual: %d", *version)
+				return nil
+			})
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// check deployment version
+				{
+					version, err := tc.svc.Repository.State().GetEnvironmentApplicationVersion(ctx, transaction, "production", "test")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if version == nil {
+						t.Errorf("unexpected version: expected 1, actual: %d", version)
+					}
+					if *version != 1 {
+						t.Errorf("unexpected version: expected 1, actual: %d", *version)
+					}
 				}
-			}
-			// check that the envlock was created/deleted
-			{
-				ctx := testutil.MakeTestContext()
-				envLocks, err := tc.svc.Repository.State().GetEnvironmentLocks(ctx, nil, "production")
-				if err != nil {
-					t.Fatal(err)
+				// check that the envlock was created/deleted
+				{
+					envLocks, err := tc.svc.Repository.State().GetEnvironmentLocks(ctx, transaction, "production")
+					if err != nil {
+						t.Fatal(err)
+					}
+					lock, exists := envLocks["envlock"]
+					if !exists {
+						t.Error("lock was not created")
+					}
+					if lock.Message != "please" {
+						t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+					}
+					_, exists = envLocks["1234"]
+					if exists {
+						t.Error("lock was not deleted")
+					}
 				}
-				lock, exists := envLocks["envlock"]
-				if !exists {
-					t.Error("lock was not created")
+				// check that the applock was created/deleted
+				{
+					appLocks, err := tc.svc.Repository.State().GetEnvironmentApplicationLocks(ctx, transaction, "production", "test")
+					if err != nil {
+						t.Fatal(err)
+					}
+					lock, exists := appLocks["applock"]
+					if !exists {
+						t.Error("lock was not created")
+					}
+					if lock.Message != "please" {
+						t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+					}
+					_, exists = appLocks["5678"]
+					if exists {
+						t.Error("lock was not deleted")
+					}
 				}
-				if lock.Message != "please" {
-					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+				//Check that Team lock was created
+				{
+					teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks(ctx, transaction, "production", "test-team")
+					if err != nil {
+						t.Fatal(err)
+					}
+					lock, exists := teamLocks["teamlock"]
+					if !exists {
+						t.Error("Team lock was not created")
+					}
+					if lock.Message != "Test Create a Team lock" {
+						t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+					}
+					_, exists = teamLocks["91011"]
+					if exists {
+						t.Error("lock was not deleted")
+					}
 				}
-				_, exists = envLocks["1234"]
-				if exists {
-					t.Error("lock was not deleted")
-				}
-			}
-			// check that the applock was created/deleted
-			{
-				ctx := testutil.MakeTestContext()
-				appLocks, err := tc.svc.Repository.State().GetEnvironmentApplicationLocks(ctx, nil, "production", "test")
-				if err != nil {
-					t.Fatal(err)
-				}
-				lock, exists := appLocks["applock"]
-				if !exists {
-					t.Error("lock was not created")
-				}
-				if lock.Message != "please" {
-					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
-				}
-				_, exists = appLocks["5678"]
-				if exists {
-					t.Error("lock was not deleted")
-				}
-			}
-			//Check that Team lock was created
-			{
-				ctx := testutil.MakeTestContext()
-				teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks(ctx, nil, "production", "test-team")
-				if err != nil {
-					t.Fatal(err)
-				}
-				lock, exists := teamLocks["teamlock"]
-				if !exists {
-					t.Error("Team lock was not created")
-				}
-				if lock.Message != "Test Create a Team lock" {
-					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
-				}
-				_, exists = teamLocks["91011"]
-				if exists {
-					t.Error("lock was not deleted")
-				}
-			}
+				return nil
+			})
 
 		})
 	}
@@ -362,6 +380,7 @@ func TestBatchServiceFails(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "manifest",
 					},
+					Version: 1,
 				},
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment:    "production",
@@ -373,27 +392,29 @@ func TestBatchServiceFails(t *testing.T) {
 			Batch:              []*api.BatchAction{},
 			context:            testutil.MakeTestContextDexEnabled(),
 			svc:                &BatchServer{},
-			expectedSetupError: errMatcher{"error at index 0 of transformer batch: the desired action can not be performed because Dex is enabled without any RBAC policies"},
+			expectedSetupError: errMatcher{"the desired action can not be performed because Dex is enabled without any RBAC policies"},
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("error setting up repository test: %v", err)
 			}
+			ctx := testutil.MakeTestContext()
 			errSetupObserved := false
-			for _, tr := range tc.Setup {
-				err := repo.Apply(tc.context, tr)
-				if err != nil {
-					if diff := cmp.Diff(tc.expectedSetupError, err, cmpopts.EquateErrors()); diff != "" {
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
+				if err2 != nil && err2.TransformerError != nil {
+					if diff := cmp.Diff(tc.expectedSetupError, err2.TransformerError, cmpopts.EquateErrors()); diff != "" {
 						t.Fatalf("error during setup mismatch (-want, +got):\n%s", diff)
 					} else {
 						errSetupObserved = true
 					}
 				}
-			}
+				return nil
+			})
 			if tc.expectedSetupError != nil && !errSetupObserved {
 				// ensure we fail on unobserved error
 				t.Errorf("did not oberve error during setup: %s", tc.expectedSetupError.Error())
@@ -444,7 +465,7 @@ func TestBatchServiceErrors(t *testing.T) {
 			ExpectedResponse: nil,
 			ExpectedError: &repository.TransformerBatchApplyError{
 				Index:            0,
-				TransformerError: errMatcher{"deployment failed: could not open manifest for app myapp with release 666 on env dev 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist"},
+				TransformerError: errMatcher{"error at index 0 of transformer batch: could not find version 666 for app myapp"},
 			},
 		},
 		{
@@ -489,15 +510,18 @@ func TestBatchServiceErrors(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("error setting up repository test: %v", err)
 			}
-			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
-					t.Fatal(err)
+			ctx := testutil.MakeTestContext()
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
+				if err2 != nil && err2.TransformerError != nil {
+					t.Fatalf("error applying transformers: %v", err2.TransformerError)
 				}
-			}
+				return nil
+			})
 			svc := &BatchServer{
 				Repository: repo,
 			}
@@ -528,12 +552,14 @@ func TestBatchServiceLimit(t *testing.T) {
 			Manifests: map[string]string{
 				"production": "manifest",
 			},
+			Version: 1,
 		},
 		&repository.CreateApplicationVersion{
 			Application: "test",
 			Manifests: map[string]string{
 				"production": "manifest2",
 			},
+			Version: 2,
 		},
 	}
 	var two uint64 = 2
@@ -562,15 +588,18 @@ func TestBatchServiceLimit(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("error setting up repository test: %v", err)
 			}
-			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
-					t.Fatal(err)
+			ctx := testutil.MakeTestContext()
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
+				if err2 != nil && err2.TransformerError != nil {
+					t.Fatalf("error applying transformers: %v", err2.TransformerError)
 				}
-			}
+				return nil
+			})
 			svc := &BatchServer{
 				Repository: repo,
 			}
@@ -593,54 +622,37 @@ func TestBatchServiceLimit(t *testing.T) {
 					t.Errorf("invalid error message: expected %q, actual: %q", expectedMessage, s.Message())
 				}
 			} else {
-				if err != nil {
-					t.Fatal(err)
-				}
-				version, err := svc.Repository.State().GetEnvironmentApplicationVersion(context.Background(), nil, "production", "test")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if version == nil {
-					t.Errorf("unexpected version: expected %d, actual: %d", *tc.ExpectedVersion, version)
-				}
-				if *version != *tc.ExpectedVersion {
-					t.Errorf("unexpected version: expected %d, actual: %d", *tc.ExpectedVersion, *version)
-				}
+				_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					if err != nil {
+						t.Fatal(err)
+					}
+					version, err := svc.Repository.State().GetEnvironmentApplicationVersion(context.Background(), transaction, "production", "test")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if version == nil {
+						t.Errorf("unexpected version: expected %d, actual: %d", *tc.ExpectedVersion, version)
+					}
+					if *version != *tc.ExpectedVersion {
+						t.Errorf("unexpected version: expected %d, actual: %d", *tc.ExpectedVersion, *version)
+					}
+					return nil
+				})
 			}
 		})
 	}
 }
 
-func setupRepositoryTestWithoutDB(t *testing.T) (repository.Repository, error) {
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
-	t.Logf("test created dir: %s", localDir)
-
-	repoCfg := repository.RepositoryConfig{
-		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
-		ArgoCdGenerateFiles: true,
-	}
-	repoCfg.DBHandler = nil
-
-	repo, err := repository.New(
-		testutil.MakeTestContext(),
-		repoCfg,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo, nil
+func setupRepositoryTestWithDB(t *testing.T) (repository.Repository, error) {
+	return setupRepositoryTestWithAllOptions(t, true)
 }
 
-func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.Repository, error) {
+func setupRepositoryTestWithAllOptions(t *testing.T, withBackgroundJob bool) (repository.Repository, error) {
 	ctx := context.Background()
+	migrationsPath, err := db.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -649,15 +661,17 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 	cmd.Wait()
 	t.Logf("test created dir: %s", localDir)
 
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
+	}
+
 	repoCfg := repository.RepositoryConfig{
 		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
+		DisableQueue:        true,
 	}
 	if dbConfig != nil {
-		dbConfig.DbHost = dir
 
 		migErr := db.RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {
@@ -671,24 +685,29 @@ func setupRepositoryTestWithDB(t *testing.T, dbConfig *db.DBConfig) (repository.
 		repoCfg.DBHandler = db
 	}
 
-	repo, err := repository.New(
-		testutil.MakeTestContext(),
-		repoCfg,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if dbConfig != nil {
-		repo.State().DBHandler.InsertAppFun = func(ctx context.Context, transaction *sql.Tx, appName string, stateChange db.AppStateChange, metaData db.DBAppMetaData) error {
-			return repo.State().DBInsertApplicationWithOverview(ctx, transaction, appName, stateChange, metaData)
+	if withBackgroundJob {
+		repo, err := repository.New(
+			testutil.MakeTestContext(),
+			repoCfg,
+		)
+		if err != nil {
+			t.Fatal(err)
 		}
+		return repo, nil
+	} else {
+		repo, _, err := repository.New2(
+			testutil.MakeTestContext(),
+			repoCfg,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return repo, nil
 	}
-	return repo, nil
 }
 
 func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
-	return setupRepositoryTestWithDB(t, nil)
+	return setupRepositoryTestWithDB(t)
 }
 
 func TestReleaseTrain(t *testing.T) {
@@ -710,6 +729,7 @@ func TestReleaseTrain(t *testing.T) {
 					Manifests: map[string]string{
 						"acceptance": "manifest",
 					},
+					Version: 1,
 				},
 			},
 			Request: &api.BatchRequest{
@@ -750,6 +770,7 @@ func TestReleaseTrain(t *testing.T) {
 					Manifests: map[string]string{
 						"acceptance": "manifest",
 					},
+					Version: 1,
 				},
 			},
 			Request: &api.BatchRequest{
@@ -782,15 +803,18 @@ func TestReleaseTrain(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("error setting up repository test: %v", err)
 			}
-			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
-					t.Fatal(err)
+			ctx := testutil.MakeTestContext()
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
+				if err2 != nil && err2.TransformerError != nil {
+					t.Fatalf("error applying transformers: %v", err2.TransformerError)
 				}
-			}
+				return nil
+			})
 			svc := &BatchServer{
 				Repository: repo,
 			}
@@ -825,6 +849,11 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 						Action: &api.BatchAction_CreateEnvironment{
 							CreateEnvironment: &api.CreateEnvironmentRequest{
 								Environment: "env",
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										ConcreteEnvName: "placeholder",
+									},
+								},
 							},
 						},
 					},
@@ -836,7 +865,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 				},
 			},
 			ExpectedEnvironments: map[string]config.EnvironmentConfig{
-				"env": config.EnvironmentConfig{},
+				"env": {
+					ArgoCd: &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
+				},
 			},
 		},
 		{
@@ -852,6 +883,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: conversion.Bool(true),
 									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										ConcreteEnvName: "placeholder",
+									},
 								},
 							},
 						},
@@ -866,6 +900,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			ExpectedEnvironments: map[string]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					ArgoCd:   &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
 				},
 			},
 		},
@@ -882,6 +917,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: conversion.FromString("other-env"),
 									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										ConcreteEnvName: "placeholder",
+									},
 								},
 							},
 						},
@@ -896,6 +934,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			ExpectedEnvironments: map[string]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Environment: "other-env"},
+					ArgoCd: &config.EnvironmentConfigArgoCd{
+						ConcreteEnvName: "placeholder",
+					},
 				},
 			},
 		},
@@ -1022,15 +1063,19 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
+
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("error setting up repository test: %v", err)
 			}
-			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
-					t.Fatal(err)
+			ctx := testutil.MakeTestContext()
+			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
+				if err2 != nil && err2.TransformerError != nil {
+					t.Fatalf("error applying transformers: %v", err2.TransformerError)
 				}
-			}
+				return nil
+			})
 			svc := &BatchServer{
 				Repository: repo,
 			}
@@ -1044,24 +1089,130 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			if d := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); d != "" {
 				t.Errorf("batch response mismatch: %s", d)
 			}
-			ctx := testutil.MakeTestContext()
 
 			var envs map[string]config.EnvironmentConfig
-			if repo.State().DBHandler.ShouldUseOtherTables() {
-				var envsPtr *map[string]config.EnvironmentConfig
-				envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
-					envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
-					return &envs, err
-				})
-				envs = *envsPtr
-			} else {
-				envs, err = repo.State().GetAllEnvironmentConfigs(ctx, nil)
-			}
+			var envsPtr *map[string]config.EnvironmentConfig
+			envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+				envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
+				return &envs, err
+			})
+			envs = *envsPtr
 			if err != nil {
 				t.Errorf("unexpected error: %q", err)
 			}
 			if d := cmp.Diff(tc.ExpectedEnvironments, envs); d != "" {
 				t.Errorf("batch response mismatch: %s", d)
+			}
+		})
+	}
+}
+
+// this tests that we can get the time out of a time-uuid.
+func TestActiveActiveEnvironmentNames(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		EnvironmentName string
+		InputEnvConfig  config.EnvironmentConfig
+		valid           bool
+	}{
+		{
+			Name:            "invalid",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("", "", 10),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+		{
+			Name:            "invalid, no concrete name specified",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("aa", "", 10),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+		{
+			Name:            "invalid, no common name specified",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("", "de", 10),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+		{
+			Name:            "invalid, environmentName is invalid",
+			EnvironmentName: "DeVeLoPment#",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("aa", "de", 1),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+		{
+			Name:            "valid as there is only one env specified",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("", "", 1),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: true,
+		},
+		{
+			Name:            "valid",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("aa", "de", 10),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: true,
+		},
+		{
+			Name:            "valid, only one env discards common and concrete",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    testutil.MakeArgoCDConfigs("InvalidCommonNAme#", "InvalidConcreteNAme#", 1),
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: true,
+		},
+		{
+			Name:            "invalid, must specify either argocd or ArgoCdConfigs",
+			EnvironmentName: "dev",
+			InputEnvConfig: config.EnvironmentConfig{
+				Upstream:         nil,
+				ArgoCdConfigs:    nil,
+				EnvironmentGroup: nil,
+				ArgoCd:           nil,
+			},
+			valid: false,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateEnvironment(tc.EnvironmentName, tc.InputEnvConfig)
+
+			isValid := err == nil
+			if isValid != tc.valid {
+				t.Errorf("Invalid environment: %v, %v", tc.InputEnvConfig, err)
 			}
 		})
 	}

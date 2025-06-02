@@ -149,6 +149,20 @@ func TestReadArgsTeamLock(t *testing.T) {
 				msg: "the --ci_link arg must be set at most once",
 			},
 		},
+		{
+			name: "--suggested_lifetime is invalid",
+			args: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--suggested_lifetime", "12"},
+			expectedError: errMatcher{
+				msg: "provided invalid --suggested_lifetime value '12'",
+			},
+		},
+		{
+			name: "--suggested_lifetime is specified twice",
+			args: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--suggested_lifetime", "6d", "--suggested_lifetime", "4h"},
+			expectedError: errMatcher{
+				msg: "the --suggested_lifetime arg must be set at most once",
+			},
+		},
 	}
 
 	for _, tc := range tcs {

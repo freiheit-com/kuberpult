@@ -1,0 +1,16 @@
+name: "Check shellcheck"
+'on':
+  pull_request:
+    branches:
+      - main
+jobs:
+  check-shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Run shellcheck for each shell script
+      run: |
+        bash shellcheck.sh || (echo run "bash shellcheck.sh tty" locally to see the detailed errors; exit 1)

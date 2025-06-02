@@ -48,6 +48,19 @@ frontend:
       cpu: 0.05
 rollout:
   enabled: true
+  grpcMaxRecvMsgSize: 4
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
+  persistArgoEvents: true
+  argoEventsBatchSize: 1
+reposerver:
+  enabled: true
+  grpcMaxRecvMsgSize: 4
   resources:
     limits:
       memory: 200Mi
@@ -87,7 +100,7 @@ argocd:
     enabled: true
 manageArgoApplications:
   enabled: true
-  filter: "sreteam"
+  filter: "*"
 datadogProfiling:
   enabled: false
   apiKey: invalid-3
@@ -103,4 +116,4 @@ earthly +chart-tarball
 
 
 helm uninstall kuberpult-local || print kuberpult was not installed
-helm install --values vals.yaml kuberpult-local kuberpult-$VERSION.tgz
+helm install --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz

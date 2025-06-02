@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"sync"
 	"time"
 
@@ -110,7 +111,7 @@ func New() *Broadcast {
 }
 
 // ProcessArgoEvent implements service.EventProcessor
-func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
+func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEvent {
 	b.mx.Lock()
 	defer b.mx.Unlock()
 	k := Key{
@@ -121,10 +122,12 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 		//exhaustruct:ignore
 		b.state[k] = &appState{}
 	}
+	logger.FromContext(ctx).Sugar().Infof("Received current argo event: %v", ev)
 	msg := b.state[k].applyArgoEvent(&ev)
 	if msg == nil {
-		return
+		return nil
 	}
+	logger.FromContext(ctx).Sugar().Infof("argo event Applied! broadcasting: %v", ev)
 	desub := []chan *BroadcastEvent{}
 	for l := range b.listener {
 		select {
@@ -137,6 +140,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 	for _, l := range desub {
 		delete(b.listener, l)
 	}
+	return &ev
 }
 
 func (b *Broadcast) ProcessKuberpultEvent(ctx context.Context, ev versions.KuberpultEvent) {

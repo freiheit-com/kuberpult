@@ -36,7 +36,7 @@ Copyright freiheit.com*/
     }
 
     .content-right {
-        max-width: 40%;
+        max-width: 45%;
         margin-left: auto;
         display: flex;
     }
@@ -58,7 +58,7 @@ Copyright freiheit.com*/
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-
+            width: -webkit-fill-available;
             .release-dialog-message {
                 .release-dialog-commitMessage {
                     text-overflow: wrap;
@@ -116,6 +116,7 @@ Copyright freiheit.com*/
                 display: flex;
                 flex-direction: row;
                 justify-content: space-between;
+                align-items: center;
 
                 .release-environment {
                     border-radius: $border-radius-large;
@@ -199,6 +200,14 @@ Copyright freiheit.com*/
         }
     }
 }
+.argo-logo {
+    width: 5%;
+    height: auto;
+}
+.env-card-header-name {
+    color: var(--mdc-theme-on-surface-light);
+    font-size: 17px;
+}
 
 button.button-lock {
     min-width: unset;
@@ -210,10 +219,18 @@ button.button-lock {
 button.mdc-button.env-card-deploy-btn {
     border-radius: $release-dialog-inner-border-radius;
     @extend .text-bold;
+
+    &.button-main.deploy-button-cancel {
+        background-color: var(--mdc-theme-error);
+    }
 }
 button.mdc-button.env-card-lock-btn {
     border-radius: $release-dialog-inner-border-radius;
     @extend .text-bold;
+    color: var(--mdc-theme-on-surface-light);
+    &.deploy-button-cancel:not(.button-main) {
+        color: var(--mdc-theme-error);
+    }
 }
 
 .release-dialog-environment-group-lane {
@@ -224,6 +241,7 @@ button.mdc-button.env-card-lock-btn {
     border-radius: $environment-lane-header-border-radius;
     margin-top: 10px;
     margin-bottom: 10px;
+    color: var(--mdc-theme-on-background-dark);
 
     .release-dialog-environment-group-lane__footer {
         padding-bottom: 1px; // must not be 0, or margins will collapse
@@ -342,5 +360,5 @@ button.mdc-button.env-card-lock-btn {
     }
 }
 .env-group-expand-button {
-    margin-left: 85px;
+    margin-right: 15px;
 }

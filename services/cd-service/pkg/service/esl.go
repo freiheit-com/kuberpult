@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -30,37 +29,41 @@ type EslServiceServer struct {
 	Repository repository.Repository
 }
 
+const PAGESIZE = 25 // Number of failed esls per page
+
 func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailedEslsRequest) (*api.GetFailedEslsResponse, error) {
 	state := s.Repository.State()
-	var response *api.GetFailedEslsResponse = &api.GetFailedEslsResponse{
-		FailedEsls: make([]*api.EslItem, 0),
+	var response = &api.GetFailedEslsResponse{
+		FailedEsls: make([]*api.EslFailedItem, 0),
+		LoadMore:   false,
 	}
-	if state.DBHandler.ShouldUseOtherTables() {
-		err := state.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-			failedEslRows, err := s.Repository.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 20)
-			if err != nil {
-				return err
-			}
-			failedEslItems := make([]*api.EslItem, len(failedEslRows))
-			for i, failedEslRow := range failedEslRows {
-				failedEslItems[i] = &api.EslItem{
-					EslVersion: int64(failedEslRow.EslVersion),
-					CreatedAt:  timestamppb.New(failedEslRow.Created),
-					EventType:  string(failedEslRow.EventType),
-					Json:       failedEslRow.EventJson,
-				}
-			}
-			response = &api.GetFailedEslsResponse{
-				FailedEsls: failedEslItems,
-			}
-
-			return nil
-		})
+	err := state.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		failedEslRows, err := s.Repository.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, PAGESIZE, int(req.PageNumber))
 		if err != nil {
-			return nil, err
+			return err
 		}
-	} else {
-		return nil, fmt.Errorf("GetFailedEsls is only implemented for the database")
+
+		if len(failedEslRows) > PAGESIZE {
+			response.LoadMore = true
+			failedEslRows = failedEslRows[:len(failedEslRows)-1]
+		}
+
+		failedEslItems := make([]*api.EslFailedItem, len(failedEslRows))
+		for i, failedEslRow := range failedEslRows {
+			failedEslItems[i] = &api.EslFailedItem{
+				EslVersion:            int64(failedEslRow.EslVersion),
+				CreatedAt:             timestamppb.New(failedEslRow.Created),
+				EventType:             string(failedEslRow.EventType),
+				Json:                  failedEslRow.EventJson,
+				Reason:                failedEslRow.Reason,
+				TransformerEslVersion: int64(failedEslRow.TransformerEslVersion),
+			}
+		}
+		response.FailedEsls = failedEslItems
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return response, nil
 }

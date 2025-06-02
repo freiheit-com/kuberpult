@@ -19,8 +19,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"os/exec"
-	"path"
 	"sort"
 	"testing"
 	"time"
@@ -28,6 +26,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	git "github.com/libgit2/git2go/v34"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -44,48 +43,15 @@ import (
 	rp "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
 
-func setupRepositoryTestWithoutDB(t *testing.T) (rp.Repository, error) {
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
-	t.Logf("test created dir: %s", localDir)
-
-	repoCfg := rp.RepositoryConfig{
-		URL:                  remoteDir,
-		Path:                 localDir,
-		CommitterEmail:       "kuberpult@freiheit.com",
-		CommitterName:        "kuberpult",
-		ArgoCdGenerateFiles:  true,
-		MinimizeExportedData: false,
-	}
-	repoCfg.DBHandler = nil
-
-	repo, err := rp.New(
-		testutil.MakeTestContext(),
-		repoCfg,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo, nil
-}
-
 func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx) error {
 	err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
 	if err != nil {
 		return err
 	}
 	fixtureAppications := []string{"app", "app-1", "app-2", "app-3"}
-	err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), fixtureAppications)
-	if err != nil {
-		return err
-	}
 	eslVersion := 0
 	for _, app := range fixtureAppications {
-		err = dbHandler.DBInsertApplication(ctx, transaction, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
+		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
 		if err != nil {
 			return err
 		}
@@ -1056,5 +1022,884 @@ func TestGetCommitInfo(t *testing.T) {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestGetSyncData(t *testing.T) {
+	const appName = "test-app-name"
+	const anotherAppName = "yet-another-app-name"
+	const envName = "test-env-name"
+	const anotherEnvName = "yet-another-env-name"
+	type TestSyncData struct {
+		AppName string
+		EnvName string
+		status  db.SyncStatus
+	}
+	type TestCase struct {
+		name             string
+		dbInput          []TestSyncData
+		expectedResponse *api.GetGitSyncStatusResponse
+	}
+
+	tcs := []TestCase{
+		{
+			name:             "No data",
+			dbInput:          []TestSyncData{},
+			expectedResponse: &api.GetGitSyncStatusResponse{},
+		},
+		{
+			name: "One Unsynced app",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.UNSYNCED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				AppStatuses: map[string]*api.EnvSyncStatus{
+					appName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName: api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "One SYNC_FAILED app",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.SYNC_FAILED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				AppStatuses: map[string]*api.EnvSyncStatus{
+					appName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName: api.GitSyncStatus_GIT_SYNC_STATUS_ERROR,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Multiple UNSYNCED app",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.UNSYNCED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: envName,
+					status:  db.UNSYNCED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				AppStatuses: map[string]*api.EnvSyncStatus{
+					appName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName: api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED,
+						},
+					},
+					anotherAppName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName: api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Multiple SYNC and SYNC failed apps, with some SYNCED aswell",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.UNSYNCED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: envName,
+					status:  db.SYNCED,
+				},
+				{
+					AppName: appName,
+					EnvName: anotherEnvName,
+					status:  db.SYNC_FAILED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: anotherEnvName,
+					status:  db.SYNC_FAILED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{
+				AppStatuses: map[string]*api.EnvSyncStatus{
+					appName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							envName:        api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED,
+							anotherEnvName: api.GitSyncStatus_GIT_SYNC_STATUS_ERROR,
+						},
+					},
+					anotherAppName: {
+						EnvStatus: map[string]api.GitSyncStatus{
+							anotherEnvName: api.GitSyncStatus_GIT_SYNC_STATUS_ERROR,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "All SYNCED returns nothing",
+			dbInput: []TestSyncData{
+				{
+					AppName: appName,
+					EnvName: envName,
+					status:  db.SYNCED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: envName,
+					status:  db.SYNCED,
+				},
+				{
+					AppName: appName,
+					EnvName: anotherEnvName,
+					status:  db.SYNCED,
+				},
+				{
+					AppName: anotherAppName,
+					EnvName: anotherEnvName,
+					status:  db.SYNCED,
+				},
+			},
+			expectedResponse: &api.GetGitSyncStatusResponse{},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			repo, _ := setupRepositoryTestWithPath(t)
+			pageSize := 100
+			ctx := testutil.MakeTestContext()
+			config := rp.RepositoryConfig{
+				ArgoCdGenerateFiles:  true,
+				DBHandler:            repo.State().DBHandler,
+				MinimizeExportedData: false,
+			}
+			sv := &GitServer{
+				Repository: repo,
+				Config:     config,
+				PageSize:   uint64(pageSize),
+			}
+			//DB setup
+			err := repo.State().DBHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, in := range tc.dbInput {
+					err := repo.State().DBHandler.DBWriteNewSyncEvent(ctx, transaction, &db.GitSyncData{
+						EnvName:    in.EnvName,
+						AppName:    in.AppName,
+						SyncStatus: in.status,
+					})
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("DB error no expected: %v", err)
+			}
+			response, err := sv.GetGitSyncStatus(ctx, &api.GetGitSyncStatusRequest{})
+			if err != nil {
+				t.Error(err)
+			}
+			if diff := cmp.Diff(tc.expectedResponse, response, protocmp.Transform()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+		})
+	}
+}
+
+func TestRetryEvent(t *testing.T) {
+	const appName = "test-app-name"
+	const anotherAppName = "yet-another-app-name"
+	const envName = "test-env-name"
+	const anotherEnvName = "yet-another-env-name"
+	const testEventType = "test-event-type"
+
+	type TestCase struct {
+		name                   string
+		initialFailedEslEvents []*db.EslFailedEventRow
+		initialEslEvents       []*db.EslEventRow
+		initialSyncData        []*db.GitSyncData
+		initialDeployments     []*db.Deployment
+
+		expectedFailedEvents []*db.EslFailedEventRow
+		expectedEslEvents    []*db.EslEventRow
+		expectedSyncData     []*db.GitSyncData
+		expectedDeployments  []db.Deployment
+		expectedError        error
+
+		eventIdToRetry db.TransformerID
+	}
+
+	tcs := []TestCase{
+		{
+			name:           "No failed events - error ",
+			eventIdToRetry: 0,
+			initialSyncData: []*db.GitSyncData{
+				{
+					AppName:       appName,
+					EnvName:       envName,
+					TransformerID: 1,
+					SyncStatus:    db.SYNCED,
+				},
+			},
+			expectedSyncData: []*db.GitSyncData{
+				{
+					AppName:       appName,
+					EnvName:       envName,
+					TransformerID: 1,
+					SyncStatus:    db.SYNCED,
+				},
+			},
+			initialEslEvents: []*db.EslEventRow{
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			initialFailedEslEvents: []*db.EslFailedEventRow{},
+			expectedFailedEvents:   []*db.EslFailedEventRow{},
+			initialDeployments: []*db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 1,
+				},
+			},
+			expectedDeployments: []db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 1,
+				},
+			},
+			expectedEslEvents: []*db.EslEventRow{ //DESC
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			expectedError: errMatcher{
+				msg: "Couldn't find failed event with eslVersion: 0",
+			},
+		},
+		{
+			name:           "Simple retry",
+			eventIdToRetry: 1,
+			initialSyncData: []*db.GitSyncData{
+				{
+					AppName:       appName,
+					EnvName:       envName,
+					TransformerID: 1,
+					SyncStatus:    db.SYNC_FAILED,
+				},
+			},
+			expectedSyncData: []*db.GitSyncData{
+				{
+					AppName:       appName,
+					EnvName:       envName,
+					TransformerID: 2,
+					SyncStatus:    db.UNSYNCED,
+				},
+			},
+			initialEslEvents: []*db.EslEventRow{
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			initialFailedEslEvents: []*db.EslFailedEventRow{
+				{
+					EslVersion:            0, //Esl Version is not used with separation between current and history
+					EventType:             testEventType,
+					EventJson:             "{}",
+					Reason:                "some-reason",
+					TransformerEslVersion: 1,
+				},
+			},
+			expectedFailedEvents: []*db.EslFailedEventRow{},
+			expectedEslEvents: []*db.EslEventRow{ //DESC
+				{
+					EslVersion: 2,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			initialDeployments: []*db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 1,
+				},
+			},
+			expectedDeployments: []db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 2,
+				},
+			},
+		},
+		{
+			name:           "Retry with many events",
+			eventIdToRetry: 2,
+			initialSyncData: []*db.GitSyncData{
+				{
+					AppName:       appName,
+					EnvName:       envName,
+					TransformerID: 2,
+					SyncStatus:    db.SYNC_FAILED,
+				},
+				{
+					AppName:       appName,
+					EnvName:       anotherEnvName,
+					TransformerID: 1,
+					SyncStatus:    db.UNSYNCED,
+				},
+			},
+			expectedSyncData: []*db.GitSyncData{
+				{
+					AppName:       appName,
+					EnvName:       envName,
+					TransformerID: 3,
+					SyncStatus:    db.UNSYNCED,
+				},
+				{
+					AppName:       appName,
+					EnvName:       anotherEnvName,
+					TransformerID: 1,
+					SyncStatus:    db.UNSYNCED,
+				},
+			},
+			initialEslEvents: []*db.EslEventRow{
+				{
+					EslVersion: 2,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			initialFailedEslEvents: []*db.EslFailedEventRow{
+				{
+					EslVersion:            1,
+					EventType:             testEventType,
+					EventJson:             "{}",
+					Reason:                "some-reason",
+					TransformerEslVersion: 1,
+				},
+				{
+					EslVersion:            2,
+					EventType:             testEventType,
+					EventJson:             "{}",
+					Reason:                "some-reason",
+					TransformerEslVersion: 2,
+				},
+			},
+			expectedFailedEvents: []*db.EslFailedEventRow{
+				{
+					EslVersion:            0, //Esl Version is not used with separation between current and history
+					EventType:             testEventType,
+					EventJson:             "{}",
+					Reason:                "some-reason",
+					TransformerEslVersion: 1,
+				},
+			},
+			expectedEslEvents: []*db.EslEventRow{ //DESC
+				{
+					EslVersion: 3,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+				{
+					EslVersion: 2,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			initialDeployments: []*db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 2,
+				},
+			},
+			expectedDeployments: []db.Deployment{
+				{
+					Created: time.Now(),
+					Env:     envName,
+					App:     appName,
+					Metadata: db.DeploymentMetadata{
+						DeployedByName:  "author1",
+						DeployedByEmail: "email1",
+						CiLink:          "cilink1",
+					},
+					TransformerID: 3,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			repo, _ := setupRepositoryTestWithPath(t)
+			pageSize := 100
+			ctx := testutil.MakeTestContext()
+			config := rp.RepositoryConfig{
+				ArgoCdGenerateFiles:  true,
+				DBHandler:            repo.State().DBHandler,
+				MinimizeExportedData: false,
+			}
+			sv := &GitServer{
+				Repository: repo,
+				Config:     config,
+				PageSize:   uint64(pageSize),
+			}
+			//DB setup
+			err := repo.State().DBHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, in := range tc.initialEslEvents {
+					err := repo.State().DBHandler.DBWriteEslEventWithJson(ctx, transaction, in.EventType, in.EventJson)
+					if err != nil {
+						return err
+					}
+				}
+				for _, in := range tc.initialFailedEslEvents {
+					err := repo.State().DBHandler.DBInsertNewFailedESLEvent(ctx, transaction, in)
+					if err != nil {
+						return err
+					}
+				}
+
+				for _, in := range tc.initialSyncData {
+					err := repo.State().DBHandler.DBWriteNewSyncEvent(ctx, transaction, in)
+					if err != nil {
+						return err
+					}
+				}
+				for _, in := range tc.initialDeployments {
+					err := repo.State().DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, *in)
+					if err != nil {
+						return err
+					}
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("DB error no expected: %v", err)
+			}
+			_, err = sv.RetryFailedEvent(ctx, &api.RetryFailedEventRequest{Eslversion: uint64(tc.eventIdToRetry)})
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			err = repo.State().DBHandler.WithTransactionR(ctx, 0, true, func(ctx context.Context, transaction *sql.Tx) error {
+				actualFailedEvents, err := repo.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 25, 0)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.expectedFailedEvents, actualFailedEvents, cmpopts.IgnoreFields(db.EslFailedEventRow{}, "Created")); diff != "" {
+					t.Errorf("failed events mismatch (-want, +got):\n%s", diff)
+				}
+
+				actualEvents, err := repo.State().DBHandler.DBReadLastEslEvents(ctx, transaction, 10)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.expectedEslEvents, actualEvents, cmpopts.IgnoreFields(db.EslEventRow{}, "Created")); diff != "" {
+					t.Errorf("esl events mismatch (-want, +got):\n%s", diff)
+				}
+
+				for _, in := range tc.expectedSyncData {
+					currSyncData, err := repo.State().DBHandler.DBRetrieveSyncStatus(ctx, transaction, in.AppName, in.EnvName)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(in, currSyncData); diff != "" {
+						t.Errorf("sync status mismatch (-want, +got):\n%s", diff)
+					}
+				}
+
+				finalDeployments, err := repo.State().DBHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, tc.eventIdToRetry+1)
+				if diff := cmp.Diff(tc.expectedDeployments, finalDeployments, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
+					t.Errorf("deployments mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+
+		})
+	}
+}
+
+func TestSkipEvent(t *testing.T) {
+	const appName = "test-app-name"
+	const anotherAppName = "yet-another-app-name"
+	const envName = "test-env-name"
+	const anotherEnvName = "yet-another-env-name"
+	const testEventType = "test-event-type"
+
+	type TestCase struct {
+		name                   string
+		initialFailedEslEvents []*db.EslFailedEventRow
+		initialEslEvents       []*db.EslEventRow
+		syncData               []*db.GitSyncData // for skipping events, syncData should remain unchanged
+
+		expectedFailedEvents []*db.EslFailedEventRow
+		expectedEslEvents    []*db.EslEventRow
+		expectedError        error
+
+		eventIdToSkip db.TransformerID
+	}
+
+	tcs := []TestCase{
+		{
+			name:          "No failed events - error ",
+			eventIdToSkip: 1,
+			syncData: []*db.GitSyncData{
+				{
+					AppName:       appName,
+					EnvName:       envName,
+					TransformerID: 1,
+					SyncStatus:    db.SYNCED,
+				},
+			},
+			initialEslEvents: []*db.EslEventRow{
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			initialFailedEslEvents: []*db.EslFailedEventRow{},
+			expectedFailedEvents:   []*db.EslFailedEventRow{},
+			expectedEslEvents: []*db.EslEventRow{ //DESC
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			expectedError: errMatcher{
+				msg: "Couldn't find failed event with eslVersion: 1",
+			},
+		},
+		{
+			name:          "Simple skip",
+			eventIdToSkip: 1,
+			syncData: []*db.GitSyncData{
+				{
+					AppName:       appName,
+					EnvName:       envName,
+					TransformerID: 1,
+					SyncStatus:    db.SYNC_FAILED,
+				},
+			},
+			initialEslEvents: []*db.EslEventRow{
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			initialFailedEslEvents: []*db.EslFailedEventRow{
+				{
+					EslVersion:            0,
+					EventType:             testEventType,
+					EventJson:             "{}",
+					Reason:                "some-reason",
+					TransformerEslVersion: 1,
+				},
+			},
+			expectedFailedEvents: []*db.EslFailedEventRow{},
+			expectedEslEvents: []*db.EslEventRow{ //DESC
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+		},
+		{
+			name:          "Retry with many events",
+			eventIdToSkip: 2,
+			syncData: []*db.GitSyncData{
+				{
+					AppName:       appName,
+					EnvName:       envName,
+					TransformerID: 2,
+					SyncStatus:    db.SYNC_FAILED,
+				},
+				{
+					AppName:       appName,
+					EnvName:       anotherEnvName,
+					TransformerID: 1,
+					SyncStatus:    db.UNSYNCED,
+				},
+			},
+			initialEslEvents: []*db.EslEventRow{
+				{
+					EslVersion: 2,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+			initialFailedEslEvents: []*db.EslFailedEventRow{
+				{
+					EslVersion:            0,
+					EventType:             testEventType,
+					EventJson:             "{}",
+					Reason:                "some-reason",
+					TransformerEslVersion: 1,
+				},
+				{
+					EslVersion:            0,
+					EventType:             testEventType,
+					EventJson:             "{}",
+					Reason:                "some-reason",
+					TransformerEslVersion: 2,
+				},
+			},
+			expectedFailedEvents: []*db.EslFailedEventRow{
+				{
+					EslVersion:            0,
+					EventType:             testEventType,
+					EventJson:             "{}",
+					Reason:                "some-reason",
+					TransformerEslVersion: 1,
+				},
+			},
+			expectedEslEvents: []*db.EslEventRow{ //DESC
+				{
+					EslVersion: 2,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+				{
+					EslVersion: 1,
+					EventType:  testEventType,
+					EventJson:  "{}",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			repo, _ := setupRepositoryTestWithPath(t)
+			pageSize := 100
+			ctx := testutil.MakeTestContext()
+			config := rp.RepositoryConfig{
+				ArgoCdGenerateFiles:  true,
+				DBHandler:            repo.State().DBHandler,
+				MinimizeExportedData: false,
+			}
+			sv := &GitServer{
+				Repository: repo,
+				Config:     config,
+				PageSize:   uint64(pageSize),
+			}
+			//DB setup
+			err := repo.State().DBHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, in := range tc.initialEslEvents {
+					err := repo.State().DBHandler.DBWriteEslEventWithJson(ctx, transaction, in.EventType, in.EventJson)
+					if err != nil {
+						return err
+					}
+				}
+				for _, in := range tc.initialFailedEslEvents {
+					err := repo.State().DBHandler.DBInsertNewFailedESLEvent(ctx, transaction, in)
+					if err != nil {
+						return err
+					}
+				}
+
+				for _, in := range tc.syncData {
+					err := repo.State().DBHandler.DBWriteNewSyncEvent(ctx, transaction, in)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("DB error no expected: %v", err)
+			}
+			_, err = sv.SkipEslEvent(ctx, &api.SkipEslEventRequest{EventEslVersion: uint64(tc.eventIdToSkip)})
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			err = repo.State().DBHandler.WithTransactionR(ctx, 0, true, func(ctx context.Context, transaction *sql.Tx) error {
+				actualFailedEvents, err := repo.State().DBHandler.DBReadLastFailedEslEvents(ctx, transaction, 25, 0)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.expectedFailedEvents, actualFailedEvents, cmpopts.IgnoreFields(db.EslFailedEventRow{}, "Created")); diff != "" {
+					t.Errorf("failed events mismatch (-want, +got):\n%s", diff)
+				}
+
+				actualEvents, err := repo.State().DBHandler.DBReadLastEslEvents(ctx, transaction, 10)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.expectedEslEvents, actualEvents, cmpopts.IgnoreFields(db.EslEventRow{}, "Created")); diff != "" {
+					t.Errorf("esl events mismatch (-want, +got):\n%s", diff)
+				}
+
+				for _, in := range tc.syncData {
+					currSyncData, err := repo.State().DBHandler.DBRetrieveSyncStatus(ctx, transaction, in.AppName, in.EnvName)
+					if err != nil {
+						return err
+					}
+					if diff := cmp.Diff(in, currSyncData); diff != "" {
+						t.Errorf("sync status mismatch (-want, +got):\n%s", diff)
+					}
+				}
+
+				return nil
+			})
+
+		})
+	}
+}
+
+func TestGetGitTags(t *testing.T) {
+	// When making this test with multiple test cases, the tags from both test cases
+	// were returning when the repository wasn't the same. In a production environment these
+	// tags wouldn't be created by kuberpult, but manually by a person. Trying to insert these
+	// tags properly wasn't possible, as such, a single test case is used to prevent the aforementioned
+	// issue.
+	//
+	// This endpoint only returns the tags from repository.GetTags, which has its own unit test with more
+	// than one test case. If that function is working properly then so will this one.
+	tagsToAdd := []string{"v1.0.1", "v0.0.1"}
+	expectedTags := []*api.TagData{&api.TagData{Tag: "refs/tags/v0.0.1", CommitId: ""}, &api.TagData{Tag: "refs/tags/v1.0.1", CommitId: ""}}
+
+	repo, remoteDir := setupRepositoryTestWithPath(t)
+	config := rp.RepositoryConfig{
+		ArgoCdGenerateFiles:  true,
+		DBHandler:            repo.State().DBHandler,
+		MinimizeExportedData: false,
+		URL:                  "file://" + remoteDir,
+		Path:                 remoteDir,
+		CommitterEmail:       "kuberpult@freiheit.com",
+		CommitterName:        "kuberpult",
+		Branch:               "master",
+	}
+	sv := &GitServer{
+		Repository: repo,
+		Config:     config,
+		PageSize:   uint64(100),
+	}
+
+	gitRepo, err := git.OpenRepository(config.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	idx, err := gitRepo.Index()
+	if err != nil {
+		t.Fatal(err)
+	}
+	treeId, err := idx.WriteTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, err := gitRepo.LookupTree(treeId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oid, err := gitRepo.CreateCommit("HEAD", &git.Signature{Name: "SRE", Email: "testing@gmail"}, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing", tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit, err := gitRepo.LookupCommit(oid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for addTag := range tagsToAdd {
+		_, err := gitRepo.Tags.Create(tagsToAdd[addTag], commit, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	res, err := sv.GetGitTags(testutil.MakeTestContext(), &api.GetGitTagsRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := cmp.Diff(expectedTags, res.TagData, cmpopts.IgnoreUnexported(api.TagData{}), cmpopts.IgnoreFields(api.TagData{}, "CommitId")); diff != "" {
+		t.Fatalf("tags mismatch (-want, +got):\n%s", diff)
 	}
 }

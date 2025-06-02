@@ -12,6 +12,7 @@ do
   do
     # If $app has locks
     if [ -d "$app"/locks ]; then
+      # shellcheck disable=SC2012
       echo Adding metadata to "$(ls "$app"/locks | wc -l)" locks in "$app"
       find "$app"/locks  -maxdepth 1 -mindepth 1 -type f -print0 | while IFS= read -r -d '' lock
       do
@@ -34,6 +35,7 @@ do
   echo -----------------Environment Locks------------------------
   # If $env has locks
   if [ -d "$env"/locks ]; then
+    # shellcheck disable=SC2012
     echo Adding metadata to "$(ls "$env"/locks | wc -l)" locks in "$env"
     find "$env"/locks  -maxdepth 1 -mindepth 1 -type f -print0 | while IFS= read -r -d '' lock
     do

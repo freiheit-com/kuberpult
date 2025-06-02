@@ -18,9 +18,8 @@ package testutil
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -80,6 +79,7 @@ func MakeEnvConfigLatestWithGroup(argoCd *config.EnvironmentConfigArgoCd, envGro
 			Latest:      true,
 		},
 		ArgoCd:           argoCd,
+		ArgoCdConfigs:    nil,
 		EnvironmentGroup: envGroup,
 	}
 }
@@ -92,7 +92,38 @@ func MakeEnvConfigUpstream(upstream string, argoCd *config.EnvironmentConfigArgo
 		},
 		ArgoCd:           argoCd,
 		EnvironmentGroup: nil,
+		ArgoCdConfigs:    nil,
 	}
+}
+
+func MakeDummyArgoCdConfig(concreteEnvName string) *config.EnvironmentConfigArgoCd {
+	return &config.EnvironmentConfigArgoCd{
+		Destination: config.ArgoCdDestination{
+			Name:                 "destination-name",
+			Server:               "server",
+			Namespace:            nil,
+			AppProjectNamespace:  nil,
+			ApplicationNamespace: nil,
+		},
+		SyncWindows:              nil,
+		ClusterResourceWhitelist: nil,
+		ApplicationAnnotations:   nil,
+		IgnoreDifferences:        nil,
+		SyncOptions:              nil,
+		ConcreteEnvName:          concreteEnvName,
+	}
+}
+
+func MakeArgoCDConfigs(commonName, concreteName string, envNumber int) *config.ArgoCDConfigs {
+	toReturn := config.ArgoCDConfigs{
+		CommonEnvPrefix:      &commonName,
+		ArgoCdConfigurations: make([]*config.EnvironmentConfigArgoCd, 0),
+	}
+
+	for i := 0; i < envNumber; i++ {
+		toReturn.ArgoCdConfigurations = append(toReturn.ArgoCdConfigurations, MakeDummyArgoCdConfig(concreteName+"-"+strconv.Itoa(i)))
+	}
+	return &toReturn
 }
 
 type TestGenerator struct {
@@ -168,28 +199,12 @@ func NewIncrementalUUIDGeneratorForPageSizeTest() uuid.GenerateUUIDs {
 			"e15d9a99-4f41-11ef-9ae5-00e04c684024",
 			"e3276e62-4f41-11ef-8788-00e04c684024",
 			"e4f13c8b-4f41-11ef-9735-00e04c684024",
+			"e4f13c8b-4f41-11ef-9735-00e04c684025",
+			"e4f13c8b-4f41-11ef-9735-00e04c684026",
 		},
 	}
 	fakeGen := IncrementalUUIDForPageSizeTest{
 		gen: &fakeGenBase,
 	}
 	return fakeGen
-}
-
-// CreateMigrationsPath detects if it's running withing earthly/CI or locally and adapts the path to the migrations accordingly
-func CreateMigrationsPath(numDirs int) (string, error) {
-	const subDir = "/database/migrations/sqlite"
-	_, err := os.Stat("/kp")
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			wd, err := os.Getwd()
-			if err != nil {
-				return "", err
-			}
-			// this ".." sequence is necessary, because Getwd() returns the path of this go file (when running in an idea like goland):
-			return wd + strings.Repeat("/..", numDirs) + subDir, nil
-		}
-		return "", err
-	}
-	return "/kp" + subDir, nil
 }

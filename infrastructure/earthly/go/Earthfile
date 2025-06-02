@@ -36,11 +36,31 @@ COMPILE:
 UNIT_TEST:
     FUNCTION
     ARG GO_TEST_ARGS
+    ARG use_docker="true"
     CACHE --sharing locked --id go-cache $(go env GOCACHE)
     COPY pkg pkg
-    RUN go test $GO_TEST_ARGS ./... -coverprofile=coverage.out
+
+    IF [ "$use_docker" = "true" ]
+        WITH DOCKER --compose ../../docker-compose-unittest.yml
+            RUN --no-cache \
+                echo "Started docker compose for unit tests." ;\
+                go test $GO_TEST_ARGS ./... -coverprofile=coverage.out
+        END
+    ELSE
+        RUN go test $GO_TEST_ARGS ./... -coverprofile=coverage.out
+    END
+
     RUN go tool cover -html=coverage.out -o coverage.html
     SAVE ARTIFACT coverage.html AS LOCAL coverage.html
+
+BENCH_TEST:
+    FUNCTION
+    ARG GO_TEST_ARGS
+    CACHE --sharing locked --id go-cache $(go env GOCACHE)
+    COPY pkg pkg
+    WITH DOCKER --compose ../../docker-compose-unittest.yml
+        RUN --no-cache go test $GO_TEST_ARGS -bench=. ./...
+    END
 
 LINT:
     FUNCTION
@@ -53,7 +73,7 @@ LINT:
     END
     RUN golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$" ./... || $skip_lint_errors
 
-    RUN exhaustruct -test=false $(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api")
+    RUN exhaustruct -test=false $(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")
 
 DOCKER:
     FUNCTION
@@ -71,6 +91,7 @@ DOCKER:
     COPY ../../../services/$service+artifacts/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
     COPY ../../../services/$service+artifacts/zoneinfo /usr/share/zoneinfo
     COPY ../../../services/$service+compile/main /main
+    COPY ../../..+migration-deps/migrations /migrations
     IF [  "$cgo_enabled" = "1" ]
         COPY ../../../services/$service+compile/lib/* /lib
         IF [ "$USERARCH" != "arm64" ]

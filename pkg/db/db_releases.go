@@ -229,7 +229,8 @@ func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, releaseVersion 
-		FROM releases;
+		FROM releases
+		ORDER BY releaseVersion;
 	`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
@@ -632,4 +633,75 @@ func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err e
 		return nil, err
 	}
 	return result, nil
+}
+
+type ReleaseKey struct {
+	AppName        string
+	ReleaseVersion uint64
+}
+
+func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transaction *sql.Tx, startDate, endDate time.Time) (map[ReleaseKey]string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectCommitHashesTimeWindow")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if transaction == nil {
+		return nil, fmt.Errorf("DBSelectCommitHashesTimeWindow: no transaction provided")
+	}
+
+	var releases = make(map[ReleaseKey]string)
+	//Get releases for which we found any relevant deployment. We want to extract the commit hash for that release
+	query := h.AdaptQuery(`
+			SELECT appName, metadata, releaseVersion FROM releases_history
+			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) ORDER BY version;
+		`)
+	releasesRows, err := transaction.QueryContext(
+		ctx,
+		query,
+		startDate,
+		endDate,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(releasesRows)
+
+	for releasesRows.Next() {
+		var releaseVersion uint64
+		var appName string
+		var metadataStr string
+
+		//Get the metadata
+		err := releasesRows.Scan(&appName, &metadataStr, &releaseVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		var metaData = DBReleaseMetaData{
+			SourceAuthor:    "",
+			SourceCommitId:  "",
+			SourceMessage:   "",
+			DisplayVersion:  "",
+			UndeployVersion: false,
+			IsMinor:         false,
+			CiLink:          "",
+			IsPrepublish:    false,
+		}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		releases[ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion}] = metaData.SourceCommitId
+	}
+	err = closeRows(releasesRows)
+	if err != nil {
+		return nil, err
+	}
+	return releases, nil
 }

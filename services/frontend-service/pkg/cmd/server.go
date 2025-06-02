@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"io"
 	"net/http"
 	"os"
@@ -135,14 +136,12 @@ func runServer(ctx context.Context) error {
 		return err
 	}
 	if c.GitAuthorEmail == "" {
-		msg := "DefaultGitAuthorEmail must not be empty"
-		logger.FromContext(ctx).Error(msg)
-		return fmt.Errorf(msg)
+		logger.FromContext(ctx).Error("DefaultGitAuthorEmail must not be empty")
+		return fmt.Errorf("DefaultGitAuthorEmail must not be empty")
 	}
 	if c.GitAuthorName == "" {
-		msg := "DefaultGitAuthorName must not be empty"
-		logger.FromContext(ctx).Error(msg)
-		return fmt.Errorf(msg)
+		logger.FromContext(ctx).Error("DefaultGitAuthorName must not be empty")
+		return fmt.Errorf("DefaultGitAuthorName must not be empty")
 	}
 
 	var jwks *keyfunc.JWKS = nil
@@ -176,8 +175,7 @@ func runServer(ctx context.Context) error {
 	if c.CdServerSecure {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
-			msg := "failed to read CA certificates"
-			return fmt.Errorf(msg)
+			return fmt.Errorf("failed to read CA certificates")
 		}
 		//exhaustruct:ignore
 		cred = credentials.NewTLS(&tls.Config{
@@ -271,6 +269,10 @@ func runServer(ctx context.Context) error {
 	if err != nil {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
+	exportCon, err := grpc.Dial(c.ManifestExportServer, grpcClientOpts...)
+	if err != nil {
+		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
+	}
 	var rolloutClient api.RolloutServiceClient = nil
 	if c.RolloutServer != "" {
 		rolloutCon, err := grpc.Dial(c.RolloutServer, grpcClientOpts...)
@@ -288,13 +290,15 @@ func runServer(ctx context.Context) error {
 	releaseTrainPrognosisClient := api.NewReleaseTrainPrognosisServiceClient(cdCon)
 	commitDeploymentsClient := api.NewCommitDeploymentServiceClient(cdCon)
 	gproxy := &GrpcProxy{
-		OverviewClient:              api.NewOverviewServiceClient(cdCon),
-		BatchClient:                 batchClient,
-		RolloutServiceClient:        rolloutClient,
-		GitClient:                   api.NewGitServiceClient(cdCon),
-		EnvironmentServiceClient:    api.NewEnvironmentServiceClient(cdCon),
-		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
-		EslServiceClient:            api.NewEslServiceClient(cdCon),
+		OverviewClient:                 api.NewOverviewServiceClient(cdCon),
+		BatchClient:                    batchClient,
+		RolloutServiceClient:           rolloutClient,
+		GitClient:                      api.NewGitServiceClient(cdCon),
+		VersionClient:                  api.NewVersionServiceClient(cdCon),
+		ManifestExportServiceGitClient: api.NewGitServiceClient(exportCon),
+		EnvironmentServiceClient:       api.NewEnvironmentServiceClient(cdCon),
+		ReleaseTrainPrognosisClient:    releaseTrainPrognosisClient,
+		EslServiceClient:               api.NewEslServiceClient(cdCon),
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
@@ -303,6 +307,7 @@ func runServer(ctx context.Context) error {
 	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
 	api.RegisterReleaseTrainPrognosisServiceServer(gsrv, gproxy)
 	api.RegisterEslServiceServer(gsrv, gproxy)
+	api.RegisterVersionServiceServer(gsrv, gproxy)
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{
@@ -341,6 +346,7 @@ func runServer(ctx context.Context) error {
 		Config:                      c,
 		KeyRing:                     pgpKeyRing,
 		AzureAuth:                   c.AzureEnableAuth,
+		User:                        defaultUser,
 	}
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
@@ -486,6 +492,10 @@ func runServer(ctx context.Context) error {
 		NextHandler: authHandler,
 	}
 
+	publicApiServer := &handler.PublicApiServer{
+		S: httpHandler,
+	}
+
 	setup.Run(ctx, setup.ServerConfig{
 		GRPC:       nil,
 		Background: nil,
@@ -497,6 +507,14 @@ func runServer(ctx context.Context) error {
 				Port:      "8081",
 				Register: func(mux *http.ServeMux) {
 					mux.Handle("/", corsHandler)
+				},
+			},
+			{
+				BasicAuth: nil,
+				Shutdown:  nil,
+				Port:      "5555",
+				Register: func(mux *http.ServeMux) {
+					publicapi.HandlerFromMux(publicApiServer, mux)
 				},
 			},
 		},
@@ -551,6 +569,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := logger.Wrap(r.Context(), func(ctx context.Context) error {
 		span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
 		defer span.Finish()
+		span.SetTag("uri", r.URL)
 		var user *auth.User = nil
 		var err error
 		var source string
@@ -621,13 +640,15 @@ func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL,
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
-	OverviewClient              api.OverviewServiceClient
-	BatchClient                 api.BatchServiceClient
-	RolloutServiceClient        api.RolloutServiceClient
-	GitClient                   api.GitServiceClient
-	EnvironmentServiceClient    api.EnvironmentServiceClient
-	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
-	EslServiceClient            api.EslServiceClient
+	OverviewClient                 api.OverviewServiceClient
+	BatchClient                    api.BatchServiceClient
+	RolloutServiceClient           api.RolloutServiceClient
+	GitClient                      api.GitServiceClient
+	ManifestExportServiceGitClient api.GitServiceClient
+	VersionClient                  api.VersionServiceClient
+	EnvironmentServiceClient       api.EnvironmentServiceClient
+	ReleaseTrainPrognosisClient    api.ReleaseTrainPrognosisServiceClient
+	EslServiceClient               api.EslServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -662,10 +683,22 @@ func (p *GrpcProxy) GetAppDetails(
 	return p.OverviewClient.GetAppDetails(ctx, in)
 }
 
+func (p *GrpcProxy) GetAllAppLocks(
+	ctx context.Context,
+	in *api.GetAllAppLocksRequest) (*api.GetAllAppLocksResponse, error) {
+	return p.OverviewClient.GetAllAppLocks(ctx, in)
+}
+
+func (p *GrpcProxy) GetAllEnvTeamLocks(
+	ctx context.Context,
+	in *api.GetAllEnvTeamLocksRequest) (*api.GetAllEnvTeamLocksResponse, error) {
+	return p.OverviewClient.GetAllEnvTeamLocks(ctx, in)
+}
+
 func (p *GrpcProxy) GetGitTags(
 	ctx context.Context,
 	in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	return p.GitClient.GetGitTags(ctx, in)
+	return p.ManifestExportServiceGitClient.GetGitTags(ctx, in)
 }
 
 func (p *GrpcProxy) GetProductSummary(
@@ -677,13 +710,67 @@ func (p *GrpcProxy) GetProductSummary(
 func (p *GrpcProxy) GetCommitInfo(
 	ctx context.Context,
 	in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
-	return p.GitClient.GetCommitInfo(ctx, in)
+	return p.ManifestExportServiceGitClient.GetCommitInfo(ctx, in)
 }
 
 func (p *GrpcProxy) GetEnvironmentConfig(
 	ctx context.Context,
 	in *api.GetEnvironmentConfigRequest) (*api.GetEnvironmentConfigResponse, error) {
 	return p.EnvironmentServiceClient.GetEnvironmentConfig(ctx, in)
+}
+
+func (p *GrpcProxy) GetGitSyncStatus(
+	ctx context.Context,
+	in *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
+	return p.ManifestExportServiceGitClient.GetGitSyncStatus(ctx, in)
+}
+
+func (p *GrpcProxy) RetryFailedEvent(
+	ctx context.Context,
+	in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
+	return p.ManifestExportServiceGitClient.RetryFailedEvent(ctx, in)
+}
+
+func (p *GrpcProxy) StreamGitSyncStatus(
+	in *api.GetGitSyncStatusRequest,
+	stream api.GitService_StreamGitSyncStatusServer) error {
+	if p.ManifestExportServiceGitClient == nil || p.GitClient == nil {
+		return status.Error(codes.Unimplemented, "git client not configured")
+	} else if p.RolloutServiceClient != nil {
+		return status.Error(codes.Unimplemented, "rollout service enabled. git sync status is not supported.")
+	}
+
+	c := make(chan *api.GetGitSyncStatusResponse, 10)
+	errCh := make(chan error, 2)
+	go p.listenGitSyncStatus(in, stream, c, errCh, p.ManifestExportServiceGitClient)
+	go p.listenGitSyncStatus(in, stream, c, errCh, p.GitClient)
+	for {
+		select {
+		case item := <-c:
+			err := stream.Send(item)
+			if err != nil {
+				return err
+			}
+		case err := <-errCh:
+			return err
+		}
+	}
+
+}
+
+func (p *GrpcProxy) listenGitSyncStatus(in *api.GetGitSyncStatusRequest, stream api.GitService_StreamGitSyncStatusServer, c chan *api.GetGitSyncStatusResponse, errCh chan error, gitClient api.GitServiceClient) {
+	if resp, err := gitClient.StreamGitSyncStatus(stream.Context(), in); err != nil {
+		errCh <- err
+	} else {
+		for {
+			item, err := resp.Recv()
+			if err != nil {
+				errCh <- err
+				break
+			}
+			c <- item
+		}
+	}
 }
 
 func (p *GrpcProxy) StreamOverview(
@@ -722,6 +809,25 @@ func (p *GrpcProxy) StreamChangedApps(
 	}
 }
 
+func (p *GrpcProxy) StreamDeploymentHistory(
+	in *api.DeploymentHistoryRequest,
+	stream api.OverviewService_StreamDeploymentHistoryServer) error {
+	if resp, err := p.OverviewClient.StreamDeploymentHistory(stream.Context(), in); err != nil {
+		return err
+	} else {
+		for {
+			item, err := resp.Recv()
+			if err == io.EOF {
+				return nil
+			} else if err != nil {
+				return err
+			} else if err := stream.Send(item); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.RolloutService_StreamStatusServer) error {
 	if p.RolloutServiceClient == nil {
 		return status.Error(codes.Unimplemented, "rollout service not configured")
@@ -755,4 +861,22 @@ func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.Releas
 		return nil, status.Error(codes.Internal, "release train prognosis service not configured")
 	}
 	return p.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(ctx, in)
+}
+
+func (p *GrpcProxy) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
+	if p.RolloutServiceClient != nil {
+		return nil, status.Error(codes.Unimplemented, "rollout service is enabled.")
+	}
+	return p.ManifestExportServiceGitClient.SkipEslEvent(ctx, in)
+}
+
+func (p *GrpcProxy) GetManifests(ctx context.Context, in *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
+	if p.VersionClient == nil {
+		return nil, status.Error(codes.Unimplemented, "version client service is not enabled.")
+	}
+	return p.VersionClient.GetManifests(ctx, in)
+}
+
+func (p *GrpcProxy) GetVersion(_ context.Context, _ *api.GetVersionRequest) (*api.GetVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "unimplemented.")
 }

@@ -89,7 +89,7 @@ cat <<EOF > "environments/${BASE_ENV_NAME}-${line}/config.json"
   "upstream": {
     "environment": "testing"
   },
-  "environment_group": "${BASE_ENV_NAME}"
+  "environmentGroup": "${BASE_ENV_NAME}"
 }
 EOF
 done < country_codes.csv

@@ -34,6 +34,8 @@ describe('ApplicationLockDisplay', () => {
         message: 'test-lock',
         createdAt: new Date('2022-12-04T12:30:12'),
         createdBy: { name: 'test', email: 'test' },
+        ciLink: '',
+        suggestedLifetime: '',
     };
     const testApp: Application = {
         name: 'test',
@@ -45,17 +47,11 @@ describe('ApplicationLockDisplay', () => {
     };
     const testEnv1: Environment = {
         name: 'dev',
-        locks: {},
-        appLocks: {},
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     };
     const testEnv2: Environment = {
         name: 'staging',
-        locks: {},
-        appLocks: {},
-        teamLocks: {},
         distanceToUpstream: 0,
         priority: Priority.OTHER,
     };
@@ -87,6 +83,8 @@ describe('ApplicationLockDisplay', () => {
                     lockId: testAppLock.lockId,
                     authorName: testAppLock.createdBy?.name,
                     authorEmail: testAppLock.createdBy?.email,
+                    ciLink: '',
+                    suggestedLifetime: '',
                 },
             },
             expectedPriorityClassName: '.environment-priority-upstream',
@@ -107,6 +105,8 @@ describe('ApplicationLockDisplay', () => {
                     lockId: testAppLock.lockId,
                     authorName: testAppLock.createdBy?.name,
                     authorEmail: testAppLock.createdBy?.email,
+                    ciLink: '',
+                    suggestedLifetime: '',
                 },
             },
             expectedPriorityClassName: '.environment-priority-other',

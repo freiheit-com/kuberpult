@@ -18,8 +18,8 @@
 {{ fail ".Values.db.dbOption does not contain a valid value (postgreSQL)."}}
 {{ end -}}
 
-# the export service is only enabled, if the DB is enabled
-{{- if (eq .Values.db.dbOption "postgreSQL") }}
+# the export service is only enabled, if the DB is enabled and the `enabled` flag is true
+{{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.manifestRepoExport.enabled))}}
 
 ---
 apiVersion: apps/v1
@@ -149,6 +149,8 @@ spec:
           value: {{ .Values.argocd.generateFiles | quote }}
         - name: KUBERPULT_NETWORK_TIMEOUT_SECONDS
           value: {{ .Values.manifestRepoExport.networkTimeoutSeconds | quote }}
+        - name: KUBERPULT_VERSION
+          value: {{ $.Chart.AppVersion | quote}}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
@@ -183,6 +185,8 @@ spec:
 {{- end }}
         - name: KUBERPULT_DB_LOCATION
           value: "{{ .Values.db.location }}"
+        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
+          value: /migrations/postgres
         - name: KUBERPULT_DB_NAME
           value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
@@ -205,8 +209,6 @@ spec:
           value: "{{ .Values.db.connections.manifestRepoExport.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.manifestRepoExport.maxIdle }}"
-        - name: KUBERPULT_ARGO_CD_GENERATE_FILES
-          value: {{ .Values.argocd.generateFiles | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_TRACE_DEBUG
           value: "{{ .Values.datadogTracing.debugging }}"
@@ -233,6 +235,8 @@ spec:
           value: "{{ .Values.git.releaseVersionsLimit }}"
         - name: KUBERPULT_MINIMIZE_EXPORTED_DATA
           value: "{{ .Values.git.minimizeExportedData }}"
+        - name: KUBERPULT_CHECK_CUSTOM_MIGRATIONS
+          value: "{{ .Values.db.checkCustomMigrations }}"
         volumeMounts:
         - name: repository
           # The repository volume, an emptyDir, is mounted to the kp directory.
@@ -257,7 +261,7 @@ spec:
         # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
         # Because of an issue in gitlib2, this actually happens.
         emptyDir:
-          sizeLimit: 30Gi
+          sizeLimit: {{ .Values.git.emptyDirSize }}
       - name: ssh
         secret:
           secretName: kuberpult-ssh

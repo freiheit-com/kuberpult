@@ -6,11 +6,19 @@ ARG --global target=docker
 deps:
     ARG USERARCH
     IF [ "$USERARCH" = "arm64" ]
-        FROM golang:1.21-bookworm
+        FROM golang:1.24-bookworm
         RUN apt update && apt install --auto-remove ca-certificates tzdata libgit2-dev libsqlite3-dev -y
     ELSE
-        FROM golang:1.21-alpine3.18
-        RUN apk add --no-cache ca-certificates tzdata bash libgit2-dev sqlite-dev alpine-sdk
+        FROM golang:1.24-alpine3.21
+        RUN apk add --no-cache ca-certificates tzdata bash sqlite-dev alpine-sdk
+        RUN apk add --no-cache make git cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
+        RUN git clone https://github.com/libgit2/libgit2.git && \
+            cd libgit2 && \
+            git checkout v1.5.0 && \
+            mkdir build && cd build && \
+            cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=ON -DUSE_SSH=ON && \
+            cmake --build . --target install && \
+            cd ../.. && rm -rf libgit2
     END
 
     COPY buf_sha256.txt .
@@ -24,13 +32,13 @@ deps:
         SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
         echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
 
-    ARG GO_CI_LINT_VERSION="v1.51.2"
+    ARG GO_CI_LINT_VERSION="v1.64.0"
     RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
 
-    RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.2.0.tar.gz -O exhaustruct.tar.gz
-    RUN echo 511d0ba05092386a59dca74b6cbeb99f510b814261cc04b68213a9ae31cf8bf6  exhaustruct.tar.gz | sha256sum -c
+    RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.3.1.tar.gz -O exhaustruct.tar.gz
+    RUN echo b9691e2632f00c67a24d0482d0691d1aa51937f6b4a51817478efda4a2ed69d9 exhaustruct.tar.gz | sha256sum -c
     RUN tar xzf exhaustruct.tar.gz
-    WORKDIR go-exhaustruct-3.2.0
+    WORKDIR go-exhaustruct-3.3.1
     RUN go build ./cmd/exhaustruct
     RUN mv exhaustruct /usr/local/bin/exhaustruct
 
@@ -38,6 +46,8 @@ deps:
     RUN mkdir -p database/migrations
     COPY database/migrations database/migrations
     COPY go.mod go.sum ./
+    COPY docker-compose-unittest.yml ./
+
     RUN go mod download
 
     SAVE ARTIFACT go.mod
@@ -63,6 +73,9 @@ rollout-service:
 frontend-service:
     BUILD ./services/frontend-service+$target --UID=$UID --service=frontend-service
 
+reposerver-service:
+    BUILD ./services/reposerver-service+$target --UID=$UID --service=reposerver-service
+
 ui:
     BUILD ./services/frontend-service+$target-ui
 
@@ -85,6 +98,7 @@ test-all:
     BUILD ./services/cd-service+unit-test --service=cd-service
     BUILD ./services/manifest-repo-export-service+unit-test --service=manifest-repo-export-service
     BUILD ./services/rollout-service+unit-test --service=rollout-service
+    BUILD ./services/reposerver-service+unit-test --service=reposerver-service
     BUILD ./services/frontend-service+unit-test --service=frontend-service
     BUILD ./services/frontend-service+unit-test-ui
 
@@ -98,8 +112,8 @@ integration-test-deps:
     SAVE ARTIFACT /usr/bin/argocd
 
 integration-test:
-    FROM golang:1.21-bookworm
-    RUN apt update && apt install --auto-remove -y curl gpg gpg-agent gettext bash git golang netcat-openbsd docker.io
+    FROM golang:1.24-bookworm
+    RUN apt update && apt install --auto-remove -y curl gpg gpg-agent gettext bash git golang netcat-openbsd docker.io postgresql-client
     ARG GO_TEST_ARGS
     # K3S environment variables
     ENV KUBECONFIG=/kp/kubeconfig.yaml
@@ -133,8 +147,11 @@ integration-test:
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
     COPY infrastructure/scripts/create-testdata/create-release.sh .
+    COPY infrastructure/scripts/create-testdata/create-environments.sh .
+    COPY infrastructure/scripts/create-testdata/testdata_template/environments ./testdata_template/environments
     COPY tests/integration-tests tests/integration-tests
     COPY ./pkg+artifacts/pkg pkg
+    COPY +migration-deps/migrations /migrations
 
     ARG --required kuberpult_version
     ENV VERSION=$kuberpult_version
@@ -150,6 +167,7 @@ integration-test:
             ./tests/integration-tests/cluster-setup/setup-cluster-ssh.sh& \
             ./tests/integration-tests/cluster-setup/setup-postgres.sh && \
             ./tests/integration-tests/cluster-setup/argocd-kuberpult.sh && \
-            cd tests/integration-tests && go test $GO_TEST_ARGS ./... || ./cluster-setup/get-logs.sh; \
+            cd tests/integration-tests && go test $GO_TEST_ARGS ./... && \
+            ./validation-check.sh || ./cluster-setup/get-logs.sh; \
             echo ============ SUCCESS ============
     END

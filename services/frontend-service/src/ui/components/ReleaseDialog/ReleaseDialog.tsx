@@ -14,25 +14,30 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import classNames from 'classnames';
-import React, { ReactElement, useCallback } from 'react';
+import React, { ReactElement, useCallback, useMemo } from 'react';
 import { Deployment, Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
     getPriorityClassName,
+    gitSyncStatus,
+    IsAAEnvironment,
     showSnackbarWarn,
+    useActions,
     useAppDetailsForApp,
     useApplications,
     useCloseReleaseDialog,
     useCurrentlyDeployedAtGroup,
     useEnvironmentGroups,
+    useGitSyncStatus,
     useReleaseDifference,
     useReleaseOptional,
     useRolloutStatus,
+    useRolloutStatusAAEnv,
     useTeamFromApplication,
     useTeamLocks,
 } from '../../utils/store';
 import { Button } from '../button';
-import { Close, Locks, SortAscending, SortDescending } from '../../../images';
+import { Close, Locks, LocksRed, SortAscending, SortDescending } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import {
@@ -44,8 +49,14 @@ import {
 } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
-import { ExpandButton } from '../button/ExpandButton';
-import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
+import { DeployLockButtons } from '../button/DeployLockButtons';
+import {
+    AAEnvironmentRolloutDescription,
+    RolloutStatusDescription,
+} from '../RolloutStatusDescription/RolloutStatusDescription';
+import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
+import { Link } from 'react-router-dom';
+import { GetTargetFutureDate, isOutdatedLifetime } from '../LockDisplay/LockDisplay';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -66,11 +77,16 @@ export const AppLock: React.FC<{
             },
         });
     }, [app, env.name, lock.lockId]);
+    let lockIcon = <Locks className="env-card-app-lock" />;
+    const targetLifetimeDate = GetTargetFutureDate(lock.createdAt, lock.suggestedLifetime);
+    if (isOutdatedLifetime(targetLifetimeDate)) {
+        lockIcon = <LocksRed className="env-card-app-lock" />;
+    }
     return (
         <div
             title={'App Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
             onClick={deleteAppLock}>
-            <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
+            <Button icon={lockIcon} className={'button-lock'} highlightEffect={false} />
         </div>
     );
 };
@@ -88,11 +104,16 @@ export const TeamLock: React.FC<{
             },
         });
     }, [team, env.name, lock.lockId]);
+    let lockIcon = <Locks className="env-card-app-lock" />;
+    const targetLifetimeDate = GetTargetFutureDate(lock.createdAt, lock.suggestedLifetime);
+    if (isOutdatedLifetime(targetLifetimeDate)) {
+        lockIcon = <LocksRed className="environment-lock-icon" />;
+    }
     return (
         <div
             title={'Team Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
             onClick={deleteTeamLock}>
-            <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
+            <Button icon={lockIcon} className={'button-lock'} highlightEffect={false} />
         </div>
     );
 };
@@ -140,42 +161,20 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     className,
     team,
 }) => {
-    const createAppLock = useCallback(() => {
-        addAction({
-            action: {
-                $case: 'createEnvironmentApplicationLock',
-                createEnvironmentApplicationLock: {
-                    environment: env.name,
-                    application: app,
-                    lockId: '',
-                    message: '',
-                    ciLink: '',
-                },
-            },
-        });
-    }, [app, env.name]);
-    const deployAndLockClick = useCallback(
-        (shouldLockToo: boolean) => {
-            if (release.version) {
-                addAction({
-                    action: {
-                        $case: 'deploy',
-                        deploy: {
-                            environment: env.name,
-                            application: app,
-                            version: release.version,
-                            ignoreAllLocks: false,
-                            lockBehavior: LockBehavior.IGNORE,
-                        },
-                    },
-                });
-                if (shouldLockToo) {
-                    createAppLock();
-                }
-            }
-        },
-        [release.version, app, env.name, createAppLock]
+    const actions = useActions();
+    const deployAlreadyPlanned = actions.some(
+        (action) =>
+            action.action?.$case === 'deploy' &&
+            action.action.deploy.application === app &&
+            action.action.deploy.environment === env.name
     );
+    const lockAlreadyPlanned = actions.some(
+        (action) =>
+            action.action?.$case === 'createEnvironmentApplicationLock' &&
+            action.action.createEnvironmentApplicationLock.application === app &&
+            action.action.createEnvironmentApplicationLock.environment === env.name
+    );
+    const alreadyPlanned = lockAlreadyPlanned && deployAlreadyPlanned;
 
     const queueInfo =
         queuedVersion === 0 ? null : (
@@ -193,28 +192,148 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const appDetails = useAppDetailsForApp(app);
     const deployment = appDetails.details?.deployments[env.name];
 
-    const getDeploymentMetadata = (): [String, JSX.Element] => {
+    const getDeploymentMetadata = (): [JSX.Element, JSX.Element] => {
+        let deployedByContent = '';
+        let deployedAt = <></>;
         if (!deployment) {
-            return ['', <></>];
+            return [<div>{deployedByContent}</div>, deployedAt];
         }
         if (deployment.deploymentMetaData === null) {
-            return ['', <></>];
+            return [<div>{deployedByContent}</div>, deployedAt];
         }
+
         const deployedBy = deployment.deploymentMetaData?.deployAuthor ?? 'unknown';
         const deployedUNIX = deployment.deploymentMetaData?.deployTime ?? '';
         if (deployedUNIX === '') {
-            return ['Deployed by &nbsp;' + deployedBy, <></>];
+            deployedByContent = 'Deployed by &nbsp;' + deployedBy;
+        } else {
+            deployedByContent = 'Deployed by ' + deployedBy + ' ';
+            const deployedDate = new Date(deployedUNIX);
+            deployedAt = (
+                <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', '')} />
+            );
         }
-        const deployedDate = new Date(deployedUNIX);
-        const returnString = 'Deployed by ' + deployedBy + ' ';
-        const time = <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', '')} />;
 
-        return [returnString, time];
+        if (deployment.deploymentMetaData?.ciLink && deployment.deploymentMetaData?.ciLink !== '') {
+            return [
+                <Link
+                    id={'deployment-ci-link-' + env.name + '-' + app}
+                    className={'deployment-ci-link'}
+                    to={deployment.deploymentMetaData.ciLink}
+                    target="_blank"
+                    rel="noopener noreferrer">
+                    {deployedByContent}
+                </Link>,
+                deployedAt,
+            ];
+        }
+        return [<span>{deployedByContent}</span>, deployedAt];
     };
-    const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
+
+    const syncStatus = useGitSyncStatus((getter) => getter.getAppStatus(app, env.name));
+    const appGitSyncStatus = gitSyncStatus.get();
+
+    let appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
+    const aaEnvRolloutStatus = useRolloutStatus((getter) =>
+        getter.getMostInterestingStatusAAEnv(app, deployment?.version, env.name, env.config)
+    );
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
-    const appEnvLocks = appDetails?.details?.appLocks?.[env.name]?.locks ?? [];
+    const appEnvLocks = useMemo(() => appDetails?.details?.appLocks?.[env.name]?.locks ?? [], [appDetails, env]);
+
+    //Rollout statuses in case this is an AA environment
+    const allRolloutStatusesAA = useRolloutStatusAAEnv(app, deployment?.version, env.name, env.config);
+
+    if (IsAAEnvironment(env.config)) {
+        appRolloutStatus = aaEnvRolloutStatus;
+    }
+
+    const plannedLockRemovals = actions
+        .filter(
+            (action) =>
+                action.action?.$case === 'deleteEnvironmentApplicationLock' &&
+                action.action.deleteEnvironmentApplicationLock.application === app &&
+                action.action.deleteEnvironmentApplicationLock.environment === env.name
+        )
+        .flatMap((action) =>
+            action.action?.$case === 'deleteEnvironmentApplicationLock'
+                ? [action.action.deleteEnvironmentApplicationLock.lockId]
+                : []
+        );
+    const unlockAlreadyPlanned = plannedLockRemovals.length === appEnvLocks.length && appEnvLocks.length > 0;
+
+    const createAppLock = useCallback(
+        (lockOnly = true) => {
+            if (appEnvLocks.length > 0 && lockOnly && !lockAlreadyPlanned) {
+                const locks = unlockAlreadyPlanned
+                    ? appEnvLocks
+                    : appEnvLocks.filter((lock) => !plannedLockRemovals.includes(lock.lockId));
+                locks.forEach((lock) =>
+                    addAction({
+                        action: {
+                            $case: 'deleteEnvironmentApplicationLock',
+                            deleteEnvironmentApplicationLock: {
+                                environment: env.name,
+                                application: app,
+                                lockId: lock.lockId,
+                            },
+                        },
+                    })
+                );
+            } else {
+                addAction({
+                    action: {
+                        $case: 'createEnvironmentApplicationLock',
+                        createEnvironmentApplicationLock: {
+                            environment: env.name,
+                            application: app,
+                            lockId: '',
+                            message: '',
+                            ciLink: '',
+                        },
+                    },
+                });
+            }
+        },
+        [app, env.name, appEnvLocks, lockAlreadyPlanned, unlockAlreadyPlanned, plannedLockRemovals]
+    );
+    const deployAndLockClick = useCallback(
+        (shouldLockToo: boolean) => {
+            if (!release.environments.includes(env.name)) {
+                showSnackbarWarn(`Environments skipped: ${env.name}`);
+                return;
+            }
+            if (release.version) {
+                if (!shouldLockToo || alreadyPlanned || !deployAlreadyPlanned) {
+                    addAction({
+                        action: {
+                            $case: 'deploy',
+                            deploy: {
+                                environment: env.name,
+                                application: app,
+                                version: release.version,
+                                ignoreAllLocks: false,
+                                lockBehavior: LockBehavior.IGNORE,
+                            },
+                        },
+                    });
+                }
+                if (shouldLockToo && (alreadyPlanned || !lockAlreadyPlanned)) {
+                    createAppLock(false);
+                }
+            }
+        },
+        [
+            release.version,
+            release.environments,
+            app,
+            env.name,
+            createAppLock,
+            alreadyPlanned,
+            deployAlreadyPlanned,
+            lockAlreadyPlanned,
+        ]
+    );
 
     const allowDeployment: boolean = ((): boolean => {
         if (release.isPrepublish) {
@@ -225,6 +344,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         }
         return otherRelease.version !== release.version;
     })();
+
     const releaseDifference = useReleaseDifference(release.version, app, env.name);
     const getReleaseDiffContent = (): JSX.Element => {
         if (!otherRelease || !deployment) {
@@ -247,7 +367,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     };
 
     return (
-        <li key={env.name} className={classNames('env-card')}>
+        <li id={env.name} key={env.name} className={classNames('env-card')}>
             <div className="env-card-header">
                 <EnvironmentChip
                     env={env}
@@ -277,7 +397,19 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             ))}
                         </div>
                     )}
-                    {appRolloutStatus !== undefined && <RolloutStatusDescription status={appRolloutStatus} />}
+                    {appGitSyncStatus.enabled ? (
+                        <GitSyncStatusDescription status={syncStatus}></GitSyncStatusDescription>
+                    ) : (
+                        appRolloutStatus !== undefined &&
+                        (IsAAEnvironment(env.config) ? (
+                            <AAEnvironmentRolloutDescription
+                                statuses={allRolloutStatusesAA}
+                                mostInteresting={appRolloutStatus}
+                            />
+                        ) : (
+                            <RolloutStatusDescription status={appRolloutStatus} />
+                        ))
+                    )}
                 </div>
             </div>
             <div className="content-area">
@@ -295,7 +427,10 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     {queueInfo}
                     <div className={classNames('env-card-data')}>
                         {getDeploymentMetadata().flatMap((metadata, i) => (
-                            <div key={i}>{metadata}&nbsp;</div>
+                            <div key={i}>
+                                {metadata}
+                                &nbsp;
+                            </div>
                         ))}
                     </div>
                     <div className={classNames('env-card-data')}>{getReleaseDiffContent()}</div>
@@ -304,13 +439,17 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     <div className="env-card-buttons">
                         <div
                             title={
-                                'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
+                                'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version.'
                             }>
-                            <ExpandButton
+                            <DeployLockButtons
                                 onClickSubmit={deployAndLockClick}
                                 onClickLock={createAppLock}
-                                defaultButtonLabel={'Deploy & Lock'}
+                                releaseDifference={releaseDifference}
                                 disabled={!allowDeployment}
+                                deployAlreadyPlanned={deployAlreadyPlanned}
+                                lockAlreadyPlanned={lockAlreadyPlanned}
+                                hasLocks={appEnvLocks.length > 0}
+                                unlockAlreadyPlanned={unlockAlreadyPlanned}
                             />
                         </div>
                     </div>
@@ -358,7 +497,21 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     if (!release) {
         return null;
     }
-
+    const createdByContent = (
+        <div>
+            {'Created '}
+            {release?.createdAt ? (
+                <FormattedDate
+                    createdAt={release.createdAt}
+                    className={classNames('release-dialog-createdAt', className)}
+                />
+            ) : (
+                'at an unknown date'
+            )}
+            {' by '}
+            {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
+        </div>
+    );
     const dialog: JSX.Element | '' = (
         <PlainDialog
             open={app !== ''}
@@ -376,18 +529,15 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         </div>
                         <div className="source">
                             <span>
-                                {'Created '}
-                                {release?.createdAt ? (
-                                    <FormattedDate
-                                        createdAt={release.createdAt}
-                                        className={classNames('release-dialog-createdAt', className)}
-                                    />
+                                {release.ciLink !== '' ? (
+                                    <Link id={'ciLink'} to={release.ciLink} target="_blank" rel="noopener noreferrer">
+                                        {createdByContent}
+                                    </Link>
                                 ) : (
-                                    'at an unknown date'
+                                    createdByContent
                                 )}
-                                {' by '}
-                                {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
                             </span>
+
                             <span className="links">
                                 <DisplaySourceLink commitId={release.sourceCommitId} displayString={'Source'} />
                                 &nbsp;
@@ -439,8 +589,49 @@ export const EnvironmentGroupLane: React.FC<{
         (releaseEnvGroup) => releaseEnvGroup.environmentGroupName === environmentGroup.environmentGroupName
     );
 
+    const actions = useActions();
+    const envsWithoutPlannedDeployments = environmentGroup.environments.filter(
+        (env) =>
+            !actions.some(
+                (action) =>
+                    action.action?.$case === 'deploy' &&
+                    action.action.deploy.application === app &&
+                    action.action.deploy.environment === env.name
+            )
+    );
+    const envsWithoutPlannedLocks = environmentGroup.environments.filter(
+        (env) =>
+            !actions.some(
+                (action) =>
+                    action.action?.$case === 'createEnvironmentApplicationLock' &&
+                    action.action.createEnvironmentApplicationLock.application === app &&
+                    action.action.createEnvironmentApplicationLock.environment === env.name
+            )
+    );
+    const envsWithPlannedLocks = environmentGroup.environments.filter((env) => !envsWithoutPlannedLocks.includes(env));
+    const envsWithPlannedDeploysLocks = environmentGroup.environments.filter(
+        (env) => !envsWithoutPlannedDeployments.includes(env) && !envsWithoutPlannedLocks.includes(env)
+    );
+    const envsAlreadyDeployed = allReleases.length !== 0 ? allReleases[0].environments : [];
+    const deploysAlreadyPlanned =
+        envsWithoutPlannedDeployments.filter(
+            (env) => release.environments.includes(env.name) && !envsAlreadyDeployed.includes(env)
+        ).length === 0 &&
+        environmentGroup.environments.filter(
+            (env) => release.environments.includes(env.name) && !envsAlreadyDeployed.includes(env)
+        ).length > 0;
+    const locksAlreadyPlanned =
+        envsWithoutPlannedLocks.filter(
+            (env) => release.environments.includes(env.name) && !envsAlreadyDeployed.includes(env)
+        ).length === 0 &&
+        environmentGroup.environments.filter(
+            (env) => release.environments.includes(env.name) && !envsAlreadyDeployed.includes(env)
+        ).length > 0;
+    const alreadyPlanned = deploysAlreadyPlanned && locksAlreadyPlanned;
+
     const createEnvGroupLock = React.useCallback(() => {
-        environmentGroup.environments.forEach((environment) => {
+        const envs = locksAlreadyPlanned ? envsWithPlannedLocks : environmentGroup.environments;
+        envs.forEach((environment) => {
             addAction({
                 action: {
                     $case: 'createEnvironmentApplicationLock',
@@ -454,11 +645,13 @@ export const EnvironmentGroupLane: React.FC<{
                 },
             });
         });
-    }, [environmentGroup, app]);
+    }, [environmentGroup, app, envsWithPlannedLocks, locksAlreadyPlanned]);
     const deployAndLockClick = React.useCallback(
         (shouldLockToo: boolean) => {
-            var skippedEnvs: string[] = [];
-            environmentGroup.environments.forEach((environment) => {
+            const envsWithoutPlans = new Set([...envsWithoutPlannedDeployments, ...envsWithoutPlannedLocks]);
+            var skippedEnvs: string[] = alreadyPlanned ? [] : envsWithPlannedDeploysLocks.map((env) => env.name);
+            const envs = alreadyPlanned ? environmentGroup.environments : envsWithoutPlans;
+            envs.forEach((environment) => {
                 if (
                     allReleases &&
                     allReleases.length !== 0 &&
@@ -467,22 +660,43 @@ export const EnvironmentGroupLane: React.FC<{
                     return;
                 }
                 if (!release.environments.includes(environment.name)) {
+                    // Make sure there are no locks in skipped environments when canceling all deploy and locks
+                    if (shouldLockToo && alreadyPlanned) {
+                        addAction({
+                            action: {
+                                $case: 'createEnvironmentApplicationLock',
+                                createEnvironmentApplicationLock: {
+                                    environment: environment.name,
+                                    application: app,
+                                    lockId: '',
+                                    message: '',
+                                    ciLink: '',
+                                },
+                            },
+                        });
+                    }
                     skippedEnvs.push(environment.name);
                     return;
                 }
-                addAction({
-                    action: {
-                        $case: 'deploy',
-                        deploy: {
-                            environment: environment.name,
-                            application: app,
-                            version: release.version,
-                            ignoreAllLocks: false,
-                            lockBehavior: LockBehavior.IGNORE,
+                if (
+                    alreadyPlanned ||
+                    envsWithoutPlannedDeployments.includes(environment) ||
+                    (deploysAlreadyPlanned && !shouldLockToo)
+                ) {
+                    addAction({
+                        action: {
+                            $case: 'deploy',
+                            deploy: {
+                                environment: environment.name,
+                                application: app,
+                                version: release.version,
+                                ignoreAllLocks: false,
+                                lockBehavior: LockBehavior.IGNORE,
+                            },
                         },
-                    },
-                });
-                if (shouldLockToo) {
+                    });
+                }
+                if (shouldLockToo && (alreadyPlanned || envsWithoutPlannedLocks.includes(environment))) {
                     addAction({
                         action: {
                             $case: 'createEnvironmentApplicationLock',
@@ -501,7 +715,18 @@ export const EnvironmentGroupLane: React.FC<{
                 showSnackbarWarn(`Environments skipped: ${skippedEnvs}`);
             }
         },
-        [environmentGroup.environments, allReleases, release.environments, release.version, app]
+        [
+            environmentGroup.environments,
+            allReleases,
+            release.environments,
+            release.version,
+            app,
+            alreadyPlanned,
+            deploysAlreadyPlanned,
+            envsWithoutPlannedDeployments,
+            envsWithoutPlannedLocks,
+            envsWithPlannedDeploysLocks,
+        ]
     );
 
     React.useEffect(() => {
@@ -541,13 +766,17 @@ export const EnvironmentGroupLane: React.FC<{
                     <div
                         className={'env-group-expand-button'}
                         title={
-                            'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
+                            'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version.'
                         }>
-                        <ExpandButton
+                        <DeployLockButtons
                             onClickSubmit={deployAndLockClick}
                             onClickLock={createEnvGroupLock}
-                            defaultButtonLabel={'Deploy & Lock'}
                             disabled={!allowGroupDeployment}
+                            releaseDifference={0}
+                            deployAlreadyPlanned={deploysAlreadyPlanned}
+                            lockAlreadyPlanned={locksAlreadyPlanned}
+                            hasLocks={false}
+                            unlockAlreadyPlanned={false}
                         />
                     </div>
                 </div>

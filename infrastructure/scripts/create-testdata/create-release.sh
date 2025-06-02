@@ -10,8 +10,13 @@ name=${1}
 applicationOwnerTeam=${2:-sreteam}
 prev=${3:-""}
 
+function debug() {
+    echo "$@" > /dev/stderr
+}
+
 # 40 is the length of a full git commit hash.
 commit_id=$(head -c 20 /dev/urandom | sha1sum | awk '{print $1}') # SHA-1 produces 40-character hashes 
+debug "commit id is: ${commit_id}"
 authors[0]="urbansky"
 authors[1]="Medo"
 authors[2]="Hannes"
@@ -21,14 +26,13 @@ authors[5]="Ahmed"
 authors[6]="João"
 authors[7]="Leandro"
 sizeAuthors=${#authors[@]}
-index=$(($RANDOM % $sizeAuthors))
-echo ${authors[$index]}
+index=$((RANDOM % sizeAuthors))
 author="${authors[$index]}"
 commit_message_file="$(mktemp "${TMPDIR:-/tmp}/publish.XXXXXX")"
 trap "rm -f ""$commit_message_file" INT TERM HUP EXIT
 displayVersion=
 if ((RANDOM % 2)); then
-  displayVersion=$(( $RANDOM % 100)).$(( $RANDOM % 100)).$(( $RANDOM % 100))
+  displayVersion=$(( RANDOM % 100)).$(( RANDOM % 100)).$(( RANDOM % 100))
 fi
 
 msgs[0]="Added new eslint rule"
@@ -43,21 +47,18 @@ msgs[8]="Change renovate schedule"
 msgs[9]="Fix bug in distanceToUpstream calculation"
 msgs[10]="Allow deleting locks on locks page"
 sizeMsgs=${#msgs[@]}
-index=$(($RANDOM % $sizeMsgs))
-echo $index
+index=$((RANDOM % sizeMsgs))
 echo -e "${msgs[$index]}\n" > "${commit_message_file}"
 echo "1: ${msgs[$index]}" >> "${commit_message_file}"
 echo "2: ${msgs[$index]}" >> "${commit_message_file}"
 
-ls "${commit_message_file}"
 
-release_version=''
+release_version=()
 case "${RELEASE_VERSION:-}" in
 	*[!0-9]*) echo "Please set the env variable RELEASE_VERSION to a number"; exit 1;;
-	*) release_version='--form-string '"version=${RELEASE_VERSION:-}";;
+	*) release_version+=('--form-string' "version=${RELEASE_VERSION:-}");;
 esac
 
-echo "release version:" "${release_version}"
 
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
@@ -77,13 +78,11 @@ metadata:
 data:
   key: value
   random: "${randomValue}"
-  releaseVersion: "${release_version}"
+  releaseVersion: "${release_version[@]}"
 ---
 EOF
-  echo "wrote file ${file}"
   manifests+=("--form" "manifests[${env}]=@${file}")
 done
-echo commit id: "${commit_id}"
 
 FRONTEND_PORT=8081 # see docker-compose.yml
 
@@ -110,7 +109,7 @@ curl http://localhost:${FRONTEND_PORT}/api/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
   "${inputs[@]}" \
-  ${release_version} \
+  "${release_version[@]}" \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \

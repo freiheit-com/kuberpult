@@ -15,11 +15,11 @@ COPY go.sum go.mod /kp/
 RUN make -C /kp/pkg proto
 RUN go build -o /kp/main /kp/services/cd-service/cmd/server/
 
-FROM alpine:3.18
+FROM alpine:3.21
 ARG UID=1000
 ARG DIR
 LABEL org.opencontainers.image.source https://github.com/freiheit-com/kuberpult
-RUN apk --update add ca-certificates tzdata libgit2 git sqlite-libs
+RUN apk --update add ca-certificates tzdata git sqlite-libs
 RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
 RUN chown -R kp:kp /kp
 ENV TZ=Europe/Berlin

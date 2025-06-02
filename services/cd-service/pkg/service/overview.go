@@ -19,25 +19,23 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
+
 	"fmt"
 	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	git "github.com/libgit2/git2go/v34"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -77,9 +75,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 		AppLocks:    make(map[string]*api.Locks),
 		Deployments: make(map[string]*api.Deployment),
 		TeamLocks:   make(map[string]*api.Locks),
-	}
-	if !o.DBHandler.ShouldUseOtherTables() {
-		panic("DB")
 	}
 	resultApp, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.Application, error) {
 		var rels []int64
@@ -123,6 +118,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 				IsMinor:         currentRelease.Metadata.IsMinor,
 				IsPrepublish:    currentRelease.Metadata.IsPrepublish,
 				Environments:    currentRelease.Environments,
+				CiLink:          currentRelease.Metadata.CiLink,
 			}
 			result.Releases = append(result.Releases, tmp.ToProto())
 		}
@@ -147,9 +143,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 		if dbAllEnvs == nil {
 			return nil, nil
 		}
-		envs, err := o.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs.Environments)
+		envs, err := o.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs)
 		if err != nil {
-			return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs.Environments, err)
+			return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
 		}
 
 		envMap := make(map[string]db.DBEnvironment)
@@ -178,6 +174,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 					Name:  currentLock.Metadata.CreatedByName,
 					Email: currentLock.Metadata.CreatedByEmail,
 				},
+				CiLink:            currentLock.Metadata.CiLink,
+				SuggestedLifetime: currentLock.Metadata.SuggestedLifeTime,
 			})
 		}
 
@@ -198,6 +196,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 					Name:  currentTeamLock.Metadata.CreatedByName,
 					Email: currentTeamLock.Metadata.CreatedByEmail,
 				},
+				CiLink:            currentTeamLock.Metadata.CiLink,
+				SuggestedLifetime: currentTeamLock.Metadata.SuggestedLifeTime,
 			})
 		}
 
@@ -228,42 +228,28 @@ func (o *OverviewServiceServer) GetAppDetails(
 				continue
 			}
 
-			environment, ok := envMap[envName]
-			if !ok {
-				logger.FromContext(ctx).Sugar().Warnf("could not obtain environment %s for app %s: %w", envName, appName, err)
-				continue
+			deployment := &api.Deployment{
+				Version:         uint64(*currentDeployment.Version),
+				QueuedVersion:   0,
+				UndeployVersion: false,
+				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+					CiLink:       currentDeployment.Metadata.CiLink,
+					DeployAuthor: currentDeployment.Metadata.DeployedByName,
+					DeployTime:   currentDeployment.Created.String(),
+				},
 			}
-			foundApp := false // only apps that are active on that environment should be returned here
-			for _, appInEnv := range environment.Applications {
-				if appInEnv == appName {
-					foundApp = true
-					break
-				}
-			}
-			if foundApp {
-				deployment := &api.Deployment{
-					Version:         uint64(*currentDeployment.Version),
-					QueuedVersion:   0,
-					UndeployVersion: false,
-					DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-						CiLink:       currentDeployment.Metadata.CiLink,
-						DeployAuthor: currentDeployment.Metadata.DeployedByName,
-						DeployTime:   currentDeployment.Created.String(),
-					},
-				}
 
-				queuedVersion, ok := queuedVersions[envName]
-				if !ok || queuedVersion == nil {
-					deployment.QueuedVersion = 0
-				} else {
-					deployment.QueuedVersion = *queuedVersion
-				}
-
-				if deploymentRelease != nil {
-					deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
-				}
-				response.Deployments[envName] = deployment
+			queuedVersion, ok := queuedVersions[envName]
+			if !ok || queuedVersion == nil {
+				deployment.QueuedVersion = 0
+			} else {
+				deployment.QueuedVersion = *queuedVersion
 			}
+
+			if deploymentRelease != nil {
+				deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
+			}
+			response.Deployments[envName] = deployment
 		}
 		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
 		result.Warnings = CalculateWarnings(deployments, appLocks, envGroups)
@@ -292,57 +278,137 @@ func (o *OverviewServiceServer) GetOverview(
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetOverview")
 	defer span.Finish()
 
-	if in.GitRevision != "" {
-		oid, err := git.NewOid(in.GitRevision)
+	return o.getOverviewDB(ctx, o.Repository.State())
+}
+
+func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
+	in *api.GetAllAppLocksRequest) (*api.GetAllAppLocksResponse, error) {
+
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllAppLocks")
+	defer span.Finish()
+
+	return db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetAllAppLocksResponse, error) {
+		state := o.Repository.State()
+
+		allAppNames, err := state.GetApplications(ctx, transaction)
 		if err != nil {
-			return nil, grpc.PublicError(ctx, fmt.Errorf("getOverview: could not find revision %v: %v", in.GitRevision, err))
-		}
-		state, err := o.Repository.StateAt(oid)
-		if err != nil {
-			var gerr *git.GitError
-			if errors.As(err, &gerr) {
-				if gerr.Code == git.ErrorCodeNotFound {
-					return nil, status.Error(codes.NotFound, "not found")
-				}
-			}
 			return nil, err
 		}
-		return o.getOverviewDB(ctx, state)
-	}
-	return o.getOverviewDB(ctx, o.Repository.State())
+
+		response := api.GetAllAppLocksResponse{
+			AllAppLocks: make(map[string]*api.AllAppLocks),
+		}
+
+		appLocks, err := o.DBHandler.DBSelectAllActiveAppLocksForSliceApps(ctx, transaction, allAppNames)
+		if err != nil {
+			return nil, fmt.Errorf("error obtaining application locks: %w", err)
+		}
+		for _, currentLock := range appLocks {
+			if _, ok := response.AllAppLocks[currentLock.Env]; !ok {
+				response.AllAppLocks[currentLock.Env] = &api.AllAppLocks{AppLocks: make(map[string]*api.Locks)}
+
+			}
+			if _, ok := response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App]; !ok {
+				response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			}
+
+			response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks = append(response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks, &api.Lock{
+				LockId:    currentLock.LockID,
+				Message:   currentLock.Metadata.Message,
+				CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
+				CreatedBy: &api.Actor{
+					Name:  currentLock.Metadata.CreatedByName,
+					Email: currentLock.Metadata.CreatedByEmail,
+				},
+				CiLink:            currentLock.Metadata.CiLink,
+				SuggestedLifetime: currentLock.Metadata.SuggestedLifeTime,
+			})
+		}
+		return &response, nil
+	})
+}
+
+func (o *OverviewServiceServer) GetAllEnvTeamLocks(ctx context.Context,
+	in *api.GetAllEnvTeamLocksRequest) (*api.GetAllEnvTeamLocksResponse, error) {
+
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllEnvTeamLocks")
+	defer span.Finish()
+
+	return db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetAllEnvTeamLocksResponse, error) {
+		response := api.GetAllEnvTeamLocksResponse{
+			AllEnvLocks:  make(map[string]*api.Locks),
+			AllTeamLocks: make(map[string]*api.AllTeamLocks),
+		}
+		allEnvLocks, err := o.DBHandler.DBSelectAllEnvLocksOfAllEnvs(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+		for envName, envLocks := range allEnvLocks {
+			for _, currentLock := range envLocks {
+				if _, ok := response.AllEnvLocks[envName]; !ok {
+					response.AllEnvLocks[envName] = &api.Locks{Locks: make([]*api.Lock, 0)}
+
+				}
+				response.AllEnvLocks[envName].Locks = append(response.AllEnvLocks[envName].Locks, &api.Lock{
+					LockId:    currentLock.LockID,
+					Message:   currentLock.Metadata.Message,
+					CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
+					CreatedBy: &api.Actor{
+						Name:  currentLock.Metadata.CreatedByName,
+						Email: currentLock.Metadata.CreatedByEmail,
+					},
+					CiLink:            currentLock.Metadata.CiLink,
+					SuggestedLifetime: currentLock.Metadata.SuggestedLifeTime,
+				})
+			}
+		}
+		allTeamLocks, err := o.DBHandler.DBSelectAllTeamLocksOfAllEnvs(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+		for envName, teams := range allTeamLocks {
+			for team, locks := range teams {
+				for _, currentLock := range locks {
+					if _, ok := response.AllTeamLocks[envName]; !ok {
+						response.AllTeamLocks[envName] = &api.AllTeamLocks{TeamLocks: map[string]*api.Locks{}}
+					}
+					if _, ok := response.AllTeamLocks[envName].TeamLocks[team]; !ok {
+						response.AllTeamLocks[envName].TeamLocks[team] = &api.Locks{Locks: make([]*api.Lock, 0)}
+					}
+					response.AllTeamLocks[envName].TeamLocks[team].Locks = append(response.AllTeamLocks[envName].TeamLocks[team].Locks, &api.Lock{
+						LockId:    currentLock.LockID,
+						Message:   currentLock.Metadata.Message,
+						CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  currentLock.Metadata.CreatedByName,
+							Email: currentLock.Metadata.CreatedByEmail,
+						},
+						CiLink:            currentLock.Metadata.CiLink,
+						SuggestedLifetime: currentLock.Metadata.SuggestedLifeTime,
+					})
+				}
+			}
+		}
+		return &response, nil
+	})
 }
 
 func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
 
-	if s.DBHandler.ShouldUseOtherTables() {
-		response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
-			var err2 error
-			cached_result, err2 := s.DBHandler.ReadLatestOverviewCache(ctx, transaction)
-			if err2 != nil {
-				return nil, err2
-			}
-			if !s.DBHandler.IsOverviewEmpty(cached_result) {
-				return cached_result, nil
-			}
-
-			response, err2 := o.getOverview(ctx, s, transaction)
-			if err2 != nil {
-				return nil, err2
-			}
-			err2 = s.DBHandler.WriteOverviewCache(ctx, transaction, response)
-			if err2 != nil {
-				return nil, err2
-			}
-			return response, nil
-		})
-		if err != nil {
-			return nil, err
+	response, err := db.WithTransactionT[api.GetOverviewResponse](s.DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*api.GetOverviewResponse, error) {
+		var err2 error
+		response, err2 := o.getOverview(ctx, s, transaction)
+		if err2 != nil {
+			return nil, err2
 		}
 		return response, nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	return o.getOverview(ctx, s, nil)
+	return response, nil
 }
 
 func (o *OverviewServiceServer) getOverview(
@@ -352,14 +418,7 @@ func (o *OverviewServiceServer) getOverview(
 ) (*api.GetOverviewResponse, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "CalculateOverview")
 	defer span.Finish()
-	var rev string
-	if s.DBHandler.ShouldUseOtherTables() {
-		rev = "0000000000000000000000000000000000000000"
-	} else {
-		if s.Commit != nil {
-			rev = s.Commit.Id().String()
-		}
-	}
+	rev := "0000000000000000000000000000000000000000"
 	result := api.GetOverviewResponse{
 		Branch:            "",
 		ManifestRepoUrl:   "",
@@ -369,26 +428,62 @@ func (o *OverviewServiceServer) getOverview(
 	}
 	result.ManifestRepoUrl = o.RepositoryConfig.URL
 	result.Branch = o.RepositoryConfig.Branch
-	err := s.UpdateEnvironmentsInOverview(ctx, transaction, &result)
-	if err != nil {
-		return nil, err
-	}
-
-	if apps, err := s.GetApplications(ctx, transaction); err != nil {
+	if envs, err := s.GetAllEnvironmentConfigs(ctx, transaction); err != nil {
 		return nil, err
 	} else {
-		for _, appName := range apps {
+		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
+		for envName, config := range envs {
+			var groupName = mapper.DeriveGroupName(config, envName)
+			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
 
-			team, err := s.GetTeamName(ctx, transaction, appName)
-			if err != nil {
-				return nil, err
+			var argocd api.EnvironmentConfig_ArgoCD
+			var argocdConfigs = &api.EnvironmentConfig_ArgoConfigs{
+				CommonEnvPrefix: "",
+				Configs:         make([]*api.EnvironmentConfig_ArgoCD, 0),
 			}
+			if config.ArgoCd != nil {
+				argocd = *mapper.TransformArgocd(*config.ArgoCd)
+			}
+			if config.ArgoCdConfigs != nil {
+				argocdConfigs = mapper.TransformArgocdConfigs(*config.ArgoCdConfigs)
+			}
+			env := api.Environment{
+				DistanceToUpstream: 0,
+				Priority:           api.Priority_PROD,
+				Name:               envName,
+				Config: &api.EnvironmentConfig{
+					Upstream:         mapper.TransformUpstream(config.Upstream),
+					Argocd:           &argocd,
+					EnvironmentGroup: &groupName,
+					ArgoConfigs:      argocdConfigs,
+				},
+			}
+			envInGroup.Config = env.Config
+		}
+	}
+
+	if appTeams, err := s.GetAllApplicationsTeamOwner(ctx, transaction); err != nil {
+		return nil, err
+	} else {
+		for appName, team := range appTeams {
 			result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
 		}
-
 	}
 
 	return &result, nil
+}
+
+func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
+	for _, currentGroup := range groups {
+		if currentGroup.EnvironmentGroupName == groupNameToReturn {
+			for _, currentEnv := range currentGroup.Environments {
+				if currentEnv.Name == envNameToReturn {
+					return currentEnv
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
@@ -609,4 +704,103 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 		}
 	}
 	return result
+}
+
+func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistoryRequest,
+	stream api.OverviewService_StreamDeploymentHistoryServer) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamDeploymentHistory")
+	defer span.Finish()
+
+	startDate := in.StartDate.AsTime()
+	endDate := in.EndDate.AsTime().AddDate(0, 0, 1)
+	if !endDate.After(startDate) {
+		providedEndDate := endDate.AddDate(0, 0, -1)
+		return onErr(fmt.Errorf("end date (%s) happens before start date (%s)", providedEndDate.Format(time.DateOnly), startDate.Format(time.DateOnly)))
+	}
+
+	err := o.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		count, err := o.DBHandler.DBSelectDeploymentHistoryCount(ctx, transaction, in.Environment, startDate, endDate)
+		if err != nil {
+			return err
+		}
+
+		err = stream.Send(&api.DeploymentHistoryResponse{
+			Deployment: "time,app,environment,deployed release version,source repository commit hash,previous release version\n",
+			Progress:   uint32(100 / (count + 1)),
+		})
+		if err != nil {
+			return err
+		}
+		startDateReleases := in.StartDate.AsTime().AddDate(0, -1, 0)
+
+		releases, err := o.DBHandler.DBSelectCommitHashesTimeWindow(ctx, transaction, startDateReleases, endDate)
+		if err != nil {
+			return fmt.Errorf("error obtaining commit hashes for time window: %v", err)
+		}
+		query := o.DBHandler.AdaptQuery(`
+			SELECT created, releaseversion, appname, envname FROM deployments_history
+			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?)
+			ORDER BY created ASC;
+		`)
+
+		//All releases that come in first query
+		deploymentRows, err := transaction.QueryContext(ctx, query, startDate, endDate, in.Environment)
+		if err != nil {
+			return err
+		}
+
+		previousReleaseVersions := make(map[string]uint64)
+		defer deploymentRows.Close()
+		//Get all relevant deployments and store its information
+		for i := uint64(2); deploymentRows.Next(); i++ {
+			var created time.Time
+			var releaseVersion uint64
+			var appName string
+			var envName string
+
+			err := deploymentRows.Scan(&created, &releaseVersion, &appName, &envName)
+			if err != nil {
+				return err
+			}
+
+			previousReleaseVersion, hasPreviousVersion := previousReleaseVersions[appName]
+			releaseSourceCommitId, exists := releases[db.ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion}]
+			if !exists {
+				// If we couldnt find the release info in the window from [start_data - 1Month, EndDate], we fetch this information directly
+				fetchRelease, err := o.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion, false)
+				if err != nil {
+					return err
+				}
+				if fetchRelease == nil {
+					logger.FromContext(ctx).Sugar().Warnf("Could not find information for release %q, skipping deployment of application %q on environment %q!", releaseVersion, appName, envName)
+					releaseSourceCommitId = "<no commit hash found>"
+				} else {
+					releaseSourceCommitId = fetchRelease.Metadata.SourceCommitId
+				}
+			}
+			var line string
+			if hasPreviousVersion {
+				line = fmt.Sprintf("%s,%s,%s,%d,%s,%d\n", created.Format(time.RFC3339), appName, in.Environment, releaseVersion, releaseSourceCommitId, previousReleaseVersion)
+			} else {
+				line = fmt.Sprintf("%s,%s,%s,%d,%s,nil\n", created.Format(time.RFC3339), appName, in.Environment, releaseVersion, releaseSourceCommitId)
+			}
+
+			err = stream.Send(&api.DeploymentHistoryResponse{
+				Deployment: line,
+				Progress:   uint32(100 * i / (count + 1)),
+			})
+			if err != nil {
+				return err
+			}
+			previousReleaseVersions[appName] = releaseVersion
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return onErr(err)
+	}
+
+	return nil
 }

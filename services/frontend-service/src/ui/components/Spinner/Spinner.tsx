@@ -22,20 +22,20 @@ export const Spinner: React.FC<{ message: string }> = (props): JSX.Element => {
     return (
         <div className={'spinner'}>
             <div className={'spinner-animation'}>
-                <PacmanLoader color={'var(--mdc-theme-primary)'} loading={true} size={100} speedMultiplier={1} />
+                <PacmanLoader color={'var(--mdc-theme-on-background)'} loading={true} size={100} speedMultiplier={1} />
             </div>
             <div className={'spinner-message'}>{message}...</div>
         </div>
     );
 };
 
-export const SmallSpinner: React.FC<{ appName: string }> = (props): JSX.Element => (
+export const SmallSpinner: React.FC<{ appName: string; size: number }> = (props): JSX.Element => (
     <div className={'spinner-small'}>
         <div className={'spinner-animation'}>
             <PacmanLoader
-                color={'var(--mdc-theme-background)'}
+                color={'var(--mdc-theme-on-secondary)'}
                 loading={true}
-                size={10}
+                size={props.size}
                 speedMultiplier={1}
                 key={props.appName}
             />

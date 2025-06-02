@@ -53,7 +53,6 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
     const releases = useAppDetailsForApp(app).details?.application?.releases;
     const displayAppLocks = useDisplayApplicationLocks(app);
-
     const rel = getReleasesForAppGroupByDate(releases);
     return (
         <div className={classNames('timeline', className)}>
@@ -61,7 +60,12 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
             <div className={classNames('app-locks-container', className)}>
                 {Object.values(displayAppLocks).map((displayAppLock) => (
                     <ApplicationLockChip
-                        key={displayAppLock.lock.lockId}
+                        key={
+                            displayAppLock.application +
+                            '_' +
+                            displayAppLock.environment.name +
+                            displayAppLock.lock.lockId
+                        }
                         environment={displayAppLock.environment}
                         environmentGroup={displayAppLock.environmentGroup}
                         application={displayAppLock.application}

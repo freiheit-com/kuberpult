@@ -18,11 +18,11 @@ package versions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"strconv"
 	"time"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
@@ -30,8 +30,10 @@ import (
 	"github.com/argoproj/argo-cd/v2/util/grpc"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"k8s.io/utils/lru"
@@ -56,6 +58,7 @@ type versionClient struct {
 	versionClient  api.VersionServiceClient
 	cache          *lru.Cache
 	ArgoProcessor  argo.ArgoAppProcessor
+	db             db.DBHandler
 }
 
 type VersionInfo struct {
@@ -79,67 +82,39 @@ var ZeroVersion VersionInfo
 
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
-	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
-	tr, err := v.tryGetVersion(environment, application)
-	if err == nil {
-		return tr, nil
-	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "GetVersionRequest")
+	// use db access see cd-service/pkg/services/version
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetVersion")
 	defer span.Finish()
 	span.SetTag("GitRevision", revision)
-	span.SetTag("Application", application)
 	span.SetTag("Environment", environment)
-	info, err := v.versionClient.GetVersion(ctx, &api.GetVersionRequest{
-		GitRevision: revision,
-		Environment: environment,
-		Application: application,
-	})
+	span.SetTag("Application", application)
+
+	releaseVersion, err := strconv.ParseUint(revision, 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not parse GitRevision '%s' for app '%s' in env '%s': %w",
+			revision, application, environment, err)
 	}
-	return &VersionInfo{
-		Version:        info.Version,
-		SourceCommitId: info.SourceCommitId,
-		DeployedAt:     info.DeployedAt.AsTime(),
-	}, nil
-}
-
-// Tries getting the version from cache
-func (v *versionClient) tryGetVersion(environment, application string) (*VersionInfo, error) {
-	var appDetails *api.GetAppDetailsResponse
-	entry, ok := v.cache.Get(application)
-	if !ok {
-		return nil, ErrNotFound
-	}
-	appDetails = entry.(*api.GetAppDetailsResponse)
-
-	if deployment, exists := appDetails.Deployments[environment]; exists {
-		deployedVersion := deployment.Version
+	return db.WithTransactionT[VersionInfo](&v.db, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
+		deployment, err := v.db.DBSelectSpecificDeploymentHistory(ctx, tx, application, environment, releaseVersion)
+		if err != nil || deployment == nil {
+			return nil, onErr(fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, application, err))
+		}
+		release, err := v.db.DBSelectReleaseByVersion(ctx, tx, application, releaseVersion, true)
+		if err != nil {
+			return nil, onErr(fmt.Errorf("could not get release of app %s: %v", application, err))
+		}
+		if release == nil {
+			return nil, onErr(fmt.Errorf("no release found for env='%s' and app='%s'", environment, application))
+		}
 		return &VersionInfo{
-			Version:        deployedVersion,
-			SourceCommitId: sourceCommitId(appDetails.Application.Releases, deployment),
-			DeployedAt:     deployedAtFromApp(deployment),
+			Version:        releaseVersion,
+			DeployedAt:     deployment.Created,
+			SourceCommitId: release.Metadata.SourceCommitId,
 		}, nil
-	}
-	return &ZeroVersion, nil
+	})
 }
 
 func deployedAt(deployment *api.Deployment) time.Time {
-	if deployment.DeploymentMetaData == nil {
-		return time.Time{}
-	}
-	deployTime := deployment.DeploymentMetaData.DeployTime
-	if deployTime != "" {
-		dt, err := strconv.ParseInt(deployTime, 10, 64)
-		if err != nil {
-			return time.Time{}
-		}
-		return time.Unix(dt, 0).UTC()
-	}
-	return time.Time{}
-}
-
-func deployedAtFromApp(deployment *api.Deployment) time.Time {
 	if deployment.DeploymentMetaData == nil {
 		return time.Time{}
 	}
@@ -268,7 +243,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 						dt := deployedAt(deployment)
 						sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
-						l.Info("version.process", zap.String("application", appName), zap.String("environment", env.Name), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt))
+						l.Info("version.process", zap.String("application", appName), zap.String("environment", env.Name), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt), zap.String("commitid", sc))
 
 						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
 							Application:      appName,
@@ -317,12 +292,13 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, db db.DBHandler, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) VersionClient {
 	result := &versionClient{
 		cache:          lru.New(20),
 		overviewClient: oclient,
 		versionClient:  vclient,
-		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
+		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics),
+		db:             db,
 	}
 	return result
 }

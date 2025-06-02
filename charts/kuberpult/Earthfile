@@ -1,7 +1,7 @@
 VERSION 0.8
 
 godeps:
-    FROM golang:1.23-alpine
+    FROM golang:1.24-alpine
 
     RUN apk add curl
 
@@ -56,16 +56,12 @@ chart-tarball:
 
     WORKDIR /kp
 
-    COPY ../../+migration-deps/* migrations
     COPY +chart.yaml/Chart.yaml .
     COPY values.yaml .
     COPY templates templates
 
     RUN helm dependency update
-    RUN helm template -s templates/migrations.yaml ./ -f values.yaml --set git.url=test --set ingress.domainName=kuberpult.example.com > templates/generated-migrations.yaml
     RUN rm -rf charts
-    RUN rm -rf migrations
-    RUN rm templates/migrations.yaml
     RUN helm dependency update
     RUN tar -xzvf charts/*.tgz --directory=charts
 

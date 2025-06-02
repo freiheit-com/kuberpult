@@ -37,6 +37,7 @@ const (
 	PermissionCreateUndeploy               = "CreateUndeploy"
 	PermissionDeployUndeploy               = "DeployUndeploy"
 	PermissionCreateEnvironment            = "CreateEnvironment"
+	PermissionDeleteEnvironment            = "DeleteEnvironment"
 	PermissionDeleteEnvironmentApplication = "DeleteEnvironmentApplication"
 	PermissionDeployReleaseTrain           = "DeployReleaseTrain"
 	// The default permission template.
@@ -65,6 +66,7 @@ func initPolicyConfig() policyConfig {
 			PermissionCreateUndeploy,
 			PermissionDeployUndeploy,
 			PermissionCreateEnvironment,
+			PermissionDeleteEnvironment,
 			PermissionDeleteEnvironmentApplication,
 			PermissionDeployReleaseTrain},
 	}
@@ -312,7 +314,7 @@ func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBA
 				return nil, err
 			}
 			if teams[t] >= 1 {
-				return nil, fmt.Errorf("team " + t + " listed more than one time")
+				return nil, fmt.Errorf("team %s listed more than one time", t)
 			}
 
 			AddUsersToTeam(t, u, teamPermissions)

@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package release
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -48,6 +49,7 @@ type commandLineArguments struct {
 	useDexAuthentication bool
 	isPrepublish         bool
 	ciLink               cli_utils.RepeatedString
+	dryRun               bool
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -105,7 +107,7 @@ func argsValid(cmdArgs *commandLineArguments) (result bool, errorMessage string)
 	}
 
 	if len(cmdArgs.environments.Values) == 0 {
-		return false, "the args --enviornment and --manifest must be set at least once"
+		return false, "the args --environment and --manifest must be set at least once"
 	}
 
 	if len(cmdArgs.team.Values) > 1 {
@@ -208,6 +210,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 	fs.Var(&cmdArgs.signatures, "signature", "the name of the file containing the signature of the manifest to be deployed (must be set immediately after --manifest)")
 	fs.BoolVar(&cmdArgs.useDexAuthentication, "use_dex_auth", false, "use /api/release endpoint, if set to true, dex must be enabled and dex token must be provided otherwise the request will be denied")
 	fs.BoolVar(&cmdArgs.isPrepublish, "prepublish", false, "if set to true, it will create a prepublish release")
+	fs.BoolVar(&cmdArgs.dryRun, "dry-run", false, "Run in dry-run mode, do not publish, but return the manifest diff instead")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -218,17 +221,17 @@ func readArgs(args []string) (*commandLineArguments, error) {
 	}
 
 	if ok, msg := environmentsManifestsPaired(args); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	if !cmdArgs.skipSignatures && !cmdArgs.useDexAuthentication {
 		if ok, msg := manifestsSignaturesPaired(args); !ok {
-			return nil, fmt.Errorf(msg)
+			return nil, errors.New(msg)
 		}
 	}
 
 	if ok, msg := argsValid(&cmdArgs); !ok {
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return &cmdArgs, nil
@@ -297,6 +300,8 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 	}
 	rp.UseDexAuthentication = cmdArgs.useDexAuthentication
 	rp.IsPrepublish = cmdArgs.isPrepublish
+	rp.DryRun = cmdArgs.dryRun
+
 	return &rp, nil
 }
 

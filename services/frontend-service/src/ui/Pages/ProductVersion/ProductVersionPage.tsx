@@ -25,7 +25,7 @@ export const ProductVersionPage: React.FC = () => {
     }
     return (
         <div>
-            <TopAppBar showAppFilter={true} showTeamFilter={true} showWarningFilter={false} />
+            <TopAppBar showAppFilter={true} showTeamFilter={true} showWarningFilter={false} showGitSyncStatus={false} />
             <main className="main-content">
                 <ProductVersion />
             </main>

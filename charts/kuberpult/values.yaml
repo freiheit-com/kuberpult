@@ -73,6 +73,9 @@ git:
   # Recommendation: Only activate this option, if frequent database backups are made and if the git repo takes up too many resources.
   minimizeExportedData: false
 
+  # The size of the volume that stores the local data for the git repository
+  emptyDirSize: 30Gi
+
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 kubernetesEngine: "GKE"
 
@@ -92,6 +95,16 @@ cd:
 # List of allowed domains that the links provided in releases, release trains and locks must match
   allowedDomains: ""
   cacheTtlHours: 24
+  maxNumberOfThreads: 3
+
+  # The lockType option is EXPERIMENTAL and may be removed or changed without a breaking change.
+  # By default, (lockType: "go") the cd-service uses in-memory go-locks to make sure that
+  # destructive actions like deleting an app are only run by one transaction at a time.
+  # With database locks (lockType: "db") kuberpult will not use go-locks, but instead postgres-locks.
+  # These have the advantage that they are not limited to one cd-service pod.
+  # LockType: "none" means there is no locking at all, increasing the risk of an inconsistent database state.
+  # This lock type should only be used for testing purposes.
+  lockType: "go"
   service:
     annotations: {}
   pod:
@@ -104,6 +117,8 @@ cd:
 # With the queue, the cd-service processes only one request at a time, which is very much required when using git.
 # With the database, this is not required anymore.
     disableQueue: false
+  # The maximum message size in megabytes the client can receive.
+  grpcMaxRecvMsgSize: 4
   resources:
     limits:
       cpu: 2
@@ -138,14 +153,12 @@ db:
   dbName: "databaseName"
   dbUser: "username"
   dbPassword: "password"
-  migrations: /migrations
   # SSL mode to be used by the database
   sslMode: verify-full
   requests:
     cpu: "100m"
     memory: "200Mi"
-  connections:
-    # You need to ensure that your sql server can handle at least
+  connections:    # You need to ensure that your sql server can handle at least
     # `cd.maxOpen + manifestRepoExport.maxOpen` connections in parallel.
     cd:
       # The cd-service may need to respond to many parallel requests,
@@ -157,7 +170,19 @@ db:
       # It does have grpc endpoints that are very specific for some git operations, which most people will not use.
       maxOpen: 5
       maxIdle: 2
+    rollout:
+      maxOpen: 100
+      maxIdle: 20
+    reposerver:
+      maxOpen: 5
+      maxIdle: 2
+  # Kuberpult only checks for custom migrations if this flag is enabled. Otherwise, it skips them entirely, assuming
+  # that there is no information we want to migrate from an existing manifest repository to the database.
+  # You should only enable this flag, if you want to do a one-step upgrade of kuberpult from a (relatively old) version that still uses git as storage.
+  # If you are already using the database, ignore this flag.
+  checkCustomMigrations: false
 manifestRepoExport:
+  enabled: true
   image: kuberpult-manifest-repo-export-service
   service:
     annotations: {}
@@ -211,7 +236,7 @@ frontend:
   batchClient:
     # This value needs to be higher than the network timeout for git
     timeout: 2m
-  # The maximum message size in mega bytes the client can receive.
+  # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
 rollout:
   enabled: false
@@ -227,14 +252,62 @@ rollout:
     requests:
       cpu: 500m
       memory: 250Mi
-  # The maximum message size in mega bytes the client can receive.
+  # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
-
+  # Enables the persistence of ArgoCD events on the database.
+  persistArgoEvents: false
+  # If `persistArgoEvents` is enabled, this value dictates how many ArgoCD events must be received before they are
+  # written to the database. This parameter can improve performance if you have a lot of ArgoCD events.
+  argoEventsBatchSize: 1
+  # Size of the channel that holds the ArgoCD Events received by the rollout service.
+  argoEventsChannelSize: 50
+  # Size of the channel that holds the Kuberpult Events received by the rollout service.
+  kuberpultEventsChannelSize: 50
+  metrics:
+    # If `RevolutionMetricsEnabled` is enabled, Kuberpult sends metrics regarding successful and failed DORA events
+    doraMetricsEnabled: false
+    # If `ArgoEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding argocd events received by the
+    # rollout service. Useful for diagnosing possible bottlenecks on rollout service.
+    argoEventsMetricsEnabled: false
+    # If `KuberpultEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding kuberpult events received by the
+    # rollout service. Useful for diagnosing possible bottlenecks on rollout service
+    kuberpultEventsMetricsEnabled: false
+# Standalone reposerver service for interacting with argocd
+reposerver:
+  enabled: false
+  service:
+    annotations: {}
+  pod:
+    annotations: {}
+  image: kuberpult-reposerver-service
+  resources:
+    limits:
+      cpu: 500m
+      memory: 250Mi
+    requests:
+      cpu: 500m
+      memory: 250Mi
+  probes:
+    liveness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
+      initialDelaySeconds: 5
+    readiness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
+      initialDelaySeconds: 5
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
   # set to false, if you want to use your own ingress:
   create: false
   private: true
+  # PathType supports values "Prefix", "Exact", and "ImplementationSpecific"
+  # See https://kubernetes.io/docs/concepts/services-networking/ingress/#path-types
+  pathType: Prefix
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     kubernetes.io/ingress.allow-http: "false"
@@ -256,6 +329,7 @@ ingress:
   iap:
     enabled: false
     secretName: null
+    timeoutSec: 30
   tls:
     host: null
     secretName: kuberpult-tls-secret
@@ -440,8 +514,13 @@ revolution:
     # Maximum number of requests send in parallel.
     concurrency: 20
 
+    # If enabled, revolution isn't actually contacted with new events and Kuberpult simply logs the events it would have sent.
+    # Useful if you don't want to overload Revolution with events while debugging.
+    dryRun: false
+    maxAge: 2h
+
 # Whether the rollout service should self-manage applications
 manageArgoApplications:
   enabled: false
-  # List of teams that should be self managed by the rollout service.
+  # DEPRECATED: List of teams that should be self managed by the rollout service.
   filter: []

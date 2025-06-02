@@ -42,6 +42,10 @@ func FailedPrecondition(_ context.Context, err error) error {
 	return status.Error(codes.FailedPrecondition, "error: "+err.Error())
 }
 
+func InvalidArgument(_ context.Context, err error) error {
+	return status.Error(codes.InvalidArgument, "error: "+err.Error())
+}
+
 func AuthError(_ context.Context, err error) error {
 	return status.Error(codes.Unauthenticated, "error: "+err.Error())
 }

@@ -29,31 +29,18 @@ import (
 	"strings"
 	"testing"
 
+	"context"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"golang.org/x/net/context"
 )
 
 const (
-	devEnv       = "dev"
+	devEnv       = "development"
 	stageEnv     = "staging"
 	frontendPort = "8081"
 )
-
-// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
-type errMatcher struct {
-	msg string
-}
-
-func (e errMatcher) Error() string {
-	return e.msg
-}
-
-func (e errMatcher) Is(err error) bool {
-	return e.Error() == err.Error()
-}
 
 func postWithForm(client *http.Client, url string, values map[string]io.Reader, files map[string]io.Reader) (*http.Response, error) {
 	// Prepare a form that you will submit to that URL.
@@ -399,7 +386,9 @@ func TestEnvironmentLock(t *testing.T) {
 
 			// Call the db to see if the release was deployed
 			deployment := callDBForDeployments(t, dbHandler, ctx, appName)
-			if deployment.App != "" {
+			if deployment == nil {
+				//continue
+			} else if deployment.App != "" {
 				t.Fatalf("expected no deployments")
 			}
 
@@ -526,7 +515,7 @@ func TestAppParameter(t *testing.T) {
 			values["version"] = strings.NewReader(strconv.Itoa(tc.inputVersion))
 
 			files := map[string]io.Reader{}
-			files["manifests[dev]"] = strings.NewReader("manifest")
+			files["manifests[development]"] = strings.NewReader("manifest")
 
 			actualStatusCode, actualBody, err := callRelease(values, files, "/api/release")
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {

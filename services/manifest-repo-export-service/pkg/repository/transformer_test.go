@@ -65,13 +65,13 @@ func (e errMatcher) Is(err error) bool {
 
 func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	ctx := context.Background()
-	migrationsPath, err := testutil.CreateMigrationsPath(4)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig := &db.DBConfig{
-		MigrationsPath: migrationsPath,
-		DriverName:     "sqlite3",
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
 	}
 
 	dir := t.TempDir()
@@ -90,17 +90,16 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	}
 
 	repoCfg := RepositoryConfig{
-		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
-		ArgoCdGenerateFiles: true,
-		ReleaseVersionLimit: 2,
+		URL:                  remoteDir,
+		Path:                 localDir,
+		CommitterEmail:       "kuberpult@freiheit.com",
+		CommitterName:        "kuberpult",
+		ArgoCdGenerateFiles:  true,
+		ReleaseVersionLimit:  2,
+		MinimizeExportedData: false,
 	}
 
 	if dbConfig != nil {
-		dbConfig.DbHost = dir
-
 		migErr := db.RunDBMigrations(ctx, *dbConfig)
 		if migErr != nil {
 			t.Fatal(migErr)
@@ -384,13 +383,9 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					}
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
@@ -453,8 +448,8 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 	for _, contentRequirement := range required {
 		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
-		} else if string(data) != string(contentRequirement.fileData) {
-			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.path, contentRequirement.fileData, string(data))
+		} else if diff := cmp.Diff(string(data), string(contentRequirement.fileData)); diff != "" {
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s", contentRequirement.path, diff)
 		}
 	}
 	return nil
@@ -464,7 +459,6 @@ func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 	for _, contentRequirement := range required {
 		if _, err := fs.Stat(contentRequirement.path); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				fmt.Printf("%s does not exists but is expected \n", contentRequirement.path)
 				return nil
 			}
 			return fmt.Errorf("Error on Stat for file %s: %v\n", contentRequirement.path, err)
@@ -590,13 +584,9 @@ func TestDeploymentEvent(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
@@ -784,13 +774,9 @@ func TestReleaseTrain(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
@@ -819,10 +805,6 @@ func TestReleaseTrain(t *testing.T) {
 						Environment: "staging",
 					},
 				}, []string{appName})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{"staging", "production"})
 				if err != nil {
 					return err
 				}
@@ -1324,13 +1306,9 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
@@ -1564,13 +1542,9 @@ func TestReplacedByEvents(t *testing.T) {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
@@ -1694,23 +1668,15 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{envAcceptance})
-				if err != nil {
-					return err
-				}
 
 				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, 1, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 				if err != nil {
 					return err
 				}
 
-				err = dbHandler.DBInsertApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBWriteAllApplications(ctx, transaction, int64(db.InitialEslVersion), []string{appName})
 				if err != nil {
 					return err
 				}
@@ -2259,11 +2225,7 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-						err2 = dbHandler.DBWriteAllApplications(ctx, transaction, 0, []string{appName})
+						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2365,7 +2327,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 		expectedMissing []*FilenameAndData
 	}{
 		{
-
 			Name: "Create undeploy application version and deploy it",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -2520,17 +2481,12 @@ func TestCreateUndeployLogic(t *testing.T) {
 					path:     "environments/acceptance/applications/app1/version/undeploy",
 					fileData: []byte(""),
 				},
-				{ //The second env has the undeploy version *queued*
-					path:     "environments/acceptance2/applications/app1/queued_version/undeploy",
-					fileData: []byte(""),
-				},
-			},
-			expectedMissing: []*FilenameAndData{
-				{ //The second env does NOT have the undeploy version
+				{ //The second env still has an undeploy, event with a lock
 					path:     "environments/acceptance2/applications/app1/version/undeploy",
 					fileData: []byte(""),
 				},
 			},
+			expectedMissing: []*FilenameAndData{},
 		},
 	}
 	for _, tc := range tcs {
@@ -2557,10 +2513,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 				if err2 != nil {
 					return err2
 				}
-				err2 = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{envAcceptance, envAcceptance2})
-				if err2 != nil {
-					return err2
-				}
 
 				//populate the database
 				for _, tr := range tc.Transformers {
@@ -2570,11 +2522,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-						err2 = dbHandler.DBWriteAllApplications(ctx, transaction, 0, []string{appName})
+						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2606,13 +2554,16 @@ func TestCreateUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
+					var version int64
+					version = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 							ReleaseNumber: 2,
 							App:           appName,
 							Manifests: db.DBReleaseManifests{
 								Manifests: map[string]string{ //empty manifest
-									"": "",
+									envAcceptance:  "",
+									envAcceptance2: "",
 								},
 							},
 							Metadata: db.DBReleaseMetaData{
@@ -2623,6 +2574,26 @@ func TestCreateUndeployLogic(t *testing.T) {
 								UndeployVersion: true,
 							},
 							Created: time.Now(),
+						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
+						})
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance2,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
 						})
 						if err2 != nil {
 							t.Fatal(err2)
@@ -2959,10 +2930,6 @@ func TestUndeployLogic(t *testing.T) {
 				if err2 != nil {
 					return err2
 				}
-				err2 = dbHandler.DBWriteAllEnvironments(ctx, transaction, []string{envAcceptance, envAcceptance2})
-				if err2 != nil {
-					return err2
-				}
 				//populate the database
 				for _, tr := range tc.Transformers {
 					err2 := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
@@ -2971,11 +2938,7 @@ func TestUndeployLogic(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-						err2 = dbHandler.DBWriteAllApplications(ctx, transaction, 0, []string{concreteTransformer.Application})
+						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -3007,6 +2970,8 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
+					var version int64
+					version = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						concreteTransformer := tr.(*CreateUndeployApplicationVersion)
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
@@ -3025,6 +2990,28 @@ func TestUndeployLogic(t *testing.T) {
 								UndeployVersion: true,
 							},
 							Created: time.Now(),
+						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
+						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
+						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+							Version:       &version,
+							App:           appName,
+							Env:           envAcceptance,
+							Metadata:      db.DeploymentMetadata{},
+							Created:       time.Now(),
+							TransformerID: tr.GetEslVersion(),
 						})
 						if err2 != nil {
 							t.Fatal(err2)
@@ -3061,6 +3048,216 @@ func TestUndeployLogic(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
+			}
+			updatedState := repo.State()
+
+			if err := verifyContent(updatedState.Filesystem, tc.expectedData); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
+				t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+func TestDeleteEnvironment(t *testing.T) {
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	envAcceptanceConfig := config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true},
+		ArgoCd:   &config.EnvironmentConfigArgoCd{},
+	}
+	envAcceptance2Config := config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true},
+		ArgoCd:   &config.EnvironmentConfigArgoCd{},
+	}
+
+	tcs := []struct {
+		Name            string
+		Transformers    []Transformer
+		expectedData    []*FilenameAndData
+		expectedMissing []*FilenameAndData
+		expectedMessage string
+		expectedError   error
+	}{
+		{
+			Name: "create an environment and delete it",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      envAcceptanceConfig,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&DeleteEnvironment{
+					Environment: envAcceptance,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/environments/acceptance",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/argocd/v1alpha1/acceptance.yaml",
+					fileData: []byte(authorEmail),
+				},
+			},
+			expectedMessage: "delete environment \"acceptance\"",
+		},
+		{
+			Name: "create two environments and delete one of them",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      envAcceptanceConfig,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance2,
+					Config:      envAcceptance2Config,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+				&DeleteEnvironment{
+					Environment: envAcceptance,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 3,
+				},
+			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/environments/acceptance",
+					fileData: []byte(authorEmail),
+				},
+				{
+					path:     "/argocd/v1alpha1/acceptance.yaml",
+					fileData: []byte(authorEmail),
+				},
+			},
+			expectedData: []*FilenameAndData{
+				{
+					path: "/environments/acceptance2/config.json",
+					fileData: []byte(`{
+  "upstream": {
+    "environment": "acceptance2",
+    "latest": true
+  },
+  "argocd": {
+    "destination": {
+      "name": "",
+      "server": ""
+    }
+  }
+}
+`),
+				},
+				{
+					path: "/argocd/v1alpha1/acceptance2.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: acceptance2
+spec:
+  description: acceptance2
+  destinations:
+  - {}
+  sourceRepos:
+  - '*'
+`),
+				},
+			},
+			expectedMessage: "delete environment \"acceptance\"",
+		},
+		{
+			Name: "delete an environment that does not exist",
+			Transformers: []Transformer{
+				&DeleteEnvironment{
+					Environment: envAcceptance,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+			},
+			expectedMessage: "delete environment \"acceptance\"",
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, _ := setupRepositoryTestWithPath(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err2 != nil {
+					t.Fatal(err2)
+				}
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig, []string{})
+				if err2 != nil {
+					return err2
+				}
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config, []string{})
+				if err2 != nil {
+					return err2
+				}
+				//populate the database
+				for _, tr := range tc.Transformers {
+					err2 := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err2 != nil {
+						t.Fatal(err2)
+					}
+				}
+
+				for _, t := range tc.Transformers {
+					err := repo.Apply(ctx, transaction, t)
+					if err != nil {
+						return err
+					}
+					// just for testing, we push each transformer change separately.
+					// if you need to debug this test, you can git clone the repo
+					// and we will only see anything if we push.
+					err = repo.PushRepo(ctx)
+					if err != nil {
+						return err
+					}
+				}
+
+				actualMsg := repo.State().Commit.Message()
+				if diff := cmp.Diff(tc.expectedMessage, actualMsg); diff != "" {
+					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			updatedState := repo.State()
 

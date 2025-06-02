@@ -18,10 +18,18 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+
 	"io"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -103,8 +111,9 @@ func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T) {
 }
 
 // Process implements service.EventProcessor
-func (m *mockApplicationServiceClient) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
+func (m *mockApplicationServiceClient) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEvent {
 	m.lastEvent <- &ev
+	return &ev
 }
 
 type version struct {
@@ -132,7 +141,7 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, env
 	m.attemptCount[key] = current + 1
 	for _, v := range m.versions {
 		if v.Revision == revision && v.Environment == environment && v.Application == application && v.Attempt == current {
-			return &versions.VersionInfo{Version: v.DeployedVersion}, v.Error
+			return &versions.VersionInfo{Version: v.DeployedVersion}, nil
 		}
 	}
 	return nil, fmt.Errorf("no")
@@ -140,7 +149,65 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, env
 
 var _ versions.VersionClient = (*mockVersionClient)(nil)
 
-func TestArgoConection(t *testing.T) {
+type Gauge struct {
+	Name  string
+	Value float64
+	Tags  []string
+	Rate  float64
+}
+
+type Count struct {
+	Name  string
+	Value float64
+	Tags  []string
+	Rate  float64
+}
+
+type MockClient struct {
+	events []*statsd.Event
+	Gauges []Gauge
+	Counts []Count
+	statsd.ClientInterface
+}
+
+func (c *MockClient) Gauge(name string, value float64, tags []string, rate float64) error {
+	c.Gauges = append(c.Gauges, Gauge{
+		Name:  name,
+		Value: value,
+		Tags:  tags,
+		Rate:  rate,
+	})
+	return nil
+}
+
+// Incr is count of 1
+func (c *MockClient) Incr(name string, tags []string, rate float64) error {
+	c.Counts = append(c.Counts, Count{
+		Name:  name,
+		Value: 1,
+		Tags:  tags,
+		Rate:  rate,
+	})
+	return nil
+}
+
+func TestArgoConnection(t *testing.T) {
+	makeGauge := func(name string, val float64, tags []string, rate float64) Gauge {
+		return Gauge{
+			Name:  name,
+			Value: val,
+			Tags:  tags,
+			Rate:  rate,
+		}
+	}
+	makeCount := func(name string, tags []string, rate float64) Count {
+		return Count{
+			Name:  name,
+			Value: 1,
+			Tags:  tags,
+			Rate:  rate,
+		}
+	}
 	tcs := []struct {
 		Name          string
 		KnownVersions []version
@@ -148,6 +215,11 @@ func TestArgoConection(t *testing.T) {
 
 		ExpectedError error
 		ExpectedReady bool
+
+		expectedGauges []Gauge
+		expectedCounts []Count
+
+		channelSize int
 	}{
 		{
 			Name: "stops without error when ctx is closed on Recv call",
@@ -157,6 +229,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: false,
 		},
 		{
@@ -170,7 +243,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
-
+			channelSize:   10,
 			ExpectedReady: false,
 		},
 		{
@@ -181,6 +254,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
 		},
 		{
@@ -194,6 +268,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
 		},
 		{
@@ -225,6 +300,7 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
 		},
 		{
@@ -269,7 +345,11 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
+			expectedGauges: []Gauge{
+				makeGauge("argo_events_fill_rate", 0.1, []string{}, 1),
+			},
 		},
 		{
 			Name: "doesnt generate events for deleted",
@@ -305,7 +385,7 @@ func TestArgoConection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     &versions.VersionInfo{Version: 0},
+						Version:     &versions.VersionInfo{Version: 42},
 					},
 				},
 				{
@@ -313,7 +393,11 @@ func TestArgoConection(t *testing.T) {
 					CancelContext: true,
 				},
 			},
+			channelSize:   10,
 			ExpectedReady: true,
+			expectedGauges: []Gauge{
+				makeGauge("argo_events_fill_rate", 0.1, []string{}, 1),
+			},
 		},
 		{
 			Name: "recovers from errors",
@@ -336,7 +420,7 @@ func TestArgoConection(t *testing.T) {
 			Steps: []step{
 				{
 					Event: &v1alpha1.ApplicationWatchEvent{
-						Type: "ADDED",
+						Type: "MODIFIED",
 						Application: v1alpha1.Application{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "doesntmatter",
@@ -357,7 +441,7 @@ func TestArgoConection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{},
 					},
 				},
 				{
@@ -366,6 +450,13 @@ func TestArgoConection(t *testing.T) {
 				},
 			},
 			ExpectedReady: true,
+			channelSize:   0, //Ok to get discarded events, as there is nobody listening to them
+			expectedGauges: []Gauge{
+				makeGauge("argo_events_fill_rate", 1, []string{}, 1),
+			},
+			expectedCounts: []Count{
+				makeCount("argo_discarded_events", []string{}, 1),
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -379,11 +470,30 @@ func TestArgoConection(t *testing.T) {
 				t:         t,
 				lastEvent: make(chan *ArgoEvent, 10),
 			}
+			dbHandler := SetupDB(t)
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
 			hlth := &setup.HealthServer{}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			dispatcher := NewDispatcher(&as, &mockVersionClient{versions: tc.KnownVersions})
-			go dispatcher.Work(ctx, hlth.Reporter("dispatcher"))
-			err := ConsumeEvents(ctx, &as, dispatcher, hlth.Reporter("consume"))
+			EventConsumer := ArgoEventConsumer{
+				Dispatcher:     dispatcher,
+				HealthReporter: hlth.Reporter("consume"),
+				AppClient:      &as,
+				ArgoAppProcessor: &argo.ArgoAppProcessor{
+					ApplicationClient:       nil,
+					ManageArgoAppsEnabled:   true,
+					ManageArgoAppsFilter:    []string{},
+					ArgoApps:                make(chan *v1alpha1.ApplicationWatchEvent, tc.channelSize),
+					KuberpultMetricsEnabled: false,
+					ArgoAppsMetricsEnabled:  true,
+					DDMetrics:               client,
+				},
+				DDMetrics:         client,
+				DBHandler:         dbHandler,
+				PersistArgoEvents: false,
+			}
+			err := EventConsumer.ConsumeEvents(ctx)
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -391,7 +501,401 @@ func TestArgoConection(t *testing.T) {
 			if tc.ExpectedReady != ready {
 				t.Errorf("expected ready to be %t but got %t", tc.ExpectedReady, ready)
 			}
+			if diff := cmp.Diff(tc.expectedGauges, mockClient.Gauges); diff != "" {
+				t.Errorf("gauges mismatch (-want, +got):\n%s", diff)
+			}
+			as.testAllConsumed(t)
+
+		})
+	}
+}
+
+func TestArgoEvents(t *testing.T) {
+	const appName = "appName"
+	const envName = "envName"
+	const targetRevision = "1234"
+	const deployedVersion = 42
+
+	const aaEnv1 = "test-env-de-1"
+	const aaEnv2 = "test-env-de-2"
+	const parentAAEnvironment = "env"
+
+	type DBArgoEventData struct {
+		AppName         string
+		EnvName         string
+		Revision        string
+		deployedVersion int
+	}
+
+	tcs := []struct {
+		Name          string
+		KnownVersions []version
+		Steps         []step
+
+		ExpectedError   error
+		ExpectedReady   bool
+		ExpectedDBEvent DBArgoEventData
+
+		persistArgoEvents bool
+		argoBufferSize    int
+		channelSize       int
+	}{
+		{
+			Name: "Turned off does not generate events on the database",
+			KnownVersions: []version{
+				{
+					Revision:        targetRevision,
+					Environment:     envName,
+					Application:     appName,
+					DeployedVersion: deployedVersion,
+				},
+			},
+			Steps: []step{
+				{
+					Event: &v1alpha1.ApplicationWatchEvent{
+						Type: "ADDED",
+						Application: v1alpha1.Application{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: envName,
+								Annotations: map[string]string{
+									ARGO_APP_ENVIRONMENT_TAG: envName,
+									ARGO_APP_APPLICATION_TAG: appName,
+								},
+							},
+							Spec: v1alpha1.ApplicationSpec{
+								Project: "foo",
+							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync:   v1alpha1.SyncStatus{Revision: targetRevision},
+								Health: v1alpha1.HealthStatus{},
+							},
+						},
+					},
+					ExpectedEvent: &ArgoEvent{
+						Application: appName,
+						Environment: envName,
+						Version:     &versions.VersionInfo{Version: deployedVersion},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			channelSize:       10,
+			persistArgoEvents: true,
+			argoBufferSize:    1,
+			ExpectedReady:     true,
+			ExpectedDBEvent: DBArgoEventData{
+				AppName:         appName,
+				EnvName:         envName,
+				deployedVersion: deployedVersion,
+				Revision:        targetRevision,
+			},
+		},
+		{
+			Name: "generates events for applications that were generated by kuberpult",
+			KnownVersions: []version{
+				{
+					Revision:        targetRevision,
+					Environment:     envName,
+					Application:     appName,
+					DeployedVersion: deployedVersion,
+				},
+			},
+			Steps: []step{
+				{
+					Event: &v1alpha1.ApplicationWatchEvent{
+						Type: "ADDED",
+						Application: v1alpha1.Application{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: envName,
+								Annotations: map[string]string{
+									ARGO_APP_ENVIRONMENT_TAG: envName,
+									ARGO_APP_APPLICATION_TAG: appName,
+								},
+							},
+							Spec: v1alpha1.ApplicationSpec{
+								Project: "foo",
+							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync:   v1alpha1.SyncStatus{Revision: targetRevision},
+								Health: v1alpha1.HealthStatus{},
+							},
+						},
+					},
+					ExpectedEvent: &ArgoEvent{
+						Application: appName,
+						Environment: envName,
+						Version:     &versions.VersionInfo{Version: deployedVersion},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			channelSize:       10,
+			persistArgoEvents: true,
+			argoBufferSize:    1,
+			ExpectedReady:     true,
+			ExpectedDBEvent: DBArgoEventData{
+				AppName:         appName,
+				EnvName:         envName,
+				deployedVersion: deployedVersion,
+				Revision:        targetRevision,
+			},
+		},
+		{
+			Name: "doesnt generate events for deleted",
+			KnownVersions: []version{
+				{
+					Revision:        targetRevision,
+					Environment:     envName,
+					Application:     appName,
+					DeployedVersion: deployedVersion,
+				},
+			},
+			Steps: []step{
+				{
+					Event: &v1alpha1.ApplicationWatchEvent{
+						Type: "DELETED",
+						Application: v1alpha1.Application{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: envName,
+								Annotations: map[string]string{
+									ARGO_APP_ENVIRONMENT_TAG: envName,
+									ARGO_APP_APPLICATION_TAG: appName,
+								},
+							},
+							Spec: v1alpha1.ApplicationSpec{
+								Project: "foo",
+							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync:   v1alpha1.SyncStatus{Revision: targetRevision},
+								Health: v1alpha1.HealthStatus{},
+							},
+						},
+					},
+					ExpectedEvent: &ArgoEvent{
+						Application: appName,
+						Environment: envName,
+						Version:     &versions.VersionInfo{Version: deployedVersion},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			channelSize:       10,
+			persistArgoEvents: true,
+			argoBufferSize:    1,
+			ExpectedReady:     true,
+			ExpectedDBEvent: DBArgoEventData{
+				AppName:         appName,
+				EnvName:         envName,
+				deployedVersion: deployedVersion,
+				Revision:        targetRevision,
+			},
+		},
+		{
+			Name: "events for aa environments work",
+			KnownVersions: []version{
+				{
+					Revision:        targetRevision,
+					Environment:     parentAAEnvironment,
+					Application:     appName,
+					DeployedVersion: deployedVersion,
+				},
+			},
+			Steps: []step{
+				{
+					Event: &v1alpha1.ApplicationWatchEvent{
+						Type: "ADDED",
+						Application: v1alpha1.Application{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: envName,
+								Annotations: map[string]string{
+									ARGO_APP_ENVIRONMENT_TAG:        aaEnv1,
+									ARGO_APP_APPLICATION_TAG:        appName,
+									ARGO_APP_PARENT_ENVIRONMENT_TAG: parentAAEnvironment,
+								},
+							},
+							Spec: v1alpha1.ApplicationSpec{
+								Project: "foo",
+							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync:   v1alpha1.SyncStatus{Revision: targetRevision},
+								Health: v1alpha1.HealthStatus{},
+							},
+						},
+					},
+					ExpectedEvent: &ArgoEvent{
+						Application: appName,
+						Environment: aaEnv1,
+						Version:     &versions.VersionInfo{Version: deployedVersion},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			channelSize:       10,
+			persistArgoEvents: true,
+			argoBufferSize:    1,
+			ExpectedReady:     true,
+			ExpectedDBEvent: DBArgoEventData{
+				AppName:         appName,
+				EnvName:         aaEnv1,
+				deployedVersion: deployedVersion,
+				Revision:        targetRevision,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			as := mockApplicationServiceClient{
+				Steps:     tc.Steps,
+				cancel:    cancel,
+				t:         t,
+				lastEvent: make(chan *ArgoEvent, 10),
+			}
+			dbHandler := SetupDB(t)
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
+			hlth := &setup.HealthServer{}
+			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
+			dispatcher := NewDispatcher(&as, &mockVersionClient{versions: tc.KnownVersions})
+			EventConsumer := ArgoEventConsumer{
+				Dispatcher:     dispatcher,
+				HealthReporter: hlth.Reporter("consume"),
+				AppClient:      &as,
+				ArgoAppProcessor: &argo.ArgoAppProcessor{
+					ApplicationClient:     nil,
+					ManageArgoAppsEnabled: true,
+					ManageArgoAppsFilter:  []string{},
+					ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, tc.channelSize),
+				},
+				DDMetrics:           client,
+				DBHandler:           dbHandler,
+				PersistArgoEvents:   tc.persistArgoEvents,
+				ArgoEventsBatchSize: tc.argoBufferSize,
+			}
+			err := EventConsumer.ConsumeEvents(ctx)
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			ready := hlth.IsReady("consume")
+			if tc.ExpectedReady != ready {
+				t.Errorf("expected ready to be %t but got %t", tc.ExpectedReady, ready)
+			}
+			sampleEvent, _ := ToDBEvent(Key{Application: tc.ExpectedDBEvent.AppName, Environment: tc.ExpectedDBEvent.EnvName}, &v1alpha1.ApplicationWatchEvent{
+				Type: "ADDED",
+				Application: v1alpha1.Application{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: tc.ExpectedDBEvent.EnvName,
+						Annotations: map[string]string{
+							ARGO_APP_ENVIRONMENT_TAG: tc.ExpectedDBEvent.EnvName,
+							ARGO_APP_APPLICATION_TAG: tc.ExpectedDBEvent.AppName,
+						},
+					},
+					Spec: v1alpha1.ApplicationSpec{
+						Project: "foo",
+					},
+					Status: v1alpha1.ApplicationStatus{
+						Sync:   v1alpha1.SyncStatus{Revision: tc.ExpectedDBEvent.Revision},
+						Health: v1alpha1.HealthStatus{},
+					},
+				},
+			}, &versions.VersionInfo{Version: uint64(tc.ExpectedDBEvent.deployedVersion)}, false)
+			dbCtx := testutil.MakeTestContext()
+			result, err := db.WithTransactionT(dbHandler, dbCtx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.ArgoEvent, error) {
+				r, err := dbHandler.DBReadArgoEvent(dbCtx, transaction, tc.ExpectedDBEvent.AppName, tc.ExpectedDBEvent.EnvName)
+				return r, err
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result == nil {
+				if !tc.persistArgoEvents {
+					return
+				}
+				t.Fatalf("no argo event found for app %q on env %q", tc.ExpectedDBEvent.AppName, tc.ExpectedDBEvent.EnvName)
+			}
+
+			if diff := cmp.Diff(sampleEvent, *result); diff != "" {
+				t.Errorf("argo events mismatch (-want, +got):\n%s", diff)
+			}
+
 			as.testAllConsumed(t)
 		})
 	}
+}
+
+// SetupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
+func SetupDB(t *testing.T) *db.DBHandler {
+	ctx := context.Background()
+	migrationsPath, err := db.CreateMigrationsPath(4)
+	tmpDir := t.TempDir()
+	t.Logf("directory for DB migrations: %s", migrationsPath)
+	t.Logf("tmp dir for DB data: %s", tmpDir)
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
+	}
+
+	migErr := db.RunDBMigrations(ctx, *dbConfig)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := db.Connect(ctx, *dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		err1 := dbHandler.DBWriteEslEventWithJson(ctx, transaction, db.EvtMigrationTransformer, "{}")
+		if err1 != nil {
+			return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
+		}
+
+		err1 = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []string{})
+		if err1 != nil {
+			return err1
+		}
+		err1 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{})
+		if err1 != nil {
+			return err1
+		}
+		err1 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+			ReleaseNumber: 1234,
+			Created:       time.Unix(123456789, 0).UTC(),
+			App:           "foo",
+			Manifests: db.DBReleaseManifests{
+				Manifests: map[string]string{"staging": ""},
+			},
+			Metadata: db.DBReleaseMetaData{},
+		})
+		if err1 != nil {
+			return err1
+		}
+		var version int64 = 1234
+		err1 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+			Created:       time.Unix(123456789, 0).UTC(),
+			App:           "foo",
+			Env:           "staging",
+			Version:       &version,
+			TransformerID: 1,
+		})
+		return err1
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dbHandler
 }

@@ -19,8 +19,11 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"sort"
 	"sync"
 	"testing"
+	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -47,6 +50,21 @@ func (m *mockOverviewService_StreamOverviewServer) Send(msg *api.GetOverviewResp
 }
 
 func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
+	return m.Ctx
+}
+
+type mockOverviewService_DeploymentHistoryServer struct {
+	grpc.ServerStream
+	Results chan *api.DeploymentHistoryResponse
+	Ctx     context.Context
+}
+
+func (m *mockOverviewService_DeploymentHistoryServer) Send(msg *api.DeploymentHistoryResponse) error {
+	m.Results <- msg
+	return nil
+}
+
+func (m *mockOverviewService_DeploymentHistoryServer) Context() context.Context {
 	return m.Ctx
 }
 
@@ -80,6 +98,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
+						ArgoCdConfigs:    testutil.MakeArgoCDConfigs("aa", "dev", 2),
 						EnvironmentGroup: &dev,
 					},
 				},
@@ -330,35 +349,12 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						Environments: []*api.Environment{
 							{
 								Name: development,
-								Locks: map[string]*api.Lock{
-									"manual": {
-										Message: "please",
-										LockId:  "manual",
-										CreatedBy: &api.Actor{
-											Name:  "test tester",
-											Email: "testmail@example.com",
-										},
-									},
-								},
-								TeamLocks: map[string]*api.Locks{
-									"test-team": {
-										Locks: []*api.Lock{
-											{
-												Message: "team lock message",
-												LockId:  "manual-team-lock",
-												CreatedBy: &api.Actor{
-													Name:  "test tester",
-													Email: "testmail@example.com",
-												},
-											},
-										},
-									},
-								},
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
-									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+									ArgoConfigs:      transformArgoCdConfigsToApi(testutil.MakeArgoCDConfigs("aa", "dev", 2)),
 									EnvironmentGroup: &dev,
 								},
 								Priority: api.Priority_UPSTREAM,
@@ -375,7 +371,8 @@ func TestOverviewAndAppDetails(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: &development,
 									},
-									Argocd:           &api.EnvironmentConfig_ArgoCD{Destination: &api.EnvironmentConfig_ArgoCD_Destination{}},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+									ArgoConfigs:      &api.EnvironmentConfig_ArgoConfigs{},
 									EnvironmentGroup: &staging,
 								},
 								DistanceToUpstream: 1,
@@ -390,27 +387,12 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						Environments: []*api.Environment{
 							{
 								Name: prod,
-								AppLocks: map[string]*api.Locks{
-									"test": {
-										Locks: []*api.Lock{
-											{
-												Message: "no",
-												LockId:  "manual",
-												CreatedBy: &api.Actor{
-													Name:  "test tester",
-													Email: "testmail@example.com",
-												},
-											},
-										},
-									},
-								},
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: &staging,
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
+									Argocd:           &api.EnvironmentConfig_ArgoCD{},
+									ArgoConfigs:      &api.EnvironmentConfig_ArgoConfigs{},
 									EnvironmentGroup: &prod,
 								},
 								DistanceToUpstream: 2,
@@ -427,16 +409,16 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						Team: "",
 					},
 					{
-						Name: "test-with-team",
-						Team: "test-team",
-					},
-					{
 						Name: "test-with-incorrect-pr-number",
 						Team: "",
 					},
 					{
 						Name: "test-with-only-pr-number",
 						Team: "",
+					},
+					{
+						Name: "test-with-team",
+						Team: "test-team",
 					},
 				},
 				GitRevision: "0000000000000000000000000000000000000000",
@@ -449,16 +431,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -479,6 +452,9 @@ func TestOverviewAndAppDetails(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
+			sort.Slice(ov.LightweightApps, func(i, j int) bool {
+				return ov.LightweightApps[i].Name < ov.LightweightApps[j].Name
+			})
 			if diff := cmp.Diff(tc.ExpectedOverview, ov, protocmp.Transform(), getOverviewIgnoredTypes(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
 				t.Errorf("overview missmatch (-want, +got): %s\n", diff)
 			}
@@ -497,17 +473,16 @@ func TestOverviewAndAppDetails(t *testing.T) {
 }
 func TestOverviewService(t *testing.T) {
 	var dev = "dev"
-	var upstreamLatest = true
 	tcs := []struct {
-		Name                   string
-		Setup                  []repository.Transformer
-		Test                   func(t *testing.T, svc *OverviewServiceServer)
-		DB                     bool
-		ExpectedCachedOverview *api.GetOverviewResponse
-		ExpectedAppDetails     map[string]*api.GetAppDetailsResponse //appName -> appDetails
+		Name               string
+		Setup              []repository.Transformer
+		Test               func(t *testing.T, svc *OverviewServiceServer)
+		DB                 bool
+		ExpectedAppDetails map[string]*api.GetAppDetailsResponse //appName -> appDetails
 	}{
 		{
 			Name: "A stream overview works",
+			DB:   true,
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "development",
@@ -518,12 +493,14 @@ func TestOverviewService(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "v1",
 					},
+					Version: 1,
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						"development": "v2",
 					},
+					Version: 2,
 				},
 				&repository.DeployApplicationVersion{
 					Application: "test",
@@ -553,7 +530,6 @@ func TestOverviewService(t *testing.T) {
 				if overview1 == nil {
 					t.Fatal("overview is nil")
 				}
-				v1 := overview1.GetEnvironmentGroups()[0].GetEnvironments()[0].GetLocks()
 
 				// Update a version and see that the version changed
 				err := svc.Repository.Apply(ctx, &repository.CreateEnvironmentLock{
@@ -574,10 +550,6 @@ func TestOverviewService(t *testing.T) {
 				if overview2 == nil {
 					t.Fatal("overview is nil")
 				}
-				v2 := overview2.GetEnvironmentGroups()[0].GetEnvironments()[0].GetLocks()
-				if diff := cmp.Diff(v1, v2); diff == "" {
-					t.Fatalf("Versions are not different: %q vs %q", v1, v2)
-				}
 
 				cancel()
 				wg.Wait()
@@ -586,39 +558,9 @@ func TestOverviewService(t *testing.T) {
 		{
 			Name: "Test with DB",
 			DB:   true,
-			ExpectedCachedOverview: &api.GetOverviewResponse{
-				EnvironmentGroups: []*api.EnvironmentGroup{
-					{
-						EnvironmentGroupName: "dev",
-						Environments: []*api.Environment{
-							{
-								Name: "development",
-								Config: &api.EnvironmentConfig{
-									Upstream: &api.EnvironmentConfig_Upstream{
-										Latest: &upstreamLatest,
-									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{},
-									},
-									EnvironmentGroup: &dev,
-								},
-								Priority: api.Priority_YOLO,
-							},
-						},
-						Priority: api.Priority_YOLO,
-					},
-				},
-				LightweightApps: []*api.OverviewApplication{
-					{
-						Name: "test",
-						Team: "team-123",
-					},
-				},
-				GitRevision: "0",
-			},
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
-					Environment: "development",
+					Environment: dev,
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
@@ -640,7 +582,7 @@ func TestOverviewService(t *testing.T) {
 					TransformerEslVersion: 1,
 					Application:           "test",
 					Manifests: map[string]string{
-						"dev": "v1",
+						dev: "v1",
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -656,7 +598,7 @@ func TestOverviewService(t *testing.T) {
 					TransformerEslVersion: 2,
 					Application:           "test",
 					Manifests: map[string]string{
-						"dev": "v2",
+						dev: "v2",
 					},
 				},
 			},
@@ -682,7 +624,7 @@ func TestOverviewService(t *testing.T) {
 					t.Errorf("dev environmentGroup has wrong name: %q", devGroup.EnvironmentGroupName)
 				}
 				dev := devGroup.Environments[0]
-				if dev.Name != "development" {
+				if dev.Name != "dev" {
 					t.Errorf("development environment has wrong name: %q", dev.Name)
 				}
 				if dev.Config.Upstream == nil {
@@ -734,16 +676,8 @@ func TestOverviewService(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 			if tc.DB {
-				migrationsPath, err := testutil.CreateMigrationsPath(4)
-				if err != nil {
-					t.Fatal(err)
-				}
-				dbConfig := &db.DBConfig{
-					DriverName:     "sqlite3",
-					MigrationsPath: migrationsPath,
-					WriteEslOnly:   false,
-				}
-				repo, err = setupRepositoryTestWithDB(t, dbConfig)
+				var err error
+				repo, err = setupRepositoryTestWithDB(t)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -767,26 +701,13 @@ func TestOverviewService(t *testing.T) {
 				Context:    ctx,
 			}
 			tc.Test(t, svc)
-			if tc.DB {
-				repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					cachedResponse, err := repo.State().DBHandler.ReadLatestOverviewCache(ctx, transaction)
-					if err != nil {
-						return err
-					}
-					cachedResponse.GitRevision = "0"
-					if diff := cmp.Diff(tc.ExpectedCachedOverview, cachedResponse, protocmp.Transform(), protocmp.IgnoreFields(&api.Release{}, "created_at"), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
-						t.Errorf("latest overview cache mismatch (-want +got):\n%s", diff)
-					}
-					return nil
-				})
-			}
 			close(shutdown)
 		})
 	}
 }
 
 func TestGetApplicationDetails(t *testing.T) {
-	var dev = "dev"
+	//var dev = "dev"
 	var env = "development"
 	var secondEnv = "development2"
 	var stagingGroup = "stagingGroup"
@@ -864,7 +785,17 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: &env,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &secondEnv,
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -920,7 +851,17 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: &env,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &secondEnv,
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -1012,7 +953,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: &env,
 					},
 				},
 				&repository.CreateEnvironment{
@@ -1093,16 +1034,7 @@ func TestGetApplicationDetails(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1158,6 +1090,483 @@ func TestGetApplicationDetails(t *testing.T) {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if diff := cmp.Diff(expected.TeamLocks, resp.TeamLocks, cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{})); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+			close(shutdown)
+		})
+	}
+}
+
+func TestGetAllAppLocks(t *testing.T) {
+	var dev = "dev"
+	var env = "development"
+	var secondEnv = "development2"
+	var appName = "test-app"
+	var anotherAppName = "another-app-name"
+	tcs := []struct {
+		Name             string
+		Setup            []repository.Transformer
+		AppName          string
+		ExpectedResponse *api.GetAllAppLocksResponse
+	}{
+		{
+			Name:    "Get All Locks",
+			AppName: appName,
+			ExpectedResponse: &api.GetAllAppLocksResponse{
+				AllAppLocks: map[string]*api.AllAppLocks{
+					env: {
+						AppLocks: map[string]*api.Locks{
+							appName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "my-app-lock",
+										Message: "app lock for test-app",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+					secondEnv: {
+						AppLocks: map[string]*api.Locks{
+							appName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "my-app-lock",
+										Message: "app lock for test-app",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: env,
+					LockId:      "my-app-lock",
+					Message:     "app lock for test-app",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: secondEnv,
+					LockId:      "my-app-lock",
+					Message:     "app lock for test-app",
+				},
+			},
+		},
+		{
+			Name:    "Get All Locks - no locks",
+			AppName: appName,
+			ExpectedResponse: &api.GetAllAppLocksResponse{
+				AllAppLocks: map[string]*api.AllAppLocks{},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+			},
+		},
+		{
+			Name:    "Get All Locks - multiple locks per environment",
+			AppName: appName,
+			ExpectedResponse: &api.GetAllAppLocksResponse{
+				AllAppLocks: map[string]*api.AllAppLocks{
+					secondEnv: {
+						AppLocks: map[string]*api.Locks{
+							appName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "my-app-lock",
+										Message: "app lock for test-app",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+					env: {
+						AppLocks: map[string]*api.Locks{
+							appName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "A-my-app-lock",
+										Message: "app lock for test-app (1) on env",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+									{
+										LockId:  "B-duplicate-app-lock",
+										Message: "app lock for test-app (2) on env",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+							anotherAppName: {
+								Locks: []*api.Lock{
+									{
+										LockId:  "my-app-lock",
+										Message: "my-app-lock message on anotherAppName",
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[string]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           anotherAppName,
+					Manifests: map[string]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: env,
+					LockId:      "A-my-app-lock",
+					Message:     "app lock for test-app (1) on env",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: env,
+					LockId:      "B-duplicate-app-lock",
+					Message:     "app lock for test-app (2) on env",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: anotherAppName,
+					Environment: env,
+					LockId:      "my-app-lock",
+					Message:     "my-app-lock message on anotherAppName",
+				},
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: secondEnv,
+					LockId:      "my-app-lock",
+					Message:     "app lock for test-app",
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+
+			repo, err := setupRepositoryTestWithDB(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := repository.RepositoryConfig{
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+			}
+			svc := &OverviewServiceServer{
+				Repository:       repo,
+				RepositoryConfig: config,
+				DBHandler:        repo.State().DBHandler,
+				Shutdown:         shutdown,
+			}
+
+			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+				t.Fatal(err)
+			}
+
+			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+				Email: "app-email@example.com",
+				Name:  "overview tester",
+			})
+
+			resp, err := svc.GetAllAppLocks(ctx, &api.GetAllAppLocksRequest{})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			//Locks
+			if diff := cmp.Diff(tc.ExpectedResponse, resp, cmpopts.IgnoreUnexported(api.GetAllAppLocksResponse{}), cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{}), cmpopts.IgnoreUnexported(api.AllAppLocks{})); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+			close(shutdown)
+		})
+	}
+}
+func TestGetAllEnvTeamLocks(t *testing.T) {
+	var dev = "dev"
+	var env = "development"
+	var secondEnv = "development2"
+	var team = "team"
+	tcs := []struct {
+		Name             string
+		Setup            []repository.Transformer
+		ExpectedResponse *api.GetAllEnvTeamLocksResponse
+	}{
+		{
+			Name: "Get All Locks",
+			ExpectedResponse: &api.GetAllEnvTeamLocksResponse{
+				AllEnvLocks: map[string]*api.Locks{
+					env: &api.Locks{
+						Locks: []*api.Lock{
+							{
+								Message:   "message1",
+								LockId:    "lockId1",
+								CreatedAt: &timestamppb.Timestamp{},
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+					secondEnv: &api.Locks{
+						Locks: []*api.Lock{
+							{
+								Message:   "message2",
+								LockId:    "lockId2",
+								CreatedAt: &timestamppb.Timestamp{},
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+				},
+				AllTeamLocks: map[string]*api.AllTeamLocks{
+					env: &api.AllTeamLocks{
+						TeamLocks: map[string]*api.Locks{
+							team: &api.Locks{
+								Locks: []*api.Lock{
+									{
+										Message:   "message3",
+										LockId:    "lockId3",
+										CreatedAt: &timestamppb.Timestamp{},
+										CreatedBy: &api.Actor{
+											Name:  "test tester",
+											Email: "testmail@example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironmentLock{
+					Environment: env,
+					LockId:      "lockId1",
+					Message:     "message1",
+				},
+				&repository.CreateEnvironmentLock{
+					Environment: secondEnv,
+					LockId:      "lockId2",
+					Message:     "message2",
+				},
+				&repository.CreateEnvironmentTeamLock{
+					Environment: env,
+					LockId:      "lockId3",
+					Message:     "message3",
+					Team:        team,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+			repo, err := setupRepositoryTestWithDB(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := repository.RepositoryConfig{
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+			}
+			svc := &OverviewServiceServer{
+				Repository:       repo,
+				RepositoryConfig: config,
+				DBHandler:        repo.State().DBHandler,
+				Shutdown:         shutdown,
+			}
+
+			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+				t.Fatal(err)
+			}
+
+			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+				Email: "app-email@example.com",
+				Name:  "overview tester",
+			})
+
+			resp, err := svc.GetAllEnvTeamLocks(ctx, &api.GetAllEnvTeamLocksRequest{})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			//Locks
+			if diff := cmp.Diff(tc.ExpectedResponse, resp, cmpopts.IgnoreUnexported(api.GetAllEnvTeamLocksResponse{}), cmpopts.IgnoreUnexported(api.Locks{}), cmpopts.IgnoreUnexported(api.Lock{}), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt"), cmpopts.IgnoreUnexported(api.Actor{}), cmpopts.IgnoreUnexported(api.AllTeamLocks{})); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 			close(shutdown)
@@ -1263,176 +1672,6 @@ func TestDeriveUndeploySummary(t *testing.T) {
 			if !cmp.Equal(tc.ExpectedResult, actualResult) {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedResult, actualResult))
 			}
-		})
-	}
-}
-
-func TestOverviewServiceFromCommit(t *testing.T) {
-	type step struct {
-		Transformer repository.Transformer
-	}
-	tcs := []struct {
-		Name  string
-		Steps []step
-	}{
-		{
-			Name: "A simple overview works",
-			Steps: []step{
-				{
-					Transformer: &repository.CreateEnvironment{
-						Environment: "development",
-						Config:      config.EnvironmentConfig{},
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironment{
-						Environment: "staging",
-						Config: config.EnvironmentConfig{
-							Upstream: &config.EnvironmentConfigUpstream{
-								Latest: true,
-							},
-						},
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironment{
-						Environment: "production",
-						Config: config.EnvironmentConfig{
-							Upstream: &config.EnvironmentConfigUpstream{
-								Environment: "staging",
-							},
-						},
-					},
-				},
-				{
-					Transformer: &repository.CreateApplicationVersion{
-						Application: "test",
-						Manifests: map[string]string{
-							"development": "dev",
-						},
-
-						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-						SourceMessage:  "changed something (#678)",
-					},
-				},
-				{
-					Transformer: &repository.CreateApplicationVersion{
-						Application: "test-with-team",
-						Manifests: map[string]string{
-							"development": "dev",
-						},
-						Team: "test-team",
-					},
-				},
-				{
-					Transformer: &repository.CreateApplicationVersion{
-						Application: "test-with-incorrect-pr-number",
-						Manifests: map[string]string{
-							"development": "dev",
-						},
-						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-						SourceMessage:  "changed something (#678",
-					},
-				},
-				{
-					Transformer: &repository.CreateApplicationVersion{
-						Application: "test-with-only-pr-number",
-						Manifests: map[string]string{
-							"development": "dev",
-						},
-						SourceAuthor:   "example <example@example.com>",
-						SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-						SourceMessage:  "(#678)",
-					},
-				},
-				{
-					Transformer: &repository.DeployApplicationVersion{
-						Application: "test",
-						Environment: "development",
-						Version:     1,
-					},
-				},
-				{
-					Transformer: &repository.DeployApplicationVersion{
-						Application: "test-with-team",
-						Environment: "development",
-						Version:     1,
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironmentLock{
-						Environment: "development",
-						LockId:      "manual",
-						Message:     "please",
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironmentApplicationLock{
-						Environment: "production",
-						Application: "test",
-						LockId:      "manual",
-						Message:     "no",
-					},
-				},
-				{
-					Transformer: &repository.CreateEnvironmentTeamLock{
-						Environment: "production",
-						Team:        "test-team",
-						LockId:      "manual",
-						Message:     "no",
-					},
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			shutdown := make(chan struct{}, 1)
-			repo, err := setupRepositoryTest(t)
-			if err != nil {
-				t.Fatal(err)
-			}
-			ctx := testutil.MakeTestContext()
-			svc := &OverviewServiceServer{
-				Repository: repo,
-				Shutdown:   shutdown,
-				Context:    ctx,
-			}
-
-			ov, err := svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
-			if err != nil {
-				t.Errorf("expected no error, got %s", err)
-			}
-			if ov.GitRevision != "" {
-				t.Errorf("expected git revision to be empty, got %q", ov.GitRevision)
-			}
-			revisions := map[string]*api.GetOverviewResponse{}
-			for _, tr := range tc.Steps {
-				if err := repo.Apply(testutil.MakeTestContext(), tr.Transformer); err != nil {
-					t.Fatal(err)
-				}
-				ov, err = svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
-				if err != nil {
-					t.Errorf("expected no error, got %s", err)
-				}
-				if ov.GitRevision == "" {
-					t.Errorf("expected git revision to be non-empty")
-				}
-				revisions[ov.GitRevision] = ov
-			}
-			for rev := range revisions {
-				ov, err = svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{GitRevision: rev})
-				if err != nil {
-					t.Errorf("expected no error, got %s", err)
-				}
-				if ov.GitRevision != rev {
-					t.Errorf("expected git revision to be %q, but got %q", rev, ov.GitRevision)
-				}
-			}
-			close(shutdown)
 		})
 	}
 }
@@ -1558,17 +1797,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1814,17 +2043,7 @@ func TestCalculateWarnings(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
-
-			migrationsPath, err := testutil.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dbConfig := &db.DBConfig{
-				DriverName:     "sqlite3",
-				MigrationsPath: migrationsPath,
-				WriteEslOnly:   false,
-			}
-			repo, err = setupRepositoryTestWithDB(t, dbConfig)
+			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1852,6 +2071,563 @@ func TestCalculateWarnings(t *testing.T) {
 					t.Errorf("response missmatch (-want, +got): %s\n", diff)
 				}
 			}
+		})
+	}
+}
+
+func TestDeploymentHistory(t *testing.T) {
+	const testApp = "test-app"
+	const testApp2 = "test-app-2"
+	created := time.Now()
+	today := created.Round(time.Hour * 24)
+	yesterday := today.AddDate(0, 0, -1)
+	tomorrow := yesterday.AddDate(0, 0, 2)
+	versionOne := int64(1)
+	versionTwo := int64(2)
+	dev := "dev"
+	staging := "staging"
+
+	tcs := []struct {
+		Name             string
+		Setup            []db.Deployment
+		SetupReleases    []db.DBReleaseWithMetaData
+		SetupEnvs        []repository.Transformer
+		Request          *api.DeploymentHistoryRequest
+		ExpectedCsvLines []string
+		ExpectedError    string
+	}{
+		{
+			Name:  "Test empty deployment history",
+			Setup: []db.Deployment{},
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+			},
+			Request: &api.DeploymentHistoryRequest{
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "dev",
+			},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,source repository commit hash,previous release version\n",
+			},
+		},
+		{
+			Name: "Test non-empty deployment history",
+			Setup: []db.Deployment{
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp,
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "staging",
+					App:           testApp,
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp2,
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp,
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+			},
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp2,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					SourceMessage:  "changed something (#678)",
+				},
+			},
+			Request: &api.DeploymentHistoryRequest{
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "dev",
+			},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,source repository commit hash,previous release version\n",
+				"test-app,dev,1,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,nil\n",
+				"test-app-2,dev,2,cccccccccccccccccccccccccccccccccccccccc,nil\n",
+				"test-app,dev,2,bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,1\n",
+			},
+		},
+		{
+			Name: "Test non-empty deployment history for a different environment",
+			Setup: []db.Deployment{
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp,
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "staging",
+					App:           testApp,
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp2,
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp,
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+			},
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp2,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					SourceMessage:  "changed something (#678)",
+				},
+			},
+			Request: &api.DeploymentHistoryRequest{
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "staging",
+			},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,source repository commit hash,previous release version\n",
+				"test-app,staging,1,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,nil\n",
+			},
+		},
+		{
+			Name: "we are still able to retrieve commit hash from a very old release",
+			Setup: []db.Deployment{
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp,
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "staging",
+					App:           testApp,
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp2,
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           testApp,
+					Version:       &versionTwo,
+					TransformerID: 0,
+				},
+			},
+			SetupReleases: []db.DBReleaseWithMetaData{
+				{
+					App:           testApp,
+					ReleaseNumber: 1,
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[string]string{
+							"dev":     "dev",
+							"staging": "staging",
+						},
+					},
+					Environments: []string{"dev", "staging"},
+					Metadata: db.DBReleaseMetaData{
+						SourceAuthor:   "example <example@example.com>",
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+						SourceMessage:  "changed something (#678)",
+					},
+					Created: created.AddDate(-1, 0, 0),
+				},
+			},
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp2,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					SourceMessage:  "changed something (#678)",
+				},
+			},
+			Request: &api.DeploymentHistoryRequest{
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "staging",
+			},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,source repository commit hash,previous release version\n",
+				"test-app,staging,1,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,nil\n",
+			},
+		},
+		{
+			Name: "Test no deployment in the specified time frame",
+			Setup: []db.Deployment{
+				{
+					Created:       created,
+					Env:           "dev",
+					App:           "testapp",
+					Version:       &versionOne,
+					TransformerID: 0,
+				},
+			},
+			SetupEnvs: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &dev,
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						EnvironmentGroup: &staging,
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceMessage:  "changed something (#678)",
+				},
+				&repository.CreateApplicationVersion{
+					Application: testApp2,
+					Version:     2,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					SourceMessage:  "changed something (#678)",
+				},
+			},
+			Request: &api.DeploymentHistoryRequest{
+				StartDate:   timestamppb.New(yesterday.AddDate(0, 0, -4)),
+				EndDate:     timestamppb.New(tomorrow.AddDate(0, 0, -4)),
+				Environment: "dev",
+			},
+			ExpectedCsvLines: []string{
+				"time,app,environment,deployed release version,previous release version\n",
+			},
+		},
+		{
+			Name:          "Test end date before start date error",
+			Setup:         []db.Deployment{},
+			ExpectedError: fmt.Sprintf("end date (%s) happens before start date (%s)", yesterday.Format(time.DateOnly), tomorrow.Format(time.DateOnly)),
+			Request: &api.DeploymentHistoryRequest{
+				StartDate: timestamppb.New(tomorrow),
+				EndDate:   timestamppb.New(yesterday),
+			},
+		},
+		{
+			Name:          "Test time frame from today to yesterday",
+			Setup:         []db.Deployment{},
+			ExpectedError: fmt.Sprintf("end date (%s) happens before start date (%s)", yesterday.Format(time.DateOnly), today.Format(time.DateOnly)),
+			Request: &api.DeploymentHistoryRequest{
+				StartDate: timestamppb.New(today),
+				EndDate:   timestamppb.New(yesterday),
+			},
+		},
+		{
+			Name:          "Test with environment that does not exist",
+			Setup:         []db.Deployment{},
+			SetupEnvs:     []repository.Transformer{},
+			ExpectedError: `environment "dev" does not exist`,
+			Request: &api.DeploymentHistoryRequest{
+				StartDate:   timestamppb.New(yesterday),
+				EndDate:     timestamppb.New(tomorrow),
+				Environment: "dev",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			var repo repository.Repository
+			repo, err := setupRepositoryTestWithDB(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			ctx := testutil.MakeTestContext()
+			svc := &OverviewServiceServer{
+				Repository: repo,
+				Shutdown:   shutdown,
+				DBHandler:  repo.State().DBHandler,
+				Context:    ctx,
+			}
+
+			for _, tr := range tc.SetupEnvs {
+				if err := repo.Apply(ctx, tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			err = svc.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := svc.DBHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				for _, release := range tc.SetupReleases {
+					if err := svc.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, release); err != nil {
+						return err
+					}
+				}
+
+				for _, deployment := range tc.Setup {
+					if err := svc.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment); err != nil {
+						return err
+					}
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var expectedLinesWithCreated []string
+			expectedLinesWithCreated = append(expectedLinesWithCreated, "time,app,environment,deployed release version,source repository commit hash,previous release version\n")
+
+			err = svc.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				query := svc.DBHandler.AdaptQuery(`
+					SELECT created FROM deployments_history
+					WHERE releaseversion IS NOT NULL
+					ORDER BY created ASC;
+				`)
+
+				rows, err := transaction.QueryContext(ctx, query)
+				if err != nil {
+					return err
+				}
+
+				defer rows.Close()
+				for i := 1; rows.Next() && i < len(tc.ExpectedCsvLines); i++ {
+					var createdAt time.Time
+					rows.Scan(&createdAt)
+					line := fmt.Sprintf("%s,%s", createdAt.Format(time.RFC3339), tc.ExpectedCsvLines[i])
+					expectedLinesWithCreated = append(expectedLinesWithCreated, line)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			ch := make(chan *api.DeploymentHistoryResponse)
+			stream := mockOverviewService_DeploymentHistoryServer{
+				Results: ch,
+				Ctx:     ctx,
+			}
+
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := svc.StreamDeploymentHistory(tc.Request, &stream)
+				close(ch)
+				if err != nil {
+					if diff := cmp.Diff(tc.ExpectedError, err.Error()); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+			}()
+
+			var got []string
+			expectedLineCount := len(tc.ExpectedCsvLines)
+			if expectedLineCount == 0 {
+				expectedLineCount = 1
+			}
+
+			line := 1
+			for res := range ch {
+				expectedProgress := uint32(line * 100 / expectedLineCount)
+				if res.Progress != expectedProgress {
+					t.Errorf("deployment history progress mismatch: expected %d and got %d", expectedProgress, res.Progress)
+				}
+
+				line++
+				got = append(got, res.Deployment)
+			}
+
+			if diff := cmp.Diff(expectedLinesWithCreated, got); tc.ExpectedError == "" && diff != "" {
+				t.Errorf("deployment history csv lines mismatch (-want, +got):\n%s", diff)
+			}
+
+			wg.Wait()
+			close(shutdown)
 		})
 	}
 }

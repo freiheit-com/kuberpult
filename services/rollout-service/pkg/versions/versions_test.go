@@ -18,6 +18,7 @@ package versions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"sort"
@@ -26,6 +27,8 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
 	grpc "google.golang.org/grpc"
@@ -66,18 +69,30 @@ type mockOverviewStreamMessage struct {
 
 type mockOverviewClient struct {
 	grpc.ClientStream
-	OverviewResponse    *api.GetOverviewResponse
-	AppDetailsResponses map[string]*api.GetAppDetailsResponse
-	LastMetadata        metadata.MD
-	StartStep           chan struct{}
-	Steps               chan step
-	savedStep           *step
-	current             int
+	OverviewResponse           *api.GetOverviewResponse
+	GetAllAppLocksResponse     *api.GetAllAppLocksResponse
+	GetAllEnvTeamLocksResponse *api.GetAllEnvTeamLocksResponse
+	AppDetailsResponses        map[string]*api.GetAppDetailsResponse
+	LastMetadata               metadata.MD
+	StartStep                  chan struct{}
+	Steps                      chan step
+	savedStep                  *step
+	current                    int
 }
 
 // GetOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (*api.GetOverviewResponse, error) {
 	return m.OverviewResponse, nil
+}
+
+// GetOverview implements api.GetAllAppLocks
+func (m *mockOverviewClient) GetAllAppLocks(ctx context.Context, in *api.GetAllAppLocksRequest, opts ...grpc.CallOption) (*api.GetAllAppLocksResponse, error) {
+	return m.GetAllAppLocksResponse, nil
+}
+
+// GetOverview implements api.GetAllEnvLocks
+func (m *mockOverviewClient) GetAllEnvTeamLocks(ctx context.Context, in *api.GetAllEnvTeamLocksRequest, opts ...grpc.CallOption) (*api.GetAllEnvTeamLocksResponse, error) {
+	return m.GetAllEnvTeamLocksResponse, nil
 }
 
 // GetOverview implements api.GetAppDetails
@@ -105,6 +120,11 @@ func (m *mockOverviewClient) StreamChangedApps(ctx context.Context, in *api.GetC
 	}
 	m.savedStep = &reply
 	return m, nil
+}
+
+// StreamOverview implements api.OverviewServiceClient
+func (m *mockOverviewClient) StreamDeploymentHistory(ctx context.Context, in *api.DeploymentHistoryRequest, opts ...grpc.CallOption) (api.OverviewService_StreamDeploymentHistoryClient, error) {
+	return nil, nil
 }
 
 func (m *mockOverviewClient) Recv() (*api.GetChangedAppsResponse, error) {
@@ -259,14 +279,14 @@ func TestVersionClientStream(t *testing.T) {
 									Name: "foo",
 									Releases: []*api.Release{
 										{
-											Version:        1,
-											SourceCommitId: "00001",
+											Version:        1234,
+											SourceCommitId: "",
 										},
 									},
 								},
 								Deployments: map[string]*api.Deployment{
 									"staging": {
-										Version: 1,
+										Version: 1234,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
 											DeployTime: "123456789",
 										},
@@ -284,8 +304,8 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup: "staging-group",
 							Team:             "footeam",
 							Version: &VersionInfo{
-								Version:        1,
-								SourceCommitId: "00001",
+								Version:        1234,
+								SourceCommitId: "",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
 						},
@@ -301,8 +321,8 @@ func TestVersionClientStream(t *testing.T) {
 					Revision:        "1234",
 					Environment:     "staging",
 					Application:     "foo",
-					DeployedVersion: 1,
-					SourceCommitId:  "00001",
+					DeployedVersion: 1234,
+					SourceCommitId:  "",
 					DeployTime:      time.Unix(123456789, 0).UTC(),
 				},
 			},
@@ -318,8 +338,8 @@ func TestVersionClientStream(t *testing.T) {
 			VersionResponses: map[string]mockVersionResponse{
 				"staging/foo@1234": {
 					response: &api.GetVersionResponse{
-						Version:        1,
-						SourceCommitId: "00001",
+						Version:        1234,
+						SourceCommitId: "",
 						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
 					},
 				},
@@ -329,13 +349,10 @@ func TestVersionClientStream(t *testing.T) {
 					Revision:        "1234",
 					Environment:     "staging",
 					Application:     "foo",
-					DeployedVersion: 1,
-					SourceCommitId:  "00001",
+					DeployedVersion: 1234,
+					SourceCommitId:  "",
 					DeployTime:      time.Unix(123456789, 0).UTC(),
-					VersionMetadata: metadata.MD{
-						"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
-						"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
-					},
+					VersionMetadata: nil,
 				},
 			},
 		},
@@ -777,20 +794,20 @@ func TestVersionClientStream(t *testing.T) {
 									Team: "footeam",
 									Releases: []*api.Release{
 										{
-											Version:        2,
+											Version:        1234,
 											SourceCommitId: "00002",
 										},
 									},
 								},
 								Deployments: map[string]*api.Deployment{
 									"production": {
-										Version: 2,
+										Version: 1234,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
 											DeployTime: "123456789",
 										},
 									},
 									"canary": {
-										Version: 2,
+										Version: 1234,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
 											DeployTime: "123456789",
 										},
@@ -809,7 +826,7 @@ func TestVersionClientStream(t *testing.T) {
 							IsProduction:     true,
 							Team:             "footeam",
 							Version: &VersionInfo{
-								Version:        2,
+								Version:        1234,
 								SourceCommitId: "00002",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -821,7 +838,7 @@ func TestVersionClientStream(t *testing.T) {
 							IsProduction:     true,
 							Team:             "footeam",
 							Version: &VersionInfo{
-								Version:        2,
+								Version:        1234,
 								SourceCommitId: "00002",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -847,12 +864,13 @@ func TestVersionClientStream(t *testing.T) {
 				tc.VersionResponses = map[string]mockVersionResponse{}
 			}
 			mvc := &mockVersionClient{responses: tc.VersionResponses}
-			vc := New(moc, mvc, nil, false, []string{})
+			vc := New(moc, mvc, nil, false, false, false, []string{}, *setupDB(t), 50, 50, nil)
 			hs := &setup.HealthServer{}
 			hs.BackOffFactory = func() backoff.BackOff {
 				return backoff.NewConstantBackOff(time.Millisecond)
 			}
 			errCh := make(chan error)
+
 			go func() {
 				errCh <- vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
 			}()
@@ -890,7 +908,6 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 	if hs.IsReady("versions") != s.ExpectReady {
 		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
 	}
-
 	//Sort this to avoid flakeyness based on order
 	sort.Slice(vp.events, func(i, j int) bool {
 		return vp.events[i].Environment < vp.events[j].Environment
@@ -912,12 +929,12 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 			t.Errorf("expected no error for %s/%s@%s, but got %q", ev.Environment, ev.Application, ev.Revision, err)
 			continue
 		}
+		//We ignore the timestamp as it is based on test execution. Everything else we check
+
 		if version.Version != ev.DeployedVersion {
 			t.Errorf("expected version %d to be deployed for %s/%s@%s but got %d", ev.DeployedVersion, ev.Environment, ev.Application, ev.Revision, version.Version)
 		}
-		if version.DeployedAt != ev.DeployTime {
-			t.Errorf("expected deploy time to be %q for %s/%s@%s but got %q", ev.DeployTime, ev.Environment, ev.Application, ev.Revision, version.DeployedAt)
-		}
+
 		if version.SourceCommitId != ev.SourceCommitId {
 			t.Errorf("expected source commit id to be %q for %s/%s@%s but got %q", ev.SourceCommitId, ev.Environment, ev.Application, ev.Revision, version.SourceCommitId)
 		}
@@ -929,4 +946,69 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 		}
 
 	}
+}
+
+// setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
+func setupDB(t *testing.T) *db.DBHandler {
+	ctx := context.Background()
+	migrationsPath, err := db.CreateMigrationsPath(4)
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpDir := t.TempDir()
+	t.Logf("directory for DB migrations: %s", migrationsPath)
+	t.Logf("tmp dir for DB data: %s", tmpDir)
+
+	migErr := db.RunDBMigrations(ctx, *dbConfig)
+	if migErr != nil {
+		t.Fatal(migErr)
+	}
+
+	dbHandler, err := db.Connect(ctx, *dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	setupErr := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []string{})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+			ReleaseNumber: 1234,
+			Created:       time.Unix(123456789, 0).UTC(),
+			App:           "foo",
+			Manifests: db.DBReleaseManifests{
+				Manifests: map[string]string{"staging": ""},
+			},
+			Metadata: db.DBReleaseMetaData{},
+		})
+		if err != nil {
+			return err
+		}
+		var version int64 = 1234
+		err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+			Created:       time.Unix(123456789, 0).UTC(),
+			App:           "foo",
+			Env:           "staging",
+			Version:       &version,
+			TransformerID: 0,
+		})
+
+		return err
+	})
+
+	if setupErr != nil {
+		t.Fatal(setupErr)
+	}
+	return dbHandler
 }

@@ -14,35 +14,37 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 .rollout__description {
-    border: 1px solid #eee;
+    border: 6px solid #eee;
     font-weight: bold;
     font-size: 13px;
     padding: 4px;
-    margin: -2px;
-    border-radius: 6px;
+
+    margin-right: 15px;
+    border-radius: 12px;
     display: block;
+    text-align: center;
+    height: max-content;
+    color: var(--mdc-theme-on-surface-light);
+    border-color: var(--mdc-theme-surface);
 }
 
 .rollout__description_unknown {
     @extend .rollout__description;
-    background-color: var(--mdc-theme-on-surface);
-    color: var(--mdc-theme-surface);
-    border-color: var(--mdc-theme-surface);
+    background-color: var(--mdc-theme-surface);
+    background-color: var(--mdc-theme-surface);
 }
 
 .rollout__description_successful {
     @extend .rollout__description;
     background-color: var(--mdc-theme-surface);
-    color: var(--mdc-theme-on-surface);
-    border-color: var(--mdc-theme-on-secondary);
+    border-color: var(--mdc-theme-surface);
 }
 
 .rollout__description_error,
 .rollout__description_unhealthy {
     @extend .rollout__description;
     background-color: var(--mdc-theme-error);
-    color: var(--mdc-theme-on-secondary);
-    border-color: var(--mdc-theme-on-secondary);
+    border-color: var(--mdc-theme-error);
 }
 
 .rollout__description_progressing,
@@ -50,5 +52,5 @@ Copyright freiheit.com*/
     @extend .rollout__description;
     background-color: var(--mdc-theme-secondary);
     color: var(--mdc-theme-on-secondary);
-    border-color: var(--mdc-theme-on-secondary);
+    border-color: var(--mdc-theme-secondary);
 }
