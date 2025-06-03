@@ -49,6 +49,33 @@ func ParseArgsCommitDeployments(args []string) (*CommitDeploymentsParameters, er
 	return &cmdArgs, nil
 }
 
+func ParseArgsDeploymentCommit(args []string) (*DeploymentCommitParameters, error) {
+	cmdArgs := DeploymentCommitParameters{
+		Env: "",
+		App: "",
+	}
+
+	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
+	fs.StringVar(&cmdArgs.Env, "environment", "", "The environment that you want to get deployed commit information for")
+	fs.StringVar(&cmdArgs.App, "application", "", "The app that you want to get deployed commit information for")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
+	}
+
+	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
+		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+	}
+	if cmdArgs.Env == "" {
+		return nil, fmt.Errorf("the environment name must be set with the --environment flag")
+	}
+	if cmdArgs.App == "" {
+		return nil, fmt.Errorf("the application name must be set with the --application flag")
+	}
+
+	return &cmdArgs, nil
+}
+
 func validateCommitHash(commit string) bool {
 	if len(commit) != 40 {
 		return false

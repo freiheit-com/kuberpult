@@ -30,6 +30,11 @@ type CommitDeploymentsParameters struct {
 	OutFile  string
 }
 
+type DeploymentCommitParameters struct {
+	Env string
+	App string
+}
+
 func HandleGetCommitDeployments(requestParams kutil.RequestParameters, authParams kutil.AuthenticationParameters, params *CommitDeploymentsParameters) error {
 	req, err := createHttpRequest(*requestParams.Url, authParams, params)
 	if err != nil {
@@ -51,6 +56,21 @@ func HandleGetCommitDeployments(requestParams kutil.RequestParameters, authParam
 	return nil
 }
 
+func HandleGetDeploymentCommit(requestParams kutil.RequestParameters, authParams kutil.AuthenticationParameters, params *DeploymentCommitParameters) error {
+	req, err := createHttpRequestGetCommitDeployment(*requestParams.Url, authParams, params)
+	if err != nil {
+		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
+	}
+	body, err := cli_utils.IssueHttpRequestWithBodyReturn(*req, requestParams.HttpTimeout)
+	if err != nil {
+		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
+	}
+
+	fmt.Println(string(body))
+
+	return nil
+}
+
 func createHttpRequest(url string, authParams kutil.AuthenticationParameters, parameters *CommitDeploymentsParameters) (*http.Request, error) {
 	urlStruct, err := urllib.Parse(url)
 	if err != nil {
@@ -58,6 +78,30 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 	}
 
 	path := "/api/commit-deployments/" + parameters.CommitId
+
+	req, err := http.NewRequest(http.MethodGet, urlStruct.JoinPath(path).String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
+	}
+
+	if authParams.IapToken != nil {
+		req.Header.Add("Proxy-Authorization", "Bearer "+*authParams.IapToken)
+	}
+
+	if authParams.DexToken != nil {
+		req.Header.Add("Authorization", "Bearer "+*authParams.DexToken)
+	}
+
+	return req, nil
+}
+
+func createHttpRequestGetCommitDeployment(url string, authParams kutil.AuthenticationParameters, parameters *DeploymentCommitParameters) (*http.Request, error) {
+	urlStruct, err := urllib.Parse(url)
+	if err != nil {
+		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)
+	}
+
+	path := "/api/environments/" + parameters.Env + "/applications/" + parameters.App + "/commit"
 
 	req, err := http.NewRequest(http.MethodGet, urlStruct.JoinPath(path).String(), nil)
 	if err != nil {
