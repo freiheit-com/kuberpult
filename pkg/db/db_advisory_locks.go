@@ -74,9 +74,9 @@ func (h *DBHandler) DBAcquireAdvisoryLock(ctx context.Context, isShared bool, lo
 	err := h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		var selectQuery string
 		if isShared {
-			selectQuery = h.AdaptQuery("SELECT pg_advisory_lock_shared(?)")
+			selectQuery = h.AdaptQuery("SELECT pg_advisory_xact_lock_shared(?)")
 		} else {
-			selectQuery = h.AdaptQuery("SELECT pg_advisory_lock(?)")
+			selectQuery = h.AdaptQuery("SELECT pg_advisory_xact_lock(?)")
 		}
 		span.SetTag("query", selectQuery)
 		row, err := transaction.QueryContext(
@@ -99,27 +99,8 @@ func (h *DBHandler) DBAcquireAdvisoryLock(ctx context.Context, isShared bool, lo
 }
 
 // DBReleaseAdvisoryLock releases the advisory lock immediately (not waiting for end of transaction)
-func (h *DBHandler) DBReleaseAdvisoryLock(ctx context.Context, isShared bool, lockID AdvisoryLockId) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBReleaseAdvisoryLock")
-	defer span.Finish()
-	span.SetTag("lockId", lockID)
-
-	var selectQuery string
-	if isShared {
-		selectQuery = h.AdaptQuery("SELECT pg_advisory_unlock_shared(?)")
-	} else {
-		selectQuery = h.AdaptQuery("SELECT pg_advisory_unlock(?)")
-	}
-
-	span.SetTag("query", selectQuery)
-	_, err := h.DB.ExecContext(
-		ctx,
-		selectQuery,
-		lockID,
-	)
-	if err != nil {
-		return fmt.Errorf("DBReleaseAdvisoryLock: error releasing lock with id=%d and shared=%v. Error: %w\n", lockID, isShared, err)
-	}
-
+func (h *DBHandler) DBReleaseAdvisoryLock(_ context.Context, _ bool, _ AdvisoryLockId) error {
+	// with the transaction level locks, there is nothing to unlock.
+	// closing the transaction will release all locks.
 	return nil
 }

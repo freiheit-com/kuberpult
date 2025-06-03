@@ -135,7 +135,7 @@ func splitManifest(m []byte, req *argorepo.ManifestRequest) ([]string, error) {
 	}
 	for _, obj := range parts {
 		if req.AppLabelKey != "" && req.AppName != "" && !kube.IsCRD(obj) {
-			err = resourceTracking.SetAppInstance(obj, req.AppLabelKey, req.AppName, req.Namespace, v1alpha1.TrackingMethod(req.TrackingMethod))
+			err = resourceTracking.SetAppInstance(obj, req.AppLabelKey, req.AppName, req.Namespace, v1alpha1.TrackingMethod(req.TrackingMethod), "")
 			if err != nil {
 				return nil, err
 			}
@@ -226,6 +226,10 @@ func (*reposerver) GetGitFiles(context.Context, *argorepo.GitFilesRequest) (*arg
 }
 
 func (*reposerver) GetRevisionChartDetails(context.Context, *argorepo.RepoServerRevisionChartDetailsRequest) (*v1alpha1.ChartDetails, error) {
+	return nil, notImplemented
+}
+
+func (r *reposerver) UpdateRevisionForPaths(_ context.Context, _ *argorepo.UpdateRevisionForPathsRequest) (*argorepo.UpdateRevisionForPathsResponse, error) {
 	return nil, notImplemented
 }
 

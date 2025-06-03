@@ -184,12 +184,13 @@ type RepositoryConfig struct {
 	ReleaseVersionsLimit uint
 	StorageBackend       StorageBackend
 	// the url to the git repo, like the browser requires it (https protocol)
-	DogstatsdEvents       bool
-	WriteCommitData       bool
-	WebhookResolver       WebhookResolver
-	MaximumCommitsPerPush uint
-	MaximumQueueSize      uint
-	MaxNumThreads         uint
+	DogstatsdEvents           bool
+	WriteCommitData           bool
+	WebhookResolver           WebhookResolver
+	MaximumCommitsPerPush     uint
+	MaximumQueueSize          uint
+	MaxNumThreads             uint
+	ParallelismOneTransaction bool
 	// Extend maximum AppName length
 	AllowLongAppNames bool
 
@@ -658,11 +659,12 @@ func (r *repository) State() *State {
 
 func (r *repository) StateAt() (*State, error) {
 	return &State{
-		ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
-		MinorRegexes:         r.config.MinorRegexes,
-		MaxNumThreads:        int(r.config.MaxNumThreads),
-		DBHandler:            r.DB,
-		CloudRunClient:       r.config.CloudRunClient,
+		ReleaseVersionsLimit:      r.config.ReleaseVersionsLimit,
+		MinorRegexes:              r.config.MinorRegexes,
+		MaxNumThreads:             int(r.config.MaxNumThreads),
+		DBHandler:                 r.DB,
+		CloudRunClient:            r.config.CloudRunClient,
+		ParallelismOneTransaction: r.config.ParallelismOneTransaction,
 	}, nil
 }
 
@@ -671,9 +673,10 @@ func (r *repository) Notify() *notify.Notify {
 }
 
 type State struct {
-	ReleaseVersionsLimit uint
-	MinorRegexes         []*regexp.Regexp
-	MaxNumThreads        int
+	ReleaseVersionsLimit      uint
+	MinorRegexes              []*regexp.Regexp
+	MaxNumThreads             int
+	ParallelismOneTransaction bool
 	// DbHandler will be nil if the DB is disabled
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient

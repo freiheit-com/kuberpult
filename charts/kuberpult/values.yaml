@@ -96,6 +96,7 @@ cd:
   allowedDomains: ""
   cacheTtlHours: 24
   maxNumberOfThreads: 3
+  experimentalParallelismOneTransaction: false
 
   # The lockType option is EXPERIMENTAL and may be removed or changed without a breaking change.
   # By default, (lockType: "go") the cd-service uses in-memory go-locks to make sure that

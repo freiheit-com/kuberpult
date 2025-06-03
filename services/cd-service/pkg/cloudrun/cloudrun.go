@@ -45,7 +45,7 @@ func InitCloudRunClient(server string) (*CloudRunClient, error) {
 		grpc.WithTransportCredentials(cred),
 	}
 
-	con, err := grpc.Dial(server, grpcClientOpts...)
+	con, err := grpc.NewClient(server, grpcClientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("error dialing %s: %w", server, err)
 	}

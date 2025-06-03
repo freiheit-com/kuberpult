@@ -20,13 +20,8 @@ ARG UID=1000
 ARG DIR
 LABEL org.opencontainers.image.source https://github.com/freiheit-com/kuberpult
 RUN apk --update add ca-certificates tzdata git sqlite-libs cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl make libssh2-dev
-RUN git clone https://github.com/libgit2/libgit2.git && \
-    cd libgit2 && \
-    git checkout v1.5.0 && \
-    mkdir build && cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=ON -DUSE_SSH=ON && \
-    cmake --build . --target install && \
-    cd ../.. && rm -rf libgit2
+COPY install-libgit2.sh /tmp/install-libgit2.sh
+RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
 RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
 RUN chown -R kp:kp /kp
 ENV TZ=Europe/Berlin
