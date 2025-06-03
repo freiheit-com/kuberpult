@@ -4,13 +4,6 @@ FROM docker:28.0.2-cli-alpine3.21
 COPY --from=golang /usr/local/go/ /usr/local/go/
 ENV PATH /usr/local/go/bin:$PATH
 RUN apk add --no-cache go protoc make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
-RUN git clone https://github.com/libgit2/libgit2.git && \
-    cd libgit2 && \
-    git checkout v1.5.0 && \
-    mkdir build && cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=ON -DUSE_SSH=ON && \
-    cmake --build . --target install && \
-    cd ../.. && rm -rf libgit2
 
 RUN npm install -g pnpm@8.5.1
 RUN wget https://github.com/bufbuild/buf/releases/download/v1.23.1/buf-Linux-x86_64 -O /usr/local/bin/buf && chmod +x /usr/local/bin/buf

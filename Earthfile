@@ -12,13 +12,8 @@ deps:
         FROM golang:1.24-alpine3.21
         RUN apk add --no-cache ca-certificates tzdata bash sqlite-dev alpine-sdk
         RUN apk add --no-cache make git cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
-        RUN git clone https://github.com/libgit2/libgit2.git && \
-            cd libgit2 && \
-            git checkout v1.5.0 && \
-            mkdir build && cd build && \
-            cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=ON -DUSE_SSH=ON && \
-            cmake --build . --target install && \
-            cd ../.. && rm -rf libgit2
+        COPY ./services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgit2.sh
+        RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
     END
 
     COPY buf_sha256.txt .
