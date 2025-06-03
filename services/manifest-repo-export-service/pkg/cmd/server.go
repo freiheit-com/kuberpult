@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"encoding/json"
