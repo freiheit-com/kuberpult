@@ -2763,7 +2763,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 		error     error
 	}
 	spanManifests, ctxManifests, onErr := tracing.StartSpanFromContext(parentCtx, "Load Manifests")
-	var allReleasesManifests db.AllLatestReleasesManifests = nil
+	var allReleasesManifests db.AllLatestReleasesManifests
 	var err error
 	allReleasesManifests, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctxManifests, transaction)
 	if err != nil {
