@@ -150,7 +150,9 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
 }
 
-func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (map[string]map[uint64][]string, error) {
+type AllLatestReleasesManifests map[string]map[uint64][]string
+
+func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (AllLatestReleasesManifests, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
