@@ -1,4 +1,4 @@
-## Environment
+# Environment
 
 An environment is a Kuberpult concept that describes the target of deployments.
 Essentially, it is a set of machines where your microservices will run.
@@ -8,7 +8,11 @@ An `environment` is the set of machines where your microservices will run.
 For example: `development`, `staging` and `production` are typical environments.
 When using environment groups, typical examples are `de-prod`, `jp-prod`, and `pt-prod` which would all be `production` environments - and belong to the `production` environment group - but are machines in different countries.
 
-#### Environment Config
+## UI
+In the Kuberpult UI there is a page dedicated for the environments ( <kuberpult-url>/ui/environments ). There, you can see the list of environment groups and environments. By clicking on `Show configuration of Environment <env-name>` you can see the configuration file of each environment.
+![](../../assets/img/env/environments.png)
+
+## Environment Config
 
 In a cloud provider like GCP, we recommend separating the environments on a project level. This means that one GCP project correlates to one Kuberpult environment 1:1 - although this is not a technical requirement.
 
@@ -21,13 +25,13 @@ In the `config.json` file there are 3 main fields:
 - [Argo CD](#argocd)    `"argocd"`
 - [EnvironmentGroup](#environment-group) `"environmentGroup"`
 
-##### Upstream:
+### Upstream:
 
 The `"upstream"` field can have one of the two options (cannot have both):
   - `latest`: can only be set to `true` which means that Kuberpult will deploy the latest version of an application to this environment
   - `environment`: has a string which is the name of another environment. Following the chain of upstream environments would take you to the one with `"latest": true`. This is used in release trains: when a release train is run in an environment, it will pull the version from the environment's upstream environment.
 
-##### Argo CD: 
+### Argo CD: 
 
 The `"argocd"` field has a few subfields:
 - `"accessList"`:  
@@ -94,41 +98,7 @@ The `"argocd"` field has a few subfields:
 
 - `"syncOptions"`: A list of strings that allows users to customize some aspects of how it syncs the desired state in the target cluster ([Sync Options Argo CD Docs](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/))
 
-##### Environment Group:
+### Environment Group:
 
 The `"environmentGroup"` field is a string that defines which environment group the environment belongs to (Example: `Production` can be an environment group to group production environments in different countries).
-EnvironmentGroups are still in development. We'll update this section once they are ready.
 The goal of EnvironmentGroups is to make handling of many similar clusters easier. They will also work with Release Trains.
-
-#### Environment Creation
-
-Kuberpult offers an API endpoint for environment creation. This endpoint is expecting the following information:
-* **IAP Token**:
-  * If IAP is enabled ( in helm: `ingress.iap.enabled: false`) You need to provide kuberpult with your own IAP access token. We use google cloud authentication in order generate it. For more information on programmatic authentication, please refere to [this resource](https://cloud.google.com/iap/docs/authentication-howto).
-* **Environment Name**
-  * The name of the environment you are trying to create.
-* **Configuration Data**:
-  * You need to provide some configuration specifications to your environment. The provided data must be in JSON format. [This previous section](#environment-config) goes into detail regarding the information that must be contained within your configuration file. You can find an example file [here](../infrastructure/scripts/create-testdata/testdata_template/environments/staging/config.json).
-
-```shell
-curl -f -X POST -H "Authorization: Bearer $IAPToken" \
-                -H "multipart/form-data" --form-string "config=$DATA" \
-                $KUBERPULT_API_URL/environments/$ENVIRONMENT_NAME
-```
-
-**Example:**
-
-Below you can find an example of the curl request needed to create an environment named `staging`, accessing a kuberpult instance running locally hearing on port `8081`, reading some `config.json` file from the local filesystem that contains the configuration data.
-For local development, the IAPToken can be omitted.
-
-```shell
-DATA=$(cat config.json)
-curl -f -X POST -H "multipart/form-data" --form-string "config=$DATA" \
-                http://localhost:8081/environments/staging
-```
-
-**IMPORTANT**
-
-In the past, the common way to change the environment configuration (`config.json` files) was to directly edit the files in the manifest repo and push.
-This is no longer recommended and now *highly discouraged*.
-Kuberpult should be the only one writing to the manifest repository. **Direct manipulation of the manifest repository should be avoided.**
