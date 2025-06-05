@@ -14,39 +14,54 @@
 
 # Copyright freiheit.com
 
+.PHONY: build-base-image push-base-image clean release-tag ct-test test-helm test
 include ../../Makefile.variables
 MAKEFLAGS += --no-builtin-rules
-
+CHARTS_REGISTRY:=$(DOCKER_REGISTRY_URI)/charts
+CHARTS_BASE_IMAGE_URL:=$(CHARTS_REGISTRY):$(VERSION)
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
-Chart.yaml:
-	earthly +chart.yaml --VERSION=$(VERSION)
+build-base-image:
+	docker build . -t $(CHARTS_BASE_IMAGE_URL)
 
-$(TGZ_FILE):
-	earthly +chart-tarball --VERSION=$(VERSION)
+push-base-image:
+	docker push $(CHARTS_BASE_IMAGE_URL)
+
+Chart.yaml:
+	touch Chart.yaml
+	docker run --rm -e VERSION=$(VERSION) -e CHARTS_VERSION=$(VERSION) -w /kp -v "./Chart.yaml:/kp/Chart.yaml" -v "./Chart.yaml.tpl:/kp/Chart.yaml.tpl" $(CHARTS_BASE_IMAGE_URL) \
+		sh -c "envsubst < Chart.yaml.tpl > Chart.yaml"
+
+$(TGZ_FILE): Chart.yaml
+	touch ./$(TGZ_FILE)
+	docker run --rm -v "./Chart.yaml:/kp/Chart.yaml" -v "./values.yaml:/kp/values.yaml" -v "./templates:/kp/templates" -v "./$(TGZ_FILE):/kp/$(TGZ_FILE)" $(CHARTS_BASE_IMAGE_URL) \
+		sh -c "helm dependency update && rm -rf charts && helm dependency update && tar -xzvf charts/*.tgz --directory=charts && helm package ."
 
 ci/test-values.yaml:
-	earthly +test-values.yaml
+	touch ci/test-values.yaml
+	docker run --rm -w /kp -v "./values.yaml:/kp/values.yaml" -v "./ci:/kp/ci" -v "./ci/test-values.yaml:/kp/ci/test-values.yaml" $(CHARTS_BASE_IMAGE_URL) \
+		sh -c "grep -o '^[^#]*' values.yaml > ci/test-values.yaml && yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' ci/test-values.yaml ci/test-values-override.yaml"
 
-ct-test:
+ct-test: Chart.yaml
 ifeq ($(CI),true)
 	@echo "running on CI no need to test this again! Check chart testing action."
 else
-	earthly +ct-test --VERSION=$(VERSION)
+	docker run --rm -w /kp -v "./ci:/kp/ci" -v "./Chart.yaml:/kp/Chart.yaml" -v "./values.yaml:/kp/values.yaml" -v "./templates:/kp/templates" $(CHARTS_BASE_IMAGE_URL) \
+		sh -c "ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git"
 endif
 
 test-helm:
 	earthly +test-helm --VERSION=$(VERSION)
 
-test:
+test: ct-test test-helm
 	earthly +test --VERSION=$(VERSION)
 
 clean:
-	earthly +clean --VERSION=$(VERSION)
+	rm -rf Chart.yaml
+	rm -rf ci/test-values.yaml
+	rm -rf kuberpult-*.tgz
 
 release-tag: $(TGZ_FILE)
 	echo "Creating release via git tag pipeline"
-
-.PHONY: clean
 
 all: Chart.yaml
