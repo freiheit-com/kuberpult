@@ -2721,15 +2721,17 @@ func (c *ReleaseTrain) Transform(
 				trainGroup = conversion.FromString(targetGroupName)
 			}
 			err = transformerContext.Execute(ctx, &envReleaseTrain{
-				Parent:                 c,
-				Env:                    envName,
-				EnvConfigs:             configs,
-				EnvGroupConfigs:        envGroupConfigs,
-				WriteCommitData:        c.WriteCommitData,
-				TrainGroup:             trainGroup,
-				TransformerEslVersion:  c.TransformerEslVersion,
-				CiLink:                 c.CiLink,
-				AllLatestReleasesCache: allLatestReleases,
+				Parent:                c,
+				Env:                   envName,
+				EnvConfigs:            configs,
+				EnvGroupConfigs:       envGroupConfigs,
+				WriteCommitData:       c.WriteCommitData,
+				TrainGroup:            trainGroup,
+				TransformerEslVersion: c.TransformerEslVersion,
+				CiLink:                c.CiLink,
+
+				AllLatestReleasesCache:       allLatestReleases,
+				AllLatestReleaseEnvironments: nil,
 			}, transaction)
 			if err != nil {
 				return "", err
@@ -2763,7 +2765,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 		error     error
 	}
 	spanManifests, ctxManifests, onErr := tracing.StartSpanFromContext(parentCtx, "Load Manifests")
-	var allReleasesManifests db.AllLatestReleasesManifests
+	var allReleasesManifests db.AppVersionManifests
 	var err error
 	allReleasesManifests, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctxManifests, transaction)
 	if err != nil {
@@ -2840,15 +2842,17 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName string, trainGroup *string, envGroupConfigs map[string]config.EnvironmentConfig, configs map[string]config.EnvironmentConfig, releases map[string][]int64) error {
 	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
 		err := t.Execute(ctx, &envReleaseTrain{
-			Parent:                 c,
-			Env:                    envName,
-			EnvConfigs:             configs,
-			EnvGroupConfigs:        envGroupConfigs,
-			WriteCommitData:        c.WriteCommitData,
-			TrainGroup:             trainGroup,
-			TransformerEslVersion:  c.TransformerEslVersion,
-			CiLink:                 c.CiLink,
-			AllLatestReleasesCache: releases,
+			Parent:                c,
+			Env:                   envName,
+			EnvConfigs:            configs,
+			EnvGroupConfigs:       envGroupConfigs,
+			WriteCommitData:       c.WriteCommitData,
+			TrainGroup:            trainGroup,
+			TransformerEslVersion: c.TransformerEslVersion,
+			CiLink:                c.CiLink,
+
+			AllLatestReleasesCache:       releases,
+			AllLatestReleaseEnvironments: nil,
 		}, transaction2)
 		return err
 	})
@@ -2884,7 +2888,7 @@ type envReleaseTrain struct {
 	CiLink                string
 
 	AllLatestReleasesCache       AllLatestReleasesCache
-	AllLatestReleaseEnvironments db.AllLatestReleasesManifests
+	AllLatestReleaseEnvironments db.AppVersionManifests // can be prefilled with all manifests, so that each envReleaseTrain does not need to fetch them again
 }
 
 func (c *envReleaseTrain) GetDBEventType() db.EventType {
@@ -3030,7 +3034,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", c.Env, err)))
 	}
 
-	var allLatestReleaseEnvironments db.AllLatestReleasesManifests
+	var allLatestReleaseEnvironments db.AppVersionManifests
 	if c.AllLatestReleaseEnvironments == nil {
 		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
 		if err != nil {

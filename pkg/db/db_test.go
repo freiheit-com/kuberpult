@@ -3930,7 +3930,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 	tcs := []struct {
 		Name     string
 		Releases []DBReleaseWithMetaData
-		Expected AllLatestReleasesManifests
+		Expected AppVersionManifests
 	}{
 		{
 			Name: "Retrieve no manifests",
@@ -3941,7 +3941,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{}},
 				},
 			},
-			Expected: AllLatestReleasesManifests{
+			Expected: AppVersionManifests{
 				"app1": {1: {}},
 			},
 		},
@@ -3964,7 +3964,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
 				},
 			},
-			Expected: AllLatestReleasesManifests{
+			Expected: AppVersionManifests{
 				"app1": {
 					1: {"dev", "staging"},
 					2: {"dev"},
@@ -3988,7 +3988,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 					Manifests:     DBReleaseManifests{Manifests: map[string]string{"dev": "manifest1"}},
 				},
 			},
-			Expected: AllLatestReleasesManifests{
+			Expected: AppVersionManifests{
 				"app1": {
 					1: {"dev"},
 				},
