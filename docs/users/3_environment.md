@@ -9,7 +9,7 @@ For example: `development`, `staging` and `production` are typical environments.
 When using environment groups, typical examples are `de-prod`, `jp-prod`, and `pt-prod` which would all be `production` environments - and belong to the `production` environment group - but are machines in different countries.
 
 ## UI
-In the Kuberpult UI there is a page dedicated for the environments ( <kuberpult-url>/ui/environments ). There, you can see the list of environment groups and environments. By clicking on `Show configuration of Environment <env-name>` you can see the configuration file of each environment.
+The Kuberpult UI has a page dedicated for the environments ( <kuberpult-url>/ui/environments ). There, you can see the list of environment groups and environments. By clicking on `Show configuration of Environment <env-name>` you can see the configuration file of each environment.
 ![](../../assets/img/env/environments.png)
 
 ## Environment Config
