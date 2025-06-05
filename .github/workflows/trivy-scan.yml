@@ -19,11 +19,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    - name: Install earthly
-      uses: earthly/actions-setup@v1
-      with:
-          version: v0.8.13
-
     - name: "Authenticate to Google Cloud"
       uses: google-github-actions/auth@v2
       with:
@@ -59,7 +54,11 @@ jobs:
     - name: Run trivy scan
       run: |
         cd trivy
-        earthly --secret-file gcp_credentials="$GOOGLE_APPLICATION_CREDENTIALS" +scan-all --kuberpult_version="$IMAGE_TAG_KUBERPULT" --trigger=${{ inputs.trigger }}
+        if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
+          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make scan-all-pr
+        elif [[ ${{ inputs.trigger }} == "main" ]]; then
+          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make scan-all
+        fi
     - name: Archive reports
       uses: actions/upload-artifact@v4
       with:
