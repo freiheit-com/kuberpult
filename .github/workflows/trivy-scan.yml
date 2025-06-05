@@ -51,6 +51,11 @@ jobs:
           echo "No valid images found in the registry for the rollout service"
           exit 1
         fi
+    - name: Run and build trivy base image
+      if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
+      run:
+       VERSION=$IMAGE_TAG_KUBERPULT make build-base-image
+       VERSION=$IMAGE_TAG_KUBERPULT make push-base-image
     - name: Run trivy scan
       run: |
         cd trivy
