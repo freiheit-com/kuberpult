@@ -54,6 +54,7 @@ jobs:
     - name: Run and build trivy base image
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run:
+       cd trivy
        VERSION=$IMAGE_TAG_KUBERPULT make build-base-image
        VERSION=$IMAGE_TAG_KUBERPULT make push-base-image
     - name: Run trivy scan
