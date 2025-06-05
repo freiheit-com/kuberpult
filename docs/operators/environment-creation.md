@@ -6,7 +6,7 @@ Kuberpult offers an API endpoint for environment creation. This endpoint is expe
 * **Environment Name**
   * The name of the environment you are trying to create.
 * **Configuration Data**:
-  * You need to provide some configuration specifications to your environment. The provided data must be in JSON format. [This previous section](#environment-config) goes into detail regarding the information that must be contained within your configuration file. You can find an example file [here](../infrastructure/scripts/create-testdata/testdata_template/environments/staging/config.json).
+  * You need to provide some configuration specifications to your environment. The provided data must be in JSON format. [This doc](../users/3_environment.md) goes into detail regarding the information that must be contained within your configuration file. You can find an example file [here](../infrastructure/scripts/create-testdata/testdata_template/environments/staging/config.json).
 
 ```shell
 curl -f -X POST -H "Authorization: Bearer $IAPToken" \

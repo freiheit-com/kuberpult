@@ -6,7 +6,7 @@ Release trains are accessible via REST API:
 or
 `PUT https://your.kuberpult.host.example.com/api/environment-groups/${targetEnvironmentGroup}/releasetrain?team=${myTeam}`
 
-* `${env}` is the *target* environment
+* `${targetEnvironment}` is the *target* environment
 * `team=${myTeam}` is an optional parameter. If set, the release train will only apply for
 [apps](./app.md) that have exactly the give team set in the [`/release` endpoint](./release.md)
 
