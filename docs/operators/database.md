@@ -85,36 +85,23 @@ since kuberpult will not take these changes into account.
 
 ## Database Variants
 
-For integration tests, Kuberpult use [SQLite](https://www.sqlite.org/).
-
-For use in production and also local development Kuberpult supports [PostgreSQL](https://www.postgresql.org/),
+For all database operations, kuberpult uses [PostgreSQL](https://www.postgresql.org/),
 e.g. [Cloud SQL on GCP](https://cloud.google.com/sql?hl=en).
 
 
-## Hints for Kuberpult Developers
-
-When using sqlite, make sure that kuberpult is running first, otherwise you won't have
-the sqlite file yet.
-
-Then you can look into the database, by using the sqlite command line client:
-```shell
-sqlite3 database/db.sqlite
-```
-or for postgres:
-```shell
-PGPASSWORD=mypassword psql -h localhost -p 5432 -U postgres -d kuberpult
-```
-
-To make sqlite print nicely formatted columns,
-write the following to the file `~/.sqliterc`:
-```text
-.headers on
-.mode column
-```
-
-
-#### Best Practice (Dev Notes)
+## Best Practice (Dev Notes)
 
 To implement the database modes correctly,
 we must use the functions `ShouldUseEslTable` before writing to the ESL table,
 and `ShouldUseOtherTables` before writing to any other table.
+
+## Custom Migrations
+If you've deleted the custom migrations cutoff table and you want to bring it back you can run:
+```Sql
+CREATE TABLE IF NOT EXISTS custom_migration_cutoff
+(
+    migration_done_at TIMESTAMP NOT NULL,
+    kuberpult_version varchar(100) PRIMARY KEY -- the version as it appears on GitHub, e.g. "1.2.3"
+);
+```
+This way you can have this table back.

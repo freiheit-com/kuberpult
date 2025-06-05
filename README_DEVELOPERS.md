@@ -3,7 +3,7 @@
 ## Introduction
 
 Unlike ArgoCD, Kuberpult is not triggered based on push to the repository. It is triggered by REST api instead (or ui which, in turn, calls the REST api).
-When a `/release` endpoint is called with the manifest files, it checks the repository for additional information (ArgoCD related), then commits and pushes the manifests to the repository which is then handled by ArgoCD.
+When a `/release` or `/api/release` endpoint is called with the manifest files, it saves that manifest in the database, and then the manifest-repo-export-service checks the repository for additional information (ArgoCD related), then commits and pushes the manifests to the repository which is then handled by ArgoCD.
 For full usage instructions, please check the [readme](https://github.com/freiheit-com/kuberpult/blob/main/readme.md).
 
 ## Install dev tools
@@ -291,31 +291,6 @@ The changelog and the version is generated with
 - there is a dev image based on alpine in `docker/build`. You can start a shell in the image using the `./dmake` command.
 
 - The first version of this tool was written using go-git v5. Sadly the performance was abysmal. Adding a new manifest took > 20 seconds. Therefore, we switched to libgit2, which is much faster but less ergonomic.
-
-## Running locally with 2 images
-The normal docker-compose.yml file starts 3 containers: cd-service, frontend-service, ui.
-The file `docker-compose.tpl.yml` starts 2 containers: cd-service and frontend+ui in one.
-In the helm chart, there are also only 2 containers.
-
-Pros of running 2 containers:
-* closer to the "real world", meaning the helm chart
-* You can (manually) test things like path redirects much better
-
-Cons of running 2 containers:
-* There's no UI hot-reload
-
-To run with 2 containers (you need to run this with every change):
-```shell
-# replace "sven" with any other prefix or your choice:
-docker-compose stop
-PREFIX=sven-e
-VERSION=$(git describe --always --long --tags)
-export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult 
-IMAGENAME="$IMAGE_REGISTRY"/kuberpult-cd-service:"$PREFIX"-"$VERSION" make docker -C services/cd-service/
-IMAGENAME="$IMAGE_REGISTRY"/kuberpult-frontend-service:"$PREFIX"-"$VERSION" make docker -C services/frontend-service/
-IMAGE_TAG_CD="$PREFIX"-"$VERSION" IMAGE_TAG_FRONTEND="$PREFIX"-"$VERSION" dc -f ./docker-compose.tpl.yml up -d --remove-orphans
-```
-Now open a browser to `http://localhost:8081/`.
 
 
 ## CLI Debugging Unit Tests in local Containers
