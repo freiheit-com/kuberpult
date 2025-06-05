@@ -10,7 +10,7 @@ The train should run *often enough* to not slow down development, while also giv
 
 ## What happens under the hood
 
-A release train takes the versions that are currently deployed on one environment and deploys those version to another environment.
+A release train takes the versions that are currently deployed on one environment and deploys those versions to another environment.
 
 So there are 2 environments involved:
 * *target*:  this is where the services will be deployed (where the version changes happen), *target* can be either a single `environment` or an `environmentGroup`. in the case of `environmentGroup` the train will run for all environments belonging to this `environmentGroup`. If one environment cannot be changed (e.g. because of a lock), the other environments will still be processed.
