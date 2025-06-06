@@ -1028,10 +1028,6 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 	return ret, nil
 }
 
-func (s *State) GetEnvironmentConfig(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
-	return s.GetEnvironmentConfigFromDB(ctx, transaction, environmentName)
-}
-
 func (s *State) GetEnvironmentConfigFromDB(ctx context.Context, transaction *sql.Tx, environmentName string) (*config.EnvironmentConfig, error) {
 	dbEnv, err := s.DBHandler.DBSelectEnvironment(ctx, transaction, environmentName)
 	if err != nil {

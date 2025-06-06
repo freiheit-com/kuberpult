@@ -1341,7 +1341,7 @@ func (c *CreateEnvironmentLock) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env, application, action, team string, RBACConfig auth.RBACConfig, checkTeam bool) error {
+func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction *sql.Tx, env, application, action, team string, RBACConfig auth.RBACConfig, checkTeam bool, config *config.EnvironmentConfig) error {
 	if !RBACConfig.DexEnabled {
 		return nil
 	}
@@ -1350,10 +1350,6 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 		return fmt.Errorf("checkUserPermissions: user not found: %v", err)
 	}
 
-	config, err := s.GetEnvironmentConfig(ctx, transaction, env)
-	if err != nil {
-		return err
-	}
 	if config == nil {
 		return fmt.Errorf("checkUserPermissions: environment not found: %s", env)
 	}
@@ -1377,6 +1373,14 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 		err = auth.CheckUserTeamPermissions(RBACConfig, user, team, action)
 	}
 	return err
+}
+
+func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env, application, action, team string, RBACConfig auth.RBACConfig, checkTeam bool) error {
+	cfg, err := s.GetEnvironmentConfigFromDB(ctx, transaction, env)
+	if err != nil {
+		return err
+	}
+	return s.checkUserPermissionsFromConfig(ctx, transaction, env, application, action, team, RBACConfig, checkTeam, cfg)
 }
 
 // checkUserPermissionsCreateEnvironment check the permission for the environment creation action.
@@ -3171,8 +3175,12 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		teamName, ok := allTeams[appName]
 
 		if ok { //IF we find information for team
-
-			err := state.checkUserPermissions(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
+			envConfig, ok := c.EnvConfigs[c.Env]
+			if !ok {
+				err = state.checkUserPermissions(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
+			} else {
+				err = state.checkUserPermissionsFromConfig(ctx, transaction, c.Env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true, &envConfig)
+			}
 
 			if err != nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
