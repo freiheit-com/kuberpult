@@ -2774,7 +2774,9 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 		spanSpawnAll, ctxSpawnAll := tracer.StartSpanFromContext(parentCtx, "Spawn Go Routines")
 		spanSpawnAll.SetTag("numEnvironments", len(envNames))
 		group, ctxRoutines := errgroup.WithContext(ctxSpawnAll)
-		group.SetLimit(maxThreads)
+		if maxThreads > 0 {
+			group.SetLimit(maxThreads)
+		}
 		for _, envName := range envNames {
 			trainGroup := conversion.FromString(targetGroupName)
 			envNameLocal := envName
