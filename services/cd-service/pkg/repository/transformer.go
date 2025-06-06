@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"go.uber.org/zap"
 	"math"
 	"net/url"
 	"reflect"
@@ -2675,20 +2676,16 @@ func (c *ReleaseTrain) Transform(
 
 	if isEnvGroup && state.DBHandler.AllowParallelTransactions() {
 		releaseTrainErrGroup, ctx := errgroup.WithContext(ctx)
-		expectedNumPrognoses := len(envNames)
-		var channelSize = expectedNumPrognoses
 		if state.MaxNumThreads > 0 {
 			releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
-			channelSize = state.MaxNumThreads
 		}
 		if state.ParallelismOneTransaction {
 			span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
 			defer span.Finish()
 			s, err2 := c.runWithNewGoRoutines(
-				channelSize,
 				envNames,
 				targetGroupName,
-				releaseTrainErrGroup,
+				state.MaxNumThreads,
 				ctx,
 				configs,
 				envGroupConfigs,
@@ -2745,10 +2742,9 @@ func (c *ReleaseTrain) Transform(
 }
 
 func (c *ReleaseTrain) runWithNewGoRoutines(
-	channelSize int,
 	envNames []string,
 	targetGroupName string,
-	releaseTrainErrGroup *errgroup.Group,
+	maxThreads int,
 	parentCtx context.Context,
 	configs map[string]config.EnvironmentConfig,
 	envGroupConfigs map[string]config.EnvironmentConfig,
@@ -2773,59 +2769,70 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	}
 	spanManifests.Finish()
 
-	spanSpawnAll, ctxSpawnAll := tracer.StartSpanFromContext(parentCtx, "Spawn Go Routines")
-	spanSpawnAll.SetTag("numEnvironments", len(envNames))
-	var prognosisResultChannel = make(chan *ChannelData, channelSize)
+	var prognosisResultChannel = make(chan *ChannelData, maxThreads)
+	go func() {
+		spanSpawnAll, ctxSpawnAll := tracer.StartSpanFromContext(parentCtx, "Spawn Go Routines")
+		spanSpawnAll.SetTag("numEnvironments", len(envNames))
+		group, ctxRoutines := errgroup.WithContext(ctxSpawnAll)
+		group.SetLimit(maxThreads)
+		for _, envName := range envNames {
+			trainGroup := conversion.FromString(targetGroupName)
+			envNameLocal := envName
+			// we want to schedule all go routines,
+			// but still have the limit set, so "group.Go" would block
+			group.Go(func() error {
+				span, ctx, onErr := tracing.StartSpanFromContext(ctxRoutines, "EnvReleaseTrain Transform")
+				defer span.Finish()
 
-	for _, envName := range envNames {
-		trainGroup := conversion.FromString(targetGroupName)
-		envNameLocal := envName
-		releaseTrainErrGroup.Go(func() error {
-			span, ctx, onErr := tracing.StartSpanFromContext(ctxSpawnAll, "EnvReleaseTrain Transform")
-			defer span.Finish()
+				train := &envReleaseTrain{
+					Parent:                c,
+					Env:                   envName,
+					EnvConfigs:            configs,
+					EnvGroupConfigs:       envGroupConfigs,
+					WriteCommitData:       c.WriteCommitData,
+					TrainGroup:            trainGroup,
+					TransformerEslVersion: c.TransformerEslVersion,
+					CiLink:                c.CiLink,
 
-			train := &envReleaseTrain{
-				Parent:                c,
-				Env:                   envName,
-				EnvConfigs:            configs,
-				EnvGroupConfigs:       envGroupConfigs,
-				WriteCommitData:       c.WriteCommitData,
-				TrainGroup:            trainGroup,
-				TransformerEslVersion: c.TransformerEslVersion,
-				CiLink:                c.CiLink,
+					AllLatestReleasesCache:       allLatestReleases,
+					AllLatestReleaseEnvironments: allReleasesManifests,
+				}
 
-				AllLatestReleasesCache:       allLatestReleases,
-				AllLatestReleaseEnvironments: allReleasesManifests,
-			}
-
-			prognosis, err := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
-			if err != nil {
-				prognosisResultChannel <- &ChannelData{
-					error:     onErr(err),
-					prognosis: prognosis,
-					train:     train,
+				prognosis, err := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
+				if err != nil {
+					prognosisResultChannel <- &ChannelData{
+						error:     onErr(err),
+						prognosis: prognosis,
+						train:     train,
+					}
+				} else {
+					prognosisResultChannel <- &ChannelData{
+						error:     nil,
+						prognosis: prognosis,
+						train:     train,
+					}
 				}
 				return nil
-			}
-			prognosisResultChannel <- &ChannelData{
-				error:     nil,
-				prognosis: prognosis,
-				train:     train,
-			}
-			return nil
-		})
-	}
-	spanSpawnAll.Finish()
+			})
+		}
+		spanSpawnAll.Finish()
+
+		err := group.Wait()
+		if err != nil {
+			logger.FromContext(parentCtx).Sugar().Error("waitgroup.error", zap.Error(err))
+		}
+		close(prognosisResultChannel)
+	}()
 
 	spanApplyAll, ctxApplyAll, onErrAll := tracing.StartSpanFromContext(parentCtx, "ApplyAllPrognoses")
 	expectedNumPrognoses := len(envNames)
 	spanApplyAll.SetTag("numPrognoses", expectedNumPrognoses)
 	defer spanApplyAll.Finish()
-	for i := 0; i < expectedNumPrognoses; i++ {
+
+	var i = 0
+	for result := range prognosisResultChannel {
 		spanOne, ctxOne, onErrOne := tracing.StartSpanFromContext(ctxApplyAll, "ApplyOnePrognosis")
 		spanOne.SetTag("index", i)
-		// waiting for prognoses to be done
-		var result = <-prognosisResultChannel
 		if result.error != nil {
 			return "", onErrOne(onErrAll(fmt.Errorf("prognosis could not be applied for env '%s': %w", result.train.Env, result.error)))
 		}
@@ -2834,8 +2841,10 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 		if err != nil {
 			return "", onErrOne(onErrAll(fmt.Errorf("prognosis could not be applied for env '%s': %w", result.train.Env, result.error)))
 		}
+		i++
 		spanOne.Finish()
 	}
+
 	return "", nil
 }
 
