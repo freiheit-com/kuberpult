@@ -24,7 +24,7 @@ SERVICE?=cd-service
 GCP_CREDENTIALS_PATH?=$(HOME)/.config/gcloud/application_default_credentials.json
 KUBERPULT_SERVICE_IMAGE=$(IMAGE_REGISTRY)/kuberpult-$(SERVICE):$(VERSION)
 KUBERPULT_SERVICE_REPORT_HTML=kuberpult-$(SERVICE).html
-KUBERPULT_SERVICE_REPORT_DIR="kuberpult-$(SERVICE)-reports"
+KUBERPULT_REPORT_DIR="kuberpult-$(VERSION)-reports"
 
 build-base-image:
 	docker build . -t $(TRIVY_IMAGE_URL)
@@ -37,12 +37,11 @@ scan-service-pr:
 		trivy --db-repository $(TRIVY_DB_REPO)  --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image "$(KUBERPULT_SERVICE_IMAGE)"
 
 scan-service:
-	mkdir -p $(KUBERPULT_SERVICE_REPORT_DIR)
-	touch ./$(KUBERPULT_SERVICE_REPORT_DIR)/$(KUBERPULT_SERVICE_REPORT_HTML)
+	mkdir -p $(KUBERPULT_REPORT_DIR)
+	touch ./$(KUBERPULT_REPORT_DIR)/$(KUBERPULT_SERVICE_REPORT_HTML)
 	docker run --rm -e TRIVY_USERNAME="" -e GOOGLE_APPLICATION_CREDENTIALS="/root/credentials.json" -v "$(GCP_CREDENTIALS_PATH):/root/.config/gcloud/application_default_credentials.json" \
-	 -v "./$(KUBERPULT_SERVICE_REPORT_DIR)/$(KUBERPULT_SERVICE_REPORT_HTML):/trivy/$(KUBERPULT_SERVICE_REPORT_HTML)" $(TRIVY_IMAGE_URL) \
+	 -v "./$(KUBERPULT_REPORT_DIR)/$(KUBERPULT_SERVICE_REPORT_HTML):/trivy/$(KUBERPULT_SERVICE_REPORT_HTML)" $(TRIVY_IMAGE_URL) \
 		trivy --db-repository $(TRIVY_DB_REPO) --cache-dir /tmp/trivy_cache image "$(KUBERPULT_SERVICE_IMAGE)" -f template --template "@templates/html.tpl" -o $(KUBERPULT_SERVICE_REPORT_HTML)
-	tar -czf "$(KUBERPULT_SERVICE_REPORT_DIR).tar.gz" $(KUBERPULT_SERVICE_REPORT_DIR)
 
 scan-all-pr:
 	@for service in $(wildcard ../services/*); do \
@@ -50,6 +49,8 @@ scan-all-pr:
 	done
 
 scan-all:
+	mkdir -p $(KUBERPULT_REPORT_DIR)
 	@for service in $(wildcard ../services/*); do \
 		SERVICE=$$(basename $$service) $(MAKE) scan-service; \
 	done
+	tar -czf "$(KUBERPULT_REPORT_DIR).tar.gz" $(KUBERPULT_REPORT_DIR)
