@@ -19,7 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
-
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 
@@ -446,6 +446,127 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 
 			if status.Code(err) != tc.ExpectedError {
 				t.Fatalf("expected error doesn't match actual error, expected %v, got code: %v, error: %v", tc.ExpectedError, status.Code(err), err)
+			}
+			if diff := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
+				t.Fatalf("expected response mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestReleaseTrainAppSkip(t *testing.T) {
+	const app = "testapp"
+	var setup = []rp.Transformer{
+		&rp.CreateEnvironment{
+			Environment: "dev",
+			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+		},
+		&rp.CreateEnvironment{
+			Environment: "prod",
+			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "dev"}},
+		},
+		&rp.CreateApplicationVersion{
+			Application: app,
+			Team:        "", // no team for this app!
+			Manifests: map[string]string{
+				"dev":  "dev-manifest",
+				"prod": "prod-manifest",
+			},
+			Version: 1,
+		},
+	}
+	var request = &api.ReleaseTrainRequest{
+		Target: "prod",
+		Team:   "anotherteam",
+	}
+	tcs := []struct {
+		Name              string
+		SneakyAppDeletion bool // we sneakily delete the app, to force an inconsistent state
+		ExpectedResponse  *api.GetReleaseTrainPrognosisResponse
+	}{
+		{
+			Name:              "App without team is skipped with sneaky=true",
+			SneakyAppDeletion: true,
+			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvPrognosis{
+					"prod": {
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									app: {
+										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainAppSkipCause_APP_WITHOUT_TEAM,
+										},
+									},
+								},
+							},
+						},
+						Locks: []*api.Lock{},
+					},
+				},
+			},
+		},
+		{
+			Name:              "App without team is skipped with sneaky=false",
+			SneakyAppDeletion: false,
+			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvPrognosis{
+					"prod": {
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									// no prognosis here!
+								},
+							},
+						},
+						Locks: []*api.Lock{},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, err := setupRepositoryTestWithDB(t)
+			if err != nil {
+				t.Fatalf("error setting up repository test: %v", err)
+			}
+			ctx := testutil.MakeTestContext()
+
+			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, setup...)
+				if err2 != nil {
+					return err2
+				}
+
+				if tc.SneakyAppDeletion {
+					// here we simulate essentially a broken DB state.
+					// Usually the "UndeployApplication" transformer would do this, as well as getting rid of
+					err3 := repo.State().DBHandler.DBInsertOrUpdateApplication(ctx,
+						transaction,
+						app,
+						db.AppStateChangeDelete,
+						db.DBAppMetaData{Team: ""}, // does not matter here for the test
+					)
+					if err3 != nil {
+						t.Fatalf("error deleting app: %v", err3)
+					}
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error during setup, error: %v", err)
+			}
+
+			sv := &ReleaseTrainPrognosisServer{Repository: repo}
+			resp, err := sv.GetReleaseTrainPrognosis(context.Background(), request)
+
+			if err != nil {
+				t.Fatalf("expected error doesn't match actual error, expected %v, got code: %v, error: %v", nil, status.Code(err), err)
 			}
 			if diff := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
 				t.Fatalf("expected response mismatch (-want, +got):\n%s", diff)
