@@ -1,0 +1,1 @@
+DELETE FROM releases WHERE appname IN (SELECT appname FROM apps WHERE statechange='AppStateChangeDelete')
