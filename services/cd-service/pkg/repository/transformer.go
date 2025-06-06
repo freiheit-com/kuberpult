@@ -3052,8 +3052,19 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		if c.Parent.Team != "" {
 			team, ok := allTeams[appName]
 			if !ok {
-				return failedPrognosis(fmt.Errorf("team for app %s not found", appName))
+				// If we cannot find the app in all teams, we cannot determine the team of the app.
+				// This indicates an incorrect db state, and we just skip it:
+				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
+					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+						SkipCause: api.ReleaseTrainAppSkipCause_APP_WITHOUT_TEAM,
+					},
+					Locks:   nil,
+					Version: 0,
+				}
+				continue
 			}
+			// If we found the team name, but it's not the given team,
+			// then it's not really worthy of "SkipCause", because we shouldn't even consider this app.
 			if c.Parent.Team != team {
 				continue
 			}
