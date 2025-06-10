@@ -65,16 +65,14 @@ jobs:
     - name: Run and build trivy base image
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
-       cd trivy
-       VERSION=$IMAGE_TAG_KUBERPULT make build-base-image
-       VERSION=$IMAGE_TAG_KUBERPULT make push-base-image
+       VERSION=$IMAGE_TAG_KUBERPULT make -C trivy build-base-image
+       VERSION=$IMAGE_TAG_KUBERPULT make -C trivy push-base-image
     - name: Run trivy scan
       run: |
-        cd trivy
         if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
-          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make scan-all-pr
+          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make -C trivy scan-all-pr
         elif [[ ${{ inputs.trigger }} == "main" ]]; then
-          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make scan-all
+          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make -C trivy scan-all
         fi
     - name: Archive reports
       uses: actions/upload-artifact@v4
