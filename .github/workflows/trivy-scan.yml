@@ -66,7 +66,7 @@ jobs:
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
        VERSION=$IMAGE_TAG_KUBERPULT make -C trivy build-base-image
-       VERSION=$IMAGE_TAG_KUBERPULT make push-base-image
+       VERSION=$IMAGE_TAG_KUBERPULT make -C trivy push-base-image
     - name: Run trivy scan
       run: |
         if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
