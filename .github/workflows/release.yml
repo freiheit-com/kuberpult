@@ -80,8 +80,7 @@ jobs:
       - name: Append vulnerability reports to release
         run: |
           echo $VERSION
-          cd trivy
-          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=v${VERSION} make scan-all
+          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=v${VERSION} make -C trivy scan-all
           gh release upload v$VERSION trivy/kuberpult-v${VERSION}-reports.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
