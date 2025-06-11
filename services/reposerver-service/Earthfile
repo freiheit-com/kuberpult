@@ -13,29 +13,34 @@ deps:
     WORKDIR services/$service
 
 artifacts:
-    FROM +deps
+    ARG tag="local"
+    FROM +deps --tag=$tag
     SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
     SAVE ARTIFACT /usr/share/zoneinfo
     SAVE ARTIFACT pkg
 
 compile:
-    FROM +deps
+    ARG tag="local"
+    FROM +deps --tag=$tag
     ARG USERARCH
     
     DO go-build+COMPILE --cgo_enabled=$cgo_enabled
 
 unit-test:
-    FROM +compile
+    ARG tag="local"
+    FROM +compile --tag=$tag
     ARG GO_TEST_ARGS
     DO go-build+UNIT_TEST --GO_TEST_ARGS=$GO_TEST_ARGS
 
 bench-test:
-    FROM +compile
+    ARG tag="local"
+    FROM +compile --tag=$tag
     ARG GO_TEST_ARGS
     DO go-build+BENCH_TEST --GO_TEST_ARGS=$GO_TEST_ARGS
 
 lint:
-    FROM +deps
+    ARG tag="local"
+    FROM +deps --tag=$tag
     DO go-build+LINT --skip_lint_errors=false
 
 docker:
@@ -77,8 +82,8 @@ BUILD_ALL:
     ARG dd_release=false
 
     FROM +deps --tag=$tag
-    BUILD +lint 
-    BUILD +unit-test 
+    BUILD +lint --tag=$tag
+    BUILD +unit-test --tag=$tag
     BUILD +release --registry=$registry --tag=$tag
     IF [ "$mirror" = "true" ]
         BUILD +release --registry=$mirror_registry --tag=$tag
