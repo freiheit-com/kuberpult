@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/request_state"
 	"net/http"
 	"regexp"
 	"sort"
@@ -415,7 +416,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
 	defer span.Finish()
 
-	if state, err := r.StateAt(); err != nil {
+	if state, err := r.StateAtPrefilledRequestState(ctx, transaction); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
 		var changes []*TransformerResult = nil
@@ -658,14 +659,26 @@ func (r *repository) State() *State {
 }
 
 func (r *repository) StateAt() (*State, error) {
-	return &State{
+	result := &State{
 		ReleaseVersionsLimit:      r.config.ReleaseVersionsLimit,
 		MinorRegexes:              r.config.MinorRegexes,
 		MaxNumThreads:             int(r.config.MaxNumThreads),
 		DBHandler:                 r.DB,
 		CloudRunClient:            r.config.CloudRunClient,
 		ParallelismOneTransaction: r.config.ParallelismOneTransaction,
-	}, nil
+		Cache:                     nil,
+	}
+	return result, nil
+}
+
+func (r *repository) StateAtPrefilledRequestState(ctx context.Context, transaction *sql.Tx) (*State, error) {
+	result, err := r.StateAt()
+	if err != nil {
+		return nil, err
+	}
+	teamNames := map[string]string{} // TODO: here we need to make a DB query to get all teams
+	result.Cache, err = request_state.MakePrefilledRequestState(teamNames)
+	return result, err
 }
 
 func (r *repository) Notify() *notify.Notify {
@@ -680,6 +693,8 @@ type State struct {
 	// DbHandler will be nil if the DB is disabled
 	DBHandler      *db.DBHandler
 	CloudRunClient *cloudrun.CloudRunClient
+
+	Cache *request_state.RequestState
 }
 
 type Actor struct {
