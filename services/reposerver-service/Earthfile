@@ -7,7 +7,8 @@ ARG --global src_files=$(find pkg -type f ! -name "*_test.go")
 ARG --global cgo_enabled=1
 
 deps:
-    FROM ../../+deps
+    ARG tag="local"
+    FROM ../../+deps --tag=$tag
     DO go-build+DEPS --service=$service --src_files=$src_files
     WORKDIR services/$service
 
@@ -75,7 +76,7 @@ BUILD_ALL:
     ARG mirror=""
     ARG dd_release=false
 
-    FROM +deps
+    FROM +deps --tag=$tag
     BUILD +lint 
     BUILD +unit-test 
     BUILD +release --registry=$registry --tag=$tag
