@@ -19,15 +19,21 @@ include ../../../Makefile.variables
 
 IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
 IMAGENAME_VERSIONED=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(VERSION)
+IMAGENAME_VERSIONED_PR=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
+IMAGENAME_VERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main-$(VERSION)
 
 build:
-	earthly +build --DOCKER_REGISTRY_URI=$(DOCKER_REGISTRY_URI) --IMAGE_TAG=$(IMAGE_TAG) --VERSION=$(VERSION)
+	docker build -t $(IMAGENAME) .
 
 build-pr: build publish
 	echo "Building on pull request"
+	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_PR)
+	docker push $(IMAGENAME_VERSIONED_PR)
 
 build-main: build publish
 	echo "Building on main"
+	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_MAIN)
+	docker push $(IMAGENAME_VERSIONED_MAIN)
 
 .PHONY: cleanup-pr
 cleanup-pr:
@@ -39,7 +45,9 @@ cleanup-main:
 
 release:
 	echo "Releasing $(IMAGENAME)"
-	earthly --no-output --push +publish --DOCKER_REGISTRY_URI=$(DOCKER_REGISTRY_URI) --IMAGE_TAG=$(IMAGE_TAG) --VERSION=$(VERSION)
+	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED)
+	docker push $(IMAGENAME)
+	docker push $(IMAGENAME_VERSIONED)
 
 publish: release
 	echo $(IMAGE_TAG)
