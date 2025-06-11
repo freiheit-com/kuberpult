@@ -1364,13 +1364,6 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 		return err
 	}
 	if checkTeam {
-		if team == "" && application != "*" {
-			team, err = s.GetTeamName(ctx, transaction, application)
-
-			if err != nil {
-				return err
-			}
-		}
 		err = auth.CheckUserTeamPermissions(RBACConfig, user, team, action)
 	}
 	return err
@@ -3430,7 +3423,7 @@ func (c *envReleaseTrain) renderApplicationSkipCause(
 		if latestDeploymentVersion, found := allLatestDeployments[appName]; found && latestDeploymentVersion != nil {
 			currentlyDeployedVersion = uint64(*latestDeploymentVersion)
 		}
-		teamName, _ := state.GetTeamName(ctx, transaction, appName)
+		teamName, _ := state.GetApplicationTeamOwner(ctx, transaction, appName)
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
 			return fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)

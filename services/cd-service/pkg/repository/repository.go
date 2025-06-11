@@ -903,10 +903,6 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	return &v, nil
 }
 
-func (s *State) GetTeamName(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
-	return s.GetApplicationTeamOwner(ctx, transaction, application)
-}
-
 var InvalidJson = errors.New("JSON file is not valid")
 
 func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFor string) bool {
