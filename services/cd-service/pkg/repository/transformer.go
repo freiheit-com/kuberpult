@@ -2806,6 +2806,9 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 				}
 
 				prognosis, err := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
+
+				spanCh, _ := tracer.StartSpanFromContext(ctx, "WriteToChannel")
+				defer spanCh.Finish()
 				if err != nil {
 					prognosisResultChannel <- &ChannelData{
 						error:     onErr(err),
