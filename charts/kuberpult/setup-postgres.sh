@@ -18,7 +18,7 @@ function waitForDeployment() {
   done
 }
 
-earthly ../../infrastructure/docker/postgres+docker
+make -C ../../infrastructure/docker/postgres docker
 kind load docker-image postgres:local
 
 kubectl apply -f - <<EOF
