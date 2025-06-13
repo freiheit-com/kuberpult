@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"strconv"
 
@@ -88,7 +89,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 		}
 		return &api.GetManifestsResponse{
 			Release:   repoRelease.ToProto(),
-			Manifests: manifests,
+			Manifests: types.EnvMapToStringMap(manifests),
 		}, nil
 	})
 	return result, err

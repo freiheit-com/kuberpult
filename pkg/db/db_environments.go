@@ -34,14 +34,14 @@ import (
 
 type DBEnvironment struct {
 	Created      time.Time
-	Name         string
+	Name         types.EnvName
 	Config       config.EnvironmentConfig
 	Applications []string
 }
 
 type DBEnvironmentRow struct {
 	Created      time.Time
-	Name         string
+	Name         types.EnvName
 	Config       string
 	Applications string
 }

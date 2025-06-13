@@ -97,7 +97,7 @@ func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id 
 
 type EnvApp struct {
 	AppName string
-	EnvName string
+	EnvName types.EnvName
 }
 
 func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *sql.Tx, id TransformerID) ([]EnvApp, error) {
@@ -128,7 +128,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
 	var currApp string
-	var currEnv string
+	var currEnv types.EnvName
 	for rows.Next() {
 		err := rows.Scan(&currApp, &currEnv)
 		if err != nil {
@@ -176,7 +176,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
 	var currApp string
-	var currEnv string
+	var currEnv types.EnvName
 	for rows.Next() {
 		err := rows.Scan(&currApp, &currEnv)
 		if err != nil {

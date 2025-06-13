@@ -48,7 +48,7 @@ type DeploymentMetadata struct {
 type Deployment struct {
 	Created       time.Time
 	App           string
-	Env           string
+	Env           types.EnvName
 	Version       *int64
 	Metadata      DeploymentMetadata
 	TransformerID TransformerID
@@ -56,7 +56,7 @@ type Deployment struct {
 
 // SELECT
 
-func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string) (*Deployment, error) {
+func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector types.EnvName) (*Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -84,7 +84,7 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Context, tx *sql.Tx, appName string) (map[string]Deployment, error) {
+func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Context, tx *sql.Tx, appName string) (map[types.EnvName]Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsForApplication")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -354,7 +354,7 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 	return row, nil
 }
 
-func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (map[string]int64, error) {
+func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (map[types.EnvName]int64, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
 	defer span.Finish()
 	insertQuery := h.AdaptQuery(`
@@ -378,7 +378,7 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	return h.processAllDeploymentRow(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (map[string]int64, error) {
+func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (map[types.EnvName]int64, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForAppAtTimestamp")
 	defer span.Finish()
 	query := h.AdaptQuery(`
@@ -555,7 +555,7 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 		toReturn = &Deployment{
 			Created:       row.Created,
 			App:           row.App,
-			Env:           row.Env,
+			Env:           types.EnvName(row.Env),
 			Version:       row.ReleaseVersion,
 			Metadata:      resultJson,
 			TransformerID: row.TransformerID,
@@ -574,8 +574,8 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 	return toReturn, nil
 }
 
-func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[string]Deployment, error) {
-	result := make(map[string]Deployment)
+func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[types.EnvName]Deployment, error) {
+	result := make(map[types.EnvName]Deployment)
 	for rows.Next() {
 		var curr = Deployment{
 			Created: time.Time{},
@@ -678,14 +678,14 @@ func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Ro
 	return &Deployment{
 		Created:       row.Created,
 		App:           row.App,
-		Env:           row.Env,
+		Env:           types.EnvName(row.Env),
 		Version:       row.ReleaseVersion,
 		Metadata:      resultJson,
 		TransformerID: row.TransformerID,
 	}, nil
 }
 
-func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (map[string]int64, error) {
+func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (map[types.EnvName]int64, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
 	}
@@ -695,10 +695,10 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 			logger.FromContext(ctx).Sugar().Warnf("deployments: row could not be closed: %v", err)
 		}
 	}(rows)
-	deployments := make(map[string]int64)
+	deployments := make(map[types.EnvName]int64)
 	for rows.Next() {
 		var rowVersion int64
-		var rowEnv string
+		var rowEnv types.EnvName
 		err := rows.Scan(&rowEnv, &rowVersion)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -715,12 +715,12 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 	return deployments, nil
 }
 
-func (h *DBHandler) MapEnvNamesToDeployment(ctx context.Context, transaction *sql.Tx, id TransformerID) (map[string]Deployment, error) {
+func (h *DBHandler) MapEnvNamesToDeployment(ctx context.Context, transaction *sql.Tx, id TransformerID) (map[types.EnvName]Deployment, error) {
 	deployments, err := h.DBSelectDeploymentsByTransformerID(ctx, transaction, id)
 	if err != nil {
 		return nil, err
 	}
-	deploymentsMap := make(map[string]Deployment)
+	deploymentsMap := make(map[types.EnvName]Deployment)
 
 	for _, currentDeployment := range deployments {
 		deploymentsMap[currentDeployment.Env] = currentDeployment

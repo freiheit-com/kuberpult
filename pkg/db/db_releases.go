@@ -42,7 +42,7 @@ type DBReleaseMetaData struct {
 }
 
 type DBReleaseManifests struct {
-	Manifests map[string]string
+	Manifests map[types.EnvName]string
 }
 
 type DBReleaseWithMetaData struct {
@@ -500,7 +500,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 
 		// handle manifests
 		var manifestData = DBReleaseManifests{
-			Manifests: map[string]string{},
+			Manifests: map[types.EnvName]string{},
 		}
 		if withManifests {
 			err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
