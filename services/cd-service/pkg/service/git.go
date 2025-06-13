@@ -24,6 +24,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
 	"sync"
@@ -82,7 +83,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 		}
 		if in.Environment != nil && *in.Environment != "" {
 			//Single environment
-			allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, *in.Environment, *ts)
+			allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, types.EnvName(*in.Environment), *ts)
 			if err != nil {
 				return nil, fmt.Errorf("unable to get applications for environment '%s': %v", *in.Environment, err)
 			}
@@ -92,12 +93,12 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 				}, nil
 			}
 			for _, currentApp := range allAppsForEnv {
-				currentAppDeployments, err := state.GetAllDeploymentsForAppAtTimestamp(ctx, transaction, currentApp, *ts)
+				currentAppDeployments, err := state.GetAllDeploymentsForAppFromDBAtTimestamp(ctx, transaction, currentApp, *ts)
 				if err != nil {
 					return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)
 				}
 
-				if version, ok := currentAppDeployments[*in.Environment]; ok {
+				if version, ok := currentAppDeployments[types.EnvName(*in.Environment)]; ok {
 					summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
 						CommitId:       "",
 						DisplayVersion: "",
@@ -132,7 +133,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			for _, envGroup := range environmentGroups {
 				if *in.EnvironmentGroup == envGroup.EnvironmentGroupName {
 					for _, env := range envGroup.Environments {
-						envName := env.Name
+						envName := types.EnvName(env.Name)
 						allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *ts)
 						if err != nil {
 							return nil, fmt.Errorf("unable to get all applications for environment '%s': %v", envName, err)
@@ -144,7 +145,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 						}
 						for _, currentApp := range allAppsForEnv {
 
-							currentAppDeployments, err := state.GetAllDeploymentsForAppAtTimestamp(ctx, transaction, currentApp, *ts)
+							currentAppDeployments, err := state.GetAllDeploymentsForAppFromDBAtTimestamp(ctx, transaction, currentApp, *ts)
 							if err != nil {
 								return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)
 							}
@@ -155,7 +156,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 									Team:           "",
 									App:            currentApp,
 									Version:        strconv.FormatInt(version, 10),
-									Environment:    envName,
+									Environment:    string(envName),
 								})
 
 							}

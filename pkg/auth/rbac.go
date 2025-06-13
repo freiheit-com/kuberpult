@@ -378,14 +378,14 @@ func (e TeamPermissionError) GRPCStatus() *status.Status {
 }
 
 // Checks user permissions on the RBAC policy.
-func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup, application, action string) error {
+func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, team, envGroup, application, action string) error {
 	// If the action is environment independent, the env format is <ENVIRONMENT_GROUP>:*
 	if isEnvironmentIndependent(action) {
 		env = "*"
 	}
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
 	for _, pEnvGroup := range []string{envGroup, "*"} {
-		for _, pEnv := range []string{env, "*"} {
+		for _, pEnv := range []types.EnvName{env, "*"} {
 			for _, pApplication := range []string{application, "*"} {
 				// Check if the permission exists on the policy.
 				if rbacConfig.Policy == nil {
@@ -407,7 +407,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 		User:        user.Name,
 		Role:        strings.Join(user.DexAuthContext.Role, ", "),
 		Action:      action,
-		Environment: env,
+		Environment: string(env),
 		Team:        team,
 	}
 }

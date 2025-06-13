@@ -16,5 +16,49 @@ Copyright freiheit.com*/
 
 package types
 
+import "sort"
+
 // EnvName is a type that helps us avoid mixing up envNames from other strings.
 type EnvName string
+
+func EnvNamesToStrings(a []EnvName) []string {
+	var result []string = make([]string, len(a))
+	for i := range a {
+		result[i] = string(a[i])
+	}
+	return result
+}
+
+func StringsToEnvNames(a []string) []EnvName {
+	var result []EnvName = make([]EnvName, len(a))
+	for i := range a {
+		result[i] = EnvName(a[i])
+	}
+	return result
+}
+
+func Sort(a []EnvName) []EnvName {
+	s := EnvNamesToStrings(a)
+	sort.Strings(s)
+	return StringsToEnvNames(s)
+}
+
+func StringPtr(a EnvName) *string {
+	var result = string(a)
+	return &result
+}
+
+func EnvMapToStringMap[T comparable](a map[EnvName]T) map[string]T {
+	var result = map[string]T{}
+	for i := range a {
+		result[string(i)] = a[i]
+	}
+	return result
+}
+func StringMapToEnvMap[T comparable](a map[string]T) map[EnvName]T {
+	var result = map[EnvName]T{}
+	for i := range a {
+		result[EnvName(i)] = a[i]
+	}
+	return result
+}

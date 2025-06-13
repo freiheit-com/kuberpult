@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -132,7 +133,7 @@ func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in
 		CommitMessage: "",
 	}
 	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-		deployment, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, in.Application, in.Environment)
+		deployment, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, in.Application, types.EnvName(in.Environment))
 		if err != nil {
 			return err
 		}
