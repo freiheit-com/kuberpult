@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"slices"
 	"strings"
@@ -50,7 +51,7 @@ type DBReleaseWithMetaData struct {
 	App           string
 	Manifests     DBReleaseManifests
 	Metadata      DBReleaseMetaData
-	Environments  []string
+	Environments  []types.EnvName
 }
 
 // SELECTS
@@ -150,7 +151,7 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
 }
 
-type AppVersionManifests map[string]map[uint64][]string
+type AppVersionManifests map[string]map[uint64][]types.EnvName
 
 func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (AppVersionManifests, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
@@ -345,9 +346,9 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
-	envs := make([]string, 0)
+	envs := make([]types.EnvName, 0)
 	for env := range release.Manifests.Manifests {
-		envs = append(envs, env)
+		envs = append(envs, types.EnvName(env))
 	}
 	release.Environments = envs
 	slices.Sort(release.Environments)
@@ -396,9 +397,9 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
-	envs := make([]string, 0)
+	envs := make([]types.EnvName, 0)
 	for env := range release.Manifests.Manifests {
-		envs = append(envs, env)
+		envs = append(envs, types.EnvName(env))
 	}
 	release.Environments = envs
 	slices.Sort(release.Environments)
@@ -508,7 +509,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			}
 		}
 		row.Manifests = manifestData
-		environments := make([]string, 0)
+		environments := make([]types.EnvName, 0)
 		if environmentsStr.Valid && environmentsStr.String != "" {
 			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
 			if err != nil {
@@ -528,7 +529,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	return result, nil
 }
 
-func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (map[string]map[uint64][]string, error) {
+func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (AppVersionManifests, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
@@ -539,7 +540,7 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 		}
 	}(rows)
 	//exhaustruct:ignore
-	var result = make(map[string]map[uint64][]string)
+	var result = make(map[string]map[uint64][]types.EnvName)
 	for rows.Next() {
 		var environmentsStr sql.NullString
 		var appName string
@@ -551,7 +552,7 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 			}
 			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
 		}
-		environments := make([]string, 0)
+		environments := make([]types.EnvName, 0)
 		if environmentsStr.Valid && environmentsStr.String != "" {
 			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
 			if err != nil {
@@ -559,7 +560,7 @@ func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, r
 			}
 		}
 		if _, exists := result[appName]; !exists {
-			result[appName] = make(map[uint64][]string)
+			result[appName] = make(map[uint64][]types.EnvName)
 		}
 		result[appName][releaseVersion] = environments
 	}
