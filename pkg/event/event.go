@@ -56,7 +56,7 @@ func (_ *NewRelease) eventType() string {
 func (ev *NewRelease) toProto(trg *api.Event) {
 	envs := make([]string, 0, len(ev.Environments))
 	for env := range ev.Environments {
-		envs = append(envs, env)
+		envs = append(envs, string(env))
 	}
 	slices.Sort(envs)
 	trg.EventType = &api.Event_CreateReleaseEvent{
