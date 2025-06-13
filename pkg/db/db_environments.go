@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"slices"
 	"strings"
 	"time"
@@ -67,7 +68,7 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DB
 	return h.processEnvironmentRow(ctx, rows)
 }
 
-func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) (*DBEnvironment, error) {
+func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName) (*DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -91,7 +92,7 @@ func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environ
 	return h.processEnvironmentRow(ctx, rows)
 }
 
-func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, environmentNames []string) (*[]DBEnvironment, error) {
+func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, environmentNames []types.EnvName) (*[]DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
 	defer span.Finish()
 	if len(environmentNames) > WhereInBatchMax {
@@ -150,7 +151,7 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 	return &envs, nil
 }
 
-func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) ([]types.EnvName, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
 	defer span.Finish()
 
@@ -179,10 +180,10 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 		}
 	}(rows)
 
-	result := []string{}
+	result := []types.EnvName{}
 	for rows.Next() {
 		//exhaustruct:ignore
-		var row string
+		var row types.EnvName
 		err := rows.Scan(&row)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -199,7 +200,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 	return result, nil
 }
 
-func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transaction *sql.Tx, envName string) ([]string, error) {
+func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transaction *sql.Tx, envName types.EnvName) ([]string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplications")
 	defer span.Finish()
 
@@ -251,7 +252,7 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 	return result, nil
 }
 
-func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName string, ts time.Time) ([]string, error) {
+func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName types.EnvName, ts time.Time) ([]string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplicationsAtTimestamp")
 	defer span.Finish()
 	queryParams := []any{ts, `["` + envName + `"]`, `["` + envName + `",%`, `%,"` + envName + `"]`, `%,"` + envName + `",%`}
@@ -319,7 +320,7 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 
 // INSERT, UPDATE, DELETE
 
-func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
+func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, environmentConfig config.EnvironmentConfig, applications []string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironment")
 	defer span.Finish()
 	err := h.upsertEnvironmentsRow(ctx, tx, environmentName, environmentConfig, applications)
@@ -334,7 +335,7 @@ func (h *DBHandler) DBWriteEnvironment(ctx context.Context, tx *sql.Tx, environm
 }
 
 // DBAppendAppToEnvironment returns an error if the env does not exist yet
-func (h *DBHandler) DBAppendAppToEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, newApp string) error {
+func (h *DBHandler) DBAppendAppToEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, newApp string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBAppendAppToEnvironment")
 	span.SetTag("environment", environmentName)
 	span.SetTag("app", newApp)
@@ -355,7 +356,7 @@ func (h *DBHandler) DBAppendAppToEnvironment(ctx context.Context, tx *sql.Tx, en
 }
 
 // DBRemoveAppFromEnvironment returns an error if the env does not exist yet
-func (h *DBHandler) DBRemoveAppFromEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, toDeleteApp string) error {
+func (h *DBHandler) DBRemoveAppFromEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, toDeleteApp string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBRemoveAppFromEnvironment")
 	span.SetTag("environment", environmentName)
 	span.SetTag("app", toDeleteApp)
@@ -374,7 +375,7 @@ func (h *DBHandler) DBRemoveAppFromEnvironment(ctx context.Context, tx *sql.Tx, 
 	return nil
 }
 
-func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environmentName string) error {
+func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironment")
 	defer span.Finish()
 
@@ -404,7 +405,7 @@ func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environ
 
 // actual changes in tables
 
-func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string) error {
+func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, environmentConfig config.EnvironmentConfig, applications []string) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "upsertEnvironmentsRow")
 	defer span.Finish()
 	if h == nil {
@@ -453,7 +454,7 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 
 // addAppToEnvironment returns the env if the app was added to env, and nil if the app was already there.
 // If the env does not exist an error is returned.
-func (h *DBHandler) addAppToEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, newApp string) (*DBEnvironment, error) {
+func (h *DBHandler) addAppToEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, newApp string) (*DBEnvironment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "addAppToEnvironment")
 	defer span.Finish()
 	if h == nil {
@@ -504,7 +505,7 @@ func (h *DBHandler) addAppToEnvironment(ctx context.Context, tx *sql.Tx, environ
 	return dbEnv, nil
 }
 
-func (h *DBHandler) deleteAppFromEnvironment(ctx context.Context, tx *sql.Tx, environmentName string, deleteThisApp string) (*DBEnvironment, error) {
+func (h *DBHandler) deleteAppFromEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, deleteThisApp string) (*DBEnvironment, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteAppFromEnvironment")
 	defer span.Finish()
 	if h == nil {
@@ -543,7 +544,7 @@ func (h *DBHandler) deleteAppFromEnvironment(ctx context.Context, tx *sql.Tx, en
 	return dbEnv, nil
 }
 
-func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.Tx, environmentName string) error {
+func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.Tx, environmentName types.EnvName) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteEnvironmentRow")
 	defer span.Finish()
 	deleteQuery := h.AdaptQuery(`
@@ -563,7 +564,7 @@ func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.T
 	return nil
 }
 
-func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx, environmentName string, environmentConfig config.EnvironmentConfig, applications []string, deleted bool) error {
+func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, environmentConfig config.EnvironmentConfig, applications []string, deleted bool) error {
 	span, _ := tracer.StartSpanFromContext(ctx, "insertEnvironmentHistoryRow")
 	defer span.Finish()
 	if h == nil {

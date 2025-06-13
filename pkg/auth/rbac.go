@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"strings"
 
@@ -94,9 +95,9 @@ func (c *policyConfig) validateEnvs(envs, action string) error {
 	}
 	// The environment follows the format <ENVIRONMENT_GROUP:ENVIRONMENT>
 	groupName := e[0]
-	envName := e[1]
+	envName := types.EnvName(e[1])
 	// Validate environment group
-	if !valid.EnvironmentName(groupName) && groupName != "*" {
+	if !valid.GroupName(groupName) && groupName != "*" {
 		return fmt.Errorf("invalid environment group %s", envs)
 	}
 	// Actions that are environment independent need to follow the format <ENVIRONMENT_GROUP:*>.

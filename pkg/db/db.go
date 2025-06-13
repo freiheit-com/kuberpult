@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"path"
 	"slices"
 	"strings"
@@ -940,10 +941,10 @@ type AllReleases map[uint64]ReleaseWithManifest // keys: releaseVersion; value: 
 type WriteAllDeploymentsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 type WriteAllAppLocksFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 
-type AllAppLocks map[string]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
-type AllTeamLocks map[string]map[string][]TeamLock       // EnvName-> Team -> []Locks
-type AllQueuedVersions map[string]map[string]*int64      // EnvName-> AppName -> queuedVersion
-type AllCommitEvents map[string][]event.DBEventGo        // CommitId -> uuid -> Event
+type AllAppLocks map[types.EnvName]map[string][]ApplicationLock // EnvName-> AppName -> []Locks
+type AllTeamLocks map[types.EnvName]map[string][]TeamLock       // EnvName-> Team -> []Locks
+type AllQueuedVersions map[types.EnvName]map[string]*int64      // EnvName-> AppName -> queuedVersion
+type AllCommitEvents map[string][]event.DBEventGo               // CommitId -> uuid -> Event
 
 type WriteAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 type WriteAllTeamLocksFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
@@ -955,7 +956,7 @@ type WriteAllEventsFun = func(ctx context.Context, transaction *sql.Tx, dbHandle
 type GetAllAppsFun = func() (map[string]string, error)
 
 // return value is a map from environment name to environment config
-type GetAllEnvironmentsFun = func(ctx context.Context) (map[string]config.EnvironmentConfig, error)
+type GetAllEnvironmentsFun = func(ctx context.Context) (map[types.EnvName]config.EnvironmentConfig, error)
 
 func (h *DBHandler) RunCustomMigrations(
 	ctx context.Context,
@@ -1584,7 +1585,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 }
 
 // DBSelectEnvLockHistory returns the last N events associated with some lock on some environment. Currently only used in testing.
-func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, environmentName, lockID string, limit int) ([]EnvironmentLock, error) {
+func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, lockID string, limit int) ([]EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvLocks")
 	defer span.Finish()
 	if h == nil {
@@ -2009,7 +2010,7 @@ func (h *DBHandler) DBSelectAnyDeploymentAttempt(ctx context.Context, tx *sql.Tx
 	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sql.Tx, environmentName, appName string, limit int) ([]QueuedDeployment, error) {
+func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName string, limit int) ([]QueuedDeployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentAttemptHistory")
 	defer span.Finish()
 
@@ -2061,7 +2062,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 	return queuedDeployments, nil
 }
 
-func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName, appName string) (*QueuedDeployment, error) {
+func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName string) (*QueuedDeployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
 	defer span.Finish()
 
@@ -2083,7 +2084,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	return h.processDeploymentAttemptsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context, tx *sql.Tx, environmentName string) ([]*QueuedDeployment, error) {
+func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context, tx *sql.Tx, environmentName types.EnvName) ([]*QueuedDeployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttemptOfAllApps")
 	defer span.Finish()
 
@@ -2382,7 +2383,7 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 		if err != nil {
 			return fmt.Errorf("could not get environments, error: %w", err)
 		}
-		var allEnvsApps map[string][]string
+		var allEnvsApps map[types.EnvName][]string
 		for _, envName := range allEnvironments {
 			env, err := h.DBSelectEnvironment(ctx, transaction, envName)
 			if err != nil {
@@ -2410,17 +2411,17 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 	})
 }
 
-func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[string][]string, error) {
-	envsApps := make(map[string][]string)
+func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[types.EnvName][]string, error) {
+	envsApps := make(map[types.EnvName][]string)
 	releases, err := h.DBSelectAllManifestsForAllReleases(ctx, tx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get all environments for all releases, error: %w", err)
 	}
 	for app, versionEnvs := range releases {
-		envSet := make(map[string]struct{})
+		envSet := make(map[types.EnvName]struct{})
 		for _, envs := range versionEnvs {
 			for _, env := range envs {
-				envSet[env] = struct{}{}
+				envSet[types.EnvName(env)] = struct{}{}
 			}
 		}
 		for env := range envSet {
