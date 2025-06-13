@@ -627,7 +627,7 @@ func (c *CreateApplicationVersion) Transform(
 			hasUpstream = config.Upstream != nil
 		}
 
-		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+		teamOwner, err := state.GetTeamName(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err
 		}
@@ -1511,6 +1511,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
 		CloudRunClient:            state.CloudRunClient,
 		ParallelismOneTransaction: state.ParallelismOneTransaction,
+		Cache:                     state.Cache,
 	}
 	err = s.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, c.Environment, c.LockId)
 	if err != nil {
@@ -2165,7 +2166,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 	lockPreventedDeployment := false
-	team, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+	team, err := state.Cache.GetTeamNameByApp(ctx, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("could not determine team for deployment: %w", err)
 	}
@@ -2295,6 +2296,7 @@ func (c *DeployApplicationVersion) Transform(
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
 		CloudRunClient:            state.CloudRunClient,
 		ParallelismOneTransaction: state.ParallelismOneTransaction,
+		Cache:                     state.Cache,
 	}
 	err = s.DeleteQueuedVersionIfExists(ctx, transaction, c.Environment, c.Application)
 	if err != nil {
