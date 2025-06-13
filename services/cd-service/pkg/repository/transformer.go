@@ -1002,7 +1002,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if found {
 			hasUpstream = config.Upstream != nil
 		}
-		teamOwner, err := state.GetTeamName(ctx, transaction, c.Application)
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err
 		}
