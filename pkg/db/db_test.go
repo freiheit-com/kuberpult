@@ -841,7 +841,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 		Name                string
 		AppName             string
 		SetupDeployments    []*Deployment
-		ExpectedDeployments map[string]Deployment
+		ExpectedDeployments map[types.EnvName]Deployment
 	}{
 		{
 			Name:    "Select one deployment",
@@ -854,7 +854,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
-			ExpectedDeployments: map[string]Deployment{
+			ExpectedDeployments: map[types.EnvName]Deployment{
 				"dev": {
 					App:           "app1",
 					Env:           "dev",
@@ -880,7 +880,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
-			ExpectedDeployments: map[string]Deployment{
+			ExpectedDeployments: map[types.EnvName]Deployment{
 				"dev": {
 					App:           "app1",
 					Env:           "dev",
@@ -912,7 +912,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
-			ExpectedDeployments: map[string]Deployment{
+			ExpectedDeployments: map[types.EnvName]Deployment{
 				"dev": {
 					App:           "app1",
 					Env:           "dev",
@@ -1184,7 +1184,7 @@ func TestAllDeployments(t *testing.T) {
 		Name     string
 		AppName  string
 		data     []data
-		expected map[string]int64
+		expected map[types.EnvName]int64
 	}{
 		{
 			Name:    "Simple Write",
@@ -1195,7 +1195,7 @@ func TestAllDeployments(t *testing.T) {
 					Version: 3,
 				},
 			},
-			expected: map[string]int64{
+			expected: map[types.EnvName]int64{
 				"development": 3,
 			},
 		},
@@ -1212,7 +1212,7 @@ func TestAllDeployments(t *testing.T) {
 					Version: 2,
 				},
 			},
-			expected: map[string]int64{
+			expected: map[types.EnvName]int64{
 				"development": 3,
 				"staging":     2,
 			},
@@ -1238,7 +1238,7 @@ func TestAllDeployments(t *testing.T) {
 					Version: 3,
 				},
 			},
-			expected: map[string]int64{
+			expected: map[types.EnvName]int64{
 				"development": 3,
 				"staging":     3,
 			},
@@ -1264,7 +1264,7 @@ func TestAllDeployments(t *testing.T) {
 					Version: 1,
 				},
 			},
-			expected: map[string]int64{
+			expected: map[types.EnvName]int64{
 				"development": 1,
 				"staging":     1,
 			},
@@ -4758,7 +4758,7 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		EnvironmentLocks []EnvironmentLock
-		Expected         map[string][]EnvironmentLock
+		Expected         map[types.EnvName][]EnvironmentLock
 	}{
 		{
 			Name: "Retrieve All Environment locks",
@@ -4792,7 +4792,7 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 					},
 				},
 			},
-			Expected: map[string][]EnvironmentLock{
+			Expected: map[types.EnvName][]EnvironmentLock{
 				"development": {
 					{
 						EslVersion: 1,
@@ -4887,7 +4887,7 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 					},
 				},
 			},
-			Expected: map[string][]EnvironmentLock{
+			Expected: map[types.EnvName][]EnvironmentLock{
 				"development": {
 					{
 						EslVersion: 2,
@@ -5568,7 +5568,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 			},
 			ExpectedEnvironmentApplications: map[types.EnvName][]string{
 				"dev":     {"app1"},
-				"staging": {},
+				"staging": {"app1"},
 			},
 		},
 		{
@@ -5603,8 +5603,8 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				},
 			},
 			ExpectedEnvironmentApplications: map[types.EnvName][]string{
-				"dev":     {"app1"},
-				"staging": {"app1"},
+				"dev":     {"app1", "app2"},
+				"staging": {"app1", "app2"},
 			},
 		},
 	}
@@ -5649,7 +5649,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 						return fmt.Errorf("Couldn't retrieve environment %s applications, error: %w", envName, err)
 					}
 					if diff := cmp.Diff(expectedApps, apps); diff != "" {
-						return fmt.Errorf("environment applications mismatch (-want, +got):\n%s", diff)
+						return fmt.Errorf("environment applications mismatch for env '%s' (-want, +got):\n%s", envName, diff)
 					}
 				}
 				return nil
