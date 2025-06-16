@@ -764,7 +764,7 @@ func TestReleaseTrain(t *testing.T) {
 					if t.GetDBEventType() == db.EvtReleaseTrain {
 						var sourceTrainUpstream string
 						sourceTrainUpstream = "staging"
-						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslVersion(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "production", SourceTrainUpstream: types.EnvNamePtr(sourceTrainUpstream)})
+						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslVersion(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "production", SourceTrainUpstream: &sourceTrainUpstream})
 						if err != nil {
 							return err
 						}
