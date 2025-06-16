@@ -839,7 +839,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 		Setup                []repository.Transformer
 		Request              *api.BatchRequest
 		ExpectedResponse     *api.BatchResponse
-		ExpectedEnvironments map[string]config.EnvironmentConfig
+		ExpectedEnvironments map[types.EnvName]config.EnvironmentConfig
 	}{
 		{
 			Name:  "Minimal test case",
@@ -865,7 +865,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": {
 					ArgoCd: &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
 				},
@@ -898,7 +898,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Latest: true},
 					ArgoCd:   &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
@@ -932,7 +932,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Environment: "other-env"},
 					ArgoCd: &config.EnvironmentConfigArgoCd{
@@ -963,7 +963,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{},
 				},
@@ -1025,7 +1025,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
