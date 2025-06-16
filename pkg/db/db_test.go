@@ -5633,7 +5633,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				return &firstReleaseTime, nil
 			})
 			if err != nil {
-				t.Fatalf("error: %v", err)
+				t.Fatalf("error with firstrelease: %v", err)
 			}
 			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, release := range tc.SecondReleases {
@@ -5642,7 +5642,13 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
 				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error with second release: %v", err)
+			}
 
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for envName, expectedApps := range tc.ExpectedEnvironmentApplications {
 					apps, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
 					if err != nil {
@@ -5655,7 +5661,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("error: %v", err)
+				t.Fatalf("error with check: %v", err)
 			}
 		})
 	}
