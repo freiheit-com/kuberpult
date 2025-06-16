@@ -398,7 +398,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 		},
 		&CreateApplicationVersion{
 			Application: "test",
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"production": "manifest",
 			},
 			Version:             1,
@@ -406,7 +406,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 		},
 		&CreateApplicationVersion{
 			Application: "test",
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"production": "manifest2",
 			},
 			Version:             2,
@@ -447,7 +447,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Version:             1,
@@ -487,7 +487,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 					},
 					Version:             1,
@@ -528,7 +528,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 					},
 					Version:             1,
@@ -563,7 +563,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "manifest",
 					},
 					Version:             1,
@@ -754,7 +754,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -793,7 +793,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -839,7 +839,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -878,7 +878,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -949,7 +949,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					},
@@ -999,7 +999,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					},
@@ -1092,7 +1092,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					},
@@ -1162,7 +1162,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					},
@@ -1233,7 +1233,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			targetTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -1271,7 +1271,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			targetTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                  "team-123",
@@ -1325,7 +1325,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			targetTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -1410,7 +1410,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			targetTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                  "team",
@@ -1561,7 +1561,7 @@ func getTransformer(i int) (Transformer, error) {
 	// case 2:
 	return &CreateApplicationVersion{
 		Application: "foo",
-		Manifests: map[string]string{
+		Manifests: map[types.EnvName]string{
 			"development": fmt.Sprintf("%d", i),
 		},
 		Version:               uint64(i),
