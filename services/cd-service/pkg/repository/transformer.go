@@ -391,20 +391,20 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env types.EnvName) {
 
 type CreateApplicationVersion struct {
 	Authentication        `json:"-"`
-	Version               uint64            `json:"version"`
-	Application           string            `json:"app"`
-	Manifests             map[string]string `json:"manifests"`
-	SourceCommitId        string            `json:"sourceCommitId"`
-	SourceAuthor          string            `json:"sourceCommitAuthor"`
-	SourceMessage         string            `json:"sourceCommitMessage"`
-	Team                  string            `json:"team"`
-	DisplayVersion        string            `json:"displayVersion"`
-	WriteCommitData       bool              `json:"writeCommitData"`
-	PreviousCommit        string            `json:"previousCommit"`
-	CiLink                string            `json:"ciLink"`
-	AllowedDomains        []string          `json:"-"`
-	TransformerEslVersion db.TransformerID  `json:"-"`
-	IsPrepublish          bool              `json:"isPrepublish"`
+	Version               uint64                   `json:"version"`
+	Application           string                   `json:"app"`
+	Manifests             map[types.EnvName]string `json:"manifests"`
+	SourceCommitId        string                   `json:"sourceCommitId"`
+	SourceAuthor          string                   `json:"sourceCommitAuthor"`
+	SourceMessage         string                   `json:"sourceCommitMessage"`
+	Team                  string                   `json:"team"`
+	DisplayVersion        string                   `json:"displayVersion"`
+	WriteCommitData       bool                     `json:"writeCommitData"`
+	PreviousCommit        string                   `json:"previousCommit"`
+	CiLink                string                   `json:"ciLink"`
+	AllowedDomains        []string                 `json:"-"`
+	TransformerEslVersion db.TransformerID         `json:"-"`
+	IsPrepublish          bool                     `json:"isPrepublish"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -578,7 +578,7 @@ func (c *CreateApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	manifestsToKeep := types.StringMapToEnvMap(c.Manifests)
+	manifestsToKeep := c.Manifests
 	if c.IsPrepublish {
 		manifestsToKeep = make(map[types.EnvName]string)
 	}
@@ -636,7 +636,7 @@ func (c *CreateApplicationVersion) Transform(
 		if hasUpstream && config.Upstream.Latest && isLatest && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
-				Environment:           string(env),
+				Environment:           env,
 				Application:           c.Application,
 				Version:               version, // the train should queue deployments, instead of giving up:
 				LockBehaviour:         api.LockBehavior_RECORD,
@@ -692,7 +692,7 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 		if nextRelease == nil {
 			return false, fmt.Errorf("next release exists in the all releases but not in the release table!")
 		}
-		nextRelease.Metadata.IsMinor = compareManifests(ctx, types.StringMapToEnvMap(c.Manifests), nextRelease.Manifests.Manifests, minorRegexes)
+		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests, minorRegexes)
 		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, *nextRelease)
 		if err != nil {
 			return false, err
@@ -705,7 +705,7 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 	if err != nil {
 		return false, err
 	}
-	return compareManifests(ctx, types.StringMapToEnvMap(c.Manifests), previousRelease.Manifests.Manifests, minorRegexes), nil
+	return compareManifests(ctx, c.Manifests, previousRelease.Manifests.Manifests, minorRegexes), nil
 }
 
 func compareManifests(ctx context.Context, firstManifests map[types.EnvName]string, secondManifests map[types.EnvName]string, comparisonRegexes []*regexp.Regexp) bool {
@@ -1011,7 +1011,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if hasUpstream && config.Upstream.Latest {
 			d := &DeployApplicationVersion{
 				SourceTrain: nil,
-				Environment: string(env),
+				Environment: env,
 				Application: c.Application,
 				Version:     lastRelease + 1,
 				// the train should queue deployments, instead of giving up:
@@ -1168,7 +1168,7 @@ func (u *UndeployApplication) Transform(
 type DeleteEnvFromApp struct {
 	Authentication        `json:"-"`
 	Application           string           `json:"app"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
@@ -1322,7 +1322,7 @@ type Authentication struct {
 
 type CreateEnvironmentLock struct {
 	Authentication        `json:"-"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	CiLink                string           `json:"ciLink"`
@@ -1479,7 +1479,7 @@ func (c *CreateEnvironmentLock) Transform(
 
 type DeleteEnvironmentLock struct {
 	Authentication        `json:"-"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -1590,7 +1590,7 @@ func (c *CreateEnvironmentGroupLock) Transform(
 		envName := envNamesSorted[index]
 		x := CreateEnvironmentLock{
 			Authentication:        c.Authentication,
-			Environment:           string(envName),
+			Environment:           envName,
 			LockId:                c.LockId, // the IDs should be the same for all. See `useLocksSimilarTo` in store.tsx
 			Message:               c.Message,
 			TransformerEslVersion: c.TransformerEslVersion,
@@ -1644,7 +1644,7 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 		envName := envNamesSorted[index]
 		x := DeleteEnvironmentLock{
 			Authentication:        c.Authentication,
-			Environment:           string(envName),
+			Environment:           envName,
 			LockId:                c.LockId,
 			TransformerEslVersion: c.TransformerEslVersion,
 		}
@@ -1657,7 +1657,7 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 
 type CreateEnvironmentApplicationLock struct {
 	Authentication        `json:"-"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	Application           string           `json:"app"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
@@ -1747,7 +1747,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 
 type DeleteEnvironmentApplicationLock struct {
 	Authentication        `json:"-"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	Application           string           `json:"app"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
@@ -1798,7 +1798,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 
 type CreateEnvironmentTeamLock struct {
 	Authentication        `json:"-"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	Team                  string           `json:"team"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
@@ -1873,7 +1873,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 
 type DeleteEnvironmentTeamLock struct {
 	Authentication        `json:"-"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	Team                  string           `json:"team"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
@@ -1913,7 +1913,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 // Creates or Update an Environment
 type CreateEnvironment struct {
 	Authentication        `json:"-"`
-	Environment           string                   `json:"env"`
+	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -1975,7 +1975,7 @@ func (c *CreateEnvironment) Transform(
 
 type DeleteEnvironment struct {
 	Authentication        `json:"-"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
@@ -2060,7 +2060,7 @@ func (c *DeleteEnvironment) Transform(
 
 		//If we are deleting an environment and it is the last one on the group, we are also deleting the group.
 		//If this group is upstream from another env, we need to block it aswell
-		if envConfig.Upstream != nil && envConfig.Upstream.Environment == envToDeleteGroupName && lastEnvOfGroup {
+		if envConfig.Upstream != nil && envConfig.Upstream.Environment == types.EnvName(envToDeleteGroupName) && lastEnvOfGroup {
 			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. '%s' is part of environment group '%s', "+
 				"which is upstream from '%s' and deleting '%s' would result in environment group deletion.",
 				c.Environment,
@@ -2104,7 +2104,7 @@ func (c *DeleteEnvironment) Transform(
 }
 
 type QueueApplicationVersion struct {
-	Environment string
+	Environment types.EnvName
 	Application string
 	Version     uint64
 }
@@ -2125,7 +2125,7 @@ func (c *QueueApplicationVersion) Transform(
 
 type DeployApplicationVersion struct {
 	Authentication        `json:"-"`
-	Environment           string                          `json:"env"`
+	Environment           types.EnvName                   `json:"env"`
 	Application           string                          `json:"app"`
 	Version               uint64                          `json:"version"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
@@ -2150,8 +2150,8 @@ func (c *DeployApplicationVersion) GetEslVersion() db.TransformerID {
 }
 
 type DeployApplicationVersionSource struct {
-	TargetGroup *string `json:"targetGroup"`
-	Upstream    string  `json:"upstream"`
+	TargetGroup *string       `json:"targetGroup"`
+	Upstream    types.EnvName `json:"upstream"`
 }
 
 func (c *DeployApplicationVersion) Transform(
@@ -2388,7 +2388,7 @@ func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release
 	return tmp.Metadata.SourceCommitId, nil
 }
 
-func createDeploymentEvent(application, environment string, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
+func createDeploymentEvent(application string, environment types.EnvName, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
 	ev := event.Deployment{
 		SourceTrainEnvironmentGroup: nil,
 		SourceTrainUpstream:         nil,
@@ -3373,7 +3373,7 @@ func (c *envReleaseTrain) applyPrognosis(
 			continue
 		}
 		d := &DeployApplicationVersion{
-			Environment:     string(c.Env), // here we deploy to the next env
+			Environment:     c.Env, // here we deploy to the next env
 			Application:     appName,
 			Version:         appPrognosis.Version,
 			LockBehaviour:   api.LockBehavior_RECORD,

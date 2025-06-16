@@ -312,7 +312,7 @@ func TransformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 	if upstream.Environment != "" {
 		return &api.EnvironmentConfig_Upstream{
 			Latest:      nil,
-			Environment: &upstream.Environment,
+			Environment: types.StringPtr(upstream.Environment),
 		}
 	}
 	return nil
