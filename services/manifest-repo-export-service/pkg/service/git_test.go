@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"sort"
 	"testing"
 	"time"
@@ -69,7 +70,7 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 		}
 		eslVersion++
 	}
-	fixtureEnvironments := []string{"development-1", "development-2", "development-3"}
+	fixtureEnvironments := []types.EnvName{"development-1", "development-2", "development-3"}
 	for _, env := range fixtureEnvironments {
 		err = dbHandler.DBWriteEnvironment(ctx, transaction, env, config.EnvironmentConfig{
 			Upstream: &config.EnvironmentConfigUpstream{
@@ -1032,7 +1033,7 @@ func TestGetSyncData(t *testing.T) {
 	const anotherEnvName = "yet-another-env-name"
 	type TestSyncData struct {
 		AppName string
-		EnvName string
+		EnvName types.EnvName
 		status  db.SyncStatus
 	}
 	type TestCase struct {

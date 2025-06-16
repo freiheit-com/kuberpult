@@ -375,7 +375,7 @@ func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, e
 }
 
 // DBSelectAppLockHistory returns the last N events associated with some lock on some environment for some app. Currently only used in testing.
-func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, environmentName, appName, lockID string, limit int) ([]ApplicationLockHistory, error) {
+func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName string, lockID string, limit int) ([]ApplicationLockHistory, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppLockHistory")
 	defer span.Finish()
 

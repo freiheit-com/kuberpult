@@ -269,7 +269,7 @@ func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, enviro
 }
 
 // DBSelectTeamLockHistory returns the last N events associated with some lock on some environment for some team. Currently only used in testing.
-func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, environmentName, teamName, lockID string, limit int) ([]TeamLockHistory, error) {
+func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, teamName string, lockID string, limit int) ([]TeamLockHistory, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockHistory")
 	defer span.Finish()
 

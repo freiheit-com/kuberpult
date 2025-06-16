@@ -16,7 +16,10 @@ Copyright freiheit.com*/
 
 package types
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
 // EnvName is a type that helps us avoid mixing up envNames from other strings.
 type EnvName string
@@ -61,4 +64,8 @@ func StringMapToEnvMap[T comparable](a map[string]T) map[EnvName]T {
 		result[EnvName(i)] = a[i]
 	}
 	return result
+}
+
+func Compare(a, b EnvName) int {
+	return strings.Compare(string(a), string(b))
 }
