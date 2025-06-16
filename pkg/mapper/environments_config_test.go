@@ -113,7 +113,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevDe),
+						Environment: nameDevDe,
 					},
 					ArgoCd: nil,
 				},
@@ -144,13 +144,13 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 			InputEnvs: map[types.EnvName]config.EnvironmentConfig{
 				nameDevDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingDe),
+						Environment: nameStagingDe,
 					},
 					ArgoCd: nil,
 				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevDe),
+						Environment: nameDevDe,
 					},
 					ArgoCd: nil,
 				},
@@ -187,7 +187,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameWhoKnows),
+						Environment: nameWhoKnows,
 					},
 					ArgoCd: nil,
 				},
@@ -222,13 +222,13 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevDe),
+						Environment: nameDevDe,
 					},
 					ArgoCd: nil,
 				},
 				nameProdDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingDe),
+						Environment: nameStagingDe,
 					},
 					ArgoCd: nil,
 				},
@@ -270,17 +270,17 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevDe),
+						Environment: nameDevDe,
 					},
 				},
 				nameProdDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingDe),
+						Environment: nameStagingDe,
 					},
 				},
 				nameWhoKnowsDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameProdDe),
+						Environment: nameProdDe,
 					},
 				},
 			},
@@ -329,22 +329,22 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				},
 				nameOtherDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevDe),
+						Environment: nameDevDe,
 					},
 				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameOtherDe),
+						Environment: nameOtherDe,
 					},
 				},
 				nameCanaryDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingDe),
+						Environment: nameStagingDe,
 					},
 				},
 				nameProdDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameCanaryDe),
+						Environment: nameCanaryDe,
 					},
 				},
 			},
@@ -406,27 +406,27 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevDe),
+						Environment: nameDevDe,
 					},
 				},
 				nameStagingFr: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevFr),
+						Environment: nameDevFr,
 					},
 				},
 				nameCanaryDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingDe),
+						Environment: nameStagingDe,
 					},
 				},
 				nameProdDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameCanaryDe),
+						Environment: nameCanaryDe,
 					},
 				},
 				nameProdFr: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingFr),
+						Environment: nameStagingFr,
 					},
 				},
 			},
@@ -508,25 +508,25 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevDe),
+						Environment: nameDevDe,
 					},
 					EnvironmentGroup: types.StringPtr(nameStaging),
 				},
 				nameStagingFr: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevFr),
+						Environment: nameDevFr,
 					},
 					EnvironmentGroup: types.StringPtr(nameStaging),
 				},
 				nameProdDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingDe),
+						Environment: nameStagingDe,
 					},
 					EnvironmentGroup: types.StringPtr(nameProd),
 				},
 				nameProdFr: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingFr),
+						Environment: nameStagingFr,
 					},
 					EnvironmentGroup: types.StringPtr(nameProd),
 				},
@@ -582,37 +582,37 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				},
 				nameTestGlobal: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameDevGlobal),
+						Environment: nameDevGlobal,
 					},
 					EnvironmentGroup: types.StringPtr(nameTest),
 				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameTestGlobal),
+						Environment: nameTestGlobal,
 					},
 					EnvironmentGroup: types.StringPtr(nameStaging),
 				},
 				nameStagingFr: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameTestGlobal),
+						Environment: nameTestGlobal,
 					},
 					EnvironmentGroup: types.StringPtr(nameStaging),
 				},
 				nameCanaryDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingDe),
+						Environment: nameStagingDe,
 					},
 					EnvironmentGroup: types.StringPtr(nameCanary),
 				},
 				nameProdDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameCanaryDe),
+						Environment: nameCanaryDe,
 					},
 					EnvironmentGroup: types.StringPtr(nameProd),
 				},
 				nameProdFr: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: string(nameStagingFr),
+						Environment: nameStagingFr,
 					},
 					EnvironmentGroup: types.StringPtr(nameCanary),
 				},
