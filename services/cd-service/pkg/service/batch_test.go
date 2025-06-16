@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os/exec"
 	"path"
 	"testing"
@@ -1090,9 +1091,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 				t.Errorf("batch response mismatch: %s", d)
 			}
 
-			var envs map[string]config.EnvironmentConfig
-			var envsPtr *map[string]config.EnvironmentConfig
-			envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+			var envs map[types.EnvName]config.EnvironmentConfig
+			var envsPtr *map[types.EnvName]config.EnvironmentConfig
+			envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[types.EnvName]config.EnvironmentConfig, error) {
 				envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
 				return &envs, err
 			})
@@ -1111,7 +1112,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 func TestActiveActiveEnvironmentNames(t *testing.T) {
 	tcs := []struct {
 		Name            string
-		EnvironmentName string
+		EnvironmentName types.EnvName
 		InputEnvConfig  config.EnvironmentConfig
 		valid           bool
 	}{

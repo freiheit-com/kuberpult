@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"regexp"
 	"sort"
 	"testing"
@@ -1973,7 +1974,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 	tcs := []struct {
 		Name              string
 		Transforms        []Transformer
-		ExpectedManifests map[string]string
+		ExpectedManifests map[types.EnvName]string
 	}{
 		{
 			Name: "Simple Delete Env From App",
@@ -1995,7 +1996,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					Environment: "env",
 				},
 			},
-			ExpectedManifests: map[string]string{
+			ExpectedManifests: map[types.EnvName]string{
 				"env2": "testenvmanifest2",
 			},
 		},
@@ -2019,7 +2020,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					Environment: "env3",
 				},
 			},
-			ExpectedManifests: map[string]string{
+			ExpectedManifests: map[types.EnvName]string{
 				"env":  "testenvmanifest",
 				"env2": "testenvmanifest2",
 			},
@@ -2056,7 +2057,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					Environment: "env",
 				},
 			},
-			ExpectedManifests: map[string]string{
+			ExpectedManifests: map[types.EnvName]string{
 				"env2": "testenvmanifest2",
 			},
 		},
@@ -2087,7 +2088,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 						}
 					}
 				}
-				environment, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, tc.Transforms[len(tc.Transforms)-1].(*DeleteEnvFromApp).Environment)
+				environment, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, types.EnvName(tc.Transforms[len(tc.Transforms)-1].(*DeleteEnvFromApp).Environment))
 				if err2 != nil {
 					return err2
 				}
@@ -2113,7 +2114,7 @@ func TestReleaseTrain(t *testing.T) {
 		ReleaseVersionsLimit uint
 		Transformers         []Transformer
 		ExpectedVersion      uint
-		TargetEnv            string
+		TargetEnv            types.EnvName
 		TargetApp            string
 	}{
 		{
@@ -2375,9 +2376,9 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					App:           "app",
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{},
+						Manifests: map[types.EnvName]string{},
 					},
-					Environments: []string{},
+					Environments: []types.EnvName{},
 				},
 			},
 			expectedAllEnvs: []string{},
@@ -2421,11 +2422,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					App:           "app",
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
 						},
 					},
-					Environments: []string{"dev"},
+					Environments: []types.EnvName{"dev"},
 				},
 			},
 			expectedAllEnvs: []string{"dev"},
@@ -2479,21 +2480,21 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					App:           "app",
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
 						},
 					},
-					Environments: []string{"dev"},
+					Environments: []types.EnvName{"dev"},
 				},
 				"app2": {
 					App:           "app2",
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
 						},
 					},
-					Environments: []string{"dev"},
+					Environments: []types.EnvName{"dev"},
 				},
 			},
 			expectedAllEnvs: []string{"dev"},
