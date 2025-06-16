@@ -969,7 +969,7 @@ func TestGetCommitInfo(t *testing.T) {
 						}
 					case *api.Event_DeploymentEvent:
 						eventType := initialEvent.EventType.(*api.Event_DeploymentEvent)
-						err := dbHandler.DBWriteDeploymentEvent(ctx, transaction, db.TransformerID(0), initialEvent.Uuid, initialEvent.CommitHash, &event.Deployment{Application: eventType.DeploymentEvent.Application, Environment: types.EnvName(eventType.DeploymentEvent.TargetEnvironment)})
+						err := dbHandler.DBWriteDeploymentEvent(ctx, transaction, db.TransformerID(0), initialEvent.Uuid, initialEvent.CommitHash, &event.Deployment{Application: eventType.DeploymentEvent.Application, Environment: eventType.DeploymentEvent.TargetEnvironment})
 						if err != nil {
 							return err
 						}
