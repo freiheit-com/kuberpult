@@ -2393,13 +2393,13 @@ func createDeploymentEvent(application string, environment types.EnvName, source
 		SourceTrainEnvironmentGroup: nil,
 		SourceTrainUpstream:         nil,
 		Application:                 application,
-		Environment:                 environment,
+		Environment:                 string(environment),
 	}
 	if sourceTrain != nil {
 		if sourceTrain.TargetGroup != nil {
 			ev.SourceTrainEnvironmentGroup = sourceTrain.TargetGroup
 		}
-		ev.SourceTrainUpstream = &sourceTrain.Upstream
+		ev.SourceTrainUpstream = types.StringPtr(sourceTrain.Upstream)
 	}
 	return &ev
 }

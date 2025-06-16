@@ -17,7 +17,6 @@ Copyright freiheit.com*/
 package event
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"testing"
 
 	"github.com/go-git/go-billy/v5/memfs"
@@ -59,7 +58,7 @@ func Test_roundtrip(t *testing.T) {
 				Application:                 "app1",
 				Environment:                 "env1",
 				SourceTrainEnvironmentGroup: ptr("A"),
-				SourceTrainUpstream:         types.EnvNamePtr("B"),
+				SourceTrainUpstream:         ptr("B"),
 			},
 		},
 		{
