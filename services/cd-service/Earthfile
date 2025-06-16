@@ -7,40 +7,34 @@ ARG --global src_files=$(find pkg -type f ! -name "*_test.go")
 ARG --global cgo_enabled=1
 
 deps:
-    ARG tag="local"
-    FROM ../../+deps --tag=$tag
+    FROM ../../+deps
     DO go-build+DEPS --service=$service --src_files=$src_files
     WORKDIR services/$service
 
 artifacts:
-    ARG tag="local"
-    FROM +deps --tag=$tag
+    FROM +deps
     SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
     SAVE ARTIFACT /usr/share/zoneinfo
     SAVE ARTIFACT pkg
 
 bench-test:
-    ARG tag="local"
-    FROM +compile --tag=$tag
+    FROM +compile
     ARG GO_TEST_ARGS
     DO go-build+BENCH_TEST --GO_TEST_ARGS=$GO_TEST_ARGS
 
 compile:
-    ARG tag="local"
-    FROM +deps --tag=$tag
+    FROM +deps
     ARG USERARCH
     
     DO go-build+COMPILE --cgo_enabled=$cgo_enabled
 
 unit-test:
-    ARG tag="local"
-    FROM +compile --tag=$tag
+    FROM +compile
     ARG GO_TEST_ARGS
     DO go-build+UNIT_TEST --GO_TEST_ARGS=$GO_TEST_ARGS
 
 lint:
-    ARG tag="local"
-    FROM +deps --tag=$tag
+    FROM +deps
     DO go-build+LINT --skip_lint_errors=false
 
 docker:
@@ -84,10 +78,10 @@ BUILD_ALL:
     ARG mirror=""
     ARG dd_release=false
 
-    FROM +deps --tag=$tag
-    BUILD +lint --tag=$tag
-    BUILD +unit-test --tag=$tag
-    BUILD +bench-test --tag=$tag
+    FROM +deps
+    BUILD +lint
+    BUILD +unit-test
+    BUILD +bench-test
     BUILD +release --registry=$registry --tag=$tag
     IF [ "$mirror" = "true" ]
         BUILD +release --registry=$mirror_registry --tag=$tag

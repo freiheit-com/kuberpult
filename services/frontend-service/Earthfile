@@ -7,30 +7,25 @@ ARG --global src_files=$(find pkg -type f ! -name "*_test.go")
 ARG --global cgo_enabled=0
 
 deps:
-    ARG tag="local"
-    FROM ../../+deps --tag=$tag
+    FROM ../../+deps
     DO go-build+DEPS --service=$service --src_files=$src_files
     WORKDIR services/$service
 
 artifacts:
-    ARG tag="local"
-    FROM +deps --tag=$tag
+    FROM +deps
     SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
     SAVE ARTIFACT /usr/share/zoneinfo
 
 compile:
-    ARG tag="local"
-    FROM +deps --tag=$tag
+    FROM +deps
     DO go-build+COMPILE --cgo_enabled=$cgo_enabled
 
 unit-test:
-    ARG tag="local"
-    FROM +compile --tag=$tag
+    FROM +compile
     DO go-build+UNIT_TEST
 
 lint:
-    ARG tag="local"
-    FROM +deps --tag=$tag
+    FROM +deps
     DO go-build+LINT
     
 docker:
@@ -49,8 +44,7 @@ release:
     DO go-build+RELEASE --image_tag=$registry/kuberpult-$service:$tag
 
 deps-ui:
-    ARG tag="local"
-    FROM +deps --tag=$tag
+    FROM +deps
     WORKDIR /kp
     COPY package.json pnpm-lock.yaml pnpm-workspace.yaml buf.yaml buf.gen.yaml buf.lock tsconfig.json .eslintrc .prettierrc .npmrc .nvmrc .
     RUN pnpm i
@@ -66,24 +60,20 @@ deps-ui:
     SAVE ARTIFACT build
 
 node-modules:
-    ARG tag="local"
-    FROM +deps-ui --tag=$tag
+    FROM +deps-ui
     SAVE ARTIFACT node_modules AS LOCAL node_modules
 
 lint-ui:
-    ARG tag="local"
-    FROM +deps-ui --tag=$tag
+    FROM +deps-ui
     RUN pnpm eslint-check
     RUN pnpm scss-check
 
 unit-test-ui:
-    ARG tag="local"
-    FROM +deps-ui --tag=$tag
+    FROM +deps-ui
     RUN pnpm test -- --watchAll=false
 
 docker-ui:
-    ARG tag="local"
-    FROM +deps-ui --tag=$tag
+    FROM +deps-ui
     CMD "rm -rf src/api src/google && buf generate --path api --timeout 5m && pnpm start"
     SAVE IMAGE ui:local
     SAVE ARTIFACT src/api AS LOCAL src/api
@@ -118,11 +108,11 @@ BUILD_ALL:
     ARG mirror=""
     ARG dd_release=false
 
-    FROM +deps --tag=$tag
-    BUILD +lint-ui --tag=$tag
-    BUILD +lint --tag=$tag
-    BUILD +unit-test --tag=$tag
-    BUILD +unit-test-ui --tag=$tag
+    FROM +deps
+    BUILD +lint-ui
+    BUILD +lint
+    BUILD +unit-test
+    BUILD +unit-test-ui
     BUILD +release --registry=$registry --tag=$tag
     IF [ "$mirror" = "true" ]
         BUILD +release --registry=$mirror_registry --tag=$tag

@@ -4,13 +4,7 @@ ARG --global UID=1000
 ARG --global target=docker
 
 deps:
-    ARG tag="local"
-    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
-    IF [ "$tag" = "local" ]
-       FROM DOCKERFILE ./infrastructure/docker/builder
-    ELSE
-       FROM $registry/infrastructure/docker/builder:$tag
-    END
+    FROM DOCKERFILE ./infrastructure/docker/builder
 
     WORKDIR /kp
     RUN mkdir -p database/migrations
