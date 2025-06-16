@@ -2343,7 +2343,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 		Name                  string
 		Transformers          []Transformer
 		expectedLatestRelease map[string]db.DBReleaseWithMetaData
-		expectedAllEnvs       []string
+		expectedAllEnvs       []types.EnvName
 	}
 
 	tcs := []TestCase{
@@ -2381,7 +2381,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environments: []types.EnvName{},
 				},
 			},
-			expectedAllEnvs: []string{},
+			expectedAllEnvs: []types.EnvName{},
 		},
 		{
 			Name: "multiple envs",
@@ -2429,7 +2429,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environments: []types.EnvName{"dev"},
 				},
 			},
-			expectedAllEnvs: []string{"dev"},
+			expectedAllEnvs: []types.EnvName{"dev"},
 		},
 		{
 			Name: "multiple envs, multiple apps",
@@ -2497,7 +2497,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environments: []types.EnvName{"dev"},
 				},
 			},
-			expectedAllEnvs: []string{"dev"},
+			expectedAllEnvs: []types.EnvName{"dev"},
 		},
 	}
 
