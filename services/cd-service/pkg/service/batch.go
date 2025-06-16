@@ -201,7 +201,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			LockId:                act.LockId,
 			Message:               act.Message,
 			CiLink:                act.CiLink,
@@ -216,7 +216,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			LockId:                act.LockId,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
@@ -227,7 +227,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentApplicationLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Application:           act.Application,
 			LockId:                act.LockId,
 			Message:               act.Message,
@@ -243,7 +243,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentApplicationLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Application:           act.Application,
 			LockId:                act.LockId,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
@@ -255,7 +255,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentTeamLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Team:                  act.Team,
 			LockId:                act.LockId,
 			Message:               act.Message,
@@ -271,7 +271,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentTeamLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Team:                  act.Team,
 			LockId:                act.LockId,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
@@ -311,7 +311,7 @@ func (d *BatchServer) processAction(
 		}
 		return &repository.DeployApplicationVersion{
 			SourceTrain:           nil,
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Application:           act.Application,
 			Version:               act.Version,
 			LockBehaviour:         b,
@@ -325,7 +325,7 @@ func (d *BatchServer) processAction(
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
 		return &repository.DeleteEnvFromApp{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Application:           act.Application,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
@@ -360,7 +360,7 @@ func (d *BatchServer) processAction(
 		return &repository.CreateApplicationVersion{
 				Version:               in.Version,
 				Application:           in.Application,
-				Manifests:             in.Manifests,
+				Manifests:             types.StringMapToEnvMap(in.Manifests),
 				SourceCommitId:        in.SourceCommitId,
 				SourceAuthor:          in.SourceAuthor,
 				SourceMessage:         in.SourceMessage,
@@ -408,7 +408,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("processAction: invalid environment. err: %v", err))
 		}
 		transformer := &repository.CreateEnvironment{
-			Environment:           in.Environment,
+			Environment:           types.EnvName(in.Environment),
 			Config:                internalEnvironmentConfig,
 			TransformerEslVersion: 0,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
@@ -437,7 +437,7 @@ func (d *BatchServer) processAction(
 	case *api.BatchAction_DeleteEnvironment:
 		act := action.DeleteEnvironment
 		return &repository.DeleteEnvironment{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil

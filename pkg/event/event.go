@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"io/fs"
 	"slices"
 
@@ -69,10 +70,10 @@ func (ev *NewRelease) toProto(trg *api.Event) {
 // Deployment is an event that denotes that an application of a commit
 // has been released to an environment.
 type Deployment struct {
-	Application                 string  `fs:"application" json:"Application"`
-	Environment                 string  `fs:"environment" json:"Environment"`
-	SourceTrainEnvironmentGroup *string `fs:"source_train_environment_group" json:"SourceTrainEnvironmentGroup"`
-	SourceTrainUpstream         *string `fs:"source_train_upstream" json:"SourceTrainUpstream"`
+	Application                 string         `fs:"application" json:"Application"`
+	Environment                 types.EnvName  `fs:"environment" json:"Environment"`
+	SourceTrainEnvironmentGroup *string        `fs:"source_train_environment_group" json:"SourceTrainEnvironmentGroup"`
+	SourceTrainUpstream         *types.EnvName `fs:"source_train_upstream" json:"SourceTrainUpstream"`
 }
 
 func (_ *Deployment) eventType() string {
@@ -91,12 +92,12 @@ func (ev *Deployment) toProto(trg *api.Event) {
 		if releaseTrainSource == nil {
 			releaseTrainSource = new(api.DeploymentEvent_ReleaseTrainSource)
 		}
-		releaseTrainSource.UpstreamEnvironment = *ev.SourceTrainUpstream
+		releaseTrainSource.UpstreamEnvironment = string(*ev.SourceTrainUpstream)
 	}
 	trg.EventType = &api.Event_DeploymentEvent{
 		DeploymentEvent: &api.DeploymentEvent{
 			Application:        ev.Application,
-			TargetEnvironment:  ev.Environment,
+			TargetEnvironment:  string(ev.Environment),
 			ReleaseTrainSource: releaseTrainSource,
 		},
 	}

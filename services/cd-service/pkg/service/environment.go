@@ -89,7 +89,7 @@ func transformUpstreamToConfig(upstream *api.EnvironmentConfig_Upstream) *config
 	if upstream.GetEnvironment() != "" {
 		return &config.EnvironmentConfigUpstream{
 			Latest:      false,
-			Environment: upstream.GetEnvironment(),
+			Environment: types.EnvName(upstream.GetEnvironment()),
 		}
 	}
 	return nil
@@ -101,7 +101,7 @@ func transformUpstreamToApi(in *config.EnvironmentConfigUpstream) *api.Environme
 	}
 
 	return &api.EnvironmentConfig_Upstream{
-		Environment: &in.Environment,
+		Environment: types.StringPtr(in.Environment),
 		Latest:      &in.Latest,
 	}
 }

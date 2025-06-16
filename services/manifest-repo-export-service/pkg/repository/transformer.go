@@ -279,7 +279,7 @@ type Authentication struct {
 }
 
 type QueueApplicationVersion struct {
-	Environment           string
+	Environment           types.EnvName
 	Application           string
 	Version               uint64
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
@@ -301,7 +301,7 @@ func (c *QueueApplicationVersion) Transform(
 ) (string, error) {
 	fs := state.Filesystem
 	// Create a symlink to the release
-	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
+	applicationDir := fs.Join("environments", string(c.Environment), "applications", c.Application)
 	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
 	}
@@ -320,7 +320,7 @@ func (c *QueueApplicationVersion) Transform(
 type DeployApplicationVersion struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string                          `json:"env"`
+	Environment           types.EnvName                   `json:"env"`
 	Application           string                          `json:"app"`
 	Version               uint64                          `json:"version"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
@@ -366,7 +366,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	var manifestContent = []byte(version.Manifests.Manifests[envName])
 
-	applicationDir := fsys.Join("environments", c.Environment, "applications", c.Application)
+	applicationDir := fsys.Join("environments", string(c.Environment), "applications", c.Application)
 	// Create a symlink to the release
 	if err := fsys.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
@@ -469,7 +469,7 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 type CreateEnvironmentLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
@@ -497,9 +497,8 @@ func (c *CreateEnvironmentLock) Transform(
 	if tCtx.ShouldMinimizeGitData() {
 		return GetNoOpMessage(c)
 	}
-	envName := types.EnvName(c.Environment)
 	fs := state.Filesystem
-	envDir := fs.Join("environments", c.Environment)
+	envDir := fs.Join("environments", string(c.Environment))
 	if _, err := fs.Stat(envDir); err != nil {
 		return "", fmt.Errorf("could not access environment information on: '%s': %w", envDir, err)
 	}
@@ -508,7 +507,7 @@ func (c *CreateEnvironmentLock) Transform(
 		return "", err
 	}
 
-	lock, err := state.DBHandler.DBSelectEnvironmentLock(ctx, transaction, envName, c.LockId)
+	lock, err := state.DBHandler.DBSelectEnvironmentLock(ctx, transaction, c.Environment, c.LockId)
 	if err != nil {
 		return "", err
 	}
@@ -560,7 +559,7 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, autho
 type DeleteEnvironmentLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -615,7 +614,7 @@ func (c *DeleteEnvironmentLock) Transform(
 type CreateEnvironmentApplicationLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	Application           string           `json:"app"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
@@ -646,7 +645,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	}
 	env := types.EnvName(c.Environment)
 	fs := state.Filesystem
-	envDir := fs.Join("environments", c.Environment)
+	envDir := fs.Join("environments", string(c.Environment))
 	if _, err := fs.Stat(envDir); err != nil {
 		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
 	}
@@ -682,7 +681,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 type DeleteEnvironmentApplicationLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	Application           string           `json:"app"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
@@ -710,10 +709,9 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	if tCtx.ShouldMinimizeGitData() {
 		return GetNoOpMessage(c)
 	}
-	envName := types.EnvName(c.Environment)
 	fs := state.Filesystem
 	queueMessage := ""
-	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
+	lockDir := fs.Join("environments", string(c.Environment), "applications", c.Application, "locks", c.LockId)
 	_, err := fs.Stat(lockDir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
@@ -722,11 +720,11 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		return "", fmt.Errorf("failed to delete directory %q: %w.", lockDir, err)
 	}
 
-	queueMessage, err = state.ProcessQueue(ctx, transaction, fs, envName, c.Application)
+	queueMessage, err = state.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
 	if err != nil {
 		return "", err
 	}
-	if err := state.DeleteAppLockIfEmpty(ctx, envName, c.Application); err != nil {
+	if err := state.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 		return "", err
 	}
 
@@ -736,17 +734,17 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 type CreateApplicationVersion struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Version               uint64            `json:"version"`
-	Application           string            `json:"app"`
-	Manifests             map[string]string `json:"manifests"`
-	SourceCommitId        string            `json:"sourceCommitId"`
-	SourceAuthor          string            `json:"sourceCommitAuthor"`
-	SourceMessage         string            `json:"sourceCommitMessage"`
-	Team                  string            `json:"team"`
-	DisplayVersion        string            `json:"displayVersion"`
-	WriteCommitData       bool              `json:"writeCommitData"`
-	PreviousCommit        string            `json:"previousCommit"`
-	TransformerEslVersion db.TransformerID  `json:"-"`
+	Version               uint64                   `json:"version"`
+	Application           string                   `json:"app"`
+	Manifests             map[types.EnvName]string `json:"manifests"`
+	SourceCommitId        string                   `json:"sourceCommitId"`
+	SourceAuthor          string                   `json:"sourceCommitAuthor"`
+	SourceMessage         string                   `json:"sourceCommitMessage"`
+	Team                  string                   `json:"team"`
+	DisplayVersion        string                   `json:"displayVersion"`
+	WriteCommitData       bool                     `json:"writeCommitData"`
+	PreviousCommit        string                   `json:"previousCommit"`
+	TransformerEslVersion db.TransformerID         `json:"-"`
 }
 
 func (c *CreateApplicationVersion) GetEslVersion() db.TransformerID {
@@ -834,7 +832,7 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 
-	var allEnvsOfThisApp []string = nil
+	var allEnvsOfThisApp []types.EnvName = nil
 
 	for env := range c.Manifests {
 		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
@@ -863,10 +861,9 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 	for i := range sortedKeys {
 		env := sortedKeys[i]
-		envTyped := types.EnvName(env)
 		man := c.Manifests[env]
 
-		envDir := fs.Join(releaseDir, "environments", env)
+		envDir := fs.Join(releaseDir, "environments", string(env))
 
 		if tCtx.ShouldMaximizeGitData() {
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
@@ -882,9 +879,9 @@ func (c *CreateApplicationVersion) Transform(
 			return "", err
 		}
 
-		tCtx.AddAppEnv(c.Application, envTyped, teamOwner)
+		tCtx.AddAppEnv(c.Application, env, teamOwner)
 
-		if _, exists := deploymentsMap[envTyped]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
+		if _, exists := deploymentsMap[env]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
@@ -1073,7 +1070,7 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 type CreateEnvironmentTeamLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	Team                  string           `json:"team"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
@@ -1135,7 +1132,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		return "", &TeamNotFoundErr{err: fmt.Errorf("team '%s' does not exist", c.Team)}
 	}
 
-	envDir := fs.Join("environments", c.Environment)
+	envDir := fs.Join("environments", string(c.Environment))
 	if _, err := fs.Stat(envDir); err != nil {
 		return "", fmt.Errorf("error environment not found dir %q: %w", envDir, err)
 	}
@@ -1168,7 +1165,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 type DeleteEnvironmentTeamLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string           `json:"env"`
+	Environment           types.EnvName    `json:"env"`
 	Team                  string           `json:"team"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
@@ -1209,7 +1206,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	}
 	fs := state.Filesystem
 
-	lockDir := fs.Join("environments", c.Environment, "teams", c.Team, "locks", c.LockId)
+	lockDir := fs.Join("environments", string(c.Environment), "teams", c.Team, "locks", c.LockId)
 	_, err := fs.Stat(lockDir)
 
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -1230,7 +1227,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 type CreateEnvironment struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string                   `json:"env"`
+	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -1258,7 +1255,7 @@ func (c *CreateEnvironment) Transform(
 		return GetNoOpMessage(c)
 	}
 	fs := state.Filesystem
-	envDir := fs.Join("environments", c.Environment)
+	envDir := fs.Join("environments", string(c.Environment))
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
 		return "", err
 	}
@@ -1487,7 +1484,7 @@ func (u *ReleaseTrain) Transform(
 		}
 		upstreamEnvName := envConfig.Upstream.Environment
 		if envConfig.Upstream.Latest {
-			upstreamEnvName = string(currentDeployment.Env)
+			upstreamEnvName = currentDeployment.Env
 		}
 		var trainGroup *string
 		if isEnvGroup {
@@ -1496,13 +1493,13 @@ func (u *ReleaseTrain) Transform(
 		if err := t.Execute(&DeployApplicationVersion{
 			Authentication:      u.Authentication,
 			TransformerMetadata: u.TransformerMetadata,
-			Environment:         string(currentDeployment.Env),
+			Environment:         currentDeployment.Env,
 			Application:         currentDeployment.App,
 			Version:             uint64(*currentDeployment.Version),
 			LockBehaviour:       api.LockBehavior_RECORD,
 			WriteCommitData:     u.WriteCommitData,
 			SourceTrain: &DeployApplicationVersionSource{
-				Upstream:    upstreamEnvName,
+				Upstream:    string(upstreamEnvName),
 				TargetGroup: trainGroup,
 			},
 			TransformerEslVersion: u.TransformerEslVersion,
@@ -1551,8 +1548,8 @@ func (c *MigrationTransformer) SetEslVersion(eslVersion db.TransformerID) {
 type DeleteEnvFromApp struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Environment           string           `json:"env"`
 	Application           string           `json:"app"`
+	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
@@ -1700,7 +1697,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if hasUpstream && config.Upstream.Latest {
 			d := &DeployApplicationVersion{
 				SourceTrain: nil,
-				Environment: string(env),
+				Environment: env,
 				Application: c.Application,
 				Version:     nextReleaseNumber,
 				// the train should queue deployments, instead of giving up:
@@ -1899,8 +1896,8 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 }
 
 type DeleteEnvironment struct {
-	Environment           string `json:"env"`
 	TransformerMetadata   `json:"metadata"`
+	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
@@ -1918,7 +1915,7 @@ func (d *DeleteEnvironment) GetDBEventType() db.EventType {
 
 func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
 	fs := state.Filesystem
-	envDir := fs.Join("environments", d.Environment)
+	envDir := fs.Join("environments", string(d.Environment))
 	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
 
 	err := fs.Remove(envDir)

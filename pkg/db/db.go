@@ -1970,14 +1970,14 @@ type AllEnvLocksJson struct {
 type AllEnvLocksRow struct {
 	Version     int64
 	Created     time.Time
-	Environment string
+	Environment types.EnvName
 	Data        string
 }
 
 type AllEnvLocksGo struct {
 	Version     int64
 	Created     time.Time
-	Environment string
+	Environment types.EnvName
 	AllEnvLocksJson
 }
 

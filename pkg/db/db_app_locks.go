@@ -357,7 +357,7 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 	return &result[0], nil
 }
 
-func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, environment string) ([]ApplicationLock, error) {
+func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]ApplicationLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocksForEnv")
 	defer span.Finish()
 
