@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"strconv"
 	"strings"
 
@@ -1131,7 +1132,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 			},
 			expectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
-				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
 					"acceptance-ca": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
@@ -1194,7 +1195,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 			},
 			expectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
-				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
 					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
@@ -1241,7 +1242,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 			},
 			expectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
-				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
 					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
@@ -1285,7 +1286,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 			},
 			expectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
-				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
 					"acceptance-ca": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
