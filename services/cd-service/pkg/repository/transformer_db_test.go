@@ -1639,7 +1639,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 	type TestCase struct {
 		Name                      string
 		Transformers              []Transformer
-		expectedEnvironmentConfig map[string]config.EnvironmentConfig
+		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
 	}
 
 	testCases := []TestCase{
@@ -1651,7 +1651,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"development": testutil.MakeEnvConfigLatest(nil),
 			},
 		},
@@ -1667,7 +1667,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigUpstream("development", nil),
 			},
 		},
@@ -1683,7 +1683,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"development": testutil.MakeEnvConfigLatest(nil),
 				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},

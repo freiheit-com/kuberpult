@@ -4960,7 +4960,7 @@ func TestDBSelectAllTeamLocksOfAllEnvs(t *testing.T) {
 	tcs := []struct {
 		Name      string
 		TeamLocks []TeamLock
-		Expected  map[string]map[string][]TeamLock
+		Expected  map[types.EnvName]map[string][]TeamLock
 	}{
 		{
 			Name: "Retrieve All Environment locks",
@@ -5005,7 +5005,7 @@ func TestDBSelectAllTeamLocksOfAllEnvs(t *testing.T) {
 					},
 				},
 			},
-			Expected: map[string]map[string][]TeamLock{
+			Expected: map[types.EnvName]map[string][]TeamLock{
 				"development": {
 					"team1": {
 						{
@@ -5100,7 +5100,7 @@ func TestDBSelectAllTeamLocksOfAllEnvs(t *testing.T) {
 					},
 				},
 			},
-			Expected: map[string]map[string][]TeamLock{
+			Expected: map[types.EnvName]map[string][]TeamLock{
 				"development": {
 					"team1": {
 						{
