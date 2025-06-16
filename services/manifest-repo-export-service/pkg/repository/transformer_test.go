@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"os/exec"
 	"path"
@@ -2206,7 +2207,7 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 						concreteTransformer := tr.(*CreateEnvironmentLock)
-						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, db.LockMetadata{
+						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
 							CreatedByName:  concreteTransformer.AuthorName,
 							CreatedByEmail: concreteTransformer.AuthorEmail,
 							Message:        concreteTransformer.Message,
@@ -2218,7 +2219,7 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtDeleteEnvironmentLock {
 						concreteTransformer := tr.(*DeleteEnvironmentLock)
-						err2 = dbHandler.DBDeleteEnvironmentLock(ctx, transaction, concreteTransformer.Environment, concreteTransformer.LockId)
+						err2 = dbHandler.DBDeleteEnvironmentLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.LockId)
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2233,7 +2234,7 @@ func TestLocks(t *testing.T) {
 							ReleaseNumber: concreteTransformer.Version,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
-								Manifests: concreteTransformer.Manifests,
+								Manifests: types.StringMapToEnvMap(concreteTransformer.Manifests),
 							},
 						})
 						if err2 != nil {
@@ -2242,7 +2243,7 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentApplicationLock {
 						concreteTransformer := tr.(*CreateEnvironmentApplicationLock)
-						err2 = dbHandler.DBWriteApplicationLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Application, db.LockMetadata{
+						err2 = dbHandler.DBWriteApplicationLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), concreteTransformer.Application, db.LockMetadata{
 							CreatedByName:  concreteTransformer.AuthorName,
 							CreatedByEmail: concreteTransformer.AuthorEmail,
 							Message:        concreteTransformer.Message,
@@ -2254,7 +2255,7 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtDeleteEnvironmentApplicationLock {
 						concreteTransformer := tr.(*DeleteEnvironmentApplicationLock)
-						err2 = dbHandler.DBDeleteApplicationLock(ctx, transaction, concreteTransformer.Environment, concreteTransformer.Application, concreteTransformer.LockId)
+						err2 = dbHandler.DBDeleteApplicationLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.Application, concreteTransformer.LockId)
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2262,7 +2263,7 @@ func TestLocks(t *testing.T) {
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentTeamLock {
 						concreteTransformer := tr.(*CreateEnvironmentTeamLock)
 
-						err2 = dbHandler.DBWriteTeamLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, concreteTransformer.Team, db.LockMetadata{
+						err2 = dbHandler.DBWriteTeamLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), concreteTransformer.Team, db.LockMetadata{
 							CreatedByName:  concreteTransformer.AuthorName,
 							CreatedByEmail: concreteTransformer.AuthorEmail,
 							Message:        concreteTransformer.Message,
@@ -2274,7 +2275,7 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtDeleteEnvironmentTeamLock {
 						concreteTransformer := tr.(*DeleteEnvironmentTeamLock)
-						err2 = dbHandler.DBDeleteTeamLock(ctx, transaction, concreteTransformer.Environment, concreteTransformer.Team, concreteTransformer.LockId)
+						err2 = dbHandler.DBDeleteTeamLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.Team, concreteTransformer.LockId)
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2530,7 +2531,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 							ReleaseNumber: concreteTransformer.Version,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
-								Manifests: concreteTransformer.Manifests,
+								Manifests: types.StringMapToEnvMap(concreteTransformer.Manifests),
 							},
 						})
 						if err2 != nil {
@@ -2540,7 +2541,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 						concreteTransformer := tr.(*CreateEnvironmentLock)
-						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, db.LockMetadata{
+						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
 							CreatedByName:  concreteTransformer.AuthorName,
 							CreatedByEmail: concreteTransformer.AuthorEmail,
 							Message:        concreteTransformer.Message,
@@ -2549,7 +2550,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 						if err2 != nil {
 							t.Fatal(err2)
 						}
-						err2 = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, concreteTransformer.Environment, []string{concreteTransformer.LockId})
+						err2 = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, types.EnvName(concreteTransformer.Environment), []string{concreteTransformer.LockId})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2561,7 +2562,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 							ReleaseNumber: 2,
 							App:           appName,
 							Manifests: db.DBReleaseManifests{
-								Manifests: map[string]string{ //empty manifest
+								Manifests: map[types.EnvName]string{ //empty manifest
 									envAcceptance:  "",
 									envAcceptance2: "",
 								},
@@ -2946,7 +2947,7 @@ func TestUndeployLogic(t *testing.T) {
 							ReleaseNumber: concreteTransformer.Version,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
-								Manifests: concreteTransformer.Manifests,
+								Manifests: types.StringMapToEnvMap(concreteTransformer.Manifests),
 							},
 						})
 						if err2 != nil {
@@ -2956,7 +2957,7 @@ func TestUndeployLogic(t *testing.T) {
 
 					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 						concreteTransformer := tr.(*CreateEnvironmentLock)
-						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, db.LockMetadata{
+						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
 							CreatedByName:  concreteTransformer.AuthorName,
 							CreatedByEmail: concreteTransformer.AuthorEmail,
 							Message:        concreteTransformer.Message,
@@ -2965,7 +2966,7 @@ func TestUndeployLogic(t *testing.T) {
 						if err2 != nil {
 							t.Fatal(err2)
 						}
-						err2 = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, concreteTransformer.Environment, []string{concreteTransformer.LockId})
+						err2 = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, types.EnvName(concreteTransformer.Environment), []string{concreteTransformer.LockId})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2978,7 +2979,7 @@ func TestUndeployLogic(t *testing.T) {
 							ReleaseNumber: 2,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
-								Manifests: map[string]string{ //empty manifest
+								Manifests: map[types.EnvName]string{ //empty manifest
 									"": "",
 								},
 							},
