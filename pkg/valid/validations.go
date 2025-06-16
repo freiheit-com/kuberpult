@@ -60,7 +60,7 @@ func EnvironmentName(env types.EnvName) bool {
 	return len(env) < 21 && envNameRx.MatchString(string(env))
 }
 func GroupName(env string) bool {
-	return len(env) < 21 && envNameRx.MatchString(env)
+	return len(env) < 21 && groupNameRx.MatchString(env)
 }
 func ApplicationName(name string) bool {
 	return len(name) <= MaxAppNameLen && applicationNameRx.MatchString(name)

@@ -61,7 +61,7 @@ func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*
 	return err
 }
 
-func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName, envName types.EnvName) (*ArgoEvent, error) {
+func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (*ArgoEvent, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadArgoEvent")
 	defer span.Finish()
 	if h == nil {

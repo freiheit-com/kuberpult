@@ -928,7 +928,7 @@ type ReleaseWithManifest struct {
 	CreatedAt       time.Time
 	DisplayVersion  string
 
-	Manifests map[string]string // keys: environment; value: manifest
+	Manifests map[types.EnvName]string // keys: environment; value: manifest
 }
 
 type AllDeployments []Deployment

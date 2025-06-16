@@ -1207,9 +1207,9 @@ func (u *DeleteEnvFromApp) Transform(
 	}
 	for _, dbReleaseWithMetadata := range releases {
 		newManifests := make(map[types.EnvName]string)
-		for envName, manifest := range dbReleaseWithMetadata.Manifests.Manifests {
-			if envName != envName {
-				newManifests[envName] = manifest
+		for e, manifest := range dbReleaseWithMetadata.Manifests.Manifests {
+			if e != envName {
+				newManifests[e] = manifest
 			}
 		}
 		newRelease := db.DBReleaseWithMetaData{
@@ -2938,9 +2938,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	defer span.Finish()
 	span.SetTag("env", c.Env)
 
-	env := c.Env
+	envName := c.Env
 
-	envConfig := c.EnvGroupConfigs[env]
+	envConfig := c.EnvGroupConfigs[envName]
 	if envConfig.Upstream == nil {
 		return &ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -2955,7 +2955,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	err := state.checkUserPermissions(
 		ctx,
 		transaction,
-		env,
+		envName,
 		"*",
 		auth.PermissionDeployReleaseTrain,
 		c.Parent.Team,
@@ -3004,9 +3004,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			}
 		}
 	}
-	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, env)
+	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, envName)
 	if err != nil {
-		return failedPrognosis(grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", env, err)))
+		return failedPrognosis(grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", envName, err)))
 	}
 
 	var source types.EnvName = upstreamEnvName
@@ -3014,7 +3014,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		source = "latest"
 	}
 
-	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash, env)
+	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(ctx, transaction, upstreamLatest, state, upstreamEnvName, source, c.Parent.CommitHash, envName)
 	if err != nil {
 		return failedPrognosis(err)
 	}
@@ -3056,15 +3056,15 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			AppsPrognoses: appsPrognoses,
 		}
 	}
-	allLatestDeploymentsTargetEnv, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, env)
+	allLatestDeploymentsTargetEnv, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, envName)
 	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", env, err)))
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
 	}
 
 	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
 
 	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", env, err)))
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
 	}
 
 	var allLatestReleaseEnvironments db.AppVersionManifests
@@ -3115,7 +3115,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		} else if upstreamLatest {
 			l := len(allLatestReleases[appName])
 			if allLatestReleases == nil || allLatestReleases[appName] == nil || l == 0 {
-				logger.FromContext(ctx).Sugar().Warnf("app %s appears to have no releases on env=%s, so it is skipped", appName, env)
+				logger.FromContext(ctx).Sugar().Warnf("app %s appears to have no releases on env=%s, so it is skipped", appName, envName)
 				continue
 			}
 			versionToDeploy = uint64(allLatestReleases[appName][int(math.Max(0, float64(l-1)))])
@@ -3147,7 +3147,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			continue
 		}
 
-		appLocks, err := state.GetEnvironmentApplicationLocks(ctx, transaction, env, appName)
+		appLocks, err := state.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName)
 
 		if err != nil {
 			return failedPrognosis(err)
@@ -3189,7 +3189,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 		found := false
 		for _, env := range releaseEnvs {
-			if env == env {
+			if env == envName {
 				found = true
 				break
 			}
@@ -3211,9 +3211,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		if ok { //IF we find information for team
 			envConfig, ok := c.EnvConfigs[c.Env]
 			if !ok {
-				err = state.checkUserPermissions(ctx, transaction, env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
+				err = state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
 			} else {
-				err = state.checkUserPermissionsFromConfig(ctx, transaction, env, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true, &envConfig)
+				err = state.checkUserPermissionsFromConfig(ctx, transaction, envName, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true, &envConfig)
 			}
 
 			if err != nil {

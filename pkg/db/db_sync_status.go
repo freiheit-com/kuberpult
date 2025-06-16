@@ -39,7 +39,7 @@ const BULK_INSERT_BATCH_SIZE = 500
 
 type GitSyncData struct {
 	AppName       string
-	EnvName       string
+	EnvName       types.EnvName
 	TransformerID EslVersion
 	SyncStatus
 }
@@ -322,7 +322,7 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 	return syncData, nil
 }
 
-func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName, envName types.EnvName) (*GitSyncData, error) {
+func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (*GitSyncData, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
 	defer span.Finish()
 	if h == nil {

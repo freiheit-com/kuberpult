@@ -281,7 +281,7 @@ func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNKNOWN
 		}
 
-		toFill[currStatus.AppName].EnvStatus[currStatus.EnvName] = statusToWrite
+		toFill[currStatus.AppName].EnvStatus[string(currStatus.EnvName)] = statusToWrite
 	}
 	return toFill
 }
