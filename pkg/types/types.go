@@ -51,6 +51,11 @@ func StringPtr(a EnvName) *string {
 	return &result
 }
 
+func EnvNamePtr(a string) *EnvName {
+	var result = EnvName(a)
+	return &result
+}
+
 func EnvMapToStringMap[T comparable](a map[EnvName]T) map[string]T {
 	var result = map[string]T{}
 	for i := range a {

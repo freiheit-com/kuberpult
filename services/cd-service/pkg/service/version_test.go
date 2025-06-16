@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -83,7 +84,7 @@ func TestGetManifests(t *testing.T) {
 		return &repository.CreateApplicationVersion{
 			Application: application,
 			Version:     release,
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"development": fmt.Sprintf("dev-manifest for %s in release %d", application, release),
 				"staging":     fmt.Sprintf("staging-manifest for %s in release %d", application, release),
 			},

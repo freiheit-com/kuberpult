@@ -139,7 +139,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 		ExpectedApp         *db.DBAppWithMetaData
 		ExpectedAllReleases *db.DBReleaseWithMetaData
 		ExpectedFile        []*FilenameAndData
-		ExpectedAuthor      *map[string]string
+		ExpectedAuthor      *map[types.EnvName]string
 		ExpectedDeletedFile string
 	}{
 		{
@@ -178,7 +178,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        7,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -208,7 +208,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					Team: "team-123",
 				},
 			},
-			ExpectedAuthor: &map[string]string{
+			ExpectedAuthor: &map[types.EnvName]string{
 				"Name":  authorName,
 				"Email": authorEmail,
 			},
@@ -220,7 +220,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        7,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -302,7 +302,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -509,7 +509,7 @@ func TestDeploymentEvent(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    appName,
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "doesn't matter",
 					},
 					Team:                  "my-team",
@@ -680,7 +680,7 @@ func TestReleaseTrain(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    appName,
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "some production manifest 2",
 						"staging":    "some staging manifest 2",
 					},
@@ -764,7 +764,7 @@ func TestReleaseTrain(t *testing.T) {
 					if t.GetDBEventType() == db.EvtReleaseTrain {
 						var sourceTrainUpstream string
 						sourceTrainUpstream = "staging"
-						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslVersion(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "production", SourceTrainUpstream: &sourceTrainUpstream})
+						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslVersion(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "production", SourceTrainUpstream: types.EnvNamePtr(sourceTrainUpstream)})
 						if err != nil {
 							return err
 						}
@@ -865,7 +865,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 		PrepublishRelease   uint64
 		ExpectedError       error
 		ExpectedFile        []*FilenameAndData
-		ExpectedAuthor      *map[string]string
+		ExpectedAuthor      *map[types.EnvName]string
 		ExpectedDeletedFile string
 	}{
 		{
@@ -875,7 +875,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -896,7 +896,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        2,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -917,7 +917,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        3,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -953,7 +953,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					fileData: []byte("abcdef"),
 				},
 			},
-			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
+			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
 			Name: "CleanupOldApplicationVersions deleting one", //ReleaseLimit is 2
@@ -962,7 +962,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -983,7 +983,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        2,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1004,7 +1004,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        3,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1025,7 +1025,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        4,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1061,7 +1061,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					fileData: []byte("abcdef"),
 				},
 			},
-			ExpectedAuthor:      &map[string]string{"Name": authorName, "Email": authorEmail},
+			ExpectedAuthor:      &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 			ExpectedDeletedFile: "/applications/" + appName + "/releases/1/source_commit_id",
 		},
 		{
@@ -1071,7 +1071,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1092,7 +1092,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        2,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1113,7 +1113,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        3,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1134,7 +1134,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        4,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1175,7 +1175,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					fileData: []byte("123456789"),
 				},
 			},
-			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
+			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
 			Name: "CleanupOldApplicationVersions with a prepublish release", //ReleaseLimit is 2
@@ -1184,7 +1184,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1205,7 +1205,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        2,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1226,7 +1226,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        3,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1247,7 +1247,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        4,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 						envDev:        "mani-1-dev",
 					},
@@ -1288,7 +1288,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					fileData: []byte("123456789"),
 				},
 			},
-			ExpectedAuthor: &map[string]string{"Name": authorName, "Email": authorEmail},
+			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 	}
 	for _, tc := range tcs {
@@ -1416,7 +1416,7 @@ func TestReplacedByEvents(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    appName,
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "doesn't matter",
 					},
 					Team:                  "my-team",
@@ -1431,7 +1431,7 @@ func TestReplacedByEvents(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    appName,
 					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "doesn't matter",
 					},
 					Team:                  "my-team",
@@ -1608,7 +1608,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
@@ -1867,7 +1867,7 @@ func TestLocks(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 					},
 					SourceCommitId:  "",
@@ -1926,7 +1926,7 @@ func TestLocks(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance:  "mani-1-acc",
 						envAcceptance2: "e2",
 					},
@@ -1996,7 +1996,7 @@ func TestLocks(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 					},
 					SourceCommitId:  "",
@@ -2055,7 +2055,7 @@ func TestLocks(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 					},
 					SourceCommitId:  "",
@@ -2126,7 +2126,7 @@ func TestLocks(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 					},
 					SourceCommitId:  "",
@@ -2234,7 +2234,7 @@ func TestLocks(t *testing.T) {
 							ReleaseNumber: concreteTransformer.Version,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
-								Manifests: types.StringMapToEnvMap(concreteTransformer.Manifests),
+								Manifests: concreteTransformer.Manifests,
 							},
 						})
 						if err2 != nil {
@@ -2343,7 +2343,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "mani-1-acc",
 					},
 					SourceCommitId:  "",
@@ -2406,7 +2406,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance:  "mani-1-acc",
 						envAcceptance2: "e2",
 					},
@@ -2531,7 +2531,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 							ReleaseNumber: concreteTransformer.Version,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
-								Manifests: types.StringMapToEnvMap(concreteTransformer.Manifests),
+								Manifests: concreteTransformer.Manifests,
 							},
 						})
 						if err2 != nil {
@@ -2664,7 +2664,7 @@ func TestUndeployLogic(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance:  "mani-1-acc",
 						envAcceptance2: "e2",
 					},
@@ -2775,7 +2775,7 @@ func TestUndeployLogic(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance:  "mani-1-acc",
 						envAcceptance2: "e2",
 					},
@@ -2838,7 +2838,7 @@ func TestUndeployLogic(t *testing.T) {
 					Authentication: Authentication{},
 					Version:        1,
 					Application:    appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance:  "mani-1-acc",
 						envAcceptance2: "e2",
 					},
@@ -2947,7 +2947,7 @@ func TestUndeployLogic(t *testing.T) {
 							ReleaseNumber: concreteTransformer.Version,
 							App:           concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
-								Manifests: types.StringMapToEnvMap(concreteTransformer.Manifests),
+								Manifests: concreteTransformer.Manifests,
 							},
 						})
 						if err2 != nil {

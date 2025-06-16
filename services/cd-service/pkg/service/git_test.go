@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"strconv"
@@ -64,7 +65,7 @@ func TestGetProductDB(t *testing.T) {
 					},
 					&rp.CreateApplicationVersion{
 						Application: "test",
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"development": "dev",
 						},
 						SourceAuthor:    "example <example@example.com>",
@@ -109,7 +110,7 @@ func TestGetProductDB(t *testing.T) {
 					},
 					&rp.CreateApplicationVersion{
 						Application: "test",
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"development": "dev",
 						},
 						SourceAuthor:    "example <example@example.com>",
@@ -122,7 +123,7 @@ func TestGetProductDB(t *testing.T) {
 
 					&rp.CreateApplicationVersion{
 						Application: "test",
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"development": "dev",
 						},
 						SourceAuthor:    "example <example@example.com>",
@@ -180,7 +181,7 @@ func TestGetProductDB(t *testing.T) {
 					},
 					&rp.CreateApplicationVersion{
 						Application: "test",
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"development": "dev",
 						},
 						SourceAuthor:    "example <example@example.com>",
@@ -225,7 +226,7 @@ func TestGetProductDB(t *testing.T) {
 					},
 					&rp.CreateApplicationVersion{
 						Application: "test",
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"development": "dev",
 						},
 						SourceAuthor:    "example <example@example.com>",
@@ -254,7 +255,7 @@ func TestGetProductDB(t *testing.T) {
 					},
 					&rp.CreateApplicationVersion{
 						Application: "test2",
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"development": "dev",
 							"staging":     "staging",
 						},
@@ -321,7 +322,7 @@ func TestGetProductDB(t *testing.T) {
 					},
 					&rp.CreateApplicationVersion{
 						Application: "test",
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"development": "dev",
 						},
 						SourceAuthor:    "example <example@example.com>",
@@ -460,7 +461,7 @@ func TestGetProductDBFailureCases(t *testing.T) {
 				},
 				&rp.CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
 					SourceAuthor:    "example <example@example.com>",
