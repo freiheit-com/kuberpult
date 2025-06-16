@@ -21,6 +21,7 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os/exec"
 	"path"
 	"testing"
@@ -138,7 +139,7 @@ func TestVersion(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
 					Team:                "team-123",
@@ -184,7 +185,7 @@ func TestVersion(t *testing.T) {
 					Application: "test",
 					Version:     1,
 					Team:        "team-123",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
 					SourceCommitId:      "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
@@ -327,7 +328,7 @@ func TestGetManifests(t *testing.T) {
 			Version:         release,
 			Team:            "team-123",
 			WriteCommitData: false,
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"development": fmt.Sprintf("dev-manifest for %s in release %d", application, release),
 				"staging":     fmt.Sprintf("staging-manifest for %s in release %d", application, release),
 			},

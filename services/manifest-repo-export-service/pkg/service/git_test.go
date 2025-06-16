@@ -151,7 +151,7 @@ func TestGetCommitInfo(t *testing.T) {
 				&rp.CreateApplicationVersion{
 					Application: "app",
 					Team:        "team",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "manifest 1",
 						"staging-1":     "manifest 2",
 					},
@@ -163,7 +163,7 @@ func TestGetCommitInfo(t *testing.T) {
 				&rp.CreateApplicationVersion{
 					Application: "app",
 					Team:        "team",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "manifest 1",
 						"staging-1":     "manifest 2",
 					},
@@ -270,7 +270,7 @@ func TestGetCommitInfo(t *testing.T) {
 					Team:           "team",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "dev-manifest",
 					},
 					Version:             1,
@@ -351,7 +351,7 @@ func TestGetCommitInfo(t *testing.T) {
 					Team:           "team",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "dev-manifest1",
 					},
 					Version:             1,
@@ -363,7 +363,7 @@ func TestGetCommitInfo(t *testing.T) {
 					Team:           "team",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-2": "dev-manifest2",
 					},
 					Version:             1,
@@ -375,7 +375,7 @@ func TestGetCommitInfo(t *testing.T) {
 					Team:           "team",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-3": "dev-manifest3",
 					},
 					Version:             1,
@@ -633,7 +633,7 @@ func TestGetCommitInfo(t *testing.T) {
 					Team:           "team",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "dev-manifest",
 					},
 					Version:             1,
@@ -656,7 +656,7 @@ func TestGetCommitInfo(t *testing.T) {
 					Team:           "team",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "dev-manifest",
 					},
 					Version:             1,
@@ -677,7 +677,7 @@ func TestGetCommitInfo(t *testing.T) {
 				&rp.CreateApplicationVersion{
 					Application: "app",
 					Team:        "team",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "manifest 1",
 						"staging-1":     "manifest 2",
 					},
@@ -689,7 +689,7 @@ func TestGetCommitInfo(t *testing.T) {
 				&rp.CreateApplicationVersion{
 					Application: "app",
 					Team:        "team",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "manifest 1",
 						"staging-1":     "manifest 2",
 					},
@@ -808,7 +808,7 @@ func TestGetCommitInfo(t *testing.T) {
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
 					Application: "app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "manifest 1",
 						"staging-1":     "manifest 2",
 					},
@@ -820,7 +820,7 @@ func TestGetCommitInfo(t *testing.T) {
 				},
 				&rp.CreateApplicationVersion{
 					Application: "app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "manifest 1",
 						"staging-1":     "manifest 2",
 					},
@@ -969,7 +969,7 @@ func TestGetCommitInfo(t *testing.T) {
 						}
 					case *api.Event_DeploymentEvent:
 						eventType := initialEvent.EventType.(*api.Event_DeploymentEvent)
-						err := dbHandler.DBWriteDeploymentEvent(ctx, transaction, db.TransformerID(0), initialEvent.Uuid, initialEvent.CommitHash, &event.Deployment{Application: eventType.DeploymentEvent.Application, Environment: eventType.DeploymentEvent.TargetEnvironment})
+						err := dbHandler.DBWriteDeploymentEvent(ctx, transaction, db.TransformerID(0), initialEvent.Uuid, initialEvent.CommitHash, &event.Deployment{Application: eventType.DeploymentEvent.Application, Environment: types.EnvName(eventType.DeploymentEvent.TargetEnvironment)})
 						if err != nil {
 							return err
 						}
