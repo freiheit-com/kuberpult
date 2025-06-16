@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"sort"
 	"sync"
 	"testing"
@@ -2338,12 +2339,12 @@ func TestDeploymentHistory(t *testing.T) {
 					App:           testApp,
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"dev":     "dev",
 							"staging": "staging",
 						},
 					},
-					Environments: []string{"dev", "staging"},
+					Environments: []types.EnvName{"dev", "staging"},
 					Metadata: db.DBReleaseMetaData{
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
