@@ -1513,7 +1513,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 	type TestCase struct {
 		Name                      string
 		Transformers              []Transformer
-		expectedEnvironmentConfig map[string]config.EnvironmentConfig
+		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
 		expectedStagingEnvApps    []string
 	}
 
@@ -1526,7 +1526,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigLatest(nil),
 			},
 			expectedStagingEnvApps: []string{},
@@ -1550,7 +1550,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigUpstream("development", nil),
 			},
 			expectedStagingEnvApps: []string{"testapp"},
@@ -1567,7 +1567,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"development": testutil.MakeEnvConfigLatest(nil),
 				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},
@@ -1589,7 +1589,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					},
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"development": {
 					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 2),
 				},
