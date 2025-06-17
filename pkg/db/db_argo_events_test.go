@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/google/go-cmp/cmp"
 	"testing"
 )
@@ -128,7 +129,7 @@ func TestDBArgoEvent(t *testing.T) {
 			}
 			errR := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, curr := range tc.ExpectedEvents {
-					currActualEvent, err := dbHandler.DBReadArgoEvent(ctx, transaction, curr.App, curr.Env)
+					currActualEvent, err := dbHandler.DBReadArgoEvent(ctx, transaction, curr.App, types.EnvName(curr.Env))
 					if err != nil {
 						return err
 					}

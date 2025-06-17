@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os/exec"
 	"path"
 	"testing"
@@ -158,7 +159,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						prod: "manifest",
 					},
 					Team:    "test-team",
@@ -196,7 +197,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:    "test-team",
@@ -377,7 +378,7 @@ func TestBatchServiceFails(t *testing.T) {
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Version: 1,
@@ -549,14 +550,14 @@ func TestBatchServiceLimit(t *testing.T) {
 		},
 		&repository.CreateApplicationVersion{
 			Application: "test",
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"production": "manifest",
 			},
 			Version: 1,
 		},
 		&repository.CreateApplicationVersion{
 			Application: "test",
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"production": "manifest2",
 			},
 			Version: 2,
@@ -726,7 +727,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"acceptance": "manifest",
 					},
 					Version: 1,
@@ -767,7 +768,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"acceptance": "manifest",
 					},
 					Version: 1,
@@ -838,7 +839,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 		Setup                []repository.Transformer
 		Request              *api.BatchRequest
 		ExpectedResponse     *api.BatchResponse
-		ExpectedEnvironments map[string]config.EnvironmentConfig
+		ExpectedEnvironments map[types.EnvName]config.EnvironmentConfig
 	}{
 		{
 			Name:  "Minimal test case",
@@ -864,7 +865,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": {
 					ArgoCd: &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
 				},
@@ -897,7 +898,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Latest: true},
 					ArgoCd:   &config.EnvironmentConfigArgoCd{ConcreteEnvName: "placeholder"},
@@ -931,7 +932,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					Upstream: &config.EnvironmentConfigUpstream{Environment: "other-env"},
 					ArgoCd: &config.EnvironmentConfigArgoCd{
@@ -962,7 +963,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{},
 				},
@@ -1024,7 +1025,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 					nil,
 				},
 			},
-			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+			ExpectedEnvironments: map[types.EnvName]config.EnvironmentConfig{
 				"env": config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
@@ -1090,9 +1091,9 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 				t.Errorf("batch response mismatch: %s", d)
 			}
 
-			var envs map[string]config.EnvironmentConfig
-			var envsPtr *map[string]config.EnvironmentConfig
-			envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[string]config.EnvironmentConfig, error) {
+			var envs map[types.EnvName]config.EnvironmentConfig
+			var envsPtr *map[types.EnvName]config.EnvironmentConfig
+			envsPtr, err = db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*map[types.EnvName]config.EnvironmentConfig, error) {
 				envs, err := repo.State().GetAllEnvironmentConfigs(ctx, transaction)
 				return &envs, err
 			})
@@ -1111,7 +1112,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 func TestActiveActiveEnvironmentNames(t *testing.T) {
 	tcs := []struct {
 		Name            string
-		EnvironmentName string
+		EnvironmentName types.EnvName
 		InputEnvConfig  config.EnvironmentConfig
 		valid           bool
 	}{

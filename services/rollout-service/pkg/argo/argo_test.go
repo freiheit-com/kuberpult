@@ -1441,7 +1441,10 @@ func TestReactToKuberpultEvents(t *testing.T) {
 			}()
 
 			for _, ov := range tc.ArgoOverview {
-				argoProcessor.Push(ctx, ov)
+				err := argoProcessor.Push(ctx, ov)
+				if err != nil {
+					t.Fatalf("unexpected error on Push: %v", err)
+				}
 			}
 			err1 := <-errCh
 			if err1 != nil {

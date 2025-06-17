@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/google/go-cmp/cmp"
 
 	"testing"
@@ -169,7 +170,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			Setup: []rp.Transformer{
 				&rp.CreateApplicationVersion{
 					Application: "potato-app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "",
 						"staging-1":     "",
 					},
@@ -177,7 +178,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 				},
 				&rp.CreateApplicationVersion{
 					Application: "potato-app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "",
 						"staging-1":     "",
 					},
@@ -257,7 +258,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			Setup: []rp.Transformer{
 				&rp.CreateApplicationVersion{
 					Application: "potato-app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "",
 						"staging-1":     "",
 					},
@@ -266,7 +267,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 				},
 				&rp.CreateApplicationVersion{
 					Application: "potato-app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "",
 						"staging-1":     "",
 					},
@@ -347,7 +348,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			Setup: []rp.Transformer{
 				&rp.CreateApplicationVersion{
 					Application: "potato-app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "",
 						"staging-1":     "",
 					},
@@ -355,7 +356,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 				},
 				&rp.CreateApplicationVersion{
 					Application: "potato-app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development-1": "",
 						"staging-1":     "",
 					},
@@ -468,7 +469,7 @@ func TestReleaseTrainAppSkip(t *testing.T) {
 		&rp.CreateApplicationVersion{
 			Application: app,
 			Team:        "", // no team for this app!
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"dev":  "dev-manifest",
 				"prod": "prod-manifest",
 			},

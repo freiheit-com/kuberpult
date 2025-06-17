@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package auth
 
 import (
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -255,7 +256,7 @@ func TestCheckUserPermissions(t *testing.T) {
 		Name        string
 		rbacConfig  RBACConfig
 		user        *User
-		env         string
+		env         types.EnvName
 		envGroup    string
 		application string
 		action      string
@@ -416,7 +417,7 @@ func TestCheckUserPermissionsWildcards(t *testing.T) {
 	tcs := []struct {
 		Name        string
 		user        *User
-		env         string
+		env         types.EnvName
 		envGroup    string
 		application string
 		action      string

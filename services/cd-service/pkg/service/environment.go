@@ -22,6 +22,7 @@ import (
 	"fmt"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -37,7 +38,7 @@ func (o *EnvironmentServiceServer) GetEnvironmentConfig(
 	state := o.Repository.State()
 
 	config, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
-		return state.GetEnvironmentConfigFromDB(ctx, transaction, in.Environment)
+		return state.GetEnvironmentConfigFromDB(ctx, transaction, types.EnvName(in.Environment))
 	})
 	if err != nil {
 		return nil, err
@@ -88,7 +89,7 @@ func transformUpstreamToConfig(upstream *api.EnvironmentConfig_Upstream) *config
 	if upstream.GetEnvironment() != "" {
 		return &config.EnvironmentConfigUpstream{
 			Latest:      false,
-			Environment: upstream.GetEnvironment(),
+			Environment: types.EnvName(upstream.GetEnvironment()),
 		}
 	}
 	return nil
@@ -100,7 +101,7 @@ func transformUpstreamToApi(in *config.EnvironmentConfigUpstream) *api.Environme
 	}
 
 	return &api.EnvironmentConfig_Upstream{
-		Environment: &in.Environment,
+		Environment: types.StringPtr(in.Environment),
 		Latest:      &in.Latest,
 	}
 }

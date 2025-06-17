@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package mapper
 
 import (
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"sort"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -25,7 +26,7 @@ import (
 
 type EnvSortOrder = map[string]int
 
-func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.EnvironmentGroup {
+func MapEnvironmentsToGroups(envs map[types.EnvName]config.EnvironmentConfig) []*api.EnvironmentGroup {
 	var result = []*api.EnvironmentGroup{}
 	var buckets = map[string]*api.EnvironmentGroup{}
 	// first, group all envs into buckets by groupName
@@ -45,7 +46,7 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		var newEnv = &api.Environment{
 			DistanceToUpstream: 0,
 			Priority:           api.Priority_PROD,
-			Name:               envName,
+			Name:               string(envName),
 			Config: &api.EnvironmentConfig{
 				Argocd:           nil,
 				Upstream:         TransformUpstream(env.Upstream),
@@ -59,7 +60,7 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 	// next step, sort envs by distance to prod.
 	// to do that, we first need to calculate the distance to upstream.
 	//
-	tmpDistancesToUpstreamByEnv := map[string]uint32{}
+	tmpDistancesToUpstreamByEnv := map[types.EnvName]uint32{}
 	rest := []*api.Environment{}
 
 	// we need to sort the buckets here because:
@@ -77,13 +78,13 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 			var environment = bucket.Environments[i]
 			if environment.Config.Upstream.GetLatest() {
 				environment.DistanceToUpstream = 0
-				tmpDistancesToUpstreamByEnv[environment.Name] = 0
+				tmpDistancesToUpstreamByEnv[types.EnvName(environment.Name)] = 0
 			} else if environment.Config.Upstream == nil {
 				// the environment has neither an upstream, nor latest configured. We can't determine where it belongs
 				environment.DistanceToUpstream = 100 // we can just pick an arbitrary number
-				tmpDistancesToUpstreamByEnv[environment.Name] = 100
+				tmpDistancesToUpstreamByEnv[types.EnvName(environment.Name)] = 100
 			} else {
-				upstreamEnv := environment.Config.Upstream.GetEnvironment()
+				upstreamEnv := types.EnvName(environment.Config.Upstream.GetEnvironment())
 				if _, exists := envs[upstreamEnv]; !exists { // upstreamEnv is not exists!
 					tmpDistancesToUpstreamByEnv[upstreamEnv] = 666
 				}
@@ -97,11 +98,11 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		nextRest := []*api.Environment{}
 		for i := 0; i < len(rest); i++ {
 			env := rest[i]
-			upstreamEnv := env.Config.Upstream.GetEnvironment()
+			upstreamEnv := types.EnvName(env.Config.Upstream.GetEnvironment())
 			_, ok := tmpDistancesToUpstreamByEnv[upstreamEnv]
 			if ok {
-				tmpDistancesToUpstreamByEnv[env.Name] = tmpDistancesToUpstreamByEnv[upstreamEnv] + 1
-				env.DistanceToUpstream = tmpDistancesToUpstreamByEnv[env.Name]
+				tmpDistancesToUpstreamByEnv[types.EnvName(env.Name)] = tmpDistancesToUpstreamByEnv[upstreamEnv] + 1
+				env.DistanceToUpstream = tmpDistancesToUpstreamByEnv[types.EnvName(env.Name)]
 			} else {
 				nextRest = append(nextRest, env)
 			}
@@ -111,7 +112,7 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 			// to avoid an infinite loop, we fill it with an arbitrary number:
 			for i := 0; i < len(rest); i++ {
 				env := rest[i]
-				tmpDistancesToUpstreamByEnv[env.Config.Upstream.GetEnvironment()] = 666
+				tmpDistancesToUpstreamByEnv[types.EnvName(env.Config.Upstream.GetEnvironment())] = 666
 			}
 		}
 		rest = nextRest
@@ -184,10 +185,10 @@ func calculateGroupPriority(distanceToUpstream, downstreamDepth uint32) api.Prio
 }
 
 // either the groupName is set in the config, or we use the envName as a default
-func DeriveGroupName(env config.EnvironmentConfig, envName string) string {
+func DeriveGroupName(env config.EnvironmentConfig, envName types.EnvName) string {
 	var groupName = env.EnvironmentGroup
 	if groupName == nil {
-		groupName = &envName
+		groupName = types.StringPtr(envName)
 	}
 	return *groupName
 }
@@ -311,7 +312,7 @@ func TransformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 	if upstream.Environment != "" {
 		return &api.EnvironmentConfig_Upstream{
 			Latest:      nil,
-			Environment: &upstream.Environment,
+			Environment: types.StringPtr(upstream.Environment),
 		}
 	}
 	return nil

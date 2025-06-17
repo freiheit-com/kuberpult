@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"strconv"
 
@@ -44,6 +45,7 @@ func (o *VersionServiceServer) GetVersion(
 	ctx context.Context,
 	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
 	oid, err := git.NewOid(in.GitRevision)
+	envName := types.EnvName(in.Environment)
 	if err != nil {
 		// Note that "not finding a oid" does not mean that it doesn't exist.
 		// Because we do a shallow clone, we won't have information on all existing OIDs.
@@ -62,13 +64,13 @@ func (o *VersionServiceServer) GetVersion(
 	res, err := db.WithTransactionT[api.GetVersionResponse](state.DBHandler, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
 		//exhaustruct:ignore
 		res := &api.GetVersionResponse{}
-		version, err := state.GetEnvironmentApplicationVersion(ctx, tx, in.Environment, in.Application)
+		version, err := state.GetEnvironmentApplicationVersion(ctx, tx, envName, in.Application)
 		if err != nil {
 			return nil, err
 		}
 		if version != nil {
 			res.Version = *version
-			_, deployedAt, err := state.GetDeploymentMetaData(in.Environment, in.Application)
+			_, deployedAt, err := state.GetDeploymentMetaData(envName, in.Application)
 			if err != nil {
 				return nil, err
 			}

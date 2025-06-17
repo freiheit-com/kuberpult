@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"sort"
 	"sync"
 	"testing"
@@ -69,10 +70,10 @@ func (m *mockOverviewService_DeploymentHistoryServer) Context() context.Context 
 }
 
 func TestOverviewAndAppDetails(t *testing.T) {
-	var dev = "dev"
-	var development = "development"
-	var staging = "staging"
-	var prod = "production"
+	var dev types.EnvName = "dev"
+	var development types.EnvName = "development"
+	var staging types.EnvName = "staging"
+	var prod types.EnvName = "production"
 	var upstreamLatest = true
 	tcs := []struct {
 		Name               string
@@ -99,7 +100,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						},
 						ArgoCd:           nil,
 						ArgoCdConfigs:    testutil.MakeArgoCDConfigs("aa", "dev", 2),
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -121,7 +122,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
@@ -131,7 +132,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test-with-team",
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
 					Team:           "test-team",
@@ -142,7 +143,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test-with-incorrect-pr-number",
 					Version:     3,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
@@ -152,7 +153,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test-with-only-pr-number",
 					Version:     4,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
@@ -221,7 +222,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 					},
 					TeamLocks: map[string]*api.Locks{},
 					AppLocks: map[string]*api.Locks{
-						prod: {
+						string(prod): {
 							Locks: []*api.Lock{
 								{
 									Message: "no",
@@ -348,14 +349,14 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						EnvironmentGroupName: "dev",
 						Environments: []*api.Environment{
 							{
-								Name: development,
+								Name: string(development),
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &upstreamLatest,
 									},
 									Argocd:           &api.EnvironmentConfig_ArgoCD{},
 									ArgoConfigs:      transformArgoCdConfigsToApi(testutil.MakeArgoCDConfigs("aa", "dev", 2)),
-									EnvironmentGroup: &dev,
+									EnvironmentGroup: types.StringPtr(dev),
 								},
 								Priority: api.Priority_UPSTREAM,
 							},
@@ -363,17 +364,17 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						Priority: api.Priority_UPSTREAM,
 					},
 					{
-						EnvironmentGroupName: staging,
+						EnvironmentGroupName: string(staging),
 						Environments: []*api.Environment{
 							{
-								Name: staging,
+								Name: string(staging),
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
-										Environment: &development,
+										Environment: types.StringPtr(development),
 									},
 									Argocd:           &api.EnvironmentConfig_ArgoCD{},
 									ArgoConfigs:      &api.EnvironmentConfig_ArgoConfigs{},
-									EnvironmentGroup: &staging,
+									EnvironmentGroup: types.StringPtr(staging),
 								},
 								DistanceToUpstream: 1,
 								Priority:           api.Priority_PRE_PROD,
@@ -383,17 +384,17 @@ func TestOverviewAndAppDetails(t *testing.T) {
 						DistanceToUpstream: 1,
 					},
 					{
-						EnvironmentGroupName: prod,
+						EnvironmentGroupName: string(prod),
 						Environments: []*api.Environment{
 							{
-								Name: prod,
+								Name: string(prod),
 								Config: &api.EnvironmentConfig{
 									Upstream: &api.EnvironmentConfig_Upstream{
-										Environment: &staging,
+										Environment: types.StringPtr(staging),
 									},
 									Argocd:           &api.EnvironmentConfig_ArgoCD{},
 									ArgoConfigs:      &api.EnvironmentConfig_ArgoConfigs{},
-									EnvironmentGroup: &prod,
+									EnvironmentGroup: types.StringPtr(prod),
 								},
 								DistanceToUpstream: 2,
 								Priority:           api.Priority_PROD,
@@ -472,7 +473,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 	}
 }
 func TestOverviewService(t *testing.T) {
-	var dev = "dev"
+	var dev types.EnvName = "dev"
 	tcs := []struct {
 		Name               string
 		Setup              []repository.Transformer
@@ -490,14 +491,14 @@ func TestOverviewService(t *testing.T) {
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "v1",
 					},
 					Version: 1,
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "v2",
 					},
 					Version: 2,
@@ -566,7 +567,7 @@ func TestOverviewService(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -581,7 +582,7 @@ func TestOverviewService(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						dev: "v1",
 					},
 				},
@@ -597,7 +598,7 @@ func TestOverviewService(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 2,
 					Application:           "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						dev: "v2",
 					},
 				},
@@ -708,10 +709,10 @@ func TestOverviewService(t *testing.T) {
 
 func TestGetApplicationDetails(t *testing.T) {
 	//var dev = "dev"
-	var env = "development"
-	var secondEnv = "development2"
-	var stagingGroup = "stagingGroup"
-	var thirdEnv = "staging"
+	var env types.EnvName = "development"
+	var secondEnv types.EnvName = "development2"
+	var stagingGroup types.EnvName = "stagingGroup"
+	var thirdEnv types.EnvName = "staging"
 	var appName = "test-app"
 	tcs := []struct {
 		Name             string
@@ -733,13 +734,13 @@ func TestGetApplicationDetails(t *testing.T) {
 							SourceMessage:  "changed something (#678)",
 							PrNumber:       "678",
 							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							Environments:   []string{env, secondEnv},
+							Environments:   []string{string(env), string(secondEnv)},
 						},
 					},
 					Team: "team-123",
 				},
 				Deployments: map[string]*api.Deployment{
-					env: {
+					string(env): {
 						Version:         1,
 						QueuedVersion:   0,
 						UndeployVersion: false,
@@ -785,7 +786,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &env,
+						EnvironmentGroup: types.StringPtr(env),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -795,7 +796,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &secondEnv,
+						EnvironmentGroup: types.StringPtr(secondEnv),
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -810,7 +811,7 @@ func TestGetApplicationDetails(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						env:       "v1",
 						secondEnv: "v2",
 					},
@@ -851,7 +852,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &env,
+						EnvironmentGroup: types.StringPtr(env),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -861,7 +862,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &secondEnv,
+						EnvironmentGroup: types.StringPtr(secondEnv),
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -876,7 +877,7 @@ func TestGetApplicationDetails(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						env:       "v1",
 						secondEnv: "v2",
 					},
@@ -908,7 +909,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							SourceMessage:  "changed something (#678)",
 							PrNumber:       "678",
 							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							Environments:   []string{env, thirdEnv},
+							Environments:   []string{string(env), string(thirdEnv)},
 						},
 						{
 							Version:        2,
@@ -918,7 +919,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							PrNumber:       "678",
 							IsMinor:        true,
 							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							Environments:   []string{env},
+							Environments:   []string{string(env)},
 						},
 						{
 							Version:        1,
@@ -927,7 +928,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							SourceMessage:  "changed something (#678)",
 							PrNumber:       "678",
 							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							Environments:   []string{env},
+							Environments:   []string{string(env)},
 						},
 					},
 					Team: "team-123",
@@ -935,7 +936,7 @@ func TestGetApplicationDetails(t *testing.T) {
 				TeamLocks: map[string]*api.Locks{},
 				AppLocks:  map[string]*api.Locks{},
 				Deployments: map[string]*api.Deployment{
-					env: {
+					string(env): {
 						Version:         3,
 						QueuedVersion:   0,
 						UndeployVersion: false,
@@ -953,7 +954,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &env,
+						EnvironmentGroup: types.StringPtr(env),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -963,7 +964,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							Environment: env,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &stagingGroup,
+						EnvironmentGroup: types.StringPtr(stagingGroup),
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -978,7 +979,7 @@ func TestGetApplicationDetails(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						env:      "v1",
 						thirdEnv: "v2",
 					},
@@ -995,7 +996,7 @@ func TestGetApplicationDetails(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						env:      "v1",
 						thirdEnv: "v2",
 					},
@@ -1021,7 +1022,7 @@ func TestGetApplicationDetails(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						env:      "v1",
 						thirdEnv: "v2",
 					},
@@ -1075,7 +1076,7 @@ func TestGetApplicationDetails(t *testing.T) {
 			}
 
 			//Deployments
-			environmentsToCheck := []string{env, thirdEnv}
+			environmentsToCheck := []string{string(env), string(thirdEnv)}
 			for _, environmentToCheck := range environmentsToCheck {
 				t.Logf("Checking %s", environmentToCheck)
 				expectedDeployment := expected.Deployments[environmentToCheck]
@@ -1098,9 +1099,9 @@ func TestGetApplicationDetails(t *testing.T) {
 }
 
 func TestGetAllAppLocks(t *testing.T) {
-	var dev = "dev"
-	var env = "development"
-	var secondEnv = "development2"
+	var dev types.EnvName = "dev"
+	var env types.EnvName = "development"
+	var secondEnv types.EnvName = "development2"
 	var appName = "test-app"
 	var anotherAppName = "another-app-name"
 	tcs := []struct {
@@ -1114,7 +1115,7 @@ func TestGetAllAppLocks(t *testing.T) {
 			AppName: appName,
 			ExpectedResponse: &api.GetAllAppLocksResponse{
 				AllAppLocks: map[string]*api.AllAppLocks{
-					env: {
+					string(env): {
 						AppLocks: map[string]*api.Locks{
 							appName: {
 								Locks: []*api.Lock{
@@ -1130,7 +1131,7 @@ func TestGetAllAppLocks(t *testing.T) {
 							},
 						},
 					},
-					secondEnv: {
+					string(secondEnv): {
 						AppLocks: map[string]*api.Locks{
 							appName: {
 								Locks: []*api.Lock{
@@ -1156,7 +1157,7 @@ func TestGetAllAppLocks(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -1166,7 +1167,7 @@ func TestGetAllAppLocks(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -1181,7 +1182,7 @@ func TestGetAllAppLocks(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						env:       "v1",
 						secondEnv: "v2",
 					},
@@ -1214,7 +1215,7 @@ func TestGetAllAppLocks(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -1224,7 +1225,7 @@ func TestGetAllAppLocks(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -1239,7 +1240,7 @@ func TestGetAllAppLocks(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						env:       "v1",
 						secondEnv: "v2",
 					},
@@ -1251,7 +1252,7 @@ func TestGetAllAppLocks(t *testing.T) {
 			AppName: appName,
 			ExpectedResponse: &api.GetAllAppLocksResponse{
 				AllAppLocks: map[string]*api.AllAppLocks{
-					secondEnv: {
+					string(secondEnv): {
 						AppLocks: map[string]*api.Locks{
 							appName: {
 								Locks: []*api.Lock{
@@ -1267,7 +1268,7 @@ func TestGetAllAppLocks(t *testing.T) {
 							},
 						},
 					},
-					env: {
+					string(env): {
 						AppLocks: map[string]*api.Locks{
 							appName: {
 								Locks: []*api.Lock{
@@ -1313,7 +1314,7 @@ func TestGetAllAppLocks(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -1323,7 +1324,7 @@ func TestGetAllAppLocks(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -1338,7 +1339,7 @@ func TestGetAllAppLocks(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						env:       "v1",
 						secondEnv: "v2",
 					},
@@ -1355,7 +1356,7 @@ func TestGetAllAppLocks(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           anotherAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						env:       "v1",
 						secondEnv: "v2",
 					},
@@ -1431,9 +1432,9 @@ func TestGetAllAppLocks(t *testing.T) {
 	}
 }
 func TestGetAllEnvTeamLocks(t *testing.T) {
-	var dev = "dev"
-	var env = "development"
-	var secondEnv = "development2"
+	var dev types.EnvName = "dev"
+	var env types.EnvName = "development"
+	var secondEnv types.EnvName = "development2"
 	var team = "team"
 	tcs := []struct {
 		Name             string
@@ -1444,7 +1445,7 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 			Name: "Get All Locks",
 			ExpectedResponse: &api.GetAllEnvTeamLocksResponse{
 				AllEnvLocks: map[string]*api.Locks{
-					env: &api.Locks{
+					string(env): &api.Locks{
 						Locks: []*api.Lock{
 							{
 								Message:   "message1",
@@ -1457,7 +1458,7 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 							},
 						},
 					},
-					secondEnv: &api.Locks{
+					string(secondEnv): &api.Locks{
 						Locks: []*api.Lock{
 							{
 								Message:   "message2",
@@ -1472,7 +1473,7 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 					},
 				},
 				AllTeamLocks: map[string]*api.AllTeamLocks{
-					env: &api.AllTeamLocks{
+					string(env): &api.AllTeamLocks{
 						TeamLocks: map[string]*api.Locks{
 							team: &api.Locks{
 								Locks: []*api.Lock{
@@ -1499,7 +1500,7 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -1509,7 +1510,7 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateEnvironmentLock{
@@ -1709,7 +1710,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
@@ -1725,7 +1726,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev-2",
 					},
 					Team:           "test-team",
@@ -1830,7 +1831,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 }
 
 func TestCalculateWarnings(t *testing.T) {
-	var dev = "dev"
+	var dev types.EnvName = "dev"
 	tcs := []struct {
 		Name             string
 		ExpectedWarnings map[string][]*api.Warning //appName -> expected warnings
@@ -1845,13 +1846,13 @@ func TestCalculateWarnings(t *testing.T) {
 					Environment: "development",
 					Config: config.EnvironmentConfig{ //Not upstream latest!
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
 					SourceAuthor:   "example <example@example.com>",
@@ -1874,7 +1875,7 @@ func TestCalculateWarnings(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -1888,7 +1889,7 @@ func TestCalculateWarnings(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 						"staging":     "staging",
 					},
@@ -1899,7 +1900,7 @@ func TestCalculateWarnings(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev-2",
 						"staging":     "staging-2",
 					},
@@ -1944,7 +1945,7 @@ func TestCalculateWarnings(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -1958,7 +1959,7 @@ func TestCalculateWarnings(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 						"staging":     "staging",
 					},
@@ -1969,7 +1970,7 @@ func TestCalculateWarnings(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev-2",
 						"staging":     "staging-2",
 					},
@@ -1995,7 +1996,7 @@ func TestCalculateWarnings(t *testing.T) {
 					Environment: "development",
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: types.StringPtr(dev),
 					},
 				},
 				&repository.CreateEnvironment{
@@ -2009,7 +2010,7 @@ func TestCalculateWarnings(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "dev",
 						"staging":     "staging",
 					},
@@ -2167,7 +2168,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp,
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2178,7 +2179,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2189,7 +2190,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp2,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2260,7 +2261,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp,
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2271,7 +2272,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2282,7 +2283,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp2,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2338,12 +2339,12 @@ func TestDeploymentHistory(t *testing.T) {
 					App:           testApp,
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"dev":     "dev",
 							"staging": "staging",
 						},
 					},
-					Environments: []string{"dev", "staging"},
+					Environments: []types.EnvName{"dev", "staging"},
 					Metadata: db.DBReleaseMetaData{
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -2370,7 +2371,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp,
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2381,7 +2382,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2392,7 +2393,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp2,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2440,7 +2441,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp,
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2451,7 +2452,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},
@@ -2462,7 +2463,7 @@ func TestDeploymentHistory(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: testApp2,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev":     "dev",
 						"staging": "staging",
 					},

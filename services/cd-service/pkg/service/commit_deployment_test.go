@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package service
 
 import (
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"reflect"
 	"testing"
 
@@ -190,7 +191,7 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           "testapp",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 					},
 				},
@@ -233,7 +234,7 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           "testapp",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 					},
 				},
@@ -249,7 +250,7 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           "testapp",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 					},
 				},
@@ -297,7 +298,7 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           "testapp1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 					},
 				},
@@ -313,7 +314,7 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           "testapp2",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 					},
 				},
@@ -372,7 +373,7 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           "testapp",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 						"staging":     "manifest",
 					},
@@ -389,7 +390,7 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           "testapp",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 						"staging":     "manifest",
 					},
@@ -471,7 +472,7 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 					PreviousCommit:        "",
 					TransformerEslVersion: 1,
 					Application:           "testapp",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 						"staging":     "manifest",
 					},

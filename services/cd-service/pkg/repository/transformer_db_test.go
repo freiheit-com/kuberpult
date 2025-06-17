@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"regexp"
 	"sort"
 	"testing"
@@ -76,7 +77,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			Authentication: Authentication{},
 			Version:        666,
 			Application:    "myapp",
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"dev": "dev manifest",
 			},
 			SourceCommitId:  "",
@@ -502,7 +503,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "foo",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: envAcceptance,
 					},
 					Team:    team,
@@ -530,7 +531,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "foo",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: envAcceptance,
 					},
 					Team:    team,
@@ -560,7 +561,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "foo",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: envAcceptance,
 					},
 					Team:    team,
@@ -659,7 +660,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10000,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 				},
@@ -683,7 +684,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "noteam",
@@ -691,7 +692,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "noteam",
@@ -716,7 +717,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "old",
@@ -724,7 +725,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "new",
@@ -797,7 +798,7 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
@@ -811,14 +812,14 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
@@ -832,14 +833,14 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2",
 					},
 				},
@@ -853,14 +854,14 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
@@ -874,14 +875,14 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
@@ -895,21 +896,21 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     12,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest3",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2",
 					},
 				},
@@ -923,14 +924,14 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     12,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 						"new env":     "new manifest",
 					},
@@ -938,7 +939,7 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
@@ -952,21 +953,21 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     12,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2",
 					},
 				},
@@ -980,7 +981,7 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2",
 						"new env":     "new manifest",
 					},
@@ -988,14 +989,14 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     12,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2",
 					},
 				},
@@ -1009,21 +1010,21 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     12,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
@@ -1037,21 +1038,21 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     12,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest3",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2",
 					},
 				},
@@ -1066,21 +1067,21 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1\nfirstLine1\nsecondLine1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     12,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2\nfirstLine3\nsecondLine3",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2\nfirstLine2\nsecondLine2",
 					},
 				},
@@ -1095,21 +1096,21 @@ func TestMinorFlag(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest1\nfirstLine1\nsecondLine1",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     12,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2\nfirstLine3\nsecondLine3",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "manifest2\nfirstLine2\nsecondLine2",
 					},
 				},
@@ -1260,7 +1261,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -1334,7 +1335,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -1397,7 +1398,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "myteam",
@@ -1405,7 +1406,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "myteam",
@@ -1413,7 +1414,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     3,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "myteam",
@@ -1441,7 +1442,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 						envProduction: "{}",
 					},
@@ -1450,7 +1451,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     2,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 						envProduction: "{}",
 					},
@@ -1459,7 +1460,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     3,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 						envProduction: "{}",
 					},
@@ -1512,7 +1513,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 	type TestCase struct {
 		Name                      string
 		Transformers              []Transformer
-		expectedEnvironmentConfig map[string]config.EnvironmentConfig
+		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
 		expectedStagingEnvApps    []string
 	}
 
@@ -1525,7 +1526,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigLatest(nil),
 			},
 			expectedStagingEnvApps: []string{},
@@ -1540,7 +1541,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: "testapp",
 					Version:     1,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "staging-manifest",
 					},
 				},
@@ -1549,7 +1550,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigUpstream("development", nil),
 			},
 			expectedStagingEnvApps: []string{"testapp"},
@@ -1566,7 +1567,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"development": testutil.MakeEnvConfigLatest(nil),
 				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},
@@ -1588,7 +1589,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					},
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"development": {
 					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 2),
 				},
@@ -1638,7 +1639,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 	type TestCase struct {
 		Name                      string
 		Transformers              []Transformer
-		expectedEnvironmentConfig map[string]config.EnvironmentConfig
+		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
 	}
 
 	testCases := []TestCase{
@@ -1650,7 +1651,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"development": testutil.MakeEnvConfigLatest(nil),
 			},
 		},
@@ -1666,7 +1667,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigUpstream("development", nil),
 			},
 		},
@@ -1682,7 +1683,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 					Config:      testutil.MakeEnvConfigUpstream("development", nil),
 				},
 			},
-			expectedEnvironmentConfig: map[string]config.EnvironmentConfig{
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"development": testutil.MakeEnvConfigLatest(nil),
 				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},
@@ -1739,7 +1740,7 @@ func TestEvents(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
@@ -1773,7 +1774,7 @@ func TestEvents(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
@@ -1815,7 +1816,7 @@ func TestEvents(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev": "doesn't matter",
 					},
 					WriteCommitData:       true,
@@ -1848,7 +1849,7 @@ func TestEvents(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev": "doesn't matter",
 					},
 					WriteCommitData:       true,
@@ -1858,7 +1859,7 @@ func TestEvents(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"dev": "doesn't matter",
 					},
 					WriteCommitData:       true,
@@ -1973,7 +1974,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 	tcs := []struct {
 		Name              string
 		Transforms        []Transformer
-		ExpectedManifests map[string]string
+		ExpectedManifests map[types.EnvName]string
 	}{
 		{
 			Name: "Simple Delete Env From App",
@@ -1981,7 +1982,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Version:     10,
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"env":  "testenvmanifest",
 						"env2": "testenvmanifest2",
 					},
@@ -1995,7 +1996,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					Environment: "env",
 				},
 			},
-			ExpectedManifests: map[string]string{
+			ExpectedManifests: map[types.EnvName]string{
 				"env2": "testenvmanifest2",
 			},
 		},
@@ -2005,7 +2006,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Version:     10,
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"env":  "testenvmanifest",
 						"env2": "testenvmanifest2",
 					},
@@ -2019,7 +2020,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					Environment: "env3",
 				},
 			},
-			ExpectedManifests: map[string]string{
+			ExpectedManifests: map[types.EnvName]string{
 				"env":  "testenvmanifest",
 				"env2": "testenvmanifest2",
 			},
@@ -2030,7 +2031,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Version:     10,
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"env":  "testenvmanifest",
 						"env2": "testenvmanifest2",
 					},
@@ -2042,7 +2043,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				&CreateApplicationVersion{
 					Version:     11,
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"env":  "testenvmanifest",
 						"env2": "testenvmanifest2",
 					},
@@ -2056,7 +2057,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					Environment: "env",
 				},
 			},
-			ExpectedManifests: map[string]string{
+			ExpectedManifests: map[types.EnvName]string{
 				"env2": "testenvmanifest2",
 			},
 		},
@@ -2087,7 +2088,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 						}
 					}
 				}
-				environment, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, tc.Transforms[len(tc.Transforms)-1].(*DeleteEnvFromApp).Environment)
+				environment, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, types.EnvName(tc.Transforms[len(tc.Transforms)-1].(*DeleteEnvFromApp).Environment))
 				if err2 != nil {
 					return err2
 				}
@@ -2113,7 +2114,7 @@ func TestReleaseTrain(t *testing.T) {
 		ReleaseVersionsLimit uint
 		Transformers         []Transformer
 		ExpectedVersion      uint
-		TargetEnv            string
+		TargetEnv            types.EnvName
 		TargetApp            string
 	}{
 		{
@@ -2141,7 +2142,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -2155,7 +2156,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -2194,7 +2195,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "acceptancenmanifest",
 					},
 					WriteCommitData:       true,
@@ -2203,7 +2204,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "acceptancenmanifest",
 					},
 					WriteCommitData:       true,
@@ -2250,7 +2251,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test-my-app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -2267,7 +2268,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test-my-app",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -2342,7 +2343,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 		Name                  string
 		Transformers          []Transformer
 		expectedLatestRelease map[string]db.DBReleaseWithMetaData
-		expectedAllEnvs       []string
+		expectedAllEnvs       []types.EnvName
 	}
 
 	tcs := []TestCase{
@@ -2360,7 +2361,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
@@ -2375,12 +2376,12 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					App:           "app",
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{},
+						Manifests: map[types.EnvName]string{},
 					},
-					Environments: []string{},
+					Environments: []types.EnvName{},
 				},
 			},
-			expectedAllEnvs: []string{},
+			expectedAllEnvs: []types.EnvName{},
 		},
 		{
 			Name: "multiple envs",
@@ -2405,7 +2406,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "doesn't matter",
 						"dev":     "doesn't matter",
 					},
@@ -2421,14 +2422,14 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					App:           "app",
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
 						},
 					},
-					Environments: []string{"dev"},
+					Environments: []types.EnvName{"dev"},
 				},
 			},
-			expectedAllEnvs: []string{"dev"},
+			expectedAllEnvs: []types.EnvName{"dev"},
 		},
 		{
 			Name: "multiple envs, multiple apps",
@@ -2453,7 +2454,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "doesn't matter",
 						"dev":     "doesn't matter",
 					},
@@ -2463,7 +2464,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				&CreateApplicationVersion{
 					Application:    "app2",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "doesn't matter",
 						"dev":     "doesn't matter",
 					},
@@ -2479,24 +2480,24 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					App:           "app",
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
 						},
 					},
-					Environments: []string{"dev"},
+					Environments: []types.EnvName{"dev"},
 				},
 				"app2": {
 					App:           "app2",
 					ReleaseNumber: 1,
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
 						},
 					},
-					Environments: []string{"dev"},
+					Environments: []types.EnvName{"dev"},
 				},
 			},
-			expectedAllEnvs: []string{"dev"},
+			expectedAllEnvs: []types.EnvName{"dev"},
 		},
 	}
 
@@ -2582,7 +2583,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -2609,7 +2610,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -2639,7 +2640,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
@@ -2668,7 +2669,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
@@ -2697,7 +2698,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
@@ -2733,7 +2734,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
@@ -2756,7 +2757,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "acceptance",
 					},
 					WriteCommitData: true,
@@ -2788,7 +2789,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -2900,7 +2901,7 @@ func TestDeleteEnvironment(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -2924,7 +2925,7 @@ func TestDeleteEnvironment(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -2953,7 +2954,7 @@ func TestDeleteEnvironment(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -2992,7 +2993,7 @@ func TestDeleteEnvironment(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -3032,7 +3033,7 @@ func TestDeleteEnvironment(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -3084,7 +3085,7 @@ func TestDeleteEnvironment(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -3130,14 +3131,14 @@ func TestDeleteEnvironment(t *testing.T) {
 						ArgoCd: nil,
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest:      false,
-							Environment: *conversion.FromString("production-group"),
+							Environment: "production-group",
 						},
 						EnvironmentGroup: conversion.FromString("acceptance-group"),
 					},
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -3212,7 +3213,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -3228,7 +3229,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -3253,7 +3254,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -3326,7 +3327,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -3406,7 +3407,7 @@ func TestAllowedCILinksState(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData:       true,
@@ -3441,7 +3442,7 @@ func TestAllowedCILinksState(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData:       true,
@@ -3476,7 +3477,7 @@ func TestAllowedCILinksState(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData:       true,
@@ -3511,7 +3512,7 @@ func TestAllowedCILinksState(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData:       true,
@@ -3536,7 +3537,7 @@ func TestAllowedCILinksState(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData:       true,
@@ -3618,7 +3619,7 @@ func TestUndeployDBState(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: appName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData:       true,
@@ -3745,7 +3746,7 @@ func TestTransaction(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10000,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 				},
@@ -3769,7 +3770,7 @@ func TestTransaction(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "noteam",
@@ -3777,7 +3778,7 @@ func TestTransaction(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "noteam",
@@ -3802,7 +3803,7 @@ func TestTransaction(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "old",
@@ -3810,7 +3811,7 @@ func TestTransaction(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     11,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
 					Team: "new",
@@ -3895,7 +3896,7 @@ func TestTimestampConsistency(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -3909,7 +3910,7 @@ func TestTimestampConsistency(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -4058,7 +4059,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"envA": "envA-manifest-1",
 					},
 					WriteCommitData: false,
@@ -4066,7 +4067,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"envA": "envA-manifest-2",
 					},
 					WriteCommitData: false,
@@ -4114,7 +4115,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"envA": "envA-manifest-1",
 						"envB": "envB-manifest-1",
 					},
@@ -4123,7 +4124,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"envA": "envA-manifest-2",
 						"envB": "envB-manifest-2",
 					},
@@ -4253,7 +4254,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"envA": "envA-manifest-1",
 					},
 					WriteCommitData: false,
@@ -4261,7 +4262,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"envA": "envA-manifest-2",
 					},
 					WriteCommitData: false,
@@ -4292,7 +4293,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"envA": "envA-manifest-1",
 						"envB": "envB-manifest-1",
 					},
@@ -4301,7 +4302,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app2",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"envA": "envA-manifest-2",
 						"envB": "envB-manifest-2",
 					},
@@ -4440,7 +4441,7 @@ func TestChangedApps(t *testing.T) {
 				&CreateApplicationVersion{
 					Application: "app1",
 					Team:        "team1",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 					},
 					WriteCommitData: true,
@@ -4548,7 +4549,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -4586,7 +4587,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -4634,7 +4635,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 				},
 				&CreateApplicationVersion{ //ID: 3
 					Application: testAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
@@ -4643,7 +4644,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 				},
 				&CreateApplicationVersion{ //ID: 4
 					Application: nextTestAppName,
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},

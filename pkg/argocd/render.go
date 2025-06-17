@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"path/filepath"
 	"strings"
 
@@ -42,15 +43,15 @@ type AppData struct {
 type EnvironmentInfo struct {
 	ArgoCDConfig          *config.EnvironmentConfigArgoCd
 	CommonPrefix          string
-	ParentEnvironmentName string
+	ParentEnvironmentName types.EnvName
 	IsAAEnv               bool
 }
 
 func (e *EnvironmentInfo) GetFullyQualifiedName() string {
 	if e.IsAAEnv {
-		return e.CommonPrefix + "-" + e.ParentEnvironmentName + "-" + e.ArgoCDConfig.ConcreteEnvName
+		return e.CommonPrefix + "-" + string(e.ParentEnvironmentName) + "-" + e.ArgoCDConfig.ConcreteEnvName
 	}
-	return e.ParentEnvironmentName
+	return string(e.ParentEnvironmentName)
 }
 
 func Render(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData) (map[ApiVersion][]byte, error) {
@@ -153,14 +154,14 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 	name := appData.AppName
 	annotations := map[string]string{}
 	labels := map[string]string{}
-	manifestPath := filepath.Join("environments", info.ParentEnvironmentName, "applications", name, "manifests")
+	manifestPath := filepath.Join("environments", string(info.ParentEnvironmentName), "applications", name, "manifests")
 	for k, v := range applicationAnnotations {
 		annotations[k] = v
 	}
 	annotations["com.freiheit.kuberpult/team"] = appData.TeamName
 	annotations["com.freiheit.kuberpult/application"] = name
 	annotations["com.freiheit.kuberpult/environment"] = info.GetFullyQualifiedName()
-	annotations["com.freiheit.kuberpult/aa-parent-environment"] = info.ParentEnvironmentName
+	annotations["com.freiheit.kuberpult/aa-parent-environment"] = string(info.ParentEnvironmentName)
 	// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
 	// It has to start with a "/" to be absolute to the git repo.
 	// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation

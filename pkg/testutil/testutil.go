@@ -19,6 +19,7 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"strconv"
 	"strings"
 	"time"
@@ -84,7 +85,7 @@ func MakeEnvConfigLatestWithGroup(argoCd *config.EnvironmentConfigArgoCd, envGro
 	}
 }
 
-func MakeEnvConfigUpstream(upstream string, argoCd *config.EnvironmentConfigArgoCd) config.EnvironmentConfig {
+func MakeEnvConfigUpstream(upstream types.EnvName, argoCd *config.EnvironmentConfigArgoCd) config.EnvironmentConfig {
 	return config.EnvironmentConfig{
 		Upstream: &config.EnvironmentConfigUpstream{
 			Latest:      false,

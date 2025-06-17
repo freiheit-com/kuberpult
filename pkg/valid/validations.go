@@ -18,6 +18,7 @@ package valid
 
 import (
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/mail"
 	"os"
 	"regexp"
@@ -40,6 +41,7 @@ var (
 	applicationNameRx = regexp.MustCompile(AppNameRegExp)
 	teamNameRx        = regexp.MustCompile(TeamNameRegExp)
 	envNameRx         = regexp.MustCompile(EnvNameRegExp)
+	groupNameRx       = regexp.MustCompile(EnvNameRegExp)
 	commitIDPrefixRx  = regexp.MustCompile(commitIDPrefixRegExp)
 	MaxAppNameLen     = setupMaxAppNameLen()
 )
@@ -54,8 +56,11 @@ func setupMaxAppNameLen() int {
 }
 
 // {application}-{environment} should be a valid dns name
-func EnvironmentName(env string) bool {
-	return len(env) < 21 && envNameRx.MatchString(env)
+func EnvironmentName(env types.EnvName) bool {
+	return len(env) < 21 && envNameRx.MatchString(string(env))
+}
+func GroupName(env string) bool {
+	return len(env) < 21 && groupNameRx.MatchString(env)
 }
 func ApplicationName(name string) bool {
 	return len(name) <= MaxAppNameLen && applicationNameRx.MatchString(name)

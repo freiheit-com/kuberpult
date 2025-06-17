@@ -19,14 +19,14 @@ jobs:
       - uses: google-github-actions/auth@v2
         name: "Authenticate to Google Cloud"
         with:
-          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
+          credentials_json: ${{ secrets.FDC_DEV_ENV_CI_IMAGE_READER }}
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v2'
         with:
           version: '>= 363.0.0'
       - name: gcloud authorize
         run: |
-          gcloud auth configure-docker
+          gcloud auth configure-docker europe-docker.pkg.dev
       - run: mkdir -p artifacts/
       - name: Plan execution pull request
         if: inputs.trigger == 'pull-request'

@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"regexp"
 	"testing"
 
@@ -65,7 +66,7 @@ var appRelease db.DBReleaseWithMetaData = db.DBReleaseWithMetaData{
 	ReleaseNumber: 1,
 	App:           "app",
 	Manifests: db.DBReleaseManifests{
-		Manifests: map[string]string{
+		Manifests: map[types.EnvName]string{
 			"development": `
 api: v1
 kind: ConfigMap
