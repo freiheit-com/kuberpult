@@ -6,6 +6,7 @@ metadata:
   tier: backend
   version: v1
 spec:
+  stage: Product
   buildWith: infrastructure/docker/builder
   dependsOn:
   - ../../

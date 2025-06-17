@@ -5,6 +5,7 @@ metadata:
   name: pkg
   version: v1
 spec:
+  stage: Product
   buildWith: infrastructure/docker/builder
 additional_artifacts:
   - coverage.html

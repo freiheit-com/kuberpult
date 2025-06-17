@@ -1,6 +1,7 @@
 metadata:
   name: kuberpult-client
 spec:
+  stage: Product
   buildWith: infrastructure/docker/builder
 additional_artifacts:
   - coverage.html

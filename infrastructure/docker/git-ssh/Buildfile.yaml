@@ -1,4 +1,5 @@
 metadata:
     registry: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 spec:
+  stage: Product
   version: "1"
