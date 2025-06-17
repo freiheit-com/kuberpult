@@ -18,7 +18,7 @@ jobs:
       - uses: google-github-actions/auth@v2
         name: "Authenticate to Google Cloud"
         with:
-          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
+          credentials_json: ${{ secrets.FDC_DEV_ENV_CI_IMAGE_READER }}
       - name: gcloud authorize
         run: |
           gcloud auth configure-docker
