@@ -5,9 +5,32 @@ ARG --global target=docker
 
 deps:
     ARG USERARCH
-    ARG BUF_BIN_PATH=/usr/local/bin
+    IF [ "$USERARCH" = "arm64" ]
+        FROM golang:1.24-bookworm
+        RUN apt update && apt install --auto-remove ca-certificates tzdata libgit2-dev libsqlite3-dev -y
+        COPY buf_sha256.txt .
+        ARG BUF_VERSION=v1.26.1
+        ARG BUF_BIN_PATH=/usr/local/bin
+        RUN OS=Linux ARCH=$(uname -m) && \
+            wget "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-${OS}-${ARCH}" \
+            -O "${BUF_BIN_PATH}/buf" && \
+            chmod +x "${BUF_BIN_PATH}/buf"
+        RUN OS=Linux ARCH=$(uname -m) && \
+            SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
+            echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
 
-    FROM DOCKERFILE -f ./infrastructure/docker/builder/Dockerfile .
+        ARG GO_CI_LINT_VERSION="v1.64.0"
+        RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
+
+        RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.3.1.tar.gz -O exhaustruct.tar.gz
+        RUN echo b9691e2632f00c67a24d0482d0691d1aa51937f6b4a51817478efda4a2ed69d9 exhaustruct.tar.gz | sha256sum -c
+        RUN tar xzf exhaustruct.tar.gz
+        WORKDIR go-exhaustruct-3.3.1
+        RUN go build ./cmd/exhaustruct
+        RUN mv exhaustruct /usr/local/bin/exhaustruct
+    ELSE
+        FROM DOCKERFILE -f ./infrastructure/docker/builder/Dockerfile .
+    END
 
     WORKDIR /kp
     RUN mkdir -p database/migrations
