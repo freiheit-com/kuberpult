@@ -64,7 +64,7 @@ jobs:
             artifacts/execution-plan.json
             artifacts/github-convertor.json
     outputs:
-      stage_a: ${{ steps.splitplan.outputs.stage_a }}
+      stage_a: '[]'
       stage_b: ${{ steps.splitplan.outputs.stage_b }}
   stageA_build:
     needs: [execution_plan]
