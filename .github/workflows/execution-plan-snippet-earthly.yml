@@ -19,14 +19,14 @@ jobs:
       - uses: google-github-actions/auth@v2
         name: "Authenticate to Google Cloud"
         with:
-          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
+          credentials_json: ${{ secrets.FDC_DEV_ENV_CI_IMAGE_READER }}
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v2'
         with:
           version: '>= 363.0.0'
       - name: gcloud authorize
         run: |
-          gcloud auth configure-docker
+          gcloud auth configure-docker europe-docker.pkg.dev
       - run: mkdir -p artifacts/
       - name: Plan execution pull request
         if: inputs.trigger == 'pull-request'
@@ -41,7 +41,7 @@ jobs:
           cat artifacts/execution-plan.json
       - name: Convert plan to github specific format
         run: |
-          GITHUB_CONVERTOR_IMAGE="eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-8"
+          GITHUB_CONVERTOR_IMAGE="europe-docker.pkg.dev/fdc-standard-setup-dev-env/all-artifacts/tools/execplan-convertor-github:kuberpult"
           DEFAULT_IMAGE="docker:git"
           cat artifacts/execution-plan.json | docker run -i "${GITHUB_CONVERTOR_IMAGE}" "${DEFAULT_IMAGE}" > artifacts/github-convertor.json
       - name: Print github converted plan
@@ -52,13 +52,22 @@ jobs:
         run: |
           echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" >> $GITHUB_OUTPUT
           echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" >> $GITHUB_OUTPUT
+          echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" > artifacts/stage.a.tmp.json
+          echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" > artifacts/stage.b.tmp.json
       - uses: actions/upload-artifact@v4
         name: Upload execution plan
         with:
-          name: execution-plan.json
+          name: execution-plan.zip
           path: |
+            artifacts/stage.a.tmp.json
+            artifacts/stage.b.tmp.json
             artifacts/execution-plan.json
             artifacts/github-convertor.json
+      - name: Split up plan into individual parts
+        id: testingabc
+        run: |
+          echo "A: ${{ steps.splitplan.outputs.stage_a }} "
+          echo "B: ${{ steps.splitplan.outputs.stage_b }} "
     outputs:
       stage_a: ${{ steps.splitplan.outputs.stage_a }}
       stage_b: ${{ steps.splitplan.outputs.stage_b }}
