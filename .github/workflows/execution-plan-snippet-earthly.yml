@@ -52,8 +52,8 @@ jobs:
         run: |
           echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" >> $GITHUB_OUTPUT
           echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" >> $GITHUB_OUTPUT
-          echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" > artifacts/stage.a.tmp.json
-          echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" > artifacts/stage.b.tmp.json
+#          echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" > artifacts/stage.a.tmp.json
+#          echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" > artifacts/stage.b.tmp.json
       - uses: actions/upload-artifact@v4
         name: Upload execution plan
         with:
@@ -61,8 +61,8 @@ jobs:
           path: |
             artifacts/stage.a.tmp.json
             artifacts/stage.b.tmp.json
-            artifacts/execution-plan.json
-            artifacts/github-convertor.json
+#            artifacts/execution-plan.json
+#            artifacts/github-convertor.json
       - name: Split up plan into individual parts
         id: testingabc
         run: |
