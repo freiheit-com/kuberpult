@@ -73,7 +73,7 @@ jobs:
       stage_b: ${{ steps.splitplan.outputs.stage_b }}
   stageA_build:
     needs: [execution_plan]
-    if: needs.execution_plan.outputs.stage_a && needs.execution_plan.outputs.stage_a != 'null'
+    if: needs.execution_plan.outputs.stage_a != 'null'
     strategy:
       matrix:
         data: ${{fromJSON(needs.execution_plan.outputs.stage_a)}}
