@@ -21,7 +21,7 @@ IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
 IMAGENAME_VERSIONED=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(VERSION)
 
 build:
-	earthly +build --DOCKER_REGISTRY_URI=$(DOCKER_REGISTRY_URI) --IMAGE_TAG=$(IMAGE_TAG) --VERSION=$(VERSION)
+	docker build -t $(IMAGENAME) -f Dockerfile ../../../
 
 build-pr: build publish
 	echo "Building on pull request"
@@ -39,7 +39,9 @@ cleanup-main:
 
 release:
 	echo "Releasing $(IMAGENAME)"
-	earthly --no-output --push +publish --DOCKER_REGISTRY_URI=$(DOCKER_REGISTRY_URI) --IMAGE_TAG=$(IMAGE_TAG) --VERSION=$(VERSION)
+	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED)
+	docker push $(IMAGENAME)
+	docker push $(IMAGENAME_VERSIONED)
 
 publish: release
 	echo $(IMAGE_TAG)
