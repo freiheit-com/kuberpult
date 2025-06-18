@@ -50,8 +50,8 @@ jobs:
       - name: Split up plan into individual parts
         id: splitplan
         run: |
-          echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" >> $GITHUB_OUTPUT
-          echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" >> $GITHUB_OUTPUT
+          echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c | base64)" >> $GITHUB_OUTPUT
+          echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c | base64)" >> $GITHUB_OUTPUT
 #          echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" > artifacts/stage.a.tmp.json
 #          echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" > artifacts/stage.b.tmp.json
       - uses: actions/upload-artifact@v4
@@ -76,7 +76,7 @@ jobs:
     if: needs.execution_plan.outputs.stage_a && needs.execution_plan.outputs.stage_a != 'null'
     strategy:
       matrix:
-        data: ${{fromJSON(needs.execution_plan.outputs.stage_a)}}
+        data: ${{fromJSON(needs.execution_plan.outputs.stage_a | base64 -d)}}
     name: ${{ matrix.data.directory }} - Build and Publish
     runs-on: ubuntu-latest
     # we want to publish to the ghcr.io registry. For this we need to have package:write rights
