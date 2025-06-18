@@ -76,7 +76,7 @@ jobs:
     if: needs.execution_plan.outputs.stage_a && needs.execution_plan.outputs.stage_a != 'null'
     strategy:
       matrix:
-        data: ${{fromJSON(needs.execution_plan.outputs.stage_a | base64 -d)}}
+        data: ${{fromJSON(needs.execution_plan.outputs.stage_a)}}
     name: ${{ matrix.data.directory }} - Build and Publish
     runs-on: ubuntu-latest
     # we want to publish to the ghcr.io registry. For this we need to have package:write rights
