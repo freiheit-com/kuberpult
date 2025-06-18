@@ -5,12 +5,12 @@ ARG --global target=docker
 
 deps:
     ARG USERARCH
+    ARG BUF_VERSION=v1.26.1
+    ARG BUF_BIN_PATH=/usr/local/bin
     IF [ "$USERARCH" = "arm64" ]
         FROM golang:1.24-bookworm
         RUN apt update && apt install --auto-remove ca-certificates tzdata libgit2-dev libsqlite3-dev -y
         COPY buf_sha256.txt .
-        ARG BUF_VERSION=v1.26.1
-        ARG BUF_BIN_PATH=/usr/local/bin
         RUN OS=Linux ARCH=$(uname -m) && \
             wget "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-${OS}-${ARCH}" \
             -O "${BUF_BIN_PATH}/buf" && \
