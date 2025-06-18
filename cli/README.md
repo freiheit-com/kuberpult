@@ -1,6 +1,5 @@
 # Kuberpult client
 
-
 The Kuberpult client is a Go command line client and library for interacting with a Kuberpult deployment. It essentially just wraps the Kuberpult API in a high-level, human-friendly interface.
 
 The Kuberpult client offers functionality to interact with kuberpult, able to perform four actions:
