@@ -50,8 +50,8 @@ jobs:
       - name: Split up plan into individual parts
         id: splitplan
         run: |
-          echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" >> $GITHUB_OUTPUT
-          echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" >> $GITHUB_OUTPUT
+          echo "stage_a=[]" >> $GITHUB_OUTPUT
+          echo "stage_b=[]" >> $GITHUB_OUTPUT
           echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)"
           echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)"
       - uses: actions/upload-artifact@v4
