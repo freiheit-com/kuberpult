@@ -41,7 +41,7 @@ jobs:
           cat artifacts/execution-plan.json
       - name: Convert plan to github specific format
         run: |
-          GITHUB_CONVERTOR_IMAGE="eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-8"
+          GITHUB_CONVERTOR_IMAGE="europe-docker.pkg.dev/fdc-standard-setup-dev-env/all-artifacts/tools/execplan-convertor-github:kuberpult"
           DEFAULT_IMAGE="docker:git"
           cat artifacts/execution-plan.json | docker run -i "${GITHUB_CONVERTOR_IMAGE}" "${DEFAULT_IMAGE}" > artifacts/github-convertor.json
       - name: Print github converted plan
