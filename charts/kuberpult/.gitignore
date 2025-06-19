@@ -8,3 +8,5 @@ argocd_adminpw.txt
 Chart.lock
 emptyfile
 charts/*
+tests/go.mod
+tests/go.sum

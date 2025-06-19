@@ -19,6 +19,7 @@ include ../../Makefile.variables
 MAKEFLAGS += --no-builtin-rules
 CHARTS_REGISTRY:=$(DOCKER_REGISTRY_URI)/charts
 CHARTS_BASE_IMAGE_URL:=$(CHARTS_REGISTRY):$(VERSION)
+BUILDER_IMAGE:=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
 build-base-image:
@@ -29,12 +30,12 @@ push-base-image:
 
 Chart.yaml:
 	touch Chart.yaml
-	docker run --rm -e VERSION=$(VERSION) -e CHARTS_VERSION=$(VERSION) -w /kp -v "./Chart.yaml:/kp/Chart.yaml" -v "./Chart.yaml.tpl:/kp/Chart.yaml.tpl" $(CHARTS_BASE_IMAGE_URL) \
+	docker run --rm -w /kp -e VERSION=$(VERSION) -e CHARTS_VERSION=$(VERSION) -w /kp -v "./Chart.yaml:/kp/Chart.yaml" -v "./Chart.yaml.tpl:/kp/Chart.yaml.tpl" $(CHARTS_BASE_IMAGE_URL) \
 		sh -c "envsubst < Chart.yaml.tpl > Chart.yaml"
 
 $(TGZ_FILE): Chart.yaml
 	touch ./$(TGZ_FILE)
-	docker run --rm -v "./Chart.yaml:/kp/Chart.yaml" -v "./values.yaml:/kp/values.yaml" -v "./templates:/kp/templates" -v "./$(TGZ_FILE):/kp/$(TGZ_FILE)" $(CHARTS_BASE_IMAGE_URL) \
+	docker run --rm -w /kp -v "./Chart.yaml:/kp/Chart.yaml" -v "./values.yaml:/kp/values.yaml" -v "./templates:/kp/templates" -v "./$(TGZ_FILE):/kp/$(TGZ_FILE)" $(CHARTS_BASE_IMAGE_URL) \
 		sh -c "helm dependency update && rm -rf charts && helm dependency update && tar -xzvf charts/*.tgz --directory=charts && helm package ."
 
 ci/test-values.yaml:
@@ -50,11 +51,11 @@ else
 		sh -c "ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git"
 endif
 
-test-helm:
-	earthly +test-helm --VERSION=$(VERSION)
+test-helm: $(TGZ_FILE) Chart.yaml
+	IMAGE_TAG=$(IMAGE_TAG) make -C ../../infrastructure/docker/builder build
+	docker run --rm -w /kp -v "./$(TGZ_FILE):/kp/$(TGZ_FILE)" -v "./Chart.yaml:/kp/Chart.yaml" -v "./values.yaml:/kp/values.yaml" -v "./templates:/kp/templates" -v "./tests:/kp/tests" $(BUILDER_IMAGE) sh -c "helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com && helm dependency build &&  cd tests &&  go mod init test-helm && go mod tidy &&  go test ./..."
 
 test: ct-test test-helm
-	earthly +test --VERSION=$(VERSION)
 
 clean:
 	rm -rf Chart.yaml
@@ -63,5 +64,8 @@ clean:
 
 release-tag: $(TGZ_FILE)
 	echo "Creating release via git tag pipeline"
+
+.PHONY: test-helm
+test-helm: $(TGZ_FILE) Chart.yaml
 
 all: Chart.yaml
