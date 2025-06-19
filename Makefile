@@ -72,6 +72,10 @@ cleanup-main:
 builder:
 	IMAGE_TAG=latest make -C infrastructure/docker/builder build
 
+.PHONY: deps
+deps: builder
+	docker build -t $(DEPS_IMAGE) .
+
 compose-down:
 	docker compose down
 
