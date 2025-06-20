@@ -24,8 +24,8 @@ include ../infrastructure/make/go/include.mk
 test: unit-test
 build: lint test docker
 
-build-pr: VERSION_TAG=pr-$(VERSION)
+build-pr: IMAGE_TAG=pr-$(VERSION)
 build-pr: build release
 
-build-main: VERSION_TAG=main-$(VERSION)
+build-main: IMAGE_TAG=main-$(VERSION)
 build-main: build release
