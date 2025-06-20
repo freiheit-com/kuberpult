@@ -1,6 +1,6 @@
 include ../../Makefile.variables
 
-GOARCH?=amd64
+GOARCH?=arm64
 MAIN_PATH?=cmd/server
 CGO_ENABLED?=1
 GO_TEST_ARGS?=
@@ -11,7 +11,7 @@ SERVICE_DIR?=/kp/services/$(SERVICE)
 
 .PHONY: deps
 deps:
-	make -C ../.. deps
+	make -C ../../infrastructure/docker/deps build 
 
 .PHONY: compile
 compile: deps
