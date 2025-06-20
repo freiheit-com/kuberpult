@@ -14,6 +14,12 @@ RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_V
 ARG GO_EXHAUSTSTRUCT_VERSION="v3.3.1"
 RUN go install github.com/GaijinEntertainment/go-exhaustruct/v3/cmd/exhaustruct@$GO_EXHAUSTSTRUCT_VERSION
 
+RUN curl --fail --silent --show-error --location --remote-name "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz"
+RUN echo 0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5 helm-v3.14.2-linux-amd64.tar.gz | sha256sum -c
+RUN tar xzf helm-v3.14.2-linux-amd64.tar.gz
+RUN mv linux-amd64/helm /usr/local/bin/helm
+RUN chmod +x /usr/local/bin/helm
+
 # TODO: Uncomment this later once earthly has been completely removed (Ref: SRX-ELW2PF)
 # WORKDIR /tmp/kp/
 # COPY go.mod go.sum ./
