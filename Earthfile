@@ -124,6 +124,7 @@ integration-test:
     COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
 
     COPY go.mod go.sum .
+    RUN go mod tidy
     RUN go mod download
 
     RUN --no-cache echo GPG gen starting...
