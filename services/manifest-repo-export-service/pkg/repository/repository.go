@@ -1187,6 +1187,32 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 	return nil
 }
 
+func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, app string, dbHandler *db.DBHandler) error {
+	releases, err := s.GetAllApplicationReleasesFromManifest(app)
+	if err != nil {
+		return fmt.Errorf("cannot get releases of app %s: %v", app, err)
+	}
+	for i := range releases {
+		releaseVersion := releases[i]
+		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
+		if err != nil {
+			return fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
+		}
+
+		if !valid.SHA1CommitID(repoRelease.SourceCommitId) {
+			//If we are about to import an invalid commit ID, simply log it and write an empty commit.
+			logger.FromContext(ctx).Sugar().Warnf("Source commit ID %s is not valid. Skipping migration for release %d of app %s", repoRelease.SourceCommitId, releaseVersion, app)
+			repoRelease.SourceCommitId = ""
+		}
+
+		err = dbHandler.DBMigrationUpdateReleasesTimestamp(ctx, transaction, app, releaseVersion, repoRelease.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
+		}
+	}
+	return nil
+}
+
 func (s *State) GetApplicationReleaseManifestsFromManifest(application string, version uint64) (map[types.EnvName]*api.Manifest, error) {
 	manifests := map[types.EnvName]*api.Manifest{}
 	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)

@@ -200,6 +200,11 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	gitTimestampMigrationEnabledString, err := valid.ReadEnvVar("KUBERPULT_GIT_TIMESTAMP_MIGRATIONS_ENABLED")
+	if err != nil {
+		return err
+	}
+	dbGitTimestampMigrationEnabled := gitTimestampMigrationEnabledString == "true"
 
 	var dbCfg db.DBConfig
 	if dbOption == "postgreSQL" {
@@ -302,6 +307,12 @@ func Run(ctx context.Context) error {
 	} else {
 		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if" +
 			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=true.")
+	}
+	if dbGitTimestampMigrationEnabled {
+		err := dbHandler.RunCustomMigrationReleasesTimestamp(ctx, repo.State().GetAppsAndTeams, repo.State().FixReleasesTimestamp)
+		if err != nil {
+			return fmt.Errorf("error running migrations for fixing releases timestamp")
+		}
 	}
 
 	shutdownCh := make(chan struct{})

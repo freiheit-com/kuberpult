@@ -28,6 +28,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 )
 
 type DBReleaseMetaData struct {
@@ -430,6 +432,50 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 			err)
 	}
 	return nil
+}
+
+func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion uint64, createAt time.Time) error {
+	span, _, onErr := tracing.StartSpanFromContext(ctx, "DBMigrationUpdateReleasesTimestamp")
+	defer span.Finish()
+	historyUpdateQuery := h.AdaptQuery(`
+		UPDATE releases_history SET created=? WHERE appname=? AND releaseversion=?;
+	`)
+	span.SetTag("query", historyUpdateQuery)
+
+	_, err := transaction.Exec(
+		historyUpdateQuery,
+		createAt,
+		application,
+		releaseversion,
+	)
+	if err != nil {
+		return onErr(fmt.Errorf(
+			"could not update releases_history timestamp for app '%s' and version '%v' into DB. Error: %w",
+			application,
+			releaseversion,
+			err))
+	}
+
+	releasesUpdateQuery := h.AdaptQuery(`
+		UPDATE releases SET created=? WHERE appname=? AND releaseversion=?;
+	`)
+	span.SetTag("query", releasesUpdateQuery)
+
+	_, err = transaction.Exec(
+		releasesUpdateQuery,
+		createAt,
+		application,
+		releaseversion,
+	)
+	if err != nil {
+		return onErr(fmt.Errorf(
+			"could not update releases timestamp for app '%s' and version '%v' into DB. Error: %w",
+			application,
+			releaseversion,
+			err))
+	}
+	return nil
+
 }
 
 // process rows functions
