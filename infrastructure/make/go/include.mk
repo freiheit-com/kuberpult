@@ -7,7 +7,8 @@ CGO_ENABLED?=1
 GO_TEST_ARGS?=
 SKIP_LINT_ERRORS?=false
 SERVICE?=$(notdir $(shell pwd))
-IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/$(SERVICE):$(VERSION)
+VERSION_TAG?=$(VERSION)
+IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):$(VERSION_TAG)
 SERVICE_DIR?=/kp/services/$(SERVICE)
 
 .PHONY: deps
@@ -35,7 +36,7 @@ lint: deps
 	docker run --rm -w $(SERVICE_DIR) -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'golangci-lint run --timeout=15m -j4 --tests=false ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
 
 .PHONY: docker
-docker: artifacts compile
+docker: compile
 	docker build . -t $(IMAGE_NAME)
 
 
