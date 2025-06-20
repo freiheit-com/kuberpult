@@ -1,4 +1,5 @@
-include ../../Makefile.variables
+ROOT_DIR?=../..
+include $(ROOT_DIR)/Makefile.variables
 
 GOARCH?=arm64
 MAIN_PATH?=cmd/server
@@ -11,7 +12,7 @@ SERVICE_DIR?=/kp/services/$(SERVICE)
 
 .PHONY: deps
 deps:
-	make -C ../../infrastructure/docker/deps build 
+	make -C $(ROOT_DIR)/infrastructure/docker/deps build
 
 .PHONY: compile
 compile: deps
@@ -19,15 +20,15 @@ compile: deps
 
 .PHONY: unit-test
 unit-test: deps
-	docker compose -f ../../docker-compose-unittest.yml up -d
+	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
 	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c "go test $(GO_TEST_ARGS) ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html"
-	docker compose -f ../../docker-compose-unittest.yml down
+	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
 .PHONY: bench-test
 bench-test: deps
-	docker compose -f ../../docker-compose-unittest.yml up -d
+	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
 	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c "go test $(GO_TEST_ARGS) -bench=. ./..."
-	docker-compose -f ../../docker-compose-unittest.yml down
+	docker-compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
 .PHONY: lint
 lint: deps
