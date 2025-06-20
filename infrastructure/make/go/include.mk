@@ -12,7 +12,7 @@ SERVICE_DIR?=/kp/services/$(SERVICE)
 
 .PHONY: deps
 deps:
-	make -C $(ROOT_DIR)/infrastructure/docker/deps build
+	IMAGE_TAG=$(IMAGE_TAG) $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/deps build
 
 .PHONY: compile
 compile: deps
