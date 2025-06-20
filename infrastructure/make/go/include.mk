@@ -1,6 +1,6 @@
 include ../../Makefile.variables
 
-GOARCH?=arm64
+GOARCH?=amd64
 MAIN_PATH?=cmd/server
 CGO_ENABLED?=1
 GO_TEST_ARGS?=
