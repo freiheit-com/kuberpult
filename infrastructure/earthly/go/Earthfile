@@ -77,6 +77,7 @@ LINT:
 
 DOCKER:
     FUNCTION
+    # TODO: This functionality should be moved to each services dockerfile and makefile. Ref: SRX-E-L3C2BG  
     ARG UID=1000
     ARG USERARCH
     ARG entry_point="/main"
