@@ -158,7 +158,7 @@ integration-test:
             ./tests/integration-tests/cluster-setup/setup-cluster-ssh.sh& \
             ./tests/integration-tests/cluster-setup/setup-postgres.sh && \
             ./tests/integration-tests/cluster-setup/argocd-kuberpult.sh && \
-            cd tests/integration-tests && go test $GO_TEST_ARGS ./... && \
+            go mod tidy && go mod download && cd tests/integration-tests && go test $GO_TEST_ARGS ./... && \
             ./validation-check.sh || ./cluster-setup/get-logs.sh; \
             echo ============ SUCCESS ============
     END
