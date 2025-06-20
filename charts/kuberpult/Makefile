@@ -28,7 +28,7 @@ build-base-image:
 push-base-image:
 	docker push $(CHARTS_BASE_IMAGE_URL)
 
-Chart.yaml:
+Chart.yaml: build-base-image
 	touch Chart.yaml
 	docker run --rm -w /kp -e VERSION=$(VERSION) -e CHARTS_VERSION=$(VERSION) -w /kp -v "./Chart.yaml:/kp/Chart.yaml" -v "./Chart.yaml.tpl:/kp/Chart.yaml.tpl" $(CHARTS_BASE_IMAGE_URL) \
 		sh -c "envsubst < Chart.yaml.tpl > Chart.yaml"
@@ -38,7 +38,7 @@ $(TGZ_FILE): Chart.yaml
 	docker run --rm -w /kp -v "./Chart.yaml:/kp/Chart.yaml" -v "./values.yaml:/kp/values.yaml" -v "./templates:/kp/templates" -v "./$(TGZ_FILE):/kp/$(TGZ_FILE)" $(CHARTS_BASE_IMAGE_URL) \
 		sh -c "helm dependency update && rm -rf charts && helm dependency update && tar -xzvf charts/*.tgz --directory=charts && helm package ."
 
-ci/test-values.yaml:
+ci/test-values.yaml: build-base-image
 	touch ci/test-values.yaml
 	docker run --rm -w /kp -v "./values.yaml:/kp/values.yaml" -v "./ci:/kp/ci" -v "./ci/test-values.yaml:/kp/ci/test-values.yaml" $(CHARTS_BASE_IMAGE_URL) \
 		sh -c "grep -o '^[^#]*' values.yaml > ci/test-values.yaml && yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' ci/test-values.yaml ci/test-values-override.yaml"
