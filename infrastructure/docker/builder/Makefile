@@ -19,15 +19,21 @@ include ../../../Makefile.variables
 
 IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
 IMAGENAME_VERSIONED=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(VERSION)
+IMAGENAME_VERSIONED_PR=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
+IMAGENAME_VERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main-$(VERSION)
 
 build:
 	docker build -t $(IMAGENAME) -f Dockerfile ../../../
 
 build-pr: build publish
 	echo "Building on pull request"
+	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_PR)
+	docker push $(IMAGENAME_VERSIONED_PR)
 
 build-main: build publish
 	echo "Building on main"
+	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_MAIN)
+	docker push $(IMAGENAME_VERSIONED_MAIN)
 
 .PHONY: cleanup-pr
 cleanup-pr:
