@@ -13,7 +13,7 @@ MIN_COVERAGE?=99.9 # should be overwritten by every service
 
 .PHONY: deps
 deps:
-	IMAGE_TAG=latest $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/deps build
+	IMAGE_TAG=$(IMAGE_TAG) $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/deps build
 
 .PHONY: compile
 compile: deps
