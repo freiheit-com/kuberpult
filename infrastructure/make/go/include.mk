@@ -1,3 +1,6 @@
+ROOT_DIR?=../..
+include $(ROOT_DIR)/Makefile.variables
+
 GOARCH?=arm64
 MAIN_PATH?=cmd/server
 CGO_ENABLED?=1
@@ -6,10 +9,6 @@ SKIP_LINT_ERRORS?=false
 SERVICE?=$(notdir $(shell pwd))
 IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/$(SERVICE):$(VERSION)
 SERVICE_DIR?=/kp/services/$(SERVICE)
-ROOT_DIR?=../../
-
-include $(ROOT_DIR)/Makefile.variables
-
 
 .PHONY: deps
 deps:
