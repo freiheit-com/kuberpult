@@ -15,23 +15,17 @@
 # Copyright freiheit.com
 
 # NOTE: this will be replaced with the etf-golang makefile
-include ../Makefile.variables
+ROOT_DIR=..
 MAKEFLAGS += --no-builtin-rules
-
 export CGO_ENABLED=1
-
 GO := go
-
 GO_FILES := $(shell find . -type f -name '*.go')
-
 GO_SERVER_GEN := server-gen.go
 
-all:
-	earthly -P +build-all
-lint:
-	earthly +lint
-test:
-	earthly -P +test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
+include $(ROOT_DIR)/infrastructure/make/go/include.mk
+
+all: lint test
+test: unit-test
 
 gen: grpc-api-gen publicapi
 
@@ -52,5 +46,6 @@ proto: api/v1/api_grpc.pb.go publicapi
 
 build-pr: all
 build-main: all
+build-all: all
 
 .PHONY: all clean release test
