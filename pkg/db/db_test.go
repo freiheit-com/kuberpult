@@ -5538,7 +5538,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 		FirstReleases                   []DBReleaseWithMetaData
 		SecondReleases                  []DBReleaseWithMetaData
 		Environments                    []DBEnvironment
-		ExpectedEnvironmentApplications map[types.EnvName][]string
+		ExpectedEnvironmentApplications map[types.EnvName][]string // this related to the apps BEFORE the 2nd releases
 	}{
 		{
 			Name: "Environment added afterwards",
@@ -5568,7 +5568,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 			},
 			ExpectedEnvironmentApplications: map[types.EnvName][]string{
 				"dev":     {"app1"},
-				"staging": {"app1"},
+				"staging": {},
 			},
 		},
 		{
@@ -5603,8 +5603,8 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				},
 			},
 			ExpectedEnvironmentApplications: map[types.EnvName][]string{
-				"dev":     {"app1", "app2"},
-				"staging": {"app1", "app2"},
+				"dev":     {"app1"},
+				"staging": {"app1"},
 			},
 		},
 	}
@@ -5629,8 +5629,11 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 						return nil, fmt.Errorf("error while writing release, error: %w", err)
 					}
 				}
-				firstReleaseTime := time.Now()
-				return &firstReleaseTime, nil
+				firstReleaseTime, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+				if err != nil {
+					return nil, err
+				}
+				return firstReleaseTime, nil
 			})
 			if err != nil {
 				t.Fatalf("error with firstrelease: %v", err)
@@ -5641,6 +5644,13 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
+				}
+				secondReleaseTime, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				if secondReleaseTime == nil || firstReleaseTime.Compare(*secondReleaseTime) != -1 {
+					return fmt.Errorf("the second timestamp must be later than the first: t1=%v; t2=%v", firstReleaseTime, secondReleaseTime)
 				}
 				return nil
 			})
