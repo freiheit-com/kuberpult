@@ -90,24 +90,24 @@ func TestValidateTokenStatic(t *testing.T) {
 		},
 	}
 
-	var jwks, err = JWKSInitAzureFromJson()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			testJWKS := jwks
-			if tc.noInit {
-				testJWKS = nil
-			}
-			_, err = ValidateToken(tc.Token, testJWKS, "clientId", "tenantId")
-			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
-			}
-		})
+		for i := 0; i < 10; i++ {
+			t.Run(fmt.Sprintf("%s-%d", tc.Name, i), func(t *testing.T) {
+				t.Parallel()
+				var jwks, err = JWKSInitAzureFromJson()
+				if err != nil {
+					t.Fatal(err)
+				}
+				testJWKS := jwks
+				if tc.noInit {
+					testJWKS = nil
+				}
+				_, err = ValidateToken(tc.Token, testJWKS, "clientId", "tenantId")
+				if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+			})
+		}
 	}
 }
 
