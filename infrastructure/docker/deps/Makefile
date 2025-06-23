@@ -13,8 +13,12 @@
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 # Copyright freiheit.com
+
 include ../../../Makefile.variables
+
 .PHONY: build
 build:
+ifeq ($(IMAGE_TAG),latest)
 	make -C ../../.. builder
-	docker build -t $(DEPS_IMAGE) -f Dockerfile ../../..
+endif
+	docker build -t $(DEPS_IMAGE) -f Dockerfile ../../.. --build-arg BUILDER_IMAGE=$(DEPS_IMAGE)

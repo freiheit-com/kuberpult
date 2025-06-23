@@ -14,10 +14,18 @@
 
 # Copyright freiheit.com
 
-include ../Makefile.variables
+ROOT_DIR=..
+CGO_ENABLED=0
+MAIN_PATH=cmd/kuberpult-client
+SERVICE=client
 
-build-pr:
-	earthly -P --push +build-pr --VERSION=pr-$(VERSION)
+include ../infrastructure/make/go/include.mk
 
-build-main:
-	earthly -P --push +build-main --VERSION=main-$(VERSION)
+test: unit-test
+build: lint test docker
+
+build-pr: IMAGE_TAG=pr-$(VERSION)
+build-pr: build release
+
+build-main: IMAGE_TAG=main-$(VERSION)
+build-main: build release
