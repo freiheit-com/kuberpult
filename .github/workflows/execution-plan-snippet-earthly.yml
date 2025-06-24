@@ -132,17 +132,6 @@ jobs:
         uses: ./.github/actions/post-build-action
         with:
           data: ${{ toJSON(matrix.data) }}
-      - name: TESTING stage a
-        run: |
-          echo "are there artifacts?"
-          echo "pwd:"
-          pwd
-          echo "ls -l"
-          ls -l
-          echo "ls -l ${{ matrix.data.artifacts }}"
-          ls -l ${{ matrix.data.artifacts }}
-          echo "ls -l services/*/coverage.html"
-          ls -l services/*/coverage.html
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
@@ -220,15 +209,6 @@ jobs:
         uses: ./.github/actions/post-build-action
         with:
           data: ${{ toJSON(matrix.data) }}
-      - name: TESTING stage b
-        run: |
-          echo "are there artifacts?"
-          echo "pwd:"
-          pwd
-          echo "ls -l"
-          ls -l
-          echo "ls -l ${{ matrix.data.artifacts }}"
-          ls -l ${{ matrix.data.artifacts }}
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
