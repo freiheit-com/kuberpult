@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"time"
 )
 
@@ -60,7 +61,7 @@ func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*
 	return err
 }
 
-func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName, envName string) (*ArgoEvent, error) {
+func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (*ArgoEvent, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadArgoEvent")
 	defer span.Finish()
 	if h == nil {

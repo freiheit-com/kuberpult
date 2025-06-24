@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"fmt"
 	"slices"
@@ -148,8 +149,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
 		}
 
-		envMap := make(map[string]db.DBEnvironment)
-		envConfigs := make(map[string]config.EnvironmentConfig)
+		envMap := make(map[types.EnvName]db.DBEnvironment)
+		envConfigs := make(map[types.EnvName]config.EnvironmentConfig)
 		for _, env := range *envs {
 			envMap[env.Name] = env
 			envConfigs[env.Name] = env.Config
@@ -163,10 +164,11 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, fmt.Errorf("could not find application locks for app %s: %w", appName, err)
 		}
 		for _, currentLock := range appLocks {
-			if _, ok := response.AppLocks[currentLock.Env]; !ok {
-				response.AppLocks[currentLock.Env] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			e := string(currentLock.Env)
+			if _, ok := response.AppLocks[e]; !ok {
+				response.AppLocks[e] = &api.Locks{Locks: make([]*api.Lock, 0)}
 			}
-			response.AppLocks[currentLock.Env].Locks = append(response.AppLocks[currentLock.Env].Locks, &api.Lock{
+			response.AppLocks[e].Locks = append(response.AppLocks[e].Locks, &api.Lock{
 				LockId:    currentLock.LockID,
 				Message:   currentLock.Metadata.Message,
 				CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
@@ -185,10 +187,11 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, fmt.Errorf("could not find team locks for app %s: %w", appName, err)
 		}
 		for _, currentTeamLock := range teamLocks {
-			if _, ok := response.TeamLocks[currentTeamLock.Env]; !ok {
-				response.TeamLocks[currentTeamLock.Env] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			e := string(currentTeamLock.Env)
+			if _, ok := response.TeamLocks[e]; !ok {
+				response.TeamLocks[e] = &api.Locks{Locks: make([]*api.Lock, 0)}
 			}
-			response.TeamLocks[currentTeamLock.Env].Locks = append(response.TeamLocks[currentTeamLock.Env].Locks, &api.Lock{
+			response.TeamLocks[e].Locks = append(response.TeamLocks[e].Locks, &api.Lock{
 				LockId:    currentTeamLock.LockID,
 				Message:   currentTeamLock.Metadata.Message,
 				CreatedAt: timestamppb.New(currentTeamLock.Metadata.CreatedAt),
@@ -213,7 +216,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		}
 
 		// Cache queued versions to check with deployments
-		queuedVersions := make(map[string]*uint64)
+		queuedVersions := make(map[types.EnvName]*uint64)
 		for _, queuedDeployment := range queuedDeployments {
 			if queuedDeployment.Version != nil {
 				parsedInt := uint64(*queuedDeployment.Version)
@@ -249,7 +252,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			if deploymentRelease != nil {
 				deployment.UndeployVersion = deploymentRelease.Metadata.UndeployVersion
 			}
-			response.Deployments[envName] = deployment
+			response.Deployments[string(envName)] = deployment
 		}
 		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
 		result.Warnings = CalculateWarnings(deployments, appLocks, envGroups)
@@ -304,15 +307,16 @@ func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 			return nil, fmt.Errorf("error obtaining application locks: %w", err)
 		}
 		for _, currentLock := range appLocks {
-			if _, ok := response.AllAppLocks[currentLock.Env]; !ok {
-				response.AllAppLocks[currentLock.Env] = &api.AllAppLocks{AppLocks: make(map[string]*api.Locks)}
+			e := string(currentLock.Env)
+			if _, ok := response.AllAppLocks[e]; !ok {
+				response.AllAppLocks[e] = &api.AllAppLocks{AppLocks: make(map[string]*api.Locks)}
 
 			}
-			if _, ok := response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App]; !ok {
-				response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			if _, ok := response.AllAppLocks[e].AppLocks[currentLock.App]; !ok {
+				response.AllAppLocks[e].AppLocks[currentLock.App] = &api.Locks{Locks: make([]*api.Lock, 0)}
 			}
 
-			response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks = append(response.AllAppLocks[currentLock.Env].AppLocks[currentLock.App].Locks, &api.Lock{
+			response.AllAppLocks[e].AppLocks[currentLock.App].Locks = append(response.AllAppLocks[e].AppLocks[currentLock.App].Locks, &api.Lock{
 				LockId:    currentLock.LockID,
 				Message:   currentLock.Metadata.Message,
 				CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
@@ -344,12 +348,13 @@ func (o *OverviewServiceServer) GetAllEnvTeamLocks(ctx context.Context,
 			return nil, err
 		}
 		for envName, envLocks := range allEnvLocks {
+			e := string(envName)
 			for _, currentLock := range envLocks {
-				if _, ok := response.AllEnvLocks[envName]; !ok {
-					response.AllEnvLocks[envName] = &api.Locks{Locks: make([]*api.Lock, 0)}
+				if _, ok := response.AllEnvLocks[e]; !ok {
+					response.AllEnvLocks[e] = &api.Locks{Locks: make([]*api.Lock, 0)}
 
 				}
-				response.AllEnvLocks[envName].Locks = append(response.AllEnvLocks[envName].Locks, &api.Lock{
+				response.AllEnvLocks[e].Locks = append(response.AllEnvLocks[e].Locks, &api.Lock{
 					LockId:    currentLock.LockID,
 					Message:   currentLock.Metadata.Message,
 					CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
@@ -367,15 +372,16 @@ func (o *OverviewServiceServer) GetAllEnvTeamLocks(ctx context.Context,
 			return nil, err
 		}
 		for envName, teams := range allTeamLocks {
+			e := string(envName)
 			for team, locks := range teams {
 				for _, currentLock := range locks {
-					if _, ok := response.AllTeamLocks[envName]; !ok {
-						response.AllTeamLocks[envName] = &api.AllTeamLocks{TeamLocks: map[string]*api.Locks{}}
+					if _, ok := response.AllTeamLocks[e]; !ok {
+						response.AllTeamLocks[e] = &api.AllTeamLocks{TeamLocks: map[string]*api.Locks{}}
 					}
-					if _, ok := response.AllTeamLocks[envName].TeamLocks[team]; !ok {
-						response.AllTeamLocks[envName].TeamLocks[team] = &api.Locks{Locks: make([]*api.Lock, 0)}
+					if _, ok := response.AllTeamLocks[e].TeamLocks[team]; !ok {
+						response.AllTeamLocks[e].TeamLocks[team] = &api.Locks{Locks: make([]*api.Lock, 0)}
 					}
-					response.AllTeamLocks[envName].TeamLocks[team].Locks = append(response.AllTeamLocks[envName].TeamLocks[team].Locks, &api.Lock{
+					response.AllTeamLocks[e].TeamLocks[team].Locks = append(response.AllTeamLocks[e].TeamLocks[team].Locks, &api.Lock{
 						LockId:    currentLock.LockID,
 						Message:   currentLock.Metadata.Message,
 						CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
@@ -450,7 +456,7 @@ func (o *OverviewServiceServer) getOverview(
 			env := api.Environment{
 				DistanceToUpstream: 0,
 				Priority:           api.Priority_PROD,
-				Name:               envName,
+				Name:               string(envName),
 				Config: &api.EnvironmentConfig{
 					Upstream:         mapper.TransformUpstream(config.Upstream),
 					Argocd:           &argocd,
@@ -473,11 +479,11 @@ func (o *OverviewServiceServer) getOverview(
 	return &result, nil
 }
 
-func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
+func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn types.EnvName) *api.Environment {
 	for _, currentGroup := range groups {
 		if currentGroup.EnvironmentGroupName == groupNameToReturn {
 			for _, currentEnv := range currentGroup.Environments {
-				if currentEnv.Name == envNameToReturn {
+				if currentEnv.Name == string(envNameToReturn) {
 					return currentEnv
 				}
 			}
@@ -648,7 +654,7 @@ func deriveUndeploySummary(appName string, deployments map[string]*api.Deploymen
 	return api.UndeploySummary_MIXED
 }
 
-func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.ApplicationLock, groups []*api.EnvironmentGroup) []*api.Warning {
+func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks []db.ApplicationLock, groups []*api.EnvironmentGroup) []*api.Warning {
 	result := make([]*api.Warning, 0)
 	for e := 0; e < len(groups); e++ {
 		group := groups[e]
@@ -664,7 +670,7 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 				continue
 			}
 
-			envDeployment, ok := appDeployments[env.Name]
+			envDeployment, ok := appDeployments[types.EnvName(env.Name)]
 
 			if !ok {
 				// appName is not deployed here, ignore it
@@ -672,7 +678,7 @@ func CalculateWarnings(appDeployments map[string]db.Deployment, appLocks []db.Ap
 			}
 			versionInEnv := envDeployment.Version
 
-			upstreamDeployment, ok := appDeployments[*upstreamEnvName]
+			upstreamDeployment, ok := appDeployments[types.EnvName(*upstreamEnvName)]
 			if !ok {
 				// appName is not deployed upstream... that's unusual!
 				var warning = api.Warning{

@@ -23,6 +23,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"sync"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
@@ -80,7 +81,7 @@ const maxBatchActions int = 100
 
 func ValidateEnvironmentLock(
 	actionType string, // "create" | "delete"
-	env string,
+	env types.EnvName,
 	id string,
 ) error {
 	if !valid.EnvironmentName(env) {
@@ -94,7 +95,7 @@ func ValidateEnvironmentLock(
 
 func ValidateEnvironmentApplicationLock(
 	actionType string, // "create" | "delete"
-	env string,
+	env types.EnvName,
 	app string,
 	id string,
 ) error {
@@ -121,7 +122,7 @@ func ValidateEnvironmentTeamLock(
 }
 
 func ValidateDeployment(
-	env string,
+	env types.EnvName,
 	app string,
 ) error {
 	if !valid.EnvironmentName(env) {
@@ -143,7 +144,7 @@ func ValidateApplication(
 }
 
 func ValidateEnvironment(
-	environmentName string,
+	environmentName types.EnvName,
 	environmentConfig config.EnvironmentConfig,
 ) error {
 	if environmentConfig.ArgoCdConfigs != nil && environmentConfig.ArgoCd != nil {
@@ -160,18 +161,18 @@ func ValidateEnvironment(
 
 		configs := environmentConfig.ArgoCdConfigs.ArgoCdConfigurations
 		commonEnvPrefix := environmentConfig.ArgoCdConfigs.CommonEnvPrefix
-		invalidNames := make([]string, 0)
-		knownNames := make(map[string]struct{})
+		invalidNames := make([]types.EnvName, 0)
+		knownNames := make(map[types.EnvName]struct{})
 
 		if (commonEnvPrefix == nil || *commonEnvPrefix == "") && len(configs) > 1 {
 			return status.Error(codes.InvalidArgument, fmt.Sprintf("a common environment name prefix must be specified for active/active environments: '%s'", environmentName))
 		}
 		for _, currentConfig := range configs { //Each sub-environment must be valid
-			var currentFullEnvironmentName string
+			var currentFullEnvironmentName types.EnvName
 			if commonEnvPrefix == nil || *commonEnvPrefix == "" || len(configs) == 1 { //only 1 config provided, we dont care about prefixes or concrete env names
-				currentFullEnvironmentName = environmentName
+				currentFullEnvironmentName = types.EnvName(environmentName)
 			} else {
-				currentFullEnvironmentName = *commonEnvPrefix + "-" + environmentName + "-" + currentConfig.ConcreteEnvName
+				currentFullEnvironmentName = types.EnvName(*commonEnvPrefix + "-" + string(environmentName) + "-" + currentConfig.ConcreteEnvName)
 			}
 
 			if !valid.EnvironmentName(currentFullEnvironmentName) {
@@ -196,11 +197,11 @@ func (d *BatchServer) processAction(
 	switch action := batchAction.Action.(type) {
 	case *api.BatchAction_CreateEnvironmentLock:
 		act := action.CreateEnvironmentLock
-		if err := ValidateEnvironmentLock("create", act.Environment, act.LockId); err != nil {
+		if err := ValidateEnvironmentLock("create", types.EnvName(act.Environment), act.LockId); err != nil {
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			LockId:                act.LockId,
 			Message:               act.Message,
 			CiLink:                act.CiLink,
@@ -211,22 +212,22 @@ func (d *BatchServer) processAction(
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentLock:
 		act := action.DeleteEnvironmentLock
-		if err := ValidateEnvironmentLock("delete", act.Environment, act.LockId); err != nil {
+		if err := ValidateEnvironmentLock("delete", types.EnvName(act.Environment), act.LockId); err != nil {
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			LockId:                act.LockId,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
 	case *api.BatchAction_CreateEnvironmentApplicationLock:
 		act := action.CreateEnvironmentApplicationLock
-		if err := ValidateEnvironmentApplicationLock("create", act.Environment, act.Application, act.LockId); err != nil {
+		if err := ValidateEnvironmentApplicationLock("create", types.EnvName(act.Environment), act.Application, act.LockId); err != nil {
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentApplicationLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Application:           act.Application,
 			LockId:                act.LockId,
 			Message:               act.Message,
@@ -238,11 +239,11 @@ func (d *BatchServer) processAction(
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentApplicationLock:
 		act := action.DeleteEnvironmentApplicationLock
-		if err := ValidateEnvironmentApplicationLock("delete", act.Environment, act.Application, act.LockId); err != nil {
+		if err := ValidateEnvironmentApplicationLock("delete", types.EnvName(act.Environment), act.Application, act.LockId); err != nil {
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentApplicationLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Application:           act.Application,
 			LockId:                act.LockId,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
@@ -254,7 +255,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentTeamLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Team:                  act.Team,
 			LockId:                act.LockId,
 			Message:               act.Message,
@@ -270,7 +271,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentTeamLock{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Team:                  act.Team,
 			LockId:                act.LockId,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
@@ -299,7 +300,7 @@ func (d *BatchServer) processAction(
 		}, nil, nil
 	case *api.BatchAction_Deploy:
 		act := action.Deploy
-		if err := ValidateDeployment(act.Environment, act.Application); err != nil {
+		if err := ValidateDeployment(types.EnvName(act.Environment), act.Application); err != nil {
 			return nil, nil, err
 		}
 		b := act.LockBehavior
@@ -310,7 +311,7 @@ func (d *BatchServer) processAction(
 		}
 		return &repository.DeployApplicationVersion{
 			SourceTrain:           nil,
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Application:           act.Application,
 			Version:               act.Version,
 			LockBehaviour:         b,
@@ -324,14 +325,14 @@ func (d *BatchServer) processAction(
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
 		return &repository.DeleteEnvFromApp{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Application:           act.Application,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
 	case *api.BatchAction_ReleaseTrain:
 		in := action.ReleaseTrain
-		if !valid.EnvironmentName(in.Target) {
+		if !valid.EnvironmentName(types.EnvName(in.Target)) {
 			return nil, nil, status.Error(codes.InvalidArgument, "invalid environment")
 		}
 		if in.Team != "" && !valid.TeamName(in.Team) {
@@ -359,7 +360,7 @@ func (d *BatchServer) processAction(
 		return &repository.CreateApplicationVersion{
 				Version:               in.Version,
 				Application:           in.Application,
-				Manifests:             in.Manifests,
+				Manifests:             types.StringMapToEnvMap(in.Manifests),
 				SourceCommitId:        in.SourceCommitId,
 				SourceAuthor:          in.SourceAuthor,
 				SourceMessage:         in.SourceMessage,
@@ -403,11 +404,11 @@ func (d *BatchServer) processAction(
 			EnvironmentGroup: conf.EnvironmentGroup,
 			ArgoCdConfigs:    configs,
 		}
-		if err := ValidateEnvironment(in.Environment, internalEnvironmentConfig); err != nil {
+		if err := ValidateEnvironment(types.EnvName(in.Environment), internalEnvironmentConfig); err != nil {
 			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("processAction: invalid environment. err: %v", err))
 		}
 		transformer := &repository.CreateEnvironment{
-			Environment:           in.Environment,
+			Environment:           types.EnvName(in.Environment),
 			Config:                internalEnvironmentConfig,
 			TransformerEslVersion: 0,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
@@ -436,7 +437,7 @@ func (d *BatchServer) processAction(
 	case *api.BatchAction_DeleteEnvironment:
 		act := action.DeleteEnvironment
 		return &repository.DeleteEnvironment{
-			Environment:           act.Environment,
+			Environment:           types.EnvName(act.Environment),
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil

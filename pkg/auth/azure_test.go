@@ -90,15 +90,13 @@ func TestValidateTokenStatic(t *testing.T) {
 		},
 	}
 
-	var jwks, err = JWKSInitAzureFromJson()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
+			var jwks, err = JWKSInitAzureFromJson()
+			if err != nil {
+				t.Fatal(err)
+			}
 			testJWKS := jwks
 			if tc.noInit {
 				testJWKS = nil

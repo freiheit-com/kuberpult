@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"io"
 	"sort"
 	"testing"
@@ -988,7 +989,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 			Created:       time.Unix(123456789, 0).UTC(),
 			App:           "foo",
 			Manifests: db.DBReleaseManifests{
-				Manifests: map[string]string{"staging": ""},
+				Manifests: map[types.EnvName]string{"staging": ""},
 			},
 			Metadata: db.DBReleaseMetaData{},
 		})

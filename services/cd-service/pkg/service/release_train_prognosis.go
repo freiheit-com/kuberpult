@@ -96,7 +96,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 				retEnvPrognosis.GetAppsPrognoses().Prognoses[appName] = retAppPrognosis
 			}
 		}
-		ret.EnvsPrognoses[envName] = retEnvPrognosis
+		ret.EnvsPrognoses[string(envName)] = retEnvPrognosis
 	}
 
 	return ret, nil

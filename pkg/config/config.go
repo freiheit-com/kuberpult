@@ -16,6 +16,8 @@ Copyright freiheit.com*/
 
 package config
 
+import "github.com/freiheit-com/kuberpult/pkg/types"
+
 type EnvironmentConfig struct {
 	Upstream         *EnvironmentConfigUpstream `json:"upstream,omitempty"`
 	ArgoCd           *EnvironmentConfigArgoCd   `json:"argocd,omitempty"`
@@ -29,8 +31,8 @@ type ArgoCDConfigs struct {
 }
 
 type EnvironmentConfigUpstream struct {
-	Environment string `json:"environment,omitempty"`
-	Latest      bool   `json:"latest,omitempty"`
+	Environment types.EnvName `json:"environment,omitempty"`
+	Latest      bool          `json:"latest,omitempty"`
 }
 
 type AccessEntry struct {
