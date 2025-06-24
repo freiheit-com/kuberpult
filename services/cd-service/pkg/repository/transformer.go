@@ -2154,14 +2154,47 @@ type DeployApplicationVersionSource struct {
 	Upstream    types.EnvName `json:"upstream"`
 }
 
-func (c *DeployApplicationVersion) Transform(
+type DeployPrognosis struct {
+	TeamName          string
+	EnvironmentConfig *config.EnvironmentConfig
+}
+
+func (c *DeployApplicationVersion) Prognosis(
+	ctx context.Context,
+	state *State,
+	_ TransformerContext,
+	transaction *sql.Tx,
+) (*DeployPrognosis, error) {
+	team, err := state.GetTeamName(ctx, transaction, c.Application)
+	if err != nil {
+		return nil, err
+	}
+
+	envConfig, err := state.GetEnvironmentConfigFromDB(ctx, transaction, c.Environment)
+	if err != nil {
+		return nil, err
+	}
+
+	err = state.checkUserPermissionsFromConfig(ctx, transaction, c.Environment, c.Application, auth.PermissionDeployRelease, team, c.RBACConfig, true, envConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DeployPrognosis{
+		TeamName:          team,
+		EnvironmentConfig: envConfig,
+	}, nil
+}
+
+func (c *DeployApplicationVersion) ApplyPrognosis(
 	ctx context.Context,
 	state *State,
 	t TransformerContext,
 	transaction *sql.Tx,
+	prognosisData *DeployPrognosis,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
-	err := state.checkUserPermissions(ctx, transaction, envName, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig, true)
+	envName := c.Environment
+	err := state.checkUserPermissionsFromConfig(ctx, transaction, envName, c.Application, auth.PermissionDeployRelease, prognosisData.TeamName, c.RBACConfig, true, prognosisData.EnvironmentConfig)
 	if err != nil {
 		return "", err
 	}
@@ -2278,9 +2311,6 @@ func (c *DeployApplicationVersion) Transform(
 	} else {
 		oldVersion = existingDeployment.Version
 	}
-	if err != nil {
-		return "", fmt.Errorf("could not find deployment for app %s and env %s", c.Application, c.Environment)
-	}
 	var v = int64(c.Version)
 	newDeployment := db.Deployment{
 		Created:       time.Time{},
@@ -2372,6 +2402,19 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+}
+
+func (c *DeployApplicationVersion) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	prognosis, err := c.Prognosis(ctx, state, t, transaction)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("error in prognosis: %v", err))
+	}
+	return c.ApplyPrognosis(ctx, state, t, transaction, prognosis)
 }
 
 func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release uint64, app string) (string, error) {
