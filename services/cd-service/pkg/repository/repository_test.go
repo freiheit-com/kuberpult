@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -598,7 +599,7 @@ func TestApplyQueue(t *testing.T) {
 					})
 					tf := &CreateApplicationVersion{
 						Application: "foo",
-						Manifests: map[string]string{
+						Manifests: map[types.EnvName]string{
 							"development": fmt.Sprintf("%d", i),
 						},
 						Version: uint64(i + 1),
@@ -644,7 +645,7 @@ func getTransformer(i int) (Transformer, error) {
 	// case 2:
 	return &CreateApplicationVersion{
 		Application: "foo",
-		Manifests: map[string]string{
+		Manifests: map[types.EnvName]string{
 			"development": fmt.Sprintf("%d", i),
 		},
 		Version: uint64(i),

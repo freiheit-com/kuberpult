@@ -25,6 +25,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -63,7 +64,7 @@ var createOneAppInDevelopment []repository.Transformer = []repository.Transforme
 	&repository.CreateApplicationVersion{
 		Application: "app",
 		Version:     appVersion,
-		Manifests: map[string]string{
+		Manifests: map[types.EnvName]string{
 			"development": `
 api: v1
 kind: ConfigMap
@@ -114,7 +115,7 @@ var createOneAppInDevelopmentAndTesting []repository.Transformer = []repository.
 	},
 	&repository.CreateApplicationVersion{
 		Application: "app",
-		Manifests: map[string]string{
+		Manifests: map[types.EnvName]string{
 			"development": `
 api: v1
 kind: ConfigMap

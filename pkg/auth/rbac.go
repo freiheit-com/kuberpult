@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"strings"
 
@@ -94,9 +95,9 @@ func (c *policyConfig) validateEnvs(envs, action string) error {
 	}
 	// The environment follows the format <ENVIRONMENT_GROUP:ENVIRONMENT>
 	groupName := e[0]
-	envName := e[1]
+	envName := types.EnvName(e[1])
 	// Validate environment group
-	if !valid.EnvironmentName(groupName) && groupName != "*" {
+	if !valid.GroupName(groupName) && groupName != "*" {
 		return fmt.Errorf("invalid environment group %s", envs)
 	}
 	// Actions that are environment independent need to follow the format <ENVIRONMENT_GROUP:*>.
@@ -377,14 +378,14 @@ func (e TeamPermissionError) GRPCStatus() *status.Status {
 }
 
 // Checks user permissions on the RBAC policy.
-func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup, application, action string) error {
+func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, team, envGroup, application, action string) error {
 	// If the action is environment independent, the env format is <ENVIRONMENT_GROUP>:*
 	if isEnvironmentIndependent(action) {
 		env = "*"
 	}
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
 	for _, pEnvGroup := range []string{envGroup, "*"} {
-		for _, pEnv := range []string{env, "*"} {
+		for _, pEnv := range []types.EnvName{env, "*"} {
 			for _, pApplication := range []string{application, "*"} {
 				// Check if the permission exists on the policy.
 				if rbacConfig.Policy == nil {
@@ -406,7 +407,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 		User:        user.Name,
 		Role:        strings.Join(user.DexAuthContext.Role, ", "),
 		Action:      action,
-		Environment: env,
+		Environment: string(env),
 		Team:        team,
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -362,7 +363,7 @@ func TestEnvironmentLock(t *testing.T) {
 				t.Errorf("expected code %v but got %v. Body: '%s'", tc.expectedStatusCodeLock, actualStatusCode, respBody)
 			}
 			// Check if the database was updated
-			lock := callDBForLock(t, dbHandler, ctx, tc.environment, tc.lockId)
+			lock := callDBForLock(t, dbHandler, ctx, types.EnvName(tc.environment), tc.lockId)
 			if lock.Deleted {
 				t.Errorf("expected active lock")
 			}
@@ -401,7 +402,7 @@ func TestEnvironmentLock(t *testing.T) {
 				t.Errorf("expected code %v but got %v. Body: '%s'", tc.expectedStatusCodeLock, actualStatusCode, respBody)
 			}
 
-			lock = callDBForLock(t, dbHandler, ctx, environment, lockId)
+			lock = callDBForLock(t, dbHandler, ctx, types.EnvName(environment), lockId)
 			if !lock.Deleted {
 				t.Errorf("expected deleted lock")
 			}
@@ -443,7 +444,7 @@ func connectToDB(t *testing.T, dbConfig db.DBConfig, ctx context.Context) *db.DB
 	return dbHandler
 }
 
-func callDBForLock(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, environment, lockId string) *db.EnvironmentLock {
+func callDBForLock(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, environment types.EnvName, lockId string) *db.EnvironmentLock {
 	lock, err := db.WithTransactionT(dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.EnvironmentLock, error) {
 		return dbHandler.DBSelectEnvironmentLock(ctx, transaction, "development", lockId)
 	})

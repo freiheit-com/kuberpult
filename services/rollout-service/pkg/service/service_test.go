@@ -24,6 +24,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"io"
 	"testing"
@@ -522,7 +523,7 @@ func TestArgoEvents(t *testing.T) {
 
 	type DBArgoEventData struct {
 		AppName         string
-		EnvName         string
+		EnvName         types.EnvName
 		Revision        string
 		deployedVersion int
 	}
@@ -794,13 +795,13 @@ func TestArgoEvents(t *testing.T) {
 			if tc.ExpectedReady != ready {
 				t.Errorf("expected ready to be %t but got %t", tc.ExpectedReady, ready)
 			}
-			sampleEvent, _ := ToDBEvent(Key{Application: tc.ExpectedDBEvent.AppName, Environment: tc.ExpectedDBEvent.EnvName}, &v1alpha1.ApplicationWatchEvent{
+			sampleEvent, _ := ToDBEvent(Key{Application: tc.ExpectedDBEvent.AppName, Environment: string(tc.ExpectedDBEvent.EnvName)}, &v1alpha1.ApplicationWatchEvent{
 				Type: "ADDED",
 				Application: v1alpha1.Application{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: tc.ExpectedDBEvent.EnvName,
+						Name: string(tc.ExpectedDBEvent.EnvName),
 						Annotations: map[string]string{
-							ARGO_APP_ENVIRONMENT_TAG: tc.ExpectedDBEvent.EnvName,
+							ARGO_APP_ENVIRONMENT_TAG: string(tc.ExpectedDBEvent.EnvName),
 							ARGO_APP_APPLICATION_TAG: tc.ExpectedDBEvent.AppName,
 						},
 					},
@@ -877,7 +878,7 @@ func SetupDB(t *testing.T) *db.DBHandler {
 			Created:       time.Unix(123456789, 0).UTC(),
 			App:           "foo",
 			Manifests: db.DBReleaseManifests{
-				Manifests: map[string]string{"staging": ""},
+				Manifests: map[types.EnvName]string{"staging": ""},
 			},
 			Metadata: db.DBReleaseMetaData{},
 		})

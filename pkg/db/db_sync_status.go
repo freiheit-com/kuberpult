@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"time"
 )
 
@@ -38,7 +39,7 @@ const BULK_INSERT_BATCH_SIZE = 500
 
 type GitSyncData struct {
 	AppName       string
-	EnvName       string
+	EnvName       types.EnvName
 	TransformerID EslVersion
 	SyncStatus
 }
@@ -96,7 +97,7 @@ func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id 
 
 type EnvApp struct {
 	AppName string
-	EnvName string
+	EnvName types.EnvName
 }
 
 func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *sql.Tx, id TransformerID) ([]EnvApp, error) {
@@ -127,7 +128,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
 	var currApp string
-	var currEnv string
+	var currEnv types.EnvName
 	for rows.Next() {
 		err := rows.Scan(&currApp, &currEnv)
 		if err != nil {
@@ -175,7 +176,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
 	var currApp string
-	var currEnv string
+	var currEnv types.EnvName
 	for rows.Next() {
 		err := rows.Scan(&currApp, &currEnv)
 		if err != nil {
@@ -321,7 +322,7 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 	return syncData, nil
 }
 
-func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName, envName string) (*GitSyncData, error) {
+func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (*GitSyncData, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
 	defer span.Finish()
 	if h == nil {

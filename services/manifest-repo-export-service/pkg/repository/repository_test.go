@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"os/exec"
 	"path"
@@ -397,7 +398,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 		},
 		&CreateApplicationVersion{
 			Application: "test",
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"production": "manifest",
 			},
 			Version:             1,
@@ -405,7 +406,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 		},
 		&CreateApplicationVersion{
 			Application: "test",
-			Manifests: map[string]string{
+			Manifests: map[types.EnvName]string{
 				"production": "manifest2",
 			},
 			Version:             2,
@@ -446,7 +447,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Version:             1,
@@ -486,7 +487,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 					},
 					Version:             1,
@@ -527,7 +528,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"development": "manifest",
 					},
 					Version:             1,
@@ -562,7 +563,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"staging": "manifest",
 					},
 					Version:             1,
@@ -639,7 +640,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
 					App:           "test",
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest2",
 					}},
 				})
@@ -649,7 +650,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 2,
 					App:           "test",
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest2",
 					}},
 				})
@@ -753,7 +754,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -792,7 +793,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -838,7 +839,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -877,7 +878,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -948,7 +949,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					},
@@ -975,8 +976,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					}},
@@ -998,7 +999,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					},
@@ -1024,8 +1025,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					}},
@@ -1091,7 +1092,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					},
@@ -1121,8 +1122,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					}},
@@ -1134,8 +1135,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					}},
@@ -1161,7 +1162,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					},
@@ -1191,8 +1192,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					}},
@@ -1204,8 +1205,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
 					}},
@@ -1232,7 +1233,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			targetTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -1251,8 +1252,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					}},
 				})
@@ -1270,7 +1271,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			targetTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                  "team-123",
@@ -1291,8 +1292,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: uint64(version),
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					}},
 				})
@@ -1324,7 +1325,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			targetTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                "team-123",
@@ -1349,8 +1350,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: 1,
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					}},
 				})
@@ -1409,7 +1410,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			targetTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "test",
-					Manifests: map[string]string{
+					Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					},
 					Team:                  "team",
@@ -1441,8 +1442,8 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumber: uint64(version),
 					App:           "test",
-					Environments:  []string{"production"},
-					Manifests: db.DBReleaseManifests{Manifests: map[string]string{
+					Environments:  []types.EnvName{"production"},
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					}},
 				})
@@ -1560,7 +1561,7 @@ func getTransformer(i int) (Transformer, error) {
 	// case 2:
 	return &CreateApplicationVersion{
 		Application: "foo",
-		Manifests: map[string]string{
+		Manifests: map[types.EnvName]string{
 			"development": fmt.Sprintf("%d", i),
 		},
 		Version:               uint64(i),
