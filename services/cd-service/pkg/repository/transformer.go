@@ -2363,9 +2363,9 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		}
 	}
 	if c.WriteCommitData { // write the corresponding event
-		newReleaseCommitId, err := getCommitID(ctx, transaction, state, c.Version, c.Application)
+		newReleaseCommitId := prognosisData.newReleaseCommitId
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
-		if err != nil {
+		if newReleaseCommitId != "" {
 			logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 		} else {
 			if !valid.SHA1CommitID(newReleaseCommitId) {
