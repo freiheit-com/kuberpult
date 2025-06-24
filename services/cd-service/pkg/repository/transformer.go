@@ -2155,9 +2155,12 @@ type DeployApplicationVersionSource struct {
 }
 
 type DeployPrognosis struct {
-	TeamName          string
-	EnvironmentConfig *config.EnvironmentConfig
-	ManifestContent   []byte
+	TeamName                      string
+	EnvironmentConfig             *config.EnvironmentConfig
+	ManifestContent               []byte
+	envLocks, appLocks, teamLocks map[string]Lock
+	newReleaseCommitId            string
+	existingDeployment            *db.Deployment
 }
 
 func (c *DeployApplicationVersion) Prognosis(
@@ -2191,10 +2194,41 @@ func (c *DeployApplicationVersion) Prognosis(
 	}
 	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 
+	var (
+		envLocks, appLocks, teamLocks map[string]Lock
+	)
+	envLocks, err = state.GetEnvironmentLocks(ctx, transaction, c.Environment)
+	if err != nil {
+		return nil, err
+	}
+	appLocks, err = state.GetEnvironmentApplicationLocks(ctx, transaction, c.Environment, c.Application)
+	if err != nil {
+		return nil, err
+	}
+	teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, c.Environment, team)
+	if err != nil {
+		return nil, err
+	}
+
+	newReleaseCommitId, err := getCommitID(ctx, transaction, state, c.Version, c.Application)
+	if err != nil {
+		// continue anyway, it's ok if there is no commitId
+	}
+
+	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, c.Application, c.Environment)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DeployPrognosis{
-		TeamName:          team,
-		EnvironmentConfig: envConfig,
-		ManifestContent:   manifestContent,
+		TeamName:           team,
+		EnvironmentConfig:  envConfig,
+		ManifestContent:    manifestContent,
+		envLocks:           envLocks,
+		appLocks:           appLocks,
+		teamLocks:          teamLocks,
+		newReleaseCommitId: newReleaseCommitId,
+		existingDeployment: existingDeployment,
 	}, nil
 }
 
@@ -2214,55 +2248,37 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
-		var (
-			envLocks, appLocks, teamLocks map[string]Lock
-			err                           error
-		)
-		envLocks, err = state.GetEnvironmentLocks(ctx, transaction, envName)
-		if err != nil {
-			return "", err
-		}
-		appLocks, err = state.GetEnvironmentApplicationLocks(ctx, transaction, envName, c.Application)
-		if err != nil {
-			return "", err
-		}
-		teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, envName, prognosisData.TeamName)
-		if err != nil {
-			return "", err
-		}
-		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
+		if len(prognosisData.envLocks) > 0 || len(prognosisData.appLocks) > 0 || len(prognosisData.teamLocks) > 0 {
 			if c.WriteCommitData {
 				var lockType, lockMsg string
-				if len(envLocks) > 0 {
+				if len(prognosisData.envLocks) > 0 {
 					lockType = "environment"
-					for _, lock := range envLocks {
+					for _, lock := range prognosisData.envLocks {
 						lockMsg = lock.Message
 						break
 					}
 				} else {
-					if len(appLocks) > 0 {
+					if len(prognosisData.appLocks) > 0 {
 						lockType = "application"
-						for _, lock := range appLocks {
+						for _, lock := range prognosisData.appLocks {
 							lockMsg = lock.Message
 							break
 						}
 					} else {
 						lockType = "team"
-						for _, lock := range teamLocks {
+						for _, lock := range prognosisData.teamLocks {
 							lockMsg = lock.Message
 							break
 						}
 					}
-
 				}
 				ev := createLockPreventedDeploymentEvent(c.Application, envName, lockMsg, lockType)
-				newReleaseCommitId, err := getCommitID(ctx, transaction, state, c.Version, c.Application)
-				if err != nil {
+				if prognosisData.newReleaseCommitId == "" {
 					logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 				} else {
 					gen := getGenerator(ctx)
 					eventUuid := gen.Generate()
-					err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, newReleaseCommitId, ev)
+					err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, prognosisData.newReleaseCommitId, ev)
 					if err != nil {
 						return "", GetCreateReleaseGeneralFailure(err)
 					}
@@ -2279,9 +2295,9 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 				return q.Transform(ctx, state, t, transaction)
 			case api.LockBehavior_FAIL:
 				return "", &LockedError{
-					EnvironmentApplicationLocks: appLocks,
-					EnvironmentLocks:            envLocks,
-					TeamLocks:                   teamLocks,
+					EnvironmentApplicationLocks: prognosisData.appLocks,
+					EnvironmentLocks:            prognosisData.envLocks,
+					TeamLocks:                   prognosisData.teamLocks,
 				}
 			}
 		}
@@ -2301,14 +2317,10 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 			return "", err
 		}
 	}
-	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, c.Application, envName)
-	if err != nil {
-		return "", err
-	}
-	if existingDeployment == nil || existingDeployment.Version == nil {
+	if prognosisData.existingDeployment == nil || prognosisData.existingDeployment.Version == nil {
 		firstDeployment = true
 	} else {
-		oldVersion = existingDeployment.Version
+		oldVersion = prognosisData.existingDeployment.Version
 	}
 	var v = int64(c.Version)
 	newDeployment := db.Deployment{
