@@ -2157,6 +2157,7 @@ type DeployApplicationVersionSource struct {
 type DeployPrognosis struct {
 	TeamName          string
 	EnvironmentConfig *config.EnvironmentConfig
+	ManifestContent   []byte
 }
 
 func (c *DeployApplicationVersion) Prognosis(
@@ -2180,9 +2181,20 @@ func (c *DeployApplicationVersion) Prognosis(
 		return nil, err
 	}
 
+	var manifestContent []byte
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
+	if err != nil {
+		return nil, err
+	}
+	if version == nil {
+		return nil, fmt.Errorf("could not find version %d for app %s", c.Version, c.Application)
+	}
+	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
+
 	return &DeployPrognosis{
 		TeamName:          team,
 		EnvironmentConfig: envConfig,
+		ManifestContent:   manifestContent,
 	}, nil
 }
 
@@ -2199,15 +2211,6 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		return "", err
 	}
 
-	var manifestContent []byte
-	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
-	if err != nil {
-		return "", err
-	}
-	if version == nil {
-		return "", fmt.Errorf("could not find version %d for app %s", c.Version, c.Application)
-	}
-	manifestContent = []byte(version.Manifests.Manifests[envName])
 	lockPreventedDeployment := false
 	team, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 	if err != nil {
@@ -2297,7 +2300,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	var oldVersion *int64
 
 	if state.CloudRunClient != nil {
-		err := state.CloudRunClient.DeployApplicationVersion(ctx, manifestContent)
+		err := state.CloudRunClient.DeployApplicationVersion(ctx, prognosisData.ManifestContent)
 		if err != nil {
 			return "", err
 		}
