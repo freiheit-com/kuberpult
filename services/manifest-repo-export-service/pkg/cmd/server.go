@@ -311,7 +311,7 @@ func Run(ctx context.Context) error {
 	if dbGitTimestampMigrationEnabled {
 		err := dbHandler.RunCustomMigrationReleasesTimestamp(ctx, repo.State().GetAppsAndTeams, repo.State().FixReleasesTimestamp)
 		if err != nil {
-			return fmt.Errorf("error running migrations for fixing releases timestamp")
+			return fmt.Errorf("error running migrations for fixing releases timestamp: %w", err)
 		}
 	}
 

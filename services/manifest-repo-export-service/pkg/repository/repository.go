@@ -1199,12 +1199,6 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 			return fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 		}
 
-		if !valid.SHA1CommitID(repoRelease.SourceCommitId) {
-			//If we are about to import an invalid commit ID, simply log it and write an empty commit.
-			logger.FromContext(ctx).Sugar().Warnf("Source commit ID %s is not valid. Skipping migration for release %d of app %s", repoRelease.SourceCommitId, releaseVersion, app)
-			repoRelease.SourceCommitId = ""
-		}
-
 		err = dbHandler.DBMigrationUpdateReleasesTimestamp(ctx, transaction, app, releaseVersion, repoRelease.CreatedAt)
 		if err != nil {
 			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)

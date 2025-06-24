@@ -1074,24 +1074,35 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 func (h *DBHandler) RunCustomMigrationReleasesTimestamp(ctx context.Context, getAllAppsFun GetAllAppsFun, fixReleasesTimestampFun FixReleasesTimestampFun) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
 	defer span.Finish()
+	var allAppsMap map[string]string
+	var err error
 
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		l := logger.FromContext(ctx).Sugar()
-		allAppsMap, err := getAllAppsFun()
+	err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		allAppsMap, err = getAllAppsFun()
 		if err != nil {
 			return err
 		}
-		for app := range allAppsMap {
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for app := range allAppsMap {
+		err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			l := logger.FromContext(ctx).Sugar()
 			l.Infof("processing app %s ...", app)
-
 			err := fixReleasesTimestampFun(ctx, transaction, app, h)
 			if err != nil {
 				return fmt.Errorf("could not migrate releases to database: %v", err)
 			}
 			l.Infof("done with app %s", app)
+			return nil
+		})
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun WriteAllDeploymentsFun) error {
