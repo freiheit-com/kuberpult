@@ -2161,6 +2161,7 @@ type DeployPrognosis struct {
 	envLocks, appLocks, teamLocks map[string]Lock
 	newReleaseCommitId            string
 	existingDeployment            *db.Deployment
+	oldReleaseCommitId            string
 }
 
 func (c *DeployApplicationVersion) Prognosis(
@@ -2195,7 +2196,7 @@ func (c *DeployApplicationVersion) Prognosis(
 	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 
 	var (
-		envLocks, appLocks, teamLocks map[string]Lock
+		envLocks, appLocks, teamLocks map[string]Lock // keys: lockId
 	)
 	envLocks, err = state.GetEnvironmentLocks(ctx, transaction, c.Environment)
 	if err != nil {
@@ -2220,6 +2221,12 @@ func (c *DeployApplicationVersion) Prognosis(
 		return nil, err
 	}
 
+	var tmp = (uint64)(*existingDeployment.Version)
+	oldReleaseCommitId, err := getCommitID(ctx, transaction, state, tmp, c.Application)
+	if err != nil {
+		// continue anyway, this is only for events
+	}
+
 	return &DeployPrognosis{
 		TeamName:           team,
 		EnvironmentConfig:  envConfig,
@@ -2229,6 +2236,7 @@ func (c *DeployApplicationVersion) Prognosis(
 		teamLocks:          teamLocks,
 		newReleaseCommitId: newReleaseCommitId,
 		existingDeployment: existingDeployment,
+		oldReleaseCommitId: oldReleaseCommitId,
 	}, nil
 }
 
@@ -2394,8 +2402,8 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 					gen := getGenerator(ctx)
 					eventUuid := gen.Generate()
 					v := uint64(*oldVersion)
-					oldReleaseCommitId, err := getCommitID(ctx, transaction, state, v, c.Application)
-					if err != nil {
+					oldReleaseCommitId := prognosisData.oldReleaseCommitId
+					if oldReleaseCommitId != "" {
 						logger.FromContext(ctx).Sugar().Warnf("could not find commit for release %d of app %s - skipping replaced-by event", v, c.Application)
 					} else {
 						err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
