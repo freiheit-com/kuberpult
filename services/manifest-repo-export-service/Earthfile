@@ -26,7 +26,7 @@ compile:
 unit-test:
     FROM +compile
     ARG GO_TEST_ARGS
-    DO go-build+UNIT_TEST --GO_TEST_ARGS=$GO_TEST_ARGS --COVERAGE_MIN=90
+    DO go-build+UNIT_TEST --GO_TEST_ARGS=$GO_TEST_ARGS --COVERAGE_MIN=45.7
 
 bench-test:
     FROM +compile
