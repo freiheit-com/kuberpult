@@ -2221,10 +2221,17 @@ func (c *DeployApplicationVersion) Prognosis(
 		return nil, err
 	}
 
-	var tmp = (uint64)(*existingDeployment.Version)
-	oldReleaseCommitId, err := getCommitID(ctx, transaction, state, tmp, c.Application)
-	if err != nil {
-		// continue anyway, this is only for events
+	var existingVersion *uint64 = nil
+	if existingDeployment != nil && existingDeployment.Version != nil {
+		var tmp2 = (uint64)(*existingDeployment.Version)
+		existingVersion = &tmp2
+	}
+	var oldReleaseCommitId = ""
+	if existingVersion != nil {
+		oldReleaseCommitId, err = getCommitID(ctx, transaction, state, *existingVersion, c.Application)
+		if err != nil {
+			// continue anyway, this is only for events
+		}
 	}
 
 	return &DeployPrognosis{
