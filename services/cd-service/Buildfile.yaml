@@ -4,4 +4,3 @@ spec:
   - ../../
 additional_artifacts:
   - coverage.html
-# rebuild-counter: 1
