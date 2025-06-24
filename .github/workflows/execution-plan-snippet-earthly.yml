@@ -141,6 +141,8 @@ jobs:
           ls -l
           echo "ls -l ${{ matrix.data.artifacts }}"
           ls -l ${{ matrix.data.artifacts }}
+          echo "ls -l services/*/coverage.html"
+          ls -l services/*/coverage.html
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
