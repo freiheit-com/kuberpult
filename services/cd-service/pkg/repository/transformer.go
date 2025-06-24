@@ -2212,10 +2212,6 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	}
 
 	lockPreventedDeployment := false
-	team, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
-	if err != nil {
-		return "", fmt.Errorf("could not determine team for deployment: %w", err)
-	}
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
@@ -2230,7 +2226,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		if err != nil {
 			return "", err
 		}
-		teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, envName, team)
+		teamLocks, err = state.GetEnvironmentTeamLocks(ctx, transaction, envName, prognosisData.TeamName)
 		if err != nil {
 			return "", err
 		}
@@ -2331,7 +2327,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	if err != nil {
 		return "", fmt.Errorf("could not write deployment for %v - %v", newDeployment, err)
 	}
-	t.AddAppEnv(c.Application, envName, team)
+	t.AddAppEnv(c.Application, envName, prognosisData.TeamName)
 	s := State{
 		MinorRegexes:              state.MinorRegexes,
 		MaxNumThreads:             state.MaxNumThreads,
