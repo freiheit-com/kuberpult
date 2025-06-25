@@ -135,6 +135,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
+          if-no-files-found: error
           name: ${{ matrix.data.artifactName }}
           path: |
             ${{ matrix.data.artifacts }}
@@ -211,6 +212,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
+          if-no-files-found: error
           name: ${{ matrix.data.artifactName }}
           path: |
             ${{ matrix.data.artifacts }}

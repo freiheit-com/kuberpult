@@ -1,13 +1,6 @@
----
-apiVersion: v1beta1
-kind: Service
-metadata:
-  name: manifest-repo-export-service
-  tier: backend
-  version: v1
 spec:
   buildWith: infrastructure/docker/builder
   dependsOn:
   - ../../
 additional_artifacts:
-  - coverage.html
+  - ./coverage.html

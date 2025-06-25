@@ -22,7 +22,7 @@ compile:
 
 unit-test:
     FROM +compile
-    DO go-build+UNIT_TEST
+    DO go-build+UNIT_TEST --COVERAGE_MIN=32.2
 
 lint:
     FROM +deps

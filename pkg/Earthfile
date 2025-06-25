@@ -26,7 +26,9 @@ test:
             go test $GO_TEST_ARGS ./... -coverprofile=coverage.out
     END
     RUN go tool cover -html=coverage.out -o coverage.html
+    RUN ../infrastructure/coverage/check-coverage-go.sh coverage.out 47.8 pkg
     SAVE ARTIFACT coverage.html AS LOCAL coverage.html
+    SAVE ARTIFACT coverage.out AS LOCAL coverage.out
 
 build-all:
     BUILD +lint
