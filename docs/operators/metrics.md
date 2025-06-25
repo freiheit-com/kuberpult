@@ -13,7 +13,7 @@ The cd-service uploads the following metrics to datadog:
 ### `manifest-repo-export-service` Metrics
 The manifest-repo-export-service uploads the following metrics to Datadog (if `manifestRepoExport.enabled: true`)
 * `manifest_export_push_failures` - number of failures in pushing changes to git
-* `process_delay_seconds` - The time it took to process an event in the export-service, in seconds.
+* `process_delay_seconds` - The duration between the earliest unprocessed event and now in seconds. 0 means everything has been processed.
 * `git_sync_unsynced` - Number of the applications that have unsynced git sync status
 * `git_sync_failed` - Number of the applications that have failed git sync status
 
