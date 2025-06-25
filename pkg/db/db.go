@@ -951,6 +951,7 @@ type WriteAllTeamLocksFun = func(ctx context.Context, transaction *sql.Tx, dbHan
 type WriteAllReleasesFun = func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error
 type WriteAllQueuedVersionsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 type WriteAllEventsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
+type FixReleasesTimestampFun = func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
 type GetAllAppsFun = func() (map[string]string, error)
@@ -1068,6 +1069,40 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 	}
 	return true, nil
 
+}
+
+func (h *DBHandler) RunCustomMigrationReleasesTimestamp(ctx context.Context, getAllAppsFun GetAllAppsFun, fixReleasesTimestampFun FixReleasesTimestampFun) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
+	defer span.Finish()
+	var allAppsMap map[string]string
+	var err error
+
+	err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		allAppsMap, err = getAllAppsFun()
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for app := range allAppsMap {
+		err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			l := logger.FromContext(ctx).Sugar()
+			l.Infof("processing app %s ...", app)
+			err := fixReleasesTimestampFun(ctx, transaction, app, h)
+			if err != nil {
+				return fmt.Errorf("could not migrate releases to database: %v", err)
+			}
+			l.Infof("done with app %s", app)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun WriteAllDeploymentsFun) error {
