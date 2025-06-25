@@ -2173,6 +2173,16 @@ func (c *DeployApplicationVersion) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) (*DeployPrognosis, error) {
+	var manifestContent []byte
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
+	if err != nil {
+		return nil, err
+	}
+	if version == nil {
+		return nil, fmt.Errorf("could not find version %d for app %s", c.Version, c.Application)
+	}
+	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
+
 	team, err := state.GetTeamName(ctx, transaction, c.Application)
 	if err != nil {
 		return nil, err
@@ -2187,16 +2197,6 @@ func (c *DeployApplicationVersion) Prognosis(
 	if err != nil {
 		return nil, err
 	}
-
-	var manifestContent []byte
-	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
-	if err != nil {
-		return nil, err
-	}
-	if version == nil {
-		return nil, fmt.Errorf("could not find version %d for app %s", c.Version, c.Application)
-	}
-	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 
 	var (
 		envLocks, appLocks, teamLocks map[string]Lock // keys: lockId
@@ -2437,7 +2437,7 @@ func (c *DeployApplicationVersion) Transform(
 ) (string, error) {
 	prognosis, err := c.Prognosis(ctx, state, transaction)
 	if err != nil {
-		return "", fmt.Errorf("error in prognosis: %v", err)
+		return "", err
 	}
 	return c.ApplyPrognosis(ctx, state, t, transaction, prognosis)
 }
