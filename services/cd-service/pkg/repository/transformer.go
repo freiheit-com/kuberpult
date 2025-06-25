@@ -522,7 +522,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	if c.SourceCommitId != "" && !valid.SHA1CommitID(c.SourceCommitId) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", c.SourceCommitId))
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F], but is %d characters: '%s'\n", len(c.SourceCommitId), c.SourceCommitId))
 	}
 	if c.PreviousCommit != "" && !valid.SHA1CommitID(c.PreviousCommit) {
 		logger.FromContext(ctx).Sugar().Warnf("Previous commit ID %s is invalid", c.PreviousCommit)
@@ -2155,19 +2155,22 @@ type DeployApplicationVersionSource struct {
 }
 
 type DeployPrognosis struct {
-	TeamName                      string
-	EnvironmentConfig             *config.EnvironmentConfig
-	ManifestContent               []byte
-	envLocks, appLocks, teamLocks map[string]Lock
-	newReleaseCommitId            string
-	existingDeployment            *db.Deployment
-	oldReleaseCommitId            string
+	TeamName          string
+	EnvironmentConfig *config.EnvironmentConfig
+	ManifestContent   []byte
+
+	EnvLocks  map[string]Lock
+	AppLocks  map[string]Lock
+	TeamLocks map[string]Lock
+
+	NewReleaseCommitId string
+	ExistingDeployment *db.Deployment
+	OldReleaseCommitId string
 }
 
 func (c *DeployApplicationVersion) Prognosis(
 	ctx context.Context,
 	state *State,
-	_ TransformerContext,
 	transaction *sql.Tx,
 ) (*DeployPrognosis, error) {
 	team, err := state.GetTeamName(ctx, transaction, c.Application)
@@ -2234,12 +2237,12 @@ func (c *DeployApplicationVersion) Prognosis(
 		TeamName:           team,
 		EnvironmentConfig:  envConfig,
 		ManifestContent:    manifestContent,
-		envLocks:           envLocks,
-		appLocks:           appLocks,
-		teamLocks:          teamLocks,
-		newReleaseCommitId: newReleaseCommitId,
-		existingDeployment: existingDeployment,
-		oldReleaseCommitId: oldReleaseCommitId,
+		EnvLocks:           envLocks,
+		AppLocks:           appLocks,
+		TeamLocks:          teamLocks,
+		NewReleaseCommitId: newReleaseCommitId,
+		ExistingDeployment: existingDeployment,
+		OldReleaseCommitId: oldReleaseCommitId,
 	}, nil
 }
 
@@ -2259,37 +2262,37 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
-		if len(prognosisData.envLocks) > 0 || len(prognosisData.appLocks) > 0 || len(prognosisData.teamLocks) > 0 {
+		if len(prognosisData.EnvLocks) > 0 || len(prognosisData.AppLocks) > 0 || len(prognosisData.TeamLocks) > 0 {
 			if c.WriteCommitData {
 				var lockType, lockMsg string
-				if len(prognosisData.envLocks) > 0 {
+				if len(prognosisData.EnvLocks) > 0 {
 					lockType = "environment"
-					for _, lock := range prognosisData.envLocks {
+					for _, lock := range prognosisData.EnvLocks {
 						lockMsg = lock.Message
 						break
 					}
 				} else {
-					if len(prognosisData.appLocks) > 0 {
+					if len(prognosisData.AppLocks) > 0 {
 						lockType = "application"
-						for _, lock := range prognosisData.appLocks {
+						for _, lock := range prognosisData.AppLocks {
 							lockMsg = lock.Message
 							break
 						}
 					} else {
 						lockType = "team"
-						for _, lock := range prognosisData.teamLocks {
+						for _, lock := range prognosisData.TeamLocks {
 							lockMsg = lock.Message
 							break
 						}
 					}
 				}
 				ev := createLockPreventedDeploymentEvent(c.Application, envName, lockMsg, lockType)
-				if prognosisData.newReleaseCommitId == "" {
+				if prognosisData.NewReleaseCommitId == "" {
 					logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 				} else {
 					gen := getGenerator(ctx)
 					eventUuid := gen.Generate()
-					err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, prognosisData.newReleaseCommitId, ev)
+					err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, prognosisData.NewReleaseCommitId, ev)
 					if err != nil {
 						return "", GetCreateReleaseGeneralFailure(err)
 					}
@@ -2306,9 +2309,9 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 				return q.Transform(ctx, state, t, transaction)
 			case api.LockBehavior_FAIL:
 				return "", &LockedError{
-					EnvironmentApplicationLocks: prognosisData.appLocks,
-					EnvironmentLocks:            prognosisData.envLocks,
-					TeamLocks:                   prognosisData.teamLocks,
+					EnvironmentApplicationLocks: prognosisData.AppLocks,
+					EnvironmentLocks:            prognosisData.EnvLocks,
+					TeamLocks:                   prognosisData.TeamLocks,
 				}
 			}
 		}
@@ -2328,10 +2331,10 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 			return "", err
 		}
 	}
-	if prognosisData.existingDeployment == nil || prognosisData.existingDeployment.Version == nil {
+	if prognosisData.ExistingDeployment == nil || prognosisData.ExistingDeployment.Version == nil {
 		firstDeployment = true
 	} else {
-		oldVersion = prognosisData.existingDeployment.Version
+		oldVersion = prognosisData.ExistingDeployment.Version
 	}
 	var v = int64(c.Version)
 	newDeployment := db.Deployment{
@@ -2374,7 +2377,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		}
 	}
 	if c.WriteCommitData { // write the corresponding event
-		newReleaseCommitId := prognosisData.newReleaseCommitId
+		newReleaseCommitId := prognosisData.NewReleaseCommitId
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
 		if newReleaseCommitId != "" {
 			logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
@@ -2405,7 +2408,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 					gen := getGenerator(ctx)
 					eventUuid := gen.Generate()
 					v := uint64(*oldVersion)
-					oldReleaseCommitId := prognosisData.oldReleaseCommitId
+					oldReleaseCommitId := prognosisData.OldReleaseCommitId
 					if oldReleaseCommitId != "" {
 						logger.FromContext(ctx).Sugar().Warnf("could not find commit for release %d of app %s - skipping replaced-by event", v, c.Application)
 					} else {
@@ -2432,7 +2435,7 @@ func (c *DeployApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	prognosis, err := c.Prognosis(ctx, state, t, transaction)
+	prognosis, err := c.Prognosis(ctx, state, transaction)
 	if err != nil {
 		return "", fmt.Errorf("error in prognosis: %v", err)
 	}
