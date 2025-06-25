@@ -237,7 +237,7 @@ spec:
           value: "{{ .Values.git.minimizeExportedData }}"
         - name: KUBERPULT_CHECK_CUSTOM_MIGRATIONS
           value: "{{ .Values.db.checkCustomMigrations }}"
-{{- if .Values.db.gitTimestampMigrations.enabled and not .Values.reposerver.enabled }}
+{{- if (and (.Values.db.gitTimestampMigrations.enabled) (not (.Values.reposerver.enabled))) }}
 {{ fail "If gitTimestampMigrations is enabled the reposerver should also be enabled" }}
 {{- end }}
         - name: KUBERPULT_GIT_TIMESTAMP_MIGRATIONS_ENABLED
