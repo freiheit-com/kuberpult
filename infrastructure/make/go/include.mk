@@ -9,6 +9,7 @@ SKIP_LINT_ERRORS?=false
 SERVICE?=$(notdir $(shell pwd))
 IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):$(IMAGE_TAG)
 SERVICE_DIR?=/kp/services/$(SERVICE)
+MIN_COVERAGE?=99.9 # should be overwritten by every service
 
 .PHONY: deps
 deps:
@@ -22,6 +23,7 @@ compile: deps
 unit-test: deps
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
 	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c "go test $(GO_TEST_ARGS) ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html"
+	$(ROOT_DIR)/infrastructure/coverage/check-coverage-go.sh coverage.out $(MIN_COVERAGE) $(SERVICE)
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
 .PHONY: bench-test
