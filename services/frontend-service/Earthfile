@@ -22,9 +22,6 @@ compile:
 
 unit-test:
     FROM +compile
-    RUN echo hello frontend unit test
-    RUN pwd
-    RUN find . | sort
     DO go-build+UNIT_TEST --COVERAGE_MIN=32.2
 
 lint:

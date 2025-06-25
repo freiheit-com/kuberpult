@@ -41,11 +41,6 @@ UNIT_TEST:
 
     CACHE --sharing locked --id go-cache $(go env GOCACHE)
     COPY pkg pkg
-    RUN echo hello3
-    RUN find . | sort
-    RUN find .. | sort
-    RUN find ../.. | sort
-#    COPY ../../infrastructure infrastructure
 
     IF [ "$use_docker" = "true" ]
         WITH DOCKER --compose ../../docker-compose-unittest.yml
