@@ -11,6 +11,13 @@ TEST_COVERAGE_THRESHOLD=$2
 PRODUCT_NAME=$3
 DISCREPANCY=5.0
 
+
+# fail if the threshold is not a number with 1-2 digits before the point and up to 5 after the point:
+re='^[0-9]{1,3}(.[0-9]{1,5})?$'
+if ! [[ ${TEST_COVERAGE_THRESHOLD} =~ $re ]] ; then
+   echo "error: Not a number: ${TEST_COVERAGE_THRESHOLD}" >&2; exit 1
+fi
+
 # skip coverage test if threshold is set to 0.0 or below
 if [ "$(awk "BEGIN { print ($TEST_COVERAGE_THRESHOLD < 0.0)? 1 : 0 }")" = 1 ]; then
     echo "Skipping coverage check";
