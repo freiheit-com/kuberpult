@@ -43,12 +43,12 @@ scan-service:
 	 -v "./$(KUBERPULT_REPORT_DIR)/$(KUBERPULT_SERVICE_REPORT_HTML):/trivy/$(KUBERPULT_SERVICE_REPORT_HTML)" $(TRIVY_IMAGE_URL) \
 		trivy --db-repository $(TRIVY_DB_REPO) --cache-dir /tmp/trivy_cache image "$(KUBERPULT_SERVICE_IMAGE)" -f template --template "@templates/html.tpl" -o $(KUBERPULT_SERVICE_REPORT_HTML)
 
-scan-all-pr:
+scan-all-pr: build-base-image
 	@for service in $(wildcard ../services/*); do \
 		SERVICE=$$(basename $$service) $(MAKE) scan-service-pr; \
 	done
 
-scan-all:
+scan-all: build-base-image
 	mkdir -p $(KUBERPULT_REPORT_DIR)
 	@for service in $(wildcard ../services/*); do \
 		SERVICE=$$(basename $$service) $(MAKE) scan-service; \
