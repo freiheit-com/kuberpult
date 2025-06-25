@@ -34,7 +34,7 @@ metadata:
     tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
 {{- end }}
 spec:
-  replicas: {{ .Values.reposerver.replicas | quote }}
+  replicas: {{ .Values.reposerver.replicas }}
   selector:
     matchLabels:
       app: kuberpult-reposerver-service
