@@ -25,7 +25,11 @@ BUILDER_IMAGE:=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
 build-base-image:
-	docker build . -t $(CHARTS_BASE_IMAGE_URL)
+	@if ! docker image inspect $(CHARTS_BASE_IMAGE_URL) > /dev/null 2>&1; then \
+		docker build . -t $(CHARTS_BASE_IMAGE_URL); \
+	else \
+		echo "Image '$(CHARTS_BASE_IMAGE_URL)' already exists."; \
+	fi
 
 push-base-image:
 	docker push $(CHARTS_BASE_IMAGE_URL)

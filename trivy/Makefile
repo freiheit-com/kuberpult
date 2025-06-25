@@ -27,7 +27,11 @@ KUBERPULT_SERVICE_REPORT_HTML=kuberpult-$(SERVICE).html
 KUBERPULT_REPORT_DIR="kuberpult-$(VERSION)-reports"
 
 build-base-image:
-	docker build . -t $(TRIVY_IMAGE_URL)
+	@if ! docker image inspect $(TRIVY_IMAGE_URL) > /dev/null 2>&1; then \
+		docker build . -t $(TRIVY_IMAGE_URL); \
+	else \
+		echo "Image '$(TRIVY_IMAGE_URL)' already exists."; \
+	fi
 
 push-base-image:
 	docker push $(TRIVY_IMAGE_URL)
