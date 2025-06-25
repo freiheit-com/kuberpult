@@ -279,6 +279,7 @@ rollout:
 # Standalone reposerver service for interacting with argocd
 reposerver:
   enabled: false
+  replicas: 1
   service:
     annotations: {}
   pod:
