@@ -2211,10 +2211,8 @@ func (c *DeployApplicationVersion) Prognosis(
 		return nil, err
 	}
 
-	newReleaseCommitId, err := getCommitID(ctx, transaction, state, c.Version, c.Application)
-	if err != nil {
-		// continue anyway, it's ok if there is no commitId
-	}
+	newReleaseCommitId, _ := getCommitID(ctx, transaction, state, c.Version, c.Application)
+	// continue anyway, it's ok if there is no commitId!
 
 	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, c.Application, c.Environment)
 	if err != nil {
@@ -2228,10 +2226,8 @@ func (c *DeployApplicationVersion) Prognosis(
 	}
 	var oldReleaseCommitId = ""
 	if existingVersion != nil {
-		oldReleaseCommitId, err = getCommitID(ctx, transaction, state, *existingVersion, c.Application)
-		if err != nil {
-			// continue anyway, this is only for events
-		}
+		oldReleaseCommitId, _ = getCommitID(ctx, transaction, state, *existingVersion, c.Application)
+		// continue anyway, this is only for events
 	}
 
 	return &DeployPrognosis{
@@ -2438,7 +2434,7 @@ func (c *DeployApplicationVersion) Transform(
 ) (string, error) {
 	prognosis, err := c.Prognosis(ctx, state, t, transaction)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("error in prognosis: %v", err))
+		return "", fmt.Errorf("error in prognosis: %v", err)
 	}
 	return c.ApplyPrognosis(ctx, state, t, transaction, prognosis)
 }
