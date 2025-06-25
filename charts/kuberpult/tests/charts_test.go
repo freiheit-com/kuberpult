@@ -122,7 +122,7 @@ func getDeployments(fileName string) (map[string]apps.Deployment, error) {
 		if checkDeployment(strings.Split(document, "\n")) {
 			var target apps.Deployment
 			if err := k8sYaml.Unmarshal([]byte(document), &target); err != nil {
-				return nil, fmt.Errorf("Unmarshalling deployment failed failed: %s\n", document)
+				return nil, fmt.Errorf("Unmarshalling deployment failed failed: %s\nerror:%w", document, err)
 			}
 			output[target.Name] = target
 		}
