@@ -1646,15 +1646,15 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	nextReleaseNumber = lastRelease[0].ReleaseNumber
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, nextReleaseNumber)
-	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
-		return "", err
-	}
 
 	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
 		return "", err
 	}
 	if tCtx.ShouldMaximizeGitData() {
+		if err = fs.MkdirAll(releaseDir, 0777); err != nil {
+			return "", err
+		}
 		// this is a flag to indicate that this is the special "undeploy" version
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
 			return "", err
@@ -1675,17 +1675,19 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if found {
 			hasUpstream = config.Upstream != nil
 		}
+		if tCtx.ShouldMaximizeGitData() {
+			if err = fs.MkdirAll(envDir, 0777); err != nil {
+				return "", err
+			}
+			// note that the manifest is empty here!
+			// but actually it's not quite empty!
+			// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
+			// We work around this unusual behavior by writing a space into the file
+			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
+				return "", err
+			}
+		}
 
-		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", err
-		}
-		// note that the manifest is empty here!
-		// but actually it's not quite empty!
-		// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
-		// We work around this unusual behavior by writing a space into the file
-		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
-			return "", err
-		}
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err
