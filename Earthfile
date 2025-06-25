@@ -124,7 +124,6 @@ integration-test:
     COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
 
     COPY go.mod go.sum .
-    RUN go mod tidy
     RUN go mod download
 
     RUN --no-cache echo GPG gen starting...
@@ -158,7 +157,7 @@ integration-test:
             ./tests/integration-tests/cluster-setup/setup-cluster-ssh.sh& \
             ./tests/integration-tests/cluster-setup/setup-postgres.sh && \
             ./tests/integration-tests/cluster-setup/argocd-kuberpult.sh && \
-            go mod tidy && go mod download && cd tests/integration-tests && go test $GO_TEST_ARGS ./... && \
+            cd tests/integration-tests && go test $GO_TEST_ARGS ./... && \
             ./validation-check.sh || ./cluster-setup/get-logs.sh; \
             echo ============ SUCCESS ============
     END
