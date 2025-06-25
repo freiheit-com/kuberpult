@@ -2409,7 +2409,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 					eventUuid := gen.Generate()
 					v := uint64(*oldVersion)
 					oldReleaseCommitId := prognosisData.OldReleaseCommitId
-					if oldReleaseCommitId != "" {
+					if oldReleaseCommitId == "" {
 						logger.FromContext(ctx).Sugar().Warnf("could not find commit for release %d of app %s - skipping replaced-by event", v, c.Application)
 					} else {
 						err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
