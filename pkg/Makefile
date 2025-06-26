@@ -20,7 +20,9 @@ MAKEFLAGS += --no-builtin-rules
 GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 GO_SERVER_GEN := server-gen.go
+MIN_COVERAGE?=47
 
+SERVICE_DIR:=/kp/pkg
 include $(ROOT_DIR)/infrastructure/make/go/include.mk
 
 all: lint test
