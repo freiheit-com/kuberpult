@@ -94,6 +94,7 @@ services:
       - KUBERPULT_MINIMIZE_EXPORTED_DATA=true
       - KUBERPULT_VERSION=v0.1.2
       - KUBERPULT_CHECK_CUSTOM_MIGRATIONS=false
+      - KUBERPULT_GIT_TIMESTAMP_MIGRATIONS_ENABLED=false
     volumes:
       - ./services/cd-service:/kp/kuberpult
     ports:
