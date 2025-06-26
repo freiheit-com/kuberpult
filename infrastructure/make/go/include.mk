@@ -3,7 +3,7 @@ include $(ROOT_DIR)/Makefile.variables
 
 GOARCH?=arm64
 MAIN_PATH?=cmd/server
-CGO_ENABLED?=1
+export CGO_ENABLED?=1
 GO_TEST_ARGS?=
 SKIP_LINT_ERRORS?=false
 SERVICE?=$(notdir $(shell pwd))
@@ -34,7 +34,7 @@ bench-test: deps
 
 .PHONY: lint
 lint: deps
-	docker run --rm -w $(SERVICE_DIR) -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'golangci-lint run --timeout=15m -j4 --tests=false ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
+	docker run --rm -w $(SERVICE_DIR) -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
 
 .PHONY: docker
 docker: compile
