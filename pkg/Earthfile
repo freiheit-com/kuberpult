@@ -8,3 +8,7 @@ deps: # TODO: This should be removed after all of the earthfiles depending on it
     RUN cd pkg && go tool oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
     SAVE ARTIFACT pkg/api/v1/*.go AS LOCAL api/v1/
     SAVE ARTIFACT pkg/publicapi/* AS LOCAL publicapi/
+
+artifacts:
+    FROM +deps
+    SAVE ARTIFACT pkg
