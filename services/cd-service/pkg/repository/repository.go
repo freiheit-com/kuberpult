@@ -730,10 +730,6 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	return result, nil
 }
 
-func (s *State) GetEnvironmentLocks(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[string]Lock, error) {
-	return s.GetEnvironmentLocksFromDB(ctx, transaction, environment)
-}
-
 func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (map[string]Lock, error) {
 	return s.GetEnvironmentApplicationLocksFromDB(ctx, transaction, environment, application)
 }
@@ -891,10 +887,6 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	}
 	var v = uint64(*depl.Version)
 	return &v, nil
-}
-
-func (s *State) GetTeamName(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
-	return s.GetApplicationTeamOwner(ctx, transaction, application)
 }
 
 var InvalidJson = errors.New("JSON file is not valid")
