@@ -300,7 +300,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				}
 				// check that the envlock was created/deleted
 				{
-					envLocks, err := tc.svc.Repository.State().GetEnvironmentLocks(ctx, transaction, "production")
+					envLocks, err := tc.svc.Repository.State().GetEnvironmentLocksFromDB(ctx, transaction, "production")
 					if err != nil {
 						t.Fatal(err)
 					}

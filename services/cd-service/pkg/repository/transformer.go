@@ -80,7 +80,7 @@ const (
 )
 
 func (s *State) GetEnvironmentLocksCount(ctx context.Context, transaction *sql.Tx, env types.EnvName) (float64, error) {
-	locks, err := s.GetEnvironmentLocks(ctx, transaction, env)
+	locks, err := s.GetEnvironmentLocksFromDB(ctx, transaction, env)
 	if err != nil {
 		return -1, err
 	}
@@ -1367,7 +1367,7 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 	}
 	if checkTeam {
 		if team == "" && application != "*" {
-			team, err = s.GetTeamName(ctx, transaction, application)
+			team, err = s.GetApplicationTeamOwner(ctx, transaction, application)
 
 			if err != nil {
 				return err
@@ -2183,7 +2183,7 @@ func (c *DeployApplicationVersion) Prognosis(
 	}
 	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 
-	team, err := state.GetTeamName(ctx, transaction, c.Application)
+	team, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 	if err != nil {
 		return nil, err
 	}
@@ -2201,7 +2201,7 @@ func (c *DeployApplicationVersion) Prognosis(
 	var (
 		envLocks, appLocks, teamLocks map[string]Lock // keys: lockId
 	)
-	envLocks, err = state.GetEnvironmentLocks(ctx, transaction, c.Environment)
+	envLocks, err = state.GetEnvironmentLocksFromDB(ctx, transaction, c.Environment)
 	if err != nil {
 		return nil, err
 	}
@@ -3072,7 +3072,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			}
 		}
 	}
-	envLocks, err := state.GetEnvironmentLocks(ctx, transaction, envName)
+	envLocks, err := state.GetEnvironmentLocksFromDB(ctx, transaction, envName)
 	if err != nil {
 		return failedPrognosis(grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", envName, err)))
 	}
