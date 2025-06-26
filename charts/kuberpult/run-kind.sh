@@ -95,9 +95,7 @@ then
   if "$LOCAL_EXECUTION"
   then
     echo "is it ok to delete the file? Press enter twice to delete"
-    # shellcheck disable=SC2162
     read
-    # shellcheck disable=SC2162
     read
     rm "$gpgFile"
   else
