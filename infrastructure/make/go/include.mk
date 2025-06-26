@@ -3,7 +3,7 @@ include $(ROOT_DIR)/Makefile.variables
 
 GOARCH?=arm64
 MAIN_PATH?=cmd/server
-CGO_ENABLED?=1
+export CGO_ENABLED?=1
 GO_TEST_ARGS?=
 SKIP_LINT_ERRORS?=false
 SERVICE?=$(notdir $(shell pwd))
@@ -13,7 +13,7 @@ MIN_COVERAGE?=99.9 # should be overwritten by every service
 
 .PHONY: deps
 deps:
-	IMAGE_TAG=$(IMAGE_TAG) $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/deps build
+	IMAGE_TAG=latest $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/deps build
 
 .PHONY: compile
 compile: deps
