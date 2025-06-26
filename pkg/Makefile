@@ -26,7 +26,7 @@ SERVICE_DIR:=/kp/pkg
 include $(ROOT_DIR)/infrastructure/make/go/include.mk
 
 all: lint test
-test: unit-test
+test: gen unit-test
 
 gen: grpc-api-gen publicapi
 
@@ -37,7 +37,7 @@ api/v1/api.EnvironmentConfig_grpc.pb.go api/v1/api.pb.go api/v1/api.pb.gw.go api
 
 publicapi: publicapi/$(GO_SERVER_GEN)
 publicapi/$(GO_SERVER_GEN): publicapi/api.yaml
-	docker run -w /kp/pkg --rm -v "./publicapi:/kp/pkg/publicapi" $(DEPS_IMAGE) sh -c 'go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
+	docker run -w /kp/pkg --rm -v "./publicapi:/kp/pkg/publicapi" $(DEPS_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
 
 release: #no-op
 clean:
