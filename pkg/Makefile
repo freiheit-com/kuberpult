@@ -15,34 +15,33 @@
 # Copyright freiheit.com
 
 # NOTE: this will be replaced with the etf-golang makefile
-include ../Makefile.variables
+ROOT_DIR=..
 MAKEFLAGS += --no-builtin-rules
-
-export CGO_ENABLED=1
-
 GO := go
-
 GO_FILES := $(shell find . -type f -name '*.go')
-
 GO_SERVER_GEN := server-gen.go
+MIN_COVERAGE?=47
 
-all:
-	earthly -P +build-all
-lint:
-	earthly +lint
-test:
-	earthly -P +test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
+SERVICE_DIR:=/kp/pkg
+include $(ROOT_DIR)/infrastructure/make/go/include.mk
+
+all: gen lint test
+test: gen unit-test
+
+.PHONY: lint
+lint: deps gen
+	docker run --rm -w $(SERVICE_DIR) -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
 
 gen: grpc-api-gen publicapi
 
 grpc-api-gen: api/v1/api.EnvironmentConfig_grpc.pb.go
-api/v1/api.EnvironmentConfig_grpc.pb.go api/v1/api.pb.go api/v1/api.pb.gw.go api/v1/api_grpc.pb.go: api/v1/api.proto buf.yaml buf.gen.yaml buf.lock
+api/v1/api.EnvironmentConfig_grpc.pb.go api/v1/api.pb.go api/v1/api.pb.gw.go api/v1/api_grpc.pb.go: api/v1/api.proto buf.yaml buf.gen.yaml buf.lock deps
 	if grep -q '^import "google/api/annotations.proto"' $< || grep -q '^import "google/api/http.proto"' $< ; then echo 'Instead of using google.api.http protobuf annotations we write HTTP handlers by hand' ; exit 1 ; fi
-	buf generate
+	docker run -w /kp/pkg --rm -v "./api/v1:/kp/pkg/api/v1" $(DEPS_IMAGE) sh -c "buf generate"
 
 publicapi: publicapi/$(GO_SERVER_GEN)
 publicapi/$(GO_SERVER_GEN): publicapi/api.yaml
-	go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml
+	docker run -w /kp/pkg --rm -v "./publicapi:/kp/pkg/publicapi" $(DEPS_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
 
 release: #no-op
 clean:

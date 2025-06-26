@@ -1907,7 +1907,7 @@ func TestEvents(t *testing.T) {
 					t.Fatal(err)
 				}
 				if len(rows) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d' rows: %v\n", len(tc.expectedDBEvents), len(rows), rows)
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d' rows:\n%v\n", len(tc.expectedDBEvents), len(rows), rows)
 				}
 				dEvents, err := DBParseToEvents(rows)
 				if err != nil {

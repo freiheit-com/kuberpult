@@ -31,7 +31,7 @@ compile:
 unit-test:
     FROM +compile
     ARG GO_TEST_ARGS
-    DO go-build+UNIT_TEST --GO_TEST_ARGS=$GO_TEST_ARGS
+    DO go-build+UNIT_TEST --GO_TEST_ARGS=$GO_TEST_ARGS --COVERAGE_MIN=63.4
 
 lint:
     FROM +deps

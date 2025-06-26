@@ -37,6 +37,7 @@ deps:
     COPY database/migrations database/migrations
     COPY go.mod go.sum ./
     COPY docker-compose-unittest.yml ./
+    COPY infrastructure infrastructure
 
     RUN go mod download
 
