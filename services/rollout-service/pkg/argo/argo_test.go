@@ -23,7 +23,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
 	"github.com/argoproj/gitops-engine/pkg/health"
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"

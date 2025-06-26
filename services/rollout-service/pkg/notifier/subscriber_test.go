@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
