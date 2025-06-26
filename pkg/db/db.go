@@ -2448,7 +2448,7 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 
 func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[types.EnvName][]string, error) {
 	envsApps := make(map[types.EnvName][]string)
-	releases, err := h.DBSelectAllManifestsForAllReleases(ctx, tx)
+	releases, err := h.DBSelectAllEnvironmentsForAllReleases(ctx, tx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get all environments for all releases, error: %w", err)
 	}
