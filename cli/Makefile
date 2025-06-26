@@ -18,6 +18,7 @@ ROOT_DIR=..
 CGO_ENABLED=0
 MAIN_PATH=cmd/kuberpult-client
 SERVICE=client
+GOARCH=amd64
 
 include ../infrastructure/make/go/include.mk
 
