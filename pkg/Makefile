@@ -25,8 +25,12 @@ MIN_COVERAGE?=47
 SERVICE_DIR:=/kp/pkg
 include $(ROOT_DIR)/infrastructure/make/go/include.mk
 
-all: lint test
+all: gen lint test
 test: gen unit-test
+
+.PHONY: lint
+lint: deps gen
+	docker run --rm -w $(SERVICE_DIR) -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
 
 gen: grpc-api-gen publicapi
 
