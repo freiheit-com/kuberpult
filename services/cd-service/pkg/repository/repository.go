@@ -811,14 +811,6 @@ func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, 
 	return "", time.Time{}, err
 }
 
-type SuccessReason int64
-
-const (
-	NoReason SuccessReason = iota
-	DirDoesNotExist
-	DirNotEmpty
-)
-
 func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (*uint64, error) {
 	queuedDeployment, err := s.DBHandler.DBSelectLatestDeploymentAttempt(ctx, transaction, environment, application)
 
@@ -1253,36 +1245,6 @@ func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transact
 		return "", fmt.Errorf("could not get team of app %s - could not find app", application)
 	}
 	return app.Metadata.Team, nil
-}
-
-// ProcessQueue checks if there is something in the queue
-// deploys if necessary
-// deletes the queue
-func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (string, error) {
-	queuedVersion, err := s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
-	queueDeploymentMessage := ""
-	if err != nil {
-		// could not read queued version.
-		return "", err
-	} else {
-		if queuedVersion == nil {
-			// if there is no version queued, that's not an issue, just do nothing:
-			return "", nil
-		}
-
-		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, application)
-		if err != nil {
-			return "", err
-		}
-
-		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
-			// delete queue, it's outdated! But if we can't, that's not really a problem, as it would be overwritten
-			// whenever the next deployment happens:
-			err = s.DeleteQueuedVersion(ctx, transaction, environment, application)
-			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
-		}
-	}
-	return queueDeploymentMessage, nil
 }
 
 func (s *State) ProcessQueueAllApps(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (string, error) {
