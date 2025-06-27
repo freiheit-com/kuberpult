@@ -2626,8 +2626,9 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[types.EnvName]con
 type ReleaseTrainApplicationPrognosis struct {
 	SkipCause *api.ReleaseTrainAppPrognosis_SkipCause
 	//Locks     []*api.Lock
-	EnvLocks map[string]*api.Lock
-	AppLocks map[string]*api.Lock
+	EnvLocks  map[string]*api.Lock
+	TeamLocks map[string]*api.Lock
+	AppLocks  map[string]*api.Lock
 
 	//EnvLocks  map[string]Lock
 	Version uint64
@@ -3329,7 +3330,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			}
 
 			if len(teamLocks) > 0 {
-				locksList := []*api.Lock{}
+				teamLocksMap := map[string]*api.Lock{}
 				sortedKeys := sorting.SortKeys(teamLocks)
 				for _, lockId := range sortedKeys {
 					newLock := &api.Lock{
@@ -3343,17 +3344,18 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 						CiLink:            teamLocks[lockId].CiLink,
 						SuggestedLifetime: teamLocks[lockId].SuggestedLifetime,
 					}
-					locksList = append(locksList, newLock)
-
+					teamLocksMap[lockId] = newLock
 				}
 
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
 					},
-					EnvLocks: locksList,
-					Version:  0,
-					Team:     teamName,
+					EnvLocks:  nil,
+					TeamLocks: teamLocksMap,
+					AppLocks:  nil,
+					Version:   0,
+					Team:      teamName,
 				}
 				continue
 			}
@@ -3361,6 +3363,8 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 			SkipCause: nil,
 			EnvLocks:  nil,
+			TeamLocks: nil,
+			AppLocks:  nil,
 			Version:   versionToDeploy,
 			Team:      teamName,
 		}
@@ -3469,7 +3473,6 @@ func (c *envReleaseTrain) applyPrognosis(
 			skipped = append(skipped, renderApplicationSkipCause(&appPrognosis, appName))
 			continue
 		}
-		// TODO SU
 		d := &DeployApplicationVersion{
 			Environment:     c.Env, // here we deploy to the next env
 			Application:     appName,
@@ -3486,27 +3489,29 @@ func (c *envReleaseTrain) applyPrognosis(
 			CiLink:                c.CiLink,
 			SkipCleanup:           true,
 		}
-
-		prognosisData := DeployPrognosis{
-			TeamName:           appPrognosis.Team,
-			EnvironmentConfig:  &envConfig,
-			ManifestContent:    nil,
-			EnvLocks:           nil,
-			AppLocks:           nil,
-			TeamLocks:          nil,
-			NewReleaseCommitId: "",
-			ExistingDeployment: nil,
-			OldReleaseCommitId: "",
-		}
-		_, err = d.ApplyPrognosis(
-			ctx,
-			state,
-			t,
-			transaction,
-			&prognosisData,
-		)
-		if err := t.Execute(ctx, d, transaction); err != nil {
-			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
+		if true { // TODO SU
+			prognosisData := DeployPrognosis{
+				TeamName:           appPrognosis.Team,
+				EnvironmentConfig:  &envConfig,
+				ManifestContent:    nil,
+				EnvLocks:           convertLockMap(appPrognosis.EnvLocks),
+				AppLocks:           convertLockMap(appPrognosis.AppLocks),
+				TeamLocks:          convertLockMap(appPrognosis.TeamLocks),
+				NewReleaseCommitId: "",
+				ExistingDeployment: nil,
+				OldReleaseCommitId: "",
+			}
+			_, err = d.ApplyPrognosis(
+				ctx,
+				state,
+				t,
+				transaction,
+				&prognosisData,
+			)
+		} else {
+			if err := t.Execute(ctx, d, transaction); err != nil {
+				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
+			}
 		}
 		deployCounter++
 	}
@@ -3533,6 +3538,46 @@ func (c *envReleaseTrain) applyPrognosis(
 		"The release train deployed %d services from '%s' to '%s'%s",
 		c.Env, deployedApps, source, c.Env, teamInfo,
 	), nil
+}
+
+func convertLockMap(locks map[string]*api.Lock) map[string]Lock {
+	result := make(map[string]Lock)
+	for key, lock := range locks {
+		result[key] = *convertLock(lock)
+	}
+	return result
+}
+
+func ConvertLockMapToLockList(locks map[string]*api.Lock) []*api.Lock {
+	result := make([]*api.Lock, 0, len(locks))
+	for _, lock := range locks {
+		result = append(result, lock)
+	}
+	return result
+}
+
+func convertLock(lock *api.Lock) *Lock {
+	var createdBy = Actor{
+		Name:  "",
+		Email: "",
+	}
+	if lock.CreatedBy != nil {
+		createdBy.Name = lock.CreatedBy.Name
+		createdBy.Email = lock.CreatedBy.Email
+	}
+	var createdAt = time.Time{}
+	if lock.CreatedAt != nil {
+		createdAt = lock.CreatedAt.AsTime()
+	}
+	l := Lock{
+		Message:           lock.Message,
+		LockId:            lock.LockId,
+		CreatedBy:         createdBy,
+		CreatedAt:         createdAt,
+		CiLink:            lock.CiLink,
+		SuggestedLifetime: lock.SuggestedLifetime,
+	}
+	return &l
 }
 
 func (c *envReleaseTrain) renderEnvironmentSkipCause() func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
