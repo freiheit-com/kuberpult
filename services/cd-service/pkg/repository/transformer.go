@@ -2631,8 +2631,11 @@ type ReleaseTrainApplicationPrognosis struct {
 	AppLocks  map[string]*api.Lock
 
 	//EnvLocks  map[string]Lock
-	Version uint64
-	Team    string
+	Version            uint64
+	Team               string
+	NewReleaseCommitId string
+	ExistingDeployment *db.Deployment
+	OldReleaseCommitId string
 }
 
 type ReleaseTrainEnvironmentPrognosis struct {
@@ -3360,13 +3363,46 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				continue
 			}
 		}
+		releases := c.AllLatestReleasesCache[appName]
+		var release uint64
+		if releases == nil {
+			release = 0
+		} else {
+			release = uint64(releases[len(releases)-1])
+		}
+		commitID, err := getCommitID(ctx, transaction, state, release, appName)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+		}
+
+		existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, appName, c.Env)
+		if err != nil {
+			return failedPrognosis(err)
+		}
+
+		var existingVersion *uint64 = nil
+		if existingDeployment != nil && existingDeployment.Version != nil {
+			var tmp2 = (uint64)(*existingDeployment.Version)
+			existingVersion = &tmp2
+		}
+		var oldReleaseCommitId = ""
+		if existingVersion != nil {
+			oldReleaseCommitId, _ = getCommitID(ctx, transaction, state, *existingVersion, appName)
+			// continue anyway, this is only for events
+		}
+
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 			SkipCause: nil,
+
 			EnvLocks:  nil,
 			TeamLocks: nil,
 			AppLocks:  nil,
-			Version:   versionToDeploy,
-			Team:      teamName,
+
+			Version:            versionToDeploy,
+			Team:               teamName,
+			NewReleaseCommitId: commitID,
+			ExistingDeployment: existingDeployment,
+			OldReleaseCommitId: oldReleaseCommitId,
 		}
 	}
 	return &ReleaseTrainEnvironmentPrognosis{
@@ -3414,14 +3450,7 @@ func (c *envReleaseTrain) applyPrognosis(
 		if !c.WriteCommitData {
 			return renderEnvironmentSkipCause(prognosis.SkipCause), nil
 		}
-		for appName := range prognosis.AppsPrognoses {
-			releases := c.AllLatestReleasesCache[appName]
-			var release uint64
-			if releases == nil {
-				release = 0
-			} else {
-				release = uint64(releases[len(releases)-1])
-			}
+		for appName, appPrognosis := range prognosis.AppsPrognoses {
 			eventMessage := ""
 			if len(prognosis.EnvLocks) > 0 {
 				for e := range prognosis.EnvLocks {
@@ -3430,9 +3459,9 @@ func (c *envReleaseTrain) applyPrognosis(
 				}
 			}
 			newEvent := createLockPreventedDeploymentEvent(appName, c.Env, eventMessage, "environment")
-			commitID, err := getCommitID(ctx, transaction, state, release, appName)
-			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+			commitID := appPrognosis.NewReleaseCommitId
+			if commitID == "" {
+				// continue anyway
 			} else {
 				gen := getGenerator(ctx)
 				eventUuid := gen.Generate()
@@ -3497,9 +3526,9 @@ func (c *envReleaseTrain) applyPrognosis(
 				EnvLocks:           convertLockMap(appPrognosis.EnvLocks),
 				AppLocks:           convertLockMap(appPrognosis.AppLocks),
 				TeamLocks:          convertLockMap(appPrognosis.TeamLocks),
-				NewReleaseCommitId: "",
-				ExistingDeployment: nil,
-				OldReleaseCommitId: "",
+				NewReleaseCommitId: appPrognosis.NewReleaseCommitId,
+				ExistingDeployment: appPrognosis.ExistingDeployment,
+				OldReleaseCommitId: appPrognosis.OldReleaseCommitId,
 			}
 			_, err = d.ApplyPrognosis(
 				ctx,
@@ -3508,6 +3537,9 @@ func (c *envReleaseTrain) applyPrognosis(
 				transaction,
 				&prognosisData,
 			)
+			if err != nil {
+				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
+			}
 		} else {
 			if err := t.Execute(ctx, d, transaction); err != nil {
 				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
