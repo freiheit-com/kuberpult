@@ -2608,9 +2608,25 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[types.EnvName]con
 	return envGroupConfigs, isEnvGroup
 }
 
+/*
+	type DeployPrognosis struct {
+		TeamName          string
+		EnvironmentConfig *config.EnvironmentConfig
+		ManifestContent   []byte
+
+		EnvLocks  map[string]Lock
+		AppLocks  map[string]Lock
+		TeamLocks map[string]Lock
+
+		NewReleaseCommitId string
+		ExistingDeployment *db.Deployment
+		OldReleaseCommitId string
+	}
+*/
 type ReleaseTrainApplicationPrognosis struct {
 	SkipCause *api.ReleaseTrainAppPrognosis_SkipCause
 	Locks     []*api.Lock
+	EnvLocks  map[string]Lock
 	Version   uint64
 	Team      string
 }
@@ -3336,7 +3352,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			SkipCause: nil,
 			Locks:     nil,
 			Version:   versionToDeploy,
-			Team:      "",
+			Team:      teamName,
 		}
 	}
 	return &ReleaseTrainEnvironmentPrognosis{
@@ -3440,6 +3456,7 @@ func (c *envReleaseTrain) applyPrognosis(
 			skipped = append(skipped, renderApplicationSkipCause(&appPrognosis, appName))
 			continue
 		}
+		// TODO SU
 		d := &DeployApplicationVersion{
 			Environment:     c.Env, // here we deploy to the next env
 			Application:     appName,
@@ -3456,6 +3473,25 @@ func (c *envReleaseTrain) applyPrognosis(
 			CiLink:                c.CiLink,
 			SkipCleanup:           true,
 		}
+
+		prognosisData := DeployPrognosis{
+			TeamName:           appPrognosis.Team,
+			EnvironmentConfig:  &envConfig,
+			ManifestContent:    nil,
+			EnvLocks:           nil,
+			AppLocks:           nil,
+			TeamLocks:          nil,
+			NewReleaseCommitId: "",
+			ExistingDeployment: nil,
+			OldReleaseCommitId: "",
+		}
+		_, err = d.ApplyPrognosis(
+			ctx,
+			state,
+			t,
+			transaction,
+			&prognosisData,
+		)
 		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
 		}
