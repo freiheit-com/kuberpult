@@ -30,7 +30,7 @@ unit-test: deps
 bench-test: deps
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
 	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c "go test $(GO_TEST_ARGS) -bench=. ./..."
-	docker-compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
+	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
 .PHONY: lint
 lint: deps
