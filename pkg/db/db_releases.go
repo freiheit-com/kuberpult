@@ -153,9 +153,9 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
 }
 
-type AppVersionManifests map[string]map[uint64][]types.EnvName
+type AppVersionEnvironments map[string]map[uint64][]types.EnvName // first key is the appName
 
-func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *sql.Tx) (AppVersionManifests, error) {
+func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, tx *sql.Tx) (AppVersionEnvironments, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -168,7 +168,7 @@ func (h *DBHandler) DBSelectAllManifestsForAllReleases(ctx context.Context, tx *
 		selectQuery,
 	)
 
-	return h.processReleaseManifestRows(ctx, err, rows)
+	return h.processReleaseEnvironmentRows(ctx, err, rows)
 }
 
 func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
@@ -575,7 +575,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	return result, nil
 }
 
-func (h *DBHandler) processReleaseManifestRows(ctx context.Context, err error, rows *sql.Rows) (AppVersionManifests, error) {
+func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error, rows *sql.Rows) (AppVersionEnvironments, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
