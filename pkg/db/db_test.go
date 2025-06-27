@@ -3931,7 +3931,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 	tcs := []struct {
 		Name     string
 		Releases []DBReleaseWithMetaData
-		Expected AppVersionManifests
+		Expected AppVersionEnvironments
 	}{
 		{
 			Name: "Retrieve no manifests",
@@ -3942,7 +3942,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{}},
 				},
 			},
-			Expected: AppVersionManifests{
+			Expected: AppVersionEnvironments{
 				"app1": {1: {}},
 			},
 		},
@@ -3965,7 +3965,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
-			Expected: AppVersionManifests{
+			Expected: AppVersionEnvironments{
 				"app1": {
 					1: {"dev", "staging"},
 					2: {"dev"},
@@ -3989,7 +3989,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
-			Expected: AppVersionManifests{
+			Expected: AppVersionEnvironments{
 				"app1": {
 					1: {"dev"},
 				},
@@ -4011,7 +4011,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
 				}
-				manifests, err := dbHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
+				manifests, err := dbHandler.DBSelectAllEnvironmentsForAllReleases(ctx, transaction)
 				if err != nil {
 					return fmt.Errorf("error while selecting release, error: %w", err)
 				}
