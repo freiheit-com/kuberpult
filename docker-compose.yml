@@ -24,6 +24,7 @@ services:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:local
     environment:
       - KUBERPULT_EXPERIMENTAL_PARALLELISM_ONE_TRANSACTION=true
+      - KUBERPULT_MAX_NUMBER_OF_THREADS=10
       - KUBERPULT_LOCK_TYPE=db
       - LOG_LEVEL=INFO
       - KUBERPULT_DISABLE_QUEUE=true

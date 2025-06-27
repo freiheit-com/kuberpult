@@ -70,42 +70,42 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
                         },
-                        locks: [],
+                        envLocks: {},
                     },
                     'env-2': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM,
                         },
-                        locks: [],
+                        envLocks: {},
                     },
                     'env-3': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
                         },
-                        locks: [],
+                        envLocks: {},
                     },
                     'env-4': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.ENV_IS_LOCKED,
                         },
-                        locks: [],
+                        envLocks: {},
                     },
                     'env-5': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.UNRECOGNIZED,
                         },
-                        locks: [],
+                        envLocks: {},
                     },
                     'env-6': {
                         outcome: {
                             $case: 'skipCause',
                             skipCause: ReleaseTrainEnvSkipCause.UPSTREAM_ENV_CONFIG_NOT_FOUND,
                         },
-                        locks: [],
+                        envLocks: {},
                     },
                     'env-7': {
                         outcome: {
@@ -117,54 +117,54 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_ALREADY_IN_UPSTREAM_VERSION,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                     'app-2': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_DOES_NOT_EXIST_IN_ENV,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                     'app-3': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                     'app-4': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_IS_LOCKED,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                     'app-5': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.APP_IS_LOCKED_BY_ENV,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                     'app-6': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.TEAM_IS_LOCKED,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                     'app-7': {
                                         outcome: {
                                             $case: 'skipCause',
                                             skipCause: ReleaseTrainAppSkipCause.UNRECOGNIZED,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                 },
                             },
                         },
-                        locks: [],
+                        envLocks: {},
                     },
                 },
             },
@@ -373,19 +373,19 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             $case: 'deployedVersion',
                                             deployedVersion: 1,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                     'app-2': {
                                         outcome: {
                                             $case: 'deployedVersion',
                                             deployedVersion: 2,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                 },
                             },
                         },
-                        locks: [],
+                        envLocks: {},
                     },
                     'env-2': {
                         outcome: {
@@ -397,12 +397,12 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             $case: 'deployedVersion',
                                             deployedVersion: 1,
                                         },
-                                        locks: [],
+                                        appLocks: [],
                                     },
                                 },
                             },
                         },
-                        locks: [],
+                        envLocks: {},
                     },
                 },
             },
