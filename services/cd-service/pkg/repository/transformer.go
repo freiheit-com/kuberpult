@@ -2608,9 +2608,25 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[types.EnvName]con
 	return envGroupConfigs, isEnvGroup
 }
 
+/*
+	type DeployPrognosis struct {
+		TeamName          string
+		EnvironmentConfig *config.EnvironmentConfig
+		ManifestContent   []byte
+
+		EnvLocks  map[string]Lock
+		AppLocks  map[string]Lock
+		TeamLocks map[string]Lock
+
+		NewReleaseCommitId string
+		ExistingDeployment *db.Deployment
+		OldReleaseCommitId string
+	}
+*/
 type ReleaseTrainApplicationPrognosis struct {
 	SkipCause *api.ReleaseTrainAppPrognosis_SkipCause
 	Locks     []*api.Lock
+	EnvLocks  map[string]Lock
 	Version   uint64
 	Team      string
 }
@@ -2845,9 +2861,9 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 		error     error
 	}
 	spanManifests, ctxManifests, onErr := tracing.StartSpanFromContext(parentCtx, "Load Manifests")
-	var allReleasesManifests db.AppVersionManifests
+	var allReleasesEnvironments db.AppVersionEnvironments
 	var err error
-	allReleasesManifests, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctxManifests, transaction)
+	allReleasesEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctxManifests, transaction)
 	if err != nil {
 		return "", onErr(err)
 	}
@@ -2881,7 +2897,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 					CiLink:                c.CiLink,
 
 					AllLatestReleasesCache:       allLatestReleases,
-					AllLatestReleaseEnvironments: allReleasesManifests,
+					AllLatestReleaseEnvironments: allReleasesEnvironments,
 				}
 
 				prognosis, err := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
@@ -2986,7 +3002,7 @@ type envReleaseTrain struct {
 	CiLink                string
 
 	AllLatestReleasesCache       AllLatestReleasesCache
-	AllLatestReleaseEnvironments db.AppVersionManifests // can be prefilled with all manifests, so that each envReleaseTrain does not need to fetch them again
+	AllLatestReleaseEnvironments db.AppVersionEnvironments // can be prefilled with all manifests, so that each envReleaseTrain does not need to fetch them again
 }
 
 func (c *envReleaseTrain) GetDBEventType() db.EventType {
@@ -3135,9 +3151,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
 	}
 
-	var allLatestReleaseEnvironments db.AppVersionManifests
+	var allLatestReleaseEnvironments db.AppVersionEnvironments
 	if c.AllLatestReleaseEnvironments == nil {
-		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllManifestsForAllReleases(ctx, transaction)
+		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctx, transaction)
 		if err != nil {
 			return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
 		}
@@ -3336,7 +3352,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			SkipCause: nil,
 			Locks:     nil,
 			Version:   versionToDeploy,
-			Team:      "",
+			Team:      teamName,
 		}
 	}
 	return &ReleaseTrainEnvironmentPrognosis{
@@ -3440,6 +3456,7 @@ func (c *envReleaseTrain) applyPrognosis(
 			skipped = append(skipped, renderApplicationSkipCause(&appPrognosis, appName))
 			continue
 		}
+		// TODO SU
 		d := &DeployApplicationVersion{
 			Environment:     c.Env, // here we deploy to the next env
 			Application:     appName,
@@ -3456,6 +3473,25 @@ func (c *envReleaseTrain) applyPrognosis(
 			CiLink:                c.CiLink,
 			SkipCleanup:           true,
 		}
+
+		prognosisData := DeployPrognosis{
+			TeamName:           appPrognosis.Team,
+			EnvironmentConfig:  &envConfig,
+			ManifestContent:    nil,
+			EnvLocks:           nil,
+			AppLocks:           nil,
+			TeamLocks:          nil,
+			NewReleaseCommitId: "",
+			ExistingDeployment: nil,
+			OldReleaseCommitId: "",
+		}
+		_, err = d.ApplyPrognosis(
+			ctx,
+			state,
+			t,
+			transaction,
+			&prognosisData,
+		)
 		if err := t.Execute(ctx, d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
 		}

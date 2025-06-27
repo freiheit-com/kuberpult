@@ -690,6 +690,7 @@ type Actor struct {
 
 type Lock struct {
 	Message           string
+	LockId            string
 	CreatedBy         Actor
 	CreatedAt         time.Time
 	CiLink            string
@@ -717,6 +718,7 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	for _, lock := range locks {
 		genericLock := Lock{
 			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
 			CreatedBy: Actor{
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
@@ -751,6 +753,7 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 	for _, lock := range locks {
 		genericLock := Lock{
 			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
 			CreatedBy: Actor{
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
@@ -786,6 +789,7 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *
 	for _, lock := range locks {
 		genericLock := Lock{
 			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
 			CreatedBy: Actor{
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
