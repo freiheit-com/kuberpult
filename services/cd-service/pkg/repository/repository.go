@@ -690,6 +690,7 @@ type Actor struct {
 
 type Lock struct {
 	Message           string
+	LockId            string
 	CreatedBy         Actor
 	CreatedAt         time.Time
 	CiLink            string
@@ -717,6 +718,7 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	for _, lock := range locks {
 		genericLock := Lock{
 			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
 			CreatedBy: Actor{
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
@@ -751,6 +753,7 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 	for _, lock := range locks {
 		genericLock := Lock{
 			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
 			CreatedBy: Actor{
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
@@ -786,6 +789,7 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *
 	for _, lock := range locks {
 		genericLock := Lock{
 			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
 			CreatedBy: Actor{
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
@@ -852,13 +856,6 @@ func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, en
 }
 
 func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) error {
-	queuedVersion, err := s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
-	if err != nil {
-		return err
-	}
-	if queuedVersion == nil {
-		return nil // nothing to do
-	}
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
 func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName, allApps []string) (map[string]*int64, error) {
