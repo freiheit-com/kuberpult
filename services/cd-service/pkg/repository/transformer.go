@@ -2641,10 +2641,10 @@ type ReleaseTrainApplicationPrognosis struct {
 type ReleaseTrainEnvironmentPrognosis struct {
 	SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause
 	Error     error
-	//Locks     []*api.Lock
-	EnvLocks map[string]*api.Lock
-	// map key is the name of the app
-	AppsPrognoses map[string]ReleaseTrainApplicationPrognosis
+	EnvLocks  map[string]*api.Lock
+
+	AppsPrognoses        map[string]ReleaseTrainApplicationPrognosis // map key is app name
+	AllLatestDeployments map[string]*int64                           // map key is app name
 }
 
 type ReleaseTrainPrognosisOutcome = uint64
@@ -2891,7 +2891,8 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 			// we want to schedule all go routines,
 			// but still have the limit set, so "group.Go" would block
 			group.Go(func() error {
-				span, ctx, onErr := tracing.StartSpanFromContext(ctxRoutines, "EnvReleaseTrain Transform")
+				span, ctx, onErr := tracing.StartSpanFromContext(ctxRoutines, "EnvReleaseTrain Transform Go")
+				span.SetTag("kuberpultEnvironment", envName)
 				defer span.Finish()
 
 				train := &envReleaseTrain{
@@ -2962,6 +2963,10 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 }
 
 func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName types.EnvName, trainGroup *string, envGroupConfigs map[types.EnvName]config.EnvironmentConfig, configs map[types.EnvName]config.EnvironmentConfig, releases map[string][]int64) error {
+	spanOne, ctx, onErr := tracing.StartSpanFromContext(ctx, "runEnvReleaseTrainBackground")
+	spanOne.SetTag("kuberpultEnvironment", envName)
+	defer spanOne.Finish()
+
 	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
 		err := t.Execute(ctx, &envReleaseTrain{
 			Parent:                c,
@@ -2978,7 +2983,7 @@ func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *
 		}, transaction2)
 		return err
 	})
-	return err
+	return onErr(err)
 }
 
 func (c *envReleaseTrain) runEnvPrognosisBackground(
@@ -3406,10 +3411,11 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 	}
 	return &ReleaseTrainEnvironmentPrognosis{
-		SkipCause:     nil,
-		Error:         nil,
-		EnvLocks:      nil,
-		AppsPrognoses: appsPrognoses,
+		SkipCause:            nil,
+		Error:                nil,
+		EnvLocks:             nil,
+		AppsPrognoses:        appsPrognoses,
+		AllLatestDeployments: allLatestDeploymentsTargetEnv,
 	}
 }
 
@@ -3420,6 +3426,7 @@ func (c *envReleaseTrain) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Transform")
+	span.SetTag("env", c.Env)
 	defer span.Finish()
 
 	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache)
@@ -3435,10 +3442,12 @@ func (c *envReleaseTrain) applyPrognosis(
 	prognosis *ReleaseTrainEnvironmentPrognosis,
 	span tracer.Span,
 ) (string, error) {
-	allLatestDeployments, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, c.Env)
-	if err != nil {
-		return "", err
-	}
+	//// TODO SU: this should be in prognosis:
+	//allLatestDeployments, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, c.Env)
+	//if err != nil {
+	//	return "", err
+	//}
+	allLatestDeployments := prognosis.AllLatestDeployments
 
 	renderApplicationSkipCause := c.renderApplicationSkipCause(ctx, allLatestDeployments)
 	renderEnvironmentSkipCause := c.renderEnvironmentSkipCause()
@@ -3465,7 +3474,7 @@ func (c *envReleaseTrain) applyPrognosis(
 			} else {
 				gen := getGenerator(ctx)
 				eventUuid := gen.Generate()
-				err = state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, commitID, newEvent)
+				err := state.DBHandler.DBWriteLockPreventedDeploymentEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, commitID, newEvent)
 				if err != nil {
 					return "", GetCreateReleaseGeneralFailure(err)
 				}
@@ -3530,7 +3539,7 @@ func (c *envReleaseTrain) applyPrognosis(
 				ExistingDeployment: appPrognosis.ExistingDeployment,
 				OldReleaseCommitId: appPrognosis.OldReleaseCommitId,
 			}
-			_, err = d.ApplyPrognosis(
+			_, err := d.ApplyPrognosis(
 				ctx,
 				state,
 				t,
