@@ -1,7 +1,7 @@
 ROOT_DIR?=../..
 include $(ROOT_DIR)/Makefile.variables
 
-GOARCH?=arm64
+GOARCH?=amd64
 MAIN_PATH?=cmd/server
 export CGO_ENABLED?=1
 GO_TEST_ARGS?=
