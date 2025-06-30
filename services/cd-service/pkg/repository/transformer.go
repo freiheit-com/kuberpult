@@ -617,15 +617,23 @@ func (c *CreateApplicationVersion) Transform(
 			return "", grpc.PublicError(ctx, err)
 		}
 
-		err = state.checkUserPermissions(ctx, transaction, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig, true)
+		config := configs[env]
+		hasUpstream := false
+		if config.Upstream != nil {
+			hasUpstream = true
+		}
+		err = state.checkUserPermissionsFromConfig(ctx,
+			transaction,
+			env,
+			c.Application,
+			auth.PermissionCreateRelease,
+			c.Team,
+			c.RBACConfig,
+			true,
+			&config,
+		)
 		if err != nil {
 			return "", err
-		}
-
-		config, found := configs[env]
-		hasUpstream := false
-		if found {
-			hasUpstream = config.Upstream != nil
 		}
 
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
@@ -1386,9 +1394,9 @@ func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, e
 	return s.checkUserPermissionsFromConfig(ctx, transaction, env, application, action, team, RBACConfig, checkTeam, cfg)
 }
 
-// checkUserPermissionsCreateEnvironment check the permission for the environment creation action.
+// CheckUserPermissionsCreateEnvironment checks the permission for the environment creation action.
 // This is a "special" case because the environment group is already provided on the request.
-func (s *State) checkUserPermissionsCreateEnvironment(ctx context.Context, RBACConfig auth.RBACConfig, envConfig config.EnvironmentConfig) error {
+func CheckUserPermissionsCreateEnvironment(ctx context.Context, RBACConfig auth.RBACConfig, envConfig config.EnvironmentConfig) error {
 	if !RBACConfig.DexEnabled {
 		return nil
 	}
@@ -1938,7 +1946,7 @@ func (c *CreateEnvironment) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	envName := types.EnvName(c.Environment)
-	err := state.checkUserPermissionsCreateEnvironment(ctx, c.RBACConfig, c.Config)
+	err := CheckUserPermissionsCreateEnvironment(ctx, c.RBACConfig, c.Config)
 	if err != nil {
 		return "", err
 	}
@@ -2693,7 +2701,7 @@ func (c *ReleaseTrain) Prognosis(
 		envReleaseTrain := &envReleaseTrain{
 			Parent:                       c,
 			Env:                          envName,
-			EnvConfigs:                   configs,
+			AllEnvConfigs:                configs,
 			WriteCommitData:              c.WriteCommitData,
 			TrainGroup:                   trainGroup,
 			TransformerEslVersion:        c.TransformerEslVersion,
@@ -2804,7 +2812,7 @@ func (c *ReleaseTrain) Transform(
 			err = transformerContext.Execute(ctx, &envReleaseTrain{
 				Parent:                c,
 				Env:                   envName,
-				EnvConfigs:            configs,
+				AllEnvConfigs:         configs,
 				WriteCommitData:       c.WriteCommitData,
 				TrainGroup:            trainGroup,
 				TransformerEslVersion: c.TransformerEslVersion,
@@ -2871,7 +2879,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 				train := &envReleaseTrain{
 					Parent:                c,
 					Env:                   envName,
-					EnvConfigs:            configs,
+					AllEnvConfigs:         configs,
 					WriteCommitData:       c.WriteCommitData,
 					TrainGroup:            trainGroup,
 					TransformerEslVersion: c.TransformerEslVersion,
@@ -2943,7 +2951,7 @@ func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *
 		err := t.Execute(ctx, &envReleaseTrain{
 			Parent:                c,
 			Env:                   envName,
-			EnvConfigs:            configs,
+			AllEnvConfigs:         configs,
 			WriteCommitData:       c.WriteCommitData,
 			TrainGroup:            trainGroup,
 			TransformerEslVersion: c.TransformerEslVersion,
@@ -2978,7 +2986,7 @@ type AllLatestReleasesCache map[string][]int64
 type envReleaseTrain struct {
 	Parent                *ReleaseTrain
 	Env                   types.EnvName
-	EnvConfigs            map[types.EnvName]config.EnvironmentConfig // all environments that exist
+	AllEnvConfigs         map[types.EnvName]config.EnvironmentConfig // all environments that exist
 	WriteCommitData       bool
 	TrainGroup            *string
 	TransformerEslVersion db.TransformerID
@@ -3007,7 +3015,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 	envName := c.Env
 
-	envConfig := c.EnvConfigs[envName]
+	envConfig := c.AllEnvConfigs[envName]
 	if envConfig.Upstream == nil {
 		return &ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -3019,7 +3027,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 	}
 
-	err := state.checkUserPermissions(
+	err := state.checkUserPermissionsFromConfig(
 		ctx,
 		transaction,
 		envName,
@@ -3028,6 +3036,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		c.Parent.Team,
 		c.Parent.RBACConfig,
 		false,
+		&envConfig,
 	)
 
 	if err != nil {
@@ -3059,7 +3068,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	}
 
 	if !upstreamLatest {
-		_, ok := c.EnvConfigs[upstreamEnvName]
+		_, ok := c.AllEnvConfigs[upstreamEnvName]
 		if !ok {
 			return &ReleaseTrainEnvironmentPrognosis{
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -3276,13 +3285,8 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		teamName, ok := allTeams[appName]
 
 		if ok { //IF we find information for team
-			envConfig, ok := c.EnvConfigs[c.Env]
-			if !ok {
-				err = state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true)
-			} else {
-				err = state.checkUserPermissionsFromConfig(ctx, transaction, envName, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true, &envConfig)
-			}
-
+			envConfig := c.AllEnvConfigs[c.Env]
+			err = state.checkUserPermissionsFromConfig(ctx, transaction, envName, "*", auth.PermissionDeployReleaseTrain, teamName, c.Parent.RBACConfig, true, &envConfig)
 			if err != nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
@@ -3412,7 +3416,7 @@ func (c *envReleaseTrain) applyPrognosis(
 		return renderEnvironmentSkipCause(prognosis.SkipCause), nil
 	}
 
-	envConfig := c.EnvConfigs[c.Env]
+	envConfig := c.AllEnvConfigs[c.Env]
 	upstreamLatest := envConfig.Upstream.Latest
 	upstreamEnvName := envConfig.Upstream.Environment
 
@@ -3487,7 +3491,7 @@ func (c *envReleaseTrain) applyPrognosis(
 
 func (c *envReleaseTrain) renderEnvironmentSkipCause() func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 	return func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
-		envConfig := c.EnvConfigs[c.Env]
+		envConfig := c.AllEnvConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM:
@@ -3511,7 +3515,7 @@ func (c *envReleaseTrain) renderApplicationSkipCause(
 	allLatestDeployments map[string]*int64,
 ) func(Prognosis *ReleaseTrainApplicationPrognosis, appName string) string {
 	return func(Prognosis *ReleaseTrainApplicationPrognosis, appName string) string {
-		envConfig := c.EnvConfigs[c.Env]
+		envConfig := c.AllEnvConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		var currentlyDeployedVersion uint64
 		if latestDeploymentVersion, found := allLatestDeployments[appName]; found && latestDeploymentVersion != nil {
