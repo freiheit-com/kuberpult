@@ -4,3 +4,4 @@ spec:
   - ../../
 additional_artifacts:
   - services/cd-service/coverage.html
+# rebuild counter: 666
