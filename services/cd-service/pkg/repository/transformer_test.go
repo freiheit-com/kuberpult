@@ -4613,3 +4613,125 @@ func DBParseToEvents(rows []db.EventRow) ([]event.Event, error) {
 	}
 	return result, nil
 }
+
+func makeEnvironmentConfig(groupName *string) config.EnvironmentConfig {
+	return config.EnvironmentConfig{
+		Upstream:         nil,
+		ArgoCd:           nil,
+		EnvironmentGroup: groupName,
+		ArgoCdConfigs:    nil,
+	}
+}
+
+func TestGetEnvironmentGroupsOrEnvironment(t *testing.T) {
+	var devEnv = makeEnvironmentConfig(conversion.FromString("group1"))
+	var dev2Env = makeEnvironmentConfig(conversion.FromString("group1"))
+	var prodEnv = makeEnvironmentConfig(conversion.FromString("groupProd"))
+	tcs := []struct {
+		Name            string
+		InputEnvConfigs map[types.EnvName]config.EnvironmentConfig
+		InputTargetName string
+		InputTargetType string
+
+		ExpectedIsGroup bool
+		ExpectedMap     EnvMap
+	}{
+		{
+			Name:            "empty",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{},
+			InputTargetName: envAcceptance,
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENT.String(),
+
+			ExpectedIsGroup: false,
+			ExpectedMap:     map[types.EnvName]config.EnvironmentConfig{},
+		},
+		{
+			Name: "one env in group",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+			InputTargetName: "group1",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENTGROUP.String(),
+
+			ExpectedIsGroup: true,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+		},
+		{
+			Name: "two envs in group",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev":  devEnv,
+				"dev2": dev2Env,
+			},
+			InputTargetName: "group1",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENTGROUP.String(),
+
+			ExpectedIsGroup: true,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"dev":  devEnv,
+				"dev2": dev2Env,
+			},
+		},
+		{
+			Name: "one env without group",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+			InputTargetName: "dev",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENT.String(),
+
+			ExpectedIsGroup: false,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+		},
+		{
+			Name: "find one of two envs",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev":  devEnv,
+				"prod": prodEnv,
+			},
+			InputTargetName: "dev",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENT.String(),
+
+			ExpectedIsGroup: false,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+		},
+		{
+			Name: "find other one of two envs in group",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev":  devEnv,
+				"prod": prodEnv,
+			},
+			InputTargetName: "prod",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENT.String(),
+
+			ExpectedIsGroup: false,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"prod": prodEnv,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+
+			actualMap, actualOk := GetEnvironmentGroupsEnvironmentsOrEnvironment(tc.InputEnvConfigs, tc.InputTargetName, tc.InputTargetType)
+
+			if actualOk != tc.ExpectedIsGroup {
+				t.Errorf("result mismatch in 'ok' value (-want, +got):\n -%v, +%v", tc.ExpectedIsGroup, actualOk)
+			}
+
+			if diff := cmp.Diff(actualMap, tc.ExpectedMap); diff != "" {
+				t.Errorf("result mismatch in map (-want, +got):\n -%v, +%v\n%s\n", tc.ExpectedMap, actualMap, diff)
+			}
+
+		})
+	}
+
+}
