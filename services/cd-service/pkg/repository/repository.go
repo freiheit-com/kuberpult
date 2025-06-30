@@ -852,13 +852,6 @@ func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, en
 }
 
 func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) error {
-	queuedVersion, err := s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
-	if err != nil {
-		return err
-	}
-	if queuedVersion == nil {
-		return nil // nothing to do
-	}
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
 func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName, allApps []string) (map[string]*int64, error) {
