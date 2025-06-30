@@ -2694,7 +2694,6 @@ func (c *ReleaseTrain) Prognosis(
 			Parent:                       c,
 			Env:                          envName,
 			EnvConfigs:                   configs,
-			EnvGroupConfigs:              envGroupConfigs,
 			WriteCommitData:              c.WriteCommitData,
 			TrainGroup:                   trainGroup,
 			TransformerEslVersion:        c.TransformerEslVersion,
@@ -2774,7 +2773,6 @@ func (c *ReleaseTrain) Transform(
 				state.MaxNumThreads,
 				ctx,
 				configs,
-				envGroupConfigs,
 				allLatestReleases,
 				state,
 				transformerContext,
@@ -2789,7 +2787,7 @@ func (c *ReleaseTrain) Transform(
 				trainGroup := conversion.FromString(targetGroupName)
 				envNameLocal := envName
 				releaseTrainErrGroup.Go(func() error {
-					return c.runEnvReleaseTrainBackground(ctx, state, transformerContext, envNameLocal, trainGroup, envGroupConfigs, configs, allLatestReleases)
+					return c.runEnvReleaseTrainBackground(ctx, state, transformerContext, envNameLocal, trainGroup, configs, allLatestReleases)
 				})
 			}
 		}
@@ -2807,7 +2805,6 @@ func (c *ReleaseTrain) Transform(
 				Parent:                c,
 				Env:                   envName,
 				EnvConfigs:            configs,
-				EnvGroupConfigs:       envGroupConfigs,
 				WriteCommitData:       c.WriteCommitData,
 				TrainGroup:            trainGroup,
 				TransformerEslVersion: c.TransformerEslVersion,
@@ -2833,7 +2830,6 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	maxThreads int,
 	parentCtx context.Context,
 	configs map[types.EnvName]config.EnvironmentConfig,
-	envGroupConfigs map[types.EnvName]config.EnvironmentConfig,
 	allLatestReleases map[string][]int64,
 	state *State,
 	t TransformerContext,
@@ -2876,7 +2872,6 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 					Parent:                c,
 					Env:                   envName,
 					EnvConfigs:            configs,
-					EnvGroupConfigs:       envGroupConfigs,
 					WriteCommitData:       c.WriteCommitData,
 					TrainGroup:            trainGroup,
 					TransformerEslVersion: c.TransformerEslVersion,
@@ -2939,13 +2934,16 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	return "", nil
 }
 
-func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName types.EnvName, trainGroup *string, envGroupConfigs map[types.EnvName]config.EnvironmentConfig, configs map[types.EnvName]config.EnvironmentConfig, releases map[string][]int64) error {
+func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName types.EnvName, trainGroup *string, configs map[types.EnvName]config.EnvironmentConfig, releases map[string][]int64) error {
+	spanOne, ctx, onErr := tracing.StartSpanFromContext(ctx, "runEnvReleaseTrainBackground")
+	spanOne.SetTag("kuberpultEnvironment", envName)
+	defer spanOne.Finish()
+
 	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
 		err := t.Execute(ctx, &envReleaseTrain{
 			Parent:                c,
 			Env:                   envName,
 			EnvConfigs:            configs,
-			EnvGroupConfigs:       envGroupConfigs,
 			WriteCommitData:       c.WriteCommitData,
 			TrainGroup:            trainGroup,
 			TransformerEslVersion: c.TransformerEslVersion,
@@ -2956,7 +2954,7 @@ func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *
 		}, transaction2)
 		return err
 	})
-	return err
+	return onErr(err)
 }
 
 func (c *envReleaseTrain) runEnvPrognosisBackground(
@@ -2980,8 +2978,7 @@ type AllLatestReleasesCache map[string][]int64
 type envReleaseTrain struct {
 	Parent                *ReleaseTrain
 	Env                   types.EnvName
-	EnvConfigs            map[types.EnvName]config.EnvironmentConfig
-	EnvGroupConfigs       map[types.EnvName]config.EnvironmentConfig
+	EnvConfigs            map[types.EnvName]config.EnvironmentConfig // all environments that exist
 	WriteCommitData       bool
 	TrainGroup            *string
 	TransformerEslVersion db.TransformerID
@@ -3010,7 +3007,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 	envName := c.Env
 
-	envConfig := c.EnvGroupConfigs[envName]
+	envConfig := c.EnvConfigs[envName]
 	if envConfig.Upstream == nil {
 		return &ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -3415,7 +3412,7 @@ func (c *envReleaseTrain) applyPrognosis(
 		return renderEnvironmentSkipCause(prognosis.SkipCause), nil
 	}
 
-	envConfig := c.EnvGroupConfigs[c.Env]
+	envConfig := c.EnvConfigs[c.Env]
 	upstreamLatest := envConfig.Upstream.Latest
 	upstreamEnvName := envConfig.Upstream.Environment
 
@@ -3490,7 +3487,7 @@ func (c *envReleaseTrain) applyPrognosis(
 
 func (c *envReleaseTrain) renderEnvironmentSkipCause() func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 	return func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
-		envConfig := c.EnvGroupConfigs[c.Env]
+		envConfig := c.EnvConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM:
@@ -3514,7 +3511,7 @@ func (c *envReleaseTrain) renderApplicationSkipCause(
 	allLatestDeployments map[string]*int64,
 ) func(Prognosis *ReleaseTrainApplicationPrognosis, appName string) string {
 	return func(Prognosis *ReleaseTrainApplicationPrognosis, appName string) string {
-		envConfig := c.EnvGroupConfigs[c.Env]
+		envConfig := c.EnvConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		var currentlyDeployedVersion uint64
 		if latestDeploymentVersion, found := allLatestDeployments[appName]; found && latestDeploymentVersion != nil {
