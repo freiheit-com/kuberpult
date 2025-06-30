@@ -2650,10 +2650,11 @@ type ReleaseTrainPrognosis struct {
 
 func failedPrognosis(err error) *ReleaseTrainEnvironmentPrognosis {
 	return &ReleaseTrainEnvironmentPrognosis{
-		SkipCause:     nil,
-		Error:         err,
-		EnvLocks:      nil,
-		AppsPrognoses: nil,
+		SkipCause:            nil,
+		Error:                err,
+		EnvLocks:             nil,
+		AppsPrognoses:        nil,
+		AllLatestDeployments: nil,
 	}
 }
 
@@ -3030,9 +3031,10 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 			},
-			Error:         nil,
-			EnvLocks:      nil,
-			AppsPrognoses: nil,
+			Error:                nil,
+			EnvLocks:             nil,
+			AppsPrognoses:        nil,
+			AllLatestDeployments: nil,
 		}
 	}
 
@@ -3059,9 +3061,10 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 			},
-			Error:         nil,
-			EnvLocks:      nil,
-			AppsPrognoses: nil,
+			Error:                nil,
+			EnvLocks:             nil,
+			AppsPrognoses:        nil,
+			AllLatestDeployments: map[string]*int64{},
 		}
 	}
 
@@ -3070,9 +3073,10 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 			},
-			Error:         nil,
-			EnvLocks:      nil,
-			AppsPrognoses: nil,
+			Error:                nil,
+			EnvLocks:             nil,
+			AppsPrognoses:        nil,
+			AllLatestDeployments: map[string]*int64{},
 		}
 	}
 
@@ -3083,9 +3087,10 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
 				},
-				Error:         nil,
-				EnvLocks:      nil,
-				AppsPrognoses: nil,
+				Error:                nil,
+				EnvLocks:             nil,
+				AppsPrognoses:        nil,
+				AllLatestDeployments: map[string]*int64{},
 			}
 		}
 	}
@@ -3106,6 +3111,17 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	sort.Strings(apps)
 
 	appsPrognoses := make(map[string]ReleaseTrainApplicationPrognosis)
+
+	allLatestDeploymentsTargetEnv, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, envName)
+	if err != nil {
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
+	}
+
+	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
+	if err != nil {
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
+	}
+
 	if len(envLocks) > 0 {
 		envLocksMap := map[string]*api.Lock{}
 		sortedKeys := sorting.SortKeys(envLocks)
@@ -3137,20 +3153,11 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 			},
-			Error:         nil,
-			EnvLocks:      envLocksMap,
-			AppsPrognoses: appsPrognoses,
+			Error:                nil,
+			EnvLocks:             envLocksMap,
+			AppsPrognoses:        appsPrognoses,
+			AllLatestDeployments: allLatestDeploymentsTargetEnv,
 		}
-	}
-	allLatestDeploymentsTargetEnv, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, envName)
-	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
-	}
-
-	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
-
-	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
 	}
 
 	var allLatestReleaseEnvironments db.AppVersionEnvironments

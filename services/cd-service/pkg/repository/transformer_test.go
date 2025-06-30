@@ -1200,15 +1200,17 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: nil,
 					},
 				},
 			},
@@ -1247,15 +1249,17 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: nil,
 					},
 				},
 			},
