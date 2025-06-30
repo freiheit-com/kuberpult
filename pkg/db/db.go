@@ -546,6 +546,8 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "WriteEvent")
 	defer span.Finish()
+	span.SetTag("eventType", eventType)
+	span.SetTag("commitHash", sourceCommitHash)
 
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
 
