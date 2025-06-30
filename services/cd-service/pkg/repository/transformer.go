@@ -3034,7 +3034,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			Error:                nil,
 			EnvLocks:             nil,
 			AppsPrognoses:        nil,
-			AllLatestDeployments: nil,
+			AllLatestDeployments: map[string]*int64{},
 		}
 	}
 
@@ -3142,11 +3142,15 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 		for _, appName := range apps {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				SkipCause: nil,
-				EnvLocks:  envLocksMap,
-				AppLocks:  map[string]*api.Lock{},
-				Version:   0,
-				Team:      "",
+				SkipCause:          nil,
+				EnvLocks:           envLocksMap,
+				TeamLocks:          nil,
+				AppLocks:           nil,
+				Version:            0,
+				Team:               "",
+				NewReleaseCommitId: "",
+				ExistingDeployment: nil,
+				OldReleaseCommitId: "",
 			}
 		}
 		return &ReleaseTrainEnvironmentPrognosis{
@@ -3184,9 +3188,14 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_WITHOUT_TEAM,
 					},
-					EnvLocks: nil,
-					Version:  0,
-					Team:     team,
+					EnvLocks:           nil,
+					TeamLocks:          nil,
+					AppLocks:           nil,
+					Version:            0,
+					Team:               team,
+					NewReleaseCommitId: "",
+					ExistingDeployment: nil,
+					OldReleaseCommitId: "",
 				}
 				continue
 			}
@@ -3220,9 +3229,14 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
 					},
-					EnvLocks: nil,
-					Version:  0,
-					Team:     "",
+					EnvLocks:           nil,
+					TeamLocks:          nil,
+					AppLocks:           nil,
+					Version:            0,
+					Team:               "",
+					NewReleaseCommitId: "",
+					ExistingDeployment: nil,
+					OldReleaseCommitId: "",
 				}
 				continue
 			}
@@ -3233,9 +3247,14 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
 				},
-				EnvLocks: nil,
-				Version:  0,
-				Team:     "",
+				EnvLocks:           nil,
+				TeamLocks:          nil,
+				AppLocks:           nil,
+				Version:            0,
+				Team:               "",
+				NewReleaseCommitId: "",
+				ExistingDeployment: nil,
+				OldReleaseCommitId: "",
 			}
 			continue
 		}
@@ -3268,9 +3287,14 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_IS_LOCKED,
 				},
-				EnvLocks: nil,
-				Version:  0,
-				Team:     "",
+				EnvLocks:           nil,
+				TeamLocks:          nil,
+				AppLocks:           nil,
+				Version:            0,
+				Team:               "",
+				NewReleaseCommitId: "",
+				ExistingDeployment: nil,
+				OldReleaseCommitId: "",
 			}
 			continue
 		}
@@ -3292,9 +3316,14 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 				},
-				EnvLocks: nil,
-				Version:  0,
-				Team:     "",
+				EnvLocks:           nil,
+				TeamLocks:          nil,
+				AppLocks:           nil,
+				Version:            0,
+				Team:               "",
+				NewReleaseCommitId: "",
+				ExistingDeployment: nil,
+				OldReleaseCommitId: "",
 			}
 			continue
 		}
@@ -3309,9 +3338,14 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION,
 					},
-					EnvLocks: nil,
-					Version:  0,
-					Team:     teamName,
+					EnvLocks:           nil,
+					TeamLocks:          nil,
+					AppLocks:           nil,
+					Version:            0,
+					Team:               teamName,
+					NewReleaseCommitId: "",
+					ExistingDeployment: nil,
+					OldReleaseCommitId: "",
 				}
 				continue
 			}
@@ -3344,11 +3378,14 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
 					},
-					EnvLocks:  nil,
-					TeamLocks: teamLocksMap,
-					AppLocks:  nil,
-					Version:   0,
-					Team:      teamName,
+					EnvLocks:           nil,
+					TeamLocks:          teamLocksMap,
+					AppLocks:           nil,
+					Version:            0,
+					Team:               teamName,
+					NewReleaseCommitId: "",
+					ExistingDeployment: nil,
+					OldReleaseCommitId: "",
 				}
 				continue
 			}
