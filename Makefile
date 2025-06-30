@@ -85,6 +85,7 @@ reset-db: compose-down
 	docker volume rm kuberpult_pgdata
 
 kuberpult-freshdb: compose-down
+	IMAGE_TAG=local make -C services/cd-service docker
 	earthly +all-services --UID=$(USER_UID)
 	docker compose up 
 
