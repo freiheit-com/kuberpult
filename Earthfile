@@ -19,7 +19,7 @@ deps:
             SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
             echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
 
-        ARG GO_CI_LINT_VERSION="v1.64.0"
+        ARG GO_CI_LINT_VERSION="v2.2.1"
         RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
 
         RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.3.1.tar.gz -O exhaustruct.tar.gz
