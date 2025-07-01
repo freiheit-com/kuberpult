@@ -120,6 +120,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Contex
 	`)
 
 	span.SetTag("query", selectQuery)
+	span.SetTag("kuberpultEnvironment", envName)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,

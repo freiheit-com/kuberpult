@@ -1139,8 +1139,8 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:         nil,
 						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
-						Locks: []*api.Lock{
-							{
+						EnvLocks: map[string]*api.Lock{
+							"IdA": {
 								Message:   "mA",
 								LockId:    "IdA",
 								CreatedAt: timestamppb.Now(),
@@ -1150,6 +1150,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
+						AllLatestDeployments: map[string]*int64{},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -1157,8 +1158,8 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:         nil,
 						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
-						Locks: []*api.Lock{
-							{
+						EnvLocks: map[string]*api.Lock{
+							"IdB": {
 								Message:   "mB",
 								LockId:    "IdB",
 								CreatedAt: timestamppb.Now(),
@@ -1168,6 +1169,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
+						AllLatestDeployments: map[string]*int64{},
 					},
 				},
 			},
@@ -1200,15 +1202,17 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
 					},
 				},
 			},
@@ -1247,15 +1251,19 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
+						EnvLocks:             nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
+						EnvLocks:             nil,
 					},
 				},
 			},
@@ -1291,17 +1299,19 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						Locks:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						EnvLocks:             nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						Locks:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						EnvLocks:             nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
 					},
 				},
 			},

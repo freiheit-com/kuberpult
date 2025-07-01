@@ -135,8 +135,8 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 						Outcome: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
-						Locks: []*api.Lock{
-							{
+						EnvLocks: map[string]*api.Lock{
+							"staging-1-lock": {
 								LockId:    "staging-1-lock",
 								CreatedAt: timestamppb.Now(),
 								CreatedBy: &api.Actor{
@@ -213,7 +213,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
 											SkipCause: api.ReleaseTrainAppSkipCause_APP_IS_LOCKED,
 										},
-										Locks: []*api.Lock{
+										AppLocks: []*api.Lock{
 											{
 												LockId:    "staging-1-potato-app-lock",
 												CreatedAt: timestamppb.Now(),
@@ -303,7 +303,8 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
 											SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
 										},
-										Locks: []*api.Lock{
+										AppLocks: []*api.Lock{},
+										TeamLocks: []*api.Lock{
 											{
 												LockId:    "staging-1-sre-team-lock",
 												CreatedAt: timestamppb.Now(),
@@ -502,7 +503,7 @@ func TestReleaseTrainAppSkip(t *testing.T) {
 								},
 							},
 						},
-						Locks: []*api.Lock{},
+						EnvLocks: map[string]*api.Lock{},
 					},
 				},
 			},
@@ -520,7 +521,7 @@ func TestReleaseTrainAppSkip(t *testing.T) {
 								},
 							},
 						},
-						Locks: []*api.Lock{},
+						EnvLocks: map[string]*api.Lock{},
 					},
 				},
 			},
