@@ -77,6 +77,7 @@ compose-down:
 
 kuberpult: compose-down
 	IMAGE_TAG=local make -C services/cd-service docker
+	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 	earthly +all-services --UID=$(USER_UID)
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
@@ -86,11 +87,13 @@ reset-db: compose-down
 
 kuberpult-freshdb: compose-down
 	IMAGE_TAG=local make -C services/cd-service docker
+	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 	earthly +all-services --UID=$(USER_UID)
 	docker compose up 
 
 all-services:
 	IMAGE_TAG=$(VERSION) make -C services/cd-service docker
+	IMAGE_TAG=$(VERSION) make -C services/manifest-repo-export-service docker
 	earthly +all-services --tag=$(VERSION)
 
 integration-test:
