@@ -84,14 +84,14 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 			for appName, appPrognosis := range envPrognosis.AppsPrognoses {
 				//exhaustruct:ignore
 				retAppPrognosis := &api.ReleaseTrainAppPrognosis{}
+				retAppPrognosis.AppLocks = rp.ConvertLockMapToLockList(appPrognosis.AppLocks)
+				retAppPrognosis.TeamLocks = rp.ConvertLockMapToLockList(appPrognosis.TeamLocks)
 				if appPrognosis.SkipCause != nil {
 					retAppPrognosis.Outcome = appPrognosis.SkipCause
-					retAppPrognosis.AppLocks = rp.ConvertLockMapToLockList(appPrognosis.AppLocks)
 				} else {
 					retAppPrognosis.Outcome = &api.ReleaseTrainAppPrognosis_DeployedVersion{
 						DeployedVersion: appPrognosis.Version,
 					}
-					retAppPrognosis.AppLocks = rp.ConvertLockMapToLockList(appPrognosis.AppLocks)
 				}
 				retEnvPrognosis.GetAppsPrognoses().Prognoses[appName] = retAppPrognosis
 			}

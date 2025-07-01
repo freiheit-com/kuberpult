@@ -3289,7 +3289,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				},
 				EnvLocks:           nil,
 				TeamLocks:          nil,
-				AppLocks:           nil,
+				AppLocks:           appLocksMap,
 				Version:            0,
 				Team:               "",
 				NewReleaseCommitId: "",

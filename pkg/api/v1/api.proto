@@ -786,6 +786,7 @@ message ReleaseTrainAppPrognosis {
     uint64 deployed_version = 2;
   }
   repeated Lock appLocks = 3;
+  repeated Lock teamLocks = 4;
 }
 
 enum ReleaseTrainEnvSkipCause {

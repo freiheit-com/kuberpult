@@ -303,7 +303,8 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
 											SkipCause: api.ReleaseTrainAppSkipCause_TEAM_IS_LOCKED,
 										},
-										AppLocks: []*api.Lock{
+										AppLocks: []*api.Lock{},
+										TeamLocks: []*api.Lock{
 											{
 												LockId:    "staging-1-sre-team-lock",
 												CreatedAt: timestamppb.Now(),
