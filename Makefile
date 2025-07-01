@@ -76,7 +76,6 @@ compose-down:
 	docker compose down
 
 kuberpult: compose-down
-	IMAGE_TAG=local make -C services/cd-service docker
 	earthly +all-services --UID=$(USER_UID)
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
@@ -90,7 +89,6 @@ kuberpult-freshdb: compose-down
 	docker compose up 
 
 all-services:
-	IMAGE_TAG=$(VERSION) make -C services/cd-service docker
 	earthly +all-services --tag=$(VERSION)
 
 integration-test:
