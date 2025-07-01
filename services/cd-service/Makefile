@@ -15,11 +15,20 @@
 # Copyright freiheit.com
 
 MIN_COVERAGE=63.4
+MIN_COVERAGE_TRAIN=80.5
+MIN_COVERAGE_DEPLOY=83.8
 MAKEFLAGS += --no-builtin-rules
 
 include ../../infrastructure/make/go/include.mk
 
 test: unit-test
+	# unit-test already has a coverage check, but only for the whole service
+	# here we add coverage checks with higher thresholds, because these are our core processes.
+	# coverage files need to begin with 'mode:set' in the first line, so we add it:
+	(echo 'mode: set'; (cat coverage.out | grep '/releasetrain.go')) > coverage.train.out
+	(echo 'mode: set'; (cat coverage.out | grep '/deployment.go')) > coverage.deploy.out
+	$(ROOT_DIR)/infrastructure/coverage/check-coverage-go.sh coverage.train.out $(MIN_COVERAGE_TRAIN) releasetrain.go
+	$(ROOT_DIR)/infrastructure/coverage/check-coverage-go.sh coverage.deploy.out $(MIN_COVERAGE_DEPLOY) deployment.go
 
 build-pr: IMAGE_TAG=pr-$(VERSION)
 build-pr: lint unit-test bench-test docker release
