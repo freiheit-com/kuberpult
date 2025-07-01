@@ -118,6 +118,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             skipCause: ReleaseTrainAppSkipCause.APP_ALREADY_IN_UPSTREAM_VERSION,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                     'app-2': {
                                         outcome: {
@@ -125,6 +126,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             skipCause: ReleaseTrainAppSkipCause.APP_DOES_NOT_EXIST_IN_ENV,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                     'app-3': {
                                         outcome: {
@@ -132,6 +134,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             skipCause: ReleaseTrainAppSkipCause.APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                     'app-4': {
                                         outcome: {
@@ -139,6 +142,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             skipCause: ReleaseTrainAppSkipCause.APP_IS_LOCKED,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                     'app-5': {
                                         outcome: {
@@ -146,6 +150,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             skipCause: ReleaseTrainAppSkipCause.APP_IS_LOCKED_BY_ENV,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                     'app-6': {
                                         outcome: {
@@ -153,6 +158,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             skipCause: ReleaseTrainAppSkipCause.TEAM_IS_LOCKED,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                     'app-7': {
                                         outcome: {
@@ -160,6 +166,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             skipCause: ReleaseTrainAppSkipCause.UNRECOGNIZED,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                 },
                             },
@@ -374,6 +381,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             deployedVersion: 1,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                     'app-2': {
                                         outcome: {
@@ -381,6 +389,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             deployedVersion: 2,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                 },
                             },
@@ -398,6 +407,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                             deployedVersion: 1,
                                         },
                                         appLocks: [],
+                                        teamLocks: [],
                                     },
                                 },
                             },
