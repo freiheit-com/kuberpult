@@ -3141,6 +3141,17 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 
 		for _, appName := range apps {
+			releases := c.AllLatestReleasesCache[appName]
+			var release uint64
+			if releases == nil {
+				release = 0
+			} else {
+				release = uint64(releases[len(releases)-1])
+			}
+			commitID, err := getCommitID(ctx, transaction, state, release, appName)
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+			}
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 				SkipCause:          nil,
 				EnvLocks:           envLocksMap,
@@ -3148,7 +3159,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           nil,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: "",
+				NewReleaseCommitId: commitID,
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -3179,6 +3190,18 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		return failedPrognosis(err)
 	}
 	for _, appName := range apps {
+		releases := c.AllLatestReleasesCache[appName]
+		var release uint64
+		if releases == nil {
+			release = 0
+		} else {
+			release = uint64(releases[len(releases)-1])
+		}
+		commitID, err := getCommitID(ctx, transaction, state, release, appName)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+		}
+
 		if c.Parent.Team != "" {
 			team, ok := allTeams[appName]
 			if !ok {
@@ -3193,7 +3216,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               team,
-					NewReleaseCommitId: "",
+					NewReleaseCommitId: commitID,
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -3234,7 +3257,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               "",
-					NewReleaseCommitId: "",
+					NewReleaseCommitId: commitID,
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -3252,7 +3275,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           nil,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: "",
+				NewReleaseCommitId: commitID,
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -3292,7 +3315,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           appLocksMap,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: "",
+				NewReleaseCommitId: commitID,
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -3321,7 +3344,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           nil,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: "",
+				NewReleaseCommitId: commitID,
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -3343,7 +3366,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               teamName,
-					NewReleaseCommitId: "",
+					NewReleaseCommitId: commitID,
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -3383,23 +3406,12 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               teamName,
-					NewReleaseCommitId: "",
+					NewReleaseCommitId: commitID,
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
 				continue
 			}
-		}
-		releases := c.AllLatestReleasesCache[appName]
-		var release uint64
-		if releases == nil {
-			release = 0
-		} else {
-			release = uint64(releases[len(releases)-1])
-		}
-		commitID, err := getCommitID(ctx, transaction, state, release, appName)
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 		}
 
 		existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, appName, c.Env)
