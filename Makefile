@@ -98,17 +98,12 @@ integration-test:
 
 pull-service-image/%:
 	docker pull $(DOCKER_REGISTRY_URI)/$*:main-$(VERSION)
-	docker pull $(ARTIFACT_REGISTRY_URI)/$*:main-$(VERSION)-datadog
 
 tag-service-image/%: pull-service-image/%
 	docker tag $(DOCKER_REGISTRY_URI)/$*:main-$(VERSION) $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)
-	docker tag $(ARTIFACT_REGISTRY_URI)/$*:main-$(VERSION)-datadog $(ARTIFACT_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
-	docker tag $(ARTIFACT_REGISTRY_URI)/$*:main-$(VERSION)-datadog $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
 
 push-service-image/%: tag-service-image/%
 	docker push $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)
-	docker push $(ARTIFACT_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
-	docker push $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
 
 .PHONY: tag-release-images
 tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i)
