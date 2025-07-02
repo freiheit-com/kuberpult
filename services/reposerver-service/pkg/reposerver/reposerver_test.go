@@ -213,9 +213,12 @@ func TestGenerateManifest(t *testing.T) {
 					}
 
 					err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-						App:     release.App,
-						Env:     tc.SetupEnv.Name,
-						Version: &appVersion,
+						App: release.App,
+						Env: tc.SetupEnv.Name,
+						ReleaseNumbers: types.ReleaseNumbers{
+							Revision: "0",
+							Version:  &appVersion,
+						},
 					})
 					if err != nil {
 						return err
