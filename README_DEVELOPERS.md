@@ -193,9 +193,7 @@ backend:
 ## prerequisite software
 
 - [docker](https://docs.docker.com/get-docker/) - for docker build for cd-service - optional
-- [node](https://nodejs.org/en/download/) - ensure you're using an LTS version (or use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
-Ideally use the same version as in the [package.json](https://github.com/freiheit-com/kuberpult/blob/main/services/frontend-service/package.json#L42)
-- [pnpm](https://pnpm.io/installation)
+- [nvm](https://github.com/nvm-sh/nvm) - for building the UI. Run `nvm use lts/iron`.
 
 ## Libraries required
 - libgit2 >= 1.0
