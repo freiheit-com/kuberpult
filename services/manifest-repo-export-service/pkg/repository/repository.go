@@ -1095,7 +1095,7 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 				App:     appName,
 				Env:     envName,
 				ReleaseNumbers: types.ReleaseNumbers{
-					Revision: "0", //FIXME:
+					Revision: "0",
 					Version:  versionIntPtr,
 				},
 				TransformerID: 0,
