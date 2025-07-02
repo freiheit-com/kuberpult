@@ -19,7 +19,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -73,7 +72,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 					return err2
 				}
 				if eslVersion != nil {
-					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *eslVersion))
+					return fmt.Errorf("expected no eslVersion, but got %v", *eslVersion)
 				}
 
 				for _, eslVersion := range tc.eslVersion {

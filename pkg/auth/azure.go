@@ -62,7 +62,7 @@ func JWKSInitAzure(ctx context.Context) (*keyfunc.JWKS, error) {
 	var err error
 	jwks, err := keyfunc.Get(jwksURL, options)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create JWKS from resource at the given URL. Error: %s", err.Error())
+		return nil, fmt.Errorf("failed to create JWKS from resource at the given URL: %w", err)
 	}
 	return jwks, nil
 }
@@ -70,30 +70,30 @@ func JWKSInitAzure(ctx context.Context) (*keyfunc.JWKS, error) {
 func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId string) (jwt.MapClaims, error) {
 	var token *jwt.Token
 	if jwks == nil {
-		return nil, fmt.Errorf("JWKS not initialized.")
+		return nil, fmt.Errorf("jwks not initialized")
 	}
 	claims := jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(jwtB64, claims, jwks.Keyfunc)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse the JWT.\nError: %s", err.Error())
+		return nil, fmt.Errorf("failed to parse the JWT: %w", err)
 	}
 	if !token.Valid {
-		return nil, fmt.Errorf("Invalid token provided.")
+		return nil, fmt.Errorf("invalid token provided")
 	}
 	if val, ok := claims["aud"]; ok {
 		if val != clientId {
-			return nil, fmt.Errorf("Unknown client id provided: %s", val)
+			return nil, fmt.Errorf("unknown client id provided: %s", val)
 		}
 	} else {
-		return nil, fmt.Errorf("Client id not found in token.")
+		return nil, fmt.Errorf("client id not found in token")
 	}
 
 	if val, ok := claims["tid"]; ok {
 		if val != tenantId {
-			return nil, fmt.Errorf("Unknown tenant id provided: %s", val)
+			return nil, fmt.Errorf("unknown tenant id provided: %s", val)
 		}
 	} else {
-		return nil, fmt.Errorf("Tenant id not found in token.")
+		return nil, fmt.Errorf("tenant id not found in token")
 	}
 
 	return claims, nil

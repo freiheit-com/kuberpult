@@ -25,7 +25,7 @@ import (
 type EnvName string
 
 func EnvNamesToStrings(a []EnvName) []string {
-	var result []string = make([]string, len(a))
+	var result = make([]string, len(a))
 	for i := range a {
 		result[i] = string(a[i])
 	}
@@ -33,7 +33,7 @@ func EnvNamesToStrings(a []EnvName) []string {
 }
 
 func StringsToEnvNames(a []string) []EnvName {
-	var result []EnvName = make([]EnvName, len(a))
+	var result = make([]EnvName, len(a))
 	for i := range a {
 		result[i] = EnvName(a[i])
 	}

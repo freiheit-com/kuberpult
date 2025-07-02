@@ -125,6 +125,9 @@ zlPl5AxNZ3g1yELWYbm9+ygTtlgzznMvcZvIMiffJANqtXv1r+vctkvlLB0iUJap
 /X2H2x/nOuD+L+/K4KDBAkAHcO3Gv7VZsSHfnd/JfDzxtL0MFWerGZyGlaNFmX27
 1dWRXvcS5A0zPMgiBWfvHFx2DpSiceffqnis+UryeE+L
 -----END RSA PRIVATE KEY-----`))
+	if err != nil {
+		return "", fmt.Errorf("could not parse rsa key %w", err)
+	}
 	claims := jwt.MapClaims{}
 	if len(clientId) > 0 {
 		claims["aud"] = clientId

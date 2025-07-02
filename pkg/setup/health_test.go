@@ -226,7 +226,6 @@ func (b *mockBackoff) NextBackOff() time.Duration {
 
 func (b *mockBackoff) Reset() {
 	b.resetted = b.resetted + 1
-	return
 }
 
 func TestHealthReporterRetry(t *testing.T) {

@@ -309,7 +309,7 @@ func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err 
 			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
 		}
 	}(rows)
-	var result []string = make([]string, 0)
+	var result = make([]string, 0)
 	for rows.Next() {
 		//exhaustruct:ignore
 		var appname string
