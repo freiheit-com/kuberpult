@@ -139,7 +139,7 @@ else
 fi
 
 print version...
-VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
+VERSION=$(make --no-print-directory -C ../../ version)
 print "version is ${VERSION}"
 IMAGE_TAG_KUBERPULT=${IMAGE_TAG_KUBERPULT:-$VERSION}
 print "IMAGE_TAG_KUBERPULT is now ${IMAGE_TAG_KUBERPULT}"
