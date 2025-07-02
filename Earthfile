@@ -5,7 +5,7 @@ ARG --global target=docker
 
 deps:
     ARG USERARCH
-    ARG BUF_VERSION=v1.26.1
+    ARG BUF_VERSION=v1.55.1
     ARG BUF_BIN_PATH=/usr/local/bin
     IF [ "$USERARCH" = "arm64" ]
         FROM golang:1.24-bookworm
@@ -94,7 +94,7 @@ test-all:
     BUILD ./services/frontend-service+unit-test-ui
 
 integration-test-deps:
-    FROM alpine/k8s:1.25.15
+    FROM alpine/k8s:1.30.14
     RUN wget -O "/usr/bin/argocd" https://github.com/argoproj/argo-cd/releases/download/v2.7.5/argocd-linux-amd64 && \
         echo "a7680140ddb9011c3d282eaff5f5a856be18e8653ff9f0c7047a318f640753be /usr/bin/argocd" | sha256sum -c - && \
         chmod +x "/usr/bin/argocd"
