@@ -60,16 +60,7 @@ import (
 )
 
 const (
-	queueFileName         = "queued_version"
-	yamlParsingError      = "# yaml parsing error"
-	fieldSourceAuthor     = "source_author"
-	fieldSourceMessage    = "source_message"
-	fieldSourceCommitId   = "source_commit_id"
-	fieldDisplayVersion   = "display_version"
-	fieldCreatedAt        = "created_at"
-	fieldTeam             = "team"
-	fieldNextCommidId     = "nextCommit"
-	fieldPreviousCommitId = "previousCommit"
+	yamlParsingError = "# yaml parsing error"
 	// number of old releases that will ALWAYS be kept in addition to the ones that are deployed:
 	keptVersionsOnCleanup = 20
 )
