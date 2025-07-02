@@ -998,10 +998,13 @@ func setupDB(t *testing.T) *db.DBHandler {
 		}
 		var version int64 = 1234
 		err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-			Created:       time.Unix(123456789, 0).UTC(),
-			App:           "foo",
-			Env:           "staging",
-			Version:       &version,
+			Created: time.Unix(123456789, 0).UTC(),
+			App:     "foo",
+			Env:     "staging",
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: "0",
+				Version:  &version,
+			},
 			TransformerID: 0,
 		})
 

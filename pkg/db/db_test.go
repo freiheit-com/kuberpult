@@ -767,9 +767,12 @@ func TestReadWriteDeployment(t *testing.T) {
 			Env:             "dev",
 			VersionToDeploy: version(7),
 			ExpectedDeployment: &Deployment{
-				App:           "app-a",
-				Env:           "dev",
-				Version:       version(7),
+				App: "app-a",
+				Env: "dev",
+				ReleaseNumbers: types.ReleaseNumbers{
+					Revision: "0",
+					Version:  version(7),
+				},
 				TransformerID: 0,
 			},
 		},
@@ -779,9 +782,12 @@ func TestReadWriteDeployment(t *testing.T) {
 			Env:             "prod",
 			VersionToDeploy: nil,
 			ExpectedDeployment: &Deployment{
-				App:           "app-b",
-				Env:           "prod",
-				Version:       nil,
+				App: "app-b",
+				Env: "prod",
+				ReleaseNumbers: types.ReleaseNumbers{
+					Revision: "0",
+					Version:  nil,
+				},
 				TransformerID: 0,
 			},
 		},
@@ -810,9 +816,12 @@ func TestReadWriteDeployment(t *testing.T) {
 				}
 
 				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, Deployment{
-					App:           tc.App,
-					Env:           tc.Env,
-					Version:       tc.VersionToDeploy,
+					App: tc.App,
+					Env: tc.Env,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  tc.VersionToDeploy,
+					},
 					TransformerID: 0,
 				})
 				if err != nil {
@@ -848,17 +857,23 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 			AppName: "app1",
 			SetupDeployments: []*Deployment{
 				{
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(7),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(7),
+					},
 					TransformerID: 0,
 				},
 			},
 			ExpectedDeployments: map[types.EnvName]Deployment{
 				"dev": {
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(7),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(7),
+					},
 					TransformerID: 0,
 				},
 			},
@@ -868,23 +883,32 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 			AppName: "app1",
 			SetupDeployments: []*Deployment{
 				{
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(6),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(6),
+					},
 					TransformerID: 0,
 				},
 				{
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(7),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(7),
+					},
 					TransformerID: 0,
 				},
 			},
 			ExpectedDeployments: map[types.EnvName]Deployment{
 				"dev": {
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(7),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(7),
+					},
 					TransformerID: 0,
 				},
 			},
@@ -894,35 +918,50 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 			AppName: "app1",
 			SetupDeployments: []*Deployment{
 				{
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(6),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(6),
+					},
 					TransformerID: 0,
 				},
 				{
-					App:           "app1",
-					Env:           "staging",
-					Version:       version(5),
+					App: "app1",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(5),
+					},
 					TransformerID: 0,
 				},
 				{
-					App:           "app2",
-					Env:           "staging",
-					Version:       version(5),
+					App: "app2",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(5),
+					},
 					TransformerID: 0,
 				},
 			},
 			ExpectedDeployments: map[types.EnvName]Deployment{
 				"dev": {
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(6),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(6),
+					},
 					TransformerID: 0,
 				},
 				"staging": {
-					App:           "app1",
-					Env:           "staging",
-					Version:       version(5),
+					App: "app1",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(5),
+					},
 					TransformerID: 0,
 				},
 			},
@@ -979,9 +1018,12 @@ func TestReadAllLatestDeployment(t *testing.T) {
 			EnvName: "dev",
 			SetupDeployments: []*Deployment{
 				{
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(7),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(7),
+					},
 					TransformerID: 0,
 				},
 			},
@@ -994,15 +1036,21 @@ func TestReadAllLatestDeployment(t *testing.T) {
 			EnvName: "dev",
 			SetupDeployments: []*Deployment{
 				{
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(7),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(7),
+					},
 					TransformerID: 0,
 				},
 				{
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(8),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(8),
+					},
 					TransformerID: 0,
 				},
 			},
@@ -1015,21 +1063,30 @@ func TestReadAllLatestDeployment(t *testing.T) {
 			EnvName: "dev",
 			SetupDeployments: []*Deployment{
 				{
-					App:           "app1",
-					Env:           "dev",
-					Version:       version(7),
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(7),
+					},
 					TransformerID: 0,
 				},
 				{
-					App:           "app2",
-					Env:           "dev",
-					Version:       version(8),
+					App: "app2",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(8),
+					},
 					TransformerID: 0,
 				},
 				{
-					App:           "app3",
-					Env:           "staging",
-					Version:       version(8),
+					App: "app3",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(8),
+					},
 					TransformerID: 0,
 				},
 			},
@@ -1285,10 +1342,13 @@ func TestAllDeployments(t *testing.T) {
 				for _, d := range tc.data {
 					newVersion := int64(d.Version)
 					deployment := Deployment{
-						Created:       time.Now(),
-						App:           tc.AppName,
-						Env:           d.EnvName,
-						Version:       &newVersion,
+						Created: time.Now(),
+						App:     tc.AppName,
+						Env:     d.EnvName,
+						ReleaseNumbers: types.ReleaseNumbers{
+							Revision: "0",
+							Version:  &newVersion,
+						},
 						Metadata:      DeploymentMetadata{},
 						TransformerID: 0,
 					}
