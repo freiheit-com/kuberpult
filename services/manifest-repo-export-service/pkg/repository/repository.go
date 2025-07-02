@@ -1091,10 +1091,13 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 				versionIntPtr = nil
 			}
 			deployment := db.Deployment{
-				Created:       time.Time{},
-				App:           appName,
-				Env:           envName,
-				Version:       versionIntPtr,
+				Created: time.Time{},
+				App:     appName,
+				Env:     envName,
+				ReleaseNumbers: types.ReleaseNumbers{
+					Revision: "0", //FIXME:
+					Version:  versionIntPtr,
+				},
 				TransformerID: 0,
 				Metadata: db.DeploymentMetadata{
 					DeployedByName:  "",
@@ -1931,10 +1934,10 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	if err != nil {
 		return nil, err
 	}
-	if depl == nil || depl.Version == nil {
+	if depl == nil || depl.ReleaseNumbers.Version == nil {
 		return nil, nil
 	}
-	var v = uint64(*depl.Version)
+	var v = uint64(*depl.ReleaseNumbers.Version)
 	return &v, nil
 }
 

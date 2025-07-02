@@ -1495,7 +1495,7 @@ func (u *ReleaseTrain) Transform(
 			TransformerMetadata: u.TransformerMetadata,
 			Environment:         currentDeployment.Env,
 			Application:         currentDeployment.App,
-			Version:             uint64(*currentDeployment.Version),
+			Version:             uint64(*currentDeployment.ReleaseNumbers.Version),
 			LockBehaviour:       api.LockBehavior_RECORD,
 			WriteCommitData:     u.WriteCommitData,
 			SourceTrain: &DeployApplicationVersionSource{

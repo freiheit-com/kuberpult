@@ -74,3 +74,8 @@ func StringMapToEnvMap[T comparable](a map[string]T) map[EnvName]T {
 func Compare(a, b EnvName) int {
 	return strings.Compare(string(a), string(b))
 }
+
+type ReleaseNumbers struct {
+	Version  *int64
+	Revision string
+}

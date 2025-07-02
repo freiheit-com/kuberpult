@@ -140,7 +140,7 @@ func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in
 		if deployment == nil {
 			return nil
 		}
-		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, deployment.App, uint64(*deployment.Version), true)
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, deployment.App, uint64(*deployment.ReleaseNumbers.Version), true)
 		if err != nil {
 			return err
 		}

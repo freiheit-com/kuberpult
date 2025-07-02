@@ -4009,15 +4009,22 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "production",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+
+						Version: &versionOne,
+					},
 					TransformerID: 5,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 4,
 				},
 			},
@@ -4086,15 +4093,21 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "production",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 7,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionTwo,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionTwo,
+					},
 					TransformerID: 6,
 				},
 			},
@@ -4163,15 +4176,21 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "production",
-					Version:       &versionTwo,
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionTwo,
+					},
 					TransformerID: 7,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionTwo,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionTwo,
+					},
 					TransformerID: 6,
 				},
 			},
@@ -4237,15 +4256,21 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "development",
-					Version:       &versionOne,
+					App: "app",
+					Env: "development",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 5,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 6,
 				},
 			},
@@ -4304,9 +4329,12 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 4,
 				},
 			},
@@ -4370,15 +4398,21 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 4,
 				},
 				{
-					App:           "app",
-					Env:           "production",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 7,
 				},
 			},
@@ -4440,21 +4474,30 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "production1",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 6,
 				},
 				{
-					App:           "app",
-					Env:           "production2",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production2",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 6,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					TransformerID: 5,
 				},
 			},

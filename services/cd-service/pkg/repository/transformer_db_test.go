@@ -2319,11 +2319,11 @@ func TestReleaseTrain(t *testing.T) {
 				if deployment == nil {
 					t.Fatalf("Expected deployment but none was found.")
 				}
-				if deployment.Version == nil {
+				if deployment.ReleaseNumbers.Version == nil {
 					t.Fatalf("Expected deployment version, but got nil.")
 
 				}
-				if diff := cmp.Diff(uint(*deployment.Version), tc.ExpectedVersion); diff != "" {
+				if diff := cmp.Diff(uint(*deployment.ReleaseNumbers.Version), tc.ExpectedVersion); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -3420,9 +3420,12 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(1),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(1),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3455,9 +3458,12 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(1),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(1),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3490,9 +3496,12 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(1),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(1),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3638,9 +3647,12 @@ func TestUndeployDBState(t *testing.T) {
 			expectedAllReleases: []int64{},
 			expectedDeployments: []db.Deployment{
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: nil,
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  nil,
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3648,9 +3660,12 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(2),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(2),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3658,9 +3673,12 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(1),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  version(1),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
