@@ -1302,7 +1302,10 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 
 				return dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-					Version:       &version,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &version,
+					},
 					App:           "test",
 					Env:           "production",
 					TransformerID: 2,
@@ -1452,7 +1455,10 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 
 				return dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-					Version:       &version,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &version,
+					},
 					App:           "test",
 					Env:           "production",
 					TransformerID: 2,
