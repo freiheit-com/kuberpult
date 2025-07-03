@@ -624,6 +624,7 @@ func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL,
 	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(httpCtx).Sugar().Infof("could not get context from dex: %v", err)
+		return nil
 	}
 	headerRole64 := req.Header.Get(auth.HeaderUserRole)
 	headerRole, err := auth.Decode64(headerRole64)
