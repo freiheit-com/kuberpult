@@ -32,7 +32,7 @@ import (
 
 type DBDeployment struct {
 	Created        time.Time
-	ReleaseVersion *int64
+	ReleaseVersion *uint64
 	App            string
 	Env            string
 	TransformerID  TransformerID
@@ -344,7 +344,8 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
 		if releaseVersion.Valid {
-			row.ReleaseVersion = &releaseVersion.Int64
+			conv := uint64(releaseVersion.Int64)
+			row.ReleaseVersion = &conv
 		}
 	} else {
 		row = nil
@@ -465,7 +466,7 @@ func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deploym
 		return fmt.Errorf("upsertDeploymnetRow unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", upsertQuery)
-	nullVersion := NewNullInt(deployment.ReleaseNumbers.Version)
+	nullVersion := NewNullUInt(deployment.ReleaseNumbers.Version)
 
 	_, err = tx.Exec(
 		upsertQuery,
@@ -507,7 +508,7 @@ func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, 
 		return fmt.Errorf("DBWriteDeployment unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", insertQuery)
-	nullVersion := NewNullInt(deployment.ReleaseNumbers.Version)
+	nullVersion := NewNullUInt(deployment.ReleaseNumbers.Version)
 
 	_, err = tx.Exec(
 		insertQuery,
@@ -551,7 +552,8 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 		}
 		if releaseVersion.Valid {
-			row.ReleaseVersion = &releaseVersion.Int64
+			conv := uint64(releaseVersion.Int64)
+			row.ReleaseVersion = &conv
 		}
 
 		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
@@ -615,7 +617,8 @@ func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[types.EnvName]Deploy
 			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s\n", err, jsonMetadata)
 		}
 		if releaseVersion.Valid {
-			curr.ReleaseNumbers.Version = &releaseVersion.Int64
+			conv := uint64(releaseVersion.Int64)
+			curr.ReleaseNumbers.Version = &conv
 		}
 		result[curr.Env] = curr
 	}
@@ -679,8 +682,10 @@ func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Ro
 		}
 		return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w\n", err)
 	}
+
 	if releaseVersion.Valid {
-		row.ReleaseVersion = &releaseVersion.Int64
+		conv := uint64(releaseVersion.Int64)
+		row.ReleaseVersion = &conv
 	}
 
 	err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)

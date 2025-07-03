@@ -573,8 +573,11 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 	}
 	release := db.DBReleaseWithMetaData{
-		ReleaseNumber: version,
-		App:           c.Application,
+		ReleaseNumbers: types.ReleaseNumbers{
+			Revision: "0",
+			Version:  &version,
+		},
+		App: c.Application,
 		Manifests: db.DBReleaseManifests{
 			Manifests: manifestsToKeep,
 		},
@@ -786,9 +789,9 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v", c.Application, c.Version)
 			return c.Version, nil
 		}
-		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v", metaData.ReleaseNumber, metaData)
+		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v", *metaData.ReleaseNumbers.Version, metaData)
 
-		existingRelease := metaData.ReleaseNumber
+		existingRelease := metaData.ReleaseNumbers.Version
 		logger.FromContext(ctx).Sugar().Warnf("comparing release %v: %v", c.Version, existingRelease)
 		// check if version differs, if it's the same, that's ok
 		return 0, c.sameAsExistingDB(ctx, transaction, state, metaData)
@@ -959,9 +962,13 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			envs = append(envs, env)
 		}
 	}
+	v := uint64(lastRelease + 1)
 	release := db.DBReleaseWithMetaData{
-		ReleaseNumber: lastRelease + 1,
-		App:           c.Application,
+		ReleaseNumbers: types.ReleaseNumbers{
+			Revision: "0",
+			Version:  &v,
+		},
+		App: c.Application,
 		Manifests: db.DBReleaseManifests{
 			Manifests: envManifests,
 		},
@@ -1206,13 +1213,17 @@ func (u *DeleteEnvFromApp) Transform(
 				newManifests[e] = manifest
 			}
 		}
+
 		newRelease := db.DBReleaseWithMetaData{
-			ReleaseNumber: dbReleaseWithMetadata.ReleaseNumber,
-			App:           dbReleaseWithMetadata.App,
-			Created:       *now,
-			Manifests:     db.DBReleaseManifests{Manifests: newManifests},
-			Metadata:      dbReleaseWithMetadata.Metadata,
-			Environments:  []types.EnvName{},
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: dbReleaseWithMetadata.ReleaseNumbers.Revision,
+				Version:  dbReleaseWithMetadata.ReleaseNumbers.Version,
+			},
+			App:          dbReleaseWithMetadata.App,
+			Created:      *now,
+			Manifests:    db.DBReleaseManifests{Manifests: newManifests},
+			Metadata:     dbReleaseWithMetadata.Metadata,
+			Environments: []types.EnvName{},
 		}
 		err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
 		if err != nil {

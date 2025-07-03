@@ -244,21 +244,21 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	}
 
 	firstDeployment := false
-	var oldVersion *int64
+	var oldVersion *uint64
 
 	if prognosisData.ExistingDeployment == nil || prognosisData.ExistingDeployment.ReleaseNumbers.Version == nil {
 		firstDeployment = true
 	} else {
 		oldVersion = prognosisData.ExistingDeployment.ReleaseNumbers.Version
 	}
-	var v = int64(c.Version)
+
 	newDeployment := db.Deployment{
 		Created: time.Time{},
 		App:     c.Application,
 		Env:     envName,
 		ReleaseNumbers: types.ReleaseNumbers{
 			Revision: "0",
-			Version:  &v,
+			Version:  &c.Version,
 		},
 		TransformerID: c.TransformerEslVersion,
 		Metadata: db.DeploymentMetadata{
@@ -324,7 +324,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 				} else {
 					gen := getGenerator(ctx)
 					eventUuid := gen.Generate()
-					v := uint64(*oldVersion)
+					v := *oldVersion
 					oldReleaseCommitId := prognosisData.OldReleaseCommitId
 					if oldReleaseCommitId == "" {
 						logger.FromContext(ctx).Sugar().Warnf("could not find commit for release %d of app %s - skipping replaced-by event", v, c.Application)

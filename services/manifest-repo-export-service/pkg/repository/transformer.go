@@ -1495,7 +1495,7 @@ func (u *ReleaseTrain) Transform(
 			TransformerMetadata: u.TransformerMetadata,
 			Environment:         currentDeployment.Env,
 			Application:         currentDeployment.App,
-			Version:             uint64(*currentDeployment.ReleaseNumbers.Version),
+			Version:             *currentDeployment.ReleaseNumbers.Version,
 			LockBehaviour:       api.LockBehavior_RECORD,
 			WriteCommitData:     u.WriteCommitData,
 			SourceTrain: &DeployApplicationVersionSource{
@@ -1643,7 +1643,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	if len(lastRelease) == 0 {
 		return "", fmt.Errorf("cannot undeploy application '%v'", c.Application)
 	}
-	nextReleaseNumber = lastRelease[0].ReleaseNumber
+	nextReleaseNumber = *lastRelease[0].ReleaseNumbers.Version
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, nextReleaseNumber)
 

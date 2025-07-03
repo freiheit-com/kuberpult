@@ -42,6 +42,10 @@ import (
 	git "github.com/libgit2/git2go/v34"
 )
 
+var versionZero = uint64(0)
+var versionOne = uint64(1)
+var versionTwo = uint64(2)
+
 func TestRetrySsh(t *testing.T) {
 	tcs := []struct {
 		Name              string
@@ -638,8 +642,11 @@ func TestArgoCDFileGeneration(t *testing.T) {
 					t.Fatalf("could not create environment staging: %v", err)
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					App:           "test",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					App: "test",
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest2",
 					}},
@@ -648,8 +655,11 @@ func TestArgoCDFileGeneration(t *testing.T) {
 					t.Fatalf("could not create release 1 for app test: %v", err)
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 2,
-					App:           "test",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionTwo,
+					},
+					App: "test",
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest2",
 					}},
@@ -974,9 +984,12 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					return err
 				}
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
@@ -1023,9 +1036,12 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					return err
 				}
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
@@ -1120,9 +1136,12 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
@@ -1133,9 +1152,12 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
@@ -1190,9 +1212,12 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
@@ -1203,9 +1228,12 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production":  "manifest",
 						"development": "manifest",
@@ -1250,9 +1278,12 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					return err
 				}
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					}},
@@ -1288,11 +1319,14 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				version := int64(1)
+				version := uint64(1)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: uint64(version),
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &version,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					}},
@@ -1351,9 +1385,12 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					return err
 				}
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					}},
@@ -1441,11 +1478,14 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				version := int64(1)
+				version := uint64(1)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: uint64(version),
-					App:           "test",
-					Environments:  []types.EnvName{"production"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &version,
+					},
+					App:          "test",
+					Environments: []types.EnvName{"production"},
 					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
 						"production": "manifest",
 					}},
@@ -1685,11 +1725,14 @@ func BenchmarkApplyQueue(t *testing.B) {
 			return err
 		}
 		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-			ReleaseNumber: 0,
-			Created:       time.Time{},
-			App:           "foo",
-			Manifests:     db.DBReleaseManifests{},
-			Metadata:      db.DBReleaseMetaData{},
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: "0",
+				Version:  &versionZero,
+			},
+			Created:   time.Time{},
+			App:       "foo",
+			Manifests: db.DBReleaseManifests{},
+			Metadata:  db.DBReleaseMetaData{},
 		})
 		if err != nil {
 			return err
@@ -1711,12 +1754,16 @@ func BenchmarkApplyQueue(t *testing.B) {
 			if err != nil {
 				return err
 			}
+			version := uint64(i)
 			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-				ReleaseNumber: uint64(i),
-				Created:       time.Time{},
-				App:           "foo",
-				Manifests:     db.DBReleaseManifests{},
-				Metadata:      db.DBReleaseMetaData{},
+				ReleaseNumbers: types.ReleaseNumbers{
+					Revision: "0",
+					Version:  &version,
+				},
+				Created:   time.Time{},
+				App:       "foo",
+				Manifests: db.DBReleaseManifests{},
+				Metadata:  db.DBReleaseMetaData{},
 			})
 			if err != nil {
 				return err

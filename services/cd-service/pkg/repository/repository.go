@@ -870,7 +870,7 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	if depl == nil || depl.ReleaseNumbers.Version == nil {
 		return nil, nil
 	}
-	var v = uint64(*depl.ReleaseNumbers.Version)
+	var v = *depl.ReleaseNumbers.Version
 	return &v, nil
 }
 
@@ -1148,7 +1148,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 	}
 	for _, rel := range rels {
 		r := &Release{
-			Version:         rel.ReleaseNumber,
+			Version:         *rel.ReleaseNumbers.Version,
 			UndeployVersion: rel.Metadata.UndeployVersion,
 			SourceAuthor:    rel.Metadata.SourceAuthor,
 			SourceCommitId:  rel.Metadata.SourceCommitId,
@@ -1174,7 +1174,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		return nil, nil
 	}
 	return &Release{
-		Version:         env.ReleaseNumber,
+		Version:         *env.ReleaseNumbers.Version,
 		UndeployVersion: env.Metadata.UndeployVersion,
 		SourceAuthor:    env.Metadata.SourceAuthor,
 		SourceCommitId:  env.Metadata.SourceCommitId,

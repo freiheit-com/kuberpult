@@ -1082,10 +1082,9 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 			if err != nil {
 				return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 			}
-			var versionIntPtr *int64
+			var versionIntPtr *uint64
 			if version != nil {
-				var versionInt = int64(*version)
-				versionIntPtr = &versionInt
+				versionIntPtr = version
 				deploymentsForApp[envName] = int64(*version)
 			} else {
 				versionIntPtr = nil
@@ -1164,9 +1163,12 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 
 		}
 		dbRelease := db.DBReleaseWithMetaData{
-			Created:       *now,
-			ReleaseNumber: releaseVersion,
-			App:           app,
+			Created: *now,
+			ReleaseNumbers: types.ReleaseNumbers{
+				Version:  &releaseVersion,
+				Revision: "0",
+			},
+			App: app,
 			Manifests: db.DBReleaseManifests{
 				Manifests: manifestsMap,
 			},
@@ -1937,7 +1939,7 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	if depl == nil || depl.ReleaseNumbers.Version == nil {
 		return nil, nil
 	}
-	var v = uint64(*depl.ReleaseNumbers.Version)
+	var v = *depl.ReleaseNumbers.Version
 	return &v, nil
 }
 

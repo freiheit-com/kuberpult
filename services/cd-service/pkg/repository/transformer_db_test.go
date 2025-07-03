@@ -2373,8 +2373,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			},
 			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
 				"app": {
-					App:           "app",
-					ReleaseNumber: 1,
+					App: "app",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{},
 					},
@@ -2419,8 +2422,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			},
 			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
 				"app": {
-					App:           "app",
-					ReleaseNumber: 1,
+					App: "app",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
@@ -2477,8 +2483,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			},
 			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
 				"app": {
-					App:           "app",
-					ReleaseNumber: 1,
+					App: "app",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
@@ -2487,8 +2496,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environments: []types.EnvName{"dev"},
 				},
 				"app2": {
-					App:           "app2",
-					ReleaseNumber: 1,
+					App: "app2",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
@@ -3424,7 +3436,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(1),
+						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
@@ -3462,7 +3474,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(1),
+						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
@@ -3500,7 +3512,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(1),
+						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
@@ -3664,7 +3676,7 @@ func TestUndeployDBState(t *testing.T) {
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(2),
+						Version:  uversion(2),
 					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
@@ -3677,7 +3689,7 @@ func TestUndeployDBState(t *testing.T) {
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(1),
+						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
@@ -3743,6 +3755,11 @@ func TestUndeployDBState(t *testing.T) {
 
 func version(v int) *int64 {
 	var result = int64(v)
+	return &result
+}
+
+func uversion(v int) *uint64 {
+	var result = uint64(v)
 	return &result
 }
 

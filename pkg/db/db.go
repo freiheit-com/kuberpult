@@ -1027,6 +1027,20 @@ func NewNullInt(s *int64) sql.NullInt64 {
 	}
 }
 
+func NewNullUInt(s *uint64) sql.NullInt64 {
+	if s == nil {
+		return sql.NullInt64{
+			Int64: 0,
+			Valid: false,
+		}
+	}
+	conv := int64(*s)
+	return sql.NullInt64{
+		Int64: conv,
+		Valid: true,
+	}
+}
+
 // CUSTOM MIGRATIONS
 
 func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, writeAllReleasesFun WriteAllReleasesFun) error {
