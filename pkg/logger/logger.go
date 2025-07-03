@@ -64,7 +64,7 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
 	envLevel := os.Getenv("LOG_LEVEL")
 	var (
 		logger *zap.Logger
-		level  zapcore.Level = zapcore.WarnLevel
+		level  = zapcore.WarnLevel
 		err    error
 	)
 	if envLevel != "" {

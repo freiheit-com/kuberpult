@@ -597,7 +597,7 @@ func (h *DBHandler) processAllTeamLocksRows(ctx context.Context, err error, rows
 		}
 	}(rows)
 	//exhaustruct:ignore
-	var result []string = make([]string, 0)
+	var result = make([]string, 0)
 	for rows.Next() {
 		var lockId string
 		err := rows.Scan(&lockId)

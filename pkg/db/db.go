@@ -200,14 +200,14 @@ func RunDBMigrations(ctx context.Context, cfg DBConfig) error {
 	if err != nil {
 		return fmt.Errorf("DB Error opening DB connection. Error:  %w\n", err)
 	}
-	defer d.DB.Close()
+	defer d.DB.Close() //nolint:errcheck
 
 	m, err := d.getMigrationHandler()
 
 	if err != nil {
 		return fmt.Errorf("Error creating migration instance. Error: %w\n", err)
 	}
-	defer m.Close()
+	defer m.Close() //nolint:errcheck
 	if err := m.Up(); err != nil {
 		if !errors.Is(err, migrate.ErrNoChange) {
 			return fmt.Errorf("Error running DB migrations. Error: %w\n", err)

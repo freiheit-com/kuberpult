@@ -156,7 +156,7 @@ func TestGracefulShutdown(t *testing.T) {
 			}
 
 			mainExited := make(chan bool, 1)
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(context.Background()) //nolint:govet
 			go func() {
 				Run(ctx, cfg)
 				mainExited <- true
@@ -174,7 +174,7 @@ func TestGracefulShutdown(t *testing.T) {
 				t.Errorf("Program didn't finish on shutdown signal")
 			case <-cleanShutdownCh: // That's what we expect
 			}
-		})
+		}) //nolint:govet
 	}
 
 }

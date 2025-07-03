@@ -61,11 +61,11 @@ func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, e
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, fmt.Errorf("row closing error: %v\n", err)
+		return nil, fmt.Errorf("row closing error: %v", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("row has error: %v\n", err)
+		return nil, fmt.Errorf("row has error: %v", err)
 	}
 	return eslVersionPtr, nil
 }

@@ -197,7 +197,7 @@ func (h *HealthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-	fmt.Fprint(w, string(body))
+	fmt.Fprint(w, string(body)) //nolint:errcheck
 }
 
 func (h *HealthServer) IsReady(name string) bool {

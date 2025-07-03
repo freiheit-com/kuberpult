@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
@@ -807,7 +806,7 @@ func TestReadWriteDeployment(t *testing.T) {
 					return err2
 				}
 				if deployment != nil {
-					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *deployment))
+					return fmt.Errorf("expected no eslVersion, but got %v", *deployment)
 				}
 
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
@@ -1193,7 +1192,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
+					return fmt.Errorf("expected no eslVersion, but got %v", *envLock)
 				}
 				metadata := LockMetadata{
 					Message:        tc.Message,
@@ -1420,7 +1419,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
+					return fmt.Errorf("expected no eslVersion, but got %v", *envLock)
 				}
 				metadata := LockMetadata{
 					Message:        tc.Message,
@@ -1503,7 +1502,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
+					return fmt.Errorf("expected no eslVersion, but got %v", *envLock)
 				}
 				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, LockMetadata{
 					CreatedByName:  tc.AuthorName,
@@ -2206,7 +2205,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
+					return fmt.Errorf("expected no eslVersion, but got %v", *envLock)
 				}
 				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, LockMetadata{
 					CreatedByName:  tc.AuthorName,
@@ -2634,7 +2633,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
+					return fmt.Errorf("expected no eslVersion, but got %v", *envLock)
 				}
 				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, LockMetadata{
 					CreatedByName:  tc.AuthorName,
@@ -2726,7 +2725,7 @@ func TestDeleteTeamLock(t *testing.T) {
 					return err2
 				}
 				if envLock != nil {
-					return errors.New(fmt.Sprintf("expected no eslVersion, but got %v", *envLock))
+					return fmt.Errorf("expected no eslVersion, but got %v", *envLock)
 				}
 				err := dbHandler.DBWriteTeamLock(ctx, transaction, tc.LockID, tc.Env, tc.TeamName, LockMetadata{
 					CreatedByName:  tc.AuthorName,
@@ -3225,13 +3224,6 @@ func TestReadWriteEslEvent(t *testing.T) {
 }
 
 func TestReadWriteFailedEslEvent(t *testing.T) {
-	const envName = "dev"
-	const appName = "my-app"
-	const lockId = "ui-v2-ke1up"
-	const message = "test"
-	const authorName = "testauthor"
-	const authorEmail = "testemail@example.com"
-
 	tcs := []struct {
 		Name   string
 		Events []EslFailedEventRow
@@ -4689,6 +4681,9 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 func setupDB(t *testing.T) *DBHandler {
 	ctx := context.Background()
 	dir, err := CreateMigrationsPath(2)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath: %v", err)
+	}
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
@@ -4722,6 +4717,10 @@ func SetupRepositoryTestWithDB(t *testing.T, runMigrations bool) (*DBHandler, *D
 func SetupRepositoryTestWithDBMigrationPath(t *testing.T, migrationsPath string, runMigrations bool) (*DBHandler, *DBConfig) {
 	ctx := context.Background()
 	dbConfig, err := ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("error connceting %v", err)
+		return nil, nil
+	}
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
