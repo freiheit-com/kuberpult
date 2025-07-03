@@ -165,9 +165,12 @@ func TestCustomMigrationReleases(t *testing.T) {
 		}
 		for _, r := range releases {
 			dbRelease := DBReleaseWithMetaData{
-				Created:       time.Now().UTC(),
-				ReleaseNumber: r.Version,
-				App:           app,
+				Created: time.Now().UTC(),
+				ReleaseNumbers: types.ReleaseNumbers{
+					Version:  &r.Version,
+					Revision: "0",
+				},
+				App: app,
 				Manifests: DBReleaseManifests{
 					Manifests: r.Manifests,
 				},
@@ -194,8 +197,11 @@ func TestCustomMigrationReleases(t *testing.T) {
 			Name: "Simple migration",
 			expectedReleases: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 666,
-					App:           "app1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(666),
+						Revision: "0",
+					},
+					App: "app1",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev": "manifest1",
@@ -210,8 +216,11 @@ func TestCustomMigrationReleases(t *testing.T) {
 					Environments: []types.EnvName{"dev"},
 				},
 				{
-					ReleaseNumber: 777,
-					App:           "app1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(777),
+						Revision: "0",
+					},
+					App: "app1",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev": "manifest2",
@@ -243,7 +252,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 				for i := range tc.expectedReleases {
 					expectedRelease := tc.expectedReleases[i]
 
-					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumber, true)
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, *expectedRelease.ReleaseNumbers.Version, true)
 					if err != nil {
 						return err
 					}
@@ -751,26 +760,30 @@ func version(v int) *int64 {
 	var result = int64(v)
 	return &result
 }
+func uversion(v int) *uint64 {
+	var result = uint64(v)
+	return &result
+}
 
 func TestReadWriteDeployment(t *testing.T) {
 	tcs := []struct {
 		Name               string
 		App                string
 		Env                types.EnvName
-		VersionToDeploy    *int64
+		VersionToDeploy    *uint64
 		ExpectedDeployment *Deployment
 	}{
 		{
 			Name:            "with eslVersion != nil",
 			App:             "app-a",
 			Env:             "dev",
-			VersionToDeploy: version(7),
+			VersionToDeploy: uversion(7),
 			ExpectedDeployment: &Deployment{
 				App: "app-a",
 				Env: "dev",
 				ReleaseNumbers: types.ReleaseNumbers{
 					Revision: "0",
-					Version:  version(7),
+					Version:  uversion(7),
 				},
 				TransformerID: 0,
 			},
@@ -860,7 +873,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(7),
+						Version:  uversion(7),
 					},
 					TransformerID: 0,
 				},
@@ -871,7 +884,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(7),
+						Version:  uversion(7),
 					},
 					TransformerID: 0,
 				},
@@ -886,7 +899,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(6),
+						Version:  uversion(6),
 					},
 					TransformerID: 0,
 				},
@@ -895,7 +908,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(7),
+						Version:  uversion(7),
 					},
 					TransformerID: 0,
 				},
@@ -906,7 +919,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(7),
+						Version:  uversion(7),
 					},
 					TransformerID: 0,
 				},
@@ -921,7 +934,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(6),
+						Version:  uversion(6),
 					},
 					TransformerID: 0,
 				},
@@ -930,7 +943,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(5),
+						Version:  uversion(5),
 					},
 					TransformerID: 0,
 				},
@@ -939,7 +952,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(5),
+						Version:  uversion(5),
 					},
 					TransformerID: 0,
 				},
@@ -950,7 +963,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(6),
+						Version:  uversion(6),
 					},
 					TransformerID: 0,
 				},
@@ -959,7 +972,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(5),
+						Version:  uversion(5),
 					},
 					TransformerID: 0,
 				},
@@ -1021,7 +1034,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(7),
+						Version:  uversion(7),
 					},
 					TransformerID: 0,
 				},
@@ -1039,7 +1052,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(7),
+						Version:  uversion(7),
 					},
 					TransformerID: 0,
 				},
@@ -1048,7 +1061,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(8),
+						Version:  uversion(8),
 					},
 					TransformerID: 0,
 				},
@@ -1066,7 +1079,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(7),
+						Version:  uversion(7),
 					},
 					TransformerID: 0,
 				},
@@ -1075,7 +1088,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(8),
+						Version:  uversion(8),
 					},
 					TransformerID: 0,
 				},
@@ -1084,7 +1097,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: "0",
-						Version:  version(8),
+						Version:  uversion(8),
 					},
 					TransformerID: 0,
 				},
@@ -1339,14 +1352,13 @@ func TestAllDeployments(t *testing.T) {
 					return err
 				}
 				for _, d := range tc.data {
-					newVersion := int64(d.Version)
 					deployment := Deployment{
 						Created: time.Now(),
 						App:     tc.AppName,
 						Env:     d.EnvName,
 						ReleaseNumbers: types.ReleaseNumbers{
 							Revision: "0",
-							Version:  &newVersion,
+							Version:  &d.Version,
 						},
 						Metadata:      DeploymentMetadata{},
 						TransformerID: 0,
@@ -2771,9 +2783,12 @@ func TestDeleteRelease(t *testing.T) {
 		{
 			Name: "Delete Release from database",
 			toInsert: DBReleaseWithMetaData{
-				Created:       time.Now(),
-				ReleaseNumber: 1,
-				App:           "app",
+				Created: time.Now(),
+				ReleaseNumbers: types.ReleaseNumbers{
+					Version:  uversion(1),
+					Revision: "0",
+				},
+				App: "app",
 				Manifests: DBReleaseManifests{
 					Manifests: map[types.EnvName]string{"development": "development"},
 				},
@@ -2800,7 +2815,7 @@ func TestDeleteRelease(t *testing.T) {
 					return err2
 				}
 
-				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber)
+				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, tc.toInsert.App, *tc.toInsert.ReleaseNumbers.Version)
 				if errDelete != nil {
 					t.Fatalf("error: %v\n", errDelete)
 				}
@@ -2813,7 +2828,7 @@ func TestDeleteRelease(t *testing.T) {
 					t.Fatalf("number of team locks mismatch (-want, +got):\n%d", len(allReleases))
 				}
 
-				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumber, true)
+				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, *tc.toInsert.ReleaseNumbers.Version, true)
 				if err != nil {
 					return err
 				}
@@ -3502,18 +3517,24 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Retrieve one release",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			AppName: "app1",
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					Environments: []types.EnvName{"dev"},
 				},
 			},
 		},
@@ -3521,18 +3542,24 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Retrieved release has ordered environments",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manfest2", "production": "manfest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manfest2", "production": "manfest2"}},
 				},
 			},
 			AppName: "app1",
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manfest2", "production": "manfest2"}},
-					Environments:  []types.EnvName{"dev", "production", "staging"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manfest2", "production": "manfest2"}},
+					Environments: []types.EnvName{"dev", "production", "staging"},
 				},
 			},
 		},
@@ -3540,39 +3567,57 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Retrieve multiple releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 20,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(20),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
 				},
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
 				},
 				{
-					ReleaseNumber: 20,
-					App:           "app2",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest4"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(20),
+						Revision: "0",
+					},
+					App:       "app2",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest4"}},
 				},
 			},
 			AppName: "app1",
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 20,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(20),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
+					Environments: []types.EnvName{"dev"},
 				},
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
+					Environments: []types.EnvName{"dev"},
 				},
 			},
 		},
@@ -3580,9 +3625,12 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Retrieve no releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app2",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app2",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			AppName:  "app1`",
@@ -3592,40 +3640,58 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Different Releases with different eslVersions",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 2,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
 				},
 				{
-					ReleaseNumber: 3,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(3),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
 				},
 			},
 			AppName: "app1",
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 3,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(3),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
+					Environments: []types.EnvName{"dev"},
 				},
 				{
-					ReleaseNumber: 2,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
+					Environments: []types.EnvName{"dev"},
 				},
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					Environments: []types.EnvName{"dev"},
 				},
 			},
 		},
@@ -3633,36 +3699,51 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Prepublish Release should not be retrieved",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 2,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
-					Metadata:      DBReleaseMetaData{IsPrepublish: true},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(2),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
+					Metadata:  DBReleaseMetaData{IsPrepublish: true},
 				},
 				{
-					ReleaseNumber: 3,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(3),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
 				},
 			},
 			AppName:              "app1",
 			RetrievePrepublishes: false,
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 3,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(3),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
+					Environments: []types.EnvName{"dev"},
 				},
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					Environments: []types.EnvName{"dev"},
 				},
 			},
 		},
@@ -3670,43 +3751,61 @@ func TestReadReleasesByApp(t *testing.T) {
 			Name: "Prepublish Release should be retrieved",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 2,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
-					Metadata:      DBReleaseMetaData{IsPrepublish: true},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(2),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
+					Metadata:  DBReleaseMetaData{IsPrepublish: true},
 				},
 				{
-					ReleaseNumber: 3,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(3),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
 				},
 			},
 			AppName:              "app1",
 			RetrievePrepublishes: true,
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 3,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(3),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
+					Environments: []types.EnvName{"dev"},
 				},
 				{
-					ReleaseNumber: 2,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
-					Metadata:      DBReleaseMetaData{IsPrepublish: true},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
+					Metadata:     DBReleaseMetaData{IsPrepublish: true},
+					Environments: []types.EnvName{"dev"},
 				},
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
-					Environments:  []types.EnvName{"dev"},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:          "app1",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					Environments: []types.EnvName{"dev"},
 				},
 			},
 		},
@@ -3757,19 +3856,25 @@ func TestReadReleasesByVersion(t *testing.T) {
 			Name: "Retrieve one release, no manifests",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			AppName:  "app1",
 			Versions: []uint64{10},
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Environments:  []types.EnvName{"dev"},
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:          "app1",
+					Environments: []types.EnvName{"dev"},
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{}},
 				},
 			},
 		},
@@ -3777,9 +3882,12 @@ func TestReadReleasesByVersion(t *testing.T) {
 			Name: "Retrieve no releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			AppName:  "app1",
@@ -3790,24 +3898,33 @@ func TestReadReleasesByVersion(t *testing.T) {
 			Name: "Retrieve one of two releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 11,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(11),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			AppName:  "app1",
 			Versions: []uint64{11},
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 11,
-					App:           "app1",
-					Environments:  []types.EnvName{"dev"},
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(11),
+						Revision: "0",
+					},
+					App:          "app1",
+					Environments: []types.EnvName{"dev"},
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{}},
 				},
 			},
 		},
@@ -3815,30 +3932,42 @@ func TestReadReleasesByVersion(t *testing.T) {
 			Name: "Retrieve multiple releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 11,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(11),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			AppName:  "app1",
 			Versions: []uint64{10, 11},
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Environments:  []types.EnvName{"dev"},
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:          "app1",
+					Environments: []types.EnvName{"dev"},
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{}},
 				},
 				{
-					ReleaseNumber: 11,
-					App:           "app1",
-					Environments:  []types.EnvName{"dev"},
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(11),
+						Revision: "0",
+					},
+					App:          "app1",
+					Environments: []types.EnvName{"dev"},
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{}},
 				},
 			},
 		},
@@ -3846,24 +3975,33 @@ func TestReadReleasesByVersion(t *testing.T) {
 			Name: "Retrieve latest esl version only",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
 				},
 			},
 			AppName:  "app1",
 			Versions: []uint64{10},
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Environments:  []types.EnvName{"dev", "staging"},
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:          "app1",
+					Environments: []types.EnvName{"dev", "staging"},
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{}},
 				},
 			},
 		},
@@ -3911,24 +4049,36 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 			Name: "Retrieve multiple releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 2,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 1,
-					App:           "app2",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app2",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 2,
-					App:           "app2",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app2",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			Expected: map[string][]int64{
@@ -3948,9 +4098,9 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 			allReleases := map[string][]int64{}
 			for _, release := range tc.Releases {
 				if _, ok := allReleases[release.App]; !ok {
-					allReleases[release.App] = []int64{int64(release.ReleaseNumber)}
+					allReleases[release.App] = []int64{int64(*release.ReleaseNumbers.Version)}
 				} else {
-					allReleases[release.App] = append(allReleases[release.App], int64(release.ReleaseNumber))
+					allReleases[release.App] = append(allReleases[release.App], int64(*release.ReleaseNumbers.Version))
 				}
 			}
 
@@ -3989,9 +4139,12 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 			Name: "Retrieve no manifests",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{}},
 				},
 			},
 			Expected: AppVersionEnvironments{
@@ -4002,19 +4155,28 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 			Name: "Retrieve all manifests",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
 				},
 				{
-					ReleaseNumber: 2,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 1,
-					App:           "app2",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app2",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			Expected: AppVersionEnvironments{
@@ -4031,14 +4193,20 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 			Name: "Retrieve only latest manifests",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
 				},
 				{
-					ReleaseNumber: 1,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			Expected: AppVersionEnvironments{
@@ -4494,9 +4662,12 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 			Name: "Simple test: several releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					Created:       time.Now(),
-					App:           "app1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					Created: time.Now(),
+					App:     "app1",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"env1": "testmanifest",
@@ -4509,9 +4680,12 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 					},
 				},
 				{
-					ReleaseNumber: 10,
-					Created:       time.Now(),
-					App:           "app2",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					Created: time.Now(),
+					App:     "app2",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"env1": "testmanifest",
@@ -4523,9 +4697,12 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 					},
 				},
 				{
-					ReleaseNumber: 10,
-					Created:       time.Now(),
-					App:           "app3",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					Created: time.Now(),
+					App:     "app3",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"env1": "testmanifest",
@@ -4546,9 +4723,12 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 			Name: "Several Releases for one app",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					Created:       time.Now(),
-					App:           "app1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					Created: time.Now(),
+					App:     "app1",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"env1": "testmanifest",
@@ -4561,9 +4741,12 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 					},
 				},
 				{
-					ReleaseNumber: 11,
-					Created:       time.Now(),
-					App:           "app1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(11),
+						Revision: "0",
+					},
+					Created: time.Now(),
+					App:     "app1",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"env1": "testmanifest",
@@ -4575,9 +4758,12 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 					},
 				},
 				{
-					ReleaseNumber: 12,
-					Created:       time.Now(),
-					App:           "app1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(12),
+						Revision: "0",
+					},
+					Created: time.Now(),
+					App:     "app1",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"env4": "testmanifest",
@@ -4599,9 +4785,12 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 			Name: "Releases with different esl versions",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					Created:       time.Now(),
-					App:           "app1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					Created: time.Now(),
+					App:     "app1",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"env1": "testmanifest",
@@ -4612,9 +4801,12 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 					},
 				},
 				{
-					ReleaseNumber: 10,
-					Created:       time.Now(),
-					App:           "app1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					Created: time.Now(),
+					App:     "app1",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"env2": "testmanifest",
@@ -4625,9 +4817,12 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 					},
 				},
 				{
-					ReleaseNumber: 10,
-					Created:       time.Now(),
-					App:           "app1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					Created: time.Now(),
+					App:     "app1",
 					Manifests: DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"env3": "testmanifest",
@@ -4764,18 +4959,24 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 			Name: "Retrieve release without environment",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 1,
-					App:           "appNoEnv",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:       "appNoEnv",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			AppName: "appNoEnv",
 			Expected: []*DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 1,
-					App:           "appNoEnv",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
-					Environments:  []types.EnvName{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
+					App:          "appNoEnv",
+					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					Environments: []types.EnvName{},
 				},
 			},
 		},
@@ -5462,9 +5663,12 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 			Name: "one Release",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
 				},
 			},
 			Environments: []DBEnvironment{
@@ -5486,9 +5690,12 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 			Name: "One environment without apps",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			Environments: []DBEnvironment{
@@ -5506,29 +5713,44 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 			Name: "Multiple releases and environments",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "production": "manifest3"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "production": "manifest3"}},
 				},
 				{
-					ReleaseNumber: 20,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(20),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
 				},
 				{
-					ReleaseNumber: 10,
-					App:           "app2",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app2",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 10,
-					App:           "app3",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app3",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 20,
-					App:           "app3",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"production": "manifest3"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(20),
+						Revision: "0",
+					},
+					App:       "app3",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"production": "manifest3"}},
 				},
 			},
 			Environments: []DBEnvironment{
@@ -5603,16 +5825,22 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 			Name: "Environment added afterwards",
 			FirstReleases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
 			SecondReleases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 20,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(20),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
 				},
 			},
 			Environments: []DBEnvironment{
@@ -5634,21 +5862,30 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 			Name: "New app added afterwards",
 			FirstReleases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumber: 20,
-					App:           "app1",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(20),
+						Revision: "0",
+					},
+					App:       "app1",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
 				},
 			},
 			SecondReleases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumber: 10,
-					App:           "app2",
-					Manifests:     DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(10),
+						Revision: "0",
+					},
+					App:       "app2",
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
 				},
 			},
 			Environments: []DBEnvironment{
@@ -5760,7 +5997,7 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 	_, err = transaction.Exec(
 		insertQuery,
 		*now,
-		release.ReleaseNumber,
+		*release.ReleaseNumbers.Version,
 		release.App,
 		manifestJson,
 		metadataJson,
@@ -5770,7 +6007,7 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 		return fmt.Errorf(
 			"could not insert release for app '%s' and version '%v' into DB. Error: %w\n",
 			release.App,
-			release.ReleaseNumber,
+			*release.ReleaseNumbers.Version,
 			err)
 	}
 
