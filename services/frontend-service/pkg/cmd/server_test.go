@@ -140,12 +140,12 @@ func TestServerHeader(t *testing.T) {
 				}
 				req, err := http.NewRequest(tc.RequestMethod, path, nil)
 				if err != nil {
-					t.Fatalf("expected no error but got %q", err)
+					t.Errorf("expected no error but got %q", err)
 				}
 				req.Header = tc.RequestHeaders
 				res, err := http.DefaultClient.Do(req)
 				if err != nil {
-					t.Fatalf("expected no error but got %q", err)
+					t.Errorf("expected no error but got %q", err)
 				}
 				t.Logf("%v %q", res.StatusCode, err)
 				// Delete three headers that are hard to test.
@@ -236,17 +236,20 @@ func TestGrpcForwardHeader(t *testing.T) {
 				}
 				path, err := url.JoinPath("http://localhost:8081/", tc.RequestPath)
 				if err != nil {
-					t.Fatalf("error joining url: %s", err)
+					t.Errorf("error joining url: %s", err)
 				}
 				body, err := proto.Marshal(tc.Body)
+				if err != nil {
+					t.Errorf("expected no error while calling Marshal but got %q", err)
+				}
 				req, err := http.NewRequest("POST", path, bytes.NewReader(body))
 				if err != nil {
-					t.Fatalf("expected no error but got %q", err)
+					t.Errorf("expected no error but got %q", err)
 				}
 				req.Header.Add("Content-Type", "application/grpc-web")
 				res, err := http.DefaultClient.Do(req)
 				if err != nil {
-					t.Fatalf("expected no error but got %q", err)
+					t.Errorf("expected no error but got %q", err)
 				}
 				_, _ = io.ReadAll(res.Body)
 				if tc.ExpectedHttpStatusCode != res.StatusCode {
