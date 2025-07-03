@@ -226,13 +226,13 @@ func (o *OverviewServiceServer) GetAppDetails(
 		for envName, currentDeployment := range deployments {
 
 			// Test that deployment's release has the deployment's environment
-			deploymentRelease := getReleaseFromVersion(releases, uint64(*currentDeployment.Version))
+			deploymentRelease := getReleaseFromVersion(releases, uint64(*currentDeployment.ReleaseNumbers.Version))
 			if deploymentRelease != nil && !slices.Contains(deploymentRelease.Environments, envName) {
 				continue
 			}
 
 			deployment := &api.Deployment{
-				Version:         uint64(*currentDeployment.Version),
+				Version:         uint64(*currentDeployment.ReleaseNumbers.Version),
 				QueuedVersion:   0,
 				UndeployVersion: false,
 				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
@@ -676,7 +676,7 @@ func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks 
 				// appName is not deployed here, ignore it
 				continue
 			}
-			versionInEnv := envDeployment.Version
+			versionInEnv := envDeployment.ReleaseNumbers.Version
 
 			upstreamDeployment, ok := appDeployments[types.EnvName(*upstreamEnvName)]
 			if !ok {
@@ -693,7 +693,7 @@ func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks 
 				result = append(result, &warning)
 				continue
 			}
-			versionInUpstreamEnv := upstreamDeployment.Version
+			versionInUpstreamEnv := upstreamDeployment.ReleaseNumbers.Version
 			if *versionInEnv > *versionInUpstreamEnv && len(appLocks) == 0 {
 				var warning = api.Warning{
 					WarningType: &api.Warning_UnusualDeploymentOrder{

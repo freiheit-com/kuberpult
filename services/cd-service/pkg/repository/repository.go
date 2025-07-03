@@ -871,10 +871,10 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	if err != nil {
 		return nil, err
 	}
-	if depl == nil || depl.Version == nil {
+	if depl == nil || depl.ReleaseNumbers.Version == nil {
 		return nil, nil
 	}
-	var v = uint64(*depl.Version)
+	var v = uint64(*depl.ReleaseNumbers.Version)
 	return &v, nil
 }
 

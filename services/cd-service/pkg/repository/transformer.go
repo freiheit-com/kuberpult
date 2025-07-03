@@ -1095,8 +1095,8 @@ func (u *UndeployApplication) Transform(
 		}
 
 		var isUndeploy bool
-		if deployment != nil && deployment.Version != nil {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, u.Application, uint64(*deployment.Version), true)
+		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, u.Application, uint64(*deployment.ReleaseNumbers.Version), true)
 			if err != nil {
 				return "", err
 			}
@@ -1109,7 +1109,7 @@ func (u *UndeployApplication) Transform(
 			if err != nil {
 				return "", err
 			}
-			deployment.Version = nil
+			deployment.ReleaseNumbers.Version = nil
 			deployment.Metadata.DeployedByName = user.Name
 			deployment.Metadata.DeployedByEmail = user.Email
 			err = state.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
@@ -1117,7 +1117,7 @@ func (u *UndeployApplication) Transform(
 				return "", err
 			}
 		}
-		if deployment == nil || deployment.Version == nil || isUndeploy {
+		if deployment == nil || deployment.ReleaseNumbers.Version == nil || isUndeploy {
 			locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
 			if err != nil {
 				return "", err

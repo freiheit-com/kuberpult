@@ -144,8 +144,8 @@ func (c *DeployApplicationVersion) Prognosis(
 	}
 
 	var existingVersion *uint64 = nil
-	if existingDeployment != nil && existingDeployment.Version != nil {
-		var tmp2 = (uint64)(*existingDeployment.Version)
+	if existingDeployment != nil && existingDeployment.ReleaseNumbers.Version != nil {
+		var tmp2 = (uint64)(*existingDeployment.ReleaseNumbers.Version)
 		existingVersion = &tmp2
 	}
 	var oldReleaseCommitId = ""
@@ -252,17 +252,20 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 			return "", err
 		}
 	}
-	if prognosisData.ExistingDeployment == nil || prognosisData.ExistingDeployment.Version == nil {
+	if prognosisData.ExistingDeployment == nil || prognosisData.ExistingDeployment.ReleaseNumbers.Version == nil {
 		firstDeployment = true
 	} else {
-		oldVersion = prognosisData.ExistingDeployment.Version
+		oldVersion = prognosisData.ExistingDeployment.ReleaseNumbers.Version
 	}
 	var v = int64(c.Version)
 	newDeployment := db.Deployment{
-		Created:       time.Time{},
-		App:           c.Application,
-		Env:           envName,
-		Version:       &v,
+		Created: time.Time{},
+		App:     c.Application,
+		Env:     envName,
+		ReleaseNumbers: types.ReleaseNumbers{
+			Revision: "0",
+			Version:  &v,
+		},
 		TransformerID: c.TransformerEslVersion,
 		Metadata: db.DeploymentMetadata{
 			DeployedByEmail: user.Email,

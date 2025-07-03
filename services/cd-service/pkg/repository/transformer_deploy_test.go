@@ -242,7 +242,10 @@ func TestDeployApplicationVersionPartTwo(t *testing.T) {
 				Created: time.Time{}, // ignored
 				App:     "app1",
 				Env:     "dev",
-				Version: &version,
+				ReleaseNumbers: types.ReleaseNumbers{
+					Revision: "0",
+					Version:  &version,
+				},
 				Metadata: db.DeploymentMetadata{
 					DeployedByName:  "test tester",
 					DeployedByEmail: "testmail@example.com",

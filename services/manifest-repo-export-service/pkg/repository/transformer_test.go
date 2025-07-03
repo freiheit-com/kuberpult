@@ -812,9 +812,12 @@ func TestReleaseTrain(t *testing.T) {
 				var v int64
 				v = 1
 				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-					App:           appName,
-					Env:           "production",
-					Version:       &v,
+					App: appName,
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &v,
+						Revision: "0",
+					},
 					TransformerID: 5,
 				})
 				if err != nil {
@@ -2581,7 +2584,10 @@ func TestCreateUndeployLogic(t *testing.T) {
 						}
 
 						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							Version:       &version,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: "0",
+							},
 							App:           appName,
 							Env:           envAcceptance,
 							Metadata:      db.DeploymentMetadata{},
@@ -2589,7 +2595,10 @@ func TestCreateUndeployLogic(t *testing.T) {
 							TransformerID: tr.GetEslVersion(),
 						})
 						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							Version:       &version,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: "0",
+							},
 							App:           appName,
 							Env:           envAcceptance2,
 							Metadata:      db.DeploymentMetadata{},
@@ -2996,7 +3005,10 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							Version:       &version,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: "0",
+							},
 							App:           appName,
 							Env:           envAcceptance,
 							Metadata:      db.DeploymentMetadata{},
@@ -3007,7 +3019,10 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							Version:       &version,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: "0",
+							},
 							App:           appName,
 							Env:           envAcceptance,
 							Metadata:      db.DeploymentMetadata{},

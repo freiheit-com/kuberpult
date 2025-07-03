@@ -243,9 +243,12 @@ func TestVersion(t *testing.T) {
 				}
 				var version int64 = 1
 				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-					App:     "test",
-					Env:     "development",
-					Version: &version,
+					App: "test",
+					Env: "development",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &version,
+						Revision: "0",
+					},
 				})
 				err = repo.Apply(ctx, transaction, tc.Setup...)
 				if err != nil {
