@@ -57,12 +57,16 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 			return err
 		}
 		for releaseNumber := 1; releaseNumber < 4; releaseNumber++ {
+			uintReleaseNumber := uint64(releaseNumber)
 			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-				ReleaseNumber: uint64(releaseNumber),
-				Created:       time.Time{},
-				App:           app,
-				Manifests:     db.DBReleaseManifests{},
-				Metadata:      db.DBReleaseMetaData{},
+				ReleaseNumbers: types.ReleaseNumbers{
+					Version:  &uintReleaseNumber,
+					Revision: "0",
+				},
+				Created:   time.Time{},
+				App:       app,
+				Manifests: db.DBReleaseManifests{},
+				Metadata:  db.DBReleaseMetaData{},
 			})
 			if err != nil {
 				return err
