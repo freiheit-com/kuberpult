@@ -35,19 +35,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
-type errMatcher struct {
-	msg string
-}
-
-func (e errMatcher) Error() string {
-	return e.msg
-}
-
-func (e errMatcher) Is(err error) bool {
-	return e.Error() == err.Error()
-}
-
 var devEnvironment db.DBEnvironment = db.DBEnvironment{
 	Name: "development",
 	Config: config.EnvironmentConfig{
