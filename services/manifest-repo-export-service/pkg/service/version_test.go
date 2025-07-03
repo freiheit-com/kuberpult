@@ -102,6 +102,10 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	return repo, remoteDir
 }
 
+var versionOne = uint64(1)
+var versionTwo = uint64(2)
+var versionThree = uint64(3)
+
 func TestVersion(t *testing.T) {
 	type expectedVersion struct {
 		Environment            string
@@ -227,12 +231,16 @@ func TestVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
+
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					Created:       gotime.Time{},
-					App:           "test",
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
+					Created:   gotime.Time{},
+					App:       "test",
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
@@ -241,7 +249,7 @@ func TestVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				var version int64 = 1
+				var version uint64 = 1
 				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 					App: "test",
 					Env: "development",
@@ -455,61 +463,79 @@ func TestGetManifests(t *testing.T) {
 					return err
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					Created:       gotime.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &versionOne,
+						Revision: "0",
+					},
+					Created:   gotime.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 2,
-					Created:       gotime.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &versionTwo,
+						Revision: "0",
+					},
+					Created:   gotime.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 3,
-					Created:       gotime.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &versionThree,
+						Revision: "0",
+					},
+					Created:   gotime.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					Created:       gotime.Time{},
-					App:           appNameOther,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &versionOne,
+						Revision: "0",
+					},
+					Created:   gotime.Time{},
+					App:       appNameOther,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 2,
-					Created:       gotime.Time{},
-					App:           appNameOther,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &versionTwo,
+						Revision: "0",
+					},
+					Created:   gotime.Time{},
+					App:       appNameOther,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 3,
-					Created:       gotime.Time{},
-					App:           appNameOther,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &versionThree,
+						Revision: "0",
+					},
+					Created:   gotime.Time{},
+					App:       appNameOther,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err

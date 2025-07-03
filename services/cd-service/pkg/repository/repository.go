@@ -1148,7 +1148,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 	}
 	for _, rel := range rels {
 		r := &Release{
-			Version:         rel.ReleaseNumber,
+			Version:         *rel.ReleaseNumbers.Version,
 			UndeployVersion: rel.Metadata.UndeployVersion,
 			SourceAuthor:    rel.Metadata.SourceAuthor,
 			SourceCommitId:  rel.Metadata.SourceCommitId,
@@ -1174,7 +1174,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		return nil, nil
 	}
 	return &Release{
-		Version:         env.ReleaseNumber,
+		Version:         uint64(*env.ReleaseNumbers.Version),
 		UndeployVersion: env.Metadata.UndeployVersion,
 		SourceAuthor:    env.Metadata.SourceAuthor,
 		SourceCommitId:  env.Metadata.SourceCommitId,

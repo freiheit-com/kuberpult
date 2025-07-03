@@ -3953,8 +3953,8 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 func TestReleaseTrainsWithCommitHash(t *testing.T) {
 	appName := "app"
 	groupName := "prodgroup"
-	versionOne := int64(1)
-	versionTwo := int64(2)
+	versionOne := uint64(1)
+	versionTwo := uint64(2)
 
 	tcs := []struct {
 		Name                string

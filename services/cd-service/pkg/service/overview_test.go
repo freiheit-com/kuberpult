@@ -2083,8 +2083,8 @@ func TestDeploymentHistory(t *testing.T) {
 	today := created.Round(time.Hour * 24)
 	yesterday := today.AddDate(0, 0, -1)
 	tomorrow := yesterday.AddDate(0, 0, 2)
-	versionOne := int64(1)
-	versionTwo := int64(2)
+	versionOne := uint64(1)
+	versionTwo := uint64(2)
 	dev := "dev"
 	staging := "staging"
 
@@ -2372,8 +2372,11 @@ func TestDeploymentHistory(t *testing.T) {
 			},
 			SetupReleases: []db.DBReleaseWithMetaData{
 				{
-					App:           testApp,
-					ReleaseNumber: 1,
+					App: testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  &versionOne,
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev":     "dev",

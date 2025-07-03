@@ -76,6 +76,6 @@ func Compare(a, b EnvName) int {
 }
 
 type ReleaseNumbers struct {
-	Version  *int64
+	Version  *uint64
 	Revision string
 }

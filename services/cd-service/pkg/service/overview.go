@@ -109,7 +109,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		}
 		for _, currentRelease := range releases {
 			var tmp = &repository.Release{
-				Version:         currentRelease.ReleaseNumber,
+				Version:         uint64(*currentRelease.ReleaseNumbers.Version),
 				UndeployVersion: currentRelease.Metadata.UndeployVersion,
 				SourceAuthor:    currentRelease.Metadata.SourceAuthor,
 				SourceCommitId:  currentRelease.Metadata.SourceCommitId,
@@ -267,7 +267,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 
 func getReleaseFromVersion(releases []*db.DBReleaseWithMetaData, version uint64) *db.DBReleaseWithMetaData {
 	for _, curr := range releases {
-		if curr.ReleaseNumber == version {
+		if *curr.ReleaseNumbers.Version == version {
 			return curr
 		}
 	}

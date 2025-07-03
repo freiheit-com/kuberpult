@@ -984,10 +984,14 @@ func setupDB(t *testing.T) *db.DBHandler {
 		if err != nil {
 			return err
 		}
+		var version uint64 = 1234
 		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-			ReleaseNumber: 1234,
-			Created:       time.Unix(123456789, 0).UTC(),
-			App:           "foo",
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: "0",
+				Version:  &version,
+			},
+			Created: time.Unix(123456789, 0).UTC(),
+			App:     "foo",
 			Manifests: db.DBReleaseManifests{
 				Manifests: map[types.EnvName]string{"staging": ""},
 			},
@@ -996,7 +1000,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 		if err != nil {
 			return err
 		}
-		var version int64 = 1234
+
 		err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 			Created: time.Unix(123456789, 0).UTC(),
 			App:     "foo",

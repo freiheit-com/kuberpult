@@ -1643,7 +1643,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	if len(lastRelease) == 0 {
 		return "", fmt.Errorf("cannot undeploy application '%v'", c.Application)
 	}
-	nextReleaseNumber = lastRelease[0].ReleaseNumber
+	nextReleaseNumber = *lastRelease[0].ReleaseNumbers.Version
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, nextReleaseNumber)
 

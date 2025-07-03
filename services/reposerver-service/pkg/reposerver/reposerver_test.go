@@ -50,8 +50,11 @@ var devEnvironment db.DBEnvironment = db.DBEnvironment{
 }
 
 var appRelease db.DBReleaseWithMetaData = db.DBReleaseWithMetaData{
-	ReleaseNumber: 1,
-	App:           "app",
+	ReleaseNumbers: types.ReleaseNumbers{
+		Revision: "0",
+		Version:  &appVersion,
+	},
+	App: "app",
 	Manifests: db.DBReleaseManifests{
 		Manifests: map[types.EnvName]string{
 			"development": `
@@ -75,7 +78,7 @@ data:
 	},
 }
 
-var appVersion int64 = 1
+var appVersion uint64 = 1
 
 func TestToRevision(t *testing.T) {
 	tcs := []struct {
