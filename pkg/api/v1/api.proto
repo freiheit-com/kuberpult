@@ -827,10 +827,6 @@ message GetManifestsResponse {
   map<string, Manifest> manifests = 2;
 }
 
-service CloudRunService {
-  rpc QueueDeployment (QueueDeploymentRequest) returns (QueueDeploymentResponse) {}
-}
-
 message QueueDeploymentRequest {
     bytes manifest = 1;
 }

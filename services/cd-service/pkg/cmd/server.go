@@ -24,7 +24,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
@@ -106,8 +105,6 @@ type Config struct {
 	DexDefaultRoleEnabled bool     `default:"false" split_words:"true"`
 	CheckCustomMigrations bool     `default:"false" split_words:"true"`
 	ReleaseVersionsLimit  uint     `default:"20" split_words:"true"`
-	DeploymentType        string   `default:"k8s" split_words:"true"` // either k8s or cloudrun
-	CloudRunServer        string   `default:"" split_words:"true"`
 	DbSslMode             string   `default:"verify-full" split_words:"true"`
 	MinorRegexes          string   `default:"" split_words:"true"`
 	AllowedDomains        []string `split_words:"true"`
@@ -260,19 +257,7 @@ func RunServer() {
 				zap.String("details", err.Error()),
 			)
 		}
-		if err := checkDeploymentType(c); err != nil {
-			logger.FromContext(ctx).Fatal("cd.config",
-				zap.String("details", err.Error()),
-			)
-		}
 
-		var cloudRunClient *cloudrun.CloudRunClient = nil
-		if c.DeploymentType == "cloudrun" {
-			cloudRunClient, err = cloudrun.InitCloudRunClient(c.CloudRunServer)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("Unable to initialize CloudRunService", zap.Error(err))
-			}
-		}
 		var dbHandler *db.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg db.DBConfig
@@ -342,8 +327,7 @@ func RunServer() {
 			AllowLongAppNames:         c.AllowLongAppNames,
 			ArgoCdGenerateFiles:       c.ArgoCdGenerateFiles,
 			DBHandler:                 dbHandler,
-			CloudRunClient:            cloudRunClient,
-
+			
 			DisableQueue: c.DisableQueue,
 		}
 
@@ -519,18 +503,6 @@ func RunServer() {
 func checkReleaseVersionLimit(limit uint) error {
 	if limit < minReleaseVersionsLimit || limit > maxReleaseVersionsLimit {
 		return releaseVersionsLimitError{limit: limit}
-	}
-	return nil
-}
-
-func checkDeploymentType(c Config) error {
-	if c.DeploymentType != "k8s" && c.DeploymentType != "cloudrun" {
-		return deploymentTypeConfigError{deploymentTypeInvalid: true, cloudrunServerMissing: false}
-	}
-	if c.DeploymentType == "cloudrun" {
-		if c.CloudRunServer == "" {
-			return deploymentTypeConfigError{deploymentTypeInvalid: false, cloudrunServerMissing: true}
-		}
 	}
 	return nil
 }
