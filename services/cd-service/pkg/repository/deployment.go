@@ -324,7 +324,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 				} else {
 					gen := getGenerator(ctx)
 					eventUuid := gen.Generate()
-					v := uint64(*oldVersion)
+					v := *oldVersion
 					oldReleaseCommitId := prognosisData.OldReleaseCommitId
 					if oldReleaseCommitId == "" {
 						logger.FromContext(ctx).Sugar().Warnf("could not find commit for release %d of app %s - skipping replaced-by event", v, c.Application)

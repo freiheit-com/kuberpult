@@ -109,7 +109,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		}
 		for _, currentRelease := range releases {
 			var tmp = &repository.Release{
-				Version:         uint64(*currentRelease.ReleaseNumbers.Version),
+				Version:         *currentRelease.ReleaseNumbers.Version,
 				UndeployVersion: currentRelease.Metadata.UndeployVersion,
 				SourceAuthor:    currentRelease.Metadata.SourceAuthor,
 				SourceCommitId:  currentRelease.Metadata.SourceCommitId,
@@ -226,13 +226,13 @@ func (o *OverviewServiceServer) GetAppDetails(
 		for envName, currentDeployment := range deployments {
 
 			// Test that deployment's release has the deployment's environment
-			deploymentRelease := getReleaseFromVersion(releases, uint64(*currentDeployment.ReleaseNumbers.Version))
+			deploymentRelease := getReleaseFromVersion(releases, *currentDeployment.ReleaseNumbers.Version)
 			if deploymentRelease != nil && !slices.Contains(deploymentRelease.Environments, envName) {
 				continue
 			}
 
 			deployment := &api.Deployment{
-				Version:         uint64(*currentDeployment.ReleaseNumbers.Version),
+				Version:         *currentDeployment.ReleaseNumbers.Version,
 				QueuedVersion:   0,
 				UndeployVersion: false,
 				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
@@ -685,7 +685,7 @@ func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks 
 					WarningType: &api.Warning_UpstreamNotDeployed{
 						UpstreamNotDeployed: &api.UpstreamNotDeployed{
 							UpstreamEnvironment: *upstreamEnvName,
-							ThisVersion:         uint64(*versionInEnv),
+							ThisVersion:         *versionInEnv,
 							ThisEnvironment:     env.Name,
 						},
 					},
@@ -698,9 +698,9 @@ func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks 
 				var warning = api.Warning{
 					WarningType: &api.Warning_UnusualDeploymentOrder{
 						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-							UpstreamVersion:     uint64(*versionInUpstreamEnv),
+							UpstreamVersion:     *versionInUpstreamEnv,
 							UpstreamEnvironment: *upstreamEnvName,
-							ThisVersion:         uint64(*versionInEnv),
+							ThisVersion:         *versionInEnv,
 							ThisEnvironment:     env.Name,
 						},
 					},

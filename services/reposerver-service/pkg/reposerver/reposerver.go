@@ -81,7 +81,7 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 		if deployment.ReleaseNumbers.Version == nil {
 			return nil, fmt.Errorf("could not find version for app=%s and env=%s", appName, envName)
 		}
-		releaseVersion := uint64(*deployment.ReleaseNumbers.Version)
+		releaseVersion := *deployment.ReleaseNumbers.Version
 
 		var release *db.DBReleaseWithMetaData
 		release, err = r.dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion, true)

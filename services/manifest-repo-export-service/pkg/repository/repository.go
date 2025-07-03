@@ -1939,7 +1939,7 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	if depl == nil || depl.ReleaseNumbers.Version == nil {
 		return nil, nil
 	}
-	var v = uint64(*depl.ReleaseNumbers.Version)
+	var v = *depl.ReleaseNumbers.Version
 	return &v, nil
 }
 
