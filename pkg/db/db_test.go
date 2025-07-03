@@ -3649,7 +3649,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				},
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
+						Version:  uversion(2),
 						Revision: "0",
 					},
 					App:       "app1",
@@ -3677,7 +3677,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				},
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
+						Version:  uversion(2),
 						Revision: "0",
 					},
 					App:          "app1",
@@ -3790,7 +3790,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				},
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
+						Version:  uversion(2),
 						Revision: "0",
 					},
 					App:          "app1",
@@ -4058,7 +4058,7 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 				},
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
+						Version:  uversion(2),
 						Revision: "0",
 					},
 					App:       "app1",
@@ -4074,7 +4074,7 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 				},
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
+						Version:  uversion(2),
 						Revision: "0",
 					},
 					App:       "app2",
@@ -4164,7 +4164,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 				},
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
+						Version:  uversion(2),
 						Revision: "0",
 					},
 					App:       "app1",
