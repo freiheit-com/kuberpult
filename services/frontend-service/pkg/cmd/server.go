@@ -623,12 +623,12 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
 	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
 	if err != nil {
-		return nil
+		logger.FromContext(httpCtx).Sugar().Infof("could not get context from dex: %v", err)
 	}
 	headerRole64 := req.Header.Get(auth.HeaderUserRole)
 	headerRole, err := auth.Decode64(headerRole64)
 	if err != nil {
-		logger.FromContext(httpCtx).Info("could not decode user role")
+		logger.FromContext(httpCtx).Sugar().Infof("could not decode user role %s: %v", headerRole64, err)
 		return nil
 	}
 	return &auth.DexAuthContext{Role: strings.Split(headerRole, ",")}
