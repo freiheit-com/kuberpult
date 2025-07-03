@@ -658,8 +658,14 @@ func setupRepositoryTestWithAllOptions(t *testing.T, withBackgroundJob bool) (re
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
+	err = cmd.Start()
+	if err != nil {
+		return nil, fmt.Errorf("git init could not start error: %v", err)
+	}
+	err = cmd.Wait()
+	if err != nil {
+		return nil, fmt.Errorf("git init wait error: %v", err)
+	}
 	t.Logf("test created dir: %s", localDir)
 
 	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())

@@ -48,7 +48,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -470,7 +469,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 	type TestCase struct {
 		Name             string
 		Transformers     []Transformer
-		db               bool
 		expectedDBEvents []db.EventRow // the events that the last transformer created
 	}
 
@@ -915,7 +913,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			var lastTransformerId db.TransformerID = -1
 			for index, transformer := range tc.Transformers {
 				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
-					var batchError *TransformerBatchApplyError = nil
+					var batchError *TransformerBatchApplyError
 					_, _, _, batchError = repo.ApplyTransformersInternal(ctx, tx, transformer)
 					if batchError != nil {
 						t.Fatalf("encountered error but no error is expected here: %d '%v'", index, batchError)
@@ -3281,15 +3279,20 @@ func TestRbacTransformerTest(t *testing.T) {
 			dir := t.TempDir()
 			remoteDir := path.Join(dir, "remote")
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
+			err := cmd.Start()
+			if err != nil {
+				t.Fatalf("cannot start: %v", err)
+			}
+			err = cmd.Wait()
+			if err != nil {
+				t.Fatalf("cannot wait: %v", err)
+			}
 			ctx := testutil.MakeTestContextDexEnabled()
 			if tc.ctx != nil {
 				ctx = tc.ctx
 			}
 			repo := SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
-			var err error
 			for _, tf := range tc.Transformers {
 				err = r.Apply(ctx, tf)
 				if err != nil {
@@ -3414,20 +3417,6 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 		}
 		return repo, dbHandler
 	}
-}
-
-// Injects an error in the filesystem of the state
-type injectErr struct {
-	Transformer
-	collector *testfs.UsageCollector
-	operation testfs.Operation
-	filename  string
-	err       error
-}
-
-func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
-	s, err := i.Transformer.Transform(ctx, state, t, transaction)
-	return s, err
 }
 
 func mockSendMetrics(repo Repository, interval time.Duration) <-chan bool {
@@ -4512,7 +4501,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			var err error = nil
+			var err error
 			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
 
 			var commitHashes []string

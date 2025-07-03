@@ -444,11 +444,11 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -467,6 +467,9 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
 			})
+			if err != nil {
+				t.Fatalf("unexpected error selecting env locks: %v", err)
+			}
 
 			if locks == nil {
 				t.Fatalf("Expected locks but got none")
@@ -606,11 +609,11 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -630,6 +633,9 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				locks, err := repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
 				return &locks, err
 			})
+			if err != nil {
+				t.Fatalf("unexpected error selecting team locks: %v", err)
+			}
 
 			if locks == nil {
 				t.Fatalf("Expected locks but got none")
@@ -1130,21 +1136,21 @@ func TestMinorFlag(t *testing.T) {
 			repo := SetupRepositoryTestWithDB(t).(*repository)
 			repo.config.MinorRegexes = tc.MinorRegexes
 			err3 := repo.State().DBHandler.WithTransactionR(ctxWithTime, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
+				_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
 					Environment: "acceptance",
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				})
 				if err != nil {
 					return err
 				}
-				_, state, _, err = repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
+				_, _, _, err = repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
 					Environment: "new env",
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				})
 				if err != nil {
 					return err
 				}
-				_, state, _, err = repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					return err
 				}
@@ -1888,11 +1894,11 @@ func TestEvents(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -2522,11 +2528,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -3370,7 +3376,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 				if err2 != nil {
 					t.Fatal(err)
 				}
-				if allReleases == nil || len(allReleases) == 0 {
+				if len(allReleases) == 0 {
 					t.Fatal("Expected some releases, but got none")
 				}
 				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases); diff != "" {

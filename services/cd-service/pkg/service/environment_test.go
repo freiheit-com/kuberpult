@@ -30,7 +30,7 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 	tcs := []struct {
 		Name              string
 		configConfig      config.EnvironmentConfig
-		expectedApiConfig api.EnvironmentConfig
+		expectedApiConfig *api.EnvironmentConfig
 	}{
 		{
 			Name: "basic tranformation to api",
@@ -90,7 +90,7 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 					},
 				},
 			},
-			expectedApiConfig: api.EnvironmentConfig{
+			expectedApiConfig: &api.EnvironmentConfig{
 				Upstream: &api.EnvironmentConfig_Upstream{
 					Environment: conversion.FromString("upstream"),
 					Latest:      conversion.Bool(true),
@@ -145,7 +145,6 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			actualApiConfig := TransformEnvironmentConfigToApi(tc.configConfig)
 			// first diff individual parts as they ensure shorter readable diffs ...
