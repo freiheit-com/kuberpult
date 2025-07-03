@@ -1677,7 +1677,7 @@ func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.
 			} else {
 				versionIntPtr = nil
 			}
-			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, versionIntPtr)
+			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, version)
 			if err != nil {
 				var deref int64
 				if versionIntPtr == nil {

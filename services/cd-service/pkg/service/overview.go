@@ -218,8 +218,8 @@ func (o *OverviewServiceServer) GetAppDetails(
 		// Cache queued versions to check with deployments
 		queuedVersions := make(map[types.EnvName]*uint64)
 		for _, queuedDeployment := range queuedDeployments {
-			if queuedDeployment.Version != nil {
-				parsedInt := uint64(*queuedDeployment.Version)
+			if queuedDeployment.ReleaseNumbers.Version != nil {
+				parsedInt := *queuedDeployment.ReleaseNumbers.Version
 				queuedVersions[queuedDeployment.Env] = &parsedInt
 			}
 		}
