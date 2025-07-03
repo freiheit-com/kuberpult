@@ -43,7 +43,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -198,8 +197,7 @@ type RepositoryConfig struct {
 	ArgoCdGenerateFiles bool
 	MinorRegexes        []*regexp.Regexp
 
-	DBHandler      *db.DBHandler
-	CloudRunClient *cloudrun.CloudRunClient
+	DBHandler *db.DBHandler
 
 	DisableQueue bool
 }
@@ -664,7 +662,6 @@ func (r *repository) StateAt() (*State, error) {
 		MinorRegexes:              r.config.MinorRegexes,
 		MaxNumThreads:             int(r.config.MaxNumThreads),
 		DBHandler:                 r.DB,
-		CloudRunClient:            r.config.CloudRunClient,
 		ParallelismOneTransaction: r.config.ParallelismOneTransaction,
 	}, nil
 }
@@ -679,8 +676,7 @@ type State struct {
 	MaxNumThreads             int
 	ParallelismOneTransaction bool
 	// DbHandler will be nil if the DB is disabled
-	DBHandler      *db.DBHandler
-	CloudRunClient *cloudrun.CloudRunClient
+	DBHandler *db.DBHandler
 }
 
 type Actor struct {

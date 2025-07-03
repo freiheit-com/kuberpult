@@ -1507,7 +1507,6 @@ func (c *DeleteEnvironmentLock) Transform(
 		MaxNumThreads:             state.MaxNumThreads,
 		DBHandler:                 state.DBHandler,
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
-		CloudRunClient:            state.CloudRunClient,
 		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
 	err = s.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId)

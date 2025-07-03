@@ -246,12 +246,6 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	firstDeployment := false
 	var oldVersion *int64
 
-	if state.CloudRunClient != nil {
-		err := state.CloudRunClient.DeployApplicationVersion(ctx, prognosisData.ManifestContent)
-		if err != nil {
-			return "", err
-		}
-	}
 	if prognosisData.ExistingDeployment == nil || prognosisData.ExistingDeployment.ReleaseNumbers.Version == nil {
 		firstDeployment = true
 	} else {
@@ -283,7 +277,6 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		MaxNumThreads:             state.MaxNumThreads,
 		DBHandler:                 state.DBHandler,
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
-		CloudRunClient:            state.CloudRunClient,
 		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
 	err = s.DeleteQueuedVersionIfExists(ctx, transaction, envName, c.Application)
