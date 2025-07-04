@@ -2271,9 +2271,12 @@ func TestQueueApplicationVersion(t *testing.T) {
 			Name: "Write and read",
 			Deployments: []QueuedDeployment{
 				{
-					Env:     envName,
-					App:     appName,
-					Version: version(0),
+					Env: envName,
+					App: appName,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 			},
 			ExpectedDeployments: []QueuedDeployment{
@@ -2281,7 +2284,10 @@ func TestQueueApplicationVersion(t *testing.T) {
 					EslVersion: 1,
 					Env:        envName,
 					App:        appName,
-					Version:    version(0),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 			},
 		},
@@ -2289,14 +2295,20 @@ func TestQueueApplicationVersion(t *testing.T) {
 			Name: "Write and read multiple",
 			Deployments: []QueuedDeployment{
 				{
-					Env:     envName,
-					App:     appName,
-					Version: version(0),
+					Env: envName,
+					App: appName,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 				{
-					Env:     envName,
-					App:     appName,
-					Version: version(1),
+					Env: envName,
+					App: appName,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 				},
 			},
 			ExpectedDeployments: []QueuedDeployment{
@@ -2304,13 +2316,19 @@ func TestQueueApplicationVersion(t *testing.T) {
 					EslVersion: 2,
 					Env:        envName,
 					App:        appName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 				},
 				{
 					EslVersion: 1,
 					Env:        envName,
 					App:        appName,
-					Version:    version(0),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 			},
 		},
@@ -2325,7 +2343,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.ReleaseNumbers.Version)
 					if err != nil {
 						return err
 					}
@@ -2354,26 +2372,35 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 		Name                string
 		Env                 types.EnvName
 		AppName             string
-		Version             *int64
+		ReleaseNumbers      *types.ReleaseNumbers
 		ExpectedDeployments []QueuedDeployment
 	}{
 		{
 			Name:    "Write and delete",
 			Env:     envName,
 			AppName: appName,
-			Version: version(1),
+			ReleaseNumbers: &types.ReleaseNumbers{
+				Revision: "0",
+				Version:  uversion(1),
+			},
 			ExpectedDeployments: []QueuedDeployment{
 				{
 					EslVersion: 2,
 					Env:        envName,
 					App:        appName,
-					Version:    nil,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  nil,
+					},
 				},
 				{
 					EslVersion: 1,
 					Env:        envName,
 					App:        appName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 				},
 			},
 		},
@@ -2387,7 +2414,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.Version)
+				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.ReleaseNumbers.Version)
 				if err != nil {
 					return err
 				}
@@ -2427,25 +2454,37 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 			App:  appName,
 			Deployments: []QueuedDeployment{
 				{
-					Env:     "dev",
-					App:     appName,
-					Version: version(0),
+					Env: "dev",
+					App: appName,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 				{
-					Env:     "staging",
-					App:     appName,
-					Version: version(0),
+					Env: "staging",
+					App: appName,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 				{
 					EslVersion: 2,
 					Env:        "staging",
 					App:        appName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 				},
 				{
-					Env:     "dev",
-					App:     "bar",
-					Version: version(0),
+					Env: "dev",
+					App: "bar",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 			},
 			ExpectedDeployments: []*QueuedDeployment{
@@ -2453,13 +2492,19 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 					EslVersion: 1,
 					Env:        "dev",
 					App:        appName,
-					Version:    version(0),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 				{
 					EslVersion: 2,
 					Env:        "staging",
 					App:        appName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 				},
 			},
 		},
@@ -2474,7 +2519,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.ReleaseNumbers.Version)
 					if err != nil {
 						return err
 					}
@@ -2519,25 +2564,37 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 			Env:  envName,
 			Deployments: []QueuedDeployment{
 				{
-					Env:     envName,
-					App:     "foo",
-					Version: version(0),
+					Env: envName,
+					App: "foo",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 				{
-					Env:     envName,
-					App:     "bar",
-					Version: version(0),
+					Env: envName,
+					App: "bar",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 				{
 					EslVersion: 2,
 					Env:        envName,
 					App:        "bar",
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 				},
 				{
-					Env:     "fakeEnv",
-					App:     "foo",
-					Version: version(0),
+					Env: "fakeEnv",
+					App: "foo",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 			},
 			ExpectedDeployments: []*QueuedDeployment{
@@ -2545,13 +2602,19 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 					EslVersion: 1,
 					Env:        envName,
 					App:        "foo",
-					Version:    version(0),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(0),
+					},
 				},
 				{
 					EslVersion: 2,
 					Env:        envName,
 					App:        "bar",
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: "0",
+						Version:  uversion(1),
+					},
 				},
 			},
 		},
@@ -2566,7 +2629,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.Version)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.ReleaseNumbers.Version)
 					if err != nil {
 						return err
 					}

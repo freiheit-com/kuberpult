@@ -1273,13 +1273,19 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 					EslVersion: 2,
 					Env:        "production",
 					App:        testAppName,
-					Version:    nil,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  nil,
+						Revision: "0",
+					},
 				},
 				{
 					EslVersion: 1,
 					Env:        "production",
 					App:        testAppName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
 				},
 			},
 		},
@@ -1347,7 +1353,10 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 					EslVersion: 1,
 					Env:        envProduction,
 					App:        testAppName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: "0",
+					},
 				},
 			},
 		},
