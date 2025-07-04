@@ -2119,8 +2119,7 @@ func (c *QueueApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	version := int64(c.Version)
-	err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, types.EnvName(c.Environment), c.Application, &version)
+	err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, types.EnvName(c.Environment), c.Application, &c.Version)
 	if err != nil {
 		return "", err
 	}
