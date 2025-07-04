@@ -1,1 +1,2 @@
 [safe]
+    directory = /kp/services/manifest-repo-export-service/pkg/service/repository_tags
