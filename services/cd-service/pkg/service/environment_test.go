@@ -170,7 +170,7 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 				t.Fatalf("transformed api config env group does not match expectation: %s", cmp.Diff(tc.expectedApiConfig.EnvironmentGroup, actualApiConfig.EnvironmentGroup, cmpopts.IgnoreUnexported(api.EnvironmentGroup{})))
 			}
 			// ... then compare the full struct.
-			if !cmp.Equal(&tc.expectedApiConfig, actualApiConfig, cmpopts.IgnoreUnexported(
+			if !cmp.Equal(tc.expectedApiConfig, actualApiConfig, cmpopts.IgnoreUnexported(
 				api.EnvironmentConfig{},
 				api.EnvironmentConfig_Upstream{},
 				api.EnvironmentConfig_ArgoCD{},
@@ -179,7 +179,7 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 				api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
 				api.EnvironmentConfig_ArgoCD_SyncWindows{},
 			)) {
-				t.Fatalf("transformed api config does not match expectation: %s", cmp.Diff(&tc.expectedApiConfig, actualApiConfig, cmpopts.IgnoreUnexported(
+				t.Fatalf("transformed api config does not match expectation: %s", cmp.Diff(tc.expectedApiConfig, actualApiConfig, cmpopts.IgnoreUnexported(
 					api.EnvironmentConfig{},
 					api.EnvironmentConfig_Upstream{},
 					api.EnvironmentConfig_ArgoCD{},
