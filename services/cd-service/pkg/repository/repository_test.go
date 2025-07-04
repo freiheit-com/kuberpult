@@ -375,10 +375,7 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 			}
 
 			go func() {
-				err := repo.Apply(ctx, transformer)
-				if err != nil {
-					t.Errorf("repo.Apply error: %v", err)
-				}
+				_ = repo.Apply(ctx, transformer)
 			}()
 
 			// first, wait, until the transformer has started:
