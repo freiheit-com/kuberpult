@@ -15,10 +15,10 @@ SKIP_DEPS=
 .PHONY: deps
 deps:
 ifeq ($(SKIP_DEPS),)
-	@echo "Running deps"
+	@echo "docker build deps image"
 	IMAGE_TAG=latest $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/deps build
 else
-	@echo "Skipping deps"
+	@echo "Skipping docker build for deps image"
 endif
 
 .PHONY: compile
