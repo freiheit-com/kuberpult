@@ -247,7 +247,7 @@ func (c *ReleaseTrain) Transform(
 	}
 
 	var targetGroupName = c.Target
-	var envGroupConfigs, isEnvGroup = GetEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
+	var envGroupConfigs, _ = GetEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, c.TargetType)
 	if len(envGroupConfigs) == 0 {
 		if c.TargetType == api.ReleaseTrainRequest_ENVIRONMENT.String() || c.TargetType == api.ReleaseTrainRequest_ENVIRONMENTGROUP.String() {
 			return "", grpc.PublicError(ctx, fmt.Errorf("could not find target of type %v and name '%v'", c.TargetType, targetGroupName))
@@ -268,64 +268,40 @@ func (c *ReleaseTrain) Transform(
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
 	}
 
-	if isEnvGroup && state.DBHandler.AllowParallelTransactions() {
-		releaseTrainErrGroup, ctx := errgroup.WithContext(ctx)
-		if state.MaxNumThreads > 0 {
-			releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
-		}
-		if state.ParallelismOneTransaction {
-			span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
-			defer span.Finish()
-			s, err2 := c.runWithNewGoRoutines(
-				envNames,
-				targetGroupName,
-				state.MaxNumThreads,
-				ctx,
-				configs,
-				allLatestReleases,
-				state,
-				transformerContext,
-				transaction)
-			if err2 != nil {
-				return s, onErr(err2)
-			} else {
-				span.Finish()
-			}
+	releaseTrainErrGroup, ctx := errgroup.WithContext(ctx)
+	if state.MaxNumThreads > 0 {
+		releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
+	}
+	if state.ParallelismOneTransaction {
+		span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
+		defer span.Finish()
+		s, err2 := c.runWithNewGoRoutines(
+			envNames,
+			targetGroupName,
+			state.MaxNumThreads,
+			ctx,
+			configs,
+			allLatestReleases,
+			state,
+			transformerContext,
+			transaction)
+		if err2 != nil {
+			return s, onErr(err2)
 		} else {
-			for _, envName := range envNames {
-				trainGroup := conversion.FromString(targetGroupName)
-				envNameLocal := envName
-				releaseTrainErrGroup.Go(func() error {
-					return c.runEnvReleaseTrainBackground(ctx, state, transformerContext, envNameLocal, trainGroup, configs, allLatestReleases)
-				})
-			}
-		}
-		err := releaseTrainErrGroup.Wait()
-		if err != nil {
-			return "", err
+			span.Finish()
 		}
 	} else {
 		for _, envName := range envNames {
-			var trainGroup *string
-			if isEnvGroup {
-				trainGroup = conversion.FromString(targetGroupName)
-			}
-			err = transformerContext.Execute(ctx, &envReleaseTrain{
-				Parent:                c,
-				Env:                   envName,
-				AllEnvConfigs:         configs,
-				WriteCommitData:       c.WriteCommitData,
-				TrainGroup:            trainGroup,
-				TransformerEslVersion: c.TransformerEslVersion,
-				CiLink:                c.CiLink,
-
-				AllLatestReleasesCache:       allLatestReleases,
-				AllLatestReleaseEnvironments: nil,
-			}, transaction)
-			if err != nil {
-				return "", err
-			}
+			trainGroup := conversion.FromString(targetGroupName)
+			envNameLocal := envName
+			releaseTrainErrGroup.Go(func() error {
+				return c.runEnvReleaseTrainBackground(ctx, state, transformerContext, envNameLocal, trainGroup, configs, allLatestReleases)
+			})
 		}
+	}
+	err = releaseTrainErrGroup.Wait()
+	if err != nil {
+		return "", err
 	}
 
 	return fmt.Sprintf(
@@ -435,7 +411,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 		spanOne.SetTag("environment", result.train.Env)
 		_, err := result.train.applyPrognosis(ctxOne, state, t, transaction, result.prognosis, spanOne)
 		if err != nil {
-			return "", onErrOne(onErrAll(fmt.Errorf("prognosis could not be applied for env '%s': %w", result.train.Env, result.error)))
+			return "", onErrOne(onErrAll(fmt.Errorf("prognosis could not be applied for env '%s': %w", result.train.Env, err)))
 		}
 		i++
 		spanOne.Finish()

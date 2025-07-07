@@ -2317,16 +2317,23 @@ func TestReleaseTrain(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			//check deployments
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
-			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-				if err2 != nil {
-					return err2
+			for _, transformer := range tc.Transformers {
+				err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, transformer)
+					if err2 != nil {
+						return err2
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("Err: %v\n", err)
 				}
+			}
 
-				deployment, dplError := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				deployment, dplError := r.State().DBHandler.DBSelectLatestDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
 				if dplError != nil {
 					return dplError
 				}
@@ -4712,15 +4719,23 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			//check deployments
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
-			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-				if err2 != nil {
-					return err2
+			for _, transformer := range tc.Transformers {
+				err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, transformer)
+					if err2 != nil {
+						return err2
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("Err: %v\n", err)
 				}
-				changes, err := state.DBHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, tc.targetTransformer)
+			}
+
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				changes, err := r.State().DBHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, tc.targetTransformer)
 				if err != nil {
 					return err
 				}
