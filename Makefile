@@ -75,8 +75,11 @@ builder:
 compose-down:
 	docker compose down
 
-kuberpult: compose-down
+prepare-compose:
 	IMAGE_TAG=local make -C services/cd-service docker
+	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
+
+kuberpult: prepare-compose compose-down
 	earthly +all-services --UID=$(USER_UID)
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
@@ -84,13 +87,11 @@ reset-db: compose-down
 	# This deletes the volume of the default db location:
 	docker volume rm kuberpult_pgdata
 
-kuberpult-freshdb: compose-down
-	IMAGE_TAG=local make -C services/cd-service docker
+kuberpult-freshdb: prepare-compose compose-down
 	earthly +all-services --UID=$(USER_UID)
 	docker compose up 
 
-all-services:
-	IMAGE_TAG=$(VERSION) make -C services/cd-service docker
+all-services: prepare-compose
 	earthly +all-services --tag=$(VERSION)
 
 integration-test:

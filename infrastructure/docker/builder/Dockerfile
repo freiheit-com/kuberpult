@@ -5,6 +5,7 @@ COPY --from=buf /usr/local/bin/buf /usr/local/bin/buf
 
 RUN apk add --no-cache ca-certificates tzdata alpine-sdk go make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
 COPY ./services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgit2.sh
+COPY ./services/manifest-repo-export-service/gitconfig /etc/gitconfig
 RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
 
 RUN npm install -g pnpm@8.9.2
