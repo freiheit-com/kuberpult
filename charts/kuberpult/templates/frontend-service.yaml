@@ -32,7 +32,9 @@
 {{- if .Values.frontend.tag }}
 {{ fail "Values.frontend.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
-
+{{- if (and (.Values.frontend.enableRevisions) (.Values.rollout.enabled)) }}
+{{ fail "Values.frontend.enabledRevision and Values.rollout.enabled cannot be toggled ON at the same time."}}
+{{ end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -133,6 +135,8 @@ spec:
           value: {{ .Values.ingress.iap.enabled | quote }}
         - name: KUBERPULT_API_ENABLE_DESPITE_NO_AUTH
           value: {{ .Values.auth.api.enableDespiteNoAuth | quote }}
+        - name: KUBERPULT_REVISIONS_ENABLED
+          value: {{ .Values.frontend.enableRevisions | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:

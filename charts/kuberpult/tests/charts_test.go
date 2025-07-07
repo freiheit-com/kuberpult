@@ -1435,6 +1435,42 @@ frontend:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test default value for enabled revisions",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+frontend:
+  grpcMaxRecvMsgSize: 8
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REVISIONS_ENABLED",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test toggling enabled revisions",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+frontend:
+  enableRevisions: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_REVISIONS_ENABLED",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
