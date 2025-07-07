@@ -61,9 +61,6 @@ manifest-repo-export-service:
 rollout-service:
     BUILD ./services/rollout-service+$target --UID=$UID --service=rollout-service
 
-frontend-service:
-    BUILD ./services/frontend-service+$target --UID=$UID --service=frontend-service
-
 reposerver-service:
     BUILD ./services/reposerver-service+$target --UID=$UID --service=reposerver-service
 
@@ -74,7 +71,6 @@ all-services:
     ARG tag="local"
     BUILD ./pkg+deps
     BUILD ./services/*+docker --tag=$tag --UID=$UID
-    BUILD ./services/frontend-service+docker-ui
 
 commitlint:
     FROM node:18-bookworm
@@ -90,8 +86,6 @@ test-all:
     BUILD ./services/manifest-repo-export-service+unit-test --service=manifest-repo-export-service
     BUILD ./services/rollout-service+unit-test --service=rollout-service
     BUILD ./services/reposerver-service+unit-test --service=reposerver-service
-    BUILD ./services/frontend-service+unit-test --service=frontend-service
-    BUILD ./services/frontend-service+unit-test-ui
 
 integration-test-deps:
     FROM alpine/k8s:1.30.14

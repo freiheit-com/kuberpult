@@ -111,7 +111,7 @@ services:
       postgres:
         condition: service_healthy
   frontend-service:
-    image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:local
+    image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:latest
     # Note: this `container_name` needs to be the same as in `package.json`
     container_name: kuberpult-frontend-service
     environment:
