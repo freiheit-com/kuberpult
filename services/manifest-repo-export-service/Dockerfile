@@ -8,8 +8,6 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /kp/database/migrations /migrations
 COPY gitconfig /etc/gitconfig
-COPY policy.csv /etc/policy.csv
-COPY team.csv /etc/team.csv
 
 COPY cmd/server/lib/ /lib
 COPY cmd/server/usr/ /usr
