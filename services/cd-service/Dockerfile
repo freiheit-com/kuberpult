@@ -12,7 +12,7 @@ COPY policy.csv /etc/policy.csv
 COPY team.csv /etc/team.csv
 
 COPY cmd/server/lib/ /lib
-COPY cmd/server/usr/* /usr
+COPY cmd/server/usr/ /usr
 
 USER kp
 WORKDIR /kp
