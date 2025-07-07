@@ -342,20 +342,19 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 				"Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
 		}
 	}
-
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
 func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release uint64, app string) (string, error) {
-	tmp, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, app, release, true)
+	tmp, err := state.DBHandler.DBSelectReleaseWithoutManifest(ctx, transaction, app, release)
 	if err != nil {
 		return "", err
 	}
 	if tmp == nil {
-		return "", fmt.Errorf("release %v not found for app %s", release, app)
+		return "", fmt.Errorf("getCommitID: release %v not found for app %s", release, app)
 	}
 	if tmp.Metadata.SourceCommitId == "" {
-		return "", fmt.Errorf("Found release %v for app %s, but commit id was empty", release, app)
+		return "", fmt.Errorf("getCommitID: found release %v for app %s, but commit id was empty", release, app)
 	}
 	return tmp.Metadata.SourceCommitId, nil
 }
