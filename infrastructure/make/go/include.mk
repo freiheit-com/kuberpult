@@ -38,6 +38,8 @@ lint: deps
 
 .PHONY: docker
 docker: compile
+	mkdir -p $(MAIN_PATH)/lib
+	mkdir -p $(MAIN_PATH)/usr
 	docker build . -t $(IMAGE_NAME)
 
 
