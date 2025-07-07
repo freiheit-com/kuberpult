@@ -1603,25 +1603,28 @@ func TestTransformerChanges(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			//repo := setupRepositoryTest(t)
 			repo := SetupRepositoryTestWithDB(t)
 
-			dbHandler := repo.State().DBHandler
+			state := repo.State()
+			dbHandler := state.DBHandler
 
-			_ = dbHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
-				// note that we only check the LAST error here:
-				if err != nil {
-					t.Fatalf("Expected no error: %v", err)
-				}
-				// we only diff the changes from the last transformer here:
-				lastChanges := actualChanges[len(actualChanges)-1]
-				if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
-					t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
-				}
-				return nil
-			})
-
+			for i, transformer := range tc.Transformers {
+				_ = dbHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, transformer)
+					// note that we only check the LAST error here:
+					if i == len(tc.Transformers)-1 {
+						if err != nil {
+							t.Fatalf("Expected no error: %v", err)
+						}
+						// we only diff the changes from the last transformer here:
+						lastChanges := actualChanges[len(actualChanges)-1]
+						if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
+							t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
+						}
+					}
+					return nil
+				})
+			}
 		})
 	}
 }
@@ -3274,8 +3277,8 @@ func TestRbacTransformerTest(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			dir := t.TempDir()
 			remoteDir := path.Join(dir, "remote")
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
