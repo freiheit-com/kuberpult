@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -140,7 +141,8 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 		WHERE stateChange <> 'AppStateChangeDelete'
 		ORDER BY appname;
 	`)
-	span.SetTag("query", query)
+	//span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 	rows, err := transaction.QueryContext(ctx, query)
 	return h.processAllAppsRows(ctx, rows, err)
 }

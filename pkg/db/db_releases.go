@@ -164,7 +164,7 @@ func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, t
 		SELECT appname, releaseVersion, environments
 		FROM releases;
 	`)
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,

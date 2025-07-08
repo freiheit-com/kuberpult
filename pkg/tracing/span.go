@@ -18,6 +18,7 @@ package tracing
 
 import (
 	"context"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -35,4 +36,16 @@ func StartSpanFromContext(ctx context.Context, name string) (tracer.Span, contex
 		return err
 	}
 	return mySpan, ctx, onErr
+}
+
+// MarkSpanAsDB adds tags so that Datadog shows it as a "Database span"
+func MarkSpanAsDB(span tracer.Span, sqlQuery string) {
+	span.SetTag(ext.ResourceName, sqlQuery)
+	span.SetTag("sql.query", sqlQuery)
+	span.SetTag(ext.ServiceName, "postgres")
+
+	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
+	span.SetTag(ext.DBType, "postgres")
+	span.SetTag(ext.DBSystem, "postgres")
+	//span.SetTag(ext., "postgres")
 }
