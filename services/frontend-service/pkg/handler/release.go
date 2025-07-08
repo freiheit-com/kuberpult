@@ -262,6 +262,10 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number revisions provided: %d, ", len(revision))
 		}
+		if !s.Config.EnabledRevision {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "The release endpoint does not support revisions (frontend.enabledRevisions = false).")
+		}
 		tf.Revision = revision[0]
 	}
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
