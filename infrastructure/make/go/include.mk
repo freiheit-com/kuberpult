@@ -9,6 +9,7 @@ SERVICE?=$(notdir $(shell pwd))
 IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):$(IMAGE_TAG)
 SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
+MAKEFLAGS += --no-builtin-rules
 
 .PHONY: deps
 deps:
@@ -49,3 +50,11 @@ release:
 .PHONY: datadog-wrapper
 datadog-wrapper:
 	docker run --rm -v "datadog-init:/datadog-init" datadog/serverless-init:1-alpine
+
+test: unit-test
+
+build-pr: IMAGE_TAG=pr-$(VERSION)
+build-pr: lint unit-test bench-test docker release
+
+build-main: IMAGE_TAG=main-$(VERSION)
+build-main: lint unit-test bench-test docker release
