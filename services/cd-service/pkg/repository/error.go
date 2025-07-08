@@ -18,6 +18,7 @@ package repository
 
 import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -114,6 +115,41 @@ func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32
 		response: api.CreateReleaseResponse{
 			Response: &api.CreateReleaseResponse_TooLong{
 				TooLong: &response,
+			},
+		},
+	}
+}
+func GetCreateReleaseMissingManifest(missingManifest []types.EnvName) *CreateReleaseError {
+	missingManifestStr := []string{}
+	for i := range missingManifest {
+		missingManifestStr = append(missingManifestStr, string(missingManifest[i]))
+	}
+	response := api.CreateReleaseResponseMissingManifest{
+		MissingManifest: missingManifestStr,
+	}
+	return &CreateReleaseError{
+		innerError: nil,
+		response: api.CreateReleaseResponse{
+			Response: &api.CreateReleaseResponse_MissingManifest{
+				MissingManifest: &response,
+			},
+		},
+	}
+}
+
+func GetCreateReleaseIsNoDownstream(noDownstream []types.EnvName) *CreateReleaseError {
+	noDownstreamStr := []string{}
+	for i := range noDownstream {
+		noDownstreamStr = append(noDownstreamStr, string(noDownstream[i]))
+	}
+	response := api.CreateReleaseResponseIsNoDownstream{
+		NoDownstream: noDownstreamStr,
+	}
+	return &CreateReleaseError{
+		innerError: nil,
+		response: api.CreateReleaseResponse{
+			Response: &api.CreateReleaseResponse_IsNoDownstream{
+				IsNoDownstream: &response,
 			},
 		},
 	}

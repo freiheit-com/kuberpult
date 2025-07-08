@@ -20,11 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"sync"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -357,22 +358,27 @@ func (d *BatchServer) processAction(
 	case *api.BatchAction_CreateRelease:
 		in := action.CreateRelease
 		response := api.CreateReleaseResponseSuccess{}
+		downstreamEnvs := []types.EnvName{}
+		for i := range in.DeployToDownstreamEnvironments {
+			downstreamEnvs = append(downstreamEnvs, types.EnvName(in.DeployToDownstreamEnvironments[i]))
+		}
 		return &repository.CreateApplicationVersion{
-				Version:               in.Version,
-				Application:           in.Application,
-				Manifests:             types.StringMapToEnvMap(in.Manifests),
-				SourceCommitId:        in.SourceCommitId,
-				SourceAuthor:          in.SourceAuthor,
-				SourceMessage:         in.SourceMessage,
-				PreviousCommit:        in.PreviousCommitId,
-				Team:                  in.Team,
-				DisplayVersion:        in.DisplayVersion,
-				Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
-				WriteCommitData:       d.Config.WriteCommitData,
-				CiLink:                in.CiLink,
-				AllowedDomains:        d.Config.AllowedCILinkDomains,
-				TransformerEslVersion: 0,
-				IsPrepublish:          in.IsPrepublish,
+				Version:                        in.Version,
+				Application:                    in.Application,
+				Manifests:                      types.StringMapToEnvMap(in.Manifests),
+				SourceCommitId:                 in.SourceCommitId,
+				SourceAuthor:                   in.SourceAuthor,
+				SourceMessage:                  in.SourceMessage,
+				PreviousCommit:                 in.PreviousCommitId,
+				Team:                           in.Team,
+				DisplayVersion:                 in.DisplayVersion,
+				Authentication:                 repository.Authentication{RBACConfig: d.RBACConfig},
+				WriteCommitData:                d.Config.WriteCommitData,
+				CiLink:                         in.CiLink,
+				AllowedDomains:                 d.Config.AllowedCILinkDomains,
+				TransformerEslVersion:          0,
+				IsPrepublish:                   in.IsPrepublish,
+				DeployToDownstreamEnvironments: downstreamEnvs,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{
 					CreateReleaseResponse: &api.CreateReleaseResponse{

@@ -259,6 +259,7 @@ message CreateReleaseRequest {
   string previous_commit_id = 11;
   string ci_link = 12;
   bool is_prepublish = 13;
+  repeated string deploy_to_downstream_environments = 14;
 }
 
 message CreateReleaseResponseSuccess {
@@ -278,6 +279,14 @@ message CreateReleaseResponseAppNameTooLong {
 }
 
 message CreateReleaseResponseAlreadyExistsSame {
+}
+
+message CreateReleaseResponseMissingManifest {
+  repeated string missing_manifest = 1;
+}
+
+message CreateReleaseResponseIsNoDownstream {
+  repeated string no_downstream = 1;
 }
 
 enum DifferingField {
@@ -303,6 +312,8 @@ message CreateReleaseResponse {
     CreateReleaseResponseGeneralFailure general_failure = 4;
     CreateReleaseResponseAlreadyExistsSame already_exists_same = 5;
     CreateReleaseResponseAlreadyExistsDifferent already_exists_different = 6;
+    CreateReleaseResponseMissingManifest missing_manifest = 7;
+    CreateReleaseResponseIsNoDownstream is_no_downstream = 8;
   }
 }
 
