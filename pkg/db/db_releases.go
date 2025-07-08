@@ -123,6 +123,8 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 		LIMIT 1;
 	`)
 	span.SetTag("query", selectQuery)
+	span.SetTag("app", app)
+	span.SetTag("releaseVersion", releaseVersion)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
