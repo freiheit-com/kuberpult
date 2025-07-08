@@ -24,7 +24,7 @@ MIN_COVERAGE?=47
 SERVICE_DIR:=/kp/pkg
 include $(ROOT_DIR)/infrastructure/make/go/include.mk
 
-PKG_WITHOUT_DOCKER=0
+PKG_WITHOUT_DOCKER?=0
 
 all: gen lint test
 test: gen unit-test

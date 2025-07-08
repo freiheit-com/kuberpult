@@ -17,13 +17,12 @@
 MIN_COVERAGE=32.2
 MAKEFLAGS += --no-builtin-rules
 CONTEXT=../..
-
-include ../../infrastructure/make/go/include.mk
-
 # Avoid calling docker to build the deps image:
 SKIP_DEPS=1
 # avoid calling docker to run buf:
 PKG_WITHOUT_DOCKER=1
+
+include ../../infrastructure/make/go/include.mk
 
 test: unit-test
 
