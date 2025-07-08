@@ -42,17 +42,46 @@ import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { Button } from '../button';
 import { useSearchParams } from 'react-router-dom';
 import { Tooltip } from '../tooltip/tooltip';
+import semver from 'semver';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
 const numberOfDisplayedReleasesOnHome = 6;
 
-const getReleasesToDisplay = (
-    deployedReleases: number[],
-    allReleases: number[],
-    minorReleases: number[],
+// const getReleasesToDisplay = (
+//     deployedReleases: number[],
+//     allReleases: number[],
+//     minorReleases: number[],
+//     ignoreMinors: boolean
+// ): number[] => {
+//     if (ignoreMinors) {
+//         allReleases = allReleases.filter(
+//             (version) => !minorReleases.includes(version) || deployedReleases.includes(version)
+//         );
+//     }
+//     // all deployed releases are important and the latest release is also important
+//     const importantReleases = deployedReleases.includes(allReleases[0])
+//         ? deployedReleases
+//         : [allReleases[0], ...deployedReleases];
+//     // number of remaining releases to get from history
+//     const numOfTrailingReleases = numberOfDisplayedReleasesOnHome - importantReleases.length;
+//     // find the index of the last deployed release e.g. Prod (or -1 when there's no deployed releases)
+//     const oldestImportantReleaseIndex = importantReleases.length
+//         ? allReleases.findIndex((version) => version === importantReleases.slice(-1)[0])
+//         : -1;
+//     // take the deployed releases + a slice from the oldest element (or very first, see above) with total length 6
+//     return [
+//         ...importantReleases,
+//         ...allReleases.slice(oldestImportantReleaseIndex + 1, oldestImportantReleaseIndex + numOfTrailingReleases + 1),
+//     ];
+// };
+
+const getReleasesToDisplayByRevision = (
+    deployedReleases: string[],
+    allReleases: string[],
+    minorReleases: string[],
     ignoreMinors: boolean
-): number[] => {
+): string[] => {
     if (ignoreMinors) {
         allReleases = allReleases.filter(
             (version) => !minorReleases.includes(version) || deployedReleases.includes(version)
@@ -331,12 +360,20 @@ export const ReadyServiceLane: React.FC<{
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
     const appDetails = props.allAppData.details;
     const allReleases = [...new Set(appDetails?.application?.releases.map((d) => d.version))];
+    const allReleasesRevisions = [...new Set(appDetails?.application?.releases.map((d) => d.revision))];
     const deployments = appDetails?.deployments;
     const allDeployedReleaseNumbers = [];
     for (const prop in deployments) {
         allDeployedReleaseNumbers.push(deployments[prop].version);
     }
-    const deployedReleases = [...new Set(allDeployedReleaseNumbers.map((v) => v).sort((n1, n2) => n2 - n1))];
+
+    const allDeployedReleaseRevisions = [];
+    for (const prop in deployments) {
+        const v = appDetails?.application?.releases.find((r) => r.version === deployments[prop].version);
+        allDeployedReleaseRevisions.push(v ? v.revision : '0');
+    }
+    //const deployedReleases = [...new Set(allDeployedReleaseNumbers.map((v) => v).sort((n1, n2) => n2 - n1))];
+    const deployedReleasesRevisions = [...new Set(allDeployedReleaseRevisions.map((v) => v))];
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
         if (allReleases.length === 0) {
@@ -388,7 +425,7 @@ export const ReadyServiceLane: React.FC<{
     const prepareUndeployOrUndeployText = deriveUndeployMessage(appDetails?.application?.undeploySummary);
     const releases = [
         ...new Set(
-            getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) => n2 - n1)
+            semver.sort(getReleasesToDisplayByRevision(deployedReleasesRevisions, allReleasesRevisions, [], hideMinors))
         ),
     ];
     const releases_lane =

@@ -1374,6 +1374,7 @@ describe('Test Calculate Release Difference', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: '',
                                 },
                                 {
                                     version: 12,
@@ -1387,6 +1388,7 @@ describe('Test Calculate Release Difference', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: '',
                                 },
                             ],
                         },
@@ -1457,6 +1459,7 @@ describe('Test Calculate Release Difference', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: '',
                                 },
                                 {
                                     version: 12,
@@ -1470,6 +1473,7 @@ describe('Test Calculate Release Difference', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: '',
                                 },
                                 {
                                     version: 15,
@@ -1483,6 +1487,7 @@ describe('Test Calculate Release Difference', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: '',
                                 },
                             ],
                         },
@@ -1555,6 +1560,7 @@ describe('Test Calculate Release Difference', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: '',
                                 },
                                 {
                                     version: 12,
@@ -1568,6 +1574,7 @@ describe('Test Calculate Release Difference', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: '',
                                 },
                             ],
                         },
@@ -1638,6 +1645,7 @@ describe('Test Calculate Release Difference', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: '',
                                 },
                                 {
                                     version: 12,
@@ -1651,6 +1659,7 @@ describe('Test Calculate Release Difference', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: '',
                                 },
                             ],
                         },

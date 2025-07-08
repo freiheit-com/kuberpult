@@ -26,7 +26,6 @@ import (
 	"regexp"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -56,6 +55,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	revisions "github.com/hashicorp/go-version"
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
@@ -436,27 +436,8 @@ func isValidLink(urlToCheck string, allowedDomains []string) bool {
 }
 
 func isValidRevision(revision string) (bool, error) {
-	parts := strings.Split(revision, ".")
-	if len(parts) > 3 || len(parts) == 0 {
-		return false, fmt.Errorf("invalid version format: %s. Expected format like 'major.minor.patch'", revision)
-	}
-
-	var components [3]int
-	for i, part := range parts {
-		if part == "" {
-			return false, fmt.Errorf("invalid version format: empty component in '%s'", revision)
-		}
-		num, err := strconv.Atoi(part)
-		if err != nil {
-			return false, fmt.Errorf("invalid number in version string '%s': %w", revision, err)
-		}
-		if num < 0 {
-			return false, fmt.Errorf("version components cannot be negative: %s", revision)
-		}
-		components[i] = num
-	}
-
-	return true, nil
+	_, err := revisions.NewVersion(revision)
+	return err == nil, err
 }
 
 func isValidLifeTime(lifeTime string) bool {

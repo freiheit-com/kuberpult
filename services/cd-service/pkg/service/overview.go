@@ -88,6 +88,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			Team:            "",
 		}
 
+		s := true
 		// Releases
 		result.Name = appName
 		retrievedReleasesOfApp, err := o.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
@@ -120,13 +121,18 @@ func (o *OverviewServiceServer) GetAppDetails(
 				IsPrepublish:    currentRelease.Metadata.IsPrepublish,
 				Environments:    currentRelease.Environments,
 				CiLink:          currentRelease.Metadata.CiLink,
+				Revision:        currentRelease.ReleaseNumbers.Revision,
 			}
 			result.Releases = append(result.Releases, tmp.ToProto())
 		}
-		//Highest to lowest
-		sort.Slice(result.Releases, func(i, j int) bool {
-			return result.Releases[j].Version < result.Releases[i].Version
-		})
+		if s {
+			result.Releases = sortReleases(result.Releases)
+		} else {
+			//Highest to lowest
+			sort.Slice(result.Releases, func(i, j int) bool {
+				return result.Releases[j].Version < result.Releases[i].Version
+			})
+		}
 
 		appTeamName, err := o.Repository.State().GetApplicationTeamOwner(ctx, transaction, appName)
 		if err != nil {
@@ -263,6 +269,26 @@ func (o *OverviewServiceServer) GetAppDetails(
 	}
 	response.Application = resultApp
 	return response, nil
+}
+
+func sortReleases(releases []*api.Release) []*api.Release {
+	var m = make(map[uint64]*api.Release)
+	var n types.ReleaseNumberCollection
+	for _, rel := range releases {
+		m[rel.Version] = rel
+		n = append(n, types.ReleaseNumbers{
+			Version:  &rel.Version,
+			Revision: rel.Revision,
+		})
+	}
+	fmt.Printf("To Sort: %v\n", n)
+	sort.Sort(n)
+	fmt.Printf("Sorted: %v\n", n)
+	var toReturn []*api.Release
+	for _, currR := range n {
+		toReturn = append(toReturn, m[*currR.Version])
+	}
+	return toReturn
 }
 
 func getReleaseFromVersion(releases []*db.DBReleaseWithMetaData, version uint64) *db.DBReleaseWithMetaData {
