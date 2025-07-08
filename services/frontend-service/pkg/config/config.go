@@ -56,7 +56,7 @@ type ServerConfig struct {
 	ApiEnableDespiteNoAuth             bool          `default:"false" split_words:"true"`
 	IapEnabled                         bool          `default:"false" split_words:"true"`
 	GrpcMaxRecvMsgSize                 int           `default:"4" split_words:"true"`
-	EnabledRevisions                   bool          `default:"false" split_words:"false"`
+	EnabledRevisions                   bool          `default:"false" split_words:"true"`
 }
 
 type FrontendConfig struct {

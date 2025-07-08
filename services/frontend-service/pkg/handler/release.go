@@ -239,6 +239,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(displayVersion) != 1 {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(displayVersion))
+			return
 		}
 		if len(displayVersion[0]) > 15 {
 			w.WriteHeader(400)
@@ -261,10 +262,12 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(revision) != 1 {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number revisions provided: %d, ", len(revision))
+			return
 		}
 		if !s.Config.EnabledRevisions {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "The release endpoint does not support revisions (frontend.enabledRevisions = false).")
+			return
 		}
 		tf.Revision = revision[0]
 	}

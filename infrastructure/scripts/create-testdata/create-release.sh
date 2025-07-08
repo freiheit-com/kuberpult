@@ -99,6 +99,7 @@ inputs=()
 inputs+=(--form-string "application=$name")
 inputs+=(--form-string "source_commit_id=$commit_id")
 inputs+=(--form-string "source_author=$author")
+inputs+=(--form-string "revision=1.1.1")
 
 if [ "$prev" != "" ];
 then

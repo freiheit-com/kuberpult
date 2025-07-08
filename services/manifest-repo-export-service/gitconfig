@@ -1,2 +1,4 @@
 [safe]
+    directory = /repository_remote
+    directory = /repository
     directory = /kp

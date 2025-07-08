@@ -45,6 +45,7 @@ const extendRelease = (props: Partial<Release>): Release => ({
     isPrepublish: false,
     environments: [],
     ciLink: '',
+    revision: '',
     ...props,
 });
 
