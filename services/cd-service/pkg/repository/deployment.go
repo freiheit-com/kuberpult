@@ -346,13 +346,17 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 }
 
 func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release uint64, app string) (string, error) {
-	tmp, err := state.DBHandler.DBSelectReleaseWithoutManifest(ctx, transaction, app, release)
+	tmpList, err := state.DBHandler.DBSelectReleasesByVersions(ctx, transaction, app, []uint64{release}, false)
 	if err != nil {
 		return "", err
 	}
-	if tmp == nil {
+	if len(tmpList) == 0 {
 		return "", fmt.Errorf("getCommitID: release %v not found for app %s", release, app)
 	}
+	if len(tmpList) > 1 {
+		return "", fmt.Errorf("getCommitID: too many releases %v found for app %s", release, app)
+	}
+	tmp := tmpList[0]
 	if tmp.Metadata.SourceCommitId == "" {
 		return "", fmt.Errorf("getCommitID: found release %v for app %s, but commit id was empty", release, app)
 	}

@@ -134,28 +134,6 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
 }
 
-func (h *DBHandler) DBSelectReleaseWithoutManifest(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64) (*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseWithoutManifest")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(`
-		SELECT created, appName, metadata, releaseVersion, environments, revision
-		FROM releases  
-		WHERE appName=? AND releaseVersion=? 
-		LIMIT 1;
-	`)
-	span.SetTag("query", selectQuery)
-	span.SetTag("app", app)
-	span.SetTag("releaseVersion", releaseVersion)
-
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		app,
-		releaseVersion,
-	)
-	return h.processReleaseRow(ctx, err, rows, true, false)
-}
-
 func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool, ts time.Time) (*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersionAtTimestamp")
 	defer span.Finish()
