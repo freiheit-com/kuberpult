@@ -45,7 +45,7 @@ docker: compile
 
 .PHONY: release
 release:
-	docker push $(IMAGE_NAME)
+	test -n "$(MAIN_PATH)" || exit 0; docker push $(IMAGE_NAME)
 
 .PHONY: datadog-wrapper
 datadog-wrapper:
