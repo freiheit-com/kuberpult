@@ -360,6 +360,7 @@ func (d *BatchServer) processAction(
 		response := api.CreateReleaseResponseSuccess{}
 		downstreamEnvs := types.StringsToEnvNames(in.DeployToDownstreamEnvironments)
 		return &repository.CreateApplicationVersion{
+<<<<<<< HEAD
 				Version:                        in.Version,
 				Application:                    in.Application,
 				Manifests:                      types.StringMapToEnvMap(in.Manifests),
@@ -376,6 +377,7 @@ func (d *BatchServer) processAction(
 				TransformerEslVersion:          0,
 				IsPrepublish:                   in.IsPrepublish,
 				DeployToDownstreamEnvironments: downstreamEnvs,
+				Revision:              in.Revision,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{
 					CreateReleaseResponse: &api.CreateReleaseResponse{

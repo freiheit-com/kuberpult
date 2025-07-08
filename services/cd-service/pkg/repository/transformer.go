@@ -377,6 +377,7 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env types.EnvName) {
 }
 
 type CreateApplicationVersion struct {
+<<<<<<< HEAD
 	Authentication                 `json:"-"`
 	Version                        uint64                   `json:"version"`
 	Application                    string                   `json:"app"`
@@ -393,6 +394,7 @@ type CreateApplicationVersion struct {
 	TransformerEslVersion          db.TransformerID         `json:"-"`
 	IsPrepublish                   bool                     `json:"isPrepublish"`
 	DeployToDownstreamEnvironments []types.EnvName          `json:"deployToDownstreamEnvironments"`
+	Revision              string                   `json:"-"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {

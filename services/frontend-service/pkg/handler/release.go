@@ -83,6 +83,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	tf := api.CreateReleaseRequest{
+<<<<<<< HEAD
 		Environment:                    "",
 		Application:                    "",
 		Team:                           "",
@@ -97,6 +98,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		CiLink:                         "",
 		IsPrepublish:                   false,
 		DeployToDownstreamEnvironments: []string{},
+		Revision:         "0",
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -251,11 +253,18 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	if ciLink, ok := form.Value["ci_link"]; ok {
 		if len(ciLink) != 1 {
 			w.WriteHeader(400)
-			fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(ciLink))
+			fmt.Fprintf(w, "Invalid number of ci links provided: %d, ", len(ciLink))
 		}
 
 		tf.CiLink = ciLink[0]
+	}
 
+	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
+		if len(revision) != 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number revisions provided: %d, ", len(revision))
+		}
+		tf.Revision = revision[0]
 	}
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
