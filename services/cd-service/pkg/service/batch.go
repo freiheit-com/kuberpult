@@ -373,6 +373,7 @@ func (d *BatchServer) processAction(
 				AllowedDomains:        d.Config.AllowedCILinkDomains,
 				TransformerEslVersion: 0,
 				IsPrepublish:          in.IsPrepublish,
+				Revision:              in.Revision,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{
 					CreateReleaseResponse: &api.CreateReleaseResponse{

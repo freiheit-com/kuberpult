@@ -259,6 +259,7 @@ message CreateReleaseRequest {
   string previous_commit_id = 11;
   string ci_link = 12;
   bool is_prepublish = 13;
+  string revision = 14;
 }
 
 message CreateReleaseResponseSuccess {

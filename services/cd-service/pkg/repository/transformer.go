@@ -391,6 +391,7 @@ type CreateApplicationVersion struct {
 	AllowedDomains        []string                 `json:"-"`
 	TransformerEslVersion db.TransformerID         `json:"-"`
 	IsPrepublish          bool                     `json:"isPrepublish"`
+	Revision              string                   `json:"-"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
