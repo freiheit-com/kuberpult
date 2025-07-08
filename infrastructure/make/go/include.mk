@@ -17,7 +17,7 @@ deps:
 
 .PHONY: compile
 compile: deps
-	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'cd $(MAIN_PATH) &&  CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi'
+	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'test -n "$(MAIN_PATH)" && cd $(MAIN_PATH) && CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi'
 
 .PHONY: unit-test
 unit-test: deps
