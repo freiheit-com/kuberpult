@@ -26,6 +26,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -435,6 +436,30 @@ func isValidLink(urlToCheck string, allowedDomains []string) bool {
 	return slices.Contains(allowedDomains, u.Hostname())
 }
 
+func isValidRevision(revision string) (bool, error) {
+	parts := strings.Split(revision, ".")
+	if len(parts) > 3 || len(parts) == 0 {
+		return false, fmt.Errorf("invalid version format: %s. Expected format like 'major.minor.patch'", revision)
+	}
+
+	var components [3]int
+	for i, part := range parts {
+		if part == "" {
+			return false, fmt.Errorf("invalid version format: empty component in '%s'", revision)
+		}
+		num, err := strconv.Atoi(part)
+		if err != nil {
+			return false, fmt.Errorf("invalid number in version string '%s': %w", revision, err)
+		}
+		if num < 0 {
+			return false, fmt.Errorf("version components cannot be negative: %s", revision)
+		}
+		components[i] = num
+	}
+
+	return true, nil
+}
+
 func isValidLifeTime(lifeTime string) bool {
 	pattern := `^[1-9][0-9]*(h|d|w)$`
 	matched, err := regexp.MatchString(pattern, lifeTime)
@@ -530,6 +555,14 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 
+	if c.Revision != "" {
+		if ok, err := isValidRevision(c.Revision); !ok {
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided Revision: %s is not valid. Reason: %v", c.Revision, err))
+		}
+	} else {
+		c.Revision = "0" //If no revision was provided, we say it is 0
+	}
+
 	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
@@ -581,7 +614,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: 0,
+			Revision: c.Revision,
 			Version:  &version,
 		},
 		App: c.Application,
@@ -643,6 +676,7 @@ func (c *CreateApplicationVersion) Transform(
 				Environment:           env,
 				Application:           c.Application,
 				Version:               version, // the train should queue deployments, instead of giving up:
+				Revision:              c.Revision,
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
 				WriteCommitData:       c.WriteCommitData,
