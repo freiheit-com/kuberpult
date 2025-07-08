@@ -83,7 +83,6 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	tf := api.CreateReleaseRequest{
-<<<<<<< HEAD
 		Environment:                    "",
 		Application:                    "",
 		Team:                           "",
@@ -264,7 +263,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number revisions provided: %d, ", len(revision))
 		}
-		if !s.Config.EnabledRevision {
+		if !s.Config.EnabledRevisions {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "The release endpoint does not support revisions (frontend.enabledRevisions = false).")
 		}
@@ -321,6 +320,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		CiLink:                         "",
 		IsPrepublish:                   false,
 		DeployToDownstreamEnvironments: []string{},
+		Revision:         "0",
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -462,8 +462,20 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		tf.CiLink = ciLink[0]
 
 	}
+
 	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
 		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
+
+	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
+		if len(revision) != 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number revisions provided: %d, ", len(revision))
+		}
+		if !s.Config.EnabledRevisions {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "The release endpoint does not support revisions (frontend.enabledRevisions = false).")
+		}
+		tf.Revision = revision[0]
 	}
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
