@@ -55,11 +55,12 @@ func (h *DBHandler) DBWriteNewSyncEvent(ctx context.Context, tx *sql.Tx, syncDat
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO git_sync_status (created, transformerid, envName, appName, status)  VALUES (?, ?, ?, ?, ?);")
+	tracing.MarkSpanAsDB(span, insertQuery)
+
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
 		return onErr(fmt.Errorf("DBWriteNewSyncEvent unable to get transaction timestamp: %w", err))
 	}
-	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		*now,
@@ -111,6 +112,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	}
 
 	selectQuery := h.AdaptQuery("SELECT appName, envName FROM git_sync_status WHERE transformerid = ? AND status = ? ORDER BY created DESC;")
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -160,6 +162,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 	}
 
 	selectQuery := h.AdaptQuery("SELECT appName, envName FROM git_sync_status WHERE transformerid = ? ORDER BY created DESC;")
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -260,6 +263,7 @@ func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, 
 	}
 
 	query := h.AdaptQuery("UPDATE deployments SET transformereslversion = ? WHERE transformereslversion= ?;")
+	tracing.MarkSpanAsDB(span, query)
 	_, err := tx.ExecContext(ctx, query, newId, oldId)
 	if err != nil {
 		return onErr(fmt.Errorf("could not update deployments from %q to %q. Error: %w\n", oldId, newId, err))
@@ -278,6 +282,7 @@ func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, stat
 	}
 
 	selectQuery := h.AdaptQuery("SELECT transformerid, envName, appName, status FROM git_sync_status WHERE status = ? ORDER BY created DESC;")
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -333,6 +338,7 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 	}
 
 	selectQuerry := h.AdaptQuery("SELECT transformerid, envName, appName, status FROM git_sync_status WHERE appName = ? AND envName= ? ORDER BY created DESC LIMIT 1;")
+	tracing.MarkSpanAsDB(span, selectQuerry)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuerry,
@@ -386,6 +392,7 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 	}
 
 	selectQuerry := h.AdaptQuery("SELECT count(*) FROM git_sync_status WHERE status = (?);")
+	tracing.MarkSpanAsDB(span, selectQuerry)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuerry,
