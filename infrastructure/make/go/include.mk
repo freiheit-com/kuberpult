@@ -15,9 +15,9 @@ MAKEFLAGS += --no-builtin-rules
 
 .PHONY: deps
 deps:
-ifeq ($(SKIP_DEPS),1)
+ifeq ($(SKIP_DEPS),0)
 	@echo "docker build deps image"
-#	IMAGE_TAG=latest $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/deps build
+	IMAGE_TAG=latest $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/deps build
 else
 	@echo "Skipping docker build for deps image"
 endif
