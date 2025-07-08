@@ -15,14 +15,6 @@
 # Copyright freiheit.com
 
 MIN_COVERAGE=45.4
-MAKEFLAGS += --no-builtin-rules
 
 include ../../infrastructure/make/go/include.mk
 
-test: unit-test
-
-build-pr: IMAGE_TAG=pr-$(VERSION)
-build-pr: lint unit-test bench-test docker release
-
-build-main: IMAGE_TAG=main-$(VERSION)
-build-main: lint unit-test bench-test docker release
