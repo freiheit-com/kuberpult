@@ -66,7 +66,7 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 		WHERE appName=? AND envName=?
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -93,7 +93,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 		FROM deployments
 		WHERE deployments.appname = (?) AND deployments.releaseVersion IS NOT NULL;
 	`)
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -119,8 +119,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Contex
 		FROM deployments
 		WHERE deployments.envName= ?;
 	`)
-
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	span.SetTag("kuberpultEnvironment", envName)
 	rows, err := tx.QueryContext(
 		ctx,
@@ -148,8 +147,7 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 		WHERE appName=? AND envName=? and releaseVersion=?
 		LIMIT 1;
 	`)
-
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -179,8 +177,7 @@ func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *s
 		ORDER BY created DESC
 		LIMIT 1;
 	`)
-
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -210,8 +207,7 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 		ORDER BY version DESC
 		LIMIT ?;
 	`)
-
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -252,8 +248,7 @@ func (h *DBHandler) DBSelectDeploymentHistoryCount(ctx context.Context, tx *sql.
 		SELECT COUNT(*) FROM deployments_history
 		WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?);
 	`)
-
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	var result uint64
 	err := tx.QueryRowContext(
 		ctx,
@@ -278,8 +273,7 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 		FROM deployments
 		WHERE transformereslVersion=?;
 	`)
-
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -317,8 +311,7 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 		FROM deployments
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
-
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -360,11 +353,6 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (map[types.EnvName]int64, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
 	defer span.Finish()
-	insertQuery := h.AdaptQuery(`
-		SELECT envname, releaseVersion
-		FROM deployments
-		WHERE appName = (?) AND releaseVersion IS NOT NULL;
-	`)
 	if h == nil {
 		return nil, nil
 	}
@@ -372,9 +360,14 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 		return nil, fmt.Errorf("DBSelectAllDeploymentsForApp: no transaction provided")
 	}
 
-	span.SetTag("query", insertQuery)
+	selectQuery := h.AdaptQuery(`
+		SELECT envname, releaseVersion
+		FROM deployments
+		WHERE appName = (?) AND releaseVersion IS NOT NULL;
+	`)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.Query(
-		insertQuery,
+		selectQuery,
 		appName,
 	)
 
@@ -384,6 +377,12 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (map[types.EnvName]int64, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForAppAtTimestamp")
 	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllDeploymentsForAppAtTimestamp: no transaction provided")
+	}
 	query := h.AdaptQuery(`
 	SELECT
 		deployments_history.envName,
@@ -405,14 +404,7 @@ func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context,
 		latest.latest=deployments_history.version
 		AND latest.appname=deployments_history.appname
 		AND latest.envName=deployments_history.envName;`)
-	if h == nil {
-		return nil, nil
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("DBSelectAllDeploymentsForAppAtTimestamp: no transaction provided")
-	}
-
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 	rows, err := tx.Query(
 		query,
 		appName,
@@ -443,12 +435,6 @@ func (h *DBHandler) DBUpdateOrCreateDeployment(ctx context.Context, tx *sql.Tx, 
 func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deployment Deployment) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertDeploymentRow")
 	defer span.Finish()
-	upsertQuery := h.AdaptQuery(`
-		INSERT INTO deployments (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(appName, envName)
-		DO UPDATE SET created = excluded.created, releaseVersion = excluded.releaseVersion, metadata = excluded.metadata, transformereslversion = excluded.transformereslversion, revision = excluded.revision;
-	`)
 	if h == nil {
 		return nil
 	}
@@ -456,6 +442,13 @@ func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deploym
 		return fmt.Errorf("upsertDeploymentRow: no transaction provided")
 	}
 
+	upsertQuery := h.AdaptQuery(`
+		INSERT INTO deployments (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(appName, envName)
+		DO UPDATE SET created = excluded.created, releaseVersion = excluded.releaseVersion, metadata = excluded.metadata, transformereslversion = excluded.transformereslversion, revision = excluded.revision;
+	`)
+	tracing.MarkSpanAsDB(span, upsertQuery)
 	jsonToInsert, err := json.Marshal(deployment.Metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -465,7 +458,6 @@ func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deploym
 	if err != nil {
 		return fmt.Errorf("upsertDeploymnetRow unable to get transaction timestamp: %w", err)
 	}
-	span.SetTag("query", upsertQuery)
 	nullVersion := NewNullUInt(deployment.ReleaseNumbers.Version)
 
 	_, err = tx.Exec(
@@ -487,10 +479,6 @@ func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deploym
 func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, deployment Deployment) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertDeploymentHistoryRow")
 	defer span.Finish()
-	insertQuery := h.AdaptQuery(`
-		INSERT INTO deployments_history (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision) 
-		VALUES (?, ?, ?, ?, ?, ?, ?);
-	`)
 	if h == nil {
 		return nil
 	}
@@ -498,6 +486,11 @@ func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, 
 		return fmt.Errorf("DBWriteDeployment: no transaction provided")
 	}
 
+	insertQuery := h.AdaptQuery(`
+		INSERT INTO deployments_history (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision) 
+		VALUES (?, ?, ?, ?, ?, ?, ?);
+	`)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	jsonToInsert, err := json.Marshal(deployment.Metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -507,7 +500,6 @@ func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, 
 	if err != nil {
 		return fmt.Errorf("DBWriteDeployment unable to get transaction timestamp: %w", err)
 	}
-	span.SetTag("query", insertQuery)
 	nullVersion := NewNullUInt(deployment.ReleaseNumbers.Version)
 
 	_, err = tx.Exec(
