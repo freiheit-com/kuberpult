@@ -39,7 +39,7 @@ SELECT kuberpult_version
 FROM custom_migration_cutoff
 WHERE kuberpult_version=?
 LIMIT 1;`)
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	span.SetTag("requestedVersion", requestedVersionString)
 	rows, err := transaction.QueryContext(
 		ctx,
@@ -99,8 +99,7 @@ func DBUpsertCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql
 		ON CONFLICT(kuberpult_version)
 		DO UPDATE SET migration_done_at = excluded.migration_done_at, kuberpult_version = excluded.kuberpult_version
 		;`)
-	span.SetTag("query", insertQuery)
-
+	tracing.MarkSpanAsDB(span, insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		timestamp,

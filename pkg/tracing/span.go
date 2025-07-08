@@ -42,11 +42,9 @@ func StartSpanFromContext(ctx context.Context, name string) (tracer.Span, contex
 func MarkSpanAsDB(span tracer.Span, sqlQuery string) {
 	span.SetTag(ext.ResourceName, sqlQuery)
 	span.SetTag("sql.query", sqlQuery)
+	span.SetTag(ext.ServiceName, "postgres")
 
 	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
-
 	span.SetTag(ext.DBType, "postgres")
 	span.SetTag(ext.DBSystem, "postgres")
-
-	span.SetTag(ext.ServiceName, "postgres")
 }
