@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"slices"
 	"strings"
 	"time"
@@ -157,11 +156,6 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
 	defer span.Finish()
 
-	span.SetTag("sven-version", 1)
-	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
-	span.SetTag(ext.DBType, "postgres")
-	span.SetTag("service", "postgres")
-
 	if h == nil {
 		return nil, nil
 	}
@@ -174,7 +168,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 		FROM environments
 		ORDER BY name;
 	`)
-	span.SetTag(ext.ResourceName, selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 
 	rows, err := transaction.QueryContext(ctx, selectQuery)
 	if err != nil {
