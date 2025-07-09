@@ -1,0 +1,30 @@
+@startuml
+'https://plantuml.com/activity-diagram-beta
+
+floating note: For this purpose a "microservice" is represented by a directory with a "Buildfile".
+
+start
+group TheWholeBuild
+    :"execution_plan"
+    * based on the git diff, generates a list of MicroServices that need to be build
+       and finds all dependencies of the microservices to build those too.
+    * Finds the docker container these MicroServices need to be built in
+      by calculating a hash for and using a provided registry.
+      For example golang services need a different container than flutter apps.
+    ;
+
+    :"github_convertor"
+    * Converts the output of the execution_plan to a GitHub compatible format
+    * Creates a "matrix build"
+    ;
+
+    group in parallel for each microservice:
+        :Runs "make -C services/<current-service> build-pr"
+        This builds the docker image of the microservice.
+        For the pipeline that runs after merging "build-main" is called instead of "build-pr".
+        ;
+    end group
+}
+
+stop
+@enduml
