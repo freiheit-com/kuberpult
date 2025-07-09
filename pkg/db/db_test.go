@@ -168,7 +168,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 				Created: time.Now().UTC(),
 				ReleaseNumbers: types.ReleaseNumbers{
 					Version:  &r.Version,
-					Revision: "0",
+					Revision: 0,
 				},
 				App: app,
 				Manifests: DBReleaseManifests{
@@ -199,7 +199,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(666),
-						Revision: "0",
+						Revision: 0,
 					},
 					App: "app1",
 					Manifests: DBReleaseManifests{
@@ -218,7 +218,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(777),
-						Revision: "0",
+						Revision: 0,
 					},
 					App: "app1",
 					Manifests: DBReleaseManifests{
@@ -782,7 +782,7 @@ func TestReadWriteDeployment(t *testing.T) {
 				App: "app-a",
 				Env: "dev",
 				ReleaseNumbers: types.ReleaseNumbers{
-					Revision: "0",
+					Revision: 0,
 					Version:  uversion(7),
 				},
 				TransformerID: 0,
@@ -797,7 +797,7 @@ func TestReadWriteDeployment(t *testing.T) {
 				App: "app-b",
 				Env: "prod",
 				ReleaseNumbers: types.ReleaseNumbers{
-					Revision: "0",
+					Revision: 0,
 					Version:  nil,
 				},
 				TransformerID: 0,
@@ -831,7 +831,7 @@ func TestReadWriteDeployment(t *testing.T) {
 					App: tc.App,
 					Env: tc.Env,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  tc.VersionToDeploy,
 					},
 					TransformerID: 0,
@@ -872,7 +872,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(7),
 					},
 					TransformerID: 0,
@@ -883,7 +883,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(7),
 					},
 					TransformerID: 0,
@@ -898,7 +898,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(6),
 					},
 					TransformerID: 0,
@@ -907,7 +907,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(7),
 					},
 					TransformerID: 0,
@@ -918,7 +918,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(7),
 					},
 					TransformerID: 0,
@@ -933,7 +933,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(6),
 					},
 					TransformerID: 0,
@@ -942,7 +942,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app1",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(5),
 					},
 					TransformerID: 0,
@@ -951,7 +951,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app2",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(5),
 					},
 					TransformerID: 0,
@@ -962,7 +962,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(6),
 					},
 					TransformerID: 0,
@@ -971,7 +971,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 					App: "app1",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(5),
 					},
 					TransformerID: 0,
@@ -1033,7 +1033,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(7),
 					},
 					TransformerID: 0,
@@ -1051,7 +1051,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(7),
 					},
 					TransformerID: 0,
@@ -1060,7 +1060,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(8),
 					},
 					TransformerID: 0,
@@ -1078,7 +1078,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					App: "app1",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(7),
 					},
 					TransformerID: 0,
@@ -1087,7 +1087,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					App: "app2",
 					Env: "dev",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(8),
 					},
 					TransformerID: 0,
@@ -1096,7 +1096,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					App: "app3",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(8),
 					},
 					TransformerID: 0,
@@ -1357,7 +1357,7 @@ func TestAllDeployments(t *testing.T) {
 						App:     tc.AppName,
 						Env:     d.EnvName,
 						ReleaseNumbers: types.ReleaseNumbers{
-							Revision: "0",
+							Revision: 0,
 							Version:  &d.Version,
 						},
 						Metadata:      DeploymentMetadata{},
@@ -2274,7 +2274,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 					Env: envName,
 					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2285,7 +2285,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 					Env:        envName,
 					App:        appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2298,7 +2298,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 					Env: envName,
 					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2306,7 +2306,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 					Env: envName,
 					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 				},
@@ -2317,7 +2317,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 					Env:        envName,
 					App:        appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 				},
@@ -2326,7 +2326,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 					Env:        envName,
 					App:        appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2380,7 +2380,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 			Env:     envName,
 			AppName: appName,
 			ReleaseNumbers: &types.ReleaseNumbers{
-				Revision: "0",
+				Revision: 0,
 				Version:  uversion(1),
 			},
 			ExpectedDeployments: []QueuedDeployment{
@@ -2389,7 +2389,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 					Env:        envName,
 					App:        appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  nil,
 					},
 				},
@@ -2398,7 +2398,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 					Env:        envName,
 					App:        appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 				},
@@ -2457,7 +2457,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 					Env: "dev",
 					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2465,7 +2465,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 					Env: "staging",
 					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2474,7 +2474,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 					Env:        "staging",
 					App:        appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 				},
@@ -2482,7 +2482,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 					Env: "dev",
 					App: "bar",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2493,7 +2493,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 					Env:        "dev",
 					App:        appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2502,7 +2502,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 					Env:        "staging",
 					App:        appName,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 				},
@@ -2567,7 +2567,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 					Env: envName,
 					App: "foo",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2575,7 +2575,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 					Env: envName,
 					App: "bar",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2584,7 +2584,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 					Env:        envName,
 					App:        "bar",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 				},
@@ -2592,7 +2592,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 					Env: "fakeEnv",
 					App: "foo",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2603,7 +2603,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 					Env:        envName,
 					App:        "foo",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
@@ -2612,7 +2612,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 					Env:        envName,
 					App:        "bar",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 				},
@@ -2849,7 +2849,7 @@ func TestDeleteRelease(t *testing.T) {
 				Created: time.Now(),
 				ReleaseNumbers: types.ReleaseNumbers{
 					Version:  uversion(1),
-					Revision: "0",
+					Revision: 0,
 				},
 				App: "app",
 				Manifests: DBReleaseManifests{
@@ -3582,7 +3582,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3593,7 +3593,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3607,7 +3607,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manfest2", "production": "manfest2"}},
@@ -3618,7 +3618,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manfest2", "production": "manfest2"}},
@@ -3632,7 +3632,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3640,7 +3640,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(20),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
@@ -3648,7 +3648,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
@@ -3656,7 +3656,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(20),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app2",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest4"}},
@@ -3667,7 +3667,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(20),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
@@ -3676,7 +3676,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
@@ -3690,7 +3690,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app2",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3705,7 +3705,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3713,7 +3713,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(2),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
@@ -3721,7 +3721,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(3),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
@@ -3732,7 +3732,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(3),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
@@ -3741,7 +3741,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(2),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
@@ -3750,7 +3750,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3764,7 +3764,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3772,7 +3772,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(2),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
@@ -3781,7 +3781,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(3),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
@@ -3793,7 +3793,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(3),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
@@ -3802,7 +3802,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3816,7 +3816,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3824,7 +3824,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(2),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
@@ -3833,7 +3833,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(3),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
@@ -3845,7 +3845,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(3),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
@@ -3854,7 +3854,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(2),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
@@ -3864,7 +3864,7 @@ func TestReadReleasesByApp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3921,7 +3921,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3933,7 +3933,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Environments: []types.EnvName{"dev"},
@@ -3947,7 +3947,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3963,7 +3963,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3971,7 +3971,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(11),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -3983,7 +3983,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(11),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Environments: []types.EnvName{"dev"},
@@ -3997,7 +3997,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4005,7 +4005,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(11),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4017,7 +4017,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Environments: []types.EnvName{"dev"},
@@ -4026,7 +4026,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(11),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Environments: []types.EnvName{"dev"},
@@ -4040,7 +4040,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4048,7 +4048,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
@@ -4060,7 +4060,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "app1",
 					Environments: []types.EnvName{"dev", "staging"},
@@ -4114,7 +4114,7 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4122,7 +4122,7 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(2),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4130,7 +4130,7 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app2",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4138,7 +4138,7 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(2),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app2",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4204,7 +4204,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{}},
@@ -4220,7 +4220,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
@@ -4228,7 +4228,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(2),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4236,7 +4236,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app2",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4258,7 +4258,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
@@ -4266,7 +4266,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -4727,7 +4727,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					Created: time.Now(),
 					App:     "app1",
@@ -4745,7 +4745,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					Created: time.Now(),
 					App:     "app2",
@@ -4762,7 +4762,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					Created: time.Now(),
 					App:     "app3",
@@ -4788,7 +4788,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					Created: time.Now(),
 					App:     "app1",
@@ -4806,7 +4806,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(11),
-						Revision: "0",
+						Revision: 0,
 					},
 					Created: time.Now(),
 					App:     "app1",
@@ -4823,7 +4823,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(12),
-						Revision: "0",
+						Revision: 0,
 					},
 					Created: time.Now(),
 					App:     "app1",
@@ -4850,7 +4850,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					Created: time.Now(),
 					App:     "app1",
@@ -4866,7 +4866,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					Created: time.Now(),
 					App:     "app1",
@@ -4882,7 +4882,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					Created: time.Now(),
 					App:     "app1",
@@ -5024,7 +5024,7 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "appNoEnv",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -5035,7 +5035,7 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:          "appNoEnv",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -5728,7 +5728,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
@@ -5755,7 +5755,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -5778,7 +5778,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "production": "manifest3"}},
@@ -5786,7 +5786,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(20),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
@@ -5794,7 +5794,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app2",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -5802,7 +5802,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app3",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -5810,7 +5810,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(20),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app3",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"production": "manifest3"}},
@@ -5890,7 +5890,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -5900,7 +5900,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(20),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
@@ -5927,7 +5927,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
@@ -5935,7 +5935,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(20),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app1",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
@@ -5945,7 +5945,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(10),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       "app2",
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
