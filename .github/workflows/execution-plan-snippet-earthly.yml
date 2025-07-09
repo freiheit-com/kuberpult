@@ -24,6 +24,9 @@ jobs:
         uses: 'google-github-actions/setup-gcloud@v2'
         with:
           version: '>= 363.0.0'
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker europe-docker.pkg.dev
       - run: mkdir -p artifacts/
       - name: Hardcode the converted plan
         run: |
