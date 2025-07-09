@@ -138,10 +138,7 @@ func GetCreateReleaseMissingManifest(missingManifest []types.EnvName) *CreateRel
 }
 
 func GetCreateReleaseIsNoDownstream(noDownstream []types.EnvName) *CreateReleaseError {
-	noDownstreamStr := []string{}
-	for i := range noDownstream {
-		noDownstreamStr = append(noDownstreamStr, string(noDownstream[i]))
-	}
+	noDownstreamStr := EnvNamesToStrings(noDownstream)
 	response := api.CreateReleaseResponseIsNoDownstream{
 		NoDownstream: noDownstreamStr,
 	}
