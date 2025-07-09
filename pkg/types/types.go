@@ -82,13 +82,56 @@ type ReleaseNumbers struct {
 	Revision uint64
 }
 
+func LessThan(i, j ReleaseNumbers) (bool, error) {
+
+	v1, err := version.NewVersion(fmt.Sprintf("%d.%d", *i.Version, i.Revision)) //These should have already been validated
+	if err != nil {
+		return false, err
+	}
+	v2, err := version.NewVersion(fmt.Sprintf("%d.%d", *j.Version, j.Revision)) //These should have already been validated
+	if err != nil {
+		return false, err
+	}
+	return v1.LessThan(v2), nil
+}
+
+func Equal(i, j ReleaseNumbers) (bool, error) {
+
+	v1, err := version.NewVersion(fmt.Sprintf("%d.%d", *i.Version, i.Revision)) //These should have already been validated
+	if err != nil {
+		return false, err
+	}
+	v2, err := version.NewVersion(fmt.Sprintf("%d.%d", *j.Version, j.Revision)) //These should have already been validated
+	if err != nil {
+		return false, err
+	}
+	return v1.Equal(v2), nil
+}
+
+func GreaterThan(i, j ReleaseNumbers) (bool, error) {
+
+	v1, err := version.NewVersion(fmt.Sprintf("%d.%d", *i.Version, i.Revision)) //These should have already been validated
+	if err != nil {
+		return false, err
+	}
+	v2, err := version.NewVersion(fmt.Sprintf("%d.%d", *j.Version, j.Revision)) //These should have already been validated
+	if err != nil {
+		return false, err
+	}
+	return v1.GreaterThan(v2), nil
+}
+
+func GreaterThanOrEqual(i, j ReleaseNumbers) bool {
+	v1, _ := version.NewVersion(fmt.Sprintf("%d.%d", *i.Version, i.Revision)) //These should have already been validated
+	v2, _ := version.NewVersion(fmt.Sprintf("%d.%d", *j.Version, j.Revision)) //These should have already been validated
+	return v1.GreaterThanOrEqual(v2)
+}
+
 type ReleaseNumberCollection []ReleaseNumbers
 
 func (c ReleaseNumberCollection) Less(i, j int) bool {
-	fmt.Printf("I: %s\n", c[i].Revision)
-	fmt.Printf("J: %s\n", c[j].Revision)
-	v1, _ := version.NewVersion(c[i].Revision) //These should have already been validated
-	v2, _ := version.NewVersion(c[j].Revision) //These should have already been validated
+	v1, _ := version.NewVersion(fmt.Sprintf("%d.%d", *c[i].Version, c[i].Revision)) //These should have already been validated
+	v2, _ := version.NewVersion(fmt.Sprintf("%d.%d", *c[j].Version, c[j].Revision)) //These should have already been validated
 	return v1.LessThan(v2)
 }
 

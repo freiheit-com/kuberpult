@@ -59,7 +59,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 	result, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
 		var (
 			err     error
-			release uint64
+			release types.ReleaseNumbers
 		)
 
 		if req.Release == "latest" {
@@ -67,11 +67,11 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 			if err != nil {
 				return nil, wrapError("application", err)
 			}
-			if release == 0 {
+			if release.Version == nil || *release.Version == 0 {
 				return nil, status.Errorf(codes.NotFound, "no releases found for application %s", req.Application)
 			}
 		} else {
-			release, err = strconv.ParseUint(req.Release, 10, 64)
+			*release.Version, err = strconv.ParseUint(req.Release, 10, 64)
 			if err != nil {
 				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
 			}

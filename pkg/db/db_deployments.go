@@ -361,7 +361,7 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
 	defer span.Finish()
 	insertQuery := h.AdaptQuery(`
-		SELECT envname, releaseVersion
+		SELECT envname, releaseVersion, revision
 		FROM deployments
 		WHERE appName = (?) AND releaseVersion IS NOT NULL;
 	`)
@@ -716,10 +716,11 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 			logger.FromContext(ctx).Sugar().Warnf("deployments: row could not be closed: %v", err)
 		}
 	}(rows)
-	deployments := make(map[types.EnvName]int64)
+	deployments := make(map[types.EnvName]types.ReleaseNumbers)
 	for rows.Next() {
 		var rowVersion int64
 		var rowEnv types.EnvName
+		var rowRevision uint64
 		err := rows.Scan(&rowEnv, &rowVersion)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

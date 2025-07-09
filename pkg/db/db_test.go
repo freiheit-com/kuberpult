@@ -252,7 +252,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 				for i := range tc.expectedReleases {
 					expectedRelease := tc.expectedReleases[i]
 
-					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, *expectedRelease.ReleaseNumbers.Version, true)
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumbers, true)
 					if err != nil {
 						return err
 					}
@@ -2878,7 +2878,7 @@ func TestDeleteRelease(t *testing.T) {
 					return err2
 				}
 
-				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, tc.toInsert.App, *tc.toInsert.ReleaseNumbers.Version)
+				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumbers)
 				if errDelete != nil {
 					t.Fatalf("error: %v\n", errDelete)
 				}
@@ -2891,7 +2891,7 @@ func TestDeleteRelease(t *testing.T) {
 					t.Fatalf("number of team locks mismatch (-want, +got):\n%d", len(allReleases))
 				}
 
-				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, *tc.toInsert.ReleaseNumbers.Version, true)
+				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumbers, true)
 				if err != nil {
 					return err
 				}
