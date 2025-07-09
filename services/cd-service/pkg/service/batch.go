@@ -358,10 +358,7 @@ func (d *BatchServer) processAction(
 	case *api.BatchAction_CreateRelease:
 		in := action.CreateRelease
 		response := api.CreateReleaseResponseSuccess{}
-		downstreamEnvs := []types.EnvName{}
-		for i := range in.DeployToDownstreamEnvironments {
-			downstreamEnvs = append(downstreamEnvs, types.EnvName(in.DeployToDownstreamEnvironments[i]))
-		}
+		downstreamEnvs := EnvNamesToStrings(in.DeployToDownstreamEnvironments)
 		return &repository.CreateApplicationVersion{
 				Version:                        in.Version,
 				Application:                    in.Application,
