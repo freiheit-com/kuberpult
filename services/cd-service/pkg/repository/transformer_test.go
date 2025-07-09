@@ -360,7 +360,7 @@ func TestCreateApplicationVersionErrors(t *testing.T) {
 			},
 		},
 		{
-			Name: "create a downstream deployment to an upstrem",
+			Name: "create a downstream deployment to an upstream",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
