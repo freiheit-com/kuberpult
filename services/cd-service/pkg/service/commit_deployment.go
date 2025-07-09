@@ -61,7 +61,7 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 		}
 
 		// Get latest releases for all apps
-		err2 := getDeploymentsWithoutReleaseVersion(ctx, transaction, err, applicationReleases)
+		err2 := getDeploymentsWithReleaseVersion(ctx, transaction, err, applicationReleases)
 		if err2 != nil {
 			return err2
 		}
@@ -89,8 +89,8 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 	}, nil
 }
 
-func getDeploymentsWithoutReleaseVersion(ctx context.Context, transaction *sql.Tx, err error, applicationReleases map[string]map[types.EnvName]uint64) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "getDeploymentsWithoutReleaseVersion")
+func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, err error, applicationReleases map[string]map[types.EnvName]uint64) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "getDeploymentsWithReleaseVersion")
 	defer span.Finish()
 	allApplicationReleasesQuery := `
 SELECT appname, envname, releaseVersion
