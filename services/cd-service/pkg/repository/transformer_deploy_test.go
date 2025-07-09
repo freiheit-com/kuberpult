@@ -243,7 +243,7 @@ func TestDeployApplicationVersionPartTwo(t *testing.T) {
 				App:     "app1",
 				Env:     "dev",
 				ReleaseNumbers: types.ReleaseNumbers{
-					Revision: "0",
+					Revision: 0,
 					Version:  &version,
 				},
 				Metadata: db.DeploymentMetadata{
