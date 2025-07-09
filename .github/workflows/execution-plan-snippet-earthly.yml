@@ -24,26 +24,119 @@ jobs:
         uses: 'google-github-actions/setup-gcloud@v2'
         with:
           version: '>= 363.0.0'
-      - name: gcloud authorize
-        run: |
-          gcloud auth configure-docker europe-docker.pkg.dev
+#      - name: gcloud authorize
+#        run: |
+#          gcloud auth configure-docker europe-docker.pkg.dev
       - run: mkdir -p artifacts/
-      - name: Plan execution pull request
-        if: inputs.trigger == 'pull-request'
+#      - name: Plan execution pull request
+#        if: inputs.trigger == 'pull-request'
+#        run: |
+#          ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json
+#      - name: Plan execution main
+#        if: inputs.trigger == 'main' || inputs.trigger == 'tag'
+#        run: |
+#          ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/execution-plan.json
+#      - name: Print execution plan
+#        run: |
+#          cat artifacts/execution-plan.json
+#      - name: Convert plan to github specific format
+#        run: |
+#          GITHUB_CONVERTOR_IMAGE="europe-docker.pkg.dev/fdc-standard-setup-dev-env/all-artifacts/tools/execplan-convertor-github:kuberpult"
+#          DEFAULT_IMAGE="docker:git"
+#          cat artifacts/execution-plan.json | docker run -i "${GITHUB_CONVERTOR_IMAGE}" "${DEFAULT_IMAGE}" > artifacts/github-convertor.json
+      - name: Hardcode the converted plan
         run: |
-          ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json
-      - name: Plan execution main
-        if: inputs.trigger == 'main' || inputs.trigger == 'tag'
-        run: |
-          ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/execution-plan.json
-      - name: Print execution plan
-        run: |
-          cat artifacts/execution-plan.json
-      - name: Convert plan to github specific format
-        run: |
-          GITHUB_CONVERTOR_IMAGE="europe-docker.pkg.dev/fdc-standard-setup-dev-env/all-artifacts/tools/execplan-convertor-github:kuberpult"
-          DEFAULT_IMAGE="docker:git"
-          cat artifacts/execution-plan.json | docker run -i "${GITHUB_CONVERTOR_IMAGE}" "${DEFAULT_IMAGE}" > artifacts/github-convertor.json
+          echo '{
+            "stage_a": {
+              "steps": [
+                {
+                  "image": "docker:git",
+                  "command": "make -C infrastructure/docker/builder build-main DOCKER_REGISTRY_URI=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult IMAGE_TAG=e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
+                  "artifacts": "",
+                  "artifactName": "Artifact_infrastructure_docker_builder",
+                  "directory": "infrastructure/docker/builder",
+                  "cachefiles": "",
+                  "cacheKey": ""
+                },
+                {
+                  "image": "docker:git",
+                  "command": "make -C infrastructure/docker/git-ssh build-main DOCKER_REGISTRY_URI=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult IMAGE_TAG=f28252ef84049ebb31c8cdf6f040a576da1b0bfd22ffe22ba2c6aaba0f8330a6",
+                  "artifacts": "",
+                  "artifactName": "Artifact_infrastructure_docker_git-ssh",
+                  "directory": "infrastructure/docker/git-ssh",
+                  "cachefiles": "",
+                  "cacheKey": ""
+                }
+              ]
+            },
+            "stage_b": {
+              "steps": [
+                {
+                  "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
+                  "command": "make -C services/manifest-repo-export-service build-main",
+                  "artifacts": "services/manifest-repo-export-service/coverage.html",
+                  "artifactName": "Artifact_services_manifest-repo-export-service",
+                  "directory": "services/manifest-repo-export-service",
+                  "cachefiles": "",
+                  "cacheKey": ""
+                },
+                {
+                  "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
+                  "command": "make -C services/rollout-service build-main",
+                  "artifacts": "services/rollout-service/coverage.html",
+                  "artifactName": "Artifact_services_rollout-service",
+                  "directory": "services/rollout-service",
+                  "cachefiles": "",
+                  "cacheKey": ""
+                },
+                {
+                  "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
+                  "command": "make -C cli build-main",
+                  "artifacts": "cli/coverage.html",
+                  "artifactName": "Artifact_cli",
+                  "directory": "cli",
+                  "cachefiles": "",
+                  "cacheKey": ""
+                },
+                {
+                  "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
+                  "command": "make -C pkg build-main",
+                  "artifacts": "pkg/coverage.html",
+                  "artifactName": "Artifact_pkg",
+                  "directory": "pkg",
+                  "cachefiles": "",
+                  "cacheKey": ""
+                },
+                {
+                  "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
+                  "command": "make -C services/cd-service build-main",
+                  "artifacts": "services/cd-service/coverage.html",
+                  "artifactName": "Artifact_services_cd-service",
+                  "directory": "services/cd-service",
+                  "cachefiles": "",
+                  "cacheKey": ""
+                },
+                {
+                  "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
+                  "command": "make -C services/reposerver-service build-main",
+                  "artifacts": "services/reposerver-service/coverage.html",
+                  "artifactName": "Artifact_services_reposerver-service",
+                  "directory": "services/reposerver-service",
+                  "cachefiles": "",
+                  "cacheKey": ""
+                },
+                {
+                  "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
+                  "command": "make -C services/frontend-service build-main",
+                  "artifacts": "services/frontend-service/coverage.html",
+                  "artifactName": "Artifact_services_frontend-service",
+                  "directory": "services/frontend-service",
+                  "cachefiles": "",
+                  "cacheKey": ""
+                }
+              ]
+            }
+          }' > artifacts/github-convertor.json
       - name: Print github converted plan
         run: |
           cat artifacts/github-convertor.json
