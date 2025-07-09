@@ -341,8 +341,8 @@ func TestCreateApplicationVersionErrors(t *testing.T) {
 			Name: "create a downstream deployment without a manifest",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
@@ -363,7 +363,7 @@ func TestCreateApplicationVersionErrors(t *testing.T) {
 			Name: "create a downstream deployment to an upstream",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: "acceptance",
+					Environment: envAcceptance,
 					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
 				&CreateApplicationVersion{
