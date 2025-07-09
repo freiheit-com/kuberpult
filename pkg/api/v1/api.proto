@@ -259,7 +259,7 @@ message CreateReleaseRequest {
   string previous_commit_id = 11;
   string ci_link = 12;
   bool is_prepublish = 13;
-  string revision = 14;
+  uint64 revision = 14;
 }
 
 message CreateReleaseResponseSuccess {
@@ -696,7 +696,7 @@ message Release {
   bool is_prepublish = 10;
   repeated string environments = 11;
   string ci_link = 12;
-  string revision = 13;
+  uint64 revision = 13;
 }
 
 enum UndeploySummary {

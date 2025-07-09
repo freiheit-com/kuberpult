@@ -96,7 +96,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		Manifests:        map[string]string{},
 		CiLink:           "",
 		IsPrepublish:     false,
-		Revision:         "0",
+		Revision:         0,
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -259,18 +259,22 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
-		if len(revision) != 1 {
-			w.WriteHeader(400)
-			fmt.Fprintf(w, "Invalid number revisions provided: %d, ", len(revision))
-			return
-		}
 		if !s.Config.EnabledRevisions {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "The release endpoint does not support revisions (frontend.enabledRevisions = false).")
-			return
 		}
-		tf.Revision = revision[0]
+
+		if len(revision) == 1 {
+			r, err := strconv.ParseUint(revision[0], 10, 64)
+			if err != nil {
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "Invalid version: %s", err)
+				return
+			}
+			tf.Revision = r
+		}
 	}
+
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
 			Action: &api.BatchAction_CreateRelease{
@@ -321,7 +325,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		Manifests:        map[string]string{},
 		CiLink:           "",
 		IsPrepublish:     false,
-		Revision:         "0",
+		Revision:         0,
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -466,15 +470,20 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	}
 
 	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
-		if len(revision) != 1 {
-			w.WriteHeader(400)
-			fmt.Fprintf(w, "Invalid number revisions provided: %d, ", len(revision))
-		}
 		if !s.Config.EnabledRevisions {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "The release endpoint does not support revisions (frontend.enabledRevisions = false).")
 		}
-		tf.Revision = revision[0]
+		
+		if len(revision) == 1 {
+			r, err := strconv.ParseUint(revision[0], 10, 64)
+			if err != nil {
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "Invalid version: %s", err)
+				return
+			}
+			tf.Revision = r
+		}
 	}
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
