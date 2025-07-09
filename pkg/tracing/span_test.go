@@ -17,31 +17,64 @@ Copyright freiheit.com*/
 package tracing
 
 import (
-	"context"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"testing"
 )
 
 func TestMarkAsDB(t *testing.T) {
 	tcs := []struct {
-		Name string
+		Name  string
+		Query string
 	}{
 		{
-			Name: "takes the default name without dd service name",
+			Name:  "takes the default name without dd service name",
+			Query: "SELECT * FROM BRAIN",
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			span, err := tracer.StartSpanFromContext(context.Background(), "db:test")
-			if err != nil {
-				t.Fatalf("error creating span: %v", err)
+			mt := mocktracer.Start()
+			defer mt.Stop()
+
+			{
+				span := tracer.StartSpan("db:test")
+				MarkSpanAsDB(span, tc.Query)
+				span.Finish()
 			}
 
-			result := ServiceName(tc.DefaultName)
-			if result != tc.ExpectedName {
-				t.Errorf("wrong service name, expected %q, got %q", tc.ExpectedName, result)
+			actualSpans := mt.FinishedSpans()
+
+			if len(actualSpans) != 1 {
+				t.Errorf("expected 1 span, got %d: %v", len(actualSpans), actualSpans)
+			}
+			expectedTags := map[string]string{
+				"sql.query":      tc.Query,
+				ext.ResourceName: tc.Query,
+				ext.ServiceName:  "postgres",
+				ext.SpanType:     ext.SpanTypeSQL,
+				ext.DBType:       "postgres",
+				ext.DBSystem:     "postgres",
+
+				"component": "manual", // this one is added automagically by the dd library
+			}
+
+			span := actualSpans[0]
+			actualTags := span.Tags()
+
+			for key, value := range expectedTags {
+				actualValue, ok := actualTags[key]
+				if !ok {
+					t.Fatalf("expected tag %s=%s to exist", key, value)
+				}
+				if actualValue != value {
+					t.Errorf("expected tag %s=%s got %s=%s", key, value, actualValue, key)
+				}
+			}
+			if len(actualTags) != len(expectedTags) {
+				t.Errorf("expected %d tags, got %d:\n%v", len(expectedTags), len(actualTags), actualTags)
 			}
 		})
 	}
