@@ -20,39 +20,28 @@ To use execution plan. The repository needs to be modified somewhat. The details
 To represent a docker image or service, we use `Buildfile.yaml` file with the properties that are described below.
 Each Buildfile.yaml follows a yaml structure.
 
-## Stage A
+## StageA
 
-Stage A creates the build images: that is, tooling in docker images used for
-building the base image itself, which is later used to build a microservice in Stage B. For this, create
-a `Buildfile.yaml` in the path of the directory containing the instructions for
-building. Note that currently only the docker makefile is supported in Stage A
-and that spec.baseImageConfig is required to be missing in it, lest it will
-become a part of stage B (not A).
+For each docker image or tool in the repo, be it service, app etc. Create a `Buildfile.yaml` in its path.
+For a docker image or tool, it is required that its Buildfile.yaml contains the following parameters:
+- `metadata.registry`, where it indicates the registry url for the docker image or tool.
 
-For a docker image or tool, it is required that its Buildfile.yaml contains the
-following parameters:
-- `metadata.registry`, where it indicates the registry url for the docker image
-  or tool.
+Any changes to a file within a Directory with a `Buildfile.yaml` will cause this docker image or tool to be built.
 
-Any changes to a file within a Directory with a `Buildfile.yaml` will cause
-this docker image or tool to be built.
+Eg: Changing the file `infrastructure/docker/config.json` will check if `infrastructure/docker/Buildfile.yaml`, `infrastructure/Buildfile.yaml` or `Buildfile.yaml` exists.
+It will build the first one it finds.
 
-Eg: Changing the file `infrastructure/docker/config.json` will check if
-`infrastructure/docker/Buildfile.yaml`, `infrastructure/Buildfile.yaml` or
-`Buildfile.yaml` exists.  It will build the first one it finds.
-
-Note that execplanner provides the variable `ADDITIONAL_IMAGE_TAGS` containing
-`dir${HASH}`, where `${HASH}` is a hash over the source directory. Execplanner
-expects to be able to use the tooling and build images generates in stage A
-using these tags in stage B.
-
-### Stage A Buildfile.yaml structure
+### StageA Buildfile.yaml structure
 
 The Buildfile.yaml for `infrastructure/docker/ci` (see below) is to be considered into `StageA`.
 
 ```yaml
 metadata:
+  name: ci
   registry: europe-docker.pkg.dev/fdc-standard-setup-dev-env/all-artifacts
+  builder: docker
+spec:
+  version: "1"
 ```
 `Required Parameters`
 
@@ -68,19 +57,19 @@ metadata:
   NOTE: When adding cache actions in github actions, ensure that the builder image has GNU tar installed. [See issue for more details](https://github.com/actions/toolkit/issues/634)
 - `integration_tests` : After build stage completes, for integration test stage, the folders provided in this list will be used. For each directory in this list (relative path), if there is a Buildfile.yaml at that path, then integration test will be run in that directory.
 
-## Stage B
+## StageB
+`StageB` uses a similar structure as `StageA`. Create a `Buildfile.yaml` in its path.
+For a service, it is required for it to have a set of required parameters. These are:
+- `spec.baseImageConfig`, that indicates that a buildfile has a baseImageConfig making the buildfile to be considered into stageB. It is composed of two values:
+  - `spec.baseImageConfig.required`, specifies if the stageB buildfile needs a baseImage. Default value is `true`.
+  - `spec.baseImageConfig.baseImage`, specifies which base image the stageB buildable is going to use.
+- `spec.buildWith`, that specifies what image is going to build the service.
 
-Stage B is supposed to build the actual product using the tooling images
-created in Stage A.  Stage B uses a similar structure as Stage A. Create a
-`Buildfile.yaml` in the path of the directory containing the instructions for
-building. Note that the existence of `spec.baseImageConfig` is required for
-making this build part of stage B!  For a service, it is required for it to
-have a set of required parameters (see below).  Any changes to a file within a
-directory with a Buildfile.yaml will cause this service to be built.
+Any changes to a file within a directory with a Buildfile.yaml will cause this service to be built.
 
-### Stage B Buildfile.yaml structure
+### StageB Buildfile.yaml structure
 
-The Buildfile.yaml for `services/echo` (see bellow) is to be considered into stage B is given below.
+The Buildfile.yaml for `services/echo` (see bellow) is to be considered into `StageB` is given below.
 
 ```yaml
 kind: Service
@@ -95,15 +84,11 @@ spec:
 ```
 
 `Required Parameters`
-- `spec.dependsOn`: An array of strings. Indicates which buildables depend on this `StageB` buildable, causing them to be rebuilt as well.
-- `spec.baseImageConfig`, that indicates that a buildfile has a baseImageConfig making the buildfile to be considered into stageB. It is composed of two values:
-  - `spec.baseImageConfig.required`, specifies if the stageB buildfile needs a baseImage. Default value is `true`.
-  - `spec.baseImageConfig.baseImage`, specifies which base image the stageB buildable is going to use.
-- `spec.buildWith`, that specifies what image is going to build the service.
+- `spec.dependsOn` : An array of strings. Indicates which buildables depend on this `StageB` buildable, causing them to be rebuilt as well.
 
 `Optional Parameters`
 
-See the `Optional Parameters` for `StageA`.
+See the `Optional Parameters` for `StageA`
 
 
 ## StageA/StageB Makefile structure

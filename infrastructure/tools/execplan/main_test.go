@@ -16,12 +16,13 @@ import (
 
 type File struct {
 	FilePath                   string
-	Stage                      string
 	DependsOn                  []string
 	BuildWith                  string
+	BaseImage                  string
 	BuildWithReference         string
 	BuildWithHasFile           bool
 	BuildWithIsFile            bool
+	BaseImageRequired          bool
 	Builder                    string
 	Artifacts                  []string
 	RawContent                 string
@@ -60,8 +61,11 @@ func CreateDirectories(directoryContent []*File, workdir string) error {
 				if err := os.WriteFile(filepath.Join(workdir, filepath.Dir(file.FilePath), file.BuildWith, "Buildfile.yaml"), func() []byte {
 					inputYaml := InputYaml{
 						Spec: Spec{
-							Stage:     file.Stage,
 							BuildWith: file.BuildWithReference,
+							BaseImageConfig: BaseImageConfig{
+								BaseImage: file.BaseImage,
+								Required:  file.BaseImageRequired,
+							},
 						},
 					}
 					yamlString, err := yaml.Marshal(inputYaml)
@@ -82,12 +86,39 @@ func CreateDirectories(directoryContent []*File, workdir string) error {
 			}
 		}
 
+		if len(file.BaseImage) > 0 {
+			baseImagePath := filepath.Join(workdir, filepath.Dir(file.FilePath), file.BaseImage)
+			checkBuildWith, _ := os.Stat(baseImagePath)
+			if checkBuildWith != nil && checkBuildWith.IsDir() {
+				if err := os.WriteFile(filepath.Join(workdir, filepath.Dir(file.FilePath), file.BaseImage, "Buildfile.yaml"), func() []byte {
+					inputYaml := InputYaml{
+						Spec: Spec{
+							BaseImageConfig: BaseImageConfig{
+								BaseImage: file.BaseImage,
+								Required:  file.BaseImageRequired,
+							},
+						},
+					}
+					yamlString, err := yaml.Marshal(inputYaml)
+					if err != nil {
+						log.Fatal(err)
+					}
+					return yamlString
+				}(), 0o600); err != nil {
+					return err
+				}
+			}
+		}
+
 		if err := os.WriteFile(filepath.Join(workdir, file.FilePath), func() []byte {
 			inputYaml := InputYaml{
 				Spec: Spec{
-					Stage:     file.Stage,
 					DependsOn: file.DependsOn,
 					BuildWith: file.BuildWith,
+					BaseImageConfig: BaseImageConfig{
+						BaseImage: file.BaseImage,
+						Required:  file.BaseImageRequired,
+					},
 				},
 				AdditionalArtifacts:        file.Artifacts,
 				PreBuildActions:            file.PreBuildActions,
@@ -125,11 +156,10 @@ var directoryContent = []*File{
 		RawContent: `metadata:
   name: ci
   registry: my-favorite.xyz
-spec:
-  stage: A
 additional_artifacts:
   - arti-docker-init
-  - inner/arti-docker-build`,
+  - inner/arti-docker-build
+`,
 	},
 	{
 		FilePath: "infrastructure/docker/Makefile",
@@ -140,8 +170,6 @@ additional_artifacts:
 metadata:
   name: ci
   registry: my-favorite.xyz
-spec:
-  stage: A
 additional_artifacts:
   - arti-docker-init
   - inner/arti-docker-build
@@ -156,8 +184,6 @@ additional_artifacts:
 metadata:
   name: ci
   registry: my-favorite.xyz
-spec:
-  stage: A
 additional_artifacts:
   - arti-docker-init
   - inner/arti-docker-build
@@ -167,8 +193,9 @@ additional_artifacts:
 		FilePath: "infrastructure/cachedData/Buildfile.yaml",
 		RawContent: `
 spec:
- stage: B
  buildWith:  infrastructure/docker/
+ baseImageConfig:
+  required: false
 cache:
   cachefiles:
   - '~/.gradle/caches'
@@ -206,9 +233,9 @@ cache:
 		},
 	},
 	{
-		FilePath:  "infrastructure/tools/A/Buildfile.yaml",
-		Stage:     "B",
-		BuildWith: dockerDirectoryPath,
+		FilePath:          "infrastructure/tools/A/Buildfile.yaml",
+		BuildWith:         dockerDirectoryPath,
+		BaseImageRequired: false,
 		PreBuildActions: []string{
 			"setupJava",
 			"setupYarn",
@@ -311,7 +338,6 @@ cache:
 	},
 	{
 		FilePath: "integrationtest/serviceA/Buildfile.yaml",
-		Stage:    "B",
 		Builder:  "golang",
 		DependsOn: []string{
 			"../make",
@@ -320,16 +346,17 @@ cache:
 		IntegrationTestDirectories: []string{
 			"../",
 		},
+		BaseImage: "baseImage/reference",
 	},
 	{
 		FilePath: "integrationtest/serviceB/Buildfile.yaml",
-		Stage:    "B",
 		Builder:  "golang",
 		DependsOn: []string{
 			"../make",
 		},
 		BuildWith:                  dockerDirectoryPath,
 		IntegrationTestDirectories: []string{},
+		BaseImage:                  "baseImage/reference",
 	},
 	{
 		FilePath: "integrationtest/Makefile",
@@ -348,8 +375,6 @@ cache:
 		RawContent: `metadata:
   name: baseImage
   registry: my-favorite.xyz
-spec:
-  stage: A
 additional_artifacts:
   - arti-docker-init
   - inner/arti-docker-build
@@ -528,6 +553,7 @@ func TestJsonOutput(t *testing.T) {
 		Input          []string
 		Output         string
 		Rootdependency bool
+		BaseImage      string
 		Error          string
 	}{
 		{
@@ -553,7 +579,7 @@ func TestJsonOutput(t *testing.T) {
         "image": ""
       },
       "commands": [
-        "make -C infrastructure/docker build-pr DOCKER_REGISTRY_URI=my-favorite.xyz IMAGE_NAME=infrastructure/docker ADDITIONAL_IMAGE_TAGS=dire3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "make -C infrastructure/docker build-pr DOCKER_REGISTRY_URI=my-favorite.xyz IMAGE_NAME=infrastructure/docker IMAGE_TAG=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       ],
       "directory": "infrastructure/docker"
     }
@@ -561,7 +587,7 @@ func TestJsonOutput(t *testing.T) {
   "stage_b": [
     {
       "container": {
-        "image": "my-favorite.xyz/infrastructure/docker:dire3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "image": "my-favorite.xyz/infrastructure/docker:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "commands": [
         "make -C integrationtest/serviceA build-pr"
@@ -570,7 +596,7 @@ func TestJsonOutput(t *testing.T) {
     },
     {
       "container": {
-        "image": "my-favorite.xyz/infrastructure/docker:dire3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "image": "my-favorite.xyz/infrastructure/docker:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "commands": [
         "make -C infrastructure/tools/A build-pr"
@@ -586,7 +612,7 @@ func TestJsonOutput(t *testing.T) {
     },
     {
       "container": {
-        "image": "my-favorite.xyz/infrastructure/docker:dire3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "image": "my-favorite.xyz/infrastructure/docker:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "commands": [
         "make -C integrationtest/serviceB build-pr"
@@ -659,14 +685,14 @@ func TestJsonOutput(t *testing.T) {
 		{
 			Name: "Single file build with integration test",
 			Input: []string{
-				"integrationtest/serviceA/Buildfile.yaml",
+				"integrationtest/serviceA/Buildfile",
 			},
 			Output: `{
   "stage_a": [],
   "stage_b": [
     {
       "container": {
-        "image": "my-favorite.xyz/infrastructure/docker:dire3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "image": "my-favorite.xyz/infrastructure/docker:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "commands": [
         "make -C integrationtest/serviceA build-pr"
@@ -712,14 +738,14 @@ func TestJsonOutput(t *testing.T) {
 		{
 			Name: "Single file build with invalid path to integration test",
 			Input: []string{
-				"integrationtest/serviceB/Buildfile.yaml",
+				"integrationtest/serviceB/Buildfile",
 			},
 			Output: `{
   "stage_a": [],
   "stage_b": [
     {
       "container": {
-        "image": "my-favorite.xyz/infrastructure/docker:dire3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "image": "my-favorite.xyz/infrastructure/docker:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "commands": [
         "make -C integrationtest/serviceB build-pr"
@@ -762,7 +788,7 @@ func TestJsonOutput(t *testing.T) {
   "stage_b": [
     {
       "container": {
-        "image": "my-favorite.xyz/infrastructure/docker/:dire3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "image": "my-favorite.xyz/infrastructure/docker/:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "commands": [
         "make -C infrastructure/cachedData build-pr"
@@ -811,7 +837,7 @@ func TestJsonOutput(t *testing.T) {
   "stage_b": [
     {
       "container": {
-        "image": "my-favorite.xyz/infrastructure/docker:dire3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "image": "my-favorite.xyz/infrastructure/docker:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "commands": [
         "make -C infrastructure/tools/A build-pr"
@@ -864,12 +890,10 @@ func TestJsonOutput(t *testing.T) {
 				if len(tc.Input) > 0 && strings.Contains(tc.Input[0], dockerDirectoryPath) {
 					if err := CreateDirectories([]*File{
 						{
-							FilePath: dockerDirectoryPath + "/Buildfile.yaml",
+							FilePath: dockerDirectoryPath + "/Buildfile",
 							RawContent: `metadata:
   name: ci
   registry: my-favorite.xyz
-spec:
-  Stage: A
 `,
 						},
 					}, workdir); err != nil {
@@ -878,7 +902,7 @@ spec:
 				} else if len(tc.Input) > 0 {
 					if err := CreateDirectories([]*File{
 						{
-							FilePath:  "Rootdependency/Buildfile.yaml",
+							FilePath:  "Rootdependency/Buildfile",
 							DependsOn: []string{"../"},
 							BuildWith: dockerDirectoryPath,
 						},
@@ -1391,14 +1415,14 @@ func TestFindAllFilesWithName(t *testing.T) {
 				t.Fatal(err)
 			}
 			if tc.AddLink {
-				if err := os.Symlink("directory", "Buildfile.yaml"); err != nil {
+				if err := os.Symlink("directory", "Buildfile"); err != nil {
 					t.Fatal(err)
 				}
 			}
 			if tc.Path == "" {
 				tc.Path = workdir
 			}
-			_, err := findAllFilesWithName("Buildfile.yaml", tc.Path)
+			_, err := findAllFilesWithName("Buildfile", tc.Path)
 			if len(tc.Error) > 0 {
 				if err == nil {
 					t.Fatalf("expected error %s, but got nil", tc.Error)
@@ -1861,12 +1885,89 @@ func TestValidateServiceBuildfileDependsOn(t *testing.T) {
 	}
 }
 
+func TestValidateServiceBuildfileBaseImage(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Input             []*File
+		BuildFileName     string
+		BaseImageRequired bool
+		Error             string
+	}{
+		{
+			Name: "StageB buildfile with no baseImage required",
+			Input: []*File{
+				{
+					FilePath:          "test/Buildfile.yaml",
+					BuildWith:         "../testReference",
+					BaseImage:         "",
+					BaseImageRequired: false,
+				},
+			},
+			BuildFileName: "test",
+		},
+		{
+			Name: "StageB buildfile with no baseImage but is required",
+			Input: []*File{
+				{
+					FilePath:          "test/Buildfile.yaml",
+					BuildWith:         "../testReference",
+					BaseImageRequired: true,
+				},
+			},
+			BuildFileName: "test",
+			Error:         "buildfile requires a baseImage but none was provided",
+		},
+		{
+			Name: "StageB buildfile with a baseImage that exists",
+			Input: []*File{
+				{
+					FilePath:  "test/Buildfile.yaml",
+					BuildWith: "../testReference",
+					BaseImage: "baseImage/reference",
+				},
+			},
+			BuildFileName: "test",
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			workdir := t.TempDir()
+			if err := CreateDirectories(tc.Input, workdir); err != nil {
+				t.Fatal(err)
+			}
+			if err := CreateDirectories(directoryContent, workdir); err != nil {
+				t.Fatal(err)
+			}
+			basepath := workdir
+			buildFileMap, err := getAllBuildFiles(basepath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			buildFile := buildFileMap[tc.BuildFileName]
+
+			_, err = validateServiceBuildfileBaseImage(buildFile)
+			if len(tc.Error) > 0 {
+				if err == nil {
+					t.Fatalf("expected error %s, but got nil", tc.Error)
+				} else if !strings.Contains(err.Error(), tc.Error) {
+					t.Fatalf("expected error %s, but got %s", tc.Error, err.Error())
+				}
+			} else if err != nil {
+				t.Fatalf("expected no error, but got %s", err.Error())
+			}
+		})
+	}
+}
+
 func TestGetStageACommand(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		Input         []*File
 		BasePath      string
 		BuildFileName string
+		BaseImages    string
 		Output        []string
 		Error         bool
 	}{
@@ -1882,8 +1983,9 @@ func TestGetStageACommand(t *testing.T) {
 				},
 			},
 			BuildFileName: "test",
+			BaseImages:    `{}`,
 			Output: []string{
-				"make -C test build-pr DOCKER_REGISTRY_URI=my-favorite.xyz ADDITIONAL_IMAGE_TAGS=dirsomehash",
+				"make -C test build-pr DOCKER_REGISTRY_URI=my-favorite.xyz IMAGE_TAG=somehash",
 			},
 		},
 		{
@@ -1898,6 +2000,7 @@ func TestGetStageACommand(t *testing.T) {
 				},
 			},
 			BuildFileName: "test",
+			BaseImages:    `{}`,
 			Output: []string{
 				"make build",
 			},
@@ -1950,45 +2053,50 @@ func TestGetStageAAndStageBBuildFiles(t *testing.T) {
 					RawContent: `metadata:
   name: ci
   registry: my-favorite.xyz
-spec:
-  stage: A
 `,
 				},
 				{
 					FilePath: "test/Buildfile.yaml",
 					RawContent: `
 spec:
-  stage: B
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   required: false
 `,
 				},
 				{
 					FilePath: "dummy/Buildfile.yaml",
 					RawContent: `
 spec:
-  stage: B
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   required: false
 `,
 				},
 			},
 			OutputStageA: BuildFileMap{
 				dockerDirectoryPath: {
 					Directory: dockerDirectoryPath,
-					Stage:     "A",
 				},
 			},
 			OutputStageB: BuildFileMap{
 				"dummy": {
-					Directory:        "dummy",
-					Stage:            "B",
-					BuildWith:        dockerDirectoryPath,
+					Directory: "dummy",
+					BuildWith: dockerDirectoryPath,
+					BaseImageConfig: &BaseImageConfig{
+						BaseImage: "",
+						Required:  false,
+					},
 					PreBuildActions:  nil,
 					PostBuildActions: nil,
 				},
 				"test": {
-					Directory:        "test",
-					Stage:            "B",
-					BuildWith:        dockerDirectoryPath,
+					Directory: "test",
+					BuildWith: dockerDirectoryPath,
+					BaseImageConfig: &BaseImageConfig{
+						BaseImage: "",
+						Required:  false,
+					},
 					PreBuildActions:  nil,
 					PostBuildActions: nil,
 				},
@@ -2034,28 +2142,28 @@ func TestPrintFileTriggersForBuildfiles(t *testing.T) {
 			ChangedFiles: []string{""},
 			Input: []*File{
 				{
-					FilePath: dockerDirectoryPath + "/Buildfile.yaml",
+					FilePath: dockerDirectoryPath + "/Buildfile",
 					RawContent: `metadata:
   name: ci
   registry: my-favorite.xyz
-spec:
-  stage: A
 `,
 				},
 				{
-					FilePath: "test/Buildfile.yaml",
+					FilePath: "test/Buildfile",
 					RawContent: `
 spec:
-  stage: B
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   required: false
 `,
 				},
 				{
-					FilePath: "dummy/Buildfile.yaml",
+					FilePath: "dummy/Buildfile",
 					RawContent: `
 spec:
-  stage: B
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   required: false
 `,
 				},
 			},
@@ -2070,24 +2178,24 @@ spec:
 					RawContent: `metadata:
   name: ci
   registry: my-favorite.xyz
-spec:
-  stage: A
 `,
 				},
 				{
 					FilePath: "test/Buildfile.yaml",
 					RawContent: `
 spec:
-  stage: B
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   required: false
 `,
 				},
 				{
 					FilePath: "dummy/Buildfile.yaml",
 					RawContent: `
 spec:
-  stage: B
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   required: false
 `,
 				},
 			},
@@ -2102,26 +2210,26 @@ spec:
 					RawContent: `metadata:
   name: ci
   registry: my-favorite.xyz
-spec:
-  stage: A
 `,
 				},
 				{
 					FilePath: "test/Buildfile.yaml",
 					RawContent: `
 spec:
-  stage: B
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   required: false
 `,
 				},
 				{
 					FilePath: "dummy/Buildfile.yaml",
 					RawContent: `
 spec:
-  stage: B
   dependsOn:
   - ../test
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   required: false
 `,
 				},
 			},
@@ -2136,24 +2244,24 @@ spec:
 					RawContent: `metadata:
   name: ci
   registry: my-favorite.xyz
-spec:
-  stage: A
 `,
 				},
 				{
 					FilePath: "test/Buildfile.yaml",
 					RawContent: `
 spec:
-  stage: B
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   baseImage: infrastructure/docker
 `,
 				},
 				{
 					FilePath: "dummy/Buildfile.yaml",
 					RawContent: `
 spec:
-  stage: B
   buildWith:  infrastructure/docker
+  baseImageConfig:
+   baseImage: infrastructure/docker
 `,
 				},
 			},

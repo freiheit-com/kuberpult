@@ -54,11 +54,16 @@ const (
 	dockerDirectoryPath = "infrastructure/docker"
 )
 
+type BaseImageConfig struct {
+	BaseImage string `yaml:"baseImage"`
+	Required  bool   `yaml:"required"`
+}
+
 type Spec struct {
-	Stage      string   `yaml:"stage"`
-	DependsOn  []string `yaml:"dependsOn,omitempty"`
-	BuildWith  string   `yaml:"buildWith"`
-	BuildImage string   `yaml:"buildImage"`
+	DependsOn       []string        `yaml:"dependsOn,omitempty"`
+	BuildWith       string          `yaml:"buildWith"`
+	BuildImage      string          `yaml:"buildImage"`
+	BaseImageConfig BaseImageConfig `yaml:"baseImageConfig"`
 }
 
 type (
@@ -90,11 +95,11 @@ type Artifacts []string
 
 type BuildFile struct {
 	Directory                  string
-	Stage                      string
 	DependsOn                  []string
 	BuildWith                  string
 	BuildImage                 string
 	FileTrigger                []string
+	BaseImageConfig            *BaseImageConfig
 	AdditionalArtifacts        Artifacts
 	Cache                      Cache
 	PreBuildActions            Actions
@@ -224,8 +229,17 @@ func getAllBuildFiles(rootPath string) (BuildFileMap, error) {
 	}
 	for _, buildFilePath := range allBuildFilePaths {
 		content, err := readBuildFile(rootPath, buildFilePath)
+		imageConfig := &BaseImageConfig{}
 		if err != nil {
 			return nil, err
+		}
+		if content.Metadata.Registry != "" {
+			imageConfig = nil
+		} else if content.Spec.BaseImageConfig != *imageConfig {
+			imageConfig = &BaseImageConfig{
+				BaseImage: content.Spec.BaseImageConfig.BaseImage,
+				Required:  content.Spec.BaseImageConfig.Required,
+			}
 		}
 		if err != nil {
 			return allBuildDirs, err
@@ -233,9 +247,9 @@ func getAllBuildFiles(rootPath string) (BuildFileMap, error) {
 		directory := filepath.Dir(buildFilePath)
 		allBuildDirs[directory] = &BuildFile{
 			Directory:           directory,
-			Stage:               content.Spec.Stage,
 			BuildWith:           content.Spec.BuildWith,
 			BuildImage:          content.Spec.BuildImage,
+			BaseImageConfig:     imageConfig,
 			DependsOn:           applyGlobToPaths(content.Spec.DependsOn, directory, rootPath),
 			AdditionalArtifacts: convertToAbsolutePaths(content.AdditionalArtifacts, directory, rootPath),
 			Cache: Cache{
@@ -315,6 +329,9 @@ func recurseBuildDependencies(foldersToBuild BuildFileMap, changedFiles []string
 		var allDependencies []string
 		allDependencies = append(allDependencies, buildDir.DependsOn...)
 		allDependencies = append(allDependencies, buildDir.BuildWith)
+		if buildDir.BaseImageConfig != nil && buildDir.BaseImageConfig.BaseImage != "" {
+			allDependencies = append(allDependencies, buildDir.BaseImageConfig.BaseImage)
+		}
 		for _, dependency := range allDependencies {
 			if _, ok := allAncestors[dependency]; ok {
 				if !hasValue(buildDir.FileTrigger, dependency+" [dependency]") {
@@ -390,7 +407,7 @@ func getStageACommand(buildDir *BuildFile, trigger string, imageTargets ImageTar
 				buildDir.Directory, "build"+"-"+trigger,
 				[]string{
 					"DOCKER_REGISTRY_URI=" + imageTargets.ImageRegistryURI,
-					"ADDITIONAL_IMAGE_TAGS=" + imageTargets.ImageTag,
+					"IMAGE_TAG=" + imageTargets.ImageTag,
 				},
 			),
 		},
@@ -481,10 +498,13 @@ func getCleanupCommand(trigger string) []ContainerCommands {
 	}
 }
 
-func getStageBCommand(buildDir *BuildFile, trigger, image string) (ContainerCommands, error) {
+func getStageBCommand(buildDir *BuildFile, trigger, image, baseImage string) (ContainerCommands, error) {
 	containerCommands := ContainerCommands{}
 	cacheKey := ""
 	var makeVariables []string
+	if baseImage != "" {
+		makeVariables = append(makeVariables, "BASE_IMAGE="+baseImage)
+	}
 	var err error
 	if len(buildDir.Cache.Hashfiles) > 0 {
 		cacheKey, err = getHash(buildDir.Cache.Hashfiles)
@@ -510,7 +530,7 @@ func getStageBCommand(buildDir *BuildFile, trigger, image string) (ContainerComm
 
 func getIntegrationCommand(integrationTestDirectory *BuildFile, trigger string) (ContainerCommands, error) {
 	// As of now, reuse build command format, if it diverges, can add more code here
-	integrationCommand, err := getStageBCommand(integrationTestDirectory, trigger, "")
+	integrationCommand, err := getStageBCommand(integrationTestDirectory, trigger, "", "")
 	if err != nil {
 		return integrationCommand, err
 	}
@@ -526,13 +546,10 @@ func getStageAAndStageBBuildFiles(foldersToBuild BuildFileMap) (stageAFolders, s
 	stageA := BuildFileMap{}
 	stageB := BuildFileMap{}
 	for _, folder := range foldersToBuild {
-		switch folder.Stage {
-		case "A":
+		if folder.BaseImageConfig == nil {
 			stageA[folder.Directory] = folder
-		case "B":
+		} else {
 			stageB[folder.Directory] = folder
-		default:
-			log.Fatalf("stage for folder %s missing or not an allowed value (A, B): %v", folder.Directory, folder.Stage)
 		}
 	}
 	return stageA, stageB
@@ -597,7 +614,7 @@ func validateReadImageBuildFile(path string) (*InputYaml, error) {
 	}
 	// Check if the buildFile has a buildWith
 	if content.Spec.BuildWith != "" {
-		return nil, fmt.Errorf("%s docker image buildfile cannot reference another buildfile: %s", path, content)
+		return nil, fmt.Errorf("%s docker image buildfile cannot reference another buildfile", path)
 	}
 
 	// Check if the buildFile has a dependency
@@ -627,7 +644,7 @@ func getImageTargets(name, path, hash string) (ImageTargets, error) {
 	return ImageTargets{
 		ImageRegistryURI: content.Metadata.Registry,
 		ImageName:        name,
-		ImageTag:         "dir" + hash,
+		ImageTag:         hash,
 	}, nil
 }
 
@@ -689,12 +706,34 @@ func convertToExecutionPlan(foldersToBuild, allBuildDirs BuildFileMap, trigger s
 			return ExecutionPlan{}, err
 		}
 
+		isService, err := validateServiceBuildfileBaseImage(fileForStageB)
+		if err != nil {
+			return ExecutionPlan{}, err
+		}
+
+		baseImageAbsPath, err := filepath.Abs(fileForStageB.BaseImageConfig.BaseImage)
+		if err != nil {
+			return ExecutionPlan{}, err
+		}
+
+		var baseImageTargets ImageTargets
+		if isService {
+			baseImageHash, err := getHashForImage(baseImageAbsPath)
+			if err != nil {
+				return ExecutionPlan{}, err
+			}
+			baseImageTargets, err = getImageTargets(fileForStageB.BaseImageConfig.BaseImage, baseImageAbsPath, baseImageHash)
+			if err != nil {
+				return ExecutionPlan{}, err
+			}
+		}
 		imageTargets, err := getImageTargets(fileForStageB.BuildWith, imageAbsPath, hash)
 		if err != nil {
 			return ExecutionPlan{}, err
 		}
 		imageUrl := getImageUrl(imageTargets)
-		buildCommand, err := getStageBCommand(fileForStageB, trigger, imageUrl)
+		baseImageUrl := getImageUrl(baseImageTargets)
+		buildCommand, err := getStageBCommand(fileForStageB, trigger, imageUrl, baseImageUrl)
 		if err != nil {
 			return ExecutionPlan{}, err
 		}
@@ -788,4 +827,17 @@ func validateServiceBuildfileDependsOn(buildFile *BuildFile, basePath, rootPath 
 	}
 
 	return nil
+}
+
+func validateServiceBuildfileBaseImage(buildfile *BuildFile) (bool, error) {
+	isInfrastructureService := false
+	if buildfile.BaseImageConfig.Required {
+		if buildfile.BaseImageConfig.BaseImage == "" {
+			return false, fmt.Errorf("%q buildfile requires a baseImage but none was provided", buildfile.Directory)
+		}
+
+		isInfrastructureService = true
+	}
+
+	return isInfrastructureService, nil
 }

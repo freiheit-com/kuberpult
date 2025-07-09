@@ -1,6 +1,7 @@
 spec:
-  stage: B
   dependsOn:
     - ../../make/docker
     - ../../make/go
   buildWith: infrastructure/docker/ci
+  baseImageConfig:
+    required: false
