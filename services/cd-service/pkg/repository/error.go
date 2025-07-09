@@ -120,10 +120,7 @@ func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32
 	}
 }
 func GetCreateReleaseMissingManifest(missingManifest []types.EnvName) *CreateReleaseError {
-	missingManifestStr := []string{}
-	for i := range missingManifest {
-		missingManifestStr = append(missingManifestStr, string(missingManifest[i]))
-	}
+	missingManifestStr := EnvNamesToStrings(missingManifests)
 	response := api.CreateReleaseResponseMissingManifest{
 		MissingManifest: missingManifestStr,
 	}
