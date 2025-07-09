@@ -97,6 +97,7 @@ SELECT appname, envname, releaseVersion
 FROM deployments
 WHERE releaseVersion IS NOT NULL;
 `
+	tracing.MarkSpanAsDB(span, allApplicationReleasesQuery)
 	rows, err := transaction.QueryContext(ctx, allApplicationReleasesQuery)
 	if err != nil {
 		return err
@@ -127,6 +128,7 @@ func getCommitEventByCommitId(ctx context.Context, db *db.DBHandler, transaction
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "getCommitEventByCommitId")
 	defer span.Finish()
 	query := db.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
+	tracing.MarkSpanAsDB(span, query)
 	row := transaction.QueryRow(query, commitId, event.EventTypeNewRelease)
 	var jsonCommitEventsMetadata []byte
 	err := row.Scan(&jsonCommitEventsMetadata)
