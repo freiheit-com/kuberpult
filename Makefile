@@ -91,6 +91,10 @@ kuberpult-freshdb: prepare-compose compose-down
 	earthly +all-services --UID=$(USER_UID)
 	docker compose up 
 
+# Run this before starting the unit tests in your IDE:
+unit-test-db:
+	docker compose -f docker-compose-unittest.yml up
+
 all-services: prepare-compose
 	earthly +all-services --tag=$(VERSION)
 
