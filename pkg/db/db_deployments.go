@@ -36,7 +36,7 @@ type DBDeployment struct {
 	App            string
 	Env            string
 	TransformerID  TransformerID
-	Revision       string
+	Revision       uint64
 	Metadata       string // json
 }
 
@@ -542,7 +542,7 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 			Env:            "",
 			Metadata:       "",
 			TransformerID:  0,
-			Revision:       "",
+			Revision:       0,
 		}
 		err := rows.Scan(&row.Created, &releaseVersion, &row.App, &row.Env, &row.Metadata, &row.TransformerID, &row.Revision)
 		if err != nil {
@@ -593,7 +593,7 @@ func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[types.EnvName]Deploy
 			Env:     "",
 			App:     "",
 			ReleaseNumbers: types.ReleaseNumbers{
-				Revision: "",
+				Revision: 0,
 				Version:  nil,
 			},
 			Metadata: DeploymentMetadata{
@@ -669,7 +669,7 @@ func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Ro
 		Env:            "",
 		Metadata:       "",
 		TransformerID:  0,
-		Revision:       "",
+		Revision:       0,
 	}
 	var releaseVersion sql.NullInt64
 	//exhaustruct:ignore

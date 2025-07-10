@@ -643,7 +643,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					App: "test",
@@ -656,7 +656,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					App: "test",
@@ -985,7 +985,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					App:          "test",
@@ -1037,7 +1037,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					App:          "test",
@@ -1137,7 +1137,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					App:          "test",
@@ -1153,7 +1153,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					App:          "test",
@@ -1213,7 +1213,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					App:          "test",
@@ -1229,7 +1229,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					App:          "test",
@@ -1279,7 +1279,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					App:          "test",
@@ -1322,7 +1322,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				version := uint64(1)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &version,
 					},
 					App:          "test",
@@ -1337,7 +1337,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 
 				return dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &version,
 					},
 					App:           "test",
@@ -1386,7 +1386,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 				return dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					App:          "test",
@@ -1481,7 +1481,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				version := uint64(1)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &version,
 					},
 					App:          "test",
@@ -1496,7 +1496,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 
 				return dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &version,
 					},
 					App:           "test",
@@ -1726,7 +1726,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 		}
 		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 			ReleaseNumbers: types.ReleaseNumbers{
-				Revision: "0",
+				Revision: 0,
 				Version:  &versionZero,
 			},
 			Created:   time.Time{},
@@ -1757,7 +1757,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 			version := uint64(i)
 			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 				ReleaseNumbers: types.ReleaseNumbers{
-					Revision: "0",
+					Revision: 0,
 					Version:  &version,
 				},
 				Created:   time.Time{},
