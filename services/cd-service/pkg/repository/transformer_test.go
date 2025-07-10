@@ -4610,7 +4610,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					t.Fatalf("Error applying transformers step %d: %v", idx, err)
 				}
 
-				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on sqlite do not collide when multiple stages are involved.
+				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on the db do not collide when multiple stages are involved.
 			}
 
 			// Run the Release Train
