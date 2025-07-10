@@ -335,7 +335,7 @@ export const ErrorServiceLane: React.FC<{
     </div>
 );
 
-function filterDuplicateRelesases(releases: ReleaseNumbers[]): ReleaseNumbers[] {
+function filterDuplicateReleases(releases: ReleaseNumbers[]): ReleaseNumbers[] {
     const seen = new Set<string>();
     const toReturn: ReleaseNumbers[] = [];
     releases.forEach((curr) => {
@@ -426,7 +426,7 @@ export const ReadyServiceLane: React.FC<{
             )
         ),
     ];
-    const releases = filterDuplicateRelesases(rels);
+    const releases = filterDuplicateReleases(rels);
 
     const releases_lane =
         !!releases &&
