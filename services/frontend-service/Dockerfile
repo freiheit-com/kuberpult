@@ -1,5 +1,5 @@
-ARG PARENT_CONTAINER
-FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:${PARENT_CONTAINER} AS builder
+ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:latest
+FROM ${BUILDER_IMAGE} AS builder
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
 
@@ -18,6 +18,7 @@ ADD services/frontend-service/.npmrc /kp/services/frontend-service/
 ADD services/frontend-service/.eslintrc /kp/services/frontend-service/
 ADD services/frontend-service/public /kp/services/frontend-service/public
 ADD pkg/api/v1 /kp/services/frontend-service/api
+ADD infrastructure /kp/infrastructure
 
 # global pkg:
 ADD pkg /kp/pkg
@@ -26,7 +27,8 @@ COPY go.sum go.mod /kp/
 # Build go:
 WORKDIR /kp/
 ADD Makefile.variables .
-RUN make -C pkg proto
+ADD Makefile .
+RUN make -C pkg gen SKIP_DEPS=1 PKG_WITHOUT_DOCKER=1
 RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/frontend-service/cmd/server/main.go
 
 # Build js:
@@ -37,7 +39,7 @@ RUN buf generate --path api --timeout 5m
 RUN pnpm build
 
 FROM scratch
-LABEL org.opencontainers.image.source https://github.com/freiheit-com/kuberpult
+LABEL org.opencontainers.image.source=https://github.com/freiheit-com/kuberpult
 ENV TZ=Europe/Berlin
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
