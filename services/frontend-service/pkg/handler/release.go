@@ -260,7 +260,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
-		if !s.Config.EnabledRevisions {
+		if !s.Config.RevisionsEnabled {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "The release endpoint does not allow revisions (frontend.enabledRevisions = false).")
 		}
@@ -477,7 +477,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
 
 		if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
-			if !s.Config.EnabledRevisions {
+			if !s.Config.RevisionsEnabled {
 				w.WriteHeader(400)
 				fmt.Fprintf(w, "The release endpoint does not support revisions (frontend.enabledRevisions = false).")
 			}
