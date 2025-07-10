@@ -55,7 +55,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	revisions "github.com/hashicorp/go-version"
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
@@ -433,11 +432,6 @@ func isValidLink(urlToCheck string, allowedDomains []string) bool {
 		return false
 	}
 	return slices.Contains(allowedDomains, u.Hostname())
-}
-
-func isValidRevision(revision string) (bool, error) {
-	_, err := revisions.NewVersion(revision)
-	return err == nil, err
 }
 
 func isValidLifeTime(lifeTime string) bool {

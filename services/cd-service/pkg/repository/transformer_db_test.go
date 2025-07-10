@@ -670,23 +670,23 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 					Manifests: map[types.EnvName]string{
 						envAcceptance: "{}",
 					},
-					Team: "old",
+					Team: "t1",
 				},
 				&CreateApplicationVersion{
 					Application: appName,
 					Version:     10,
 					Revision:    2,
 					Manifests: map[types.EnvName]string{
-						envAcceptance: "{}",
+						envAcceptance: "{test}",
 					},
-					Team: "new",
+					Team: "t1",
 				},
 			},
 			expectedDbContent: &db.DBAppWithMetaData{
 				App:         appName,
-				StateChange: db.AppStateChangeUpdate,
+				StateChange: db.AppStateChangeCreate,
 				Metadata: db.DBAppMetaData{
-					Team: "old",
+					Team: "t1",
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
