@@ -1,4 +1,2 @@
 [safe]
-    directory = /repository_remote
-    directory = /repository
-    directory = /kp
+    directory = /kp/services/manifest-repo-export-service/pkg/service/repository_tags
