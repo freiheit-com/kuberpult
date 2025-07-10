@@ -419,14 +419,13 @@ export const ReadyServiceLane: React.FC<{
         minorReleases = [];
     }
     const prepareUndeployOrUndeployText = deriveUndeployMessage(appDetails?.application?.undeploySummary);
-    const rels = [
+    const releases = filterDuplicateReleases([
         ...new Set(
             getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) =>
                 n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version
             )
         ),
-    ];
-    const releases = filterDuplicateReleases(rels);
+    ]);
 
     const releases_lane =
         !!releases &&
