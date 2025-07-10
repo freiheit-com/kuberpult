@@ -67,7 +67,8 @@ func ApplicationName(name string) bool {
 }
 
 func TeamName(name string) bool {
-	return len(name) < 21 && teamNameRx.MatchString(name)
+	// we use the team name in render.go as label and annotations which both have a limit of 63 characters:
+	return len(name) < 63 && teamNameRx.MatchString(name)
 }
 
 func UserEmail(email string) bool {

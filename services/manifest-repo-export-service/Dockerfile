@@ -1,5 +1,5 @@
 ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/deps:latest
-FROM ${BUILDER_IMAGE} as builder
+FROM ${BUILDER_IMAGE} AS builder
 FROM alpine:3.21
 ENV TZ=Europe/Berlin
 RUN adduser --disabled-password --home "/kp" --uid 1000 kp

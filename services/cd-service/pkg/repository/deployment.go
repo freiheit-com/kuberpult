@@ -257,7 +257,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		App:     c.Application,
 		Env:     envName,
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: "0",
+			Revision: 0,
 			Version:  &c.Version,
 		},
 		TransformerID: c.TransformerEslVersion,

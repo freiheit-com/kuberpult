@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -78,7 +79,7 @@ func (h *DBHandler) DBAcquireAdvisoryLock(ctx context.Context, isShared bool, lo
 		} else {
 			selectQuery = h.AdaptQuery("SELECT pg_advisory_xact_lock(?)")
 		}
-		span.SetTag("query", selectQuery)
+		tracing.MarkSpanAsDB(span, selectQuery)
 		row, err := transaction.QueryContext(
 			ctx,
 			selectQuery,

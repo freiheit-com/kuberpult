@@ -21,9 +21,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"strconv"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
@@ -330,7 +331,81 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		})
 	}
 }
+func TestCreateApplicationVersionErrors(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
+	}{
+		{
+			Name: "create a downstream deployment without a manifest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					WriteCommitData:                true,
+					DeployToDownstreamEnvironments: []types.EnvName{"foo"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"missing_manifest:{missing_manifest:\"foo\"}"},
+			},
+		},
+		{
+			Name: "create a downstream deployment to an upstream",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					WriteCommitData:                true,
+					DeployToDownstreamEnvironments: []types.EnvName{"acceptance"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"is_no_downstream:{no_downstream:\"acceptance\"}"},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			t.Parallel()
 
+			// optimization: no need to set up the repository if this fails
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, transaction, tc.Transformers...)
+				return err
+			})
+
+			if err == nil {
+				t.Fatalf("expected error, got none.")
+			}
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
 func TestCreateApplicationVersionIdempotency(t *testing.T) {
 	tcs := []struct {
 		Name          string
@@ -4004,7 +4079,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 
 						Version: &versionOne,
 					},
@@ -4014,7 +4089,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 4,
@@ -4088,7 +4163,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 7,
@@ -4097,7 +4172,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 6,
@@ -4171,7 +4246,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 7,
@@ -4180,7 +4255,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 6,
@@ -4251,7 +4326,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "development",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 5,
@@ -4260,7 +4335,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 6,
@@ -4324,7 +4399,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 4,
@@ -4393,7 +4468,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 4,
@@ -4402,7 +4477,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 7,
@@ -4469,7 +4544,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production1",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 6,
@@ -4478,7 +4553,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production2",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 6,
@@ -4487,7 +4562,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 5,
@@ -4535,7 +4610,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					t.Fatalf("Error applying transformers step %d: %v", idx, err)
 				}
 
-				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on sqlite do not collide when multiple stages are involved.
+				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on the db do not collide when multiple stages are involved.
 			}
 
 			// Run the Release Train

@@ -51,7 +51,7 @@ var devEnvironment db.DBEnvironment = db.DBEnvironment{
 
 var appRelease db.DBReleaseWithMetaData = db.DBReleaseWithMetaData{
 	ReleaseNumbers: types.ReleaseNumbers{
-		Revision: "0",
+		Revision: 0,
 		Version:  &appVersion,
 	},
 	App: "app",
@@ -206,7 +206,7 @@ func TestGenerateManifest(t *testing.T) {
 						App: release.App,
 						Env: tc.SetupEnv.Name,
 						ReleaseNumbers: types.ReleaseNumbers{
-							Revision: "0",
+							Revision: 0,
 							Version:  &appVersion,
 						},
 					})

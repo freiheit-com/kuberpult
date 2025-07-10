@@ -276,21 +276,6 @@ func RunServer() {
 					MaxIdleConnections: c.DbMaxIdleConnections,
 					MaxOpenConnections: c.DbMaxOpenConnections,
 				}
-			} else if c.DbOption == "sqlite" {
-				dbCfg = db.DBConfig{
-					DbHost:         c.DbLocation,
-					DbPort:         c.DbAuthProxyPort,
-					DriverName:     "sqlite3",
-					DbName:         c.DbName,
-					DbPassword:     c.DbUserPassword,
-					DbUser:         c.DbUserName,
-					MigrationsPath: c.DbMigrationsLocation,
-					WriteEslOnly:   c.DbWriteEslTableOnly,
-					SSLMode:        c.DbSslMode,
-
-					MaxIdleConnections: c.DbMaxIdleConnections,
-					MaxOpenConnections: c.DbMaxOpenConnections,
-				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
 			}

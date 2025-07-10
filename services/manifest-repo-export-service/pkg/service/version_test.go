@@ -234,7 +234,7 @@ func TestVersion(t *testing.T) {
 
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					Created:   gotime.Time{},
@@ -255,7 +255,7 @@ func TestVersion(t *testing.T) {
 					Env: "development",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  &version,
-						Revision: "0",
+						Revision: 0,
 					},
 				})
 				err = repo.Apply(ctx, transaction, tc.Setup...)
@@ -465,7 +465,7 @@ func TestGetManifests(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  &versionOne,
-						Revision: "0",
+						Revision: 0,
 					},
 					Created:   gotime.Time{},
 					App:       appName,
@@ -478,7 +478,7 @@ func TestGetManifests(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  &versionTwo,
-						Revision: "0",
+						Revision: 0,
 					},
 					Created:   gotime.Time{},
 					App:       appName,
@@ -491,7 +491,7 @@ func TestGetManifests(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  &versionThree,
-						Revision: "0",
+						Revision: 0,
 					},
 					Created:   gotime.Time{},
 					App:       appName,
@@ -504,7 +504,7 @@ func TestGetManifests(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  &versionOne,
-						Revision: "0",
+						Revision: 0,
 					},
 					Created:   gotime.Time{},
 					App:       appNameOther,
@@ -517,7 +517,7 @@ func TestGetManifests(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  &versionTwo,
-						Revision: "0",
+						Revision: 0,
 					},
 					Created:   gotime.Time{},
 					App:       appNameOther,
@@ -530,7 +530,7 @@ func TestGetManifests(t *testing.T) {
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  &versionThree,
-						Revision: "0",
+						Revision: 0,
 					},
 					Created:   gotime.Time{},
 					App:       appNameOther,
