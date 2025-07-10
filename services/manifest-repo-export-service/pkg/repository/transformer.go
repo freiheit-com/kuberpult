@@ -898,6 +898,7 @@ func (c *CreateApplicationVersion) Transform(
 					AuthorName:  c.SourceAuthor,
 					AuthorEmail: "",
 				},
+				Revision: c.Revision,
 			}
 			err = tCtx.Execute(d, transaction)
 			if err != nil {
@@ -1506,6 +1507,7 @@ func (u *ReleaseTrain) Transform(
 			},
 			TransformerEslVersion: u.TransformerEslVersion,
 			Author:                "",
+			Revision:              0,
 		}, transaction); err != nil {
 			return "", err
 		}
@@ -1714,6 +1716,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 					AuthorName:  "",
 					AuthorEmail: "",
 				},
+				Revision: 0,
 			}
 			err := tCtx.Execute(d, transaction)
 			if err != nil {

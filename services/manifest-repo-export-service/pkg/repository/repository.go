@@ -1166,7 +1166,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 			Created: *now,
 			ReleaseNumbers: types.ReleaseNumbers{
 				Version:  &releaseVersion,
-				Revision: 0,
+				Revision: repoRelease.Revision,
 			},
 			App: app,
 			Manifests: db.DBReleaseManifests{
@@ -1259,6 +1259,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 		IsMinor:         false,
 		IsPrepublish:    false,
 		Environments:    []string{},
+		Revision:        0,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
@@ -2177,6 +2178,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		IsMinor:         false,
 		IsPrepublish:    false,
 		Environments:    nil,
+		Revision:        0,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
