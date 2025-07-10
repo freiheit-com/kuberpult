@@ -46,7 +46,7 @@ func readMultipartFile(hdr *multipart.FileHeader) ([]byte, error) {
 	if file, err := hdr.Open(); err != nil {
 		return nil, err
 	} else {
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		if content, err := io.ReadAll(file); err != nil {
 			return nil, err
 		} else {

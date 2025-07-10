@@ -142,30 +142,30 @@ func (s Server) handleDeleteEnvironment(w http.ResponseWriter, req *http.Request
 	if s.AzureAuth {
 		if req.Body == nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "missing request body")
+			_, _ = fmt.Fprintf(w, "missing request body")
 			return
 		}
 		signature, err := io.ReadAll(req.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Can't read request body %s", err)
+			_, _ = fmt.Fprintf(w, "Can't read request body %s", err)
 			return
 		}
 
 		if len(signature) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
+			_, _ = w.Write([]byte("Missing signature in request body")) //nolint:errcheck
 			return
 		}
 
 		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment), bytes.NewReader(signature), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				_, _ = fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 				return
 			}
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "Invalid signature")
+			_, _ = fmt.Fprintf(w, "Invalid signature")
 			return
 		}
 	}
