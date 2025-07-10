@@ -1281,7 +1281,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 					App:        testAppName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  nil,
-						Revision: "0",
+						Revision: 0,
 					},
 				},
 				{
@@ -1290,7 +1290,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 					App:        testAppName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 				},
 			},
@@ -1361,7 +1361,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 					App:        testAppName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(1),
-						Revision: "0",
+						Revision: 0,
 					},
 				},
 			},
@@ -2397,7 +2397,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Manifests: db.DBReleaseManifests{
@@ -2446,7 +2446,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Manifests: db.DBReleaseManifests{
@@ -2507,7 +2507,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Manifests: db.DBReleaseManifests{
@@ -2520,7 +2520,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				"app2": {
 					App: "app2",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Manifests: db.DBReleaseManifests{
@@ -3457,7 +3457,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3495,7 +3495,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3533,7 +3533,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3684,7 +3684,7 @@ func TestUndeployDBState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  nil,
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3697,7 +3697,7 @@ func TestUndeployDBState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(2),
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3710,7 +3710,7 @@ func TestUndeployDBState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{

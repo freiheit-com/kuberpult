@@ -579,7 +579,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: "0",
+			Revision: 0,
 			Version:  &version,
 		},
 		App: c.Application,
@@ -992,7 +992,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	v := uint64(lastRelease + 1)
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: "0",
+			Revision: 0,
 			Version:  &v,
 		},
 		App: c.Application,
