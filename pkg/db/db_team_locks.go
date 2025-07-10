@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"time"
@@ -60,8 +61,7 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, teamName, metadata
 		FROM team_locks;`)
-	span.SetTag("query", selectQuery)
-
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -131,8 +131,7 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 		SELECT created, lockid, envname, teamName, metadata 
 		FROM team_locks 
 		LIMIT 1;`)
-	span.SetTag("query", selectQuery)
-
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -190,8 +189,7 @@ func (h *DBHandler) DBSelectTeamLocksForEnv(ctx context.Context, tx *sql.Tx, env
 		FROM team_locks 
 		WHERE envname = (?)
 		ORDER BY lockid;`)
-	span.SetTag("query", selectQuery)
-
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -215,6 +213,7 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 		SELECT created, lockid, envName, teamName, metadata
 		FROM team_locks
 		WHERE team_locks.teamName = (?);`)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(ctx, selectQuery, teamName)
 	return h.processTeamLockRows(ctx, err, rows)
 }
@@ -229,8 +228,7 @@ func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environmen
 		WHERE envName=? AND teamName=? AND lockID=?
 		ORDER BY version DESC
 		LIMIT 1;`)
-	span.SetTag("query", selectQuery)
-
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -262,8 +260,7 @@ func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, enviro
 		FROM team_locks 
 		WHERE envname = ? AND teamName = ? 
 		ORDER BY lockid;`)
-	span.SetTag("query", selectQuery)
-
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(ctx, selectQuery, environment, teamName)
 	return h.processAllTeamLocksRows(ctx, err, rows)
 }
@@ -287,8 +284,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 				" WHERE envName=? AND lockID=? AND teamName=?" +
 				" ORDER BY version DESC " +
 				" LIMIT ?;"))
-
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -439,7 +435,7 @@ func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 		ON CONFLICT(teamname, envname, lockid)
 		DO UPDATE SET created = excluded.created, lockid = excluded.lockid, metadata = excluded.metadata, envname = excluded.envname, teamname = excluded.teamname;
 	`)
-	span.SetTag("query", upsertQuery)
+	tracing.MarkSpanAsDB(span, upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -474,7 +470,7 @@ func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM team_locks
 		WHERE teamname=? AND lockId=? AND envname=?;`)
-	span.SetTag("query", deleteQuery)
+	tracing.MarkSpanAsDB(span, deleteQuery)
 	_, err := transaction.Exec(
 		deleteQuery,
 		teamName,
@@ -499,7 +495,7 @@ func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *s
 		INSERT INTO team_locks_history (created, lockId, envname, teamName, metadata, deleted)
 		VALUES (?, ?, ?, ?, ?, ?);
 	`)
-	span.SetTag("query", upsertQuery)
+	tracing.MarkSpanAsDB(span, upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
