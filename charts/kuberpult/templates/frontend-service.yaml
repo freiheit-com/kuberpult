@@ -33,7 +33,7 @@
 {{ fail "Values.frontend.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
 {{- if (and (.Values.frontend.enableRevisions) (.Values.rollout.enabled)) }}
-{{ fail "Values.frontend.enabledRevision and Values.rollout.enabled cannot be toggled ON at the same time."}}
+{{ fail "Values.frontend.enabledRevision and Values.rollout.enabled cannot be toggled ON at the same time, because the rollout service does not support revisions."}}
 {{ end -}}
 ---
 apiVersion: apps/v1
