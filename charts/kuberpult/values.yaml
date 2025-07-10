@@ -247,7 +247,7 @@ frontend:
   # by revision and not by version number.
   enableRevisions: true
 rollout:
-  enabled: true
+  enabled: false
   service:
     annotations: {}
   pod:
