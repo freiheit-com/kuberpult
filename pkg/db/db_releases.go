@@ -467,7 +467,8 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 	`)
 	tracing.MarkSpanAsDB(span2, releasesUpdateQuery)
 
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		releasesUpdateQuery,
 		createAt,
 		application,

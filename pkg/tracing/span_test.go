@@ -53,7 +53,7 @@ func TestMarkAsDB(t *testing.T) {
 			expectedTags := map[string]string{
 				"sql.query":      tc.Query,
 				ext.ResourceName: tc.Query,
-				ext.ServiceName:  "postgres",
+				ext.ServiceName:  "postgres-client",
 				ext.SpanType:     ext.SpanTypeSQL,
 				ext.DBType:       "postgres",
 				ext.DBSystem:     "postgres",
@@ -70,7 +70,7 @@ func TestMarkAsDB(t *testing.T) {
 					t.Fatalf("expected tag %s=%s to exist", key, value)
 				}
 				if actualValue != value {
-					t.Errorf("expected tag %s=%s got %s=%s", key, value, actualValue, key)
+					t.Errorf("expected tag %s=%s got %s=%s", key, value, key, actualValue)
 				}
 			}
 			if len(actualTags) != len(expectedTags) {

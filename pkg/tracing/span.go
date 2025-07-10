@@ -42,7 +42,10 @@ func StartSpanFromContext(ctx context.Context, name string) (tracer.Span, contex
 func MarkSpanAsDB(span tracer.Span, sqlQuery string) {
 	span.SetTag(ext.ResourceName, sqlQuery)
 	span.SetTag("sql.query", sqlQuery)
-	span.SetTag(ext.ServiceName, "postgres")
+
+	// what we're tracing here is not the actual postgres, but the client code that access postgres,
+	// hence the name "postgres-client":
+	span.SetTag(ext.ServiceName, "postgres-client")
 
 	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
 	span.SetTag(ext.DBType, "postgres")
