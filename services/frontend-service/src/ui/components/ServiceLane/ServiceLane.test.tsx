@@ -792,20 +792,36 @@ describe('Service Lane Important Releases', () => {
             });
             if (testcase.currentlyDeployedVersion !== testcase.releases[0].version) {
                 // then - the currently deployed version always important and displayed second after latest
-                expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1)).toMatchObject({
-                    versionInfo: {
-                        version: testcase.currentlyDeployedVersion,
-                        revision: 0,
+                mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
+                    {
+                        app: 'test2',
+                        versionInfo: { version: testcase.releases[1].version, revison: testcase.releases[1].revision },
                     },
-                });
+                    Spy.IGNORE
+                );
             }
             if (testcase.releases[1].version > testcase.currentlyDeployedVersion) {
                 // then - second release not deployed and not latest -> not important
                 mock_ReleaseCard.ReleaseCard.wasNotCalledWith(Spy.IGNORE);
             }
             // then - the old release is not important and not displayed
-            mock_ReleaseCard.ReleaseCard.wasNotCalledWith(Spy.IGNORE);
-            mock_ReleaseCard.ReleaseCard.wasNotCalledWith(Spy.IGNORE);
+            mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
+                {
+                    app: 'test2',
+                    versionInfo: { version: testcase.releases[7].version, revison: testcase.releases[7].revision },
+                },
+                Spy.IGNORE
+            );
+            mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
+                {
+                    app: 'test2',
+                    versionInfo: {
+                        version: testcase.releases[testcase.minorReleaseIndex].version,
+                        revison: testcase.releases[testcase.minorReleaseIndex].revision,
+                    },
+                },
+                Spy.IGNORE
+            );
         });
     });
 });
