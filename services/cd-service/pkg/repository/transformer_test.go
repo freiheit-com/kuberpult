@@ -4004,7 +4004,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 
 						Version: &versionOne,
 					},
@@ -4014,7 +4014,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 4,
@@ -4088,7 +4088,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 7,
@@ -4097,7 +4097,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 6,
@@ -4171,7 +4171,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 7,
@@ -4180,7 +4180,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 6,
@@ -4251,7 +4251,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "development",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 5,
@@ -4260,7 +4260,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 6,
@@ -4324,7 +4324,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 4,
@@ -4393,7 +4393,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 4,
@@ -4402,7 +4402,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 7,
@@ -4469,7 +4469,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production1",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 6,
@@ -4478,7 +4478,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production2",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 6,
@@ -4487,7 +4487,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 5,
