@@ -155,7 +155,7 @@ func RunServer() {
 
 func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClient, api.VersionServiceClient, error) {
 	const megaBytes int = 1024 * 1024
-	var cred credentials.TransportCredentials = insecure.NewCredentials()
+	var cred = insecure.NewCredentials()
 	if config.CdServerSecure {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
