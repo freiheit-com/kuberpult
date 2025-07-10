@@ -93,6 +93,12 @@ func prepareHttpReleaseRequest(url string, authParams kutil.AuthenticationParame
 		}
 	}
 
+	if parsedArgs.Revision != nil {
+		if err := writer.WriteField("revision", fmt.Sprintf("%v", *parsedArgs.Revision)); err != nil {
+			return nil, fmt.Errorf("error writing revision field, error: %w", err)
+		}
+	}
+
 	if parsedArgs.DisplayVersion != nil {
 		if err := writer.WriteField("display_version", *parsedArgs.DisplayVersion); err != nil {
 			return nil, fmt.Errorf("error writing display_version field, error: %w", err)
