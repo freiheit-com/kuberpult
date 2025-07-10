@@ -2213,7 +2213,7 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	latestDeployment, err := h.DBSelectLatestDeploymentAttempt(ctx, tx, deployment.Env, deployment.App)
 
 	if err != nil {
-		return fmt.Errorf("Could not get latest deployment attempt from deployments table")
+		return fmt.Errorf("could not get latest deployment attempt from deployments table: %w", err)
 	}
 	var previousEslVersion EslVersion
 

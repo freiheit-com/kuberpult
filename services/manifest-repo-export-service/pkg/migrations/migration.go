@@ -47,7 +47,7 @@ LIMIT 1;`)
 		requestedVersionString,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not query cutoff table from DB. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("could not query cutoff table from DB. Error: %w", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
