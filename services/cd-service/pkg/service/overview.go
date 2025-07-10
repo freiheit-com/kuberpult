@@ -756,7 +756,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 		}
 
 		previousReleaseVersions := make(map[string]uint64)
-		defer deploymentRows.Close()
+		defer func() { _ = deploymentRows.Close() }()
 		//Get all relevant deployments and store its information
 		for i := uint64(2); deploymentRows.Next(); i++ {
 			var created time.Time

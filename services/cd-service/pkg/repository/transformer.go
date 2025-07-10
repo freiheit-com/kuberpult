@@ -508,7 +508,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	if c.SourceCommitId != "" && !valid.SHA1CommitID(c.SourceCommitId) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F], but is %d characters: '%s'\n", len(c.SourceCommitId), c.SourceCommitId))
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F], but is %d characters: '%s'", len(c.SourceCommitId), c.SourceCommitId))
 	}
 	if c.PreviousCommit != "" && !valid.SHA1CommitID(c.PreviousCommit) {
 		logger.FromContext(ctx).Sugar().Warnf("Previous commit ID %s is invalid", c.PreviousCommit)
@@ -516,7 +516,7 @@ func (c *CreateApplicationVersion) Transform(
 
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
-		if errors.Is(err, InvalidJson) {
+		if errors.Is(err, ErrInvalidJson) {
 			return "", err
 		}
 		return "", GetCreateReleaseGeneralFailure(err)
@@ -687,7 +687,7 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 			return false, err
 		}
 		if nextRelease == nil {
-			return false, fmt.Errorf("next release exists in the all releases but not in the release table!")
+			return false, fmt.Errorf("next release (%d) exists in the all releases but not in the release table", nextVersion)
 		}
 		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests, minorRegexes)
 		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, *nextRelease)

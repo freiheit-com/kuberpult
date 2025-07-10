@@ -89,7 +89,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("unable to find findOldApplicationVersions for app %s: %w", app.App, err))
 			}
 			if len(versions) > 0 && versions[0] > app.Version {
-				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("Version for app %s is older than 20 commits when running release train to commitHash %s: %w", app.App, c.CommitHash, err))
+				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("version for app %s is older than 20 commits when running release train to commitHash %s: %w", app.App, c.CommitHash, err))
 			}
 
 		}
@@ -239,7 +239,7 @@ func (c *ReleaseTrain) Transform(
 	defer span.Finish()
 	//Prognosis can be a costly operation. Abort straight away if ci link is not valid
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
@@ -567,7 +567,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		return failedPrognosis(grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", envName, err)))
 	}
 
-	var source types.EnvName = upstreamEnvName
+	var source = upstreamEnvName
 	if upstreamLatest {
 		source = "latest"
 	}
@@ -582,12 +582,12 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 	allLatestDeploymentsTargetEnv, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, envName)
 	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
 	}
 
 	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
 	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
 	}
 
 	if len(envLocks) > 0 {

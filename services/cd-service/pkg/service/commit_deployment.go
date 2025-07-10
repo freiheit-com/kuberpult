@@ -69,7 +69,7 @@ WHERE releaseVersion IS NOT NULL;
 		if err != nil {
 			return err
 		}
-		defer envRows.Close()
+		defer func() { _ = envRows.Close() }()
 		for envRows.Next() {
 			var envName string
 			err = envRows.Scan(&envName)
@@ -87,7 +87,7 @@ WHERE releaseVersion IS NOT NULL;
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var appName string

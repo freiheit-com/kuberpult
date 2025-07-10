@@ -273,11 +273,12 @@ func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 			}
 		}
 		var statusToWrite api.GitSyncStatus
-		if currStatus.SyncStatus == db.SYNC_FAILED {
+		switch currStatus.SyncStatus {
+		case db.SYNC_FAILED:
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_ERROR
-		} else if currStatus.SyncStatus == db.UNSYNCED {
+		case db.UNSYNCED:
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED
-		} else {
+		default:
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNKNOWN
 		}
 

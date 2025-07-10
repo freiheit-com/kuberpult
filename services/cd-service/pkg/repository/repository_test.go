@@ -147,7 +147,7 @@ func (p *InvalidJsonTransformer) GetEslVersion() db.TransformerID {
 }
 
 func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
-	return "error", InvalidJson
+	return "error", ErrInvalidJson
 }
 
 func convertToSet(list []uint64) map[int]bool {
@@ -173,11 +173,11 @@ func TestApplyQueuePanic(t *testing.T) {
 			Actions: []action{
 				{
 					Transformer:   &PanicTransformer{},
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				},
 			},
 		},
@@ -185,12 +185,12 @@ func TestApplyQueuePanic(t *testing.T) {
 			Name: "panic at the middle",
 			Actions: []action{
 				{
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
 					Transformer:   &PanicTransformer{},
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				},
 			},
 		},
@@ -198,12 +198,12 @@ func TestApplyQueuePanic(t *testing.T) {
 			Name: "panic at the end",
 			Actions: []action{
 				{
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
 					Transformer:   &PanicTransformer{},
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				},
 			},
 		},
@@ -537,7 +537,7 @@ func TestApplyQueue(t *testing.T) {
 			Name: "Invalid json error at start",
 			Actions: []action{
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: InvalidJson, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrInvalidJson, Index: 0},
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{}, {},
@@ -551,7 +551,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{},
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: InvalidJson, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrInvalidJson, Index: 0},
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{},
@@ -565,7 +565,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{}, {},
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: InvalidJson, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrInvalidJson, Index: 0},
 					Transformer:   &InvalidJsonTransformer{},
 				},
 			},
@@ -840,7 +840,7 @@ func TestApplyTransformerBatch(t *testing.T) {
 			repo := SetupRepositoryTestWithDB(t)
 
 			repoInternal := repo.(*repository)
-			resultingBatches, err, _ := repoInternal.applyTransformerBatches(tc.Batches, false)
+			resultingBatches, _, err := repoInternal.applyTransformerBatches(tc.Batches)
 			if err != nil {
 				t.Errorf("Got error here but was not expecting: %v\n", err)
 			}
