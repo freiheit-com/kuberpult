@@ -300,7 +300,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	if err != nil {
 		return fmt.Errorf("DBWriteEslEventInternal unable to get transaction timestamp: %w", err)
 	}
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		*now,
@@ -329,7 +329,7 @@ func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eve
 	if err != nil {
 		return fmt.Errorf("DBWriteEslEventInternal unable to get transaction timestamp: %w", err)
 	}
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		*now,
@@ -374,74 +374,27 @@ type EslFailedEventRow struct {
 	TransformerEslVersion EslVersion
 }
 
-// DBDiscoverCurrentEsldID: Returns the current sequence number of event_sourcing_light table.
-// Next value should be the returned on + 1
-func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*int, error) {
-	if h == nil {
-		return nil, nil
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("DBDiscoverCurrentEsldID: no transaction provided")
-	}
-	var selectQuery string
-	if h.DriverName == "postgres" {
-		selectQuery = h.AdaptQuery("SELECT last_value from event_sourcing_light_eslversion_seq;")
-	} else {
-		return nil, fmt.Errorf("Driver: '%s' not supported.\n", h.DriverName)
-	}
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not get current eslVersion. Error: %w\n", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
-	var value *int
-	value = new(int)
-	if rows.Next() {
-		err := rows.Scan(value)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("Error table for next eslVersion. Error: %w\n", err)
-		}
-	} else {
-		value = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return value, nil
-}
-
 // DBReadEslEventInternal returns either the first or the last row of the esl table
 func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (*EslEventRow, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadEslEventInternal")
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBReadEslEventInternal: no transaction provided")
+		return nil, onErr(fmt.Errorf("DBReadEslEventInternal: no transaction provided"))
 	}
 	sort := "DESC"
 	if firstRow {
 		sort = "ASC"
 	}
 	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type , json FROM event_sourcing_light ORDER BY eslVersion %s LIMIT 1;", sort))
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err)
+		return nil, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -461,14 +414,14 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
+			return nil, onErr(fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err))
 		}
 	} else {
 		row = nil
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, err
+		return nil, onErr(err)
 	}
 	return row, nil
 }
@@ -480,7 +433,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 
 	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json FROM event_sourcing_light WHERE eslVersion > (?) ORDER BY eslVersion %s LIMIT 1;", sort))
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -532,7 +485,7 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 		return fmt.Errorf("WriteEvent unable to get transaction timestamp: %w", err)
 	}
 
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
 	if err != nil {
@@ -641,7 +594,7 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 	defer span.Finish()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events ORDER BY timestamp DESC LIMIT 1;")
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 	rows, err := transaction.QueryContext(ctx, query)
 	return h.processSingleEventsRow(ctx, rows, err)
 }
@@ -657,7 +610,7 @@ func (h *DBHandler) DBContainsMigrationCommitEvent(ctx context.Context, transact
 	defer span.Finish()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 1;")
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 	rows, err := transaction.QueryContext(ctx, query, MigrationCommitEventHash)
 
 	row, err := h.processSingleEventsRow(ctx, rows, err)
@@ -680,7 +633,7 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 	defer span.Finish()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE eventType = (?) AND transformereslVersion = (?) ORDER BY timestamp DESC LIMIT ?;")
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 
 	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID, limit)
 	if err != nil {
@@ -769,7 +722,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 
 	// NOTE: We add one so we know if there is more to load
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp ASC LIMIT (?) OFFSET (?);")
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 
 	rows, err := transaction.QueryContext(ctx, query, commitHash, pageSize+1, pageNumber*pageSize)
 	return processAllCommitEventRow(ctx, rows, err)
@@ -791,8 +744,8 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 		WHERE transformereslVersion = (?)
 		ORDER BY timestamp DESC, uuid ASC
 		LIMIT 100;`)
-	span.SetTag("query", query)
-
+	tracing.MarkSpanAsDB(span, query)
+	span.SetTag("transformerEslVersion", transformerID)
 	rows, err := transaction.QueryContext(ctx, query, transformerID)
 	return processAllCommitEventRow(ctx, rows, err)
 }
@@ -808,7 +761,7 @@ func (h *DBHandler) DBSelectAllLockPreventedEventsForTransformerID(ctx context.C
 	defer span.Finish()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE transformereslVersion = (?) AND eventtype = (?) ORDER BY timestamp DESC LIMIT 100;")
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 
 	rows, err := transaction.QueryContext(ctx, query, transformerID, string(event.EventTypeLockPreventedDeployment))
 	return processAllCommitEventRow(ctx, rows, err)
@@ -1341,7 +1294,7 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 	if err != nil {
 		return fmt.Errorf("DBWriteMigrationsTransformer unable to get transaction timestamp: %w", err)
 	}
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	_, err2 := transaction.Exec(
 		insertQuery,
 		ts,
@@ -1411,7 +1364,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 
 	selectQuery := h.AdaptQuery(
 		"SELECT version, created, environment, json FROM all_env_locks ORDER BY version DESC LIMIT 1;")
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1469,8 +1422,9 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 			" WHERE envName=? AND lockID=? " +
 			" ORDER BY eslVersion DESC " +
 			" LIMIT 1;"))
-	span.SetTag("query", selectQuery)
-
+	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("kuberpultEnvironment", environment)
+	span.SetTag("lockId", lockID)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1595,7 +1549,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO environment_locks (eslVersion, created, lockID, envName, deleted, metadata) VALUES (?, ?, ?, ?, ?, ?);")
 
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
@@ -1630,7 +1584,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 				" ORDER BY eslVersion DESC " +
 				" LIMIT ?;"))
 
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1719,7 +1673,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 		AND latest.lockid=environment_locks.lockid
 		WHERE deleted = false;`)
 
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -1783,7 +1737,7 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 	}
 	selectQuery := h.AdaptQuery(
 		"SELECT version, created, environment, json FROM all_env_locks WHERE environment = ? ORDER BY version DESC LIMIT 1;")
-	span.SetTag("query", selectQuery)
+	tracing.MarkSpanAsDB(span, selectQuery)
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment)
 	if err != nil {
@@ -1872,6 +1826,7 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 				" WHERE envName=? AND lockID=? " +
 				" ORDER BY eslVersion DESC " +
 				" LIMIT 1;")
+		tracing.MarkSpanAsDB(span, selectQuery)
 		rows, err = tx.QueryContext(ctx, selectQuery, environment, id)
 		if err != nil {
 			return nil, fmt.Errorf("could not query environment locks table from DB. Error: %w\n", err)
@@ -1938,7 +1893,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 		return fmt.Errorf("DBWriteAllEnvironmentLocks unable to get transaction timestamp: %w", err)
 	}
 
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	_, err = transaction.Exec(
 		insertQuery,
 		previousVersion+1,
@@ -2030,7 +1985,7 @@ func (h *DBHandler) DBSelectAnyDeploymentAttempt(ctx context.Context, tx *sql.Tx
 	insertQuery := h.AdaptQuery(
 		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion, revision FROM deployment_attempts ORDER BY eslVersion DESC LIMIT 1;")
 
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		insertQuery)
@@ -2051,7 +2006,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 	insertQuery := h.AdaptQuery(
 		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion, revision FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT ?;")
 
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		insertQuery,
@@ -2102,7 +2057,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	insertQuery := h.AdaptQuery(
 		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion, revision FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT 1;")
 
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		insertQuery,
@@ -2148,7 +2103,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context
 	WHERE deployment_attempts.envName=?
 	ORDER BY deployment_attempts.eslversion DESC;
 	`)
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 	rows, err := tx.QueryContext(
 		ctx,
 		query,
@@ -2193,7 +2148,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context
 	WHERE deployment_attempts.appname=?
 	ORDER BY deployment_attempts.eslversion DESC;
 	`)
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 	rows, err := tx.QueryContext(
 		ctx,
 		query,
@@ -2275,7 +2230,7 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	if err != nil {
 		return fmt.Errorf("dbWriteDeploymentAttemptInternal unable to get transaction timestamp: %w", err)
 	}
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		previousEslVersion+1,
@@ -2517,7 +2472,7 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table
 	if err != nil {
 		return fmt.Errorf("DBWriteFailedEslEvent unable to get transaction timestamp: %w", err)
 	}
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		*now,
@@ -2543,7 +2498,7 @@ func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslE
 	}
 
 	deleteQuery := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE transformereslversion=?;")
-	span.SetTag("query", deleteQuery)
+	tracing.MarkSpanAsDB(span, deleteQuery)
 	_, err := tx.ExecContext(
 		ctx,
 		deleteQuery,
@@ -2566,7 +2521,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 	}
 
 	query := h.AdaptQuery("SELECT created, event_type, json, reason, transformerEslVersion FROM event_sourcing_light_failed ORDER BY created ASC LIMIT (?) OFFSET (?);")
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 	rows, err := tx.QueryContext(ctx, query, pageSize+1, pageNumber*pageSize)
 	if err != nil {
 		return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
@@ -2617,7 +2572,7 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 	query := h.AdaptQuery(
 		`SELECT created, event_type, json, reason, transformerEslVersion
 	 FROM event_sourcing_light_failed WHERE transformerEslVersion=? ORDER BY created DESC LIMIT 1;`)
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 	rows, err := tx.QueryContext(ctx, query, eslVersion)
 	if err != nil {
 		return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
@@ -2665,7 +2620,7 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 	}
 
 	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light ORDER BY eslVersion DESC LIMIT ?;")
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
 		return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w\n", err))
@@ -2727,7 +2682,7 @@ func (h *DBHandler) DBSkipFailedEslEvent(ctx context.Context, tx *sql.Tx, transf
 	}
 
 	query := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE transformerEslVersion = ?;")
-	span.SetTag("query", query)
+	tracing.MarkSpanAsDB(span, query)
 
 	result, err := tx.ExecContext(ctx, query, transformerEslVersion)
 
@@ -2795,7 +2750,7 @@ func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *s
 		"INSERT INTO commit_transaction_timestamps (commitHash, transactionTimestamp) VALUES (?, ?);",
 	)
 
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	span.SetTag("commitHash", commitHash)
 	span.SetTag("timestamp", timestamp)
 	_, err := tx.Exec(
@@ -2826,7 +2781,7 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 			"WHERE commitHash=?;",
 	)
 
-	span.SetTag("query", insertQuery)
+	tracing.MarkSpanAsDB(span, insertQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		insertQuery,
