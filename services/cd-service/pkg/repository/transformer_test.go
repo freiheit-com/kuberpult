@@ -21,9 +21,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"strconv"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
@@ -330,7 +331,81 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		})
 	}
 }
+func TestCreateApplicationVersionErrors(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
+	}{
+		{
+			Name: "create a downstream deployment without a manifest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					WriteCommitData:                true,
+					DeployToDownstreamEnvironments: []types.EnvName{"foo"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"missing_manifest:{missing_manifest:\"foo\"}"},
+			},
+		},
+		{
+			Name: "create a downstream deployment to an upstream",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					WriteCommitData:                true,
+					DeployToDownstreamEnvironments: []types.EnvName{"acceptance"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"is_no_downstream:{no_downstream:\"acceptance\"}"},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			t.Parallel()
 
+			// optimization: no need to set up the repository if this fails
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, transaction, tc.Transformers...)
+				return err
+			})
+
+			if err == nil {
+				t.Fatalf("expected error, got none.")
+			}
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
 func TestCreateApplicationVersionIdempotency(t *testing.T) {
 	tcs := []struct {
 		Name          string
