@@ -2194,7 +2194,7 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 		App:        appName,
 		ReleaseNumbers: types.ReleaseNumbers{
 			Version:  version,
-			Revision: "0",
+			Revision: 0,
 		},
 	})
 }
@@ -2216,7 +2216,7 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		App:        appName,
 		ReleaseNumbers: types.ReleaseNumbers{
 			Version:  nil,
-			Revision: "0",
+			Revision: 0,
 		},
 	})
 }

@@ -61,7 +61,7 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 		}
 
 		// Get latest releases for all apps
-		err2 := getDeploymentsWithoutReleaseVersion(ctx, transaction, err, applicationReleases)
+		err2 := getDeploymentsWithReleaseVersion(ctx, transaction, applicationReleases)
 		if err2 != nil {
 			return err2
 		}
@@ -77,7 +77,7 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 	}
 
 	for app, releases := range applicationReleases {
-		commitDeploymentStatusForApp, err := getCommitDeploymentInfoForApp(ctx, s.DBHandler, releaseNumber, app, allEnvironments, releases)
+		commitDeploymentStatusForApp, err := getCommitDeploymentInfoForApp(ctx, releaseNumber, app, allEnvironments, releases)
 		if err != nil {
 			return nil, fmt.Errorf("could not get commit deployment info for app %s: %v", app, err)
 		}
@@ -89,14 +89,14 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 	}, nil
 }
 
-func getDeploymentsWithoutReleaseVersion(ctx context.Context, transaction *sql.Tx, err error, applicationReleases map[string]map[types.EnvName]uint64) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "getDeploymentsWithoutReleaseVersion")
+func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, applicationReleases map[string]map[types.EnvName]uint64) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "getDeploymentsWithReleaseVersion")
 	defer span.Finish()
 	allApplicationReleasesQuery := `
-SELECT appname, envname, releaseVersion
-FROM deployments
-WHERE releaseVersion IS NOT NULL;
-`
+		SELECT appname, envname, releaseVersion
+		FROM deployments
+		WHERE releaseVersion IS NOT NULL;`
+
 	rows, err := transaction.QueryContext(ctx, allApplicationReleasesQuery)
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func getCommitEventByCommitId(ctx context.Context, db *db.DBHandler, transaction
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "getCommitEventByCommitId")
 	defer span.Finish()
 	query := db.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
-	row := transaction.QueryRow(query, commitId, event.EventTypeNewRelease)
+	row := transaction.QueryRowContext(ctx, query, commitId, event.EventTypeNewRelease)
 	var jsonCommitEventsMetadata []byte
 	err := row.Scan(&jsonCommitEventsMetadata)
 	if err != nil {
@@ -168,7 +168,7 @@ func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in
 	return deploymentCommitInfo, nil
 }
 
-func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []types.EnvName, environmentReleases map[types.EnvName]uint64) (*api.AppCommitDeploymentStatus, error) {
+func getCommitDeploymentInfoForApp(ctx context.Context, commitReleaseNumber uint64, app string, environments []types.EnvName, environmentReleases map[types.EnvName]uint64) (*api.AppCommitDeploymentStatus, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "getCommitDeploymentInfoForApp")
 	defer span.Finish()
 	span.SetTag("app", app)

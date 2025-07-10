@@ -987,7 +987,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 		var version uint64 = 1234
 		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 			ReleaseNumbers: types.ReleaseNumbers{
-				Revision: "0",
+				Revision: 0,
 				Version:  &version,
 			},
 			Created: time.Unix(123456789, 0).UTC(),
@@ -1006,7 +1006,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 			App:     "foo",
 			Env:     "staging",
 			ReleaseNumbers: types.ReleaseNumbers{
-				Revision: "0",
+				Revision: 0,
 				Version:  &version,
 			},
 			TransformerID: 0,

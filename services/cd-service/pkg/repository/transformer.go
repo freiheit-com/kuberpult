@@ -21,8 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/url"
 	"reflect"
 	"regexp"
@@ -30,6 +28,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -376,21 +377,22 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env types.EnvName) {
 }
 
 type CreateApplicationVersion struct {
-	Authentication        `json:"-"`
-	Version               uint64                   `json:"version"`
-	Application           string                   `json:"app"`
-	Manifests             map[types.EnvName]string `json:"manifests"`
-	SourceCommitId        string                   `json:"sourceCommitId"`
-	SourceAuthor          string                   `json:"sourceCommitAuthor"`
-	SourceMessage         string                   `json:"sourceCommitMessage"`
-	Team                  string                   `json:"team"`
-	DisplayVersion        string                   `json:"displayVersion"`
-	WriteCommitData       bool                     `json:"writeCommitData"`
-	PreviousCommit        string                   `json:"previousCommit"`
-	CiLink                string                   `json:"ciLink"`
-	AllowedDomains        []string                 `json:"-"`
-	TransformerEslVersion db.TransformerID         `json:"-"`
-	IsPrepublish          bool                     `json:"isPrepublish"`
+	Authentication                 `json:"-"`
+	Version                        uint64                   `json:"version"`
+	Application                    string                   `json:"app"`
+	Manifests                      map[types.EnvName]string `json:"manifests"`
+	SourceCommitId                 string                   `json:"sourceCommitId"`
+	SourceAuthor                   string                   `json:"sourceCommitAuthor"`
+	SourceMessage                  string                   `json:"sourceCommitMessage"`
+	Team                           string                   `json:"team"`
+	DisplayVersion                 string                   `json:"displayVersion"`
+	WriteCommitData                bool                     `json:"writeCommitData"`
+	PreviousCommit                 string                   `json:"previousCommit"`
+	CiLink                         string                   `json:"ciLink"`
+	AllowedDomains                 []string                 `json:"-"`
+	TransformerEslVersion          db.TransformerID         `json:"-"`
+	IsPrepublish                   bool                     `json:"isPrepublish"`
+	DeployToDownstreamEnvironments []types.EnvName          `json:"deployToDownstreamEnvironments"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -558,7 +560,10 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
-	sortedKeys := sorting.SortKeys(c.Manifests)
+	sortedEnvs := sorting.SortKeys(c.Manifests)
+	if errDownstream := validateDownstreamEnvs(c.DeployToDownstreamEnvironments, sortedEnvs, configs); errDownstream != nil {
+		return "", errDownstream
+	}
 
 	isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
 	if err != nil {
@@ -574,7 +579,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: "0",
+			Revision: 0,
 			Version:  &version,
 		},
 		App: c.Application,
@@ -599,8 +604,8 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	for i := range sortedKeys {
-		env := types.EnvName(sortedKeys[i])
+	for i := range sortedEnvs {
+		env := sortedEnvs[i]
 		err = state.DBHandler.DBAppendAppToEnvironment(ctx, transaction, env, c.Application)
 		if err != nil {
 			return "", grpc.PublicError(ctx, err)
@@ -630,7 +635,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", err
 		}
 		t.AddAppEnv(c.Application, env, teamOwner)
-		if hasUpstream && config.Upstream.Latest && isLatest && !c.IsPrepublish {
+		if ((hasUpstream && config.Upstream.Latest) || slices.Contains(c.DeployToDownstreamEnvironments, env)) && isLatest && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
@@ -656,6 +661,28 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
+}
+
+func validateDownstreamEnvs(downstreamEnvs []types.EnvName, sortedEnvs []types.EnvName, configs map[types.EnvName]config.EnvironmentConfig) error {
+	notDownstreamEnvs := []types.EnvName{}
+	missingManifestEnvs := []types.EnvName{}
+	for i := range downstreamEnvs {
+		downEnv := downstreamEnvs[i]
+		if !slices.Contains(sortedEnvs, downEnv) {
+			missingManifestEnvs = append(missingManifestEnvs, downEnv)
+		}
+		config := configs[downEnv]
+		if config.Upstream != nil && config.Upstream.Latest {
+			notDownstreamEnvs = append(notDownstreamEnvs, downEnv)
+		}
+	}
+	if len(missingManifestEnvs) > 0 {
+		return GetCreateReleaseMissingManifest(missingManifestEnvs)
+	}
+	if len(notDownstreamEnvs) > 0 {
+		return GetCreateReleaseIsNoDownstream(notDownstreamEnvs)
+	}
+	return nil
 }
 
 func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version uint64, minorRegexes []*regexp.Regexp) (bool, error) {
@@ -965,7 +992,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	v := uint64(lastRelease + 1)
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: "0",
+			Revision: 0,
 			Version:  &v,
 		},
 		App: c.Application,
