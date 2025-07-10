@@ -32,7 +32,13 @@ test: gen unit-test
 
 .PHONY: lint
 lint: gen
+ifeq ($(PKG_WITHOUT_DOCKER),1)
+	@echo "Running without docker"
+	golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")
+else
+	@echo "Running in docker"
 	docker run --rm -w $(SERVICE_DIR) -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
+endif
 
 gen: grpc-api-gen publicapi
 
@@ -49,7 +55,13 @@ endif
 
 publicapi: publicapi/$(GO_SERVER_GEN)
 publicapi/$(GO_SERVER_GEN): publicapi/api.yaml
+ifeq ($(PKG_WITHOUT_DOCKER),1)
+	@echo "Running without docker"
+	buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml
+else
+	@echo "Running in docker"
 	docker run -w /kp/pkg --rm -v "./publicapi:/kp/pkg/publicapi" $(DEPS_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
+endif
 
 release: #no-op
 clean:
