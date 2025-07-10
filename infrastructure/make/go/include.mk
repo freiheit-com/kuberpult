@@ -9,11 +9,18 @@ SERVICE?=$(notdir $(shell pwd))
 IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):$(IMAGE_TAG)
 SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
+CONTEXT?=.
+SKIP_DEPS?=0
 MAKEFLAGS += --no-builtin-rules
 
 .PHONY: deps
 deps:
+ifeq ($(SKIP_DEPS),0)
+	@echo "docker build deps image"
 	IMAGE_TAG=latest $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/deps build
+else
+	@echo "Skipping docker build for deps image"
+endif
 
 .PHONY: compile
 compile: deps
@@ -40,8 +47,7 @@ lint: deps
 docker: compile
 	mkdir -p $(MAIN_PATH)/lib
 	mkdir -p $(MAIN_PATH)/usr
-	test -n "$(MAIN_PATH)" || exit 0; docker build . -t $(IMAGE_NAME)
-
+	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile $(CONTEXT) -t $(IMAGE_NAME)
 
 .PHONY: release
 release:
