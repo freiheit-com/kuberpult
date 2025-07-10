@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -38,69 +39,31 @@ type CommitDeploymentServer struct {
 
 func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in *api.GetCommitDeploymentInfoRequest) (*api.GetCommitDeploymentInfoResponse, error) {
 	commitDeploymentStatus := make(map[string]*api.AppCommitDeploymentStatus, 0)
+	allEnvironments := make([]types.EnvName, 0)
+	applicationReleases := make(map[string]map[types.EnvName]uint64, 0)
 	var jsonCommitEventsMetadata []byte
-	allEnvironments := make([]string, 0)
-	applicationReleases := make(map[string]map[string]uint64, 0)
-	allApplicationReleasesQuery := `
-SELECT appname, envname, releaseVersion
-FROM deployments
-WHERE releaseVersion IS NOT NULL;
-`
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetCommitDeploymentInfo")
 	defer span.Finish()
 	span.SetTag("commit_id", in.CommitId)
-	span.SetTag("query", allApplicationReleasesQuery)
 
 	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		// Get the latest new-release event for the commit
-		query := s.DBHandler.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
-		row := transaction.QueryRow(query, in.CommitId, "new-release")
-		err := row.Scan(&jsonCommitEventsMetadata)
+		var err error
+		jsonCommitEventsMetadata, err = getCommitEventByCommitId(ctx, s.DBHandler, transaction, in.CommitId)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("commit \"%s\" could not be found", in.CommitId)
-			}
 			return err
 		}
 
 		// Get all environments
-		query = s.DBHandler.AdaptQuery("SELECT name FROM environments;")
-		envRows, err := transaction.QueryContext(ctx, query)
+		allEnvironments, err = s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 		if err != nil {
 			return err
-		}
-		defer envRows.Close()
-		for envRows.Next() {
-			var envName string
-			err = envRows.Scan(&envName)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return fmt.Errorf("no environments exist")
-				}
-				return err
-			}
-			allEnvironments = append(allEnvironments, envName)
 		}
 
 		// Get latest releases for all apps
-		rows, err := transaction.QueryContext(ctx, allApplicationReleasesQuery)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var appName string
-			var envName string
-			var appRelease uint64
-			err = rows.Scan(&appName, &envName, &appRelease)
-			if err != nil {
-				return err
-			}
-			if _, ok := applicationReleases[appName]; !ok {
-				applicationReleases[appName] = make(map[string]uint64, 0)
-			}
-			applicationReleases[appName][envName] = appRelease
+		err2 := getDeploymentsWithReleaseVersion(ctx, transaction, applicationReleases)
+		if err2 != nil {
+			return err2
 		}
 		return nil
 	})
@@ -110,13 +73,13 @@ WHERE releaseVersion IS NOT NULL;
 
 	releaseNumber, err := getCommitReleaseNumber(jsonCommitEventsMetadata)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get commit release number from commit_events metadata: %v", err)
+		return nil, fmt.Errorf("could not get commit release number from commit_events metadata: %v", err)
 	}
 
 	for app, releases := range applicationReleases {
 		commitDeploymentStatusForApp, err := getCommitDeploymentInfoForApp(ctx, s.DBHandler, releaseNumber, app, allEnvironments, releases)
 		if err != nil {
-			return nil, fmt.Errorf("Could not get commit deployment info for app %s: %v", app, err)
+			return nil, fmt.Errorf("could not get commit deployment info for app %s: %v", app, err)
 		}
 		commitDeploymentStatus[app] = commitDeploymentStatusForApp
 	}
@@ -124,6 +87,57 @@ WHERE releaseVersion IS NOT NULL;
 	return &api.GetCommitDeploymentInfoResponse{
 		DeploymentStatus: commitDeploymentStatus,
 	}, nil
+}
+
+func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, applicationReleases map[string]map[types.EnvName]uint64) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "getDeploymentsWithReleaseVersion")
+	defer span.Finish()
+	allApplicationReleasesQuery := `
+		SELECT appname, envname, releaseVersion
+		FROM deployments
+		WHERE releaseVersion IS NOT NULL;`
+
+	rows, err := transaction.QueryContext(ctx, allApplicationReleasesQuery)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var appName string
+		var envName types.EnvName
+		var appRelease uint64
+		err = rows.Scan(&appName, &envName, &appRelease)
+		if err != nil {
+			return err
+		}
+		if _, ok := applicationReleases[appName]; !ok {
+			applicationReleases[appName] = make(map[types.EnvName]uint64, 0)
+		}
+		applicationReleases[appName][envName] = appRelease
+	}
+	err = rows.Close()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getCommitEventByCommitId(ctx context.Context, db *db.DBHandler, transaction *sql.Tx, commitId string) ([]byte, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "getCommitEventByCommitId")
+	defer span.Finish()
+	query := db.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
+
+	row := transaction.QueryRowContext(ctx, query, commitId, event.EventTypeNewRelease)
+	var jsonCommitEventsMetadata []byte
+	err := row.Scan(&jsonCommitEventsMetadata)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, onErr(fmt.Errorf("commit \"%s\" could not be found", commitId))
+		}
+		return nil, onErr(err)
+	}
+	return jsonCommitEventsMetadata, nil
 }
 
 func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in *api.GetDeploymentCommitInfoRequest) (*api.GetDeploymentCommitInfoResponse, error) {
@@ -155,7 +169,7 @@ func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in
 	return deploymentCommitInfo, nil
 }
 
-func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []string, environmentReleases map[string]uint64) (*api.AppCommitDeploymentStatus, error) {
+func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []types.EnvName, environmentReleases map[types.EnvName]uint64) (*api.AppCommitDeploymentStatus, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "getCommitDeploymentInfoForApp")
 	defer span.Finish()
 	span.SetTag("app", app)
@@ -166,27 +180,27 @@ func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitR
 	}, nil
 }
 
-func getCommitStatus(commitReleaseNumber uint64, environmentReleases map[string]uint64, allEnvironments []string) CommitStatus {
+func getCommitStatus(commitReleaseNumber uint64, environmentReleases map[types.EnvName]uint64, allEnvironments []types.EnvName) CommitStatus {
 	commitStatus := make(CommitStatus)
 	if commitReleaseNumber == 0 {
 		// Since 0 is the default value for uint64, it might mean that the release version was not known when the commit was created.
 		// In this case, the commit status is unkown for all environments.
 		for _, env := range allEnvironments {
-			commitStatus[env] = api.CommitDeploymentStatus_UNKNOWN
+			commitStatus[string(env)] = api.CommitDeploymentStatus_UNKNOWN
 		}
 		return commitStatus
 	}
 
 	for _, env := range allEnvironments {
 		// by default, a commit is pending in all environments
-		commitStatus[env] = api.CommitDeploymentStatus_PENDING
+		commitStatus[string(env)] = api.CommitDeploymentStatus_PENDING
 	}
 
 	for env, environmentReleaseVersion := range environmentReleases {
 		if environmentReleaseVersion >= commitReleaseNumber {
-			commitStatus[env] = api.CommitDeploymentStatus_DEPLOYED
+			commitStatus[string(env)] = api.CommitDeploymentStatus_DEPLOYED
 		} else {
-			commitStatus[env] = api.CommitDeploymentStatus_PENDING
+			commitStatus[string(env)] = api.CommitDeploymentStatus_PENDING
 		}
 	}
 	return commitStatus

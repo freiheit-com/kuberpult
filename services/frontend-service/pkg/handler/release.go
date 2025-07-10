@@ -83,19 +83,20 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	tf := api.CreateReleaseRequest{
-		Environment:      "",
-		Application:      "",
-		Team:             "",
-		Version:          0,
-		SourceCommitId:   "",
-		SourceAuthor:     "",
-		SourceMessage:    "",
-		SourceRepoUrl:    "",
-		PreviousCommitId: "",
-		DisplayVersion:   "",
-		Manifests:        map[string]string{},
-		CiLink:           "",
-		IsPrepublish:     false,
+		Environment:                    "",
+		Application:                    "",
+		Team:                           "",
+		Version:                        0,
+		SourceCommitId:                 "",
+		SourceAuthor:                   "",
+		SourceMessage:                  "",
+		SourceRepoUrl:                  "",
+		PreviousCommitId:               "",
+		DisplayVersion:                 "",
+		Manifests:                      map[string]string{},
+		CiLink:                         "",
+		IsPrepublish:                   false,
+		DeployToDownstreamEnvironments: []string{},
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -293,19 +294,20 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	}
 
 	tf := api.CreateReleaseRequest{
-		Environment:      "",
-		Application:      "",
-		Team:             "",
-		Version:          0,
-		SourceCommitId:   "",
-		SourceAuthor:     "",
-		SourceMessage:    "",
-		SourceRepoUrl:    "",
-		PreviousCommitId: "",
-		DisplayVersion:   "",
-		Manifests:        map[string]string{},
-		CiLink:           "",
-		IsPrepublish:     false,
+		Environment:                    "",
+		Application:                    "",
+		Team:                           "",
+		Version:                        0,
+		SourceCommitId:                 "",
+		SourceAuthor:                   "",
+		SourceMessage:                  "",
+		SourceRepoUrl:                  "",
+		PreviousCommitId:               "",
+		DisplayVersion:                 "",
+		Manifests:                      map[string]string{},
+		CiLink:                         "",
+		IsPrepublish:                   false,
+		DeployToDownstreamEnvironments: []string{},
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -424,7 +426,6 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		tf.DisplayVersion = displayVersion[0]
 
 	}
-
 	if isPrepublish, ok := form.Value["is_prepublish"]; ok {
 		if len(isPrepublish) != 1 {
 			w.WriteHeader(400)
@@ -447,6 +448,9 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 
 		tf.CiLink = ciLink[0]
 
+	}
+	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
+		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
 	}
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
@@ -503,6 +507,16 @@ func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *h
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
 		}
 	case *api.CreateReleaseResponse_TooLong:
+		{
+			jsonBlob, err := json.Marshal(firstResponse)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
+		}
+	case *api.CreateReleaseResponse_MissingManifest:
+		{
+			jsonBlob, err := json.Marshal(firstResponse)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
+		}
+	case *api.CreateReleaseResponse_IsNoDownstream:
 		{
 			jsonBlob, err := json.Marshal(firstResponse)
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
