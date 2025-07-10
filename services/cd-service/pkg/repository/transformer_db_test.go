@@ -657,7 +657,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 		expectedDbReleases []types.ReleaseNumbers
 	}{
 		{
-			Name: "create two versions, same version, different revision",
+			Name: "create two identical versions with different revision",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
