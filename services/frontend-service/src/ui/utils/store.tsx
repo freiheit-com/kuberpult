@@ -66,6 +66,11 @@ export interface DisplayLock {
     suggestedLifetime: string;
 }
 
+export interface ReleaseNumbers {
+    version: number;
+    revision: number;
+}
+
 export const displayLockUniqueId = (displayLock: DisplayLock): string =>
     'dl-' +
     displayLock.lockId +
@@ -554,7 +559,7 @@ export const useOpenReleaseDialog = (app: string, version: number, revision: num
     return useCallback(() => {
         params.set('dialog-app', app);
         params.set('dialog-version', version.toString());
-        params.set('dialog-version', revision.toString());
+        params.set('dialog-revision', revision.toString());
         setParams(params);
     }, [app, params, setParams, version, revision]);
 };
@@ -1046,9 +1051,11 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 };
 
 // returns the release number {$version} of {$application}
-export const useRelease = (application: string, version: number, revision: number): Release | undefined => {
+export const useRelease = (application: string, version: number, revision: number | undefined): Release | undefined => {
     const appDetails = useAppDetailsForApp(application);
-
+    if (!revision) {
+        revision = 0;
+    }
     if (!appDetails || appDetails.appDetailState !== AppDetailsState.READY) return undefined;
 
     return appDetails.details
@@ -1188,7 +1195,7 @@ export const useReleaseDifference = (toDeployVersion: number, application: strin
     return newVersionIndex - currentDeployedIndex;
 };
 // Get all minor releases for an app
-export const useMinorsForApp = (app: string): { version: number; revision: number }[] | undefined =>
+export const useMinorsForApp = (app: string): ReleaseNumbers[] | undefined =>
     useAppDetailsForApp(app)
         .details?.application?.releases.filter((rel) => rel.isMinor)
         .map((d) => ({ version: d.version, revision: d.revision }));

@@ -24,6 +24,7 @@ import {
     useAppDetailsForApp,
     useGitSyncStatus,
     IsAAEnvironment,
+    ReleaseNumbers,
 } from '../../utils/store';
 import { Tooltip } from '../tooltip/tooltip';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
@@ -36,8 +37,7 @@ import { Git, Argo } from '../../../images';
 
 export type ReleaseCardProps = {
     className?: string;
-    version: number;
-    revision: number;
+    versionInfo: ReleaseNumbers;
     app: string;
 };
 
@@ -224,16 +224,16 @@ const useSyncStatusForDeployment = (
 };
 
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
-    const { className, app, version, revision } = props;
+    const { className, app, versionInfo } = props;
     // the ReleaseCard only displays actual releases, so we can assume that it exists here:
-    const openReleaseDialog = useOpenReleaseDialog(app, version, revision);
-    const deployedAt = useCurrentlyDeployedAtGroup(app, version);
+    const openReleaseDialog = useOpenReleaseDialog(app, versionInfo.version, versionInfo.revision);
+    const deployedAt = useCurrentlyDeployedAtGroup(app, versionInfo.version);
 
     const syncStatus = useGitSyncStatus((getter) => getter);
 
     const [rolloutEnvs, mostInteresting] = useDeploymentStatus(app, deployedAt);
     const [gitSyncStatuses, mostInterestingSyncStatus] = useSyncStatusForDeployment(app, deployedAt);
-    const release = useReleaseOrLog(app, version, revision);
+    const release = useReleaseOrLog(app, versionInfo.version, versionInfo.revision);
     if (!release) {
         return null;
     }
@@ -315,10 +315,10 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
 
     const firstLine = (isMinor ? '💤' : '') + sourceMessage.split('\n')[0];
     return (
-        <Tooltip id={app + version} tooltipContent={tooltipContents}>
+        <Tooltip id={app + versionInfo.version + versionInfo.revision} tooltipContent={tooltipContents}>
             <div className={'release-card__container'}>
                 <div className="release__environments">
-                    <EnvironmentGroupChipList app={props.app} version={props.version} smallEnvChip />
+                    <EnvironmentGroupChipList app={props.app} version={props.versionInfo.version} smallEnvChip />
                 </div>
                 <div
                     className={classNames(

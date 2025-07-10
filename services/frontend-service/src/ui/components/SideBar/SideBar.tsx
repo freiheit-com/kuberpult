@@ -332,7 +332,7 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
     const { environmentLocks, appLocks, teamLocks } = useAllLocks();
     const appDetails = useAppDetails((m) => m);
     const actionDetails = getActionDetails(action, appLocks, environmentLocks, teamLocks, appDetails);
-    const release = useRelease(actionDetails.application ?? '', actionDetails.version ?? 0);
+    const release = useRelease(actionDetails.application ?? '', actionDetails.version ?? 0, undefined);
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     const similarLocks = useLocksSimilarTo(action);
     const handleAddAll = useCallback(() => {

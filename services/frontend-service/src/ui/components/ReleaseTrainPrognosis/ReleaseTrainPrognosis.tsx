@@ -170,7 +170,9 @@ const AppPrognosisRow: React.FC<{ appName: string; appPrognosis: ReleaseTrainApp
         if (outcome.$case === 'skipCause') {
             outcomeCell = <AppPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
         } else {
-            outcomeCell = <AppPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} />;
+            outcomeCell = (
+                <AppPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} revision={0} />
+            );
         }
     }
 
@@ -211,9 +213,9 @@ const AppPrognosisOutcomeSkipCell: React.FC<{ skipCause: ReleaseTrainAppSkipCaus
     }
 };
 
-const AppPrognosisOutcomeReleaseCell: React.FC<{ appName: string; version: number }> = (props) => {
+const AppPrognosisOutcomeReleaseCell: React.FC<{ appName: string; version: number; revision: number }> = (props) => {
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
-    const release = useReleaseOrGet(props.appName, props.version, authHeader, authReady);
+    const release = useReleaseOrGet(props.appName, props.version, props.revision, authHeader, authReady);
     if (release === undefined) {
         return (
             <p>

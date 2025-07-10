@@ -19,6 +19,7 @@ import {
     AppDetailsState,
     EnvironmentGroupExtended,
     getAppDetails,
+    ReleaseNumbers,
     showSnackbarError,
     showSnackbarWarn,
     updateAppDetails,
@@ -48,11 +49,11 @@ import { Tooltip } from '../tooltip/tooltip';
 const numberOfDisplayedReleasesOnHome = 6;
 
 const getReleasesToDisplay = (
-    deployedReleases: { version: number; revision: number }[],
-    allReleases: { version: number; revision: number }[],
-    minorReleases: { version: number; revision: number }[],
+    deployedReleases: ReleaseNumbers[],
+    allReleases: ReleaseNumbers[],
+    minorReleases: ReleaseNumbers[],
     ignoreMinors: boolean
-): { version: number; revision: number }[] => {
+): ReleaseNumbers[] => {
     if (ignoreMinors) {
         allReleases = allReleases.filter(
             (version) => !minorReleases.includes(version) || deployedReleases.includes(version)
@@ -80,9 +81,9 @@ const getReleasesToDisplay = (
 };
 
 function getNumberOfReleasesBetween(
-    releases: { version: number; revision: number }[],
-    higherVersion: { version: number; revision: number },
-    lowerVersion: { version: number; revision: number }
+    releases: ReleaseNumbers[],
+    higherVersion: ReleaseNumbers,
+    lowerVersion: ReleaseNumbers
 ): number {
     // diff = index of lower version (older release) - index of higher version (newer release) - 1
     return (
@@ -334,13 +335,11 @@ export const ErrorServiceLane: React.FC<{
     </div>
 );
 
-function filterDuplicateRelesases(
-    releases: { version: number; revision: number }[]
-): { version: number; revision: number }[] {
+function filterDuplicateRelesases(releases: ReleaseNumbers[]): ReleaseNumbers[] {
     const seen = new Set<string>();
-    const toReturn: { version: number; revision: number }[] = [];
+    const toReturn: ReleaseNumbers[] = [];
     releases.forEach((curr) => {
-        if (!seen.has(curr.version.toString() + '.' + curr.revision.toString())) {
+        if (curr && !seen.has(curr.version.toString() + '.' + curr.revision.toString())) {
             toReturn.push(curr);
             seen.add(curr.version.toString() + '.' + curr.revision.toString());
         }
@@ -357,16 +356,12 @@ export const ReadyServiceLane: React.FC<{
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
     const appDetails = props.allAppData.details;
     const allReleases = [
-        ...new Set(
-            appDetails?.application?.releases.map(
-                (d) => ({ version: d.version, revision: d.revision }) // Corrected typo from 'revison'
-            )
-        ),
+        ...new Set(appDetails?.application?.releases.map((d) => ({ version: d.version, revision: d.revision }))),
     ];
     const deployments = appDetails?.deployments;
     const allDeployedReleaseNumbers = [];
     for (const prop in deployments) {
-        allDeployedReleaseNumbers.push({ version: deployments[prop].version, revision: 0 });
+        allDeployedReleaseNumbers.push({ version: deployments[prop].version, revision: 0 }); //Deployments do not support revisions, yet
     }
     const deployedReleases = [
         ...new Set(
@@ -432,22 +427,6 @@ export const ReadyServiceLane: React.FC<{
         ),
     ];
     const releases = filterDuplicateRelesases(rels);
-    // eslint-disable-next-line no-console
-    console.log('rels');
-    // eslint-disable-next-line no-console
-    console.log(rels);
-    // eslint-disable-next-line no-console
-    console.log('allReleases');
-    // eslint-disable-next-line no-console
-    console.log(allReleases);
-    // eslint-disable-next-line no-console
-    console.log('releases');
-    // eslint-disable-next-line no-console
-    console.log(releases);
-    // eslint-disable-next-line no-console
-    console.log('deployments');
-    // eslint-disable-next-line no-console
-    console.log(deployments);
 
     const releases_lane =
         !!releases &&
@@ -459,13 +438,8 @@ export const ReadyServiceLane: React.FC<{
                     ? getNumberOfReleasesBetween(allReleases, rel, releases[index + 1])
                     : getNumberOfReleasesBetween(allReleases, rel, allReleases.slice(-1)[0]) + 1;
             return (
-                <div key={application.name + '-' + rel} className="service-lane__diff">
-                    <ReleaseCard
-                        app={application.name}
-                        version={rel.version}
-                        revision={rel.revision}
-                        key={application.name + '-' + rel}
-                    />
+                <div key={application.name + '-' + rel.version + '.' + rel.revision} className="service-lane__diff">
+                    <ReleaseCard app={application.name} versionInfo={rel} key={application.name + '-' + rel} />
                     {!!diff && (
                         <DiffElement
                             diff={diff}
