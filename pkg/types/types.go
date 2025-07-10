@@ -17,8 +17,6 @@ Copyright freiheit.com*/
 package types
 
 import (
-	"fmt"
-	"github.com/hashicorp/go-version"
 	"sort"
 	"strings"
 )
@@ -80,20 +78,4 @@ func Compare(a, b EnvName) int {
 type ReleaseNumbers struct {
 	Version  *uint64
 	Revision uint64
-}
-
-type ReleaseNumberCollection []ReleaseNumbers
-
-func (c ReleaseNumberCollection) Less(i, j int) bool {
-	v1, _ := version.NewVersion(fmt.Sprintf("%d.%d", *c[i].Version, c[i].Revision)) //These should have already been validated
-	v2, _ := version.NewVersion(fmt.Sprintf("%d.%d", *c[j].Version, c[j].Revision)) //These should have already been validated
-	return v1.LessThan(v2)
-}
-
-func (c ReleaseNumberCollection) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-
-func (c ReleaseNumberCollection) Len() int {
-	return len(c)
 }

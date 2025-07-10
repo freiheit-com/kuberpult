@@ -593,11 +593,6 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			}
 			return nil, fmt.Errorf("Error scanning releases row from DB withManifests=%v. Error: %w\n", withManifests, err)
 		}
-		//if lastSeenRelease.Version != nil || (*row.ReleaseNumbers.Version != *lastSeenRelease.Version && row.ReleaseNumbers.Revision != lastSeenRelease.Revision) {
-		//	lastSeenRelease = row.ReleaseNumbers
-		//} else {
-		//	continue
-		//}
 		// handle meta data
 		var metaData = DBReleaseMetaData{
 			SourceAuthor:    "",
