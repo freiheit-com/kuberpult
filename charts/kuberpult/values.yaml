@@ -243,8 +243,7 @@ frontend:
   # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
   # The enableRevisions option is EXPERIMENTAL and may be removed or changed without a breaking change.
-  # When enabled, the /release endpoint to accept a revision (i.e. 1.0.0, 1.1.3...). Releases are ordered
-  # by revision and not by version number.
+  # When enabled, the /release endpoint to accept a revision (i.e. 1.0, 1.1, 2.0...), instead of only integers (1,2,3...).
   enableRevisions: false
 rollout:
   enabled: false
