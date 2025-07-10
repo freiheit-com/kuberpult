@@ -444,11 +444,11 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -467,6 +467,9 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
 			})
+			if err != nil {
+				t.Fatalf("unexpected error selecting env locks: %v", err)
+			}
 
 			if locks == nil {
 				t.Fatalf("Expected locks but got none")
@@ -606,11 +609,11 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -630,6 +633,9 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				locks, err := repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
 				return &locks, err
 			})
+			if err != nil {
+				t.Fatalf("unexpected error selecting team locks: %v", err)
+			}
 
 			if locks == nil {
 				t.Fatalf("Expected locks but got none")
@@ -1130,21 +1136,21 @@ func TestMinorFlag(t *testing.T) {
 			repo := SetupRepositoryTestWithDB(t).(*repository)
 			repo.config.MinorRegexes = tc.MinorRegexes
 			err3 := repo.State().DBHandler.WithTransactionR(ctxWithTime, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
+				_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
 					Environment: "acceptance",
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				})
 				if err != nil {
 					return err
 				}
-				_, state, _, err = repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
+				_, _, _, err = repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
 					Environment: "new env",
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				})
 				if err != nil {
 					return err
 				}
-				_, state, _, err = repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					return err
 				}
@@ -1273,13 +1279,19 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 					EslVersion: 2,
 					Env:        "production",
 					App:        testAppName,
-					Version:    nil,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  nil,
+						Revision: 0,
+					},
 				},
 				{
 					EslVersion: 1,
 					Env:        "production",
 					App:        testAppName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
 				},
 			},
 		},
@@ -1347,7 +1359,10 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 					EslVersion: 1,
 					Env:        envProduction,
 					App:        testAppName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
 				},
 			},
 		},
@@ -1888,11 +1903,11 @@ func TestEvents(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -2302,16 +2317,23 @@ func TestReleaseTrain(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			//check deployments
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
-			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-				if err2 != nil {
-					return err2
+			for _, transformer := range tc.Transformers {
+				err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, transformer)
+					if err2 != nil {
+						return err2
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("Err: %v\n", err)
 				}
+			}
 
-				deployment, dplError := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				deployment, dplError := r.State().DBHandler.DBSelectLatestDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
 				if dplError != nil {
 					return dplError
 				}
@@ -2375,7 +2397,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Manifests: db.DBReleaseManifests{
@@ -2424,7 +2446,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Manifests: db.DBReleaseManifests{
@@ -2485,7 +2507,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Manifests: db.DBReleaseManifests{
@@ -2498,7 +2520,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				"app2": {
 					App: "app2",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Manifests: db.DBReleaseManifests{
@@ -2522,11 +2544,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -3370,7 +3392,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 				if err2 != nil {
 					t.Fatal(err)
 				}
-				if allReleases == nil || len(allReleases) == 0 {
+				if len(allReleases) == 0 {
 					t.Fatal("Expected some releases, but got none")
 				}
 				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases); diff != "" {
@@ -3435,7 +3457,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3473,7 +3495,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3511,7 +3533,7 @@ func TestAllowedCILinksState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3662,7 +3684,7 @@ func TestUndeployDBState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  nil,
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3675,7 +3697,7 @@ func TestUndeployDBState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(2),
 					},
 					Metadata: db.DeploymentMetadata{
@@ -3688,7 +3710,7 @@ func TestUndeployDBState(t *testing.T) {
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  uversion(1),
 					},
 					Metadata: db.DeploymentMetadata{
@@ -4697,15 +4719,23 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			//check deployments
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
-			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-				if err2 != nil {
-					return err2
+			for _, transformer := range tc.Transformers {
+				err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, transformer)
+					if err2 != nil {
+						return err2
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("Err: %v\n", err)
 				}
-				changes, err := state.DBHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, tc.targetTransformer)
+			}
+
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				changes, err := r.State().DBHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, tc.targetTransformer)
 				if err != nil {
 					return err
 				}

@@ -819,8 +819,8 @@ func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx,
 	}
 
 	var v *uint64
-	if queuedDeployment.Version != nil {
-		parsedInt := uint64(*queuedDeployment.Version)
+	if queuedDeployment.ReleaseNumbers.Version != nil {
+		parsedInt := *queuedDeployment.ReleaseNumbers.Version
 		v = &parsedInt
 	} else {
 		v = nil
@@ -836,8 +836,8 @@ func (s *State) GetQueuedVersionAllAppsFromDB(ctx context.Context, transaction *
 	}
 	for _, queuedDeployment := range queuedDeployments {
 		var v *uint64
-		if queuedDeployment.Version != nil {
-			parsedInt := uint64(*queuedDeployment.Version)
+		if queuedDeployment.ReleaseNumbers.Version != nil {
+			parsedInt := *queuedDeployment.ReleaseNumbers.Version
 			v = &parsedInt
 		} else {
 			v = nil

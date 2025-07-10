@@ -273,7 +273,10 @@ func TestApplyQueuePanic(t *testing.T) {
 			}()
 			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
 			defer cancel()
-			processQueue(ctx, nil)
+			err = processQueue(ctx, nil)
+			if err != nil {
+				t.Fatalf("processQueue: %v", err)
+			}
 		})
 	}
 }
@@ -371,7 +374,9 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 				started:  started,
 			}
 
-			go repo.Apply(ctx, transformer)
+			go func() {
+				_ = repo.Apply(ctx, transformer)
+			}()
 
 			// first, wait, until the transformer has started:
 			<-started
@@ -587,7 +592,7 @@ func TestApplyQueue(t *testing.T) {
 			// The worker go routine is now blocked. We can move some items into the queue now.
 			results := make([]<-chan error, len(tc.Actions))
 			for i, action := range tc.Actions {
-				ctx, cancel := context.WithCancel(testutil.MakeTestContext())
+				ctx, cancel := context.WithCancel(testutil.MakeTestContext()) //nolint:govet
 				if action.CancelBeforeAdd {
 					cancel()
 				}
@@ -633,7 +638,7 @@ func TestApplyQueue(t *testing.T) {
 			if applyErr != nil {
 				t.Fatalf("could not run slow transformer: %v", applyErr)
 			}
-		})
+		}) //nolint:govet
 	}
 }
 
@@ -938,18 +943,14 @@ func TestLimitTooSmall(t *testing.T) {
 				i++
 			}
 
-			var actualError error = nil
-
+			var actualError error
 			errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
 			select {
 			case e := <-repo.(*repository).queue.transformerBatches:
 				repo.(*repository).ProcessQueueOnce(ctx, e)
 			default:
 			}
-			select {
-			case err := <-errCh:
-				actualError = err
-			}
+			actualError = <-errCh
 
 			var expectedError = errMatcher{fmt.Sprintf("queue is full. Queue Capacity: %d.", tc.QueueCapacity)}
 			var expErrStr = fmt.Sprintf("%v", expectedError)
@@ -1002,7 +1003,7 @@ func TestLimitFitsExactly(t *testing.T) {
 				i++
 			}
 
-			var actualError error = nil
+			var actualError error
 
 			// first put int the new transformer, this should return a channel with error queue is full:
 			errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
@@ -1027,10 +1028,7 @@ func TestLimitFitsExactly(t *testing.T) {
 				t.Logf("go: ProcessQueueOnce end")
 			default:
 			}
-			select {
-			case err := <-errCh:
-				actualError = err
-			}
+			actualError = <-errCh
 
 			var expectedErr error = nil
 			var expErrStr = fmt.Sprintf("%v", expectedErr)

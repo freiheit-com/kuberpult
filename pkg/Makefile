@@ -21,6 +21,7 @@ GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 GO_SERVER_GEN := server-gen.go
 MIN_COVERAGE?=47
+MAIN_PATH=
 
 SERVICE_DIR:=/kp/pkg
 include $(ROOT_DIR)/infrastructure/make/go/include.mk
@@ -29,7 +30,7 @@ all: gen lint test
 test: gen unit-test
 
 .PHONY: lint
-lint: deps gen
+lint: gen
 	docker run --rm -w $(SERVICE_DIR) -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
 
 gen: grpc-api-gen publicapi

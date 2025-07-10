@@ -1,26 +1,17 @@
-ARG PARENT_CONTAINER
-FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:${PARENT_CONTAINER} AS builder
-
-WORKDIR /kp/
-
-RUN apk --update add ca-certificates tzdata
-
-# reposerver-service:
-ADD services/reposerver-service/cmd/server/ /kp/services/reposerver-service/cmd/server/
-ADD services/reposerver-service/pkg /kp/services/reposerver-service/pkg
-
-# global pkg:
-ADD pkg /kp/pkg
-ADD Makefile.variables .
-RUN make -C /kp/pkg proto
-COPY go.sum go.mod /kp/
-
-RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/reposerver-service/cmd/server/main.go
-
-FROM scratch
-LABEL org.opencontainers.image.source https://github.com/freiheit-com/kuberpult
+ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/deps:latest
+FROM ${BUILDER_IMAGE} AS builder
+FROM alpine:3.21
 ENV TZ=Europe/Berlin
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+RUN adduser --disabled-password --home "/kp" --uid 1000 kp
+RUN chown -R kp:kp /kp
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /kp/main /main
-CMD ["/main"]
+
+COPY cmd/server/lib/ /lib
+COPY cmd/server/usr/ /usr
+
+USER kp
+WORKDIR /kp
+COPY ./cmd/server/bin/main /main
+
+CMD /main

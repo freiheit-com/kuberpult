@@ -2033,11 +2033,11 @@ type AllEnvLocksGo struct {
 }
 
 type QueuedDeployment struct {
-	EslVersion EslVersion
-	Created    time.Time
-	Env        types.EnvName
-	App        string
-	Version    *int64
+	EslVersion     EslVersion
+	Created        time.Time
+	Env            types.EnvName
+	App            string
+	ReleaseNumbers types.ReleaseNumbers
 }
 
 func (h *DBHandler) DBSelectAnyDeploymentAttempt(ctx context.Context, tx *sql.Tx) (*QueuedDeployment, error) {
@@ -2052,7 +2052,7 @@ func (h *DBHandler) DBSelectAnyDeploymentAttempt(ctx context.Context, tx *sql.Tx
 	}
 
 	insertQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion FROM deployment_attempts ORDER BY eslVersion DESC LIMIT 1;")
+		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion, revision FROM deployment_attempts ORDER BY eslVersion DESC LIMIT 1;")
 
 	span.SetTag("query", insertQuery)
 	rows, err := tx.QueryContext(
@@ -2073,7 +2073,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 	}
 
 	insertQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT ?;")
+		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion, revision FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT ?;")
 
 	span.SetTag("query", insertQuery)
 	rows, err := tx.QueryContext(
@@ -2099,11 +2099,11 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 			return nil, err
 		}
 		queuedDeployments = append(queuedDeployments, QueuedDeployment{
-			EslVersion: row.EslVersion,
-			Created:    row.Created,
-			Env:        row.Env,
-			App:        row.App,
-			Version:    row.Version,
+			EslVersion:     row.EslVersion,
+			Created:        row.Created,
+			Env:            row.Env,
+			App:            row.App,
+			ReleaseNumbers: row.ReleaseNumbers,
 		})
 	}
 	err = closeRows(rows)
@@ -2124,7 +2124,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 		return nil, fmt.Errorf("DBSelectLatestDeploymentAttempt: no transaction provided")
 	}
 	insertQuery := h.AdaptQuery(
-		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT 1;")
+		"SELECT eslVersion, created, envName, appName, queuedReleaseVersion, revision FROM deployment_attempts WHERE envName=? AND appName=? ORDER BY eslVersion DESC LIMIT 1;")
 
 	span.SetTag("query", insertQuery)
 	rows, err := tx.QueryContext(
@@ -2152,7 +2152,8 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context
 		deployment_attempts.created,
 		deployment_attempts.envName,
 		deployment_attempts.appName,
-		deployment_attempts.queuedReleaseVersion
+		deployment_attempts.queuedReleaseVersion,
+		deployment_attempts.revision
 	FROM (
 		SELECT
 			MAX(eslversion) AS latestRelease,
@@ -2196,7 +2197,8 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context
 		deployment_attempts.created,
 		deployment_attempts.envname,
 		deployment_attempts.appname,
-		deployment_attempts.queuedReleaseVersion
+		deployment_attempts.queuedReleaseVersion,
+		deployment_attempts.revision
 	FROM (
 		SELECT
 			MAX(eslversion) AS latestRelease,
@@ -2223,7 +2225,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context
 	return h.processDeploymentAttemptsRows(ctx, rows, err)
 }
 
-func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName string, version *int64) error {
+func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName string, version *uint64) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
@@ -2238,7 +2240,10 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 		Created:    time.Time{},
 		Env:        envName,
 		App:        appName,
-		Version:    version,
+		ReleaseNumbers: types.ReleaseNumbers{
+			Version:  version,
+			Revision: 0,
+		},
 	})
 }
 
@@ -2257,7 +2262,10 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		Created:    time.Time{},
 		Env:        envName,
 		App:        appName,
-		Version:    nil,
+		ReleaseNumbers: types.ReleaseNumbers{
+			Version:  nil,
+			Revision: 0,
+		},
 	})
 }
 
@@ -2283,10 +2291,10 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	} else {
 		previousEslVersion = latestDeployment.EslVersion
 	}
-	nullVersion := NewNullInt(deployment.Version)
+	nullVersion := NewNullUInt(deployment.ReleaseNumbers.Version)
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO deployment_attempts (eslVersion, created, envName, appName, queuedReleaseVersion) VALUES (?, ?, ?, ?, ?);")
+		"INSERT INTO deployment_attempts (eslVersion, created, envName, appName, queuedReleaseVersion, revision) VALUES (?, ?, ?, ?, ?, ?);")
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
 		return fmt.Errorf("dbWriteDeploymentAttemptInternal unable to get transaction timestamp: %w", err)
@@ -2298,7 +2306,9 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 		*now,
 		deployment.Env,
 		deployment.App,
-		nullVersion)
+		nullVersion,
+		deployment.ReleaseNumbers.Revision,
+	)
 
 	if err != nil {
 		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w\n", err)
@@ -2361,7 +2371,7 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 	var row = QueuedDeployment{}
 	var releaseVersion sql.NullInt64
 
-	err := rows.Scan(&row.EslVersion, &row.Created, &row.Env, &row.App, &releaseVersion)
+	err := rows.Scan(&row.EslVersion, &row.Created, &row.Env, &row.App, &releaseVersion, &row.ReleaseNumbers.Revision)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -2370,7 +2380,8 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 	}
 
 	if releaseVersion.Valid {
-		row.Version = &releaseVersion.Int64
+		conv := uint64(releaseVersion.Int64)
+		row.ReleaseNumbers.Version = &conv
 	}
 	return &row, nil
 

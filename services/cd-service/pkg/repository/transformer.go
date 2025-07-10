@@ -574,7 +574,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: "0",
+			Revision: 0,
 			Version:  &version,
 		},
 		App: c.Application,
@@ -965,7 +965,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	v := uint64(lastRelease + 1)
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: "0",
+			Revision: 0,
 			Version:  &v,
 		},
 		App: c.Application,
@@ -2119,8 +2119,7 @@ func (c *QueueApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	version := int64(c.Version)
-	err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, types.EnvName(c.Environment), c.Application, &version)
+	err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, types.EnvName(c.Environment), c.Application, &c.Version)
 	if err != nil {
 		return "", err
 	}

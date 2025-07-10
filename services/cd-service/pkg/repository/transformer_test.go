@@ -48,7 +48,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -470,7 +469,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 	type TestCase struct {
 		Name             string
 		Transformers     []Transformer
-		db               bool
 		expectedDBEvents []db.EventRow // the events that the last transformer created
 	}
 
@@ -915,7 +913,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			var lastTransformerId db.TransformerID = -1
 			for index, transformer := range tc.Transformers {
 				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
-					var batchError *TransformerBatchApplyError = nil
+					var batchError *TransformerBatchApplyError
 					_, _, _, batchError = repo.ApplyTransformersInternal(ctx, tx, transformer)
 					if batchError != nil {
 						t.Fatalf("encountered error but no error is expected here: %d '%v'", index, batchError)
@@ -1605,25 +1603,28 @@ func TestTransformerChanges(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			//repo := setupRepositoryTest(t)
 			repo := SetupRepositoryTestWithDB(t)
 
-			dbHandler := repo.State().DBHandler
+			state := repo.State()
+			dbHandler := state.DBHandler
 
-			_ = dbHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
-				// note that we only check the LAST error here:
-				if err != nil {
-					t.Fatalf("Expected no error: %v", err)
-				}
-				// we only diff the changes from the last transformer here:
-				lastChanges := actualChanges[len(actualChanges)-1]
-				if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
-					t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
-				}
-				return nil
-			})
-
+			for i, transformer := range tc.Transformers {
+				_ = dbHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, transformer)
+					// note that we only check the LAST error here:
+					if i == len(tc.Transformers)-1 {
+						if err != nil {
+							t.Fatalf("Expected no error: %v", err)
+						}
+						// we only diff the changes from the last transformer here:
+						lastChanges := actualChanges[len(actualChanges)-1]
+						if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
+							t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
+						}
+					}
+					return nil
+				})
+			}
 		})
 	}
 }
@@ -3276,20 +3277,25 @@ func TestRbacTransformerTest(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			dir := t.TempDir()
 			remoteDir := path.Join(dir, "remote")
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
+			err := cmd.Start()
+			if err != nil {
+				t.Fatalf("cannot start: %v", err)
+			}
+			err = cmd.Wait()
+			if err != nil {
+				t.Fatalf("cannot wait: %v", err)
+			}
 			ctx := testutil.MakeTestContextDexEnabled()
 			if tc.ctx != nil {
 				ctx = tc.ctx
 			}
 			repo := SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
-			var err error
 			for _, tf := range tc.Transformers {
 				err = r.Apply(ctx, tf)
 				if err != nil {
@@ -3414,20 +3420,6 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 		}
 		return repo, dbHandler
 	}
-}
-
-// Injects an error in the filesystem of the state
-type injectErr struct {
-	Transformer
-	collector *testfs.UsageCollector
-	operation testfs.Operation
-	filename  string
-	err       error
-}
-
-func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
-	s, err := i.Transformer.Transform(ctx, state, t, transaction)
-	return s, err
 }
 
 func mockSendMetrics(repo Repository, interval time.Duration) <-chan bool {
@@ -4012,7 +4004,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 
 						Version: &versionOne,
 					},
@@ -4022,7 +4014,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 4,
@@ -4096,7 +4088,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 7,
@@ -4105,7 +4097,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 6,
@@ -4179,7 +4171,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 7,
@@ -4188,7 +4180,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 6,
@@ -4259,7 +4251,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "development",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 5,
@@ -4268,7 +4260,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 6,
@@ -4332,7 +4324,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 4,
@@ -4401,7 +4393,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 4,
@@ -4410,7 +4402,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 7,
@@ -4477,7 +4469,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production1",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 6,
@@ -4486,7 +4478,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "production2",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 6,
@@ -4495,7 +4487,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					App: "app",
 					Env: "staging",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 5,
@@ -4512,7 +4504,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			var err error = nil
+			var err error
 			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
 
 			var commitHashes []string

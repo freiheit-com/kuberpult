@@ -61,7 +61,7 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 				ReleaseNumbers: types.ReleaseNumbers{
 					Version:  &uintReleaseNumber,
-					Revision: "0",
+					Revision: 0,
 				},
 				Created:   time.Time{},
 				App:       app,

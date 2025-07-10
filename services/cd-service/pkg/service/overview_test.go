@@ -522,7 +522,7 @@ func TestOverviewService(t *testing.T) {
 					defer wg.Done()
 					err := svc.StreamOverview(&api.GetOverviewRequest{}, &stream)
 					if err != nil {
-						t.Fatal(err)
+						t.Error(err)
 					}
 				}()
 
@@ -2126,7 +2126,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 0,
@@ -2136,7 +2136,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "staging",
 					App:     testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 0,
@@ -2146,7 +2146,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     testApp2,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 0,
@@ -2156,7 +2156,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 0,
@@ -2231,7 +2231,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 0,
@@ -2241,7 +2241,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "staging",
 					App:     testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 0,
@@ -2251,7 +2251,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     testApp2,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 0,
@@ -2261,7 +2261,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 0,
@@ -2334,7 +2334,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 0,
@@ -2344,7 +2344,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "staging",
 					App:     testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 0,
@@ -2354,7 +2354,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     testApp2,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 0,
@@ -2364,7 +2364,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionTwo,
 					},
 					TransformerID: 0,
@@ -2374,7 +2374,7 @@ func TestDeploymentHistory(t *testing.T) {
 				{
 					App: testApp,
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					Manifests: db.DBReleaseManifests{
@@ -2459,7 +2459,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Env:     "dev",
 					App:     "testapp",
 					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: "0",
+						Revision: 0,
 						Version:  &versionOne,
 					},
 					TransformerID: 0,
@@ -2618,7 +2618,10 @@ func TestDeploymentHistory(t *testing.T) {
 				defer rows.Close()
 				for i := 1; rows.Next() && i < len(tc.ExpectedCsvLines); i++ {
 					var createdAt time.Time
-					rows.Scan(&createdAt)
+					err = rows.Scan(&createdAt)
+					if err != nil {
+						return fmt.Errorf("error scanning row: %w", err)
+					}
 					line := fmt.Sprintf("%s,%s", createdAt.Format(time.RFC3339), tc.ExpectedCsvLines[i])
 					expectedLinesWithCreated = append(expectedLinesWithCreated, line)
 				}

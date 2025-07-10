@@ -123,6 +123,8 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 		LIMIT 1;
 	`)
 	span.SetTag("query", selectQuery)
+	span.SetTag("app", app)
+	span.SetTag("releaseVersion", releaseVersion)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -335,8 +337,8 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(releaseVersion, appname)
-		DO UPDATE SET created = excluded.created, manifests = excluded.manifests, metadata = excluded.metadata, environments = excluded.environments, revision = excluded.revision;
+		ON CONFLICT(releaseVersion, appname, revision)
+		DO UPDATE SET created = excluded.created, manifests = excluded.manifests, metadata = excluded.metadata, environments = excluded.environments;
 	`)
 	span.SetTag("query", upsertQuery)
 	metadataJson, err := json.Marshal(release.Metadata)

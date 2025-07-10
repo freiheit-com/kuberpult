@@ -1094,7 +1094,7 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 				App:     appName,
 				Env:     envName,
 				ReleaseNumbers: types.ReleaseNumbers{
-					Revision: "0",
+					Revision: 0,
 					Version:  versionIntPtr,
 				},
 				TransformerID: 0,
@@ -1166,7 +1166,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 			Created: *now,
 			ReleaseNumbers: types.ReleaseNumbers{
 				Version:  &releaseVersion,
-				Revision: "0",
+				Revision: 0,
 			},
 			App: app,
 			Manifests: db.DBReleaseManifests{
@@ -1677,7 +1677,7 @@ func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.
 			} else {
 				versionIntPtr = nil
 			}
-			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, versionIntPtr)
+			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, version)
 			if err != nil {
 				var deref int64
 				if versionIntPtr == nil {
