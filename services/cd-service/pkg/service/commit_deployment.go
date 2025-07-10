@@ -61,7 +61,7 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 		}
 
 		// Get latest releases for all apps
-		err2 := getDeploymentsWithReleaseVersion(ctx, transaction, err, applicationReleases)
+		err2 := getDeploymentsWithReleaseVersion(ctx, transaction, applicationReleases)
 		if err2 != nil {
 			return err2
 		}
@@ -89,14 +89,13 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 	}, nil
 }
 
-func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, err error, applicationReleases map[string]map[types.EnvName]uint64) error {
+func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, applicationReleases map[string]map[types.EnvName]uint64) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "getDeploymentsWithReleaseVersion")
 	defer span.Finish()
 	allApplicationReleasesQuery := `
-SELECT appname, envname, releaseVersion
-FROM deployments
-WHERE releaseVersion IS NOT NULL;
-`
+		SELECT appname, envname, releaseVersion
+		FROM deployments
+		WHERE releaseVersion IS NOT NULL;`
 
 	rows, err := transaction.QueryContext(ctx, allApplicationReleasesQuery)
 	if err != nil {
@@ -129,7 +128,7 @@ func getCommitEventByCommitId(ctx context.Context, db *db.DBHandler, transaction
 	defer span.Finish()
 	query := db.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
 
-	row := transaction.QueryRow(query, commitId, event.EventTypeNewRelease)
+	row := transaction.QueryRowContext(ctx, query, commitId, event.EventTypeNewRelease)
 	var jsonCommitEventsMetadata []byte
 	err := row.Scan(&jsonCommitEventsMetadata)
 	if err != nil {
