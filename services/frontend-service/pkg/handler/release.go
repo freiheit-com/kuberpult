@@ -273,6 +273,9 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 				return
 			}
 			tf.Revision = r
+		} else {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number of revisions provided: %d, ", len(revision))
 		}
 	}
 
@@ -483,10 +486,13 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 				r, err := strconv.ParseUint(revision[0], 10, 64)
 				if err != nil {
 					w.WriteHeader(400)
-					fmt.Fprintf(w, "Invalid version: %s", err)
+					fmt.Fprintf(w, "Invalid revision: %s", err)
 					return
 				}
 				tf.Revision = r
+			} else {
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "Invalid number of revisions provided: %d, ", len(revision))
 			}
 		}
 		response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{

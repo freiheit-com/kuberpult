@@ -54,13 +54,20 @@ const getReleasesToDisplay = (
     minorReleases: ReleaseNumbers[],
     ignoreMinors: boolean
 ): ReleaseNumbers[] => {
+    if (allReleases.length === 0) {
+        return [];
+    }
     if (ignoreMinors) {
         allReleases = allReleases.filter(
-            (version) => !minorReleases.includes(version) || deployedReleases.includes(version)
+            (version) =>
+                !minorReleases.find((v) => v.version === version.version && v.revision === version.revision) ||
+                deployedReleases.find((v) => v.version === version.version && v.revision === version.revision)
         );
     }
     // all deployed releases are important and the latest release is also important
-    const importantReleases = deployedReleases.includes(allReleases[0])
+    const importantReleases = deployedReleases.find(
+        (v) => v.version === allReleases[0].version && v.revision === allReleases[0].revision
+    )
         ? deployedReleases
         : [allReleases[0], ...deployedReleases];
     // number of remaining releases to get from history
@@ -335,18 +342,6 @@ export const ErrorServiceLane: React.FC<{
     </div>
 );
 
-function filterDuplicateReleases(releases: ReleaseNumbers[]): ReleaseNumbers[] {
-    const seen = new Set<string>();
-    const toReturn: ReleaseNumbers[] = [];
-    releases.forEach((curr) => {
-        if (curr && !seen.has(curr.version.toString() + '.' + curr.revision.toString())) {
-            toReturn.push(curr);
-            seen.add(curr.version.toString() + '.' + curr.revision.toString());
-        }
-    });
-    return toReturn;
-}
-
 export const ReadyServiceLane: React.FC<{
     application: OverviewApplication;
     hideMinors: boolean;
@@ -419,13 +414,9 @@ export const ReadyServiceLane: React.FC<{
         minorReleases = [];
     }
     const prepareUndeployOrUndeployText = deriveUndeployMessage(appDetails?.application?.undeploySummary);
-    const releases = filterDuplicateReleases([
-        ...new Set(
-            getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) =>
-                n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version
-            )
-        ),
-    ]);
+    const releases = getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) =>
+        n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version
+    );
 
     const releases_lane =
         !!releases &&

@@ -700,6 +700,50 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "create two identical versions with different revision - invert order of creation",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    2,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{test}",
+					},
+					Team: "t1",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    1,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "t1",
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				App:         appName,
+				StateChange: db.AppStateChangeCreate,
+				Metadata: db.DBAppMetaData{
+					Team: "t1",
+				},
+			},
+			expectedDbReleases: []types.ReleaseNumbers{
+				{
+					Revision: 2,
+					Version:  uversion(10),
+				},
+				{
+					Revision: 1,
+					Version:  uversion(10),
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc

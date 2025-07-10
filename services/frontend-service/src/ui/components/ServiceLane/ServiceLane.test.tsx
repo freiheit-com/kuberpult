@@ -575,7 +575,7 @@ const data: TestDataDiff[] = [
                 application: {
                     name: 'test2',
                     team: 'test-team',
-                    releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)],
+                    releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)].reverse(),
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
