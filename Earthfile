@@ -15,9 +15,9 @@ deps:
             wget "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-${OS}-${ARCH}" \
             -O "${BUF_BIN_PATH}/buf" && \
             chmod +x "${BUF_BIN_PATH}/buf"
-#        RUN OS=Linux ARCH=$(uname -m) && \
-#            SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
-#            echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
+        RUN OS=Linux ARCH=$(uname -m) && \
+            SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
+            echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
 
         ARG GO_CI_LINT_VERSION="v1.64.0"
         RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
