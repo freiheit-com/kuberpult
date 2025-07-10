@@ -1,4 +1,4 @@
-FROM bufbuild/buf:1.26.1 as buf
+FROM bufbuild/buf:1.26.1 AS buf
 FROM golang:1.24.2-alpine3.21
 
 COPY --from=buf /usr/local/bin/buf /usr/local/bin/buf
@@ -11,9 +11,9 @@ RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
 RUN npm install -g pnpm@8.9.2
 
 ARG GO_CI_LINT_VERSION="v2.2.1"
-RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
+RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$GO_CI_LINT_VERSION
 ARG GO_EXHAUSTSTRUCT_VERSION="v3.3.1"
-RUN go install github.com/GaijinEntertainment/go-exhaustruct/v3/cmd/exhaustruct/v2@$GO_EXHAUSTSTRUCT_VERSION
+RUN go install github.com/GaijinEntertainment/go-exhaustruct/v3/cmd/exhaustruct@$GO_EXHAUSTSTRUCT_VERSION
 
 RUN curl --fail --silent --show-error --location --remote-name "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz"
 RUN echo 0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5 helm-v3.14.2-linux-amd64.tar.gz | sha256sum -c
