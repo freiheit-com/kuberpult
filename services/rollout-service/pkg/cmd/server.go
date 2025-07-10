@@ -249,21 +249,6 @@ func runServer(ctx context.Context, config Config) error {
 				MaxIdleConnections: config.DbMaxIdleConnections,
 				MaxOpenConnections: config.DbMaxOpenConnections,
 			}
-		} else if config.DbOption == "sqlite" {
-			dbCfg = db.DBConfig{
-				DbHost:         config.DbLocation,
-				DbPort:         config.DbAuthProxyPort,
-				DriverName:     "sqlite3",
-				DbName:         config.DbName,
-				DbPassword:     config.DbUserPassword,
-				DbUser:         config.DbUserName,
-				MigrationsPath: config.DbMigrationsLocation,
-				WriteEslOnly:   false,
-				SSLMode:        "disable",
-
-				MaxIdleConnections: config.DbMaxIdleConnections,
-				MaxOpenConnections: config.DbMaxOpenConnections,
-			}
 		}
 		dbHandler, err = db.Connect(ctx, dbCfg)
 		if err != nil {

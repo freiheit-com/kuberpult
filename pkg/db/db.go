@@ -25,7 +25,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"path"
 	"slices"
 	"strings"
 	"time"
@@ -41,7 +40,6 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
 	psql "github.com/golang-migrate/migrate/v4/database/postgres"
-	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 )
@@ -96,15 +94,9 @@ func (h *DBHandler) ShouldUseOtherTables() bool {
 	return h != nil && !h.WriteEslOnly
 }
 
-// AllowParallelTransactions returns true if the underlying database does allow multiple transactions in parallel
-// Postgres allows this, and sqlite does not (in sqlite you would need to open a new connection).
-func (h *DBHandler) AllowParallelTransactions() bool {
-	return h.DriverName == "postgres"
-}
-
 func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 	if cfg.DriverName != "postgres" {
-		return nil, fmt.Errorf("WRONG TEST SETUP with sqlite, adapt your test to work with postgres")
+		return nil, fmt.Errorf("WRONG TEST SETUP without postgres")
 	}
 	db, driver, err := GetConnectionAndDriverWithRetries(ctx, cfg)
 
@@ -135,10 +127,8 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 		dbPool.SetMaxOpenConns(int(cfg.MaxOpenConnections))
 		dbPool.SetMaxIdleConns(int(cfg.MaxIdleConnections))
 		return dbPool, nil
-	} else if cfg.DriverName == "sqlite3" {
-		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite?_foreign_keys=on"))
 	}
-	return nil, fmt.Errorf("driver: only postgres and sqlite3 are supported, but not '%s'", cfg.DriverName)
+	return nil, fmt.Errorf("driver: only postgres is supported, but not '%s'", cfg.DriverName)
 }
 
 func GetConnectionAndDriverWithRetries(ctx context.Context, cfg DBConfig) (*sql.DB, database.Driver, error) {
@@ -164,35 +154,26 @@ func GetConnectionAndDriver(cfg DBConfig) (*sql.DB, database.Driver, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if cfg.DriverName == "postgres" {
-		driver, err := psql.WithInstance(db, &psql.Config{
-			DatabaseName:          cfg.DbName,
-			MigrationsTable:       "",
-			MigrationsTableQuoted: false,
-			MultiStatementEnabled: false,
-			MultiStatementMaxSize: 0,
-			SchemaName:            "",
-			StatementTimeout:      time.Second * 10,
-		})
-		return db, driver, err
-	} else if cfg.DriverName == "sqlite3" {
-		driver, err := sqlite.WithInstance(db, &sqlite.Config{
-			DatabaseName:    "",
-			MigrationsTable: "",
-			NoTxWrap:        false,
-		})
-		return db, driver, err
+	if cfg.DriverName != "postgres" {
+		return nil, nil, fmt.Errorf("driver: '%s' not supported. Supported: postgres", cfg.DriverName)
 	}
-	return nil, nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
+	driver, err := psql.WithInstance(db, &psql.Config{
+		DatabaseName:          cfg.DbName,
+		MigrationsTable:       "",
+		MigrationsTableQuoted: false,
+		MultiStatementEnabled: false,
+		MultiStatementMaxSize: 0,
+		SchemaName:            "",
+		StatementTimeout:      time.Second * 10,
+	})
+	return db, driver, err
 }
 
 func (h *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
 	if h.DriverName == "postgres" {
 		return migrate.NewWithDatabaseInstance("file://"+h.MigrationsPath, h.DbName, *h.DBDriver)
-	} else if h.DriverName == "sqlite3" {
-		return migrate.NewWithDatabaseInstance("file://"+h.MigrationsPath, "", *h.DBDriver) //FIX ME
 	}
-	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", h.DriverName)
+	return nil, fmt.Errorf("driver: '%s' not supported. Supported: postgres", h.DriverName)
 }
 
 func RunDBMigrations(ctx context.Context, cfg DBConfig) error {
@@ -219,8 +200,6 @@ func RunDBMigrations(ctx context.Context, cfg DBConfig) error {
 func (h *DBHandler) AdaptQuery(query string) string {
 	if h.DriverName == "postgres" {
 		return SqliteToPostgresQuery(query)
-	} else if h.DriverName == "sqlite3" {
-		return query
 	}
 	panic(fmt.Errorf("AdaptQuery: invalid driver: %s", h.DriverName))
 }
@@ -407,9 +386,6 @@ func (h *DBHandler) DBDiscoverCurrentEsldID(ctx context.Context, tx *sql.Tx) (*i
 	var selectQuery string
 	if h.DriverName == "postgres" {
 		selectQuery = h.AdaptQuery("SELECT last_value from event_sourcing_light_eslversion_seq;")
-
-	} else if h.DriverName == "sqlite3" {
-		selectQuery = h.AdaptQuery("SELECT seq FROM SQLITE_SEQUENCE WHERE name='event_sourcing_light';")
 	} else {
 		return nil, fmt.Errorf("Driver: '%s' not supported.\n", h.DriverName)
 	}
@@ -2772,12 +2748,7 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 		return nil, fmt.Errorf("attempting to read transaction timestamp without a transaction")
 	}
 
-	var query string
-	if h.DriverName == "sqlite3" { //Testing purposes
-		query = "select CURRENT_TIMESTAMP as now;"
-	} else {
-		query = "select now();"
-	}
+	var query = "select now();"
 	rows, err := tx.QueryContext(
 		ctx,
 		query,
@@ -2795,21 +2766,9 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 	var now time.Time
 
 	if rows.Next() {
-		if h.DriverName == "sqlite3" { //Testing purposes
-			var nowString string
-			err = rows.Scan(&nowString)
-			if err != nil {
-				return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
-			}
-			now, err = time.Parse(time.DateTime, nowString)
-			if err != nil {
-				return nil, fmt.Errorf("DBReadTransactionTimestamp error converting: %w", err)
-			}
-		} else {
-			err = rows.Scan(&now)
-			if err != nil {
-				return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
-			}
+		err = rows.Scan(&now)
+		if err != nil {
+			return nil, fmt.Errorf("DBReadTransactionTimestamp error scanning database response query: %w", err)
 		}
 
 		now = now.UTC()

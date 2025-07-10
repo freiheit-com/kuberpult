@@ -222,21 +222,6 @@ func Run(ctx context.Context) error {
 			MaxIdleConnections: dbMaxIdle,
 			MaxOpenConnections: dbMaxOpen,
 		}
-	} else if dbOption == "sqlite" {
-		dbCfg = db.DBConfig{
-			DbHost:         dbLocation,
-			DbPort:         dbAuthProxyPort,
-			DriverName:     "sqlite3",
-			DbName:         dbName,
-			DbPassword:     dbPassword,
-			DbUser:         dbUserName,
-			MigrationsPath: dbMigrationLocation,
-			WriteEslOnly:   false,
-			SSLMode:        sslMode,
-
-			MaxIdleConnections: dbMaxIdle,
-			MaxOpenConnections: dbMaxOpen,
-		}
 	} else {
 		logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")
 	}
