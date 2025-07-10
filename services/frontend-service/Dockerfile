@@ -1,5 +1,5 @@
 ARG PARENT_CONTAINER
-FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:${PARENT_CONTAINER} as builder
+FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:${PARENT_CONTAINER} AS builder
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
 
