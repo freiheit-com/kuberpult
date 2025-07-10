@@ -1052,6 +1052,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				TransformerEslVersion: c.TransformerEslVersion,
 				CiLink:                "",
 				SkipCleanup:           false,
+				Revision:              0,
 			}
 			err := t.Execute(ctx, d, transaction)
 			if err != nil {

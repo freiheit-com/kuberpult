@@ -2092,7 +2092,8 @@ func (s *State) GetApplicationReleasesFromFile(application string) ([]uint64, er
 }
 
 type Release struct {
-	Version uint64
+	Version  uint64
+	Revision uint64
 	/**
 	"UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
 	It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
@@ -2129,6 +2130,7 @@ func (rel *Release) ToProto() *api.Release {
 		IsPrepublish:    false,
 		Environments:    []string{},
 		CiLink:          "", //does not matter here
+		Revision:        rel.Revision,
 	}
 }
 

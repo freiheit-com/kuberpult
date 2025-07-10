@@ -322,6 +322,7 @@ func (d *BatchServer) processAction(
 			CiLink:                "", //Only gets populated when a release is created or release train is conducted.
 			TransformerEslVersion: 0,
 			SkipCleanup:           false,
+			Revision:              0, //FIXME: Revisions not yet supported on deployments SRX-WZMFH5
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp

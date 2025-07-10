@@ -323,6 +323,7 @@ type DeployApplicationVersion struct {
 	Environment           types.EnvName                   `json:"env"`
 	Application           string                          `json:"app"`
 	Version               uint64                          `json:"version"`
+	Revision              uint64                          `json:"revision"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
 	WriteCommitData       bool                            `json:"writeCommitData"`
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
@@ -735,6 +736,7 @@ type CreateApplicationVersion struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	Version               uint64                   `json:"version"`
+	Revision              uint64                   `json:"revision"`
 	Application           string                   `json:"app"`
 	Manifests             map[types.EnvName]string `json:"manifests"`
 	SourceCommitId        string                   `json:"sourceCommitId"`

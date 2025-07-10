@@ -1161,6 +1161,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 			IsPrepublish:    rel.Metadata.IsPrepublish,
 			Environments:    rel.Environments,
 			CiLink:          rel.Metadata.CiLink,
+			Revision:        rel.ReleaseNumbers.Revision,
 		}
 		result = append(result, r)
 	}
@@ -1187,6 +1188,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		IsPrepublish:    env.Metadata.IsPrepublish,
 		Environments:    env.Environments,
 		CiLink:          env.Metadata.CiLink,
+		Revision:        env.ReleaseNumbers.Revision,
 	}, nil
 }
 
