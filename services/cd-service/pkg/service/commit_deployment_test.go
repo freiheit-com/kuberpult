@@ -65,15 +65,15 @@ func TestGetCommitStatus(t *testing.T) {
 	tcs := []struct {
 		name                string
 		releaseNumber       uint64
-		allEnvironments     []string
-		environmentReleases map[string]uint64
+		allEnvironments     []types.EnvName
+		environmentReleases map[types.EnvName]uint64
 		expectedStatus      CommitStatus
 	}{
 		{
 			name:                "One environment with newer release",
 			releaseNumber:       1,
-			allEnvironments:     []string{"dev"},
-			environmentReleases: map[string]uint64{"dev": 2},
+			allEnvironments:     []types.EnvName{"dev"},
+			environmentReleases: map[types.EnvName]uint64{"dev": 2},
 			expectedStatus: CommitStatus{
 				"dev": api.CommitDeploymentStatus_DEPLOYED,
 			},
@@ -81,8 +81,8 @@ func TestGetCommitStatus(t *testing.T) {
 		{
 			name:                "One environment with older release",
 			releaseNumber:       2,
-			allEnvironments:     []string{"dev"},
-			environmentReleases: map[string]uint64{"dev": 1},
+			allEnvironments:     []types.EnvName{"dev"},
+			environmentReleases: map[types.EnvName]uint64{"dev": 1},
 			expectedStatus: CommitStatus{
 				"dev": api.CommitDeploymentStatus_PENDING,
 			},
@@ -90,8 +90,8 @@ func TestGetCommitStatus(t *testing.T) {
 		{
 			name:                "One environment with same release",
 			releaseNumber:       1,
-			allEnvironments:     []string{"dev"},
-			environmentReleases: map[string]uint64{"dev": 1},
+			allEnvironments:     []types.EnvName{"dev"},
+			environmentReleases: map[types.EnvName]uint64{"dev": 1},
 			expectedStatus: CommitStatus{
 				"dev": api.CommitDeploymentStatus_DEPLOYED,
 			},
@@ -99,8 +99,8 @@ func TestGetCommitStatus(t *testing.T) {
 		{
 			name:                "Multiple environments with different releases",
 			releaseNumber:       2,
-			allEnvironments:     []string{"dev", "staging", "prod"},
-			environmentReleases: map[string]uint64{"dev": 3, "staging": 2, "prod": 1},
+			allEnvironments:     []types.EnvName{"dev", "staging", "prod"},
+			environmentReleases: map[types.EnvName]uint64{"dev": 3, "staging": 2, "prod": 1},
 			expectedStatus: CommitStatus{
 				"dev":     api.CommitDeploymentStatus_DEPLOYED,
 				"staging": api.CommitDeploymentStatus_DEPLOYED,
@@ -110,8 +110,8 @@ func TestGetCommitStatus(t *testing.T) {
 		{
 			name:                "Commit not deployed to all environments",
 			releaseNumber:       2,
-			allEnvironments:     []string{"dev", "staging", "prod", "qa"},
-			environmentReleases: map[string]uint64{"dev": 3, "staging": 2, "prod": 1},
+			allEnvironments:     []types.EnvName{"dev", "staging", "prod", "qa"},
+			environmentReleases: map[types.EnvName]uint64{"dev": 3, "staging": 2, "prod": 1},
 			expectedStatus: CommitStatus{
 				"dev":     api.CommitDeploymentStatus_DEPLOYED,
 				"staging": api.CommitDeploymentStatus_DEPLOYED,
@@ -122,8 +122,8 @@ func TestGetCommitStatus(t *testing.T) {
 		{
 			name:                "Commit is not deployed anywhere",
 			releaseNumber:       2,
-			allEnvironments:     []string{"dev", "staging", "prod", "qa"},
-			environmentReleases: map[string]uint64{},
+			allEnvironments:     []types.EnvName{"dev", "staging", "prod", "qa"},
+			environmentReleases: map[types.EnvName]uint64{},
 			expectedStatus: CommitStatus{
 				"dev":     api.CommitDeploymentStatus_PENDING,
 				"staging": api.CommitDeploymentStatus_PENDING,
@@ -134,8 +134,8 @@ func TestGetCommitStatus(t *testing.T) {
 		{
 			name:                "Release number is 0",
 			releaseNumber:       0,
-			allEnvironments:     []string{"dev", "staging", "prod", "qa"},
-			environmentReleases: map[string]uint64{"dev": 3, "staging": 2, "prod": 1},
+			allEnvironments:     []types.EnvName{"dev", "staging", "prod", "qa"},
+			environmentReleases: map[types.EnvName]uint64{"dev": 3, "staging": 2, "prod": 1},
 			expectedStatus: CommitStatus{
 				"dev":     api.CommitDeploymentStatus_UNKNOWN,
 				"staging": api.CommitDeploymentStatus_UNKNOWN,
