@@ -37,6 +37,7 @@ import { Git, Argo } from '../../../images';
 export type ReleaseCardProps = {
     className?: string;
     version: number;
+    revision: number;
     app: string;
 };
 
@@ -223,16 +224,16 @@ const useSyncStatusForDeployment = (
 };
 
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
-    const { className, app, version } = props;
+    const { className, app, version, revision } = props;
     // the ReleaseCard only displays actual releases, so we can assume that it exists here:
-    const openReleaseDialog = useOpenReleaseDialog(app, version);
+    const openReleaseDialog = useOpenReleaseDialog(app, version, revision);
     const deployedAt = useCurrentlyDeployedAtGroup(app, version);
 
     const syncStatus = useGitSyncStatus((getter) => getter);
 
     const [rolloutEnvs, mostInteresting] = useDeploymentStatus(app, deployedAt);
     const [gitSyncStatuses, mostInterestingSyncStatus] = useSyncStatusForDeployment(app, deployedAt);
-    const release = useReleaseOrLog(app, version);
+    const release = useReleaseOrLog(app, version, revision);
     if (!release) {
         return null;
     }

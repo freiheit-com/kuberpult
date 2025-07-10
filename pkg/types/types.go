@@ -85,10 +85,8 @@ type ReleaseNumbers struct {
 type ReleaseNumberCollection []ReleaseNumbers
 
 func (c ReleaseNumberCollection) Less(i, j int) bool {
-	fmt.Printf("I: %s\n", c[i].Revision)
-	fmt.Printf("J: %s\n", c[j].Revision)
-	v1, _ := version.NewVersion(c[i].Revision) //These should have already been validated
-	v2, _ := version.NewVersion(c[j].Revision) //These should have already been validated
+	v1, _ := version.NewVersion(fmt.Sprintf("%d.%d", *c[i].Version, c[i].Revision)) //These should have already been validated
+	v2, _ := version.NewVersion(fmt.Sprintf("%d.%d", *c[j].Version, c[j].Revision)) //These should have already been validated
 	return v1.LessThan(v2)
 }
 

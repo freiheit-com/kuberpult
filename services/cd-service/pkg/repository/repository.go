@@ -1081,7 +1081,7 @@ func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.
 
 type Release struct {
 	Version  uint64
-	Revision string
+	Revision uint64
 	/**
 	"UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
 	It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).

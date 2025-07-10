@@ -144,7 +144,7 @@ describe('Test Manifests', () => {
                         isPrepublish: false,
                         environments: [],
                         ciLink: '',
-                        revision: '0',
+                        revision: 0,
                     },
                     manifests: {
                         'env-1': {
@@ -175,7 +175,7 @@ describe('Test Manifests', () => {
                         isPrepublish: false,
                         environments: [],
                         ciLink: '',
-                        revision: '0',
+                        revision: 0,
                     },
                     manifests: {
                         'env-1': {

@@ -535,14 +535,6 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 
-	if c.Revision != "" {
-		if ok, err := isValidRevision(c.Revision); !ok {
-			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided Revision: %s is not valid. Reason: %v", c.Revision, err))
-		}
-	} else {
-		c.Revision = "0" //If no revision was provided, we say it is 0
-	}
-
 	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
@@ -824,18 +816,18 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 	if c.Version == 0 {
 		return 0, fmt.Errorf("version is required when using the database")
 	} else {
-		metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
+		metaData, err := state.DBHandler.DBSelectReleaseByReleaseNumbers(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 		if err != nil {
 			return 0, fmt.Errorf("could not calculate version, error: %v", err)
 		}
 		if metaData == nil {
-			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v", c.Application, c.Version)
+			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v.%v", c.Application, c.Version, c.Revision)
 			return c.Version, nil
 		}
-		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v", *metaData.ReleaseNumbers.Version, metaData)
+		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v.%v", *metaData.ReleaseNumbers.Version, c.Revision, metaData)
 
 		existingRelease := metaData.ReleaseNumbers.Version
-		logger.FromContext(ctx).Sugar().Warnf("comparing release %v: %v", c.Version, existingRelease)
+		logger.FromContext(ctx).Sugar().Warnf("comparing release %v.%v: %v", c.Version, c.Revision, existingRelease)
 		// check if version differs, if it's the same, that's ok
 		return 0, c.sameAsExistingDB(ctx, transaction, state, metaData)
 	}

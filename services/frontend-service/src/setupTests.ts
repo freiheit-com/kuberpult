@@ -76,7 +76,7 @@ export const makeRelease = (
     isMinor: false,
     isPrepublish: false,
     ciLink: '',
-    revision: '',
+    revision: 0,
 });
 
 const date = new Date(2023, 6, 12);

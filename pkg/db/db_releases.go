@@ -134,6 +134,28 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
 }
 
+func (h *DBHandler) DBSelectReleaseByReleaseNumbers(ctx context.Context, tx *sql.Tx, app string, releaseVersion types.ReleaseNumbers, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(`
+		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
+		FROM releases  
+		WHERE appName=? AND releaseVersion=?  AND revision= ?
+		LIMIT 1;
+	`)
+	span.SetTag("query", selectQuery)
+	span.SetTag("app", app)
+	span.SetTag("releaseVersion", releaseVersion)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+		*releaseVersion.Version,
+		releaseVersion.Revision,
+	)
+	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
+}
+
 func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool, ts time.Time) (*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersionAtTimestamp")
 	defer span.Finish()
@@ -229,6 +251,50 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 		app,
 	)
 	return h.processAppReleaseVersionsRows(ctx, err, rows)
+}
+
+func (h *DBHandler) DBSelectAllReleaseNumbersOfApp(ctx context.Context, tx *sql.Tx, app string) ([]types.ReleaseNumbers, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
+	defer span.Finish()
+	selectQuery := h.AdaptQuery(`
+		SELECT releaseVersion, revision
+		FROM releases
+		WHERE appName=?
+		ORDER BY releaseVersion DESC, revision DESC;
+	`)
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+	)
+	return h.processAppReleaseNumbersRows(ctx, err, rows)
+}
+
+func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByVersions")
+	defer span.Finish()
+	if len(releaseVersions) == 0 {
+		return []*DBReleaseWithMetaData{}, nil
+	}
+	repeatedQuestionMarks := strings.Repeat(",?", len(releaseVersions)-1)
+	selectQuery := h.AdaptQuery(`
+		SELECT created, appName, metadata, releaseVersion, environments, revision FROM releases
+		WHERE appname=? AND releaseversion IN (?` + repeatedQuestionMarks + `) ORDER BY releaseVersion DESC, revision DESC
+	`)
+	span.SetTag("query", selectQuery)
+
+	args := []any{}
+	args = append(args, app)
+	for _, version := range releaseVersions {
+		args = append(args, version)
+	}
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		args...,
+	)
+	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
 }
 
 func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (map[string][]int64, error) {
@@ -507,8 +573,9 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	}(rows)
 	//exhaustruct:ignore
 	var result []*DBReleaseWithMetaData
-	var lastSeenRelease uint64 = 0
+
 	for rows.Next() {
+
 		//exhaustruct:ignore
 		var row = &DBReleaseWithMetaData{}
 		var metadataStr string
@@ -526,11 +593,11 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			}
 			return nil, fmt.Errorf("Error scanning releases row from DB withManifests=%v. Error: %w\n", withManifests, err)
 		}
-		if *row.ReleaseNumbers.Version != lastSeenRelease {
-			lastSeenRelease = *row.ReleaseNumbers.Version
-		} else {
-			continue
-		}
+		//if lastSeenRelease.Version != nil || (*row.ReleaseNumbers.Version != *lastSeenRelease.Version && row.ReleaseNumbers.Revision != lastSeenRelease.Revision) {
+		//	lastSeenRelease = row.ReleaseNumbers
+		//} else {
+		//	continue
+		//}
 		// handle meta data
 		var metaData = DBReleaseMetaData{
 			SourceAuthor:    "",
@@ -636,6 +703,36 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 	var row int64
 	for rows.Next() {
 		err := rows.Scan(&row)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+		}
+		result = append(result, row)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (h *DBHandler) processAppReleaseNumbersRows(ctx context.Context, err error, rows *sql.Rows) ([]types.ReleaseNumbers, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(rows)
+	var result []types.ReleaseNumbers
+	for rows.Next() {
+		//exhaustruct:ignore
+		var row types.ReleaseNumbers
+		err := rows.Scan(&row.Version, &row.Revision)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil

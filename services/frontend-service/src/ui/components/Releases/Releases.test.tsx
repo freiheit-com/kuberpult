@@ -62,7 +62,7 @@ describe('Release Dialog', () => {
             isPrepublish: false,
             environments: [],
             ciLink: '',
-            revision: '',
+            revision: 0,
         },
         {
             version: 2,
@@ -77,7 +77,7 @@ describe('Release Dialog', () => {
             isPrepublish: false,
             environments: [],
             ciLink: '',
-            revision: '',
+            revision: 0,
         },
         {
             version: 3,
@@ -92,7 +92,7 @@ describe('Release Dialog', () => {
             isPrepublish: false,
             environments: [],
             ciLink: '',
-            revision: '',
+            revision: 0,
         },
     ];
 
@@ -200,7 +200,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
-                    revision: '',
+                    revision: 0,
                 },
                 {
                     version: 2,
@@ -215,7 +215,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
-                    revision: '',
+                    revision: 0,
                 },
                 {
                     version: 3,
@@ -230,7 +230,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
-                    revision: '',
+                    revision: 0,
                 },
             ],
             envGroups: [testEnvGroup1],
@@ -276,7 +276,7 @@ describe('Release Dialog', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
-                                    revision: '',
+                                    revision: 0,
                                 },
                                 {
                                     version: 2,
@@ -291,7 +291,7 @@ describe('Release Dialog', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
-                                    revision: '',
+                                    revision: 0,
                                 },
                                 {
                                     version: 3,
@@ -306,7 +306,7 @@ describe('Release Dialog', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
-                                    revision: '',
+                                    revision: 0,
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -337,7 +337,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
-                    revision: '',
+                    revision: 0,
                 },
                 {
                     version: 2,
@@ -352,7 +352,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
-                    revision: '',
+                    revision: 0,
                 },
                 {
                     version: 3,
@@ -367,7 +367,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
-                    revision: '',
+                    revision: 0,
                 },
             ],
             envGroups: [],

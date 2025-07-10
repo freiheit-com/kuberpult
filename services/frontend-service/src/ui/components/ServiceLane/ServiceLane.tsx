@@ -42,46 +42,17 @@ import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { Button } from '../button';
 import { useSearchParams } from 'react-router-dom';
 import { Tooltip } from '../tooltip/tooltip';
-import semver from 'semver';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
 const numberOfDisplayedReleasesOnHome = 6;
 
-// const getReleasesToDisplay = (
-//     deployedReleases: number[],
-//     allReleases: number[],
-//     minorReleases: number[],
-//     ignoreMinors: boolean
-// ): number[] => {
-//     if (ignoreMinors) {
-//         allReleases = allReleases.filter(
-//             (version) => !minorReleases.includes(version) || deployedReleases.includes(version)
-//         );
-//     }
-//     // all deployed releases are important and the latest release is also important
-//     const importantReleases = deployedReleases.includes(allReleases[0])
-//         ? deployedReleases
-//         : [allReleases[0], ...deployedReleases];
-//     // number of remaining releases to get from history
-//     const numOfTrailingReleases = numberOfDisplayedReleasesOnHome - importantReleases.length;
-//     // find the index of the last deployed release e.g. Prod (or -1 when there's no deployed releases)
-//     const oldestImportantReleaseIndex = importantReleases.length
-//         ? allReleases.findIndex((version) => version === importantReleases.slice(-1)[0])
-//         : -1;
-//     // take the deployed releases + a slice from the oldest element (or very first, see above) with total length 6
-//     return [
-//         ...importantReleases,
-//         ...allReleases.slice(oldestImportantReleaseIndex + 1, oldestImportantReleaseIndex + numOfTrailingReleases + 1),
-//     ];
-// };
-
-const getReleasesToDisplayByRevision = (
-    deployedReleases: string[],
-    allReleases: string[],
-    minorReleases: string[],
+const getReleasesToDisplay = (
+    deployedReleases: { version: number; revision: number }[],
+    allReleases: { version: number; revision: number }[],
+    minorReleases: { version: number; revision: number }[],
     ignoreMinors: boolean
-): string[] => {
+): { version: number; revision: number }[] => {
     if (ignoreMinors) {
         allReleases = allReleases.filter(
             (version) => !minorReleases.includes(version) || deployedReleases.includes(version)
@@ -95,7 +66,11 @@ const getReleasesToDisplayByRevision = (
     const numOfTrailingReleases = numberOfDisplayedReleasesOnHome - importantReleases.length;
     // find the index of the last deployed release e.g. Prod (or -1 when there's no deployed releases)
     const oldestImportantReleaseIndex = importantReleases.length
-        ? allReleases.findIndex((version) => version === importantReleases.slice(-1)[0])
+        ? allReleases.findIndex(
+              (version) =>
+                  version.version === importantReleases.slice(-1)[0].version &&
+                  version.revision === importantReleases.slice(-1)[0].revision
+          )
         : -1;
     // take the deployed releases + a slice from the oldest element (or very first, see above) with total length 6
     return [
@@ -104,9 +79,17 @@ const getReleasesToDisplayByRevision = (
     ];
 };
 
-function getNumberOfReleasesBetween(releases: number[], higherVersion: number, lowerVersion: number): number {
+function getNumberOfReleasesBetween(
+    releases: { version: number; revision: number }[],
+    higherVersion: { version: number; revision: number },
+    lowerVersion: { version: number; revision: number }
+): number {
     // diff = index of lower version (older release) - index of higher version (newer release) - 1
-    return releases.findIndex((ver) => ver === lowerVersion) - releases.findIndex((ver) => ver === higherVersion) - 1;
+    return (
+        releases.findIndex((ver) => ver.version === lowerVersion.version && ver.revision === lowerVersion.revision) -
+        releases.findIndex((ver) => ver.version === higherVersion.version && ver.revision === higherVersion.revision) -
+        1
+    );
 }
 
 export const DiffElement: React.FC<{ diff: number; title: string; navCallback: () => void }> = ({
@@ -351,6 +334,20 @@ export const ErrorServiceLane: React.FC<{
     </div>
 );
 
+function filterDuplicateRelesases(
+    releases: { version: number; revision: number }[]
+): { version: number; revision: number }[] {
+    const seen = new Set<string>();
+    const toReturn: { version: number; revision: number }[] = [];
+    releases.forEach((curr) => {
+        if (!seen.has(curr.version.toString() + '.' + curr.revision.toString())) {
+            toReturn.push(curr);
+            seen.add(curr.version.toString() + '.' + curr.revision.toString());
+        }
+    });
+    return toReturn;
+}
+
 export const ReadyServiceLane: React.FC<{
     application: OverviewApplication;
     hideMinors: boolean;
@@ -359,21 +356,25 @@ export const ReadyServiceLane: React.FC<{
     const { application, hideMinors } = props;
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
     const appDetails = props.allAppData.details;
-    const allReleases = [...new Set(appDetails?.application?.releases.map((d) => d.version))];
-    const allReleasesRevisions = [...new Set(appDetails?.application?.releases.map((d) => d.revision))];
+    const allReleases = [
+        ...new Set(
+            appDetails?.application?.releases.map(
+                (d) => ({ version: d.version, revision: d.revision }) // Corrected typo from 'revison'
+            )
+        ),
+    ];
     const deployments = appDetails?.deployments;
     const allDeployedReleaseNumbers = [];
     for (const prop in deployments) {
-        allDeployedReleaseNumbers.push(deployments[prop].version);
+        allDeployedReleaseNumbers.push({ version: deployments[prop].version, revision: 0 });
     }
-
-    const allDeployedReleaseRevisions = [];
-    for (const prop in deployments) {
-        const v = appDetails?.application?.releases.find((r) => r.version === deployments[prop].version);
-        allDeployedReleaseRevisions.push(v ? v.revision : '0');
-    }
-    //const deployedReleases = [...new Set(allDeployedReleaseNumbers.map((v) => v).sort((n1, n2) => n2 - n1))];
-    const deployedReleasesRevisions = [...new Set(allDeployedReleaseRevisions.map((v) => v))];
+    const deployedReleases = [
+        ...new Set(
+            allDeployedReleaseNumbers
+                .map((v) => v)
+                .sort((n1, n2) => (n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version))
+        ),
+    ];
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
         if (allReleases.length === 0) {
@@ -423,11 +424,31 @@ export const ReadyServiceLane: React.FC<{
         minorReleases = [];
     }
     const prepareUndeployOrUndeployText = deriveUndeployMessage(appDetails?.application?.undeploySummary);
-    const releases = [
+    const rels = [
         ...new Set(
-            semver.sort(getReleasesToDisplayByRevision(deployedReleasesRevisions, allReleasesRevisions, [], hideMinors))
+            getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) =>
+                n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version
+            )
         ),
     ];
+    const releases = filterDuplicateRelesases(rels);
+    // eslint-disable-next-line no-console
+    console.log('rels');
+    // eslint-disable-next-line no-console
+    console.log(rels);
+    // eslint-disable-next-line no-console
+    console.log('allReleases');
+    // eslint-disable-next-line no-console
+    console.log(allReleases);
+    // eslint-disable-next-line no-console
+    console.log('releases');
+    // eslint-disable-next-line no-console
+    console.log(releases);
+    // eslint-disable-next-line no-console
+    console.log('deployments');
+    // eslint-disable-next-line no-console
+    console.log(deployments);
+
     const releases_lane =
         !!releases &&
         releases.map((rel, index) => {
@@ -439,7 +460,12 @@ export const ReadyServiceLane: React.FC<{
                     : getNumberOfReleasesBetween(allReleases, rel, allReleases.slice(-1)[0]) + 1;
             return (
                 <div key={application.name + '-' + rel} className="service-lane__diff">
-                    <ReleaseCard app={application.name} version={rel} key={application.name + '-' + rel} />
+                    <ReleaseCard
+                        app={application.name}
+                        version={rel.version}
+                        revision={rel.revision}
+                        key={application.name + '-' + rel}
+                    />
                     {!!diff && (
                         <DiffElement
                             diff={diff}

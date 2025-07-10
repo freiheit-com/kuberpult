@@ -23,7 +23,7 @@ import (
 
 	"fmt"
 	"slices"
-	"sort"
+
 	"sync"
 	"sync/atomic"
 	"time"
@@ -103,6 +103,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			uintRels[idx] = uint64(r)
 		}
 		//Does not get the manifest and gets all releases at the same time
+		fmt.Println(uintRels)
 		releases, err := o.DBHandler.DBSelectReleasesByVersionsAndRevision(ctx, transaction, appName, uintRels, false)
 		if err != nil {
 			return nil, err
@@ -126,11 +127,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			result.Releases = append(result.Releases, tmp.ToProto())
 		}
-
-		//Highest to lowest
-		sort.Slice(result.Releases, func(i, j int) bool {
-			return result.Releases[j].Version < result.Releases[i].Version
-		})
 
 		appTeamName, err := o.Repository.State().GetApplicationTeamOwner(ctx, transaction, appName)
 		if err != nil {
