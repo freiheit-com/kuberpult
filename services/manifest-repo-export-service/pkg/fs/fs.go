@@ -294,7 +294,7 @@ func (t *TreeBuilderFS) insert() (*git.Oid, git.Filemode, error) {
 				return nil, 0, err
 			}
 			if oid == nil {
-				return nil, 0, fmt.Errorf("Oid is zero for %s %#v", name, entry)
+				return nil, 0, fmt.Errorf("oid is zero for %s %#v", name, entry)
 			}
 			err = bld.Insert(name, oid, mode)
 			if err != nil {

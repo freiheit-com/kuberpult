@@ -662,7 +662,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	}
 
 	if lock == nil {
-		return "", fmt.Errorf("no application lock found to create with lock id '%s', for application '%s' on environment '%s'.\n", c.LockId, c.Application, c.Environment)
+		return "", fmt.Errorf("no application lock found to create with lock id '%s', for application '%s' on environment '%s'", c.LockId, c.Application, c.Environment)
 	}
 
 	chroot, err := fs.Chroot(appDir)
