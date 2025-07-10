@@ -394,7 +394,7 @@ type CreateApplicationVersion struct {
 	TransformerEslVersion          db.TransformerID         `json:"-"`
 	IsPrepublish                   bool                     `json:"isPrepublish"`
 	DeployToDownstreamEnvironments []types.EnvName          `json:"deployToDownstreamEnvironments"`
-	Revision                       string                   `json:"-"`
+	Revision                       uint64                   `json:"-"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {

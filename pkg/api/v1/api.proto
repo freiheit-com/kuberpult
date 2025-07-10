@@ -260,7 +260,7 @@ message CreateReleaseRequest {
   string ci_link = 12;
   bool is_prepublish = 13;
   repeated string deploy_to_downstream_environments = 14;
-  string revision = 15;
+  uint64 revision = 15;
 }
 
 message CreateReleaseResponseSuccess {
