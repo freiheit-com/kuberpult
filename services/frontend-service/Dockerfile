@@ -28,7 +28,6 @@ COPY go.sum go.mod /kp/
 WORKDIR /kp/
 ADD Makefile.variables .
 ADD Makefile .
-#RUN cat pkg/Makefile
 RUN make -C pkg grpc-api-gen SKIP_DEPS=1 PKG_WITHOUT_DOCKER=1
 RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/frontend-service/cmd/server/main.go
 
