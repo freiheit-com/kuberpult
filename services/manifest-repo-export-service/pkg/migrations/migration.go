@@ -65,15 +65,15 @@ LIMIT 1;`)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, onErr(fmt.Errorf("migration_cutoff: Error scanning row from DB. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("migration_cutoff: Error scanning row from DB. Error: %w", err))
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, onErr(fmt.Errorf("migration_cutoff: row closing error: %v\n", err))
+		return nil, onErr(fmt.Errorf("migration_cutoff: row closing error: %v", err))
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, onErr(fmt.Errorf("migration_cutoff: row has error: %v\n", err))
+		return nil, onErr(fmt.Errorf("migration_cutoff: row has error: %v", err))
 	}
 
 	var kuberpultVersion *api.KuberpultVersion

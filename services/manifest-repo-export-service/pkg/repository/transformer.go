@@ -1137,8 +1137,6 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		return "", fmt.Errorf("Error environment not found dir %q: %w", envDir, err)
 	}
 
-	const foo = 42
-
 	teamDir := fs.Join(envDir, "teams", c.Team)
 	if err := fs.MkdirAll(teamDir, 0777); err != nil {
 		return "", fmt.Errorf("error could not create teams directory %q: %w.", envDir, err)

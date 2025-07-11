@@ -384,7 +384,7 @@ func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventReques
 			return err
 		}
 		if failedEvent == nil {
-			return fmt.Errorf("Couldn't find failed event with eslVersion: %d", in.EventEslVersion)
+			return fmt.Errorf("couldn't find failed event with eslVersion: %d", in.EventEslVersion)
 		}
 		return dbHandler.DBSkipFailedEslEvent(ctx, transaction, db.TransformerID(in.EventEslVersion))
 	})

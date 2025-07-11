@@ -375,7 +375,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					if t.GetDBEventType() == db.EvtDeployApplicationVersion || t.GetDBEventType() == db.EvtDeployApplicationVersion {
+					if t.GetDBEventType() == db.EvtDeployApplicationVersion {
 						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx+1), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
 						if err != nil {
 							return err
@@ -465,9 +465,9 @@ func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 			if errors.Is(err, os.ErrNotExist) {
 				return nil
 			}
-			return fmt.Errorf("Error on Stat for file %s: %v\n", contentRequirement.path, err)
+			return fmt.Errorf("error on Stat for file %s: %v", contentRequirement.path, err)
 		}
-		return fmt.Errorf("File exists %s\n", contentRequirement.path)
+		return fmt.Errorf("file exists %s\n", contentRequirement.path)
 	}
 	return nil
 }
@@ -767,8 +767,7 @@ func TestReleaseTrain(t *testing.T) {
 					}
 
 					if t.GetDBEventType() == db.EvtReleaseTrain {
-						var sourceTrainUpstream string
-						sourceTrainUpstream = "staging"
+						var sourceTrainUpstream = "staging"
 						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslVersion(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "production", SourceTrainUpstream: &sourceTrainUpstream})
 						if err != nil {
 							return err
@@ -818,8 +817,7 @@ func TestReleaseTrain(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				var v uint64
-				v = 1
+				var v uint64 = 1
 				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 					App: appName,
 					Env: "production",
@@ -2606,8 +2604,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
-					var version uint64
-					version = 2
+					var version uint64 = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 							ReleaseNumbers: types.ReleaseNumbers{
