@@ -525,7 +525,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 
 	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
@@ -1449,10 +1449,10 @@ func (c *CreateEnvironmentLock) Transform(
 	}
 
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("uggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
 	}
 	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
@@ -1607,10 +1607,10 @@ func (c *CreateEnvironmentGroupLock) Transform(
 		return "", err
 	}
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
 	}
 	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, transaction, c.EnvironmentGroup)
 	if err != nil {
@@ -1724,10 +1724,10 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		return "", err
 	}
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
 	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {

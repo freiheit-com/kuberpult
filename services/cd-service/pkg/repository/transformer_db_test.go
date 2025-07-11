@@ -38,7 +38,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -331,7 +330,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("transaction error: %v", err)
 			}
-			var jsonInterface interface{} = tc.dataType
+			var jsonInterface = tc.dataType
 			err = json.Unmarshal(([]byte)(row.EventJson), &jsonInterface)
 			if err != nil {
 				t.Fatalf("marshal error: %v\njson: \n%s\n", err, row.EventJson)
@@ -752,7 +751,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1132,7 +1131,7 @@ func TestMinorFlag(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t).(*repository)
 			repo.config.MinorRegexes = tc.MinorRegexes
 			err3 := repo.State().DBHandler.WithTransactionR(ctxWithTime, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1238,7 +1237,7 @@ func TestFilterManifestLines(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctx := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			filteredLines := filterManifestLines(ctx, tc.StartingString, tc.Regexes)
 			if diff := cmp.Diff(tc.ExpectedResult, filteredLines); diff != "" {
 				t.Errorf("error mismatch in filtered lines (-want, +got):\n%s", diff)
@@ -1300,7 +1299,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1371,7 +1370,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1500,7 +1499,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1620,7 +1619,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1709,7 +1708,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -2081,7 +2080,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, setupTransformers...)
@@ -3775,11 +3774,6 @@ func TestUndeployDBState(t *testing.T) {
 	}
 }
 
-func version(v int) *int64 {
-	var result = int64(v)
-	return &result
-}
-
 func uversion(v int) *uint64 {
 	var result = uint64(v)
 	return &result
@@ -3889,7 +3883,7 @@ func TestTransaction(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -4276,8 +4270,8 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				t.Fatalf("expected %d events, but got %d", len(tc.expectedEvents), len(mockClient.events))
 			}
 			for i := range tc.expectedEvents {
-				var expectedEvent statsd.Event = tc.expectedEvents[i]
-				var actualEvent statsd.Event = *mockClient.events[i]
+				var expectedEvent = tc.expectedEvents[i]
+				var actualEvent = *mockClient.events[i]
 
 				if diff := cmp.Diff(expectedEvent, actualEvent, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
 					t.Errorf("got %v, want %v, diff (-want +got) %s", actualEvent, expectedEvent, diff)
@@ -4457,9 +4451,9 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			sortGauges(tc.expectedGauges)
 			sortGauges(mockClient.gauges)
 			for i := range tc.expectedGauges {
-				var expectedGauge Gauge = tc.expectedGauges[i]
+				var expectedGauge = tc.expectedGauges[i]
 				sort.Strings(expectedGauge.Tags)
-				var actualGauge Gauge = mockClient.gauges[i]
+				var actualGauge = mockClient.gauges[i]
 				sort.Strings(actualGauge.Tags)
 				t.Logf("actualGauges:[%v] %v:%v", i, actualGauge.Name, actualGauge.Tags)
 				t.Logf("expectedGauges:[%v] %v:%v", i, expectedGauge.Name, expectedGauge.Tags)

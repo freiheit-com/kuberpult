@@ -112,7 +112,7 @@ func (p *PanicTransformer) Transform(ctx context.Context, state *State, transfor
 	panic("panic tranformer")
 }
 
-var TransformerError = errors.New("error transformer")
+var ErrTransformer = errors.New("error transformer")
 
 type ErrorTransformer struct{}
 
@@ -121,7 +121,7 @@ func (p *ErrorTransformer) GetDBEventType() db.EventType {
 }
 
 func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
-	return "error", TransformerError
+	return "error", ErrTransformer
 }
 
 func (p *ErrorTransformer) SetEslVersion(_ db.TransformerID) {
@@ -499,7 +499,7 @@ func TestApplyQueue(t *testing.T) {
 			Name: "error at the start",
 			Actions: []action{
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: TransformerError, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrTransformer, Index: 0},
 					Transformer:   &ErrorTransformer{},
 				}, {}, {},
 			},
@@ -512,7 +512,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{},
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: TransformerError, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrTransformer, Index: 0},
 					Transformer:   &ErrorTransformer{},
 				}, {},
 			},
@@ -525,7 +525,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{}, {},
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: TransformerError, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrTransformer, Index: 0},
 					Transformer:   &ErrorTransformer{},
 				},
 			},

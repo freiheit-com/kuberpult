@@ -1018,7 +1018,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 		}
 	}
 	if len(groupEnvNames) == 0 {
-		return nil, fmt.Errorf("No environment found with given group '%s'", envGroup)
+		return nil, fmt.Errorf("no environment found with given group '%s'", envGroup)
 	}
 	sort.Strings(groupEnvNames)
 	return types.StringsToEnvNames(groupEnvNames), nil

@@ -792,7 +792,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 		releaseEnvs, exists := allLatestReleaseEnvironments[appName][versionToDeploy]
 		if !exists {
-			return failedPrognosis(fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy))
+			return failedPrognosis(fmt.Errorf("no release found for app %s and versionToDeploy %d", appName, versionToDeploy))
 		}
 
 		found := false
