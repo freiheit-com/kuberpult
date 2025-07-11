@@ -557,7 +557,6 @@ func TestDeploymentEvent(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)

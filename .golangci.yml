@@ -5,7 +5,7 @@ linters:
     - errcheck
     - govet
     - ineffassign
-    - staticheck
+    - staticcheck
     - unused
     - asciicheck
     - bodyclose
