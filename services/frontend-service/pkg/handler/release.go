@@ -502,33 +502,33 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 
 	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
 		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
-
-		response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
-			{
-				Action: &api.BatchAction_CreateRelease{
-					CreateRelease: &tf,
-				},
-			}},
-		})
-		if err != nil {
-			handleGRPCError(ctx, w, err)
-			return
-		}
-		if len(response.Results) != 1 {
-			msg := "mismatching response length"
-			logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
-			http.Error(w, msg, http.StatusInternalServerError)
-			return
-		}
-		releaseResponse := response.Results[0].GetCreateReleaseResponse()
-		if releaseResponse == nil {
-			msg := "mismatching response length"
-			logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
-			http.Error(w, msg, http.StatusInternalServerError)
-			return
-		}
-		writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
 	}
+	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
+		{
+			Action: &api.BatchAction_CreateRelease{
+				CreateRelease: &tf,
+			},
+		}},
+	})
+	if err != nil {
+		handleGRPCError(ctx, w, err)
+		return
+	}
+	if len(response.Results) != 1 {
+		msg := "mismatching response length"
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		http.Error(w, msg, http.StatusInternalServerError)
+		return
+	}
+	releaseResponse := response.Results[0].GetCreateReleaseResponse()
+	if releaseResponse == nil {
+		msg := "mismatching response length"
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		http.Error(w, msg, http.StatusInternalServerError)
+		return
+	}
+	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
+
 }
 
 func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *http.Request, releaseResponse *api.CreateReleaseResponse, err error) {

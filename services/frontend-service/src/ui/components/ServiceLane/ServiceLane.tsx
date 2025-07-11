@@ -341,7 +341,17 @@ export const ErrorServiceLane: React.FC<{
         <div className="service__releases">{}</div>
     </div>
 );
-
+function filterDuplicateReleases(releases: ReleaseNumbers[]): ReleaseNumbers[] {
+    const seen = new Set<string>();
+    const toReturn: ReleaseNumbers[] = [];
+    releases.forEach((curr) => {
+        if (curr && !seen.has(curr.version.toString() + '.' + curr.revision.toString())) {
+            toReturn.push(curr);
+            seen.add(curr.version.toString() + '.' + curr.revision.toString());
+        }
+    });
+    return toReturn;
+}
 export const ReadyServiceLane: React.FC<{
     application: OverviewApplication;
     hideMinors: boolean;
@@ -354,17 +364,19 @@ export const ReadyServiceLane: React.FC<{
         ...new Set(appDetails?.application?.releases.map((d) => ({ version: d.version, revision: d.revision }))),
     ];
     const deployments = appDetails?.deployments;
+    // eslint-disable-next-line no-console
     const allDeployedReleaseNumbers = [];
     for (const prop in deployments) {
         allDeployedReleaseNumbers.push({ version: deployments[prop].version, revision: 0 }); //Deployments do not support revisions, yet
     }
-    const deployedReleases = [
-        ...new Set(
-            allDeployedReleaseNumbers
-                .map((v) => v)
-                .sort((n1, n2) => (n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version))
-        ),
-    ];
+
+    // we need to filter duplicate deployed releases as there might be multiple deployments for the same release. And a release
+    // is important if there is at least one
+    const deployedReleases = filterDuplicateReleases(
+        allDeployedReleaseNumbers
+            .map((v) => v)
+            .sort((n1, n2) => (n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version))
+    );
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
         if (allReleases.length === 0) {
@@ -417,7 +429,6 @@ export const ReadyServiceLane: React.FC<{
     const releases = getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) =>
         n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version
     );
-
     const releases_lane =
         !!releases &&
         releases.map((rel, index) => {
