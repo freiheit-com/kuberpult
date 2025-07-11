@@ -179,19 +179,19 @@ func (h *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
 func RunDBMigrations(ctx context.Context, cfg DBConfig) error {
 	d, err := Connect(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("DB Error opening DB connection. Error:  %w\n", err)
+		return fmt.Errorf("DB Error opening DB connection. Error:  %w", err)
 	}
-	defer d.DB.Close() //nolint:errcheck
+	defer func() { _ = d.DB.Close() }()
 
 	m, err := d.getMigrationHandler()
 
 	if err != nil {
-		return fmt.Errorf("Error creating migration instance. Error: %w\n", err)
+		return fmt.Errorf("error creating migration instance. Error: %w", err)
 	}
-	defer m.Close() //nolint:errcheck
+	defer func() { _, _ = m.Close() }()
 	if err := m.Up(); err != nil {
 		if !errors.Is(err, migrate.ErrNoChange) {
-			return fmt.Errorf("Error running DB migrations. Error: %w\n", err)
+			return fmt.Errorf("error running DB migrations. Error: %w", err)
 		}
 	}
 	return nil
