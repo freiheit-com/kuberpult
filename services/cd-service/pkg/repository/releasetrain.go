@@ -942,7 +942,7 @@ func (c *envReleaseTrain) applyPrognosis(
 	t TransformerContext,
 	transaction *sql.Tx,
 	prognosis *ReleaseTrainEnvironmentPrognosis,
-	span tracer.Span,
+	span *tracer.Span,
 ) (string, error) {
 	allLatestDeployments := prognosis.AllLatestDeployments
 
