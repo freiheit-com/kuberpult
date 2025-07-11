@@ -26,9 +26,9 @@ package logger
 import (
 	"context"
 	"fmt"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"google.golang.org/grpc/codes"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"os"
 
 	"github.com/blendle/zapdriver"

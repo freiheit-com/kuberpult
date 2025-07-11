@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -46,7 +47,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 )

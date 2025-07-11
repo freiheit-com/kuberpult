@@ -21,8 +21,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"

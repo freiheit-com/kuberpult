@@ -17,13 +17,23 @@ Copyright freiheit.com*/
 package tracing
 
 import (
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"testing"
 )
 
 func TestMarkAsDB(t *testing.T) {
+	var toIgnoreKeys = []string{
+		// these are automatically added by the dd lib, so we ignore them
+		"_dd.base_service",
+		"_dd.p.tid",
+		"_dd.profiling.enabled",
+		"_dd.top_level",
+		"language",
+		"span.name",
+	}
 	tcs := []struct {
 		Name  string
 		Query string
@@ -57,12 +67,13 @@ func TestMarkAsDB(t *testing.T) {
 				ext.SpanType:     ext.SpanTypeSQL,
 				ext.DBType:       "postgres",
 				ext.DBSystem:     "postgres",
-
-				"component": "manual", // this one is added automagically by the dd library
 			}
 
 			span := actualSpans[0]
 			actualTags := span.Tags()
+			for _, toIgnoreValue := range toIgnoreKeys {
+				delete(actualTags, toIgnoreValue)
+			}
 
 			for key, value := range expectedTags {
 				actualValue, ok := actualTags[key]
