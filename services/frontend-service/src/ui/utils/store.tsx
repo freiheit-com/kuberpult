@@ -66,6 +66,11 @@ export interface DisplayLock {
     suggestedLifetime: string;
 }
 
+export interface ReleaseNumbers {
+    version: number;
+    revision: number;
+}
+
 export const displayLockUniqueId = (displayLock: DisplayLock): string =>
     'dl-' +
     displayLock.lockId +
@@ -549,13 +554,14 @@ export const addAction = (action: BatchAction): void => {
     }
 };
 
-export const useOpenReleaseDialog = (app: string, version: number): (() => void) => {
+export const useOpenReleaseDialog = (app: string, version: number, revision: number): (() => void) => {
     const [params, setParams] = useSearchParams();
     return useCallback(() => {
         params.set('dialog-app', app);
         params.set('dialog-version', version.toString());
+        params.set('dialog-revision', revision.toString());
         setParams(params);
-    }, [app, params, setParams, version]);
+    }, [app, params, setParams, version, revision]);
 };
 
 export const useAppDetailsForApp = (app: string): AppDetailsResponse => useAppDetails((map) => map[app]);
@@ -1045,21 +1051,26 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 };
 
 // returns the release number {$version} of {$application}
-export const useRelease = (application: string, version: number): Release | undefined => {
+export const useRelease = (application: string, version: number, revision: number | undefined): Release | undefined => {
     const appDetails = useAppDetailsForApp(application);
-
+    if (!revision) {
+        revision = 0;
+    }
     if (!appDetails || appDetails.appDetailState !== AppDetailsState.READY) return undefined;
 
-    return appDetails.details ? appDetails.details.application?.releases.find((r) => r.version === version) : undefined;
+    return appDetails.details
+        ? appDetails.details.application?.releases.find((r) => r.version === version && r.revision === revision)
+        : undefined;
 };
 
 export const useReleaseOrGet = (
     application: string,
     version: number,
+    revision: number,
     authHeader: AuthHeader,
     authReady: boolean
 ): Release | undefined => {
-    const release = useRelease(application, version);
+    const release = useRelease(application, version, revision);
     if (release === undefined && authReady) {
         getAppDetails(application, authHeader);
         const details = updateAppDetails.get();
@@ -1071,8 +1082,8 @@ export const useReleaseOrGet = (
     return release;
 };
 
-export const useReleaseOrLog = (application: string, version: number): Release | undefined => {
-    const release = useRelease(application, version);
+export const useReleaseOrLog = (application: string, version: number, revision: number): Release | undefined => {
+    const release = useRelease(application, version, revision);
     if (!release) {
         // eslint-disable-next-line no-console
         console.error('Release cannot be found for app ' + application + ' version ' + version);
@@ -1184,10 +1195,10 @@ export const useReleaseDifference = (toDeployVersion: number, application: strin
     return newVersionIndex - currentDeployedIndex;
 };
 // Get all minor releases for an app
-export const useMinorsForApp = (app: string): number[] | undefined =>
+export const useMinorsForApp = (app: string): ReleaseNumbers[] | undefined =>
     useAppDetailsForApp(app)
         .details?.application?.releases.filter((rel) => rel.isMinor)
-        .map((rel) => rel.version);
+        .map((d) => ({ version: d.version, revision: d.revision }));
 
 // Navigate while keeping search params, returns new navigation url, and a callback function to navigate
 export const useNavigateWithSearchParams = (to: string): { navURL: string; navCallback: () => void } => {

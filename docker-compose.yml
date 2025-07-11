@@ -132,6 +132,7 @@ services:
       - KUBERPULT_BATCH_CLIENT_TIMEOUT=2m
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=8
+      - KUBERPULT_REVISIONS_ENABLED=true
     ports:
       - "8081:8081"
       - "5555:5555"

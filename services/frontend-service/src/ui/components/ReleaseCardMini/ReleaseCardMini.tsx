@@ -24,15 +24,16 @@ import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
 export type ReleaseCardMiniProps = {
     className?: string;
     version: number;
+    revision: number;
     app: string;
 };
 
 export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
-    const { className, app, version } = props;
+    const { className, app, version, revision } = props;
     // the ReleaseCardMini only displays actual releases, so we can assume that it exists here:
-    const firstRelease = useReleaseOrLog(app, version);
-    const openReleaseDialog = useOpenReleaseDialog(app, version);
-    const release = useReleaseOrLog(app, version);
+    const firstRelease = useReleaseOrLog(app, version, revision);
+    const openReleaseDialog = useOpenReleaseDialog(app, version, revision);
+    const release = useReleaseOrLog(app, version, revision);
     if (!firstRelease) {
         return null;
     }

@@ -323,6 +323,7 @@ type DeployApplicationVersion struct {
 	Environment           types.EnvName                   `json:"env"`
 	Application           string                          `json:"app"`
 	Version               uint64                          `json:"version"`
+	Revision              uint64                          `json:"revision"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
 	WriteCommitData       bool                            `json:"writeCommitData"`
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
@@ -735,6 +736,7 @@ type CreateApplicationVersion struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	Version               uint64                   `json:"version"`
+	Revision              uint64                   `json:"revision"`
 	Application           string                   `json:"app"`
 	Manifests             map[types.EnvName]string `json:"manifests"`
 	SourceCommitId        string                   `json:"sourceCommitId"`
@@ -896,6 +898,7 @@ func (c *CreateApplicationVersion) Transform(
 					AuthorName:  c.SourceAuthor,
 					AuthorEmail: "",
 				},
+				Revision: c.Revision,
 			}
 			err = tCtx.Execute(d, transaction)
 			if err != nil {
@@ -1504,6 +1507,7 @@ func (u *ReleaseTrain) Transform(
 			},
 			TransformerEslVersion: u.TransformerEslVersion,
 			Author:                "",
+			Revision:              0,
 		}, transaction); err != nil {
 			return "", err
 		}
@@ -1712,6 +1716,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 					AuthorName:  "",
 					AuthorEmail: "",
 				},
+				Revision: 0,
 			}
 			err := tCtx.Execute(d, transaction)
 			if err != nil {

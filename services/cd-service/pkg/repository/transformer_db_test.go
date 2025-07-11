@@ -648,6 +648,145 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 	}
 }
 
+func TestCreateApplicationVersionDBRevisions(t *testing.T) {
+	const appName = "app1"
+	tcs := []struct {
+		Name               string
+		Transformers       []Transformer
+		expectedDbContent  *db.DBAppWithMetaData
+		expectedDbReleases []types.ReleaseNumbers
+	}{
+		{
+			Name: "create two identical versions with different revision",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    1,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "t1",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    2,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{test}",
+					},
+					Team: "t1",
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				App:         appName,
+				StateChange: db.AppStateChangeCreate,
+				Metadata: db.DBAppMetaData{
+					Team: "t1",
+				},
+			},
+			expectedDbReleases: []types.ReleaseNumbers{
+				{
+					Revision: 2,
+					Version:  uversion(10),
+				},
+				{
+					Revision: 1,
+					Version:  uversion(10),
+				},
+			},
+		},
+		{
+			Name: "create two identical versions with different revision - invert order of creation",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    2,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{test}",
+					},
+					Team: "t1",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    1,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "t1",
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				App:         appName,
+				StateChange: db.AppStateChangeCreate,
+				Metadata: db.DBAppMetaData{
+					Team: "t1",
+				},
+			},
+			expectedDbReleases: []types.ReleaseNumbers{
+				{
+					Revision: 2,
+					Version:  uversion(10),
+				},
+				{
+					Revision: 1,
+					Version:  uversion(10),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, tc.expectedDbContent.App)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedDbContent, res); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				actualRelease, err3 := state.DBHandler.DBSelectAllReleaseNumbersOfApp(ctx, transaction, appName)
+				if err3 != nil {
+					return fmt.Errorf("error: %v", err3)
+				}
+				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				environment, err4 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "acceptance")
+				if err4 != nil {
+					return fmt.Errorf("error retrieving environment: %w", err)
+				}
+				if diff := cmp.Diff([]string{appName}, environment.Applications); diff != "" {
+					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
 func TestCreateApplicationVersionDB(t *testing.T) {
 	const appName = "app1"
 	tcs := []struct {
