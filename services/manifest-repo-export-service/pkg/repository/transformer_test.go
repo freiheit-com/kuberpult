@@ -357,7 +357,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -558,7 +557,7 @@ func TestDeploymentEvent(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -743,7 +742,6 @@ func TestReleaseTrain(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _, _ := SetupRepositoryTestWithDB(t)
@@ -1307,7 +1305,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -1524,7 +1522,7 @@ func TestReplacedByEvents(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -1586,6 +1584,9 @@ func TestReplacedByEvents(t *testing.T) {
 					Manifests: db.DBReleaseManifests{},
 					Metadata:  db.DBReleaseMetaData{},
 				})
+				if err != nil {
+					return err
+				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  &v2,
@@ -1672,7 +1673,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -1727,6 +1728,9 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					Manifests: db.DBReleaseManifests{},
 					Metadata:  db.DBReleaseMetaData{},
 				})
+				if err != nil {
+					return err
+				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  &v2,
@@ -2226,7 +2230,7 @@ func TestLocks(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -2536,7 +2540,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -2642,6 +2646,9 @@ func TestCreateUndeployLogic(t *testing.T) {
 							Created:       time.Now(),
 							TransformerID: tr.GetEslVersion(),
 						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
 						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 							ReleaseNumbers: types.ReleaseNumbers{
 								Version:  &version,
@@ -2966,7 +2973,7 @@ func TestUndeployLogic(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -3275,7 +3282,7 @@ spec:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
