@@ -35,7 +35,7 @@ type mockHttpServer struct {
 }
 
 func (s *mockHttpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	defer req.Body.Close()
+	defer func() { _ = req.Body.Close() }()
 	if err := json.NewDecoder(req.Body).Decode(&s.body); err != nil {
 		panic(fmt.Errorf("error while parsing the json body in the mock HTTP server, error: %w", err))
 	}
@@ -45,10 +45,6 @@ func (s *mockHttpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func strPtr(s string) *string {
 	return &s
-}
-
-func intPtr(n uint64) *uint64 {
-	return &n
 }
 
 func TestRequestCreation(t *testing.T) {
