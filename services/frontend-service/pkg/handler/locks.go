@@ -143,7 +143,7 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), strings.NewReader(signature), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				_, _ = fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 				return
 			}
 			w.WriteHeader(http.StatusUnauthorized)

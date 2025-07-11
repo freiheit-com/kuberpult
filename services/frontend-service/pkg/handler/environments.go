@@ -41,7 +41,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 	}
 	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Invalid body: %s", err)
+		_, _ = fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
 	envConfig, errCode, errMessage := s.validateCreateEnvironmentRequest(req)
@@ -75,7 +75,7 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 	}
 	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Invalid body: %s", err)
+		_, _ = fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
 	envConfig, errCode, message := s.validateCreateEnvironmentRequest(req)

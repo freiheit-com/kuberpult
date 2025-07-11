@@ -192,7 +192,7 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 	}
 	json, err := json.Marshal(response.EnvsPrognoses)
 	if err != nil {
-		_, _ = w.Write([]byte(fmt.Sprintf("error while serializing response, error: %v", err.Error()))) //nolint:errcheck
+		_, _ = fmt.Fprintf(w, "error while serializing response, error: %v", err.Error())
 		return
 	}
 	w.Write(json) //nolint:errcheck
