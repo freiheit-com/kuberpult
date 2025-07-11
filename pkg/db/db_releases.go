@@ -263,7 +263,6 @@ func (h *DBHandler) DBSelectAllReleaseNumbersOfApp(ctx context.Context, tx *sql.
 		WHERE appName=?
 		ORDER BY releaseVersion DESC, revision DESC;
 	`)
-	span.SetTag("query", selectQuery)
 	tracing.MarkSpanAsDB(span, selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
@@ -288,7 +287,6 @@ func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, t
 		SELECT created, appName, metadata, releaseVersion, environments, revision FROM releases
 		WHERE appname=? AND releaseversion IN (?` + repeatedQuestionMarks + `) ORDER BY releaseVersion DESC, revision DESC
 	`)
-	span.SetTag("query", selectQuery)
 	tracing.MarkSpanAsDB(span, selectQuery)
 	args := []any{}
 	args = append(args, app)

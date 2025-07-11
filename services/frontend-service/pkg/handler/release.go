@@ -205,10 +205,12 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(previousCommitId) != 1 {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number of previous commit IDs provided. Expecting 1, got %d", len(previousCommitId))
+			return
 		}
 		if !isCommitId(previousCommitId[0]) {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Provided commit id (%s) is not valid.", previousCommitId[0])
+			return
 		}
 		tf.PreviousCommitId = previousCommitId[0]
 	}
@@ -254,6 +256,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(ciLink) != 1 {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number of ci links provided: %d, ", len(ciLink))
+			return
 		}
 
 		tf.CiLink = ciLink[0]
@@ -263,6 +266,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if !s.Config.RevisionsEnabled {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "The release endpoint does not allow revisions (frontend.enabledRevisions = false).")
+			return
 		}
 
 		if len(revision) == 1 {
@@ -276,6 +280,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		} else {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number of revisions provided: %d, ", len(revision))
+			return
 		}
 	}
 
@@ -467,34 +472,37 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		if len(ciLink) != 1 {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number of ci links provided: %d, ", len(ciLink))
+			return
 		}
 
 		tf.CiLink = ciLink[0]
+	}
 
+	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
+		if !s.Config.RevisionsEnabled {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "The release endpoint does not allow revisions (frontend.enabledRevisions = false).")
+			return
+		}
+
+		if len(revision) == 1 {
+			r, err := strconv.ParseUint(revision[0], 10, 64)
+			if err != nil {
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "Invalid version: %s", err)
+				return
+			}
+			tf.Revision = r
+		} else {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number of revisions provided: %d, ", len(revision))
+			return
+		}
 	}
 
 	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
 		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
 
-		if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
-			if !s.Config.RevisionsEnabled {
-				w.WriteHeader(400)
-				fmt.Fprintf(w, "The release endpoint does not support revisions (frontend.enabledRevisions = false).")
-			}
-
-			if len(revision) == 1 {
-				r, err := strconv.ParseUint(revision[0], 10, 64)
-				if err != nil {
-					w.WriteHeader(400)
-					fmt.Fprintf(w, "Invalid revision: %s", err)
-					return
-				}
-				tf.Revision = r
-			} else {
-				w.WriteHeader(400)
-				fmt.Fprintf(w, "Invalid number of revisions provided: %d, ", len(revision))
-			}
-		}
 		response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 			{
 				Action: &api.BatchAction_CreateRelease{
