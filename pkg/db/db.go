@@ -31,10 +31,10 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/golang-migrate/migrate/v4"

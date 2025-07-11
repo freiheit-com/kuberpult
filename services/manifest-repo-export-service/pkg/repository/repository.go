@@ -44,13 +44,13 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	backoff "github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/sqlitestore"
 	"go.uber.org/zap"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"

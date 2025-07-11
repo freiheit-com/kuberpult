@@ -18,15 +18,16 @@ package tracing
 
 import (
 	"context"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 )
 
 type OnErrFunc = func(err error) error
 
 // StartSpanFromContext is the same as tracer.StartSpanFromContext, but also returns an onError function that tags the span as error
 // You should call the onErrorFunc when the span should be marked as failed.
-func StartSpanFromContext(ctx context.Context, name string) (tracer.Span, context.Context, OnErrFunc) {
+func StartSpanFromContext(ctx context.Context, name string) (*tracer.Span, context.Context, OnErrFunc) {
 	mySpan, ctx := tracer.StartSpanFromContext(ctx, name)
 	onErr := func(err error) error {
 		if err == nil {
@@ -39,7 +40,7 @@ func StartSpanFromContext(ctx context.Context, name string) (tracer.Span, contex
 }
 
 // MarkSpanAsDB adds tags so that Datadog shows it as a "Database span"
-func MarkSpanAsDB(span tracer.Span, sqlQuery string) {
+func MarkSpanAsDB(span *tracer.Span, sqlQuery string) {
 	span.SetTag(ext.ResourceName, sqlQuery)
 	span.SetTag("sql.query", sqlQuery)
 
