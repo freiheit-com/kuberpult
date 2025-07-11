@@ -662,7 +662,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	}
 
 	if lock == nil {
-		return "", fmt.Errorf("no application lock found to create with lock id '%s', for application '%s' on environment '%s'.\n", c.LockId, c.Application, c.Environment)
+		return "", fmt.Errorf("no application lock found to create with lock id '%s', for application '%s' on environment '%s'", c.LockId, c.Application, c.Environment)
 	}
 
 	chroot, err := fs.Chroot(appDir)
@@ -1134,12 +1134,12 @@ func (c *CreateEnvironmentTeamLock) Transform(
 
 	envDir := fs.Join("environments", string(c.Environment))
 	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error environment not found dir %q: %w", envDir, err)
+		return "", fmt.Errorf("Error environment not found dir %q: %w", envDir, err)
 	}
 
 	teamDir := fs.Join(envDir, "teams", c.Team)
 	if err := fs.MkdirAll(teamDir, 0777); err != nil {
-		return "", fmt.Errorf("error could not create teams directory %q: %w", envDir, err)
+		return "", fmt.Errorf("error could not create teams directory %q: %w.", envDir, err)
 	}
 	chroot, err := fs.Chroot(teamDir)
 	if err != nil {
@@ -1152,14 +1152,14 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	}
 
 	if lock == nil {
-		return "", fmt.Errorf("could not write team lock information to manifest. No team lock found on database for team '%s' on environment '%s' with ID '%s'.\n", c.Team, c.Environment, c.LockId)
+		return "", fmt.Errorf("Could not write team lock information to manifest. No team lock found on database for team '%s' on environment '%s' with ID '%s'.\n", c.Team, c.Environment, c.LockId)
 	}
 
 	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("Created lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+	return fmt.Sprintf("Created lock %q on environment %q for team %q.", c.LockId, c.Environment, c.Team), nil
 }
 
 type DeleteEnvironmentTeamLock struct {

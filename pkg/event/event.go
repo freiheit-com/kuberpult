@@ -214,7 +214,7 @@ func UnMarshallEvent(eventType EventType, eventJson string) (DBEventGo, error) {
 	err := json.Unmarshal([]byte(eventJson), &generalEvent)
 
 	if err != nil {
-		return DBEventGo{}, fmt.Errorf("Error processing general event. Json Unmarshall of general event failed: %s\n", eventJson)
+		return DBEventGo{}, fmt.Errorf("error processing general event. Json Unmarshall of general event failed with json '%s' and error %w", eventJson, err)
 	}
 
 	return generalEvent, nil

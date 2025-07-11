@@ -161,10 +161,10 @@ func TestPushUpdate(t *testing.T) {
 			var success = false
 			actualError := defaultPushUpdate(tc.InputBranch, &success)(tc.InputRefName, tc.InputStatus)
 			if success != tc.ExpectedSuccess {
-				t.Fatal(fmt.Sprintf("expected sucess=%t but got %t", tc.ExpectedSuccess, success))
+				t.Fatalf("expected sucess=%t but got %t", tc.ExpectedSuccess, success)
 			}
 			if actualError != nil {
-				t.Fatal(fmt.Sprintf("expected no error but got %s but got none", actualError))
+				t.Fatalf("expected no error but got %s but got none", actualError)
 			}
 		})
 	}
@@ -1550,52 +1550,6 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				t.Fatalf("commit check failed. commits same: %v want: %v", initialCommitId.String() == finalCommitId.String(), tc.shouldCreateCommit)
 			}
 		})
-	}
-}
-
-func createGitWithCommit(remote string, local string, t *testing.B) {
-	cmd := exec.Command("git", "init", "--bare", remote)
-	cmd.Start()
-	cmd.Wait()
-
-	cmd = exec.Command("git", "clone", remote, local) // Clone git dir
-	_, err := cmd.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd = exec.Command("touch", "a") // Add a new file to git
-	cmd.Dir = local
-	_, err = cmd.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd = exec.Command("git", "add", "a") // Add a new file to git
-	cmd.Dir = local
-	_, err = cmd.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cmd = exec.Command("git", "commit", "-m", "adding") // commit the new file
-	cmd.Dir = local
-	cmd.Env = []string{
-		"GIT_AUTHOR_NAME=kuberpult",
-		"GIT_COMMITTER_NAME=kuberpult",
-		"EMAIL=test@kuberpult.com",
-	}
-	_, err = cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			t.Logf("stderr: %s\n", exitErr.Stderr)
-			t.Logf("stderr: %s\n", err)
-		}
-		t.Fatal(err)
-	}
-	cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
-	cmd.Dir = local
-	_, err = cmd.Output()
-	if err != nil {
-		t.Fatal(err)
 	}
 }
 

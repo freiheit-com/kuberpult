@@ -2615,7 +2615,7 @@ func TestDeploymentHistory(t *testing.T) {
 					return err
 				}
 
-				defer rows.Close()
+				defer func() { _ = rows.Close() }()
 				for i := 1; rows.Next() && i < len(tc.ExpectedCsvLines); i++ {
 					var createdAt time.Time
 					err = rows.Scan(&createdAt)

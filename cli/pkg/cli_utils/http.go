@@ -42,7 +42,7 @@ func doRequest(request *http.Request, timeoutSeconds int) (*http.Response, []byt
 	if err != nil {
 		return nil, nil, fmt.Errorf("error issuing the HTTP request, error: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -78,7 +78,7 @@ func IssueHttpRequestWithBodyReturn(req http.Request, timeoutSeconds int) ([]byt
 	if err != nil {
 		return nil, err
 	} else if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Recieved response code %d - %s from Kuberpult\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
+		return nil, fmt.Errorf("received response code %d - %s from Kuberpult\nResponse body:\n%s", response.StatusCode, http.StatusText(response.StatusCode), string(body))
 	} else {
 		return body, nil
 	}

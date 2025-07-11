@@ -82,7 +82,7 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 
 		jsonData, err = json.Marshal(d)
 		if err != nil {
-			return nil, fmt.Errorf("Could not EnvironmentLockParameters data to json: %w\n", err)
+			return nil, fmt.Errorf("could not EnvironmentLockParameters data to json: %w", err)
 		}
 	}
 

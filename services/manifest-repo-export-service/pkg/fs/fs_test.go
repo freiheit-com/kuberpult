@@ -215,22 +215,3 @@ func compareContent(t *testing.T, expected, actual billy.Filesystem, file string
 		t.Errorf("content differs for %s:\n\texpected: %q\n\tactual: %q", file, bc, ac)
 	}
 }
-
-func dumpFs(t *testing.T, fs billy.Filesystem, indent string) {
-	infos, err := fs.ReadDir(".")
-	if err != nil {
-		t.Logf("%s err: %q\n", indent, err)
-	} else {
-		for _, i := range infos {
-			t.Logf("%s - %s\n", indent, i.Name())
-			if i.Mode()&os.ModeSymlink != 0 {
-				lnk, _ := fs.Readlink(i.Name())
-				t.Logf("%s   linked to: %s\n", indent, lnk)
-			}
-			if i.IsDir() {
-				ch, _ := fs.Chroot(i.Name())
-				dumpFs(t, ch, indent+"  ")
-			}
-		}
-	}
-}

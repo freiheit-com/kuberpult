@@ -905,7 +905,10 @@ func TestParseArgs(t *testing.T) {
 				t.Fatalf("error encoutered while creating test directory, error: %v", err)
 			}
 			t.Cleanup(func() {
-				os.RemoveAll(dir)
+				err := os.RemoveAll(dir)
+				if err != nil {
+					t.Fatalf("error while cleaning up: %v", err)
+				}
 			})
 
 			for i := range tc.setup {
