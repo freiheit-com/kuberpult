@@ -717,7 +717,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		return "", err
 	}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w.", lockDir, err)
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	}
 
 	queueMessage, err = state.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
@@ -845,7 +845,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if len(ev) == 0 {
-			return "", fmt.Errorf("No new release event to read from database for application '%s'.\n", c.Application)
+			return "", fmt.Errorf("No new release event to read from database for application '%s'", c.Application)
 		}
 
 		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, c.PreviousCommit, state)

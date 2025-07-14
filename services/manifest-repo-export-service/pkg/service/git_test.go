@@ -1597,7 +1597,9 @@ func TestRetryEvent(t *testing.T) {
 				}
 				return nil
 			})
-
+			if err != nil {
+				t.Fatalf("DB error in test: %v", err)
+			}
 		})
 	}
 }
@@ -1833,7 +1835,9 @@ func TestSkipEvent(t *testing.T) {
 
 				return nil
 			})
-
+			if err != nil {
+				t.Fatalf("DB error unexpected: %v", err)
+			}
 		})
 	}
 }

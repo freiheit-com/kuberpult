@@ -106,7 +106,7 @@ func DBUpsertCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql
 		migrations2.FormatKuberpultVersion(kuberpultVersion),
 	)
 	if err != nil {
-		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w\n", err))
+		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w", err))
 	}
 	return nil
 }

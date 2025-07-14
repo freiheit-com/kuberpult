@@ -126,10 +126,13 @@ func TestFs(t *testing.T) {
 				t.Fatal(err)
 			}
 			tmpDir := t.TempDir()
-			err = repo.CheckoutTree(gitTree, &git.CheckoutOpts{
+			err = repo.CheckoutTree(gitTree, &git.CheckoutOptions{
 				Strategy:        git.CheckoutForce,
 				TargetDirectory: tmpDir,
 			})
+			if err != nil {
+				t.Fatal(err)
+			}
 			checkedOut := osfs.New(tmpDir)
 			compareDir(t, tree, checkedOut, ".")
 		})
@@ -195,7 +198,7 @@ func compareContent(t *testing.T, expected, actual billy.Filesystem, file string
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer af.Close()
+	defer func() { _ = af.Close() }()
 	ac, err := io.ReadAll(af)
 	if err != nil {
 		t.Fatal(err)
@@ -205,7 +208,7 @@ func compareContent(t *testing.T, expected, actual billy.Filesystem, file string
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bf.Close()
+	defer func() { _ = bf.Close() }()
 	bc, err := io.ReadAll(bf)
 	if err != nil {
 		t.Fatal(err)

@@ -585,7 +585,6 @@ func TestArgoCDFileGeneration(t *testing.T) {
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
 			repo.config.ArgoCdGenerateFiles = tc.shouldGenerateFiles
-			state := repo.State()
 			ctx := testutil.MakeTestContext()
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -676,7 +675,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				return nil
 			})
 
-			state = repo.State() //update state
+			state := repo.State() //update state
 
 			if _, err := state.Filesystem.Stat("argocd"); errors.Is(err, os.ErrNotExist) {
 				if tc.shouldGenerateFiles {

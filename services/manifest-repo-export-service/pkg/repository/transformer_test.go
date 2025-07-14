@@ -467,7 +467,7 @@ func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 			}
 			return fmt.Errorf("error on Stat for file %s: %v", contentRequirement.path, err)
 		}
-		return fmt.Errorf("file exists %s\n", contentRequirement.path)
+		return fmt.Errorf("file exists '%s'", contentRequirement.path)
 	}
 	return nil
 }
@@ -3034,8 +3034,7 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
-					var version uint64
-					version = 2
+					var version uint64 = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						concreteTransformer := tr.(*CreateUndeployApplicationVersion)
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
