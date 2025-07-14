@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"slices"
 	"strings"
@@ -152,14 +153,14 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 }
 
 func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) ([]types.EnvName, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
 	defer span.Finish()
 
 	if h == nil {
 		return nil, nil
 	}
 	if transaction == nil {
-		return nil, fmt.Errorf("no transaction provided when selecting all environments from environments table")
+		return nil, onErr(fmt.Errorf("no transaction provided when selecting all environments from environments table"))
 	}
 
 	selectQuery := h.AdaptQuery(`
@@ -170,7 +171,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 
 	rows, err := transaction.QueryContext(ctx, selectQuery)
 	if err != nil {
-		return nil, fmt.Errorf("error while executing query to get all environments, error: %w", err)
+		return nil, onErr(fmt.Errorf("error while executing query to get all environments, error: %w", err))
 	}
 
 	defer func(rows *sql.Rows) {
@@ -189,13 +190,13 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("error while scanning environments row, error: %w", err)
+			return nil, onErr(fmt.Errorf("error while scanning environments row, error: %w", err))
 		}
 		result = append(result, row)
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("error while closing rows, error: %w", err)
+		return nil, onErr(fmt.Errorf("error while closing rows, error: %w", err))
 	}
 	return result, nil
 }

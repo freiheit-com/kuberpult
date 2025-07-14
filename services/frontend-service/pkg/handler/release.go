@@ -316,8 +316,6 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 
 func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail string) {
 	ctx := r.Context()
-	span, ctx := tracer.StartSpanFromContext(r.Context(), "handleApiRelease")
-	defer span.Finish()
 
 	if tail != "/" {
 		http.Error(w, fmt.Sprintf("Release does not accept additional path arguments, got: %s", tail), http.StatusNotFound)
@@ -507,7 +505,6 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
 		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
 	}
-
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
 			Action: &api.BatchAction_CreateRelease{
