@@ -191,6 +191,9 @@ func TestMigrationDetails(t *testing.T) {
 				}
 				return nil
 			})
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			response, err := migrationServer.EnsureCustomMigrationApplied(ctx,
 				&api.EnsureCustomMigrationAppliedRequest{Version: tc.requestedKuberpultVersion})

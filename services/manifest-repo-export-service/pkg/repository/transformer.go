@@ -847,7 +847,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if len(ev) == 0 {
-			return "", fmt.Errorf("No new release event to read from database for application '%s'", c.Application)
+			return "", fmt.Errorf("no new release event to read from database for application '%s'", c.Application)
 		}
 
 		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, c.PreviousCommit, state)
@@ -1137,12 +1137,12 @@ func (c *CreateEnvironmentTeamLock) Transform(
 
 	envDir := fs.Join("environments", string(c.Environment))
 	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("Error environment not found dir %q: %w", envDir, err)
+		return "", fmt.Errorf("error environment not found dir %q: %w", envDir, err)
 	}
 
 	teamDir := fs.Join(envDir, "teams", c.Team)
 	if err := fs.MkdirAll(teamDir, 0777); err != nil {
-		return "", fmt.Errorf("error could not create teams directory %q: %w.", envDir, err)
+		return "", fmt.Errorf("error could not create teams directory %q: %w", envDir, err)
 	}
 	chroot, err := fs.Chroot(teamDir)
 	if err != nil {
@@ -1155,7 +1155,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	}
 
 	if lock == nil {
-		return "", fmt.Errorf("Could not write team lock information to manifest. No team lock found on database for team '%s' on environment '%s' with ID '%s'.\n", c.Team, c.Environment, c.LockId)
+		return "", fmt.Errorf("could not write team lock information to manifest. No team lock found on database for team '%s' on environment '%s' with ID '%s'", c.Team, c.Environment, c.LockId)
 	}
 
 	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
@@ -1641,7 +1641,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	fs := state.Filesystem
 	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, c.Application, false)
 	if err != nil {
-		return "", fmt.Errorf("Could not get last relase for app '%v': %v\n", c.Application, err)
+		return "", fmt.Errorf("could not get last relase for app '%v': %v", c.Application, err)
 	}
 	var nextReleaseNumber uint64
 	if len(lastRelease) == 0 {

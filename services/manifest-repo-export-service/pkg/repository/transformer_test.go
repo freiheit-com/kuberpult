@@ -467,7 +467,7 @@ func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 			}
 			return fmt.Errorf("error on Stat for file %s: %v", contentRequirement.path, err)
 		}
-		return fmt.Errorf("file exists '%s'", contentRequirement.path)
+		return fmt.Errorf("file exists '%s'", contentRequirement.path) //nolint:SA4004
 	}
 	return nil
 }
