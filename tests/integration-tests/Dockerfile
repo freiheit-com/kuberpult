@@ -39,6 +39,7 @@ COPY infrastructure/scripts/create-testdata/testdata_template/environments ./tes
 COPY tests/integration-tests tests/integration-tests
 COPY tests/integration-tests/docker_entrypoint.sh docker_entrypoint.sh
 COPY pkg pkg
+COPY database/migrations /migrations
 
 ARG kuberpult_version=""
 ENV VERSION=$kuberpult_version
