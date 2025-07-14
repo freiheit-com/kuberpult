@@ -25,6 +25,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/lib/pq"
 	"slices"
 	"strings"
 	"time"
@@ -42,6 +43,8 @@ import (
 	psql "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+
+	ddsql "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 )
 
 type DBConfig struct {
@@ -57,6 +60,9 @@ type DBConfig struct {
 
 	MaxIdleConnections uint
 	MaxOpenConnections uint
+
+	DatadogEnabled     bool
+	DatadogServiceName string
 }
 
 type DBHandler struct {
@@ -119,9 +125,23 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 		dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=%s",
 			cfg.DbHost, cfg.DbUser, cfg.DbPassword, cfg.DbPort, cfg.DbName, cfg.SSLMode)
 
-		dbPool, err := sql.Open(cfg.DriverName, dbURI)
-		if err != nil {
-			return nil, fmt.Errorf("sql.Open: %w", err)
+		var dbPool *sql.DB
+		var err error
+		if cfg.DatadogEnabled {
+			ddsql.Register(cfg.DriverName, pq.Driver{})
+			dbPool, err = ddsql.Open(cfg.DriverName,
+				dbURI,
+				ddsql.WithServiceName(cfg.DatadogServiceName),
+				ddsql.WithDBMPropagation(tracer.DBMPropagationModeFull),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("sql.Open with datadog: %w", err)
+			}
+		} else {
+			dbPool, err = sql.Open(cfg.DriverName, dbURI)
+			if err != nil {
+				return nil, fmt.Errorf("sql.Open: %w", err)
+			}
 		}
 		dbPool.SetConnMaxLifetime(5 * time.Minute)
 		dbPool.SetMaxOpenConns(int(cfg.MaxOpenConnections))
