@@ -1260,7 +1260,7 @@ func (u *DeleteEnvFromApp) Transform(
 
 	err = state.DBHandler.DBRemoveAppFromEnvironment(ctx, transaction, envName, u.Application)
 	if err != nil {
-		return "", fmt.Errorf("Couldn't write environment '%s' into environments table, error: %w", u.Environment, err)
+		return "", fmt.Errorf("couldn't write environment '%s' into environments table, error: %w", u.Environment, err)
 	}
 	t.DeleteEnvFromApp(u.Application, envName)
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
@@ -1867,10 +1867,10 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	}
 
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
 	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
@@ -1993,7 +1993,7 @@ func (c *CreateEnvironment) Transform(
 	//Should be empty on new environments
 	envApps, err := state.GetEnvironmentApplications(ctx, transaction, envName)
 	if err != nil {
-		return "", fmt.Errorf("Unable to read environment, error: %w", err)
+		return "", fmt.Errorf("unable to read environment, error: %w", err)
 
 	}
 	for _, app := range envApps {
@@ -2046,7 +2046,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 	if envLocks != nil && len(envLocks.EnvLocks) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Environment locks for this environment exist.", c.Environment))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment locks for this environment exist", c.Environment))
 	}
 
 	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
@@ -2054,7 +2054,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 	if len(appLocksForEnv) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Application locks for this environment exist.", c.Environment))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Application locks for this environment exist", c.Environment))
 	}
 
 	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
@@ -2062,7 +2062,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 	if len(teamLocksForEnv) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Team locks for this environment exist.", c.Environment))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Team locks for this environment exist", c.Environment))
 	}
 
 	/* Check that no environment has the one we are trying to delete as upstream */
