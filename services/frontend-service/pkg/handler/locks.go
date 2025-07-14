@@ -147,7 +147,7 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 				return
 			}
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "Invalid signature")
+			_, _ = fmt.Fprintf(w, "Invalid signature")
 			return
 		}
 	}
@@ -176,13 +176,13 @@ func (s Server) handleDeleteEnvironmentLock(w http.ResponseWriter, req *http.Req
 	if s.AzureAuth {
 		if req.Body == nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "missing request body")
+			_, _ = fmt.Fprintf(w, "missing request body")
 			return
 		}
 		signature, err := io.ReadAll(req.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Can't read request body %s", err)
+			_, _ = fmt.Fprintf(w, "Can't read request body %s", err)
 			return
 		}
 
