@@ -49,6 +49,7 @@ type DeployApplicationVersion struct {
 	Environment           types.EnvName                   `json:"env"`
 	Application           string                          `json:"app"`
 	Version               uint64                          `json:"version"`
+	Revision              uint64                          `json:"-"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
 	WriteCommitData       bool                            `json:"writeCommitData"`
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
@@ -257,7 +258,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		App:     c.Application,
 		Env:     envName,
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: 0,
+			Revision: c.Revision,
 			Version:  &c.Version,
 		},
 		TransformerID: c.TransformerEslVersion,

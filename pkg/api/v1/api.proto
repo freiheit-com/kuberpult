@@ -260,6 +260,7 @@ message CreateReleaseRequest {
   string ci_link = 12;
   bool is_prepublish = 13;
   repeated string deploy_to_downstream_environments = 14;
+  uint64 revision = 15;
 }
 
 message CreateReleaseResponseSuccess {
@@ -706,6 +707,7 @@ message Release {
   bool is_prepublish = 10;
   repeated string environments = 11;
   string ci_link = 12;
+  uint64 revision = 13;
 }
 
 enum UndeploySummary {
