@@ -396,11 +396,13 @@ type EslFailedEventRow struct {
 
 // DBReadEslEventInternal returns either the first or the last row of the esl table
 func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (*EslEventRow, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadEslEventInternal")
+	defer span.Finish()
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, fmt.Errorf("DBReadEslEventInternal: no transaction provided")
+		return nil, onErr(fmt.Errorf("DBReadEslEventInternal: no transaction provided"))
 	}
 	sort := "DESC"
 	if firstRow {
@@ -412,7 +414,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err)
+		return nil, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -432,14 +434,14 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err)
+			return nil, onErr(fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err))
 		}
 	} else {
 		row = nil
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, err
+		return nil, onErr(err)
 	}
 	return row, nil
 }
