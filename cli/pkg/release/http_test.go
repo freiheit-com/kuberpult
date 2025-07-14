@@ -490,6 +490,48 @@ func TestRequestCreationRelease(t *testing.T) {
 			responseCode: http.StatusOK,
 		},
 		{
+			name: "revision is set",
+			params: ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string][]byte{
+					"development": []byte("some development manifest"),
+					"production":  []byte("some production manifest"),
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+				SourceAuthor:     strPtr("potato@tomato.com"),
+				SourceMessage:    strPtr("test\nsource\nmessage"),
+				Version:          intPtr(123123),
+				Revision:         intPtr(1),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+				"source_author":      {"potato@tomato.com"},
+				"source_message":     {"test\nsource\nmessage"},
+				"version":            {"123123"},
+				"revision":           {"1"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
 			name: "display_version is set",
 			params: ReleaseParameters{
 				Application: "potato",

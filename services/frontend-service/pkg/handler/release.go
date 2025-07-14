@@ -98,6 +98,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		CiLink:                         "",
 		IsPrepublish:                   false,
 		DeployToDownstreamEnvironments: []string{},
+		Revision:                       0,
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -205,10 +206,12 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(previousCommitId) != 1 {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number of previous commit IDs provided. Expecting 1, got %d", len(previousCommitId))
+			return
 		}
 		if !isCommitId(previousCommitId[0]) {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Provided commit id (%s) is not valid.", previousCommitId[0])
+			return
 		}
 		tf.PreviousCommitId = previousCommitId[0]
 	}
@@ -240,6 +243,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(displayVersion) != 1 {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(displayVersion))
+			return
 		}
 		if len(displayVersion[0]) > 15 {
 			w.WriteHeader(400)
@@ -252,12 +256,35 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	if ciLink, ok := form.Value["ci_link"]; ok {
 		if len(ciLink) != 1 {
 			w.WriteHeader(400)
-			fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(ciLink))
+			fmt.Fprintf(w, "Invalid number of ci links provided: %d, ", len(ciLink))
+			return
 		}
 
 		tf.CiLink = ciLink[0]
-
 	}
+
+	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
+		if !s.Config.RevisionsEnabled {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "The release endpoint does not allow revisions (frontend.enabledRevisions = false).")
+			return
+		}
+
+		if len(revision) == 1 {
+			r, err := strconv.ParseUint(revision[0], 10, 64)
+			if err != nil {
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "Invalid version: %s", err)
+				return
+			}
+			tf.Revision = r
+		} else {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number of revisions provided: %d, ", len(revision))
+			return
+		}
+	}
+
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
 			Action: &api.BatchAction_CreateRelease{
@@ -312,6 +339,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		CiLink:                         "",
 		IsPrepublish:                   false,
 		DeployToDownstreamEnvironments: []string{},
+		Revision:                       0,
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -448,11 +476,34 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		if len(ciLink) != 1 {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "Invalid number of ci links provided: %d, ", len(ciLink))
+			return
 		}
 
 		tf.CiLink = ciLink[0]
-
 	}
+
+	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
+		if !s.Config.RevisionsEnabled {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "The release endpoint does not allow revisions (frontend.enabledRevisions = false).")
+			return
+		}
+
+		if len(revision) == 1 {
+			r, err := strconv.ParseUint(revision[0], 10, 64)
+			if err != nil {
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "Invalid version: %s", err)
+				return
+			}
+			tf.Revision = r
+		} else {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number of revisions provided: %d, ", len(revision))
+			return
+		}
+	}
+
 	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
 		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
 	}
@@ -482,6 +533,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		return
 	}
 	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
+
 }
 
 func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *http.Request, releaseResponse *api.CreateReleaseResponse, err error) {

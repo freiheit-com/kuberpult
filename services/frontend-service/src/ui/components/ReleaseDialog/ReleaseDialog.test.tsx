@@ -103,6 +103,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: ['prod'],
                     ciLink: 'givemesomething',
+                    revision: 0,
                 },
             ],
             envs: [
@@ -151,6 +152,7 @@ describe('Release Dialog', () => {
                     isPrepublish: true,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             envs: [
@@ -216,6 +218,7 @@ describe('Release Dialog', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
+                                    revision: 0,
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -263,6 +266,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
+                    revision: 0,
                 },
             ],
             envs: [
@@ -319,6 +323,7 @@ describe('Release Dialog', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
+                                    revision: 0,
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -366,6 +371,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
+                    revision: 0,
                 },
             ],
             envs: [
@@ -435,6 +441,7 @@ describe('Release Dialog', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
+                                    revision: 0,
                                 },
                                 {
                                     sourceCommitId: 'cafe',
@@ -449,6 +456,7 @@ describe('Release Dialog', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
+                                    revision: 0,
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -538,6 +546,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
+                    revision: 0,
                 },
                 {
                     sourceCommitId: 'cafe',
@@ -552,6 +561,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
+                    revision: 0,
                 },
             ],
             rolloutStatus: [
@@ -602,6 +612,7 @@ describe('Release Dialog', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
+                                    revision: 0,
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -643,6 +654,7 @@ describe('Release Dialog', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
+                    revision: 0,
                 },
             ],
             envs: [],
@@ -872,6 +884,7 @@ describe('Release Dialog CI Links', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
+                                    revision: 0,
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -1021,6 +1034,7 @@ describe('Rollout Status for AA environments', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
+                                    revision: 0,
                                 },
                                 {
                                     sourceCommitId: 'cafe',
@@ -1035,6 +1049,7 @@ describe('Rollout Status for AA environments', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
+                                    revision: 0,
                                 },
                             ],
                             sourceRepoUrl: 'http://test2.com',
@@ -1122,6 +1137,7 @@ describe('Rollout Status for AA environments', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
+                    revision: 0,
                 },
                 {
                     sourceCommitId: 'cafe',
@@ -1136,6 +1152,7 @@ describe('Rollout Status for AA environments', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
+                    revision: 0,
                 },
             ],
             rolloutStatus: [

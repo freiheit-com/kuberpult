@@ -81,7 +81,7 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
                     </div>
                     {release.map((rele) => (
                         <div key={rele.version} className={classNames('content', className)}>
-                            <ReleaseCardMini app={app} version={rele.version} />
+                            <ReleaseCardMini app={app} version={rele.version} revision={rele.revision} />
                         </div>
                     ))}
                 </div>
