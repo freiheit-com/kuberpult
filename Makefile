@@ -24,8 +24,8 @@ SCRIPTS_BASE:=infrastructure/scripts/make
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service services/reposerver-service charts/kuberpult pkg
 INTEGRATION_TEST_IMAGE ?=$(DOCKER_REGISTRY_URI)/integration-test:$(IMAGE_TAG)
 ARTIFACT_REGISTRY_URI := europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-CONFIG_DIR := tests/integration-tests/cluster-setup/config
-CONFIG_FILE := $(CONFIG_DIR)/kubeconfig.yaml
+INTEGRATION_TEST_CONFIG_DIR := tests/integration-tests/cluster-setup/config
+INTEGRATION_TEST_CONFIG_FILE := $(INTEGRATION_TEST_CONFIG_DIR)/kubeconfig.yaml
 
 export USER_UID := $(shell id -u)
 .install:
@@ -103,16 +103,18 @@ unit-test-db:
 	docker compose -f docker-compose-unittest.yml up
 
 integration-test:
-	mkdir -p $(CONFIG_DIR)
-	rm -f $(CONFIG_FILE)
+	make -C ./pkg gen
+	mkdir -p $(INTEGRATION_TEST_CONFIG_DIR)
+	rm -f $(INTEGRATION_TEST_CONFIG_FILE)
 	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml down
 	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml up -d
-	while [ ! -s "$(CONFIG_FILE)" ]; do \
+	while [ ! -s "$(INTEGRATION_TEST_CONFIG_FILE)" ]; do \
 		sleep 1; \
 	done; \
-	perl -pi -e 's/:6443/:8443/g' $(CONFIG_FILE)
+	perl -pi -e 's/:6443/:8443/g' $(INTEGRATION_TEST_CONFIG_FILE)
 	docker build -f tests/integration-tests/Dockerfile . -t $(INTEGRATION_TEST_IMAGE) --build-arg kuberpult_version=$(IMAGE_TAG_KUBERPULT) --build-arg charts_version=$(VERSION)
-	docker run  --network=host -v "./$(CONFIG_FILE):/kp/kubeconfig.yaml" --rm $(INTEGRATION_TEST_IMAGE)
+	docker run  --network=host -v "./$(INTEGRATION_TEST_CONFIG_FILE):/kp/kubeconfig.yaml" --rm $(INTEGRATION_TEST_IMAGE)
+	rm -f $(INTEGRATION_TEST_CONFIG_FILE)
 
 pull-service-image/%:
 	docker pull $(DOCKER_REGISTRY_URI)/$*:main-$(VERSION)
