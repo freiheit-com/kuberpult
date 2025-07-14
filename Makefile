@@ -22,7 +22,10 @@ SCRIPTS_BASE:=infrastructure/scripts/make
 
 
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service services/reposerver-service charts/kuberpult pkg
+INTEGRATION_TEST_IMAGE ?=$(DOCKER_REGISTRY_URI)/integration-test:$(IMAGE_TAG)
 ARTIFACT_REGISTRY_URI := europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
+CONFIG_DIR := tests/integration-tests/cluster-setup/config
+CONFIG_FILE := $(CONFIG_DIR)/kubeconfig.yaml
 
 export USER_UID := $(shell id -u)
 .install:
@@ -79,27 +82,37 @@ prepare-compose:
 	IMAGE_TAG=local make -C services/cd-service docker
 	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 
-kuberpult: prepare-compose compose-down
-	earthly +all-services --UID=$(USER_UID)
+.PHONY: all-services
+all-services:
+	@for service in services/*; do \
+		make -C $$service docker; \
+	done
+
+kuberpult: prepare-compose compose-down all-services
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
 	# This deletes the volume of the default db location:
 	docker volume rm kuberpult_pgdata
 
-kuberpult-freshdb: prepare-compose compose-down
-	earthly +all-services --UID=$(USER_UID)
+kuberpult-freshdb: prepare-compose compose-down all-services
 	docker compose up 
 
 # Run this before starting the unit tests in your IDE:
 unit-test-db:
 	docker compose -f docker-compose-unittest.yml up
 
-all-services: prepare-compose
-	earthly +all-services --tag=$(VERSION)
-
 integration-test:
-	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT) --charts_version=$(VERSION)
+	mkdir -p $(CONFIG_DIR)
+	rm -f $(CONFIG_FILE)
+	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml down
+	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml up -d
+	while [ ! -s "$(CONFIG_FILE)" ]; do \
+		sleep 1; \
+	done; \
+	perl -pi -e 's/:6443/:8443/g' $(CONFIG_FILE)
+	docker build -f tests/integration-tests/Dockerfile . -t $(INTEGRATION_TEST_IMAGE) --build-arg kuberpult_version=$(IMAGE_TAG_KUBERPULT) --build-arg charts_version=$(VERSION)
+	docker run  --network=host -v "./$(CONFIG_FILE):/kp/kubeconfig.yaml" --rm $(INTEGRATION_TEST_IMAGE)
 
 pull-service-image/%:
 	docker pull $(DOCKER_REGISTRY_URI)/$*:main-$(VERSION)
@@ -129,13 +142,12 @@ tag-cli-release-image: push-cli-image
 	true
 
 .PHONY: commitlint
-commitlint:
-	gh pr view $${GITHUB_HEAD_REF} --json title,body --template '{{.title}}{{ "\n\n" }}{{.body}}' > commitlint.msg
-	@echo "commit message that will be linted:"
-	@cat commitlint.msg
-	@echo
-	earthly +commitlint
+commitlint: commitlint.msg
+	docker run -w /commitlint -v "./commitlint.config.js:/commitlint/commitlint.config.js" -v "./commitlint.msg:/commitlint/commitlint.msg" node:18-bookworm sh -c "npm install --save-dev @commitlint/cli@18.4.3 && cat ./commitlint.msg | npx commitlint --config commitlint.config.js"
 	rm commitlint.msg
+
+commitlint.msg:
+	git log -1 --pretty=%B > commitlint.msg
 
 .PHONY: pull-trivy check-secrets
 pull-trivy:
@@ -150,5 +162,4 @@ check-secrets:
 .git/hooks/commit-msg: hooks/commit-msg
 	cp $< $@
 
-# kuberpult and kuberpult-earthly should install/update the precommit hook as a sideeffect
-kuberpult kuberpult-earthly: .git/hooks/pre-commit
+kuberpult: .git/hooks/pre-commit .git/hooks/commit-msg

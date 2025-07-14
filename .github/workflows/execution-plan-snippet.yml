@@ -68,10 +68,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Install earthly
-        uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.13
       - name: Checkout repository
         uses: actions/checkout@v4
         with:

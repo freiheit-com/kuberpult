@@ -112,8 +112,7 @@ VALUES
 # Get helm dependency charts and unzip them
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do echo "$filename"; tar -xf "$filename" && rm -f "$filename"; done;)
 
-earthly +chart-tarball
-
+make release-tag
 
 helm uninstall kuberpult-local || print kuberpult was not installed
 helm install --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz

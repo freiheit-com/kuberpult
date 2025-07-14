@@ -1,5 +1,4 @@
 #!/bin/sh
 set -e
 cat "$1" > ./commitlint.msg
-earthly +commitlint
-rm ./commitlint.msg
+make commitlint
