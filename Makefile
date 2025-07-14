@@ -78,9 +78,9 @@ compose-down:
 prepare-compose:
 	IMAGE_TAG=local make -C services/cd-service docker
 	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
+	IMAGE_TAG=local make -C services/frontend-service docker
 
 kuberpult: prepare-compose compose-down
-	earthly +all-services --UID=$(USER_UID)
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
@@ -88,8 +88,7 @@ reset-db: compose-down
 	docker volume rm kuberpult_pgdata
 
 kuberpult-freshdb: prepare-compose compose-down
-	earthly +all-services --UID=$(USER_UID)
-	docker compose up 
+	docker compose up
 
 # Run this before starting the unit tests in your IDE:
 unit-test-db:

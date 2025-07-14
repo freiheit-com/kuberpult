@@ -248,6 +248,9 @@ func runServer(ctx context.Context, config Config) error {
 
 				MaxIdleConnections: config.DbMaxIdleConnections,
 				MaxOpenConnections: config.DbMaxOpenConnections,
+
+				DatadogEnabled:     config.EnableTracing,
+				DatadogServiceName: "kuberpult-rollout-service",
 			}
 		}
 		dbHandler, err = db.Connect(ctx, dbCfg)
