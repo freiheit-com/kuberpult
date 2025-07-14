@@ -62,12 +62,6 @@ type expectedVersion struct {
 	IsProduction     bool
 }
 
-type mockOverviewStreamMessage struct {
-	Overview     *api.GetOverviewResponse
-	Error        error
-	ConnectError error
-}
-
 type mockOverviewClient struct {
 	grpc.ClientStream
 	OverviewResponse           *api.GetOverviewResponse
@@ -78,7 +72,6 @@ type mockOverviewClient struct {
 	StartStep                  chan struct{}
 	Steps                      chan step
 	savedStep                  *step
-	current                    int
 }
 
 // GetOverview implements api.OverviewServiceClient
@@ -953,6 +946,9 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 func setupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatal(err)
+	}
 	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 	if err != nil {
 		t.Fatal(err)

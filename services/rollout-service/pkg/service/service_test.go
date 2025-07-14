@@ -165,7 +165,6 @@ type Count struct {
 }
 
 type MockClient struct {
-	events []*statsd.Event
 	Gauges []Gauge
 	Counts []Count
 	statsd.ClientInterface
@@ -518,7 +517,6 @@ func TestArgoEvents(t *testing.T) {
 	const deployedVersion = 42
 
 	const aaEnv1 = "test-env-de-1"
-	const aaEnv2 = "test-env-de-2"
 	const parentAAEnvironment = "env"
 
 	type DBArgoEventData struct {
@@ -842,6 +840,9 @@ func TestArgoEvents(t *testing.T) {
 func SetupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("migrationspath: %v", err)
+	}
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", migrationsPath)
 	t.Logf("tmp dir for DB data: %s", tmpDir)

@@ -816,7 +816,6 @@ func TestArgoConsume(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
@@ -846,9 +845,12 @@ func TestArgoConsume(t *testing.T) {
 				errCh <- ConsumeArgo(ctx, hlth.Reporter("consume-argo"), as, argoProcessor.ArgoApps)
 			}()
 
-			argoProcessor.Push(ctx, tc.ArgoOverview)
+			err := argoProcessor.Push(ctx, tc.ArgoOverview)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			err := <-errCh
+			err = <-errCh
 
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -868,11 +870,11 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 		ArgoManageFilter  []string
 		ExpectedOutput    bool
 		ExpectedError     string
-		Application       api.OverviewApplication
+		Application       *api.OverviewApplication
 	}{
 		{
 			Name: "when filter has `*` and a team name",
-			Application: api.OverviewApplication{
+			Application: &api.OverviewApplication{
 				Name: "foo",
 				Team: "footeam",
 			},
@@ -969,7 +971,6 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			_, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
@@ -1404,7 +1405,6 @@ func TestReactToKuberpultEvents(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
