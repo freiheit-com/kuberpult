@@ -1023,6 +1023,7 @@ func (c *envReleaseTrain) applyPrognosis(
 			TransformerEslVersion: c.TransformerEslVersion,
 			CiLink:                c.CiLink,
 			SkipCleanup:           true,
+			Revision:              0, //FIXME: Revisions not yet supported on release trains SRX-WZMFH5
 		}
 		prognosisData := DeployPrognosis{
 			TeamName:           appPrognosis.Team,

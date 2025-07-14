@@ -393,6 +393,7 @@ type CreateApplicationVersion struct {
 	TransformerEslVersion          db.TransformerID         `json:"-"`
 	IsPrepublish                   bool                     `json:"isPrepublish"`
 	DeployToDownstreamEnvironments []types.EnvName          `json:"deployToDownstreamEnvironments"`
+	Revision                       uint64                   `json:"revision"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -579,7 +580,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: 0,
+			Revision: c.Revision,
 			Version:  &version,
 		},
 		App: c.Application,
@@ -641,6 +642,7 @@ func (c *CreateApplicationVersion) Transform(
 				Environment:           env,
 				Application:           c.Application,
 				Version:               version, // the train should queue deployments, instead of giving up:
+				Revision:              c.Revision,
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
 				WriteCommitData:       c.WriteCommitData,
@@ -808,18 +810,18 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 	if c.Version == 0 {
 		return 0, fmt.Errorf("version is required when using the database")
 	} else {
-		metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
+		metaData, err := state.DBHandler.DBSelectReleaseByReleaseNumbers(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 		if err != nil {
 			return 0, fmt.Errorf("could not calculate version, error: %v", err)
 		}
 		if metaData == nil {
-			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v", c.Application, c.Version)
+			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v.%v", c.Application, c.Version, c.Revision)
 			return c.Version, nil
 		}
-		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v", *metaData.ReleaseNumbers.Version, metaData)
+		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v.%v", *metaData.ReleaseNumbers.Version, c.Revision, metaData)
 
 		existingRelease := metaData.ReleaseNumbers.Version
-		logger.FromContext(ctx).Sugar().Warnf("comparing release %v: %v", c.Version, existingRelease)
+		logger.FromContext(ctx).Sugar().Warnf("comparing release %v.%v: %v", c.Version, c.Revision, existingRelease)
 		// check if version differs, if it's the same, that's ok
 		return 0, c.sameAsExistingDB(ctx, transaction, state, metaData)
 	}
@@ -1050,6 +1052,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				TransformerEslVersion: c.TransformerEslVersion,
 				CiLink:                "",
 				SkipCleanup:           false,
+				Revision:              0,
 			}
 			err := t.Execute(ctx, d, transaction)
 			if err != nil {
