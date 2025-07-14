@@ -21,8 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	//"github.com/freiheit-com/kuberpult/pkg/auth"
-	//"google.golang.org/grpc/metadata"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"mime/multipart"
@@ -458,26 +456,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
 		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
 	}
-	//// TODO SU: continue
-	//md := metadata.New(nil)
-	//md.Set(auth.HeaderUserEmail, r.Header.Get(auth.HeaderUserEmail))
-	//md.Set(auth.HeaderUserName, r.Header.Get(auth.HeaderUserName))
-	//err := tracer.Inject(span.Context(), tracer.HTTPHeadersCarrier(r.Header))
 
-	//err := tracer.Inject(span.Context(), tracer.MDCarier(md))
-	//err := opentracer.Inject(span.Context(), opentracer.HTTPHeaders, opentracer.MDCarier(md))
-	//ddgrpc.Inject(ctx, &md)
-	//
-	//grpcCtx := metadata.NewOutgoingContext(ctx, md)
-
-	//if err != nil {
-	//	logger.FromContext(ctx).Sugar().Errorf("Failed to inject span: %v", err)
-	//	http.Error(w, "could not inject span context", http.StatusInternalServerError)
-	//	//w.WriteHeader(500)
-	//	return
-	//}
-
-	//grpcCtx := metadata.NewOutgoingContext(r.Context(), md)
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
 			Action: &api.BatchAction_CreateRelease{
