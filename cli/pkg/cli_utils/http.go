@@ -57,7 +57,7 @@ func IssueHttpRequest(req http.Request, retries uint64, timeoutSeconds int) erro
 	for i = 0; i < retries+1; i++ {
 		response, body, err := doRequest(&req, timeoutSeconds)
 		if err != nil {
-			log.Printf("error issuing http request: %v\n", err)
+			log.Printf("error issuing http request: %v", err)
 		} else if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
 			log.Printf("Recieved response code %d - %s from Kuberpult\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
 		} else {

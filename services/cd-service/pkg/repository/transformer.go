@@ -86,17 +86,17 @@ func GaugeGitSyncStatus(ctx context.Context, s *State, transaction *sql.Tx) erro
 	if ddMetrics != nil {
 		numberUnsyncedApps, err := s.DBHandler.DBCountAppsWithStatus(ctx, transaction, db.UNSYNCED)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error getting number of unsynced apps: %v\n", err)
+			logger.FromContext(ctx).Sugar().Warnf("error getting number of unsynced apps: %v", err)
 			return err
 		}
 		numberSyncFailedApps, err := s.DBHandler.DBCountAppsWithStatus(ctx, transaction, db.SYNC_FAILED)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error getting number of sync failed apps: %v\n", err)
+			logger.FromContext(ctx).Sugar().Warnf("error getting number of sync failed apps: %v", err)
 			return err
 		}
 		err = MeasureGitSyncStatus(numberUnsyncedApps, numberSyncFailedApps)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("could not send git sync status metrics to datadog: %v\n", err)
+			logger.FromContext(ctx).Sugar().Warnf("could not send git sync status metrics to datadog: %v", err)
 			return err
 		}
 
@@ -110,14 +110,14 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env 
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("Error when trying to get the number of environment locks: %w\n", err)
+				Warnf("Error when trying to get the number of environment locks: %w", err)
 			return
 		}
 		err = ddMetrics.Gauge("environment_lock_count", count, []string{"kuberpult_environment:" + string(env)}, 1)
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("Error when trying to send `environment_lock_count` metric to datadog: %w\n", err)
+				Warnf("Error when trying to send `environment_lock_count` metric to datadog: %w", err)
 		}
 	}
 }
@@ -127,7 +127,7 @@ func GaugeEnvAppLockMetric(ctx context.Context, appEnvLocksCount int, env types.
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("Error when trying to send `application_lock_count` metric to datadog: %w\n", err)
+				Warnf("Error when trying to send `application_lock_count` metric to datadog: %w", err)
 		}
 	}
 }

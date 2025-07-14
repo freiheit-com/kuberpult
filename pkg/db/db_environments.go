@@ -560,7 +560,7 @@ func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.T
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not delete environment with name '%s' from DB. Error: %w\n",
+			"could not delete environment with name '%s' from DB. Error: %w",
 			environmentName,
 			err)
 	}

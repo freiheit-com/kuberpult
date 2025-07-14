@@ -400,7 +400,7 @@ func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not delete release for app '%s' and version '%v' from DB. Error: %w\n",
+			"could not delete release for app '%s' and version '%v' from DB. Error: %w",
 			release.App,
 			*release.ReleaseNumbers.Version,
 			err)
@@ -454,7 +454,7 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not insert release for app '%s' and version '%v' into DB. Error: %w\n",
+			"could not insert release for app '%s' and version '%v' into DB. Error: %w",
 			release.App,
 			*release.ReleaseNumbers.Version,
 			err)
@@ -507,7 +507,7 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not insert release_history for app '%s' and version '%v' into DB. Error: %w\n",
+			"could not insert release_history for app '%s' and version '%v' into DB. Error: %w",
 			release.App,
 			*release.ReleaseNumbers.Version,
 			err)
@@ -577,7 +577,7 @@ func (h *DBHandler) processReleaseRow(ctx context.Context, err error, rows *sql.
 
 func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql.Rows, ignorePrepublishes bool, withManifests bool) ([]*DBReleaseWithMetaData, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -605,7 +605,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning releases row from DB withManifests=%v. Error: %w\n", withManifests, err)
+			return nil, fmt.Errorf("Error scanning releases row from DB withManifests=%v. Error: %w", withManifests, err)
 		}
 		// handle meta data
 		var metaData = DBReleaseMetaData{
@@ -620,7 +620,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
+			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
 
@@ -631,7 +631,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		if withManifests {
 			err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s\n", err, metadataStr)
+				return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s", err, metadataStr)
 			}
 		}
 		row.Manifests = manifestData
@@ -639,7 +639,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		if environmentsStr.Valid && environmentsStr.String != "" {
 			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s\n", err, environmentsStr.String)
+				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s", err, environmentsStr.String)
 			}
 		}
 		row.Environments = environments
@@ -657,7 +657,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 
 func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error, rows *sql.Rows) (AppVersionEnvironments, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -676,13 +676,13 @@ func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w", err)
 		}
 		environments := make([]types.EnvName, 0)
 		if environmentsStr.Valid && environmentsStr.String != "" {
 			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s\n", err, environmentsStr.String)
+				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s", err, environmentsStr.String)
 			}
 		}
 		if _, exists := result[appName]; !exists {
@@ -699,7 +699,7 @@ func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error
 
 func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error, rows *sql.Rows) ([]int64, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -716,7 +716,7 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w", err)
 		}
 		result = append(result, row)
 	}
@@ -729,7 +729,7 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 
 func (h *DBHandler) processAppReleaseNumbersRows(ctx context.Context, err error, rows *sql.Rows) ([]types.ReleaseNumbers, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -746,7 +746,7 @@ func (h *DBHandler) processAppReleaseNumbersRows(ctx context.Context, err error,
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w", err)
 		}
 		result = append(result, row)
 	}
@@ -759,7 +759,7 @@ func (h *DBHandler) processAppReleaseNumbersRows(ctx context.Context, err error,
 
 func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err error, rows *sql.Rows) (map[string][]int64, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -778,7 +778,7 @@ func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err e
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w", err)
 		}
 
 		if _, ok := result[appName]; !ok {
@@ -823,7 +823,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 		endDate,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -855,7 +855,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
+			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s", err, metadataStr)
 		}
 		releases[ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion}] = metaData.SourceCommitId
 	}

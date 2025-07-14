@@ -842,7 +842,7 @@ func TestApplyTransformerBatch(t *testing.T) {
 			repoInternal := repo.(*repository)
 			resultingBatches, _, err := repoInternal.applyTransformerBatches(tc.Batches)
 			if err != nil {
-				t.Errorf("Got error here but was not expecting: %v\n", err)
+				t.Errorf("Got error here but was not expecting: %v", err)
 			}
 
 			if tc.failingBatchIndexes == nil {

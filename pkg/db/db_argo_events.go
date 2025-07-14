@@ -80,7 +80,7 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName str
 		envName,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("error reading argo cd events . Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("error reading argo cd events . Error: %w", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -102,7 +102,7 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName str
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, onErr(fmt.Errorf("Error table for next argo_cd_events. Error: %w\n", err))
+			return nil, onErr(fmt.Errorf("Error table for next argo_cd_events. Error: %w", err))
 		}
 		toReturn = &event
 	} else {

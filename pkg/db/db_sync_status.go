@@ -70,7 +70,7 @@ func (h *DBHandler) DBWriteNewSyncEvent(ctx context.Context, tx *sql.Tx, syncDat
 		syncData.SyncStatus)
 
 	if err != nil {
-		return onErr(fmt.Errorf("could not write sync event into DB. Error: %w\n", err))
+		return onErr(fmt.Errorf("could not write sync event into DB. Error: %w", err))
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id 
 
 	err = h.executeBulkInsert(ctx, tx, envApps, *now, id, status, BULK_INSERT_BATCH_SIZE)
 	if err != nil {
-		return onErr(fmt.Errorf("could not write sync event into DB. Error: %w\n", err))
+		return onErr(fmt.Errorf("could not write sync event into DB. Error: %w", err))
 	}
 	return nil
 }
@@ -120,7 +120,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 		UNSYNCED,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not get current eslVersion. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("could not get current eslVersion. Error: %w", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -137,7 +137,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, onErr(fmt.Errorf("Error table for next eslVersion. Error: %w\n", err))
+			return nil, onErr(fmt.Errorf("Error table for next eslVersion. Error: %w", err))
 		}
 		allCombinations = append(allCombinations, EnvApp{
 			AppName: currApp,
@@ -169,7 +169,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 		id,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not get current eslVersion. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("could not get current eslVersion. Error: %w", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -186,7 +186,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, onErr(fmt.Errorf("Error table for next eslVersion. Error: %w\n", err))
+			return nil, onErr(fmt.Errorf("Error table for next eslVersion. Error: %w", err))
 		}
 		allCombinations = append(allCombinations, EnvApp{
 			AppName: currApp,
@@ -266,7 +266,7 @@ func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, 
 	tracing.MarkSpanAsDB(span, query)
 	_, err := tx.ExecContext(ctx, query, newId, oldId)
 	if err != nil {
-		return onErr(fmt.Errorf("could not update deployments from %q to %q. Error: %w\n", oldId, newId, err))
+		return onErr(fmt.Errorf("could not update deployments from %q to %q. Error: %w", oldId, newId, err))
 	}
 	return nil
 }
@@ -297,7 +297,7 @@ func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, stat
 
 func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([]GitSyncData, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not get git sync status for apps. Error: %w\n", err)
+		return nil, fmt.Errorf("could not get git sync status for apps. Error: %w", err)
 	}
 
 	defer func(rows *sql.Rows) {
@@ -316,7 +316,7 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error table scanning git_sync_status. Error: %w\n", err)
+			return nil, fmt.Errorf("Error table scanning git_sync_status. Error: %w", err)
 		}
 		syncData = append(syncData, curr)
 	}
@@ -400,7 +400,7 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 	)
 
 	if err != nil {
-		return -1, fmt.Errorf("could not get count of git sync status. Error: %w\n", err)
+		return -1, fmt.Errorf("could not get count of git sync status. Error: %w", err)
 	}
 
 	defer func(rows *sql.Rows) {
@@ -417,7 +417,7 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 			if errors.Is(err, sql.ErrNoRows) {
 				return 0, nil
 			}
-			return -1, fmt.Errorf("Error scanning git sync status. Could not retrive number of apps with status %q. Error: %w\n", status, err)
+			return -1, fmt.Errorf("Error scanning git sync status. Could not retrive number of apps with status %q. Error: %w", status, err)
 		}
 	}
 	err = closeRows(rows)

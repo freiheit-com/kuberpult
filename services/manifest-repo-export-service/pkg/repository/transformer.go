@@ -783,7 +783,7 @@ func (c *CreateApplicationVersion) Transform(
 		if !valid.SHA1CommitID(commitId) {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("%s commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commitId, helperText)
+				Warnf("%s commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s", commitId, helperText)
 		}
 	}
 
@@ -1122,7 +1122,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		for _, currentApp := range apps {
 			currentTeamName, err := state.GetTeamName(currentApp)
 			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
+				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s", currentApp)
 			} else {
 				if c.Team == currentTeamName {
 					foundTeam = true
@@ -1524,7 +1524,7 @@ func (u *ReleaseTrain) Transform(
 			return "", err
 		}
 		lockPreventedEvent := eventData.EventData.(*event.LockPreventedDeployment)
-		commitMessage += fmt.Sprintf("skipped application %s on environment %s\n", lockPreventedEvent.Application, lockPreventedEvent.Environment)
+		commitMessage += fmt.Sprintf("skipped application %s on environment %s", lockPreventedEvent.Application, lockPreventedEvent.Environment)
 	}
 	return commitMessage, nil
 }

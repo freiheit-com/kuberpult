@@ -189,7 +189,7 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 		jsonToInsert,
 	)
 	if err != nil {
-		return fmt.Errorf("could not upsert app %s into DB. Error: %w\n", appName, err)
+		return fmt.Errorf("could not upsert app %s into DB. Error: %w", appName, err)
 	}
 	return nil
 }
@@ -219,7 +219,7 @@ func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.T
 		jsonToInsert,
 	)
 	if err != nil {
-		return fmt.Errorf("could not upsert app %s into DB. Error: %w\n", appName, err)
+		return fmt.Errorf("could not upsert app %s into DB. Error: %w", appName, err)
 	}
 	return nil
 }
@@ -228,7 +228,7 @@ func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.T
 
 func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err error) (*DBAppWithMetaData, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -245,12 +245,12 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w", err)
 		}
 		var metaData = DBAppMetaData{Team: ""}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
+			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
 	} else {
@@ -265,7 +265,7 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 
 func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) ([]*DBAppWithMetaData, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -283,12 +283,12 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w", err)
 		}
 		var metaData = DBAppMetaData{Team: ""}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s\n", err, metadataStr)
+			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
 		result = append(result, row)
@@ -302,7 +302,7 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 
 func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err error) ([]string, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query apps table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -319,7 +319,7 @@ func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err 
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w", err)
 		}
 		result = append(result, appname)
 	}

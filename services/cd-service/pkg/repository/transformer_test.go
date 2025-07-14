@@ -4711,7 +4711,7 @@ func DBParseToEvents(rows []db.EventRow) ([]event.Event, error) {
 	for _, row := range rows {
 		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
 		if err != nil {
-			return result, fmt.Errorf("Error unmarshalling event: %v\n", err)
+			return result, fmt.Errorf("Error unmarshalling event: %v", err)
 		}
 		result = append(result, evGo.EventData)
 	}
@@ -4830,7 +4830,7 @@ func TestGetEnvironmentGroupsOrEnvironment(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(actualMap, tc.ExpectedMap); diff != "" {
-				t.Errorf("result mismatch in map (-want, +got):\n -%v, +%v\n%s\n", tc.ExpectedMap, actualMap, diff)
+				t.Errorf("result mismatch in map (-want, +got):\n -%v, +%v\n%s", tc.ExpectedMap, actualMap, diff)
 			}
 
 		})

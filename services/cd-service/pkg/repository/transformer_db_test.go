@@ -334,7 +334,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			var jsonInterface = tc.dataType
 			err = json.Unmarshal(([]byte)(row.EventJson), &jsonInterface)
 			if err != nil {
-				t.Fatalf("marshal error: %v\njson: \n%s\n", err, row.EventJson)
+				t.Fatalf("marshal error: %v\njson: \n%s", err, row.EventJson)
 			}
 			tc.Transformer.SetEslVersion(0) // the eslVersion is not part of the json blob anymore
 			if diff := cmp.Diff(tc.Transformer, jsonInterface, protocmp.Transform()); diff != "" {
@@ -2061,7 +2061,7 @@ func TestEvents(t *testing.T) {
 					t.Fatal(err)
 				}
 				if len(rows) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d' rows:\n%v\n", len(tc.expectedDBEvents), len(rows), rows)
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d' rows:\n%v", len(tc.expectedDBEvents), len(rows), rows)
 				}
 				dEvents, err := DBParseToEvents(rows)
 				if err != nil {
@@ -2467,7 +2467,7 @@ func TestReleaseTrain(t *testing.T) {
 					return nil
 				})
 				if err != nil {
-					t.Fatalf("Err: %v\n", err)
+					t.Fatalf("Err: %v", err)
 				}
 			}
 
@@ -2490,7 +2490,7 @@ func TestReleaseTrain(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Err: %v\n", err)
+				t.Fatalf("Err: %v", err)
 			}
 		})
 	}
@@ -4200,7 +4200,7 @@ func TestTimestampConsistency(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Err: %v\n", err)
+				t.Fatalf("Err: %v", err)
 			}
 		})
 	}
@@ -4864,7 +4864,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 					return nil
 				})
 				if err != nil {
-					t.Fatalf("Err: %v\n", err)
+					t.Fatalf("Err: %v", err)
 				}
 			}
 
@@ -4879,7 +4879,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Err: %v\n", err)
+				t.Fatalf("Err: %v", err)
 			}
 		})
 	}
