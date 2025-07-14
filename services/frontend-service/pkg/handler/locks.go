@@ -195,11 +195,11 @@ func (s Server) handleDeleteEnvironmentLock(w http.ResponseWriter, req *http.Req
 		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), bytes.NewReader(signature), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				_, _ = fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 				return
 			}
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "Invalid signature")
+			_, _ = fmt.Fprintf(w, "Invalid signature")
 			return
 		}
 	}
@@ -256,11 +256,11 @@ func (s Server) handlePutEnvironmentGroupLock(w http.ResponseWriter, req *http.R
 		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environmentGroup+lockID), strings.NewReader(signature), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(http.StatusUnauthorized)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				_, _ = fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 				return
 			}
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "Invalid signature")
+			_, _ = fmt.Fprintf(w, "Invalid signature")
 			return
 		}
 	}
