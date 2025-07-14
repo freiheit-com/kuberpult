@@ -1,20 +1,4 @@
 services:
-  datadog-agent:
-    image: datadog/agent:7
-    env_file:
-      - docker.env
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /proc/:/host/proc/:ro
-      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
-    ports:
-      - 127.0.0.1:8126:8126/tcp
-    environment:
-      - DD_APM_ENABLED=true
-      - DD_APM_NON_LOCAL_TRAFFIC=true
-      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
-      - DD_AC_EXCLUDE=name:datadog-agent
-    stop_grace_period: 2.0s
   postgres:
     image: postgres:13.15
     restart: unless-stopped
@@ -88,8 +72,6 @@ services:
     depends_on:
       manifest-repo-export-service:
         condition: service_healthy
-      datadog-agent:
-        condition: service_healthy
       postgres:
         condition: service_healthy
   manifest-repo-export-service:
@@ -137,8 +119,6 @@ services:
       timeout: 5s
       retries: 50
     depends_on:
-      datadog-agent:
-        condition: service_healthy
       postgres:
         condition: service_healthy
   frontend-service:
