@@ -394,7 +394,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		selectQuery,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -414,7 +414,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, onErr(fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err))
+			return nil, onErr(fmt.Errorf("error scanning event_sourcing_light row from DB. Error: %w", err))
 		}
 	} else {
 		row = nil
@@ -440,7 +440,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 		eslVersion,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
