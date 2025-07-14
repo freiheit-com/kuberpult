@@ -227,11 +227,11 @@ func Remove(s []string, r string) []string {
 func closeRows(rows *sql.Rows) error {
 	err := rows.Close()
 	if err != nil {
-		return fmt.Errorf("row closing error: %v\n", err)
+		return fmt.Errorf("row closing error: %v", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return fmt.Errorf("row has error: %v\n", err)
+		return fmt.Errorf("row has error: %v", err)
 	}
 	return nil
 }
@@ -308,7 +308,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		jsonToInsert)
 
 	if err != nil {
-		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err)
 	}
 	return nil
 }
@@ -337,7 +337,7 @@ func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eve
 		data)
 
 	if err != nil {
-		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err)
 	}
 	return nil
 }
