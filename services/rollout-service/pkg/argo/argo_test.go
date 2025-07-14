@@ -870,14 +870,11 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 		ArgoManageFilter  []string
 		ExpectedOutput    bool
 		ExpectedError     string
-		Application       *api.OverviewApplication
+		ApplicationName   string
 	}{
 		{
-			Name: "when filter has `*` and a team name",
-			Application: &api.OverviewApplication{
-				Name: "foo",
-				Team: "footeam",
-			},
+			Name:            "when filter has `*` and a team name",
+			ApplicationName: "foo",
 			Overview: &ArgoOverview{
 				Overview: &api.GetOverviewResponse{
 					LightweightApps: []*api.OverviewApplication{
@@ -990,7 +987,7 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 
-			isActive, err := IsSelfManagedFilterActive(tc.Application.Name, argoProcessor)
+			isActive, err := IsSelfManagedFilterActive(tc.ApplicationName, argoProcessor)
 			if tc.ExpectedError != "" {
 				if err.Error() != tc.ExpectedError {
 					t.Fatalf("expected error to be %s but got %s", tc.ExpectedError, err.Error())
