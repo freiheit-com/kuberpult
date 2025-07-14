@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"strings"
@@ -58,7 +57,7 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 		WHERE envName=? AND appName=? AND lockID=?
 		ORDER BY version DESC
 		LIMIT 1;`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -136,8 +135,6 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 		SELECT created, lockid, envname, appname, metadata
 		FROM app_locks
 		WHERE appName = (?);`)
-	tracing.MarkSpanAsDB(span, selectQuery)
-	span.SetTag("appName", appName)
 
 	var rows *sql.Rows
 	defer func(rows *sql.Rows) {
@@ -172,7 +169,6 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, t
 		SELECT created, lockid, envname, appname, metadata
 		FROM app_locks
 		WHERE app_locks.appName IN (?` + strings.Repeat(",?", len(appNames)-1) + `);`)
-	tracing.MarkSpanAsDB(span, selectQuery)
 
 	var rows *sql.Rows
 	defer func(rows *sql.Rows) {
@@ -231,7 +227,6 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 			FROM app_locks
 			WHERE envName=? AND lockID=? AND appName=?
 			LIMIT 1;`)
-		tracing.MarkSpanAsDB(span, selectQuery)
 		rows, err = tx.QueryContext(ctx, selectQuery, environment, id, appName)
 		if err != nil {
 			return nil, fmt.Errorf("could not query application locks table from DB. Error: %w\n", err)
@@ -300,7 +295,7 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 		SELECT lockId FROM app_locks 
 		WHERE envname = ? AND appName = ?
 		ORDER BY lockId;`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment, appName)
 	if err != nil {
@@ -346,7 +341,8 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 		FROM app_locks
 		LIMIT 1;
 	`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -369,7 +365,7 @@ func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, e
 		SELECT created, lockId, envName, appName, metadata 
 		FROM app_locks
 		WHERE envname = (?)`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -398,7 +394,7 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 		LIMIT ?;
 	`)
 
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -514,7 +510,7 @@ func (h *DBHandler) upsertAppLockRow(ctx context.Context, transaction *sql.Tx, l
 		ON CONFLICT(appname, envname, lockid)
 		DO UPDATE SET created = excluded.created, lockid = excluded.lockid, metadata = excluded.metadata, envname = excluded.envname, appname = excluded.appname;
 	`)
-	tracing.MarkSpanAsDB(span, upsertQuery)
+	span.SetTag("query", upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -549,7 +545,7 @@ func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, l
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM app_locks WHERE appname=? AND lockId=? AND envname=?
 	`)
-	tracing.MarkSpanAsDB(span, deleteQuery)
+	span.SetTag("query", deleteQuery)
 	_, err := transaction.Exec(
 		deleteQuery,
 		appname,
@@ -570,11 +566,11 @@ func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, l
 func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, appName string, metadata LockMetadata, deleted bool) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppLockHistoryRow")
 	defer span.Finish()
-	insertQuery := h.AdaptQuery(`
+	upsertQuery := h.AdaptQuery(`
 		INSERT INTO app_locks_history (created, lockId, envname, appName, metadata, deleted)
 		VALUES (?, ?, ?, ?, ?, ?);
 	`)
-	tracing.MarkSpanAsDB(span, insertQuery)
+	span.SetTag("query", upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -585,7 +581,7 @@ func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sq
 		return fmt.Errorf("upsertAppLockRow unable to get transaction timestamp: %w", err)
 	}
 	_, err = transaction.Exec(
-		insertQuery,
+		upsertQuery,
 		*now,
 		lockID,
 		environment,

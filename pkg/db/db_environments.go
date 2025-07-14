@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"slices"
 	"strings"
@@ -56,7 +55,7 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DB
 		FROM environments
 		LIMIT 1;
 	`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -78,7 +77,7 @@ func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environ
 		WHERE name=?
 		LIMIT 1;
 	`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 	span.SetTag("name", environmentName)
 
 	rows, err := tx.QueryContext(
@@ -109,7 +108,7 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 		ORDER BY name
 		LIMIT ?
 	`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 	args := []any{}
 	for _, env := range environmentNames {
 		args = append(args, env)
@@ -153,14 +152,14 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 }
 
 func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) ([]types.EnvName, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
 	defer span.Finish()
 
 	if h == nil {
 		return nil, nil
 	}
 	if transaction == nil {
-		return nil, onErr(fmt.Errorf("no transaction provided when selecting all environments from environments table"))
+		return nil, fmt.Errorf("no transaction provided when selecting all environments from environments table")
 	}
 
 	selectQuery := h.AdaptQuery(`
@@ -168,11 +167,10 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 		FROM environments
 		ORDER BY name;
 	`)
-	tracing.MarkSpanAsDB(span, selectQuery)
 
 	rows, err := transaction.QueryContext(ctx, selectQuery)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("error while executing query to get all environments, error: %w", err))
+		return nil, fmt.Errorf("error while executing query to get all environments, error: %w", err)
 	}
 
 	defer func(rows *sql.Rows) {
@@ -197,7 +195,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("error while closing rows, error: %w", err))
+		return nil, fmt.Errorf("error while closing rows, error: %w", err)
 	}
 	return result, nil
 }
@@ -221,7 +219,6 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 			OR r.environments LIKE ?
 			OR r.environments LIKE ?; 
 	`)
-	tracing.MarkSpanAsDB(span, selectQuery)
 
 	rows, err := transaction.QueryContext(ctx, selectQuery, acceptableEnvFormats...)
 	if err != nil {
@@ -284,7 +281,7 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 		OR releases_history.environments LIKE ? 
 		OR releases_history.environments LIKE ?
 		AND releases_history.deleted=false; `)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -423,7 +420,7 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 		ON CONFLICT(name)
 		DO UPDATE SET created = excluded.created, name = excluded.name, json = excluded.json, applications = excluded.applications;
 	`)
-	tracing.MarkSpanAsDB(span, insertQuery)
+	span.SetTag("query", insertQuery)
 	span.SetTag("queryEnvironment", environmentName)
 	span.SetTag("queryApplications", applications)
 
@@ -484,7 +481,7 @@ func (h *DBHandler) addAppToEnvironment(ctx context.Context, tx *sql.Tx, environ
 			AND NOT (applications::jsonb @> json_build_array(to_json(?::text))::jsonb)
 		RETURNING created, name, json, applications;
 	`)
-	tracing.MarkSpanAsDB(span, updateQuery)
+	span.SetTag("query", updateQuery)
 	span.SetTag("queryEnvironment", environmentName)
 	span.SetTag("queryNewApp", newApp)
 
@@ -524,7 +521,7 @@ func (h *DBHandler) deleteAppFromEnvironment(ctx context.Context, tx *sql.Tx, en
 		WHERE name = (?)
 		RETURNING created, name, json, applications;
 	`)
-	tracing.MarkSpanAsDB(span, updateQuery)
+	span.SetTag("query", updateQuery)
 	span.SetTag("queryEnvironment", environmentName)
 	span.SetTag("queryRemovedApp", deleteThisApp)
 
@@ -553,7 +550,7 @@ func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.T
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM environments WHERE name=? 
 	`)
-	tracing.MarkSpanAsDB(span, deleteQuery)
+	span.SetTag("query", deleteQuery)
 	_, err := transaction.Exec(
 		deleteQuery,
 		environmentName,
@@ -580,7 +577,7 @@ func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx,
 		INSERT INTO environments_history (created, name, json, applications, deleted)
 		VALUES (?, ?, ?, ?, ?);
 	`)
-	tracing.MarkSpanAsDB(span, insertQuery)
+	span.SetTag("query", insertQuery)
 
 	jsonToInsert, err := json.Marshal(environmentConfig)
 	if err != nil {

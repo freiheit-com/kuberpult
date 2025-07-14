@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -33,7 +32,7 @@ func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, e
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery("SELECT eslVersion FROM cutoff ORDER BY eslVersion DESC LIMIT 1;")
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -76,7 +75,7 @@ func DBWriteCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx, eslVersion Esl
 	defer span.Finish()
 
 	insertQuery := h.AdaptQuery("INSERT INTO cutoff (eslVersion, processedTime) VALUES (?, ?);")
-	tracing.MarkSpanAsDB(span, insertQuery)
+	span.SetTag("query", insertQuery)
 
 	_, err := tx.Exec(
 		insertQuery,
