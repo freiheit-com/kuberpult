@@ -28,6 +28,7 @@ import (
 	"path"
 	"slices"
 
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -41,7 +42,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 
 	"os"

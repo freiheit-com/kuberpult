@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -34,7 +35,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"math"
 	"sort"
 	"time"
@@ -942,7 +942,7 @@ func (c *envReleaseTrain) applyPrognosis(
 	t TransformerContext,
 	transaction *sql.Tx,
 	prognosis *ReleaseTrainEnvironmentPrognosis,
-	span tracer.Span,
+	span *tracer.Span,
 ) (string, error) {
 	allLatestDeployments := prognosis.AllLatestDeployments
 

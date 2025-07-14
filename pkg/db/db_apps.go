@@ -25,8 +25,8 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"time"
 
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type AppStateChange string
