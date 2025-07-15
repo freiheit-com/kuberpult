@@ -9,5 +9,6 @@ linters:
     - unused
     - asciicheck
     - bodyclose
-  disable:
-
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
