@@ -3148,7 +3148,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment locks for this environment exist."},
 			},
 		},
 		{
@@ -3188,7 +3188,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Application locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Application locks for this environment exist."},
 			},
 		},
 		{
@@ -3229,7 +3229,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Team locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Team locks for this environment exist."},
 			},
 		},
 		{
@@ -3274,7 +3274,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
 			},
 		},
 		{
@@ -3330,7 +3330,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            6,
-				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
+				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
 			},
 		},
 	}
@@ -3704,7 +3704,7 @@ func TestAllowedCILinksState(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            1,
-				TransformerError: errMatcher{"general_failure:{message:\"Provided CI Link: https://github.com/freiheit-com/kuberpult is not valid or does not match any of the allowed domain\"}"},
+				TransformerError: errMatcher{"general_failure:{message:\"provided CI Link: https://github.com/freiheit-com/kuberpult is not valid or does not match any of the allowed domain\"}"},
 			},
 		},
 		{
@@ -3729,7 +3729,7 @@ func TestAllowedCILinksState(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            1,
-				TransformerError: errMatcher{"general_failure:{message:\"Provided CI Link: https://google.com/search?q=freiheit.com is not valid or does not match any of the allowed domain\"}"},
+				TransformerError: errMatcher{"general_failure:{message:\"provided CI Link: https://google.com/search?q=freiheit.com is not valid or does not match any of the allowed domain\"}"},
 			},
 		},
 	}

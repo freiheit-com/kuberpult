@@ -3738,7 +3738,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: errMatcher{"Couldn't write environment '' into environments table, error: remove from env with environment does not exist: ''"},
+				TransformerError: errMatcher{"couldn't write environment '' into environments table, error: remove from env with environment does not exist: ''"},
 			},
 			shouldSucceed: false,
 		},
@@ -3983,7 +3983,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: status.Error(codes.InvalidArgument, "error: No environment found with given group 'dev'"),
+				TransformerError: status.Error(codes.InvalidArgument, "error: no environment found with given group 'dev'"),
 			},
 			shouldSucceed: false,
 		},
