@@ -1316,7 +1316,7 @@ func TestRetryEvent(t *testing.T) {
 				},
 			},
 			expectedError: errMatcher{
-				msg: "Couldn't find failed event with eslVersion: 0",
+				msg: "couldn't find failed event with eslVersion: 0",
 			},
 		},
 		{
@@ -1652,7 +1652,7 @@ func TestSkipEvent(t *testing.T) {
 				},
 			},
 			expectedError: errMatcher{
-				msg: "Couldn't find failed event with eslVersion: 1",
+				msg: "couldn't find failed event with eslVersion: 1",
 			},
 		},
 		{
