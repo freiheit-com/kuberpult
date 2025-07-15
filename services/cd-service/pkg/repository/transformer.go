@@ -2089,14 +2089,14 @@ func (c *DeleteEnvironment) Transform(
 
 	for envName, envConfig := range allEnvConfigs {
 		if envConfig.Upstream != nil && envConfig.Upstream.Environment == c.Environment {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName))
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName))
 		}
 
 		//If we are deleting an environment and it is the last one on the group, we are also deleting the group.
 		//If this group is upstream from another env, we need to block it aswell
 		if envConfig.Upstream != nil && envConfig.Upstream.Environment == types.EnvName(envToDeleteGroupName) && lastEnvOfGroup {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. '%s' is part of environment group '%s', "+
-				"which is upstream from '%s' and deleting '%s' would result in environment group deletion.",
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. '%s' is part of environment group '%s', "+
+				"which is upstream from '%s' and deleting '%s' would result in environment group deletion",
 				c.Environment,
 				c.Environment,
 				envToDeleteGroupName,
@@ -2114,7 +2114,7 @@ func (c *DeleteEnvironment) Transform(
 
 	//Delete env from apps
 	for _, app := range allAppsForEnv {
-		logger.FromContext(ctx).Sugar().Infof("Deleting environment '%s' from '%s'.", c.Environment, app)
+		logger.FromContext(ctx).Sugar().Infof("Deleting environment '%s' from '%s'", c.Environment, app)
 		deleteEnvFromAppTransformer := DeleteEnvFromApp{
 			Authentication:        c.Authentication,
 			TransformerEslVersion: c.TransformerEslVersion,
@@ -2167,7 +2167,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash st
 	if err != nil {
 		return nil, fmt.Errorf("unable to get manifest repo timestamp that corresponds to provided commit Hash %v", err)
 	} else if ts == nil {
-		return nil, fmt.Errorf("timestamp for the provided commit hash %q does not exist.", commitHash)
+		return nil, fmt.Errorf("timestamp for the provided commit hash %q does not exist", commitHash)
 	}
 
 	apps, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, upstreamEnvName, *ts)

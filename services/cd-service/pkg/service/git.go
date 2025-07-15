@@ -58,15 +58,15 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 
 func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
 	if in.Environment == nil && in.EnvironmentGroup == nil {
-		return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")
+		return nil, fmt.Errorf("must have an environment or environmentGroup to get the product summary for")
 	}
 	if in.Environment != nil && in.EnvironmentGroup != nil {
 		if *in.Environment != "" && *in.EnvironmentGroup != "" {
-			return nil, fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for")
+			return nil, fmt.Errorf("can not have both an environment and environmentGroup to get the product summary for")
 		}
 	}
 	if in.ManifestRepoCommitHash == "" {
-		return nil, fmt.Errorf("Must have a commit to get the product summary for")
+		return nil, fmt.Errorf("must have a commit to get the product summary for")
 	}
 	var summaryFromEnv []api.ProductSummary
 	dbHandler := s.Config.DBHandler

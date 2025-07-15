@@ -305,7 +305,7 @@ func (s Server) checkContentType(w http.ResponseWriter, req *http.Request) bool 
 func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *http.Request, environmentGroup, lockID string) {
 	if req.Body == nil && s.AzureAuth {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "missing request body")
+		_, _ = fmt.Fprintf(w, "missing request body")
 		return
 	}
 	if req.Body != nil {
@@ -315,7 +315,7 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 		signature, err := io.ReadAll(req.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Can't read request body %s", err)
+			_, _ = fmt.Fprintf(w, "Can't read request body %s", err)
 			return
 		}
 		if len(signature) == 0 && s.AzureAuth {
@@ -332,11 +332,11 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 			if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environmentGroup+lockID), bytes.NewReader(signature), nil); err != nil {
 				if err != pgperrors.ErrUnknownIssuer {
 					w.WriteHeader(500)
-					fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+					_, _ = fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 					return
 				}
 				w.WriteHeader(http.StatusUnauthorized)
-				fmt.Fprintf(w, "Invalid signature")
+				_, _ = fmt.Fprintf(w, "Invalid signature")
 				return
 			}
 		}

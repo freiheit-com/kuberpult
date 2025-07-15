@@ -31,12 +31,10 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/lib/pq"
 
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
-
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/google/go-cmp/cmp"
@@ -891,7 +889,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1271,7 +1269,7 @@ func TestMinorFlag(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t).(*repository)
 			repo.config.MinorRegexes = tc.MinorRegexes
 			err3 := repo.State().DBHandler.WithTransactionR(ctxWithTime, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1377,7 +1375,7 @@ func TestFilterManifestLines(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctx := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			filteredLines := filterManifestLines(ctx, tc.StartingString, tc.Regexes)
 			if diff := cmp.Diff(tc.ExpectedResult, filteredLines); diff != "" {
 				t.Errorf("error mismatch in filtered lines (-want, +got):\n%s", diff)
@@ -1439,7 +1437,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1510,7 +1508,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1639,7 +1637,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1759,7 +1757,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1848,7 +1846,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -2220,7 +2218,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, setupTransformers...)
@@ -4023,7 +4021,7 @@ func TestTransaction(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -4376,7 +4374,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -4528,7 +4526,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
