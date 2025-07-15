@@ -221,6 +221,9 @@ func Run(ctx context.Context) error {
 
 			MaxIdleConnections: dbMaxIdle,
 			MaxOpenConnections: dbMaxOpen,
+
+			DatadogServiceName: "kuberpult-manifest-repo-export-service",
+			DatadogEnabled:     enableTraces,
 		}
 	} else {
 		logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")

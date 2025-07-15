@@ -315,6 +315,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 
 func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail string) {
 	ctx := r.Context()
+
 	if tail != "/" {
 		http.Error(w, fmt.Sprintf("Release does not accept additional path arguments, got: %s", tail), http.StatusNotFound)
 		return

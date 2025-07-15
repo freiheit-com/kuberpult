@@ -72,7 +72,6 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName str
 	}
 
 	selectQuery := h.AdaptQuery("SELECT app, env, json, discarded FROM argo_cd_events WHERE app = ? AND env = ? LIMIT 1;")
-	tracing.MarkSpanAsDB(span, selectQuery)
 	row, err := tx.QueryContext(
 		ctx,
 		selectQuery,
