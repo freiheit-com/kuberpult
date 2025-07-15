@@ -42,7 +42,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/database"
 	psql "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	_ "github.com/lib/pq"
 
 	ddsql "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 )
@@ -521,7 +520,7 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 		transformerID)
 
 	if err != nil {
-		return fmt.Errorf("Error inserting event information into DB. Error: %w", err)
+		return fmt.Errorf("error inserting event information into DB. Error: %w", err)
 	}
 	return nil
 }
@@ -657,7 +656,7 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 
 	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID, limit)
 	if err != nil {
-		return nil, fmt.Errorf("Error querying commit_events. Error: %w", err)
+		return nil, fmt.Errorf("error querying commit_events. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -675,12 +674,12 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning commit_events row from DB. Error: %w", err)
 		}
 
 		eventGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
 		if err != nil {
-			return nil, fmt.Errorf("Could not unmarshall commit event: %v", err)
+			return nil, fmt.Errorf("could not unmarshall commit event: %v", err)
 		}
 		result = append(result, eventGo)
 	}
@@ -697,7 +696,7 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 
 func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, err error) (*EventRow, error) {
 	if err != nil {
-		return nil, fmt.Errorf("Error querying commit_events. Error: %w", err)
+		return nil, fmt.Errorf("error querying commit_events. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
