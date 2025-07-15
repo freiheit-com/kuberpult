@@ -114,7 +114,7 @@ integration-test:
 	while [ ! -s "$(INTEGRATION_TEST_CONFIG_FILE)" ]; do \
 		sleep 1; \
 	done; \
-	perl -pi -e 's/:6443/:8443/g' $(INTEGRATION_TEST_CONFIG_FILE)
+	sed -i -e 's|6443|8443|g' $(INTEGRATION_TEST_CONFIG_FILE)
 	docker build -f tests/integration-tests/Dockerfile . -t $(INTEGRATION_TEST_IMAGE) --build-arg kuberpult_version=$(IMAGE_TAG_KUBERPULT) --build-arg charts_version=$(VERSION)
 	docker run  --network=host -v "./$(INTEGRATION_TEST_CONFIG_FILE):/kp/kubeconfig.yaml" --rm $(INTEGRATION_TEST_IMAGE)
 	rm -f $(INTEGRATION_TEST_CONFIG_FILE)
