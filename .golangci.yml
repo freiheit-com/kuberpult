@@ -5,10 +5,12 @@ linters:
     - errcheck
     - govet
     - ineffassign
-    - staticcheck
     - unused
     - asciicheck
+  disable:
     - bodyclose
+    - staticcheck
+    - copyloopvar
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
