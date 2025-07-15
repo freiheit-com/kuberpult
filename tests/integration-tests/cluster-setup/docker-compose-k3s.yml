@@ -24,9 +24,9 @@ services:
     volumes:
     - k3s-server:/var/lib/rancher/k3s
     # This is just so that we get the kubeconfig file out
-    - .:/output
+    - ./config:/output
     ports:
-    - 6443:6443  # Kubernetes API Server
+    - 8443:6443  # Kubernetes API Server
     - 80:80      # Ingress controller port 80
     - 443:443    # Ingress controller port 443
 

@@ -44,9 +44,6 @@ For details on how to fill the repo, see the
 
 - the `cd-service` is available at `localhost:8080`. And Kuberpult ui is available at `localhost:3000`
 
-## Build and run kuberpult with Earthly
-- Download [Earthly](https://github.com/earthly/earthly/releases) binary and add it to your PATH.
-- In the root of the repository run `make kuberpult-earthly`. This will build the services (frontend/cd/ui) in a containerised environment and run docker-compose using the built images.
 ## GRCP Calls (with docker-compose setup)
 
 Most calls can be made directly from the UI.
@@ -292,23 +289,3 @@ The changelog and the version is generated with
 
 - The first version of this tool was written using go-git v5. Sadly the performance was abysmal. Adding a new manifest took > 20 seconds. Therefore, we switched to libgit2, which is much faster but less ergonomic.
 
-
-## CLI Debugging Unit Tests in local Containers
-To debug a unittest with [dlv](https://github.com/go-delve/delve), add the following to the Earthfile of the service:
-```
-debug-unit-test:
-    FROM +unit-test
-    RUN go install github.com/go-delve/delve/cmd/dlv@master
-    RUN false
-```
-and run:
-```
-earthly --interactive +debug-unit-test
-```
-This will run your unit-tests, install the debugger and then drop you in a
-shell inside the container. In there, you can run (e.g. for the cd-service):
-```
-dlv test ./pkg/repository
-```
-which will start the debugger. Press `c` to start the tests, `b` to set
-breakpoints or `help` for more info.

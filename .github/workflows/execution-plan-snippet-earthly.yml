@@ -256,10 +256,6 @@ jobs:
       packages: write
       contents: read
     steps:
-      - name: Install earthly
-        uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.13
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -334,10 +330,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install earthly
-        uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.13
       - name: Set version pr/main
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
