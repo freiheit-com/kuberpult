@@ -26,6 +26,7 @@ INTEGRATION_TEST_IMAGE ?=$(DOCKER_REGISTRY_URI)/integration-test:$(IMAGE_TAG)
 ARTIFACT_REGISTRY_URI := europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 INTEGRATION_TEST_CONFIG_DIR := tests/integration-tests/cluster-setup/config
 INTEGRATION_TEST_CONFIG_FILE := $(INTEGRATION_TEST_CONFIG_DIR)/kubeconfig.yaml
+COMMIT_MSG_FILE := commitlint.msg
 
 export USER_UID := $(shell id -u)
 .install:
@@ -146,12 +147,12 @@ tag-cli-release-image: push-cli-image
 	true
 
 .PHONY: commitlint
-commitlint: commitlint.msg
-	docker run -w /commitlint -v "./commitlint.config.js:/commitlint/commitlint.config.js" -v "./commitlint.msg:/commitlint/commitlint.msg" node:18-bookworm sh -c "npm install --save-dev @commitlint/cli@18.4.3 && cat ./commitlint.msg | npx commitlint --config commitlint.config.js"
-	rm commitlint.msg
+commitlint: $(COMMIT_MSG_FILE)
+	docker run -w /commitlint -v "./commitlint.config.js:/commitlint/commitlint.config.js" -v "./$(COMMIT_MSG_FILE):/commitlint/$(COMMIT_MSG_FILE)" node:18-bookworm sh -c "npm install --save-dev @commitlint/cli@18.4.3 && cat ./$(COMMIT_MSG_FILE) | npx commitlint --config commitlint.config.js"
+	rm $(COMMIT_MSG_FILE)
 
-commitlint.msg:
-	git log -1 --pretty=%B > commitlint.msg
+$(COMMIT_MSG_FILE):
+	git log -1 --pretty=%B > $(COMMIT_MSG_FILE)
 
 .PHONY: pull-trivy check-secrets
 pull-trivy:
