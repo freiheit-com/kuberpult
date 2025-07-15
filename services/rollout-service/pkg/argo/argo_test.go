@@ -279,18 +279,6 @@ func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedCon
 	}
 }
 
-func (m *mockApplicationServiceClient) checkApplications(t *testing.T, expectedApps []ArgoAppMetadata) {
-	if len(m.Apps) != len(expectedApps) {
-		t.Errorf("mismatch on number of applications, want %d got %d", len(expectedApps), len(m.Apps))
-	}
-	for idx, app := range m.Apps {
-		currAppMetadata := ArgoAppToMetaData(app)
-		if diff := cmp.Diff(expectedApps[idx], currAppMetadata); diff != "" {
-			t.Errorf("argo app mismatch (-want, +got):\n%s", diff)
-		}
-	}
-}
-
 func ArgoAppToMetaData(app *ArgoApp) ArgoAppMetadata {
 	return ArgoAppMetadata{
 		Name:              app.App.Annotations["com.freiheit.kuberpult/application"],

@@ -410,7 +410,7 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	existingTeamLock, err := h.DBSelectTeamLock(ctx, tx, environment, teamName, lockID)
 
 	if err != nil {
-		return fmt.Errorf("Could not obtain existing team lock: %w", err)
+		return fmt.Errorf("could not obtain existing team lock: %w", err)
 	}
 
 	if existingTeamLock == nil {

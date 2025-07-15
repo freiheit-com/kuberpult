@@ -99,13 +99,13 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning application locks row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning application locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		err = json.Unmarshal(([]byte)(metaData), &row.Metadata)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		err = closeRows(rows)
 		if err != nil {
@@ -253,14 +253,14 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 				if errors.Is(err, sql.ErrNoRows) {
 					return nil, nil
 				}
-				return nil, fmt.Errorf("Error scanning application locks row from DB. Error: %w", err)
+				return nil, fmt.Errorf("error scanning application locks row from DB. Error: %w", err)
 			}
 
 			//exhaustruct:ignore
 			var resultJson = LockMetadata{}
 			err = json.Unmarshal(([]byte)(metaData), &resultJson)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
+				return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 			}
 			appLocks = append(appLocks, ApplicationLock{
 				Created:  row.Created,
@@ -315,7 +315,7 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning application locks row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning application locks row from DB. Error: %w", err)
 		}
 		if results == nil {
 			results = make([]string, 0)
@@ -430,14 +430,14 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning application locks row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning application locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(metaData), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		row.Metadata = resultJson
 		appLocks = append(appLocks, row)
@@ -635,12 +635,12 @@ func (h *DBHandler) processAppLockRows(ctx context.Context, err error, rows *sql
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning releases row from DB. Error: %w", err)
 		}
 
 		err = json.Unmarshal(([]byte)(metadataJson), &row.Metadata)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 
 		appLocks = append(appLocks, row)
