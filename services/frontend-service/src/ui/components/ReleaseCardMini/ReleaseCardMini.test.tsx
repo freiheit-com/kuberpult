@@ -38,6 +38,7 @@ describe('Release Card Mini', () => {
         props: {
             app: string;
             version: number;
+            revision: number;
         };
         rels: Release[];
         environments: Environment[];
@@ -45,7 +46,7 @@ describe('Release Card Mini', () => {
     const data: TestData[] = [
         {
             name: 'using A release',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', version: 2, revision: 0 },
             rels: [makeRelease(2, 'd1.2.3')],
             expectedMessage: 'test2',
             expectedLabel: 'd1.2.3 ',
@@ -53,7 +54,7 @@ describe('Release Card Mini', () => {
         },
         {
             name: 'with commit id',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', version: 2, revision: 0 },
             rels: [makeRelease(2, '')],
             expectedMessage: 'test2',
             expectedLabel: 'commit2 ',
@@ -61,7 +62,7 @@ describe('Release Card Mini', () => {
         },
         {
             name: 'withthout commit id, without displayVersion',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', version: 2, revision: 0 },
             rels: [makeRelease(2, '', '')],
             expectedMessage: 'test2',
             expectedLabel: '#2 ',
@@ -69,7 +70,7 @@ describe('Release Card Mini', () => {
         },
         {
             name: 'A release three days ago with an env',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', version: 2, revision: 0 },
             rels: [makeRelease(2, '')],
             environments: [
                 {
@@ -83,7 +84,7 @@ describe('Release Card Mini', () => {
         },
         {
             name: 'A release with undeploy version',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', version: 2, revision: 0 },
             rels: [makeRelease(2, '', '', true)],
             environments: [
                 {

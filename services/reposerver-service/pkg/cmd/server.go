@@ -122,6 +122,9 @@ func Run(ctx context.Context) error {
 
 		MaxIdleConnections: dbMaxIdle,
 		MaxOpenConnections: dbMaxOpen,
+
+		DatadogServiceName: "kuberpult-reposerver-service",
+		DatadogEnabled:     enableTraces,
 	}
 
 	dbHandler, err := db.Connect(ctx, dbCfg)

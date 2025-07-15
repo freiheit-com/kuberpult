@@ -43,6 +43,7 @@ type commandLineArguments struct {
 	sourceAuthor         cli_utils.RepeatedString
 	sourceMessage        cli_utils.RepeatedString
 	version              cli_utils.RepeatedInt
+	revision             cli_utils.RepeatedInt
 	displayVersion       cli_utils.RepeatedString
 	skipSignatures       bool
 	signatures           cli_utils.RepeatedString
@@ -161,6 +162,15 @@ func argsValid(cmdArgs *commandLineArguments) (result bool, errorMessage string)
 		}
 	}
 
+	if len(cmdArgs.revision.Values) > 1 {
+		return false, "the --revision arg must be set at most once"
+	}
+
+	if len(cmdArgs.revision.Values) == 1 {
+		if cmdArgs.revision.Values[0] <= 0 {
+			return false, "the --revision arg value must be positive"
+		}
+	}
 	if len(cmdArgs.displayVersion.Values) > 1 {
 		return false, "the --display_version arg must be set at most once"
 	}
@@ -204,6 +214,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 	fs.Var(&cmdArgs.sourceAuthor, "source_author", "the souce author (must not be set more than once)")
 	fs.Var(&cmdArgs.sourceMessage, "source_message", "the source commit message (must not be set more than once)")
 	fs.Var(&cmdArgs.version, "version", "the release version (must be a positive integer)")
+	fs.Var(&cmdArgs.revision, "revision", "the release revision number (must be a positive integer)")
 	fs.Var(&cmdArgs.displayVersion, "display_version", "display version (must be a string between 1 and characters long)")
 	fs.Var(&cmdArgs.ciLink, "ci_link", "the link to the CI run that created this release")
 	fs.BoolVar(&cmdArgs.skipSignatures, "skip_signatures", false, "if set to true, then the command line does not accept the --signature args")
@@ -270,6 +281,12 @@ func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 		version := cmdArgs.version.Values[0]
 		version64 := uint64(version)
 		rp.Version = &version64
+	}
+
+	if len(cmdArgs.revision.Values) == 1 {
+		revision := cmdArgs.revision.Values[0]
+		revision64 := uint64(revision)
+		rp.Revision = &revision64
 	}
 	if len(cmdArgs.displayVersion.Values) == 1 {
 		rp.DisplayVersion = &cmdArgs.displayVersion.Values[0]

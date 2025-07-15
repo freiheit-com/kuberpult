@@ -57,6 +57,12 @@ services:
       - KUBERPULT_VERSION=v0.1.2
       - KUBERPULT_CHECK_CUSTOM_MIGRATIONS=false
       - KUBERPULT_REPOSERVER_ENABLED=false
+      - KUBERPULT_ENABLE_METRICS=true
+      - DD_AGENT_HOST=datadog-agent
+      - KUBERPULT_ENABLE_TRACING=true
+      - DD_SERVICE=kuberpult-cd-service
+      - DD_VERSION=0.0.0
+      - DD_ENV=example-local-jul11-b
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -84,7 +90,7 @@ services:
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_SSH_KEY=/etc/ssh/identity
       - KUBERPULT_GIT_SSH_KNOWN_HOSTS=/etc/ssh/ssh_known_hosts
-      - KUBERPULT_ENABLE_METRICS=false
+      - KUBERPULT_ENABLE_METRICS=true
       - KUBERPULT_DOGSTATSD_ADDR=127.0.0.1:8125
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
       - KUBERPULT_RELEASE_VERSIONS_LIMIT=20
@@ -96,6 +102,11 @@ services:
       - KUBERPULT_VERSION=v0.1.2
       - KUBERPULT_CHECK_CUSTOM_MIGRATIONS=false
       - KUBERPULT_GIT_TIMESTAMP_MIGRATIONS_ENABLED=false
+      - KUBERPULT_ENABLE_TRACING=true
+      - DD_SERVICE=kuberpult-manifest-repo-export-service
+      - DD_ENV=example-local-jul11-b
+      - DD_AGENT_HOST=datadog-agent
+      - KUBERPULT_ESL_PROCESSING_BACKOFF=15
     volumes:
       - ./services/cd-service:/kp/kuberpult
     ports:
@@ -132,6 +143,12 @@ services:
       - KUBERPULT_BATCH_CLIENT_TIMEOUT=2m
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=8
+      - KUBERPULT_REVISIONS_ENABLED=true
+      - KUBERPULT_ENABLE_TRACING=true
+      - KUBERPULT_ENABLE_METRICS=true
+      - DD_SERVICE=kuberpult-frontend-service
+      - DD_ENV=example-local-jul11-b
+      - DD_AGENT_HOST=datadog-agent
     ports:
       - "8081:8081"
       - "5555:5555"

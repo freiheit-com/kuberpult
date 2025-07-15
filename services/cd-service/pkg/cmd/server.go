@@ -275,6 +275,9 @@ func RunServer() {
 
 					MaxIdleConnections: c.DbMaxIdleConnections,
 					MaxOpenConnections: c.DbMaxOpenConnections,
+
+					DatadogEnabled:     c.EnableTracing,
+					DatadogServiceName: datadogNameCd,
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")

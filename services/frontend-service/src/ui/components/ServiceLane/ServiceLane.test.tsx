@@ -15,7 +15,13 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { fireEvent, render, screen } from '@testing-library/react';
 import { DiffElement, GeneralServiceLane, ServiceLane } from './ServiceLane';
-import { AppDetailsResponse, AppDetailsState, updateAppDetails, UpdateOverview } from '../../utils/store';
+import {
+    AppDetailsResponse,
+    AppDetailsState,
+    ReleaseNumbers,
+    updateAppDetails,
+    UpdateOverview,
+} from '../../utils/store';
 import { Spy } from 'spy4js';
 import {
     Application,
@@ -45,6 +51,7 @@ const extendRelease = (props: Partial<Release>): Release => ({
     isPrepublish: false,
     environments: [],
     ciLink: '',
+    revision: 0,
     ...props,
 });
 
@@ -69,9 +76,9 @@ describe('Service Lane', () => {
                     application: {
                         name: 'test3',
                         releases: [
-                            extendRelease({ version: 2 }),
-                            extendRelease({ version: 3 }),
-                            extendRelease({ version: 5 }),
+                            extendRelease({ version: 2, revision: 0 }),
+                            extendRelease({ version: 3, revision: 0 }),
+                            extendRelease({ version: 5, revision: 0 }),
                         ],
                         sourceRepoUrl: 'http://test2.com',
                         team: 'example',
@@ -89,7 +96,11 @@ describe('Service Lane', () => {
         };
         const sampleApp: Application = {
             name: 'test3',
-            releases: [extendRelease({ version: 5 }), extendRelease({ version: 2 }), extendRelease({ version: 3 })],
+            releases: [
+                extendRelease({ version: 5, revision: 0 }),
+                extendRelease({ version: 2, revision: 0 }),
+                extendRelease({ version: 3, revision: 0 }),
+            ],
             sourceRepoUrl: 'http://test2.com',
             team: 'example',
             undeploySummary: UndeploySummary.NORMAL,
@@ -104,10 +115,108 @@ describe('Service Lane', () => {
         getWrapper({ application: sampleLightWeightApp, allAppDetails: appDetails });
 
         // then releases are sorted and Release card is called with props:
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp.name, version: 5 });
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: sampleApp.name, version: 3 });
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: sampleApp.name, version: 2 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({
+            app: sampleApp.name,
+            versionInfo: {
+                version: 5,
+                revision: 0,
+            },
+        });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({
+            app: sampleApp.name,
+            versionInfo: {
+                version: 3,
+                revision: 0,
+            },
+        });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({
+            app: sampleApp.name,
+            versionInfo: {
+                version: 2,
+                revision: 0,
+            },
+        });
         mock_ReleaseCard.ReleaseCard.wasCalled(3);
+    });
+
+    it('Renders a row of releases with revisions', () => {
+        // when
+        const appDetails = {
+            test3: {
+                details: {
+                    application: {
+                        name: 'test3',
+                        releases: [
+                            extendRelease({ version: 1, revision: 2 }),
+                            extendRelease({ version: 1, revision: 5 }),
+                            extendRelease({ version: 1, revision: 4 }),
+                            extendRelease({ version: 2, revision: 0 }),
+                        ],
+                        sourceRepoUrl: 'http://test2.com',
+                        team: 'example',
+                        undeploySummary: UndeploySummary.NORMAL,
+                        warnings: [],
+                    },
+                    deployments: {},
+                    appLocks: {},
+                    teamLocks: {},
+                },
+                appDetailState: AppDetailsState.READY,
+                updatedAt: new Date(Date.now()),
+                errorMessage: '',
+            },
+        };
+        const sampleApp: Application = {
+            name: 'test3',
+            releases: [
+                extendRelease({ version: 1, revision: 2 }),
+                extendRelease({ version: 1, revision: 5 }),
+                extendRelease({ version: 1, revision: 4 }),
+                extendRelease({ version: 2, revision: 0 }),
+            ],
+            sourceRepoUrl: 'http://test2.com',
+            team: 'example',
+            undeploySummary: UndeploySummary.NORMAL,
+            warnings: [],
+        };
+        const sampleLightWeightApp: OverviewApplication = {
+            name: 'test3',
+            team: 'example',
+        };
+        UpdateOverview.set({});
+        updateAppDetails.set(appDetails);
+        getWrapper({ application: sampleLightWeightApp, allAppDetails: appDetails });
+
+        // then releases are sorted and Release card is called with props:
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({
+            app: sampleApp.name,
+            versionInfo: {
+                version: 2,
+                revision: 0,
+            },
+        });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({
+            app: sampleApp.name,
+            versionInfo: {
+                version: 1,
+                revision: 5,
+            },
+        });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({
+            app: sampleApp.name,
+            versionInfo: {
+                version: 1,
+                revision: 4,
+            },
+        });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(3, 0)).toStrictEqual({
+            app: sampleApp.name,
+            versionInfo: {
+                version: 1,
+                revision: 2,
+            },
+        });
+        mock_ReleaseCard.ReleaseCard.wasCalled(4);
     });
 });
 
@@ -466,7 +575,7 @@ const data: TestDataDiff[] = [
                 application: {
                     name: 'test2',
                     team: 'test-team',
-                    releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)],
+                    releases: [makeRelease(2), makeRelease(3), makeRelease(4), makeRelease(5)].reverse(),
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
@@ -673,31 +782,44 @@ describe('Service Lane Important Releases', () => {
             });
             // when
             getWrapper({ application: sampleOverviewApp });
-
             // then - the latest release is always important and is displayed first
             expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0)).toMatchObject({
-                version: testcase.releases[0].version,
+                app: 'test2',
+                versionInfo: {
+                    version: testcase.releases[0].version,
+                    revision: testcase.releases[0].revision,
+                },
             });
             if (testcase.currentlyDeployedVersion !== testcase.releases[0].version) {
                 // then - the currently deployed version always important and displayed second after latest
-                expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1)).toMatchObject({
-                    version: testcase.currentlyDeployedVersion,
-                });
-            }
-            if (testcase.releases[1].version > testcase.currentlyDeployedVersion) {
-                // then - second release not deployed and not latest -> not important
                 mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
-                    { app: 'test2', version: testcase.releases[1].version },
+                    {
+                        app: 'test2',
+                        versionInfo: { version: testcase.releases[1].version, revison: testcase.releases[1].revision },
+                    },
                     Spy.IGNORE
                 );
             }
+            if (testcase.releases[1].version > testcase.currentlyDeployedVersion) {
+                // then - second release not deployed and not latest -> not important
+                mock_ReleaseCard.ReleaseCard.wasNotCalledWith(Spy.IGNORE);
+            }
             // then - the old release is not important and not displayed
             mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
-                { app: 'test2', version: testcase.releases[7].version },
+                {
+                    app: 'test2',
+                    versionInfo: { version: testcase.releases[7].version, revison: testcase.releases[7].revision },
+                },
                 Spy.IGNORE
             );
             mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
-                { app: 'test2', version: testcase.releases[testcase.minorReleaseIndex].version },
+                {
+                    app: 'test2',
+                    versionInfo: {
+                        version: testcase.releases[testcase.minorReleaseIndex].version,
+                        revison: testcase.releases[testcase.minorReleaseIndex].revision,
+                    },
+                },
                 Spy.IGNORE
             );
         });

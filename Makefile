@@ -83,21 +83,22 @@ prepare-compose:
 	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 	IMAGE_TAG=local make -C services/frontend-service docker
 
+
 .PHONY: all-services
 all-services:
 	@for service in services/*; do \
 		make -C $$service docker; \
 	done
 
-kuberpult: prepare-compose compose-down all-services
+kuberpult: prepare-compose compose-down
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
 	# This deletes the volume of the default db location:
 	docker volume rm kuberpult_pgdata
 
-kuberpult-freshdb: prepare-compose compose-down all-services
-	docker compose up 
+kuberpult-freshdb: prepare-compose compose-down
+	docker compose up
 
 # Run this before starting the unit tests in your IDE:
 unit-test-db:

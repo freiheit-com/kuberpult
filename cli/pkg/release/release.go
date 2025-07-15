@@ -35,6 +35,7 @@ type ReleaseParameters struct {
 	SourceAuthor         *string
 	SourceMessage        *string
 	Version              *uint64
+	Revision             *uint64
 	DisplayVersion       *string
 	CiLink               *string
 	UseDexAuthentication bool

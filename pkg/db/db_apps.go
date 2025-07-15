@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -66,7 +65,7 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 		WHERE appName=? 
 		LIMIT 1;
 	`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -85,7 +84,7 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) ([]
 		WHERE stateChange <> 'AppStateChangeDelete'
 		ORDER BY appname;
 	`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(ctx, selectQuery)
 
 	return h.processAppsRows(ctx, rows, err)
@@ -101,7 +100,7 @@ func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appN
 		ORDER BY version DESC 
 		LIMIT 1;
 	`)
-	tracing.MarkSpanAsDB(span, selectQuery)
+	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -141,7 +140,7 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 		WHERE stateChange <> 'AppStateChangeDelete'
 		ORDER BY appname;
 	`)
-	tracing.MarkSpanAsDB(span, query)
+	span.SetTag("query", query)
 	rows, err := transaction.QueryContext(ctx, query)
 	return h.processAllAppsRows(ctx, rows, err)
 }
@@ -171,7 +170,7 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 		ON CONFLICT(appname)
 		DO UPDATE SET created = excluded.created, appname = excluded.appname, statechange = excluded.statechange, metadata = excluded.metadata;
 	`)
-	tracing.MarkSpanAsDB(span, upsertQuery)
+	span.SetTag("query", upsertQuery)
 
 	jsonToInsert, err := json.Marshal(metaData)
 	if err != nil {
@@ -201,7 +200,7 @@ func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.T
 		INSERT INTO apps_history (created, appName, stateChange, metadata)
 		VALUES (?, ?, ?, ?);
 	`)
-	tracing.MarkSpanAsDB(span, insertQuery)
+	span.SetTag("query", insertQuery)
 
 	jsonToInsert, err := json.Marshal(metaData)
 	if err != nil {
