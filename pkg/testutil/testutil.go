@@ -19,9 +19,12 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"os"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -208,4 +211,22 @@ func NewIncrementalUUIDGeneratorForPageSizeTest() uuid.GenerateUUIDs {
 		gen: &fakeGenBase,
 	}
 	return fakeGen
+}
+
+// WrapTestRoutine is intended for tests, because normal logging via logger.FromContext()
+// does not appear in tests by default.
+// LogLevel should be either WARN, INFO, or ERROR
+// NOTE: You need to call this for each spawned go-routine (if any).
+func WrapTestRoutine(t *testing.T, ctx context.Context, logLevel string, inner func(ctx context.Context)) {
+	err := os.Setenv("LOG_LEVEL", logLevel)
+	if err != nil {
+		t.Fatalf("failed to set LOG_LEVEL: %v", err)
+	}
+	err = logger.Wrap(ctx, func(ctx context.Context) error {
+		inner(ctx)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to wrap logger: %v", err)
+	}
 }
