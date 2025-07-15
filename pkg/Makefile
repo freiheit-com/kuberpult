@@ -34,10 +34,10 @@ test: gen unit-test
 lint: gen
 ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"
-	golangci-lint run --timeout=25m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")
+	(cd .. && golangci-lint run --timeout=25m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi"))
 else
 	@echo "Running in docker"
-	docker run --rm -w $(SERVICE_DIR) -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c 'golangci-lint run --timeout=25m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
+	docker run --rm -w /kp -v "..:/kp" $(DEPS_IMAGE) sh -c 'golangci-lint run --timeout=25m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
 endif
 
 gen: grpc-api-gen publicapi
