@@ -21,8 +21,3 @@ RUN tar xzf helm-v3.14.2-linux-amd64.tar.gz
 RUN mv linux-amd64/helm /usr/local/bin/helm
 RUN chmod +x /usr/local/bin/helm
 
-# TODO: Uncomment this later once earthly has been completely removed (Ref: SRX-ELW2PF)
-# WORKDIR /tmp/kp/
-# COPY go.mod go.sum ./
-# RUN go mod download
-# WORKDIR /

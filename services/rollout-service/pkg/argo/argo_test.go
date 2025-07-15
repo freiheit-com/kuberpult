@@ -26,6 +26,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
@@ -34,6 +35,7 @@ import (
 	"io"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sync"
 	"testing"
 )
 
@@ -255,7 +257,7 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 	}
 	for _, existingArgoApp := range m.Apps {
 		if existingArgoApp.App.Name == req.Application.Name {
-			// App alrady exists
+			// App already exists
 			return nil, nil
 		}
 	}
@@ -836,21 +838,22 @@ func TestArgoConsume(t *testing.T) {
 			}
 
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
-			errCh := make(chan error)
+			errChConsume := make(chan error)
+			errChConsumeArgo := make(chan error)
 			go func() {
-				errCh <- argoProcessor.Consume(ctx, hlth.Reporter("consume"))
+				errChConsume <- argoProcessor.Consume(ctx, hlth.Reporter("consume"), nil)
 			}()
 
 			go func() {
-				errCh <- ConsumeArgo(ctx, hlth.Reporter("consume-argo"), as, argoProcessor.ArgoApps)
+				errChConsumeArgo <- ConsumeArgo(ctx, hlth.Reporter("consume-argo"), as, argoProcessor.ArgoApps)
 			}()
 
 			err := argoProcessor.Push(ctx, tc.ArgoOverview)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("error running Push: %v", err)
 			}
 
-			err = <-errCh
+			err = <-errChConsumeArgo
 
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -1403,56 +1406,93 @@ func TestReactToKuberpultEvents(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			as := &mockApplicationServiceClient{
-				Steps: []step{
-					{
-						RecvErr:       status.Error(codes.Canceled, "context cancelled"),
-						CancelContext: true,
-					},
-				},
-				cancel:    cancel,
-				t:         t,
-				lastEvent: make(chan *ArgoEvent, 10),
-			}
-			hlth := &setup.HealthServer{}
-			argoProcessor := &ArgoAppProcessor{
-				lastOverview:          tc.ArgoOverview[0],
-				ApplicationClient:     as,
-				trigger:               make(chan *ArgoOverview, 10),
-				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
-				ManageArgoAppsEnabled: true,
-				ManageArgoAppsFilter:  []string{"*"},
-				KnownApps:             map[string]map[string]*v1alpha1.Application{},
-			}
-			argoProcessor.PopulateAppsToKnownApps(tc.KnowArgoApps)
-			as.PopulateApps(tc.KnowArgoApps)
-			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
-			errCh := make(chan error)
-			go func() {
-				errCh <- ConsumeArgo(ctx, hlth.Reporter("consume-argo"), as, argoProcessor.ArgoApps)
-			}()
+			const MAX = 100
+			for i := 0; i < MAX; i++ {
+				testutil.WrapTestRoutine(t, context.Background(), "INFO", func(ctx context.Context) {
+					t.Logf("------- Test Start")
+					ctx, cancel := context.WithCancel(ctx)
+					mockClient := &mockApplicationServiceClient{
+						Steps: []step{
+							{
+								RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+								CancelContext: true,
+							},
+						},
+						cancel:    cancel,
+						t:         t,
+						lastEvent: make(chan *ArgoEvent, 10),
+					}
+					hlth := &setup.HealthServer{}
+					argoProcessor := &ArgoAppProcessor{
+						lastOverview:          tc.ArgoOverview[0],
+						ApplicationClient:     mockClient,
+						trigger:               make(chan *ArgoOverview, 10),
+						ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
+						ManageArgoAppsEnabled: true,
+						ManageArgoAppsFilter:  []string{"*"},
+						KnownApps:             map[string]map[string]*v1alpha1.Application{},
+					}
+					argoProcessor.PopulateAppsToKnownApps(tc.KnowArgoApps)
+					mockClient.PopulateApps(tc.KnowArgoApps)
+					hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
+					errChConsumeArgo := make(chan error)
+					errChConsume := make(chan error)
 
-			go func() {
-				errCh <- argoProcessor.Consume(ctx, hlth.Reporter("consume"))
-			}()
+					for _, ov := range tc.ArgoOverview {
+						err := argoProcessor.Push(ctx, ov)
+						if err != nil {
+							t.Fatalf("unexpected error on Push: %v", err)
+						}
+					}
 
-			for _, ov := range tc.ArgoOverview {
-				err := argoProcessor.Push(ctx, ov)
-				if err != nil {
-					t.Fatalf("unexpected error on Push: %v", err)
-				}
-			}
-			err1 := <-errCh
-			if err1 != nil {
-				t.Fatalf("unexpected error on channel: %v", err1)
-			}
-			err2 := <-errCh
-			if err2 != nil {
-				t.Fatalf("unexpected error on channel: %v", err2)
-			}
+					var wg sync.WaitGroup
+					wg.Add(1)
+					var tmp = make(chan struct{})
+					var waitChannel = &tmp
+					go func() {
+						defer wg.Done()
+						errChConsume <- argoProcessor.Consume(ctx, hlth.Reporter("consume"), waitChannel)
+					}()
 
-			as.checkApplications(t, tc.ExpectedArgoApps)
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+
+						// we can only start ConsumeArgo once Consume is already running
+						<-tmp
+
+						t.Logf("ConsumeArgo start")
+						errChConsumeArgo <- ConsumeArgo(ctx, hlth.Reporter("consume-argo"), mockClient, argoProcessor.ArgoApps)
+						t.Logf("ConsumeArgo end")
+					}()
+
+					err2 := <-errChConsume
+					if err2 != nil {
+						t.Fatalf("unexpected error on channel: %v", err2)
+					}
+
+					err1 := <-errChConsumeArgo
+					if err1 != nil {
+						t.Fatalf("unexpected error on channel: %v", err1)
+					}
+
+					wg.Wait() // this ensures that we have no confusing test logs when running this multiple times.
+
+					if len(mockClient.Apps) != len(tc.ExpectedArgoApps) {
+						t.Errorf("mismatch on number of applications, want %d got %d\n%v",
+							len(tc.ExpectedArgoApps),
+							len(mockClient.Apps),
+							mockClient.Apps,
+						)
+					}
+					for idx, app := range mockClient.Apps {
+						currAppMetadata := ArgoAppToMetaData(app)
+						if diff := cmp.Diff(tc.ExpectedArgoApps[idx], currAppMetadata); diff != "" {
+							t.Errorf("argo app mismatch (-want, +got):\n%s", diff)
+						}
+					}
+				})
+			}
 		})
 	}
 }

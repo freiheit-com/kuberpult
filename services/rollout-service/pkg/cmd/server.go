@@ -330,7 +330,7 @@ func runServer(ctx context.Context, config Config) error {
 			Shutdown: nil,
 			Name:     "consume self-manage events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return versionC.GetArgoProcessor().Consume(ctx, health)
+				return versionC.GetArgoProcessor().Consume(ctx, health, nil)
 			},
 		},
 	}
