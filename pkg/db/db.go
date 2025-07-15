@@ -713,7 +713,7 @@ func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, 
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning commit_events row from DB. Error: %w", err)
 		}
 	} else {
 		row = nil
@@ -788,7 +788,7 @@ func (h *DBHandler) DBSelectAllLockPreventedEventsForTransformerID(ctx context.C
 
 func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([]EventRow, error) {
 	if err != nil {
-		return nil, fmt.Errorf("Error querying commit_events. Error: %w", err)
+		return nil, fmt.Errorf("error querying commit_events. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -832,7 +832,7 @@ func processSingleCommitEventRow(rows *sql.Rows) (*EventRow, error) {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w", err)
+		return nil, fmt.Errorf("error scanning commit_events row from DB. Error: %w", err)
 	}
 	return &row, nil
 }
@@ -1406,7 +1406,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment lock row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning environment lock row from DB. Error: %w", err)
 		}
 		err = closeRows(rows)
 		if err != nil {
@@ -1416,7 +1416,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 		var dataJson = AllEnvLocksJson{}
 		err = json.Unmarshal(([]byte)(row.Data), &dataJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error scanning application lock row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning application lock row from DB. Error: %w", err)
 		}
 		return &AllEnvLocksGo{
 			Version:         row.Version,
@@ -1474,14 +1474,14 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		err = closeRows(rows)
 		if err != nil {
@@ -1629,14 +1629,14 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		envLocks = append(envLocks, EnvironmentLock{
 			EslVersion: row.EslVersion,
@@ -1715,14 +1715,14 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		if _, ok := envLocks[row.Env]; !ok {
 			envLocks[row.Env] = make([]EnvironmentLock, 0)
@@ -1781,14 +1781,14 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = AllEnvLocksJson{}
 		err = json.Unmarshal(([]byte)(row.Data), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Data)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Data)
 		}
 
 		var resultGo = AllEnvLocksGo{
@@ -1863,14 +1863,14 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 				if errors.Is(err, sql.ErrNoRows) {
 					return nil, nil
 				}
-				return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w", err)
+				return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 			}
 
 			//exhaustruct:ignore
 			var resultJson = LockMetadata{}
 			err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
+				return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 			}
 			envLocks = append(envLocks, EnvironmentLock{
 				EslVersion: row.EslVersion,
@@ -2324,7 +2324,7 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Error scanning deployment attempts row from DB. Error: %w", err)
+		return nil, fmt.Errorf("error scanning deployment attempts row from DB. Error: %w", err)
 	}
 
 	if releaseVersion.Valid {
