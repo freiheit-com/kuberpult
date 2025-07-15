@@ -113,7 +113,7 @@ integration-test:
 	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml up -d
 	while [ ! -s "$(INTEGRATION_TEST_CONFIG_FILE)" ]; do \
 		sleep 1; \
-	done; \
+	done;
 	sed -i -e 's|6443|8443|g' $(INTEGRATION_TEST_CONFIG_FILE)
 	docker build -f tests/integration-tests/Dockerfile . -t $(INTEGRATION_TEST_IMAGE) --build-arg kuberpult_version=$(IMAGE_TAG_KUBERPULT) --build-arg charts_version=$(VERSION)
 	docker run  --network=host -v "./$(INTEGRATION_TEST_CONFIG_FILE):/kp/kubeconfig.yaml" --rm $(INTEGRATION_TEST_IMAGE)
