@@ -21,6 +21,8 @@ ifeq ($(SKIP_DEPS),0)
 else
 	@echo "Skipping docker build for deps image"
 endif
+	@echo "Running gen to get the api go files"
+	make -C $(ROOT_DIR)/pkg gen
 
 .PHONY: compile
 compile: deps
