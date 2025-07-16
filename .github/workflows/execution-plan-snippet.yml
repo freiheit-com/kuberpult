@@ -199,6 +199,7 @@ jobs:
             artifacts/stage.b.tmp.json
             artifacts/execution-plan.json
             artifacts/github-convertor.json
+            artifacts/github-convertor.old.json
       - name: Split up plan into individual parts
         id: testingabc
         run: |
