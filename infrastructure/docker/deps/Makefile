@@ -21,4 +21,6 @@ build:
 	make -C ../../.. builder
 	docker build -t $(DEPS_IMAGE) -f Dockerfile ../../.. --build-arg BUILDER_IMAGE=$(BUILDER_IMAGE)
 	docker tag $(DEPS_IMAGE) $(DEPS_MAIN_IMAGE)
+
+build-main:
 	docker push $(DEPS_MAIN_IMAGE)
