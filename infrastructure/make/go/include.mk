@@ -41,6 +41,11 @@ bench-test: deps
 
 .PHONY: lint
 lint: deps
+	echo PWD
+	pwd
+	ls -lihsa
+	go mod tidy
+	go mod download
 	docker run --rm -w /kp -v "$$(pwd)/../..:/kp" $(DEPS_IMAGE) sh -c 'export GOFLAGS="-buildvcs=false"; golangci-lint run --timeout=25m -j4 --tests=true --skip-files=".*\.pb\.go$$" ./services/$(SERVICE)/... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
 
 .PHONY: docker
