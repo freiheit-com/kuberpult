@@ -19,6 +19,7 @@ CGO_ENABLED=0
 MAIN_PATH=cmd/kuberpult-client
 SERVICE=../client
 MIN_COVERAGE=67.1
+LINT_DIR=./cli
 
 include ../infrastructure/make/go/include.mk
 
@@ -30,3 +31,4 @@ build-pr: build release
 
 build-main: IMAGE_TAG=main-$(VERSION)
 build-main: build release
+

@@ -21,8 +21,6 @@ ifeq ($(SKIP_DEPS),0)
 else
 	@echo "Skipping docker build for deps image"
 endif
-	@echo "Running gen to get the api go files"
-	make -C $(ROOT_DIR)/pkg gen
 
 .PHONY: compile
 compile: deps
@@ -41,11 +39,13 @@ bench-test: deps
 	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" $(DEPS_IMAGE) sh -c "go test $(GO_TEST_ARGS) -bench=. ./..."
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
+
+LINT_DIR?=./services/$(SERVICE)
 .PHONY: lint
 lint: deps compile
 	echo before go mod
 	(cd $(ROOT_DIR) && pwd && ls -lihsa && find pkg/api/ && go mod tidy && go mod download)
-	docker run --rm -w /kp -v "$$(pwd)/../..:/kp" $(DEPS_IMAGE) sh -c 'export GOFLAGS="-buildvcs=false"; golangci-lint run --timeout=25m -j4 --tests=true --skip-files=".*\.pb\.go$$" ./services/$(SERVICE)/... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
+	docker run --rm -w /kp -v "$$(pwd)/../..:/kp" $(DEPS_IMAGE) sh -c 'export GOFLAGS="-buildvcs=false"; golangci-lint run --timeout=25m -j4 --tests=true --skip-files=".*\.pb\.go$$" $(LINT_DIR)/... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
 
 .PHONY: docker
 docker: compile
