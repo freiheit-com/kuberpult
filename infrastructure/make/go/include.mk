@@ -55,6 +55,9 @@ release:
 	test -n "$(MAIN_PATH)" || exit 0; docker push $(IMAGE_NAME)
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
 
+trivy-scan: release
+	SERVICE=$$(basename $$service) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
+
 .PHONY: datadog-wrapper
 datadog-wrapper:
 	docker run --rm -v "datadog-init:/datadog-init" datadog/serverless-init:1-alpine
@@ -62,7 +65,7 @@ datadog-wrapper:
 test: unit-test
 
 build-pr: IMAGE_TAG=pr-$(VERSION)
-build-pr: lint unit-test bench-test docker release
+build-pr: lint unit-test bench-test docker release trivy-scan
 
 build-main: IMAGE_TAG=main-$(VERSION)
-build-main: lint unit-test bench-test docker release
+build-main: lint unit-test bench-test docker release trivy-scan
