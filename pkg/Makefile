@@ -37,7 +37,7 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 	(cd .. && GOFLAGS="-buildvcs=false" golangci-lint run --timeout=25m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./pkg/... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi"))
 else
 	@echo "Running in docker"
-	docker run --rm -w /kp -v "..:/kp"    $(DEPS_IMAGE) sh -c 'export GOFLAGS="-buildvcs=false"; golangci-lint run --timeout=25m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(GOFLAGS="-buildvcs=false" go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
+	docker run --rm -w /kp -v "$$(pwd)/..:/kp" $(DEPS_IMAGE) sh -c 'export GOFLAGS="-buildvcs=false"; golangci-lint run --timeout=25m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(GOFLAGS="-buildvcs=false" go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
 endif
 
 gen: grpc-api-gen publicapi
