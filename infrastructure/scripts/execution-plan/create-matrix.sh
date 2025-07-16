@@ -1,11 +1,11 @@
 #!/bin/bash
 ## create-matrix.sh MAKE_TARGET
 ## create-matrix.sh creates the matrix data for github actions.
-## It requires the git diff as input, and decides what to build.
-## It also tells you why id decided to build something.
+## It requires the git diff as input, and decides what to build and prints that as json.
+## It also tells you why id decided to build something and prints that to stderr.
 
 set -uo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")"
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
 STAGE_A_BUILDS="builder deps"
 ## TODO SU: use all services
@@ -13,12 +13,12 @@ STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service manifest-r
 STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service"
 
 function debug() {
-  echo -e debug: $@ > /dev/stderr
+  echo -e debug: "$@" > /dev/stderr
 }
 
 function sanitizeArtifactName() {
   # replace chars by _
-  echo $@ | tr /- _
+  echo "$@" | tr /- _
 }
 
 function createMatrix() {
@@ -26,6 +26,7 @@ function createMatrix() {
   ALL_FILES="$(cat)"
   # if we have pkg, then build all go services
   echo "${ALL_FILES}" | grep '^pkg'
+  # shellcheck disable=SC2181
   if [ "$?" -eq 0 ]
   then
     debug "pkg was touched, therefore we need to build all of stage B as well."
@@ -41,9 +42,10 @@ function createMatrix() {
   for stageADirectory in $STAGE_A_BUILDS
   do
     grepOutput=$(echo "${ALL_FILES}" | grep "infrastructure/docker/${stageADirectory}")
+  # shellcheck disable=SC2181
     if [ $? -eq 0 ]
     then
-      debug "adding ${stageADirectory} to the list because of a change in $(echo -e ${grepOutput}|head -n 1)"
+      debug "adding ${stageADirectory} to the list because of a change in $(echo -e "${grepOutput}" | head -n 1)"
       inner=$(jq -n --arg directory "infrastructure/docker/${stageADirectory}" \
                     --arg command "make -C infrastructure/docker/${stageADirectory} ${makeTarget}" \
                     --arg artifacts "" \
@@ -70,8 +72,6 @@ function createMatrix() {
     done
   fi
 
-
-
   stageA=$(jq -n --argjson steps "[$stageArray]" \
                 '$ARGS.named'
   )
@@ -80,13 +80,14 @@ function createMatrix() {
   for stageBDirectory in $STAGE_B_BUILDS
   do
     grepOutput=$(echo "${ALL_FILES}" | grep "${stageBDirectory}")
+  # shellcheck disable=SC2181
     if [ $? -eq 0 ]
     then
-      debug "adding ${stageBDirectory} to the list because of a change in $(echo -e "${grepOutput}"|head -n 1)"
+      debug "adding ${stageBDirectory} to the list because of a change in $(echo -e "${grepOutput}" | head -n 1)"
       inner=$(jq -n --arg directory "${stageBDirectory}" \
                     --arg command "make -C ${stageBDirectory} ${makeTarget}" \
                     --arg artifacts "" \
-                    --arg artifactName "Artifact_$(sanitizeArtifactName ${stageBDirectory})" \
+                    --arg artifactName "Artifact_$(sanitizeArtifactName "${stageBDirectory}")" \
                     '$ARGS.named'
       )
       if [ -z "${stageArray}" ]
@@ -102,7 +103,6 @@ function createMatrix() {
   stageB=$(jq -n --argjson steps "[$stageArray]" \
                 '$ARGS.named'
   )
-
 
   root=$(jq -n --argjson stage_a "$stageA" \
                --argjson stage_b "$stageB" \
