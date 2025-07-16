@@ -7,6 +7,7 @@ GO_TEST_ARGS?=
 SKIP_LINT_ERRORS?=false
 SERVICE?=$(notdir $(shell pwd))
 IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):$(IMAGE_TAG)
+MAIN_IMAGE_NAME=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):main
 SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
 CONTEXT?=.
@@ -52,6 +53,7 @@ docker: compile
 .PHONY: release
 release:
 	test -n "$(MAIN_PATH)" || exit 0; docker push $(IMAGE_NAME)
+	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
 
 .PHONY: datadog-wrapper
 datadog-wrapper:
