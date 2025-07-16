@@ -103,7 +103,7 @@ jobs:
               ]
             }
           }' > artifacts/github-convertor.old.json
-          ./infrastructure/scripts/execution-plan/create-matrix.sh build-pr > artifacts/github-convertor.json
+          ./infrastructure/scripts/execution-plan/plan.pr.sh build-pr > artifacts/github-convertor.json
       - name: Set version main
         if: inputs.trigger == 'main'
         run: |
