@@ -39,7 +39,6 @@ jobs:
                   "artifacts": "",
                   "artifactName": "Artifact_infrastructure_docker_builder",
                   "directory": "infrastructure/docker/builder",
-                  
                 },
                 {
                   "image": "docker:git",
@@ -47,7 +46,6 @@ jobs:
                   "artifacts": "",
                   "artifactName": "Artifact_infrastructure_docker_git-ssh",
                   "directory": "infrastructure/docker/git-ssh",
-                  
                 }
               ]
             },
@@ -59,7 +57,6 @@ jobs:
                   "artifacts": "services/manifest-repo-export-service/coverage.html",
                   "artifactName": "Artifact_services_manifest-repo-export-service",
                   "directory": "services/manifest-repo-export-service",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -67,7 +64,6 @@ jobs:
                   "artifacts": "services/rollout-service/coverage.html",
                   "artifactName": "Artifact_services_rollout-service",
                   "directory": "services/rollout-service",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -75,7 +71,6 @@ jobs:
                   "artifacts": "cli/coverage.html",
                   "artifactName": "Artifact_cli",
                   "directory": "cli",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -83,7 +78,6 @@ jobs:
                   "artifacts": "pkg/coverage.html",
                   "artifactName": "Artifact_pkg",
                   "directory": "pkg",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -91,7 +85,6 @@ jobs:
                   "artifacts": "services/cd-service/coverage.html",
                   "artifactName": "Artifact_services_cd-service",
                   "directory": "services/cd-service",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -99,7 +92,6 @@ jobs:
                   "artifacts": "services/reposerver-service/coverage.html",
                   "artifactName": "Artifact_services_reposerver-service",
                   "directory": "services/reposerver-service",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -107,7 +99,6 @@ jobs:
                   "artifacts": "services/frontend-service/coverage.html",
                   "artifactName": "Artifact_services_frontend-service",
                   "directory": "services/frontend-service",
-                  
                 }
               ]
             }
@@ -124,7 +115,6 @@ jobs:
                   "artifacts": "",
                   "artifactName": "Artifact_infrastructure_docker_builder",
                   "directory": "infrastructure/docker/builder",
-                  
                 },
                 {
                   "image": "docker:git",
@@ -132,7 +122,6 @@ jobs:
                   "artifacts": "",
                   "artifactName": "Artifact_infrastructure_docker_git-ssh",
                   "directory": "infrastructure/docker/git-ssh",
-                  
                 }
               ]
             },
@@ -144,7 +133,6 @@ jobs:
                   "artifacts": "services/manifest-repo-export-service/coverage.html",
                   "artifactName": "Artifact_services_manifest-repo-export-service",
                   "directory": "services/manifest-repo-export-service",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -152,7 +140,6 @@ jobs:
                   "artifacts": "services/rollout-service/coverage.html",
                   "artifactName": "Artifact_services_rollout-service",
                   "directory": "services/rollout-service",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -160,7 +147,6 @@ jobs:
                   "artifacts": "cli/coverage.html",
                   "artifactName": "Artifact_cli",
                   "directory": "cli",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -168,7 +154,6 @@ jobs:
                   "artifacts": "pkg/coverage.html",
                   "artifactName": "Artifact_pkg",
                   "directory": "pkg",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -176,7 +161,6 @@ jobs:
                   "artifacts": "services/cd-service/coverage.html",
                   "artifactName": "Artifact_services_cd-service",
                   "directory": "services/cd-service",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -184,7 +168,6 @@ jobs:
                   "artifacts": "services/reposerver-service/coverage.html",
                   "artifactName": "Artifact_services_reposerver-service",
                   "directory": "services/reposerver-service",
-                  
                 },
                 {
                   "image": "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:e681d01d89f67378f8d57613ee515b31682658d75c762c242f386e516b66deb8",
@@ -192,7 +175,6 @@ jobs:
                   "artifacts": "services/frontend-service/coverage.html",
                   "artifactName": "Artifact_services_frontend-service",
                   "directory": "services/frontend-service",
-                  
                 }
               ]
             }
