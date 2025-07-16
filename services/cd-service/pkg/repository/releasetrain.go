@@ -657,6 +657,11 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	if err != nil {
 		return failedPrognosis(err)
 	}
+	type CommitIdParameters struct {
+		App           string
+		ReleaseNumber uint64
+	}
+	var requiredCommitIdParameters []CommitIdParameters
 	for _, appName := range apps {
 		releases := c.AllLatestReleasesCache[appName]
 		var release uint64
@@ -665,11 +670,18 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		} else {
 			release = uint64(releases[len(releases)-1])
 		}
-		commitID, err := getCommitID(ctx, transaction, state, release, appName)
+		requiredCommitIdParameters = append(requiredCommitIdParameters, CommitIdParameters{appName, release})
+	}
+	var latestCommitIds = make(map[string]string) // key: appName, value: commitID
+	for _, requiredParams := range requiredCommitIdParameters {
+		commitID, err := getCommitID(ctx, transaction, state, requiredParams.ReleaseNumber, requiredParams.App)
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
 		}
+		latestCommitIds[requiredParams.App] = commitID
+	}
 
+	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			team, ok := allTeams[appName]
 			if !ok {
@@ -684,7 +696,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               team,
-					NewReleaseCommitId: commitID,
+					NewReleaseCommitId: latestCommitIds[appName],
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -725,7 +737,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               "",
-					NewReleaseCommitId: commitID,
+					NewReleaseCommitId: latestCommitIds[appName],
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -743,7 +755,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           nil,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: commitID,
+				NewReleaseCommitId: latestCommitIds[appName],
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -783,7 +795,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           appLocksMap,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: commitID,
+				NewReleaseCommitId: latestCommitIds[appName],
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -812,7 +824,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           nil,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: commitID,
+				NewReleaseCommitId: latestCommitIds[appName],
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -834,7 +846,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               teamName,
-					NewReleaseCommitId: commitID,
+					NewReleaseCommitId: latestCommitIds[appName],
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -874,7 +886,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               teamName,
-					NewReleaseCommitId: commitID,
+					NewReleaseCommitId: latestCommitIds[appName],
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -907,7 +919,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 			Version:            versionToDeploy,
 			Team:               teamName,
-			NewReleaseCommitId: commitID,
+			NewReleaseCommitId: latestCommitIds[appName],
 			ExistingDeployment: existingDeployment,
 			OldReleaseCommitId: oldReleaseCommitId,
 		}
