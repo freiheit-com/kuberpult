@@ -104,8 +104,8 @@ function createMatrix() {
   )
 
 
-  root=$(jq -n --argjson stage_a "[$stageA]" \
-               --argjson stage_b "[$stageB]" \
+  root=$(jq -n --argjson stage_a "$stageA" \
+               --argjson stage_b "$stageB" \
                 '$ARGS.named'
   )
   echo "$root"
