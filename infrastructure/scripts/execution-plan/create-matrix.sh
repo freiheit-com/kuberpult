@@ -9,7 +9,6 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
 STAGE_A_BUILDS="builder deps"
 STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service manifest-repo-export-service rollout-service reposerver-service"
-#STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service"
 
 function debug() {
   echo -e debug: "$@" > /dev/stderr
