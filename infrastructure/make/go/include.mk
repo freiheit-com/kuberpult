@@ -55,7 +55,7 @@ release:
 	test -n "$(MAIN_PATH)" || exit 0; docker push $(IMAGE_NAME)
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
 
-trivy-scan: release
+trivy-scan: docker
 	KUBERPULT_SERVICE_IMAGE=$(IMAGE_NAME) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
 
 .PHONY: datadog-wrapper
