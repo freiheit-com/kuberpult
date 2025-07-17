@@ -31,7 +31,7 @@ function createMatrix() {
       ALL_FILES=$(echo -e "${ALL_FILES}\n${stage}\n")
     done
   else
-    debug "Building only what's required, because ${buildAll} was not set (pr build)."
+    debug "Building only what's required, because of ${makeTarget} parameter (pull-request build)."
   fi
 
   # if we have pkg, then build all go services
