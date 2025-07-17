@@ -55,8 +55,8 @@ release:
 	test -n "$(MAIN_PATH)" || exit 0; docker push $(IMAGE_NAME)
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
 
-trivy-scan: release
-	SERVICE=$$(basename $$service) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
+trivy-scan: #release
+	SERVICE=$(SERVICE) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
 
 .PHONY: datadog-wrapper
 datadog-wrapper:
