@@ -106,7 +106,7 @@ services:
       - DD_SERVICE=kuberpult-manifest-repo-export-service
       - DD_ENV=example-local-jul11-b
       - DD_AGENT_HOST=datadog-agent
-      - KUBERPULT_ESL_PROCESSING_BACKOFF=15
+      - KUBERPULT_ESL_PROCESSING_BACKOFF=1
     volumes:
       - ./services/cd-service:/kp/kuberpult
     ports:
