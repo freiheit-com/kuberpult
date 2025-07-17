@@ -129,11 +129,11 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 			if s.maxAge != 0 &&
 				ev.ArgocdVersion != nil &&
 				ev.ArgocdVersion.DeployedAt.Add(s.maxAge).Before(s.now()) {
-				l.Sugar().Warnf("discarded event for app %q on environment %q. Event too old: %s", ev.Key.Application, ev.Key.Environment, ev.ArgocdVersion.DeployedAt.String())
+				l.Sugar().Warnf("discarded event for app %q on environment %q. Event too old: %s", ev.Application, ev.Environment, ev.ArgocdVersion.DeployedAt.String())
 				continue
 			}
 
-			l.Info("registering event app: " + ev.Key.Application + ", environment: " + ev.Key.Environment)
+			l.Info("registering event app: " + ev.Application + ", environment: " + ev.Environment)
 			if shouldNotify(ctx, s.state[ev.Key], ev) {
 				s.group.Go(s.notify(ctx, ev))
 			}
@@ -242,7 +242,7 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 			return nil
 		}
 		span.SetTag("http.status_code", requestResult.Status)
-		defer requestResult.Body.Close()
+		defer func() { _ = requestResult.Body.Close() }()
 		content, _ := io.ReadAll(requestResult.Body)
 		if requestResult.StatusCode > 299 {
 			//Error from Revolution

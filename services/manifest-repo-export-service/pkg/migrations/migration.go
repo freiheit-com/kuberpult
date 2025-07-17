@@ -47,7 +47,7 @@ LIMIT 1;`)
 		requestedVersionString,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not query cutoff table from DB. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("could not query cutoff table from DB. Error: %w", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -65,15 +65,15 @@ LIMIT 1;`)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, onErr(fmt.Errorf("migration_cutoff: Error scanning row from DB. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("migration_cutoff: Error scanning row from DB. Error: %w", err))
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, onErr(fmt.Errorf("migration_cutoff: row closing error: %v\n", err))
+		return nil, onErr(fmt.Errorf("migration_cutoff: row closing error: %v", err))
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, onErr(fmt.Errorf("migration_cutoff: row has error: %v\n", err))
+		return nil, onErr(fmt.Errorf("migration_cutoff: row has error: %v", err))
 	}
 
 	var kuberpultVersion *api.KuberpultVersion
@@ -107,7 +107,7 @@ func DBUpsertCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql
 		migrations2.FormatKuberpultVersion(kuberpultVersion),
 	)
 	if err != nil {
-		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w\n", err))
+		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w", err))
 	}
 	return nil
 }

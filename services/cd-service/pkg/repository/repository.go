@@ -305,7 +305,7 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 	}
 }
 
-func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool) ([]transformerBatch, error, *TransformerResult) {
+func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch) ([]transformerBatch, *TransformerResult, error) {
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
 
@@ -331,10 +331,10 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 		changes.Combine(subChanges)
 		i++
 	}
-	return transformerBatches, nil, changes
+	return transformerBatches, changes, nil
 }
 
-var panicError = errors.New("Panic")
+var errPanic = errors.New("Panic")
 
 func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
 	if r.config.MaximumCommitsPerPush < 2 {
@@ -381,7 +381,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch) {
 	  return
 	}
 	*/
-	var err error = panicError
+	var err = errPanic
 
 	// Check that the first transformerBatch is not already canceled
 	select {
@@ -401,7 +401,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch) {
 	// Try to fetch more items from the queue in order to push more things together
 	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
 
-	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
+	transformerBatches, changes, err := r.applyTransformerBatches(transformerBatches)
 	if len(transformerBatches) == 0 {
 		return
 	}
@@ -567,7 +567,7 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 
 func CombineArray(others []*TransformerResult) *TransformerResult {
 	//exhaustruct:ignore
-	var r *TransformerResult = &TransformerResult{}
+	var r = &TransformerResult{}
 	for i := range others {
 		r.Combine(others[i])
 	}
@@ -874,7 +874,7 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	return &v, nil
 }
 
-var InvalidJson = errors.New("JSON file is not valid")
+var ErrInvalidJson = errors.New("JSON file is not valid")
 
 func envExists(envConfigs map[types.EnvName]config.EnvironmentConfig, envNameToSearchFor types.EnvName) bool {
 	if _, found := envConfigs[envNameToSearchFor]; found {
@@ -1018,7 +1018,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 		}
 	}
 	if len(groupEnvNames) == 0 {
-		return nil, fmt.Errorf("No environment found with given group '%s'", envGroup)
+		return nil, fmt.Errorf("no environment found with given group '%s'", envGroup)
 	}
 	sort.Strings(groupEnvNames)
 	return types.StringsToEnvNames(groupEnvNames), nil

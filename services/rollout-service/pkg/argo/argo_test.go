@@ -279,18 +279,6 @@ func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedCon
 	}
 }
 
-func (m *mockApplicationServiceClient) checkApplications(t *testing.T, expectedApps []ArgoAppMetadata) {
-	if len(m.Apps) != len(expectedApps) {
-		t.Errorf("mismatch on number of applications, want %d got %d", len(expectedApps), len(m.Apps))
-	}
-	for idx, app := range m.Apps {
-		currAppMetadata := ArgoAppToMetaData(app)
-		if diff := cmp.Diff(expectedApps[idx], currAppMetadata); diff != "" {
-			t.Errorf("argo app mismatch (-want, +got):\n%s", diff)
-		}
-	}
-}
-
 func ArgoAppToMetaData(app *ArgoApp) ArgoAppMetadata {
 	return ArgoAppMetadata{
 		Name:              app.App.Annotations["com.freiheit.kuberpult/application"],
@@ -818,7 +806,6 @@ func TestArgoConsume(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
@@ -874,14 +861,11 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 		ArgoManageFilter  []string
 		ExpectedOutput    bool
 		ExpectedError     string
-		Application       api.OverviewApplication
+		ApplicationName   string
 	}{
 		{
-			Name: "when filter has `*` and a team name",
-			Application: api.OverviewApplication{
-				Name: "foo",
-				Team: "footeam",
-			},
+			Name:            "when filter has `*` and a team name",
+			ApplicationName: "foo",
 			Overview: &ArgoOverview{
 				Overview: &api.GetOverviewResponse{
 					LightweightApps: []*api.OverviewApplication{
@@ -975,7 +959,6 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			_, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
@@ -995,7 +978,7 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 
-			isActive, err := IsSelfManagedFilterActive(tc.Application.Name, argoProcessor)
+			isActive, err := IsSelfManagedFilterActive(tc.ApplicationName, argoProcessor)
 			if tc.ExpectedError != "" {
 				if err.Error() != tc.ExpectedError {
 					t.Fatalf("expected error to be %s but got %s", tc.ExpectedError, err.Error())

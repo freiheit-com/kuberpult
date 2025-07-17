@@ -35,13 +35,13 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.ServeHTTPHealth(w, r)
 	case "release":
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "release endpoint is now only provided in the frontend-service")
+		_, _ = fmt.Fprintf(w, "release endpoint is now only provided in the frontend-service")
 	}
 }
 
-func (s *Service) ServeHTTPHealth(w http.ResponseWriter, r *http.Request) {
+func (s *Service) ServeHTTPHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "ok\n")
+	_, _ = fmt.Fprintf(w, "ok\n")
 }
 
 var _ http.Handler = (*Service)(nil)

@@ -66,7 +66,7 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 		return resultChannel
 	default:
 		//Channel is full, we don't want to put anything else there.
-		ErrQueueFull = fmt.Errorf("queue is full. Queue Capacity: %d.", cap(q.transformerBatches))
+		ErrQueueFull = fmt.Errorf("queue is full. Queue Capacity: %d", cap(q.transformerBatches))
 		e.finish(ErrQueueFull)
 		return resultChannel
 	}

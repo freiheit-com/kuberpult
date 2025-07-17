@@ -117,7 +117,7 @@ func readPgpKeyRing() (openpgp.KeyRing, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	return openpgp.ReadArmoredKeyRing(file)
 }
 
@@ -171,7 +171,7 @@ func runServer(ctx context.Context) error {
 		grpc_zap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 	}
 
-	var cred credentials.TransportCredentials = insecure.NewCredentials()
+	var cred = insecure.NewCredentials()
 	if c.CdServerSecure {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
