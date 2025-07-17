@@ -37,6 +37,7 @@ RUN pnpm i
 RUN mkdir -p src/api
 RUN buf generate --path api --timeout 5m
 RUN pnpm build
+RUN echo hello I am a file change
 
 FROM scratch
 LABEL org.opencontainers.image.source=https://github.com/freiheit-com/kuberpult
