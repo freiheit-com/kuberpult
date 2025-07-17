@@ -8,7 +8,7 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
 STAGE_A_BUILDS="builder deps"
-STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service manifest-repo-export-service rollout-service reposerver-service"
+STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service services/manifest-repo-export-service services/rollout-service services/reposerver-service"
 
 function debug() {
   echo -e debug: "$@" > /dev/stderr
@@ -50,14 +50,20 @@ function createMatrix() {
                     --arg artifactName "Artifact_infrastructure_docker_${stageADirectory}" \
                     '$ARGS.named'
       )
-      if [ -z "${stageArray}" ]
-      then
-        stageArray="${inner}"
-      else
-        stageArray="${stageArray},${inner}"
-      fi
     else
-      debug skipping
+      debug "adding ${stageADirectory} to the list, despite no change, in order to tag the main image."
+      inner=$(jq -n --arg directory "infrastructure/docker/${stageADirectory}" \
+                    --arg command "make -C infrastructure/docker/${stageADirectory} retag-main" \
+                    --arg artifacts "" \
+                    --arg artifactName "Artifact_infrastructure_docker_${stageADirectory}" \
+                    '$ARGS.named'
+      )
+    fi
+    if [ -z "${stageArray}" ]
+    then
+      stageArray="${inner}"
+    else
+      stageArray="${stageArray},${inner}"
     fi
   done
 

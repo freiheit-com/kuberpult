@@ -56,7 +56,13 @@ release:
 	test -n "$(MAIN_PATH)" || exit 0; docker push $(IMAGE_NAME)
 
 release-main:
+	@echo "Tagging the PR image as main image"
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
+
+retag-main:
+	@echo "Tagging the main image as PR image"
+	test -n "$(MAIN_PATH)" || exit 0; docker tag $(MAIN_IMAGE_NAME) $(IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
+
 
 trivy-scan: release
 ifeq ($(SKIP_TRIVY),1)
