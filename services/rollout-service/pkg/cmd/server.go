@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"net/url"
@@ -153,9 +154,9 @@ func RunServer() {
 	}
 }
 
-func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClient, api.VersionServiceClient, error) {
+func getGrpcClients(_ context.Context, config Config) (api.OverviewServiceClient, api.VersionServiceClient, error) {
 	const megaBytes int = 1024 * 1024
-	var cred credentials.TransportCredentials = insecure.NewCredentials()
+	var cred = insecure.NewCredentials()
 	if config.CdServerSecure {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
@@ -261,6 +262,8 @@ func runServer(ctx context.Context, config Config) error {
 		if pErr != nil {
 			logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 		}
+	} else {
+		return errors.New("dbOption must be 'postgreSQL'")
 	}
 
 	logger.FromContext(ctx).Info("argocd.connecting", zap.String("argocd.addr", opts.ServerAddr))

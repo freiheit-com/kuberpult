@@ -58,8 +58,14 @@ func TestService(t *testing.T) {
 			Name:          "valid http argocd url",
 			ExpectedError: errMatcher{"connecting to argocd version: dial tcp 127.0.0.1:32761: connect: connection refused"},
 			Config: Config{
-				ArgocdServer: "http://127.0.0.1:32761",
-				DbOption:     "NO_DB",
+				ArgocdServer:    "http://127.0.0.1:32761",
+				DbLocation:      "localhost",
+				DbAuthProxyPort: "5432",
+				DbOption:        "postgreSQL",
+				DbUserPassword:  "mypassword",
+				DbUserName:      "postgres",
+				DbName:          "kuberpult",
+				DbSslMode:       "disable",
 			},
 		},
 	}
