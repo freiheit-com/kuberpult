@@ -22,12 +22,14 @@ function sanitizeArtifactName() {
 function createMatrix() {
   makeTarget=${1}
   ALL_FILES="$(cat)"
-  buildAll=$([ -eq "${makeTarget}" "build-main"])
-  if "${buildAll}"
+  if [ "${makeTarget}" = "build-main" ]
   then
     # if the flag is given, we build everything:
-    debug "Building everything, because ${buildAll} was set (main build)"
-    ALL_FILES=$(echo -e "${ALL_FILES}\n${stageB}\n${stageA}\n")
+    debug "Building everything, because of ${makeTarget} parameter (main build)."
+    for stage in $STAGE_B_BUILDS $STAGE_A_BUILDS
+    do
+      ALL_FILES=$(echo -e "${ALL_FILES}\n${stage}\n")
+    done
   else
     debug "Building only what's required, because ${buildAll} was not set (pr build)."
   fi

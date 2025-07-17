@@ -30,11 +30,11 @@ jobs:
       - name: Set version pr
         if: inputs.trigger == 'pull-request'
         run: |
-          ./infrastructure/scripts/execution-plan/plan-pr.sh build-pr > artifacts/github-convertor.json
+          ./infrastructure/scripts/execution-plan/plan-pr.sh > artifacts/github-convertor.json
       - name: Set version main
         if: inputs.trigger == 'main'
         run: |
-          ./infrastructure/scripts/execution-plan/plan-pr.sh main > artifacts/github-convertor.json
+          ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/github-convertor.json
       - name: Print github converted plan
         run: |
           cat artifacts/github-convertor.json
