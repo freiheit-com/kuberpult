@@ -104,9 +104,11 @@ jobs:
             }
           }' > artifacts/github-convertor.old.json
           ./infrastructure/scripts/execution-plan/plan-pr.sh build-pr > artifacts/github-convertor.json
+          ./infrastructure/scripts/execution-plan/plan-pr.sh main > artifacts/github-convertor.main.json
       - name: Set version main
         if: inputs.trigger == 'main'
         run: |
+          ./infrastructure/scripts/execution-plan/plan-pr.sh main > artifacts/github-convertor.json
           echo '{
             "stage_a": {
               "steps": [
@@ -179,7 +181,7 @@ jobs:
                 }
               ]
             }
-          }' > artifacts/github-convertor.json
+          }' > artifacts/github-convertor.old.json
       - name: Print github converted plan
         run: |
           cat artifacts/github-convertor.json
@@ -199,6 +201,7 @@ jobs:
             artifacts/stage.b.tmp.json
             artifacts/execution-plan.json
             artifacts/github-convertor.json
+            artifacts/github-convertor.main.json
             artifacts/github-convertor.old.json
       - name: Split up plan into individual parts
         id: testingabc

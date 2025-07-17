@@ -22,6 +22,16 @@ function sanitizeArtifactName() {
 function createMatrix() {
   makeTarget=${1}
   ALL_FILES="$(cat)"
+  buildAll=$([ -eq "${makeTarget}" "build-main"])
+  if "${buildAll}"
+  then
+    # if the flag is given, we build everything:
+    debug "Building everything, because ${buildAll} was set (main build)"
+    ALL_FILES=$(echo -e "${ALL_FILES}\n${stageB}\n${stageA}\n")
+  else
+    debug "Building only what's required, because ${buildAll} was not set (pr build)."
+  fi
+
   # if we have pkg, then build all go services
   echo "${ALL_FILES}" | grep '^pkg' -q
   # shellcheck disable=SC2181
