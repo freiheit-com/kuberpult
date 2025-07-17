@@ -12,6 +12,7 @@ SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
 CONTEXT?=.
 SKIP_DEPS?=0
+SKIP_TRIVY?=0
 MAKEFLAGS += --no-builtin-rules
 
 .PHONY: deps
@@ -56,7 +57,12 @@ release:
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
 
 trivy-scan: docker
+ifeq ($(SKIP_TRIVY),1)
+	@echo "Skipping trivy"
+else
+	@echo "Starting trivy check for $(IMAGE_NAME)"
 	KUBERPULT_SERVICE_IMAGE=$(IMAGE_NAME) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
+endif
 
 .PHONY: datadog-wrapper
 datadog-wrapper:
