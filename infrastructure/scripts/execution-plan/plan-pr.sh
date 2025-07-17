@@ -11,4 +11,4 @@ current_branch="$(git rev-parse --abbrev-ref HEAD)"
 base="${2:-$(git merge-base "${main_branch}" "${current_branch}")}"
 head="${3:-$(git rev-parse HEAD)}"
 
-git diff --diff-filter=ACMRDT --name-only "$base" "$head" | ./create-matrix.sh build-main
+git diff --diff-filter=ACMRDT --name-only "$base" "$head" | ./create-matrix.sh build-pr
