@@ -18,7 +18,7 @@ include ../../../Makefile.variables
 
 .PHONY: build
 build:
-	make -C ../../.. builder
+#	make -C ../../.. builder
 	docker build -t $(DEPS_IMAGE) -f Dockerfile ../../.. --build-arg BUILDER_IMAGE=$(BUILDER_IMAGE)
 	docker tag $(DEPS_IMAGE) $(DEPS_MAIN_IMAGE)
 
