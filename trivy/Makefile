@@ -22,7 +22,7 @@ VERSION?=$(shell git describe --always --long --tags || echo 0.0.1)
 TRIVY_IMAGE_URL:=$(TRIVY_IMAGE_REGISTRY):$(VERSION)
 SERVICE?=cd-service
 GCP_CREDENTIALS_PATH?=$(HOME)/.config/gcloud/application_default_credentials.json
-KUBERPULT_SERVICE_IMAGE=$(IMAGE_REGISTRY)/kuberpult-$(SERVICE):$(VERSION)
+KUBERPULT_SERVICE_IMAGE?=$(IMAGE_REGISTRY)/kuberpult-$(SERVICE):$(VERSION)
 KUBERPULT_SERVICE_REPORT_HTML=kuberpult-$(SERVICE).html
 KUBERPULT_REPORT_DIR="kuberpult-$(VERSION)-reports"
 
