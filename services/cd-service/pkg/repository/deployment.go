@@ -20,6 +20,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -28,7 +30,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
-	"time"
 )
 
 func (c *DeployApplicationVersion) Transform(
@@ -345,7 +346,6 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	}
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
-
 func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release uint64, app string) (string, error) {
 	tmpList, err := state.DBHandler.DBSelectReleasesByVersions(ctx, transaction, app, []uint64{release}, false)
 	if err != nil {
@@ -362,6 +362,11 @@ func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release
 		return "", fmt.Errorf("getCommitID: found release %v for app %s, but commit id was empty", release, app)
 	}
 	return tmp.Metadata.SourceCommitId, nil
+}
+
+func getCommitIDs(ctx context.Context, transaction *sql.Tx, state *State, releaseByApp map[string]int64) (map[string]string, error) {
+	result := make(map[string]string)
+	return result, nil
 }
 
 func createDeploymentEvent(application string, environment types.EnvName, sourceTrain *DeployApplicationVersionSource) *event.Deployment {

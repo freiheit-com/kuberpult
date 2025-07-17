@@ -22,12 +22,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 )
@@ -864,4 +866,84 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 		return nil, err
 	}
 	return releases, nil
+}
+
+func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, transaction *sql.Tx, versionByApp map[string]uint64) (map[string]string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBCreateTempAppVersionTable")
+	defer span.Finish()
+	result := make(map[string]string)
+	if len(versionByApp) < 1 {
+		return result, nil
+	}
+	queryID := rand.Uint64()
+	tableQuery := h.AdaptQuery(`CREATE TEMP TABLE temp_query_app_releaseversions(queryId INTEGER, appName VARCHAR NOT NULL, releaseVersion INTEGER) IF NOT EXISTS;`)
+	_, err := transaction.Exec(tableQuery)
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	insertQuery := `INSERT INTO temp_query_app_releaseversions (queryId, appName, releaseVersion) VALUES (?, ?, ?)` + strings.Repeat(`, (?, ?, ?)`, len(versionByApp)-1) + `;`
+	args := make([]interface{}, len(versionByApp)*3)
+	i := 0
+	for appName, releaseVersion := range versionByApp {
+		args[i] = uint64(queryID)
+		i++
+		args[i] = appName
+		i++
+		args[i] = releaseVersion
+		i++
+	}
+	_, err = transaction.Exec(
+		insertQuery,
+		args...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not push query app releases table. Error: %w\n", err)
+	}
+	selectQuery := h.AdaptQuery(`
+		SELECT r.appName, r.releaseVersion, r.metadata
+		FROM releases AS r
+		INNER JOIN temp_query_app_releaseverstions AS q
+		ON r.appName = q.appName AND r.releaseversion = q.releaseversion
+		WHERE q.queryId = ?;
+	`)
+	metadataRows, err := transaction.QueryContext(
+		ctx,
+		selectQuery,
+		queryID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(metadataRows)
+	for metadataRows.Next() {
+		var releaseVersion uint64
+		var appName string
+		var metadataStr string
+
+		err := metadataRows.Scan(&appName, &releaseVersion, metadataStr)
+		if err != nil {
+			return nil, err
+		}
+		var metaData = DBReleaseMetaData{
+			SourceAuthor:    "",
+			SourceCommitId:  "",
+			SourceMessage:   "",
+			DisplayVersion:  "",
+			UndeployVersion: false,
+			IsMinor:         false,
+			CiLink:          "",
+			IsPrepublish:    false,
+		}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
+		}
+		result[appName] = metaData.SourceCommitId
+	}
+	return result, nil
 }
