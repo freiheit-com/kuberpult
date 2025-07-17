@@ -26,3 +26,6 @@ build-main: build
 	docker push $(DEPS_MAIN_IMAGE)
 
 build-pr: build
+
+retag-main:
+	@echo "Skipping retag-main"

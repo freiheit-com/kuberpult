@@ -13,6 +13,7 @@ MIN_COVERAGE?=99.9 # should be overwritten by every service
 CONTEXT?=.
 SKIP_DEPS?=0
 SKIP_TRIVY?=0
+SKIP_RETAG_MAIN_AS_PR?=0
 MAKEFLAGS += --no-builtin-rules
 
 .PHONY: deps
@@ -60,8 +61,12 @@ release-main:
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
 
 retag-main:
-	@echo "Tagging the main image as PR image"
+ifeq ($(SKIP_RETAG_MAIN_AS_PR),1)
+	@echo "Skipping retag-main"
+else
+	@echo "Starting retag-main: Tagging the main image as PR image"
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(MAIN_IMAGE_NAME) $(IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
+endif
 
 
 trivy-scan: release
