@@ -25,7 +25,7 @@ function createMatrix() {
   makeTarget=${1}
   ALL_FILES="$(cat)"
   # if we have pkg, then build all go services
-  echo "${ALL_FILES}" | grep '^pkg'
+  echo "${ALL_FILES}" | grep '^pkg' -q
   # shellcheck disable=SC2181
   if [ "$?" -eq 0 ]
   then
