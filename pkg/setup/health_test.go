@@ -204,7 +204,7 @@ background_job_ready{name="a"} 0
 			}
 			d = cmp.Diff(metricBody, tc.ExpectedMetricBody)
 			if d != "" {
-				t.Errorf("wrong metric body, diff: %s\ngot:\n%s\nwant:\n%s\n", d, metricBody, tc.ExpectedMetricBody)
+				t.Errorf("wrong metric body, diff: %s\ngot:\n%s\nwant:\n%s", d, metricBody, tc.ExpectedMetricBody)
 			}
 			cancel()
 			<-doneCh
