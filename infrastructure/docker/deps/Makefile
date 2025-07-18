@@ -21,10 +21,10 @@ build:
 	docker build -t $(DEPS_IMAGE) -f Dockerfile ../../.. --build-arg BUILDER_IMAGE=$(BUILDER_IMAGE)
 	docker tag $(DEPS_IMAGE) $(DEPS_MAIN_IMAGE)
 
-build-main: build
-	docker push $(DEPS_MAIN_IMAGE)
-
 build-pr: build
+
+build-main: build-pr
+	docker push $(DEPS_MAIN_IMAGE)
 
 retag-main:
 	@echo "Skipping retag-main"

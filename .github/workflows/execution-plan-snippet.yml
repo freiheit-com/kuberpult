@@ -54,9 +54,8 @@ jobs:
             artifacts/stage.b.tmp.json
             artifacts/execution-plan.json
             artifacts/github-convertor.json
-            artifacts/github-convertor.main.json
       - name: Split up plan into individual parts
-        id: testingabc
+        id: print-split-plan
         run: |
           echo "A: ${{ steps.splitplan.outputs.stage_a }} "
           echo "B: ${{ steps.splitplan.outputs.stage_b }} "
