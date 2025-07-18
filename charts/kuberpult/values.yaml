@@ -260,6 +260,18 @@ rollout:
     requests:
       cpu: 500m
       memory: 250Mi
+  liveness:
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+    failureThreshold: 10
+    initialDelaySeconds: 5
+  readiness:
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+    failureThreshold: 10
+    initialDelaySeconds: 5
   # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
   # Enables the persistence of ArgoCD events on the database.
