@@ -951,7 +951,7 @@ func TestLimitTooSmall(t *testing.T) {
 			}
 			actualError = <-errCh
 
-			var expectedError = errMatcher{fmt.Sprintf("queue is full. Queue Capacity: %d.", tc.QueueCapacity)}
+			var expectedError = errMatcher{fmt.Sprintf("queue is full. Queue Capacity: %d", tc.QueueCapacity)}
 			var expErrStr = fmt.Sprintf("%v", expectedError)
 			var actErrStr = fmt.Sprintf("%v", actualError)
 			if expErrStr != actErrStr {
