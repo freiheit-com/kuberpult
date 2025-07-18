@@ -575,20 +575,20 @@ export const useCloseReleaseDialog = (): (() => void) => {
     }, [params, setParams]);
 };
 
-export const useReleaseDialogParams = (): { app: string | null; version: number | null } => {
+export const useReleaseDialogParams = (): { app: string | null; version: number | null; revision: number | null } => {
     const [params] = useSearchParams();
     const app = params.get('dialog-app') ?? '';
     const version = +(params.get('dialog-version') ?? '');
-
+    const revision = +(params.get('dialog-revision') ?? '');
     const response = useAppDetailsForApp(app);
 
     if (!response || !response.details) {
-        return { app: null, version: null };
+        return { app: null, version: null, revision: null };
     }
     const appDetails = response.details;
 
-    const valid = !!appDetails.application?.releases.find((r) => r.version === version);
-    return valid ? { app, version } : { app: null, version: null };
+    const valid = !!appDetails.application?.releases.find((r) => r.version === version && r.revision === revision);
+    return valid ? { app, version, revision } : { app: null, version: null, revision: null };
 };
 
 export const deleteAllActions = (): void => {
@@ -1076,7 +1076,7 @@ export const useReleaseOrGet = (
         const details = updateAppDetails.get();
         const appDetails = details[application];
         return appDetails.details
-            ? appDetails.details.application?.releases.find((r) => r.version === version)
+            ? appDetails.details.application?.releases.find((r) => r.version === version && r.revision === revision)
             : undefined;
     }
     return release;
@@ -1100,7 +1100,9 @@ export const useReleaseOptional = (application: string, env: Environment): Relea
     }
     const deployment = appDetails.deployments[env.name];
     if (!deployment) return undefined;
-    return appDetails.application?.releases.find((r) => r.version === deployment.version);
+    return appDetails.application?.releases.find(
+        (r) => r.version === deployment.version && r.revision === deployment.revision
+    );
 };
 
 export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
@@ -1108,7 +1110,10 @@ export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup:
 /**
  * returns the environments where a release is currently deployed
  */
-export const useCurrentlyDeployedAtGroup = (application: string, version: number): EnvironmentGroupExtended[] => {
+export const useCurrentlyDeployedAtGroup = (
+    application: string,
+    version: ReleaseNumbers
+): EnvironmentGroupExtended[] => {
     const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
     const response = useAppDetailsForApp(application);
     const appDetails = response.details;
@@ -1119,7 +1124,8 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
                 (env) =>
                     appDetails &&
                     appDetails.deployments[env.name] &&
-                    appDetails.deployments[env.name].version === version
+                    appDetails.deployments[env.name].version === version.version &&
+                    appDetails.deployments[env.name].revision === version.revision
             );
             if (envs.length > 0) {
                 // we need to make a copy of the group here, because we want to remove some envs.
@@ -1168,7 +1174,11 @@ export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroup
 };
 
 // Calculated release difference between a specific release and currently deployed release on a specific environment
-export const useReleaseDifference = (toDeployVersion: number, application: string, environment: string): number => {
+export const useReleaseDifference = (
+    toDeployVersion: ReleaseNumbers,
+    application: string,
+    environment: string
+): number => {
     const response = useAppDetailsForApp(application);
 
     if (!response || !response.details) {
@@ -1180,9 +1190,11 @@ export const useReleaseDifference = (toDeployVersion: number, application: strin
         return 0;
     }
     const currentDeployedIndex = appDetails.application?.releases.findIndex(
-        (rel) => rel.version === deployment.version
+        (rel) => rel.version === deployment.version && rel.revision === deployment.revision
     );
-    const newVersionIndex = appDetails.application?.releases?.findIndex((rel) => rel.version === toDeployVersion);
+    const newVersionIndex = appDetails.application?.releases?.findIndex(
+        (rel) => rel.version === toDeployVersion.version && rel.revision === toDeployVersion.revision
+    );
     if (
         currentDeployedIndex === undefined ||
         newVersionIndex === undefined ||

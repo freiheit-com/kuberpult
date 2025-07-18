@@ -49,7 +49,10 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
                 <div className="release__details-header" title={displayedTitle}>
                     <div className="release__details-header-title">{displayedMessage}</div>
                     <div className="release__environments-mini">
-                        <EnvironmentGroupChipList app={props.app} version={props.version} />
+                        <EnvironmentGroupChipList
+                            app={props.app}
+                            version={{ version: props.version, revision: props.revision }}
+                        />
                     </div>
                 </div>
                 <div className={'release__details-source-line'}>

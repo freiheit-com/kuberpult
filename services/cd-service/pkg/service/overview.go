@@ -224,7 +224,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		for envName, currentDeployment := range deployments {
 
 			// Test that deployment's release has the deployment's environment
-			deploymentRelease := getReleaseFromVersion(releases, *currentDeployment.ReleaseNumbers.Version)
+			deploymentRelease := getReleaseFromVersion(releases, currentDeployment.ReleaseNumbers)
 			if deploymentRelease != nil && !slices.Contains(deploymentRelease.Environments, envName) {
 				continue
 			}
@@ -238,6 +238,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 					DeployAuthor: currentDeployment.Metadata.DeployedByName,
 					DeployTime:   currentDeployment.Created.String(),
 				},
+				Revision: currentDeployment.ReleaseNumbers.Revision,
 			}
 
 			queuedVersion, ok := queuedVersions[envName]
@@ -263,9 +264,9 @@ func (o *OverviewServiceServer) GetAppDetails(
 	return response, nil
 }
 
-func getReleaseFromVersion(releases []*db.DBReleaseWithMetaData, version uint64) *db.DBReleaseWithMetaData {
+func getReleaseFromVersion(releases []*db.DBReleaseWithMetaData, releaseNumber types.ReleaseNumbers) *db.DBReleaseWithMetaData {
 	for _, curr := range releases {
-		if *curr.ReleaseNumbers.Version == version {
+		if *curr.ReleaseNumbers.Version == *releaseNumber.Version && curr.ReleaseNumbers.Revision == releaseNumber.Revision {
 			return curr
 		}
 	}

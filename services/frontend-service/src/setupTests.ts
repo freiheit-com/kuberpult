@@ -63,7 +63,8 @@ export const makeRelease = (
     version: number,
     displayVersion: string = '',
     sourceCommitId: string = 'commit' + version,
-    undeployVersion: boolean = false
+    undeployVersion: boolean = false,
+    revision: number = 0
 ): Release => ({
     version: version,
     sourceMessage: 'test' + version,
@@ -76,7 +77,7 @@ export const makeRelease = (
     isMinor: false,
     isPrepublish: false,
     ciLink: '',
-    revision: 0,
+    revision: revision,
 });
 
 const date = new Date(2023, 6, 12);

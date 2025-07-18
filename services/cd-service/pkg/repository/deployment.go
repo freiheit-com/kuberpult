@@ -49,7 +49,7 @@ type DeployApplicationVersion struct {
 	Environment           types.EnvName                   `json:"env"`
 	Application           string                          `json:"app"`
 	Version               uint64                          `json:"version"`
-	Revision              uint64                          `json:"-"`
+	Revision              uint64                          `json:"revision"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
 	WriteCommitData       bool                            `json:"writeCommitData"`
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`

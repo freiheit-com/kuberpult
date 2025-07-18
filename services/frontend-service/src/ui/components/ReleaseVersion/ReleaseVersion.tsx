@@ -19,12 +19,12 @@ import { Release } from '../../../api/api';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 
 export type ReleaseVersionProps = {
-    release: Pick<Release, 'version' | 'sourceCommitId' | 'displayVersion' | 'undeployVersion'>;
+    release: Pick<Release, 'version' | 'sourceCommitId' | 'displayVersion' | 'undeployVersion' | 'revision'>;
 };
 
 export type ReleaseVersionWithLinksProps = {
     application: string;
-    release: Pick<Release, 'version' | 'sourceCommitId' | 'displayVersion' | 'undeployVersion'>;
+    release: Pick<Release, 'version' | 'sourceCommitId' | 'displayVersion' | 'undeployVersion' | 'revision'>;
 };
 
 export const ReleaseVersion: React.FC<ReleaseVersionProps> = ({ release }) => {
@@ -47,7 +47,7 @@ export const ReleaseVersion: React.FC<ReleaseVersionProps> = ({ release }) => {
             </span>
         );
     } else {
-        return <span className="release-version__version">#{release.version}</span>;
+        return <span className="release-version__version">#{release.version + '.' + release.revision}</span>;
     }
 };
 

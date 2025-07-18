@@ -76,6 +76,7 @@ export type ActionDetails = {
     lockId?: string;
     lockMessage?: string;
     version?: number;
+    revision?: number;
 };
 
 export const getActionDetails = (
@@ -210,6 +211,8 @@ export const getActionDetails = (
                             releaseDiff +
                             ' releases down to version ' +
                             action.deploy.version +
+                            '.' +
+                            action.deploy.revision +
                             ' of ' +
                             action.deploy.application +
                             ' to ' +
@@ -221,6 +224,8 @@ export const getActionDetails = (
                             releaseDiff * -1 +
                             ' releases up to version ' +
                             action.deploy.version +
+                            '.' +
+                            action.deploy.revision +
                             ' of ' +
                             action.deploy.application +
                             ' to ' +
@@ -230,6 +235,8 @@ export const getActionDetails = (
                         return (
                             'Deploy version ' +
                             action.deploy.version +
+                            '.' +
+                            action.deploy.revision +
                             ' of "' +
                             action.deploy.application +
                             '" to ' +
@@ -242,6 +249,7 @@ export const getActionDetails = (
                 environment: action.deploy.environment,
                 application: action.deploy.application,
                 version: action.deploy.version,
+                revision: action.deploy.revision,
             };
         case 'prepareUndeploy':
             return {
@@ -440,9 +448,11 @@ const calculateReleaseDiff = (version: number, environment: string, appDetails: 
         return 0;
     }
     const currentDeployedIndex = appDetails.details?.application?.releases.findIndex(
-        (rel) => rel.version === deployment.version
+        (rel) => rel.version === deployment.version && rel.revision === deployment.revision
     );
-    const newVersionIndex = appDetails.details?.application?.releases.findIndex((rel) => rel.version === version);
+    const newVersionIndex = appDetails.details?.application?.releases.findIndex(
+        (rel) => rel.version === version && rel.revision === deployment.revision
+    );
     if (
         currentDeployedIndex === undefined ||
         newVersionIndex === undefined ||

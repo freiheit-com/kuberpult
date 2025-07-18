@@ -208,6 +208,7 @@ describe('Release Card', () => {
                         deployments: {
                             foo: {
                                 version: 2,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                             },
@@ -278,6 +279,7 @@ describe('Release Card', () => {
                         deployments: {
                             foo: {
                                 version: 2,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                             },
@@ -348,6 +350,7 @@ describe('Release Card', () => {
                         deployments: {
                             foo: {
                                 version: 2,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                             },
@@ -418,6 +421,7 @@ describe('Release Card', () => {
                         deployments: {
                             foo: {
                                 version: 2,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                             },
@@ -527,16 +531,19 @@ const commonAppDetails: { [key: string]: AppDetailsResponse } = {
             deployments: {
                 development: {
                     version: 2,
+                    revision: 0,
                     queuedVersion: 0,
                     undeployVersion: false,
                 },
                 development2: {
                     version: 2,
+                    revision: 0,
                     queuedVersion: 0,
                     undeployVersion: false,
                 },
                 staging: {
                     version: 2,
+                    revision: 0,
                     queuedVersion: 0,
                     undeployVersion: false,
                 },
