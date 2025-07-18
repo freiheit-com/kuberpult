@@ -11,14 +11,14 @@ MAIN_IMAGE_NAME=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):main
 SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
 CONTEXT?=.
-SKIP_DEPS?=0
 SKIP_TRIVY?=0
 SKIP_RETAG_MAIN_AS_PR?=0
+SKIP_BUILDER?=0
 MAKEFLAGS += --no-builtin-rules
 
 .PHONY: deps
 deps:
-ifeq ($(SKIP_DEPS),0)
+ifeq ($(SKIP_BUILDER),0)
 	@echo "docker build builder image"
 	IMAGE_TAG=latest $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/builder build
 else
