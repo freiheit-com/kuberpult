@@ -238,7 +238,6 @@ func TestParseArgsReleaseTrainLock(t *testing.T) {
 }
 
 func makeStringPointer(str string) *string {
-	var ret string
-	ret = str
+	var ret = str
 	return &ret
 }

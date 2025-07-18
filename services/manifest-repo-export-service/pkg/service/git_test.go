@@ -1233,7 +1233,6 @@ func TestGetSyncData(t *testing.T) {
 
 func TestRetryEvent(t *testing.T) {
 	const appName = "test-app-name"
-	const anotherAppName = "yet-another-app-name"
 	const envName = "test-env-name"
 	const anotherEnvName = "yet-another-env-name"
 	const testEventType = "test-event-type"
@@ -1317,7 +1316,7 @@ func TestRetryEvent(t *testing.T) {
 				},
 			},
 			expectedError: errMatcher{
-				msg: "Couldn't find failed event with eslVersion: 0",
+				msg: "couldn't find failed event with eslVersion: 0",
 			},
 		},
 		{
@@ -1590,19 +1589,23 @@ func TestRetryEvent(t *testing.T) {
 				}
 
 				finalDeployments, err := repo.State().DBHandler.DBSelectDeploymentsByTransformerID(ctx, transaction, tc.eventIdToRetry+1)
+				if err != nil {
+					t.Fatal("error selecting deployments by transformerID:", err)
+				}
 				if diff := cmp.Diff(tc.expectedDeployments, finalDeployments, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
 					t.Errorf("deployments mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
-
+			if err != nil {
+				t.Fatalf("DB error in test: %v", err)
+			}
 		})
 	}
 }
 
 func TestSkipEvent(t *testing.T) {
 	const appName = "test-app-name"
-	const anotherAppName = "yet-another-app-name"
 	const envName = "test-env-name"
 	const anotherEnvName = "yet-another-env-name"
 	const testEventType = "test-event-type"
@@ -1649,7 +1652,7 @@ func TestSkipEvent(t *testing.T) {
 				},
 			},
 			expectedError: errMatcher{
-				msg: "Couldn't find failed event with eslVersion: 1",
+				msg: "couldn't find failed event with eslVersion: 1",
 			},
 		},
 		{
@@ -1832,7 +1835,9 @@ func TestSkipEvent(t *testing.T) {
 
 				return nil
 			})
-
+			if err != nil {
+				t.Fatalf("DB error unexpected: %v", err)
+			}
 		})
 	}
 }

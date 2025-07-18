@@ -1,0 +1,16 @@
+version: "2"
+linters:
+  enable:
+    - copyloopvar
+    - errcheck
+    - govet
+    - ineffassign
+    - unused
+    - asciicheck
+  disable:
+    - bodyclose
+    - staticcheck
+    - copyloopvar
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0

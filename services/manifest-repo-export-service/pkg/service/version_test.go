@@ -258,6 +258,9 @@ func TestVersion(t *testing.T) {
 						Revision: 0,
 					},
 				})
+				if err != nil {
+					return err
+				}
 				err = repo.Apply(ctx, transaction, tc.Setup...)
 				if err != nil {
 					return err

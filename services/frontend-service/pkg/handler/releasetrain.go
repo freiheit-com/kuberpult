@@ -46,7 +46,7 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Can't read request body %s", err)
+			_, _ = fmt.Fprintf(w, "Can't read request body %s", err)
 			return
 		}
 
@@ -75,18 +75,18 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 	if s.AzureAuth {
 		if req.Body == nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "missing request body")
+			_, _ = fmt.Fprintf(w, "missing request body")
 			return
 		}
 
 		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), signatureReader, nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				_, _ = fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 				return
 			}
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "Invalid signature")
+			_, _ = fmt.Fprintf(w, "Invalid signature")
 			return
 		}
 	}
@@ -192,7 +192,7 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 	}
 	json, err := json.Marshal(response.EnvsPrognoses)
 	if err != nil {
-		w.Write([]byte(fmt.Sprintf("error while serializing response, error: %v", err.Error()))) //nolint:errcheck
+		_, _ = fmt.Fprintf(w, "error while serializing response, error: %v", err.Error())
 		return
 	}
 	w.Write(json) //nolint:errcheck

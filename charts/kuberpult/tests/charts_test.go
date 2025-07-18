@@ -54,10 +54,10 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) (string, error) {
 
 	fileContent, err := os.ReadFile(outputFile)
 	if err != nil {
-		t.Fatalf("Error reading file '%s' content: \n%s\n", outputFile, string(fileContent))
+		t.Fatalf("Error reading file '%s' content: \n%s", outputFile, string(fileContent))
 		return "", nil
 	}
-	t.Logf("output file: \n%s\n", fileContent)
+	t.Logf("output file: \n%s", fileContent)
 
 	return outputFile, nil
 }
@@ -146,7 +146,7 @@ func getServices(fileName string) (map[string]core.Service, error) {
 		if checkService(strings.Split(document, "\n")) {
 			var target core.Service
 			if err := k8sYaml.Unmarshal([]byte(document), &target); err != nil {
-				return nil, fmt.Errorf("Unmarshalling deployment failed failed: %s\n", document)
+				return nil, fmt.Errorf("Unmarshalling deployment failed failed: %s", document)
 			}
 			output[target.Name] = target
 		}
@@ -169,7 +169,7 @@ func getIngress(fileName string) (*networking.Ingress, error) {
 	for _, document := range allYamls {
 		if checkIngress(strings.Split(document, "\n")) {
 			if err := k8sYaml.Unmarshal([]byte(document), &output); err != nil {
-				return nil, fmt.Errorf("Unmarshalling ingress failed: %s\n", document)
+				return nil, fmt.Errorf("Unmarshalling ingress failed: %s", document)
 			}
 		}
 	}

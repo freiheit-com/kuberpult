@@ -140,7 +140,7 @@ func (e *CreateEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
-		return nil, fmt.Errorf("Could not EnvironmentLockParameters data to json: %w\n", err)
+		return nil, fmt.Errorf("could not EnvironmentLockParameters data to json: %w", err)
 	}
 	prefix := "environments"
 	if e.UseDexAuthentication {
@@ -184,7 +184,7 @@ func (e *CreateAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
-		return nil, fmt.Errorf("Could not marshal CreateAppLockParameters data to json: %w\n", err)
+		return nil, fmt.Errorf("could not marshal CreateAppLockParameters data to json: %w", err)
 	}
 	prefix := "environments"
 	if e.UseDexAuthentication {
@@ -227,7 +227,7 @@ func (e *CreateTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
-		return nil, fmt.Errorf("Could not marshal CreateTeamLockParameters data to json: %w\n", err)
+		return nil, fmt.Errorf("could not marshal CreateTeamLockParameters data to json: %w", err)
 	}
 	prefix := "environments"
 	if e.UseDexAuthentication {
@@ -270,7 +270,7 @@ func (e *CreateEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error)
 
 	var jsonData, err = json.Marshal(d)
 	if err != nil {
-		return nil, fmt.Errorf("Could not marshal CreateEnvironmentGroupLockParameters data to json: %w\n", err)
+		return nil, fmt.Errorf("could not marshal CreateEnvironmentGroupLockParameters data to json: %w", err)
 	}
 	prefix := "environment-groups"
 	if e.UseDexAuthentication {

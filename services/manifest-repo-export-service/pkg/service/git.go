@@ -267,11 +267,12 @@ func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 			}
 		}
 		var statusToWrite api.GitSyncStatus
-		if currStatus.SyncStatus == db.SYNC_FAILED {
+		switch currStatus.SyncStatus {
+		case db.SYNC_FAILED:
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_ERROR
-		} else if currStatus.SyncStatus == db.UNSYNCED {
+		case db.UNSYNCED:
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED
-		} else {
+		default:
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNKNOWN
 		}
 
@@ -338,7 +339,7 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 			return err
 		}
 		if failedEvent == nil {
-			return fmt.Errorf("Couldn't find failed event with eslVersion: %d", in.Eslversion)
+			return fmt.Errorf("couldn't find failed event with eslVersion: %d", in.Eslversion)
 		}
 		err = dbHandler.DBWriteEslEventWithJson(ctx, transaction, failedEvent.EventType, failedEvent.EventJson)
 		if err != nil {
@@ -383,7 +384,7 @@ func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventReques
 			return err
 		}
 		if failedEvent == nil {
-			return fmt.Errorf("Couldn't find failed event with eslVersion: %d", in.EventEslVersion)
+			return fmt.Errorf("couldn't find failed event with eslVersion: %d", in.EventEslVersion)
 		}
 		return dbHandler.DBSkipFailedEslEvent(ctx, transaction, db.TransformerID(in.EventEslVersion))
 	})

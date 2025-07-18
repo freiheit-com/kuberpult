@@ -629,7 +629,7 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 		// no error, but also no transformer to process:
 		return nil, nil
 	}
-	logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s\n", esl.EventJson)
+	logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s", esl.EventJson)
 	err = json.Unmarshal(([]byte)(esl.EventJson), &t)
 	if err != nil {
 		return nil, err

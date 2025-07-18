@@ -58,15 +58,15 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 
 func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
 	if in.Environment == nil && in.EnvironmentGroup == nil {
-		return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")
+		return nil, fmt.Errorf("must have an environment or environmentGroup to get the product summary for")
 	}
 	if in.Environment != nil && in.EnvironmentGroup != nil {
 		if *in.Environment != "" && *in.EnvironmentGroup != "" {
-			return nil, fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for")
+			return nil, fmt.Errorf("can not have both an environment and environmentGroup to get the product summary for")
 		}
 	}
 	if in.ManifestRepoCommitHash == "" {
-		return nil, fmt.Errorf("Must have a commit to get the product summary for")
+		return nil, fmt.Errorf("must have a commit to get the product summary for")
 	}
 	var summaryFromEnv []api.ProductSummary
 	dbHandler := s.Config.DBHandler
@@ -273,11 +273,12 @@ func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 			}
 		}
 		var statusToWrite api.GitSyncStatus
-		if currStatus.SyncStatus == db.SYNC_FAILED {
+		switch currStatus.SyncStatus {
+		case db.SYNC_FAILED:
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_ERROR
-		} else if currStatus.SyncStatus == db.UNSYNCED {
+		case db.UNSYNCED:
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNSYNCED
-		} else {
+		default:
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNKNOWN
 		}
 

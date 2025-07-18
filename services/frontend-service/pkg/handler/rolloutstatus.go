@@ -65,7 +65,7 @@ func (s Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req *
 		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environmentGroup), strings.NewReader(signature), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(http.StatusUnauthorized)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				_, _ = fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 				return
 			}
 			http.Error(w, "Invalid Signature", http.StatusUnauthorized)

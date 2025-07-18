@@ -461,7 +461,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				return ov.LightweightApps[i].Name < ov.LightweightApps[j].Name
 			})
 			if diff := cmp.Diff(tc.ExpectedOverview, ov, protocmp.Transform(), getOverviewIgnoredTypes(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
-				t.Errorf("overview missmatch (-want, +got): %s\n", diff)
+				t.Errorf("overview missmatch (-want, +got): %s", diff)
 			}
 			for _, appName := range tc.AppNamesToCheck {
 				appDetails, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: appName})
@@ -470,7 +470,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tc.ExpectedAppDetails[appName], appDetails, getAppDetailsIgnoredTypes(), cmpopts.IgnoreFields(api.Release{}, "CreatedAt"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime"), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt")); diff != "" {
-					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+					t.Errorf("response missmatch (-want, +got): %s", diff)
 				}
 			}
 		})
@@ -1995,7 +1995,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tc.ExpectedAppDetails[currentAppName], response, getAppDetailsIgnoredTypes(), cmpopts.IgnoreFields(api.Release{}, "CreatedAt"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime"), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt")); diff != "" {
-					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+					t.Errorf("response missmatch (-want, +got): %s", diff)
 				}
 			}
 		})
@@ -2242,7 +2242,7 @@ func TestCalculateWarnings(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tc.ExpectedWarnings[appName], appDetails.Application.Warnings, getAppDetailsIgnoredTypes()); diff != "" {
-					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+					t.Errorf("response missmatch (-want, +got): %s", diff)
 				}
 			}
 		})
@@ -2788,7 +2788,7 @@ func TestDeploymentHistory(t *testing.T) {
 					return err
 				}
 
-				defer rows.Close()
+				defer func() { _ = rows.Close() }()
 				for i := 1; rows.Next() && i < len(tc.ExpectedCsvLines); i++ {
 					var createdAt time.Time
 					err = rows.Scan(&createdAt)

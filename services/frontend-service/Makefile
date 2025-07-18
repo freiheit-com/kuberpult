@@ -24,6 +24,10 @@ PKG_WITHOUT_DOCKER=1
 
 include ../../infrastructure/make/go/include.mk
 
+lint: recursive-gen
+recursive-gen:
+	make -C $(ROOT_DIR)/pkg gen
+
 test: unit-test
 
 build-pr: IMAGE_TAG=pr-$(VERSION)

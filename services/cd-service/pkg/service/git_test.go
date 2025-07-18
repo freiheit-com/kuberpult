@@ -434,14 +434,14 @@ func TestGetProductDBFailureCases(t *testing.T) {
 		{
 			Name:        "get Product Overview with no env or envGroup",
 			timestamp:   &ts,
-			expectedErr: errMatcher{"Must have an environment or environmentGroup to get the product summary for"},
+			expectedErr: errMatcher{"must have an environment or environmentGroup to get the product summary for"},
 		},
 		{
 			Name:          "get Product Overview with both env and envGroup",
 			givenEnv:      conversion.FromString("testing"),
 			givenEnvGroup: conversion.FromString("testingGroup"),
 			timestamp:     &ts,
-			expectedErr:   errMatcher{"Can not have both an environment and environmentGroup to get the product summary for"},
+			expectedErr:   errMatcher{"can not have both an environment and environmentGroup to get the product summary for"},
 		},
 		{
 			Name:          "invalid envGroup used",

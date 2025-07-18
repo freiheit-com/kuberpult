@@ -126,10 +126,13 @@ func TestFs(t *testing.T) {
 				t.Fatal(err)
 			}
 			tmpDir := t.TempDir()
-			err = repo.CheckoutTree(gitTree, &git.CheckoutOpts{
+			err = repo.CheckoutTree(gitTree, &git.CheckoutOptions{
 				Strategy:        git.CheckoutForce,
 				TargetDirectory: tmpDir,
 			})
+			if err != nil {
+				t.Fatal(err)
+			}
 			checkedOut := osfs.New(tmpDir)
 			compareDir(t, tree, checkedOut, ".")
 		})
@@ -195,7 +198,7 @@ func compareContent(t *testing.T, expected, actual billy.Filesystem, file string
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer af.Close()
+	defer func() { _ = af.Close() }()
 	ac, err := io.ReadAll(af)
 	if err != nil {
 		t.Fatal(err)
@@ -205,7 +208,7 @@ func compareContent(t *testing.T, expected, actual billy.Filesystem, file string
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bf.Close()
+	defer func() { _ = bf.Close() }()
 	bc, err := io.ReadAll(bf)
 	if err != nil {
 		t.Fatal(err)
@@ -213,24 +216,5 @@ func compareContent(t *testing.T, expected, actual billy.Filesystem, file string
 
 	if !reflect.DeepEqual(ac, bc) {
 		t.Errorf("content differs for %s:\n\texpected: %q\n\tactual: %q", file, bc, ac)
-	}
-}
-
-func dumpFs(t *testing.T, fs billy.Filesystem, indent string) {
-	infos, err := fs.ReadDir(".")
-	if err != nil {
-		t.Logf("%s err: %q\n", indent, err)
-	} else {
-		for _, i := range infos {
-			t.Logf("%s - %s\n", indent, i.Name())
-			if i.Mode()&os.ModeSymlink != 0 {
-				lnk, _ := fs.Readlink(i.Name())
-				t.Logf("%s   linked to: %s\n", indent, lnk)
-			}
-			if i.IsDir() {
-				ch, _ := fs.Chroot(i.Name())
-				dumpFs(t, ch, indent+"  ")
-			}
-		}
 	}
 }

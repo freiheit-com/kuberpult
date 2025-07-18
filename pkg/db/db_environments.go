@@ -97,7 +97,7 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatch")
 	defer span.Finish()
 	if len(environmentNames) > WhereInBatchMax {
-		return nil, fmt.Errorf("SelectEnvironments is not batching queries for now, make sure to not request more than %d environments.", WhereInBatchMax)
+		return nil, fmt.Errorf("error: SelectEnvironments is not batching queries for now, make sure to not request more than %d environments", WhereInBatchMax)
 	}
 	if len(environmentNames) == 0 {
 		return &[]DBEnvironment{}, nil
@@ -391,7 +391,7 @@ func (h *DBHandler) DBDeleteEnvironment(ctx context.Context, tx *sql.Tx, environ
 		return err
 	}
 	if targetEnv == nil {
-		return fmt.Errorf("could not delete environment with name '%s' from DB.", environmentName)
+		return fmt.Errorf("could not delete environment with name '%s' from DB", environmentName)
 	}
 	err = h.deleteEnvironmentRow(ctx, tx, environmentName)
 	if err != nil {
@@ -558,7 +558,7 @@ func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.T
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not delete environment with name '%s' from DB. Error: %w\n",
+			"could not delete environment with name '%s' from DB. Error: %w",
 			environmentName,
 			err)
 	}

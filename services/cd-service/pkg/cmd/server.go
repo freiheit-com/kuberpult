@@ -337,7 +337,7 @@ func RunServer() {
 			if c.MigrationServer == "" {
 				logger.FromContext(ctx).Fatal("MigrationServer required when KUBERPULT_CHECK_CUSTOM_MIGRATIONS is enabled")
 			}
-			var cred credentials.TransportCredentials = insecure.NewCredentials()
+			var cred = insecure.NewCredentials()
 			if c.MigrationServerSecure {
 				systemRoots, err := x509.SystemCertPool()
 				if err != nil {

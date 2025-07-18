@@ -86,17 +86,17 @@ func GaugeGitSyncStatus(ctx context.Context, s *State, transaction *sql.Tx) erro
 	if ddMetrics != nil {
 		numberUnsyncedApps, err := s.DBHandler.DBCountAppsWithStatus(ctx, transaction, db.UNSYNCED)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error getting number of unsynced apps: %v\n", err)
+			logger.FromContext(ctx).Sugar().Warnf("error getting number of unsynced apps: %v", err)
 			return err
 		}
 		numberSyncFailedApps, err := s.DBHandler.DBCountAppsWithStatus(ctx, transaction, db.SYNC_FAILED)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error getting number of sync failed apps: %v\n", err)
+			logger.FromContext(ctx).Sugar().Warnf("error getting number of sync failed apps: %v", err)
 			return err
 		}
 		err = MeasureGitSyncStatus(numberUnsyncedApps, numberSyncFailedApps)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("could not send git sync status metrics to datadog: %v\n", err)
+			logger.FromContext(ctx).Sugar().Warnf("could not send git sync status metrics to datadog: %v", err)
 			return err
 		}
 
@@ -110,14 +110,14 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env 
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("Error when trying to get the number of environment locks: %w\n", err)
+				Warnf("Error when trying to get the number of environment locks: %w", err)
 			return
 		}
 		err = ddMetrics.Gauge("environment_lock_count", count, []string{"kuberpult_environment:" + string(env)}, 1)
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("Error when trying to send `environment_lock_count` metric to datadog: %w\n", err)
+				Warnf("Error when trying to send `environment_lock_count` metric to datadog: %w", err)
 		}
 	}
 }
@@ -127,7 +127,7 @@ func GaugeEnvAppLockMetric(ctx context.Context, appEnvLocksCount int, env types.
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("Error when trying to send `application_lock_count` metric to datadog: %w\n", err)
+				Warnf("Error when trying to send `application_lock_count` metric to datadog: %w", err)
 		}
 	}
 }
@@ -511,7 +511,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	if c.SourceCommitId != "" && !valid.SHA1CommitID(c.SourceCommitId) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F], but is %d characters: '%s'\n", len(c.SourceCommitId), c.SourceCommitId))
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F], but is %d characters: '%s'", len(c.SourceCommitId), c.SourceCommitId))
 	}
 	if c.PreviousCommit != "" && !valid.SHA1CommitID(c.PreviousCommit) {
 		logger.FromContext(ctx).Sugar().Warnf("Previous commit ID %s is invalid", c.PreviousCommit)
@@ -519,14 +519,14 @@ func (c *CreateApplicationVersion) Transform(
 
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
-		if errors.Is(err, InvalidJson) {
+		if errors.Is(err, ErrInvalidJson) {
 			return "", err
 		}
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 
 	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
@@ -716,7 +716,7 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 			return false, err
 		}
 		if nextRelease == nil {
-			return false, fmt.Errorf("next release exists in the all releases but not in the release table!")
+			return false, fmt.Errorf("next release (%d) exists in the all releases but not in the release table", nextVersion)
 		}
 		nextRelease.Metadata.IsMinor = compareManifests(ctx, c.Manifests, nextRelease.Manifests.Manifests, minorRegexes)
 		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, *nextRelease)
@@ -1263,7 +1263,7 @@ func (u *DeleteEnvFromApp) Transform(
 
 	err = state.DBHandler.DBRemoveAppFromEnvironment(ctx, transaction, envName, u.Application)
 	if err != nil {
-		return "", fmt.Errorf("Couldn't write environment '%s' into environments table, error: %w", u.Environment, err)
+		return "", fmt.Errorf("couldn't write environment '%s' into environments table, error: %w", u.Environment, err)
 	}
 	t.DeleteEnvFromApp(u.Application, envName)
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
@@ -1452,10 +1452,10 @@ func (c *CreateEnvironmentLock) Transform(
 	}
 
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("uggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
 	}
 	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
@@ -1610,10 +1610,10 @@ func (c *CreateEnvironmentGroupLock) Transform(
 		return "", err
 	}
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
 	}
 	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(ctx, transaction, c.EnvironmentGroup)
 	if err != nil {
@@ -1727,10 +1727,10 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		return "", err
 	}
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
 	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
@@ -1870,10 +1870,10 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	}
 
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w.", *c.SuggestedLifeTime))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
 	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
@@ -1996,7 +1996,7 @@ func (c *CreateEnvironment) Transform(
 	//Should be empty on new environments
 	envApps, err := state.GetEnvironmentApplications(ctx, transaction, envName)
 	if err != nil {
-		return "", fmt.Errorf("Unable to read environment, error: %w", err)
+		return "", fmt.Errorf("unable to read environment, error: %w", err)
 
 	}
 	for _, app := range envApps {
@@ -2049,7 +2049,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 	if envLocks != nil && len(envLocks.EnvLocks) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Environment locks for this environment exist.", c.Environment))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment locks for this environment exist", c.Environment))
 	}
 
 	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
@@ -2057,7 +2057,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 	if len(appLocksForEnv) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Application locks for this environment exist.", c.Environment))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Application locks for this environment exist", c.Environment))
 	}
 
 	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
@@ -2065,7 +2065,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 	if len(teamLocksForEnv) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Team locks for this environment exist.", c.Environment))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Team locks for this environment exist", c.Environment))
 	}
 
 	/* Check that no environment has the one we are trying to delete as upstream */
@@ -2089,14 +2089,14 @@ func (c *DeleteEnvironment) Transform(
 
 	for envName, envConfig := range allEnvConfigs {
 		if envConfig.Upstream != nil && envConfig.Upstream.Environment == c.Environment {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName))
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName))
 		}
 
 		//If we are deleting an environment and it is the last one on the group, we are also deleting the group.
 		//If this group is upstream from another env, we need to block it aswell
 		if envConfig.Upstream != nil && envConfig.Upstream.Environment == types.EnvName(envToDeleteGroupName) && lastEnvOfGroup {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Could not delete environment '%s'. '%s' is part of environment group '%s', "+
-				"which is upstream from '%s' and deleting '%s' would result in environment group deletion.",
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. '%s' is part of environment group '%s', "+
+				"which is upstream from '%s' and deleting '%s' would result in environment group deletion",
 				c.Environment,
 				c.Environment,
 				envToDeleteGroupName,
@@ -2114,7 +2114,7 @@ func (c *DeleteEnvironment) Transform(
 
 	//Delete env from apps
 	for _, app := range allAppsForEnv {
-		logger.FromContext(ctx).Sugar().Infof("Deleting environment '%s' from '%s'.", c.Environment, app)
+		logger.FromContext(ctx).Sugar().Infof("Deleting environment '%s' from '%s'", c.Environment, app)
 		deleteEnvFromAppTransformer := DeleteEnvFromApp{
 			Authentication:        c.Authentication,
 			TransformerEslVersion: c.TransformerEslVersion,
@@ -2167,7 +2167,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash st
 	if err != nil {
 		return nil, fmt.Errorf("unable to get manifest repo timestamp that corresponds to provided commit Hash %v", err)
 	} else if ts == nil {
-		return nil, fmt.Errorf("timestamp for the provided commit hash %q does not exist.", commitHash)
+		return nil, fmt.Errorf("timestamp for the provided commit hash %q does not exist", commitHash)
 	}
 
 	apps, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, upstreamEnvName, *ts)

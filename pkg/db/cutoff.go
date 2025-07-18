@@ -38,7 +38,7 @@ func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, e
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query cutoff table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query cutoff table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -55,7 +55,7 @@ func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, e
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("cutoff: Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("cutoff: Error scanning row from DB. Error: %w", err)
 		}
 		eslVersionPtr = &eslVersion
 	}
@@ -83,7 +83,7 @@ func DBWriteCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx, eslVersion Esl
 		time.Now().UTC(),
 	)
 	if err != nil {
-		return fmt.Errorf("could not write to cutoff table from DB. Error: %w\n", err)
+		return fmt.Errorf("could not write to cutoff table from DB. Error: %w", err)
 	}
 	return nil
 }

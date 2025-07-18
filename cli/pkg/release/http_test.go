@@ -737,7 +737,7 @@ func TestRequestCreationRelease(t *testing.T) {
 					if err != nil {
 						t.Fatalf("error encountered while opening the multipart file header for key \"%s\" file \"%s\", error: %v", key, header.Filename, err)
 					}
-					defer file.Close()
+					defer func() { _ = file.Close() }()
 
 					bytes := make([]byte, MAXIMUM_MULTIPART_SIZE)
 					n, err := file.Read(bytes)
@@ -858,7 +858,7 @@ func TestRequestCreationGetManifests(t *testing.T) {
 					if err != nil {
 						t.Fatalf("error encountered while opening the multipart file header for key \"%s\" file \"%s\", error: %v", key, header.Filename, err)
 					}
-					defer file.Close()
+					defer func() { _ = file.Close() }()
 
 					bytes := make([]byte, MAXIMUM_MULTIPART_SIZE)
 					n, err := file.Read(bytes)
