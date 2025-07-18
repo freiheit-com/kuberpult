@@ -96,7 +96,7 @@ func (c *DeployApplicationVersion) Prognosis(
 	transaction *sql.Tx,
 ) (*DeployPrognosis, error) {
 	var manifestContent []byte
-	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 	if err != nil {
 		return nil, err
 	}

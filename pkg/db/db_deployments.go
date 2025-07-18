@@ -357,11 +357,11 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 	return row, nil
 }
 
-func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (map[types.EnvName]int64, error) {
+func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (map[types.EnvName]types.ReleaseNumbers, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
 	defer span.Finish()
 	insertQuery := h.AdaptQuery(`
-		SELECT envname, releaseVersion
+		SELECT envname, releaseVersion, revision
 		FROM deployments
 		WHERE appName = (?) AND releaseVersion IS NOT NULL;
 	`)
@@ -381,28 +381,31 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	return h.processAllDeploymentRow(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (map[types.EnvName]int64, error) {
+func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (map[types.EnvName]types.ReleaseNumbers, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForAppAtTimestamp")
 	defer span.Finish()
 	query := h.AdaptQuery(`
 	SELECT
 		deployments_history.envName,
-		deployments_history.releaseVersion
+		deployments_history.releaseVersion,
+	    deployments_history.revision
 	FROM (
 	SELECT
 		MAX(version) AS latest,
 		appname,
-		envname
+		envname,
+		revision
 	FROM
 		deployments_history
 	WHERE deployments_history.appname = (?) AND created <= (?) AND deployments_history.releaseVersion IS NOT NULL
 	GROUP BY
-		envName, appname
+		envName, appname, revision
 	) AS latest
 	JOIN
 		deployments_history AS deployments_history
 	ON
 		latest.latest=deployments_history.version
+		AND latest.revision=deployments_history.revision
 		AND latest.appname=deployments_history.appname
 		AND latest.envName=deployments_history.envName;`)
 	if h == nil {
@@ -706,7 +709,7 @@ func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Ro
 	}, nil
 }
 
-func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (map[types.EnvName]int64, error) {
+func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows *sql.Rows) (map[types.EnvName]types.ReleaseNumbers, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w\n", err)
 	}
@@ -716,11 +719,11 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 			logger.FromContext(ctx).Sugar().Warnf("deployments: row could not be closed: %v", err)
 		}
 	}(rows)
-	deployments := make(map[types.EnvName]int64)
+	deployments := make(map[types.EnvName]types.ReleaseNumbers)
 	for rows.Next() {
-		var rowVersion int64
+		var rowVersion types.ReleaseNumbers
 		var rowEnv types.EnvName
-		err := rows.Scan(&rowEnv, &rowVersion)
+		err := rows.Scan(&rowEnv, &rowVersion.Version, &rowVersion.Revision)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil

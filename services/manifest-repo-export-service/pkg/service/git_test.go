@@ -967,7 +967,7 @@ func TestGetCommitInfo(t *testing.T) {
 						for _, environment := range eventType.CreateReleaseEvent.EnvironmentNames {
 							environments[environment] = struct{}{}
 						}
-						err := dbHandler.DBWriteNewReleaseEvent(ctx, transaction, db.TransformerID(0), 1, initialEvent.Uuid, initialEvent.CommitHash, &event.NewRelease{Environments: environments})
+						err := dbHandler.DBWriteNewReleaseEvent(ctx, transaction, db.TransformerID(0), types.ReleaseNumbers{Version: &versionOne, Revision: 0}, initialEvent.Uuid, initialEvent.CommitHash, &event.NewRelease{Environments: environments})
 						if err != nil {
 							return err
 						}

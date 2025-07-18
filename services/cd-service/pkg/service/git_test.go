@@ -119,8 +119,8 @@ func TestGetProductDB(t *testing.T) {
 						DisplayVersion:  "v1.0.2",
 						WriteCommitData: true,
 						Version:         1,
+						Revision:        0,
 					},
-
 					&rp.CreateApplicationVersion{
 						Application: "test",
 						Manifests: map[types.EnvName]string{
@@ -132,11 +132,13 @@ func TestGetProductDB(t *testing.T) {
 						DisplayVersion:  "v1.0.2",
 						WriteCommitData: true,
 						Version:         2,
+						Revision:        0,
 					},
 					&rp.DeployApplicationVersion{
 						Application: "test",
 						Environment: "development",
 						Version:     1,
+						Revision:    0,
 					},
 				},
 				{
@@ -144,6 +146,7 @@ func TestGetProductDB(t *testing.T) {
 						Application: "test",
 						Environment: "development",
 						Version:     2,
+						Revision:    0,
 					},
 				},
 			},

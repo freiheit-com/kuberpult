@@ -78,7 +78,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		TeamLocks:   make(map[string]*api.Locks),
 	}
 	resultApp, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.Application, error) {
-		var rels []int64
+		var rels []types.ReleaseNumbers
 		var result = &api.Application{
 			UndeploySummary: 0,
 			Warnings:        nil,
@@ -100,7 +100,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 
 		uintRels := make([]uint64, len(rels))
 		for idx, r := range rels {
-			uintRels[idx] = uint64(r)
+			uintRels[idx] = *r.Version
 		}
 		//Does not get the manifest and gets all releases at the same time
 		releases, err := o.DBHandler.DBSelectReleasesByVersionsAndRevision(ctx, transaction, appName, uintRels, false)
@@ -743,7 +743,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 			return fmt.Errorf("error obtaining commit hashes for time window: %v", err)
 		}
 		query := o.DBHandler.AdaptQuery(`
-			SELECT created, releaseversion, appname, envname FROM deployments_history
+			SELECT created, releaseversion, appname, envname, revision FROM deployments_history
 			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?)
 			ORDER BY created ASC;
 		`)
@@ -760,19 +760,20 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 		for i := uint64(2); deploymentRows.Next(); i++ {
 			var created time.Time
 			var releaseVersion uint64
+			var revision uint64
 			var appName string
 			var envName string
 
-			err := deploymentRows.Scan(&created, &releaseVersion, &appName, &envName)
+			err := deploymentRows.Scan(&created, &releaseVersion, &appName, &envName, &revision)
 			if err != nil {
 				return err
 			}
 
 			previousReleaseVersion, hasPreviousVersion := previousReleaseVersions[appName]
-			releaseSourceCommitId, exists := releases[db.ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion}]
+			releaseSourceCommitId, exists := releases[db.ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion, Revision: revision}]
 			if !exists {
 				// If we couldnt find the release info in the window from [start_data - 1Month, EndDate], we fetch this information directly
-				fetchRelease, err := o.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion, false)
+				fetchRelease, err := o.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: &releaseVersion, Revision: revision}, false)
 				if err != nil {
 					return err
 				}

@@ -526,14 +526,14 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 	return nil
 }
 
-func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, releaseVersion uint64, uuid, sourceCommitHash string, newReleaseEvent *event.NewRelease) error {
+func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, releaseVersion types.ReleaseNumbers, uuid, sourceCommitHash string, newReleaseEvent *event.NewRelease) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentEvent")
 	defer span.Finish()
 
 	metadata := event.Metadata{
 		Uuid:           uuid,
 		EventType:      string(event.EventTypeNewRelease),
-		ReleaseVersion: releaseVersion,
+		ReleaseVersion: *releaseVersion.Version,
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     newReleaseEvent,

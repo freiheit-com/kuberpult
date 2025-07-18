@@ -104,7 +104,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 						DisplayVersion: "",
 						Team:           "",
 						App:            currentApp,
-						Version:        strconv.FormatInt(version, 10),
+						Version:        strconv.FormatInt(int64(*version.Version), 10),
 						Environment:    *in.Environment,
 					})
 
@@ -155,7 +155,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 									DisplayVersion: "",
 									Team:           "",
 									App:            currentApp,
-									Version:        strconv.FormatInt(version, 10),
+									Version:        strconv.FormatInt(int64(*version.Version), 10),
 									Environment:    string(envName),
 								})
 

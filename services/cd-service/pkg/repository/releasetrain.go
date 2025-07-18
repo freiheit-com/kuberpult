@@ -88,7 +88,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 			if err != nil {
 				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("unable to find findOldApplicationVersions for app %s: %w", app.App, err))
 			}
-			if len(versions) > 0 && versions[0] > app.Version {
+			if len(versions) > 0 && *versions[0].Version > *app.Version.Version {
 				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("Version for app %s is older than 20 commits when running release train to commitHash %s: %w", app.App, c.CommitHash, err))
 			}
 
@@ -702,7 +702,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		if overrideVersions != nil {
 			for _, override := range overrideVersions {
 				if override.App == appName {
-					versionToDeploy = override.Version
+					versionToDeploy = *override.Version.Version
 				}
 			}
 		} else if upstreamLatest {

@@ -538,7 +538,6 @@ message Deployment {
   // google.protobuf.Timestamp deploy_date = 5; // This is never used
   bool undeploy_version = 6;
   DeploymentMetaData deployment_meta_data = 7;
-  // version=0 means "nothing is deployed"
   uint64 revision = 8;
 }
 

@@ -414,16 +414,16 @@ var (
 	ctxMarkerGenerateUuidKey = &ctxMarkerGenerateUuid{}
 )
 
-func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, application string) (uint64, error) {
+func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, application string) (types.ReleaseNumbers, error) {
 	releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 	if err != nil {
-		return 0, fmt.Errorf("could not get releases of app %s: %v", application, err)
+		return types.ReleaseNumbers{Version: nil, Revision: 0}, fmt.Errorf("could not get releases of app %s: %v", application, err)
 	}
 	if len(releases) == 0 {
-		return 0, nil
+		return types.ReleaseNumbers{Version: nil, Revision: 0}, nil
 	}
 	l := len(releases)
-	return uint64(releases[l-1]), nil
+	return releases[l-1], nil
 }
 
 func isValidLink(urlToCheck string, allowedDomains []string) bool {
@@ -449,10 +449,11 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	version, err := c.calculateVersion(ctx, transaction, state)
+	v, r, err := c.calculateVersion(ctx, transaction, state)
 	if err != nil {
 		return "", err
 	}
+	version := types.ReleaseNumbers{Version: &v, Revision: r}
 	if !valid.ApplicationName(c.Application) {
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
@@ -581,7 +582,7 @@ func (c *CreateApplicationVersion) Transform(
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
 			Revision: c.Revision,
-			Version:  &version,
+			Version:  version.Version,
 		},
 		App: c.Application,
 		Manifests: db.DBReleaseManifests{
@@ -641,7 +642,7 @@ func (c *CreateApplicationVersion) Transform(
 				SourceTrain:           nil,
 				Environment:           env,
 				Application:           c.Application,
-				Version:               version, // the train should queue deployments, instead of giving up:
+				Version:               *version.Version, // the train should queue deployments, instead of giving up:
 				Revision:              c.Revision,
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
@@ -687,7 +688,7 @@ func validateDownstreamEnvs(downstreamEnvs []types.EnvName, sortedEnvs []types.E
 	return nil
 }
 
-func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version uint64, minorRegexes []*regexp.Regexp) (bool, error) {
+func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version types.ReleaseNumbers, minorRegexes []*regexp.Regexp) (bool, error) {
 	releaseVersions, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
 	if err != nil {
 		return false, err
@@ -695,23 +696,25 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 	if releaseVersions == nil {
 		return false, nil
 	}
-	sort.Slice(releaseVersions, func(i, j int) bool { return releaseVersions[i] > releaseVersions[j] })
-	nextVersion := int64(-1)
-	previousVersion := int64(-1)
+	sort.Slice(releaseVersions, func(i, j int) bool {
+		return *releaseVersions[i].Version > *releaseVersions[j].Version || (*releaseVersions[i].Version == *releaseVersions[j].Version && releaseVersions[i].Revision > releaseVersions[j].Revision)
+	})
+	nextVersion := types.ReleaseNumbers{Version: nil, Revision: 0}
+	previousVersion := types.ReleaseNumbers{Version: nil, Revision: 0}
 	for i := len(releaseVersions) - 1; i >= 0; i-- {
-		if releaseVersions[i] > int64(version) {
+		if types.Greater(releaseVersions[i], version) {
 			nextVersion = releaseVersions[i]
 			break
 		}
 	}
 	for i := 0; i < len(releaseVersions); i++ {
-		if releaseVersions[i] < int64(version) {
+		if types.Greater(version, releaseVersions[i]) {
 			previousVersion = releaseVersions[i]
 			break
 		}
 	}
-	if nextVersion != -1 {
-		nextRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, uint64(nextVersion), true)
+	if nextVersion.Version != nil {
+		nextRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, nextVersion, true)
 		if err != nil {
 			return false, err
 		}
@@ -724,10 +727,10 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 			return false, err
 		}
 	}
-	if previousVersion == -1 {
+	if previousVersion.Version == nil {
 		return false, nil
 	}
-	previousRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, uint64(previousVersion), true)
+	previousRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, previousVersion, true)
 	if err != nil {
 		return false, err
 	}
@@ -782,7 +785,7 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, releaseVersion uint64, transformerEslVersion db.TransformerID, sourceCommitId string, sourceMessage string, app string, eventId string, environments []types.EnvName, previousCommitId string, state *State) error {
+func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, releaseVersion types.ReleaseNumbers, transformerEslVersion db.TransformerID, sourceCommitId string, sourceMessage string, app string, eventId string, environments []types.EnvName, previousCommitId string, state *State) error {
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
@@ -806,24 +809,24 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 	return nil
 }
 
-func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (uint64, error) {
+func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (uint64, uint64, error) {
 	if c.Version == 0 {
-		return 0, fmt.Errorf("version is required when using the database")
+		return 0, 0, fmt.Errorf("version is required when using the database")
 	} else {
 		metaData, err := state.DBHandler.DBSelectReleaseByReleaseNumbers(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 		if err != nil {
-			return 0, fmt.Errorf("could not calculate version, error: %v", err)
+			return 0, 0, fmt.Errorf("could not calculate version, error: %v", err)
 		}
 		if metaData == nil {
 			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v.%v", c.Application, c.Version, c.Revision)
-			return c.Version, nil
+			return c.Version, c.Revision, nil
 		}
 		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v.%v", *metaData.ReleaseNumbers.Version, c.Revision, metaData)
 
 		existingRelease := metaData.ReleaseNumbers.Version
 		logger.FromContext(ctx).Sugar().Warnf("comparing release %v.%v: %v", c.Version, c.Revision, existingRelease)
 		// check if version differs, if it's the same, that's ok
-		return 0, c.sameAsExistingDB(ctx, transaction, state, metaData)
+		return 0, 0, c.sameAsExistingDB(ctx, transaction, state, metaData)
 	}
 }
 
@@ -867,7 +870,7 @@ func (c *CreateApplicationVersion) sameAsExistingDB(ctx context.Context, transac
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
 		}
 	}
-	metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
+	metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 	if err != nil {
 		return fmt.Errorf("could not calculate version, error: %v", err)
 	}
@@ -913,29 +916,14 @@ func createUnifiedDiff(existingValue string, requestValue string, prefix string)
 	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
-func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version uint64) (bool, error) {
-	var rels []uint64
-	var err error
-	all, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
-	if err != nil {
-		return false, err
-	}
-	//Convert
-	if all == nil {
-		rels = make([]uint64, 0)
-	} else {
-		rels = make([]uint64, len(all))
-		for idx, rel := range all {
-			rels[idx] = uint64(rel)
-		}
-	}
-
+func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version types.ReleaseNumbers) (bool, error) {
+	rels, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 	if err != nil {
 		return false, err
 	}
 
 	for _, r := range rels {
-		if r > version {
+		if types.Greater(r, version) {
 			return false, nil
 		}
 	}
@@ -972,7 +960,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	if lastRelease == 0 {
+	if lastRelease.Version == nil {
 		return "", fmt.Errorf("cannot undeploy non-existing application '%v'", c.Application)
 	}
 	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
@@ -991,7 +979,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			envs = append(envs, env)
 		}
 	}
-	v := uint64(lastRelease + 1)
+	v := uint64(*lastRelease.Version + 1)
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
 			Revision: 0,
@@ -1043,7 +1031,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				SourceTrain: nil,
 				Environment: env,
 				Application: c.Application,
-				Version:     lastRelease + 1,
+				Version:     *lastRelease.Version + 1,
 				// the train should queue deployments, instead of giving up:
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
@@ -1065,7 +1053,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			}
 		}
 	}
-	return fmt.Sprintf("created undeploy-version %d of '%v'", lastRelease+1, c.Application), nil
+	return fmt.Sprintf("created undeploy-version %d of '%v'", *lastRelease.Version+1, c.Application), nil
 }
 
 type UndeployApplication struct {
@@ -1097,11 +1085,11 @@ func (u *UndeployApplication) Transform(
 	if err != nil {
 		return "", err
 	}
-	if lastRelease == 0 {
+	if lastRelease.Version == nil {
 		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
 	}
 
-	isUndeploy, err := state.IsUndeployVersion(ctx, transaction, u.Application, lastRelease)
+	isUndeploy, err := state.IsUndeployVersion(ctx, transaction, u.Application, *lastRelease.Version)
 	if err != nil {
 		return "", err
 	}
@@ -1124,7 +1112,7 @@ func (u *UndeployApplication) Transform(
 
 		var isUndeploy bool
 		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, u.Application, uint64(*deployment.ReleaseNumbers.Version), true)
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, u.Application, deployment.ReleaseNumbers, true)
 			if err != nil {
 				return "", err
 			}
@@ -1287,7 +1275,7 @@ func (c *CleanupOldApplicationVersions) GetEslVersion() db.TransformerID {
 }
 
 // Finds old releases for an application
-func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]uint64, error) {
+func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]types.ReleaseNumbers, error) {
 	// 1) get release in each env:
 	versions, err := state.GetAllApplicationReleases(ctx, transaction, name)
 	if err != nil {
@@ -1297,7 +1285,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return nil, err
 	}
 	sort.Slice(versions, func(i, j int) bool {
-		return versions[i] < versions[j]
+		return types.Greater(versions[j], versions[i])
 	})
 
 	deployments, err := state.GetAllDeploymentsForApp(ctx, transaction, name)
@@ -1305,8 +1293,8 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return nil, err
 	}
 
-	var oldestDeployedVersion uint64
-	deployedVersions := []int64{}
+	var oldestDeployedVersion types.ReleaseNumbers
+	deployedVersions := []types.ReleaseNumbers{}
 	for _, version := range deployments {
 		deployedVersions = append(deployedVersions, version)
 	}
@@ -1315,11 +1303,11 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		// Use the latest version as oldest deployed version
 		oldestDeployedVersion = versions[len(versions)-1]
 	} else {
-		oldestDeployedVersion = uint64(slices.Min(deployedVersions))
+		oldestDeployedVersion = slices.MinFunc(deployedVersions, types.CompareReleaseNumbers)
 	}
 
 	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
-		return versions[i] >= oldestDeployedVersion
+		return types.GreaterOrEqual(versions[i], oldestDeployedVersion)
 	})
 
 	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
@@ -2158,7 +2146,7 @@ func (c *QueueApplicationVersion) Transform(
 
 type Overview struct {
 	App     string
-	Version uint64
+	Version types.ReleaseNumbers
 }
 
 func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash string, upstreamEnvName types.EnvName, state *State) (resp []Overview, err error) {
@@ -2182,7 +2170,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash st
 		}
 
 		if version, ok := currentAppDeployments[upstreamEnvName]; ok {
-			resp = append(resp, Overview{App: appName, Version: uint64(version)})
+			resp = append(resp, Overview{App: appName, Version: version})
 		}
 	}
 

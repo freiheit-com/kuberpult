@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package types
 
 import (
+	"cmp"
 	"sort"
 	"strings"
 )
@@ -78,4 +79,23 @@ func Compare(a, b EnvName) int {
 type ReleaseNumbers struct {
 	Version  *uint64
 	Revision uint64
+}
+
+// Return s
+func Greater(i, j ReleaseNumbers) bool {
+	return CompareReleaseNumbers(i, j) > 0
+}
+
+func GreaterOrEqual(i, j ReleaseNumbers) bool {
+	return CompareReleaseNumbers(i, j) >= 0
+}
+
+func CompareReleaseNumbers(a, b ReleaseNumbers) int {
+	// Compare versions
+	vCmp := cmp.Compare(*a.Version, *b.Version)
+	if vCmp != 0 {
+		return vCmp // Versions are different, return the result
+	}
+	// Versions are the same, compare revisions
+	return cmp.Compare(a.Revision, b.Revision)
 }
