@@ -364,9 +364,8 @@ func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release
 	return tmp.Metadata.SourceCommitId, nil
 }
 
-func getCommitIDs(ctx context.Context, transaction *sql.Tx, state *State, releaseByApp map[string]int64) (map[string]string, error) {
-	result := make(map[string]string)
-	return result, nil
+func getCommitIDs(ctx context.Context, transaction *sql.Tx, state *State, versionByApp map[string]uint64) (map[string]string, error) {
+	return state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, versionByApp)
 }
 
 func createDeploymentEvent(application string, environment types.EnvName, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
