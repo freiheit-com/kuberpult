@@ -37,19 +37,6 @@ import (
 	"testing"
 )
 
-// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
-type errMatcher struct {
-	msg string
-}
-
-func (e errMatcher) Error() string {
-	return e.msg
-}
-
-func (e errMatcher) Is(err error) bool {
-	return e.Error() == err.Error()
-}
-
 const appVersion = 1
 
 var createOneAppInDevelopment []repository.Transformer = []repository.Transformer{
@@ -82,56 +69,6 @@ metadata:
 data:
   key: value
 `,
-		},
-	},
-}
-
-var createOneAppInDevelopmentAndTesting []repository.Transformer = []repository.Transformer{
-	&repository.CreateEnvironment{
-		Environment: "development",
-		Config: config.EnvironmentConfig{
-			Upstream: &config.EnvironmentConfigUpstream{
-				Latest: true,
-			},
-			ArgoCd: &config.EnvironmentConfigArgoCd{
-				Destination: config.ArgoCdDestination{
-					Server: "development",
-				},
-			},
-		},
-	},
-	&repository.CreateEnvironment{
-		Environment: "testing",
-		Config: config.EnvironmentConfig{
-			Upstream: &config.EnvironmentConfigUpstream{
-				Latest: true,
-			},
-			ArgoCd: &config.EnvironmentConfigArgoCd{
-				Destination: config.ArgoCdDestination{
-					Server: "testing",
-				},
-			},
-		},
-	},
-	&repository.CreateApplicationVersion{
-		Application: "app",
-		Manifests: map[types.EnvName]string{
-			"development": `
-api: v1
-kind: ConfigMap
-metadata:
-  name: something
-  namespace: something
-data:
-  key: value`,
-			"testing": `
-api: v1
-kind: ConfigMap
-metadata:
-  name: something
-  namespace: something
-data:
-  key: value`,
 		},
 	},
 }
