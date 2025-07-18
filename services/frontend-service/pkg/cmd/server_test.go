@@ -144,7 +144,11 @@ func TestServerHeader(t *testing.T) {
 				if err != nil {
 					t.Errorf("expected no error but got %q", err)
 				}
-				defer func() { _ = req.Body.Close() }()
+				defer func() {
+					if req.Body != nil {
+						_ = req.Body.Close()
+					}
+				}()
 				req.Header = tc.RequestHeaders
 				res, err := http.DefaultClient.Do(req)
 				if err != nil {
