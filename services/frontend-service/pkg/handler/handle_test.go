@@ -54,7 +54,10 @@ func (c *mockReleaseTrainPrognosisServiceClient) GetReleaseTrainPrognosis(_ cont
 func createTestForm() (*multipart.Form, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("version", "1")
+	err := writer.WriteField("version", "1")
+	if err != nil {
+		return nil, err
+	}
 	fileWriter, err := writer.CreateFormFile("manifests[development]", "test.txt")
 	if err != nil {
 		return nil, err
@@ -63,7 +66,10 @@ func createTestForm() (*multipart.Form, error) {
 	if err != nil {
 		return nil, err
 	}
-	writer.Close()
+	err = writer.Close()
+	if err != nil {
+		return nil, err
+	}
 	req := httptest.NewRequest("POST", "/upload", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	err = req.ParseMultipartForm(32 << 20)
