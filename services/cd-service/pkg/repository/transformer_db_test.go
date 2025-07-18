@@ -31,12 +31,10 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/lib/pq"
 
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
-
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/google/go-cmp/cmp"
@@ -331,10 +329,10 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("transaction error: %v", err)
 			}
-			var jsonInterface interface{} = tc.dataType
+			var jsonInterface = tc.dataType
 			err = json.Unmarshal(([]byte)(row.EventJson), &jsonInterface)
 			if err != nil {
-				t.Fatalf("marshal error: %v\njson: \n%s\n", err, row.EventJson)
+				t.Fatalf("marshal error: %v\njson: \n%s", err, row.EventJson)
 			}
 			tc.Transformer.SetEslVersion(0) // the eslVersion is not part of the json blob anymore
 			if diff := cmp.Diff(tc.Transformer, jsonInterface, protocmp.Transform()); diff != "" {
@@ -2061,7 +2059,7 @@ func TestEvents(t *testing.T) {
 					t.Fatal(err)
 				}
 				if len(rows) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d' rows:\n%v\n", len(tc.expectedDBEvents), len(rows), rows)
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d' rows:\n%v", len(tc.expectedDBEvents), len(rows), rows)
 				}
 				dEvents, err := DBParseToEvents(rows)
 				if err != nil {
@@ -2467,7 +2465,7 @@ func TestReleaseTrain(t *testing.T) {
 					return nil
 				})
 				if err != nil {
-					t.Fatalf("Err: %v\n", err)
+					t.Fatalf("Err: %v", err)
 				}
 			}
 
@@ -2490,7 +2488,7 @@ func TestReleaseTrain(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Err: %v\n", err)
+				t.Fatalf("Err: %v", err)
 			}
 		})
 	}
@@ -3150,7 +3148,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment locks for this environment exist."},
 			},
 		},
 		{
@@ -3190,7 +3188,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Application locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Application locks for this environment exist."},
 			},
 		},
 		{
@@ -3231,7 +3229,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Team locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Team locks for this environment exist."},
 			},
 		},
 		{
@@ -3276,7 +3274,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
 			},
 		},
 		{
@@ -3332,7 +3330,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            6,
-				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
+				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
 			},
 		},
 	}
@@ -3706,7 +3704,7 @@ func TestAllowedCILinksState(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            1,
-				TransformerError: errMatcher{"general_failure:{message:\"Provided CI Link: https://github.com/freiheit-com/kuberpult is not valid or does not match any of the allowed domain\"}"},
+				TransformerError: errMatcher{"general_failure:{message:\"provided CI Link: https://github.com/freiheit-com/kuberpult is not valid or does not match any of the allowed domain\"}"},
 			},
 		},
 		{
@@ -3731,7 +3729,7 @@ func TestAllowedCILinksState(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            1,
-				TransformerError: errMatcher{"general_failure:{message:\"Provided CI Link: https://google.com/search?q=freiheit.com is not valid or does not match any of the allowed domain\"}"},
+				TransformerError: errMatcher{"general_failure:{message:\"provided CI Link: https://google.com/search?q=freiheit.com is not valid or does not match any of the allowed domain\"}"},
 			},
 		},
 	}
@@ -3912,11 +3910,6 @@ func TestUndeployDBState(t *testing.T) {
 			}
 		})
 	}
-}
-
-func version(v int) *int64 {
-	var result = int64(v)
-	return &result
 }
 
 func uversion(v int) *uint64 {
@@ -4205,7 +4198,7 @@ func TestTimestampConsistency(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Err: %v\n", err)
+				t.Fatalf("Err: %v", err)
 			}
 		})
 	}
@@ -4381,7 +4374,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -4415,8 +4408,8 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				t.Fatalf("expected %d events, but got %d", len(tc.expectedEvents), len(mockClient.events))
 			}
 			for i := range tc.expectedEvents {
-				var expectedEvent statsd.Event = tc.expectedEvents[i]
-				var actualEvent statsd.Event = *mockClient.events[i]
+				var expectedEvent = tc.expectedEvents[i]
+				var actualEvent = *mockClient.events[i]
 
 				if diff := cmp.Diff(expectedEvent, actualEvent, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
 					t.Errorf("got %v, want %v, diff (-want +got) %s", actualEvent, expectedEvent, diff)
@@ -4533,7 +4526,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -4596,9 +4589,9 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			sortGauges(tc.expectedGauges)
 			sortGauges(mockClient.gauges)
 			for i := range tc.expectedGauges {
-				var expectedGauge Gauge = tc.expectedGauges[i]
+				var expectedGauge = tc.expectedGauges[i]
 				sort.Strings(expectedGauge.Tags)
-				var actualGauge Gauge = mockClient.gauges[i]
+				var actualGauge = mockClient.gauges[i]
 				sort.Strings(actualGauge.Tags)
 				t.Logf("actualGauges:[%v] %v:%v", i, actualGauge.Name, actualGauge.Tags)
 				t.Logf("expectedGauges:[%v] %v:%v", i, expectedGauge.Name, expectedGauge.Tags)
@@ -4869,7 +4862,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 					return nil
 				})
 				if err != nil {
-					t.Fatalf("Err: %v\n", err)
+					t.Fatalf("Err: %v", err)
 				}
 			}
 
@@ -4884,7 +4877,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Err: %v\n", err)
+				t.Fatalf("Err: %v", err)
 			}
 		})
 	}
