@@ -1,6 +1,0 @@
-spec:
-  buildWith: infrastructure/docker/builder
-  dependsOn:
-  - ../../
-additional_artifacts:
-  - services/cd-service/coverage.html

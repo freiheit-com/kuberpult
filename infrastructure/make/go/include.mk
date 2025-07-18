@@ -12,6 +12,8 @@ SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
 CONTEXT?=.
 SKIP_DEPS?=0
+SKIP_TRIVY?=0
+SKIP_RETAG_MAIN_AS_PR?=0
 MAKEFLAGS += --no-builtin-rules
 
 .PHONY: deps
@@ -53,7 +55,27 @@ docker: compile
 .PHONY: release
 release:
 	test -n "$(MAIN_PATH)" || exit 0; docker push $(IMAGE_NAME)
+
+release-main:
+	@echo "Tagging the PR image as main image"
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
+
+retag-main:
+ifeq ($(SKIP_RETAG_MAIN_AS_PR),1)
+	@echo "Skipping retag-main"
+else
+	@echo "Starting retag-main: Tagging the main image as PR image"
+	test -n "$(MAIN_PATH)" || exit 0; docker tag $(MAIN_IMAGE_NAME) $(IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
+endif
+
+
+trivy-scan: release
+ifeq ($(SKIP_TRIVY),1)
+	@echo "Skipping trivy"
+else
+	@echo "Starting trivy check for $(IMAGE_NAME)"
+	KUBERPULT_SERVICE_IMAGE=$(IMAGE_NAME) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
+endif
 
 .PHONY: datadog-wrapper
 datadog-wrapper:
@@ -62,7 +84,7 @@ datadog-wrapper:
 test: unit-test
 
 build-pr: IMAGE_TAG=pr-$(VERSION)
-build-pr: lint unit-test bench-test docker release
+build-pr: lint unit-test bench-test docker release trivy-scan
 
 build-main: IMAGE_TAG=main-$(VERSION)
-build-main: lint unit-test bench-test docker release
+build-main: lint unit-test bench-test docker release-main trivy-scan

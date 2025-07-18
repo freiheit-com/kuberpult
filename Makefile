@@ -51,9 +51,6 @@ test: $(addsuffix /test,$(MAKEDIRS))
 $(addsuffix /all,$(MAKEDIRS)):
 	make -C $(dir $@) all
 
-plan:
-	@infrastructure/scripts/execution-plan/plan-pr.sh
-
 all: $(addsuffix /all,$(MAKEDIRS))
 
 init:

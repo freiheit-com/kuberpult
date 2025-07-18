@@ -18,7 +18,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        fetch-depth: 1
     - name: "Authenticate to Google Cloud"
       uses: google-github-actions/auth@v2
       with:
@@ -45,23 +45,6 @@ jobs:
         elif [[ ${{ inputs.trigger }} == "main" ]]; then
           echo "IMAGE_TAG_KUBERPULT=main-$(make version)" >> $GITHUB_ENV
         fi
-    - name: Check if tag exists
-      if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
-      run: |
-        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT} > /dev/null; then
-          echo "No valid images found in the registry for the backend service"
-          exit 1
-        fi
-
-        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_KUBERPULT} > /dev/null; then
-          echo "No valid images found in the registry for the frontend service"
-          exit 1
-        fi
-
-        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBERPULT} > /dev/null; then
-          echo "No valid images found in the registry for the rollout service"
-          exit 1
-        fi
     - name: Run and build trivy base image
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
@@ -70,7 +53,7 @@ jobs:
     - name: Run trivy scan
       run: |
         if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
-          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make -C trivy scan-all-pr
+          echo "Skipping trivy in PR, because this is done in `make build-pr` now."
         elif [[ ${{ inputs.trigger }} == "main" ]]; then
           GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make -C trivy scan-all
         fi

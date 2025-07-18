@@ -59,3 +59,6 @@ publish: release
 .PHONY: get-builder-image
 get-builder-image:
 	@echo "$(KUBERPULT_BUILDER)"
+
+retag-main:
+	@echo "Skipping retag-main"
