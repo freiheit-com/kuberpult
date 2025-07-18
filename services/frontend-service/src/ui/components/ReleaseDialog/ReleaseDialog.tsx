@@ -21,6 +21,7 @@ import {
     getPriorityClassName,
     gitSyncStatus,
     IsAAEnvironment,
+    ReleaseNumbers,
     showSnackbarWarn,
     useActions,
     useAppDetailsForApp,
@@ -61,7 +62,7 @@ import { GetTargetFutureDate, isOutdatedLifetime } from '../LockDisplay/LockDisp
 export type ReleaseDialogProps = {
     className?: string;
     app: string;
-    version: number;
+    version: ReleaseNumbers;
 };
 
 export const AppLock: React.FC<{
@@ -312,6 +313,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                 environment: env.name,
                                 application: app,
                                 version: release.version,
+                                revision: release.revision,
                                 ignoreAllLocks: false,
                                 lockBehavior: LockBehavior.IGNORE,
                             },
@@ -325,6 +327,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         },
         [
             release.version,
+            release.revision,
             release.environments,
             app,
             env.name,
@@ -342,10 +345,14 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         if (!otherRelease) {
             return true;
         }
-        return otherRelease.version !== release.version;
+        return otherRelease.version !== release.version || otherRelease.revision !== release.revision;
     })();
 
-    const releaseDifference = useReleaseDifference(release.version, app, env.name);
+    const releaseDifference = useReleaseDifference(
+        { version: release.version, revision: release.revision },
+        app,
+        env.name
+    );
     const getReleaseDiffContent = (): JSX.Element => {
         if (!otherRelease || !deployment) {
             return <div></div>;
@@ -492,7 +499,9 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     if (!appDetails) {
         return null;
     }
-    const release = appDetails.details?.application?.releases.find((r) => r.version === version);
+    const release = appDetails.details?.application?.releases.find(
+        (r) => r.version === version.version && r.revision === version.revision
+    );
 
     if (!release) {
         return null;
@@ -585,9 +594,10 @@ export const EnvironmentGroupLane: React.FC<{
         setIsCollapsed(!isCollapsed);
     }, [isCollapsed]);
 
-    const allReleases = useCurrentlyDeployedAtGroup(app, release.version).filter(
-        (releaseEnvGroup) => releaseEnvGroup.environmentGroupName === environmentGroup.environmentGroupName
-    );
+    const allReleases = useCurrentlyDeployedAtGroup(app, {
+        version: release.version,
+        revision: release.revision,
+    }).filter((releaseEnvGroup) => releaseEnvGroup.environmentGroupName === environmentGroup.environmentGroupName);
 
     const actions = useActions();
     const envsWithoutPlannedDeployments = environmentGroup.environments.filter(
@@ -690,6 +700,7 @@ export const EnvironmentGroupLane: React.FC<{
                                 environment: environment.name,
                                 application: app,
                                 version: release.version,
+                                revision: release.revision,
                                 ignoreAllLocks: false,
                                 lockBehavior: LockBehavior.IGNORE,
                             },

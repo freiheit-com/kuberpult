@@ -140,6 +140,7 @@ describe('Release Dialog', () => {
             deployments: {
                 dev: {
                     version: 1,
+                    revision: 0,
                     queuedVersion: 0,
                     undeployVersion: false,
                 },

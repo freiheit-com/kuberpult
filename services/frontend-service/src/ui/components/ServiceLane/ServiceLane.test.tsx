@@ -240,11 +240,13 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
                 deployments: {
                     foo: {
                         version: 1,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
                     foo2: {
                         version: 1,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
@@ -272,11 +274,13 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
                 deployments: {
                     foo: {
                         version: 1,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
                     foo2: {
                         version: 4,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
@@ -304,11 +308,13 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
                 deployments: {
                     foo: {
                         version: 2,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
                     foo2: {
                         version: 5,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
@@ -447,11 +453,13 @@ const data: TestDataDiff[] = [
                 deployments: {
                     foo: {
                         version: 1,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
                     foo2: {
                         version: 1,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
@@ -493,11 +501,13 @@ const data: TestDataDiff[] = [
                 deployments: {
                     foo: {
                         version: 1,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
                     foo2: {
                         version: 2,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
@@ -539,11 +549,13 @@ const data: TestDataDiff[] = [
                 deployments: {
                     foo: {
                         version: 1,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
                     foo2: {
                         version: 4,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
@@ -585,11 +597,13 @@ const data: TestDataDiff[] = [
                 deployments: {
                     foo: {
                         version: 2,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
                     foo2: {
                         version: 5,
+                        revision: 0,
                         queuedVersion: 0,
                         undeployVersion: false,
                     },
@@ -768,6 +782,7 @@ describe('Service Lane Important Releases', () => {
                         deployments: {
                             foo: {
                                 version: testcase.currentlyDeployedVersion,
+                                revision: 0,
                                 undeployVersion: false,
                                 queuedVersion: 0,
                             },
@@ -954,6 +969,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         deployments: {
             foo2: {
                 version: 123,
+                revision: 0,
                 queuedVersion: 0,
                 undeployVersion: false,
             },
@@ -970,6 +986,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         deployments: {
             foo2: {
                 version: 123,
+                revision: 0,
                 queuedVersion: 0,
                 undeployVersion: false,
             },
@@ -986,6 +1003,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         deployments: {
             foo2: {
                 version: 123,
+                revision: 0,
                 queuedVersion: 0,
                 undeployVersion: false,
             },
@@ -1010,6 +1028,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         deployments: {
             foo2: {
                 version: 123,
+                revision: 0,
                 queuedVersion: 0,
                 undeployVersion: false,
             },

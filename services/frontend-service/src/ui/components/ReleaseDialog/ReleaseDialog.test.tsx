@@ -82,7 +82,7 @@ describe('Release Dialog', () => {
             name: 'without locks',
             props: {
                 app: 'test1',
-                version: 2,
+                version: { version: 2, revision: 0 },
             },
             allEnvLocks: {
                 allTeamLocks: {},
@@ -131,7 +131,7 @@ describe('Release Dialog', () => {
             name: 'with prepublish',
             props: {
                 app: 'test1',
-                version: 2,
+                version: { version: 2, revision: 0 },
             },
             appDetails: {},
             allEnvLocks: {
@@ -197,7 +197,7 @@ describe('Release Dialog', () => {
             },
             props: {
                 app: 'test1',
-                version: 2,
+                version: { version: 2, revision: 0 },
             },
             appDetails: {
                 test1: {
@@ -237,6 +237,7 @@ describe('Release Dialog', () => {
                         deployments: {
                             dev: {
                                 version: 1,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                                 deploymentMetaData: {
@@ -302,7 +303,7 @@ describe('Release Dialog', () => {
             },
             props: {
                 app: 'test1',
-                version: 2,
+                version: { version: 2, revision: 0 },
             },
             appDetails: {
                 test1: {
@@ -342,6 +343,7 @@ describe('Release Dialog', () => {
                         deployments: {
                             dev: {
                                 version: 1,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                                 deploymentMetaData: {
@@ -420,7 +422,7 @@ describe('Release Dialog', () => {
             },
             props: {
                 app: 'test1',
-                version: 2,
+                version: { version: 2, revision: 0 },
             },
             appDetails: {
                 test1: {
@@ -486,6 +488,7 @@ describe('Release Dialog', () => {
                         deployments: {
                             prod: {
                                 version: 2,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                                 deploymentMetaData: {
@@ -497,6 +500,7 @@ describe('Release Dialog', () => {
                             dev: {
                                 version: 3,
                                 queuedVersion: 666,
+                                revision: 0,
                                 undeployVersion: false,
                                 deploymentMetaData: {
                                     ciLink: 'www.somewebsite.com',
@@ -591,7 +595,7 @@ describe('Release Dialog', () => {
             },
             props: {
                 app: 'test1',
-                version: 4,
+                version: { version: 4, revision: 0 },
             },
             appDetails: {
                 test1: {
@@ -625,6 +629,7 @@ describe('Release Dialog', () => {
                         deployments: {
                             dev: {
                                 version: 3,
+                                revision: 0,
                                 queuedVersion: 666,
                                 undeployVersion: false,
                                 deploymentMetaData: {
@@ -808,6 +813,7 @@ describe('Release Dialog', () => {
                                     ignoreAllLocks: false,
                                     lockBehavior: 2,
                                     version: 3,
+                                    revision: 0,
                                 },
                             },
                         },
@@ -863,7 +869,7 @@ describe('Release Dialog CI Links', () => {
             name: 'normal release',
             props: {
                 app: 'test1',
-                version: 2,
+                version: { version: 2, revision: 0 },
             },
             appDetails: {
                 test1: {
@@ -903,6 +909,7 @@ describe('Release Dialog CI Links', () => {
                         deployments: {
                             dev: {
                                 version: 1,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                                 deploymentMetaData: {
@@ -1013,7 +1020,7 @@ describe('Rollout Status for AA environments', () => {
             name: 'normal rollout status',
             props: {
                 app: 'test1',
-                version: 2,
+                version: { version: 2, revision: 0 },
             },
             appDetails: {
                 test1: {
@@ -1062,6 +1069,7 @@ describe('Rollout Status for AA environments', () => {
                         deployments: {
                             prod: {
                                 version: 2,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                                 deploymentMetaData: {
@@ -1072,6 +1080,7 @@ describe('Rollout Status for AA environments', () => {
                             },
                             dev: {
                                 version: 3,
+                                revision: 0,
                                 queuedVersion: 666,
                                 undeployVersion: false,
                                 deploymentMetaData: {

@@ -22,6 +22,7 @@ import {
     useCurrentlyDeployedAtGroup,
     useArgoCDNamespace,
     useAllEnvLocks,
+    ReleaseNumbers,
 } from '../../utils/store';
 import { LocksWhite } from '../../../images';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
@@ -159,7 +160,7 @@ export const EnvironmentGroupChip = (props: {
 };
 
 export type EnvChipListProps = {
-    version: number;
+    version: ReleaseNumbers;
     app: string;
     smallEnvChip?: boolean;
 };
