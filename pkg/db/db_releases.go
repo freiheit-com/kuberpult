@@ -875,17 +875,17 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 	if len(versionByApp) < 1 {
 		return result, nil
 	}
-	queryID := rand.Uint64()
-	tableQuery := h.AdaptQuery(`CREATE TEMP TABLE temp_query_app_releaseversions(queryId INTEGER, appName VARCHAR NOT NULL, releaseVersion INTEGER) IF NOT EXISTS;`)
+	queryID := rand.IntN(1 << 31) // this function should be called no more than once per transaction, but just to be save ...
+	tableQuery := h.AdaptQuery(`CREATE TEMP TABLE IF NOT EXISTS temp_query_app_releaseversions(queryId INTEGER, appName VARCHAR NOT NULL, releaseVersion INTEGER);`)
 	_, err := transaction.Exec(tableQuery)
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
 	}
-	insertQuery := `INSERT INTO temp_query_app_releaseversions (queryId, appName, releaseVersion) VALUES (?, ?, ?)` + strings.Repeat(`, (?, ?, ?)`, len(versionByApp)-1) + `;`
+	insertQuery := h.AdaptQuery(`INSERT INTO temp_query_app_releaseversions VALUES (?, ?, ?)` + strings.Repeat(`, (?, ?, ?)`, len(versionByApp)-1) + `;`)
 	args := make([]interface{}, len(versionByApp)*3)
 	i := 0
 	for appName, releaseVersion := range versionByApp {
-		args[i] = uint64(queryID)
+		args[i] = queryID
 		i++
 		args[i] = appName
 		i++
@@ -897,12 +897,12 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 		args...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not push query app releases table. Error: %w\n", err)
+		return nil, fmt.Errorf("could not push query app releases table. Query: %v, Error: %w\n", insertQuery, err)
 	}
 	selectQuery := h.AdaptQuery(`
-		SELECT r.appName, r.releaseVersion, r.metadata
+		SELECT r.appName, r.metadata
 		FROM releases AS r
-		INNER JOIN temp_query_app_releaseverstions AS q
+		INNER JOIN temp_query_app_releaseversions AS q
 		ON r.appName = q.appName AND r.releaseversion = q.releaseversion
 		WHERE q.queryId = ?;
 	`)
@@ -921,11 +921,10 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 		}
 	}(metadataRows)
 	for metadataRows.Next() {
-		var releaseVersion uint64
 		var appName string
 		var metadataStr string
 
-		err := metadataRows.Scan(&appName, &releaseVersion, metadataStr)
+		err := metadataRows.Scan(&appName, &metadataStr)
 		if err != nil {
 			return nil, err
 		}
