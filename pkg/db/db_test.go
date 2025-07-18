@@ -6077,7 +6077,7 @@ func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 				release := DBReleaseWithMetaData{
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  uversion(int(tc.Version)),
-						Revision: "0",
+						Revision: 0,
 					},
 					App:       tc.App,
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{envName: "manifest1"}},
@@ -6151,7 +6151,7 @@ func TestDBSelectCommitIdAppReleaseVersionsMany(t *testing.T) {
 					release := DBReleaseWithMetaData{
 						ReleaseNumbers: types.ReleaseNumbers{
 							Version:  uversion(int(versionByApp[appName])),
-							Revision: "0",
+							Revision: 0,
 						},
 						App:       fmt.Sprintf("%s%d", tc.AppPrefix, i),
 						Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{envName: "manifest1"}},
