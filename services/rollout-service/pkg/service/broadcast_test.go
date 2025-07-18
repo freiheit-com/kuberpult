@@ -366,7 +366,7 @@ func TestBroadcast(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			ch := make(chan *api.StreamStatusResponse)
 			srv := testSrv{ctx: ctx, ch: ch}
-			go bc.StreamStatus(&api.StreamStatusRequest{}, &srv)
+			go func() { _ = bc.StreamStatus(&api.StreamStatusRequest{}, &srv) }()
 			for i, s := range tc.Steps {
 				if s.ArgoEvent != nil {
 					bc.ProcessArgoEvent(context.Background(), *s.ArgoEvent)
@@ -406,7 +406,7 @@ func TestBroadcast(t *testing.T) {
 					ctx, cancel := context.WithCancel(context.Background())
 					ch := make(chan *api.StreamStatusResponse, 1)
 					srv := testSrv{ctx: ctx, ch: ch}
-					go bc.StreamStatus(&api.StreamStatusRequest{}, &srv)
+					go func() { _ = bc.StreamStatus(&api.StreamStatusRequest{}, &srv) }()
 					resp := <-ch
 					cancel()
 					if resp.Application != application(s) {
