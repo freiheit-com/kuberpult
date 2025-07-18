@@ -21,3 +21,12 @@ RUN tar xzf helm-v3.14.2-linux-amd64.tar.gz
 RUN mv linux-amd64/helm /usr/local/bin/helm
 RUN chmod +x /usr/local/bin/helm
 
+WORKDIR /kp
+RUN mkdir -p database/migrations
+COPY database/migrations database/migrations
+COPY go.mod go.sum ./
+RUN go mod download
+COPY pkg pkg
+RUN cd pkg && buf generate
+RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
