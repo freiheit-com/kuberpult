@@ -934,7 +934,6 @@ func TestLimitTooSmall(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			var i = 0
 			for range tc.QueueCapacity {
-				t.Logf("adding setup transformers %d", i)
 				noop := &nilTransformer{}
 				errCh := repo.(*repository).applyDeferred(ctx, noop)
 				if errCh == nil {
@@ -993,7 +992,6 @@ func TestLimitFitsExactly(t *testing.T) {
 			var errChannels = make([]<-chan error, 0)
 			var i = 0
 			for range tc.QueueCapacity - 1 { // we fill it so that 1 element still fits in
-				t.Logf("adding setup transformers %d", i)
 				noop := &nilTransformer{}
 				errCh := repo.(*repository).applyDeferred(ctx, noop)
 				if errCh == nil {
