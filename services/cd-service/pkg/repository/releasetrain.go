@@ -658,9 +658,11 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	if err != nil {
 		return failedPrognosis(err)
 	}
-	upstreamVersionByApp := make(map[string]int64)
+	upstreamVersionByApp := make(map[string]uint64)
 	for _, app := range apps {
-		upstreamVersionByApp[app] = *allLatestDeploymentsUpstreamEnv[app]
+		if allLatestDeploymentsUpstreamEnv[app] != nil {
+			upstreamVersionByApp[app] = uint64(*allLatestDeploymentsUpstreamEnv[app])
+		}
 	}
 	commitIdByApp, err := getCommitIDs(ctx, transaction, state, upstreamVersionByApp)
 	if err != nil {
