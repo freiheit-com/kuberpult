@@ -48,7 +48,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 	}
 	dbHandler := t.Repo.State().DBHandler
 	var prognosis rp.ReleaseTrainPrognosis
-	_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+	_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		configs, err := t.Repo.State().GetAllEnvironmentConfigs(ctx, transaction)
 		if err != nil {
 			return nil
