@@ -204,7 +204,7 @@ func (s *PublicApiServer) GetPublicApiSchema(w http.ResponseWriter, _ *http.Requ
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(content)
 	if err != nil {
-		fmt.Printf("Error writing response: %v", err)
+		fmt.Printf("Error writing response SVEN PR TEST: %v", err)
 	}
 }
 
