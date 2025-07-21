@@ -35,7 +35,7 @@ function createMatrix() {
   fi
 
   # if we have pkg, then build all go services
-  echo "${ALL_FILES}" | grep '^pkg' -q
+  grepOutput=$(echo "${ALL_FILES}" | grep '^pkg')
   # shellcheck disable=SC2181
   if [ "$?" -eq 0 ]
   then
@@ -47,21 +47,24 @@ function createMatrix() {
   else
     debug "pkg untouched, no need to build all of stage B"
   fi
+  debug "grep for pkg: ${grepOutput}"
 
   stageArray=""
+  stageArrayFullBuild=false
   for stageADirectory in $STAGE_A_BUILDS
   do
-    grepOutput=$(echo "${ALL_FILES}" | grep "infrastructure/docker/${stageADirectory}")
+    grepOutput=$(echo "${ALL_FILES}" | grep "^infrastructure/docker/${stageADirectory}")
   # shellcheck disable=SC2181
     if [ $? -eq 0 ]
     then
-      debug "adding ${stageADirectory} to the list because of a change in $(echo -e "${grepOutput}" | head -n 1)"
+      debug "adding stage-a directory ${stageADirectory} to the list because of a change in $(echo -e "${grepOutput}" | head -n 1)"
       inner=$(jq -n --arg directory "infrastructure/docker/${stageADirectory}" \
                     --arg command "make -C infrastructure/docker/${stageADirectory} ${makeTarget}" \
                     --arg artifacts "" \
                     --arg artifactName "Artifact_infrastructure_docker_${stageADirectory}" \
                     '$ARGS.named'
       )
+      stageArrayFullBuild=true
     else
       debug "adding ${stageADirectory} to the list, despite no change, in order to tag the main image."
       inner=$(jq -n --arg directory "infrastructure/docker/${stageADirectory}" \
@@ -77,9 +80,10 @@ function createMatrix() {
     else
       stageArray="${stageArray},${inner}"
     fi
+    debug "grep stage a: ${grepOutput}"
   done
 
-  if [ -n "${stageArray}" ]
+  if [ -n "${stageArray}" ] && ${stageArrayFullBuild}
   then
     debug "Stage A was touched, therefore we need to build all of stage B as well."
     for stageB in $STAGE_B_BUILDS
@@ -95,25 +99,32 @@ function createMatrix() {
   stageArray=""
   for stageBDirectory in $STAGE_B_BUILDS
   do
-    grepOutput=$(echo "${ALL_FILES}" | grep "${stageBDirectory}")
+    grepOutput=$(echo "${ALL_FILES}" | grep "^${stageBDirectory}")
   # shellcheck disable=SC2181
     if [ $? -eq 0 ]
     then
-      debug "adding ${stageBDirectory} to the list because of a change in $(echo -e "${grepOutput}" | head -n 1)"
+      debug "adding stage-b directory ${stageBDirectory} to the list because of a change in $(echo -e "${grepOutput}" | head -n 1)"
       inner=$(jq -n --arg directory "${stageBDirectory}" \
                     --arg command "make -C ${stageBDirectory} ${makeTarget}" \
                     --arg artifacts "" \
                     --arg artifactName "Artifact_$(sanitizeArtifactName "${stageBDirectory}")" \
                     '$ARGS.named'
       )
-      if [ -z "${stageArray}" ]
-      then
-        stageArray="${inner}"
-      else
-        stageArray="${stageArray},${inner}"
-      fi
     else
-      debug skipping
+      debug "adding ${stageBDirectory} to the list, despite no change, in order to tag the main image."
+      inner=$(jq -n --arg directory "${stageBDirectory}" \
+                    --arg command "make -C ${stageBDirectory} retag-main" \
+                    --arg artifacts "" \
+                    --arg artifactName "Artifact_$(sanitizeArtifactName "${stageBDirectory}")" \
+                    '$ARGS.named'
+      )
+    fi
+    debug "grep stage b: ${grepOutput}"
+    if [ -z "${stageArray}" ]
+    then
+      stageArray="${inner}"
+    else
+      stageArray="${stageArray},${inner}"
     fi
   done
   stageB=$(jq -n --argjson steps "[$stageArray]" \
