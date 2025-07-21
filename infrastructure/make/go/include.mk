@@ -60,7 +60,7 @@ release-main:
 	@echo "Tagging the PR image as main image"
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
 
-retag-main:
+retag-main: IMAGE_TAG=pr-$(VERSION)
 ifeq ($(SKIP_RETAG_MAIN_AS_PR),1)
 	@echo "Skipping retag-main"
 else
