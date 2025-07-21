@@ -110,12 +110,6 @@ function createMatrix() {
                     --arg artifactName "Artifact_$(sanitizeArtifactName "${stageBDirectory}")" \
                     '$ARGS.named'
       )
-      if [ -z "${stageArray}" ]
-      then
-        stageArray="${inner}"
-      else
-        stageArray="${stageArray},${inner}"
-      fi
     else
       debug "adding ${stageBDirectory} to the list, despite no change, in order to tag the main image."
       inner=$(jq -n --arg directory "${stageBDirectory}" \
@@ -126,6 +120,12 @@ function createMatrix() {
       )
     fi
     debug "grep stage b: ${grepOutput}"
+    if [ -z "${stageArray}" ]
+    then
+      stageArray="${inner}"
+    else
+      stageArray="${stageArray},${inner}"
+    fi
   done
   stageB=$(jq -n --argjson steps "[$stageArray]" \
                 '$ARGS.named'
