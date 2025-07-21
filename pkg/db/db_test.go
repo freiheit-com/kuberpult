@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"os/exec"
 	"path"
@@ -31,6 +30,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -5993,6 +5994,154 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 					}
 					if diff := cmp.Diff(expectedApps, apps); diff != "" {
 						return fmt.Errorf("environment applications mismatch for env '%s' (-want, +got):\n%s", envName, diff)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error with check: %v", err)
+			}
+		})
+	}
+}
+func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
+	tcs := []struct {
+		Name     string
+		App      string
+		Version  uint
+		CommitId string
+		Repeats  uint
+	}{
+		{
+			Name:     "One app",
+			App:      "foo",
+			Version:  10,
+			CommitId: "deadbeefdeadbeefdeaddeadbeefdeadbeefdead",
+			Repeats:  3,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				envName := types.EnvName("env")
+				err := dbHandler.DBWriteEnvironment(
+					ctx,
+					transaction,
+					envName,
+					config.EnvironmentConfig{},
+					make([]string, 0),
+				)
+				if err != nil {
+					return fmt.Errorf("error while writing environment, error: %w", err)
+				}
+				metadata := DBReleaseMetaData{
+					SourceCommitId: tc.CommitId,
+				}
+				release := DBReleaseWithMetaData{
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(int(tc.Version)),
+						Revision: 0,
+					},
+					App:       tc.App,
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{envName: "manifest1"}},
+					Metadata:  metadata,
+				}
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+				if err != nil {
+					return fmt.Errorf("error while writing release, error: %w", err)
+				}
+				for i := tc.Repeats; i > 0; i-- {
+					versionByApp := make(map[string]uint64)
+					versionByApp[tc.App] = uint64(tc.Version)
+					commitIdByApp, err := dbHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, versionByApp)
+					if err != nil {
+						return fmt.Errorf("error while retriving commit id, error: %w", err)
+					}
+					if len(commitIdByApp) != len(versionByApp) {
+						return fmt.Errorf("commit id map len mismatches len of commitByApp. expected: %v, got: %v", len(versionByApp), len(commitIdByApp))
+					}
+					if commitIdByApp[tc.App] != tc.CommitId {
+						return fmt.Errorf("Did not find expected commit id for %v. expected: %v, got: %v", tc.App, tc.CommitId, commitIdByApp[tc.App])
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error with check: %v", err)
+			}
+		})
+	}
+}
+
+func TestDBSelectCommitIdAppReleaseVersionsMany(t *testing.T) {
+	tcs := []struct {
+		Name      string
+		AppPrefix string
+		Apps      uint
+	}{
+		{
+			Name:      "Big Query app",
+			AppPrefix: "foo",
+			Apps:      10000,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				envName := types.EnvName("env")
+				err := dbHandler.DBWriteEnvironment(
+					ctx,
+					transaction,
+					envName,
+					config.EnvironmentConfig{},
+					make([]string, 0),
+				)
+				if err != nil {
+					return fmt.Errorf("error while writing environment, error: %w", err)
+				}
+				versionByApp := make(map[string]uint64)
+				for i := tc.Apps; i > 0; i-- {
+					appName := fmt.Sprintf("%s%d", tc.AppPrefix, i)
+					versionByApp[appName] = uint64(i + 20000)
+					metadata := DBReleaseMetaData{
+						SourceCommitId: fmt.Sprintf("%d", i),
+					}
+					release := DBReleaseWithMetaData{
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(int(versionByApp[appName])),
+							Revision: 0,
+						},
+						App:       fmt.Sprintf("%s%d", tc.AppPrefix, i),
+						Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{envName: "manifest1"}},
+						Metadata:  metadata,
+					}
+					err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+
+				commitIdByApp, err := dbHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, versionByApp)
+				if err != nil {
+					return fmt.Errorf("error while retriving commit id, error: %w", err)
+				}
+				if len(commitIdByApp) != len(versionByApp) {
+					return fmt.Errorf("commit id map len mismatches len of commitByApp. expected: %v, got: %v", len(versionByApp), len(commitIdByApp))
+				}
+				for i := tc.Apps; i > 0; i-- {
+					appName := fmt.Sprintf("%s%d", tc.AppPrefix, i)
+					if commitIdByApp[appName] != fmt.Sprintf("%d", i) {
+						return fmt.Errorf("Did not find expected commit id. expected: %v, got: %v", fmt.Sprintf("%d", i), commitIdByApp[appName])
 					}
 				}
 				return nil

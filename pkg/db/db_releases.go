@@ -22,12 +22,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 )
@@ -865,4 +867,83 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 		return nil, err
 	}
 	return releases, nil
+}
+
+func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, transaction *sql.Tx, versionByApp map[string]uint64) (map[string]string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBCreateTempAppVersionTable")
+	defer span.Finish()
+	result := make(map[string]string)
+	if len(versionByApp) < 1 {
+		return result, nil
+	}
+	queryID := rand.IntN(1 << 31) // this function should be called no more than once per transaction, but just to be save ...
+	tableQuery := h.AdaptQuery(`CREATE TEMP TABLE IF NOT EXISTS temp_query_app_releaseversions(queryId INTEGER, appName VARCHAR NOT NULL, releaseVersion INTEGER);`)
+	_, err := transaction.Exec(tableQuery)
+	if err != nil {
+		return nil, fmt.Errorf("could not create query app releases table. Error: %w", err)
+	}
+	insertQuery := h.AdaptQuery(`INSERT INTO temp_query_app_releaseversions VALUES (?, ?, ?)` + strings.Repeat(`, (?, ?, ?)`, len(versionByApp)-1) + `;`)
+	args := make([]interface{}, len(versionByApp)*3)
+	i := 0
+	for appName, releaseVersion := range versionByApp {
+		args[i] = queryID
+		i++
+		args[i] = appName
+		i++
+		args[i] = releaseVersion
+		i++
+	}
+	_, err = transaction.Exec(
+		insertQuery,
+		args...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not insert into query app releases table. Query: %v, Error: %w", insertQuery, err)
+	}
+	selectQuery := h.AdaptQuery(`
+		SELECT r.appName, r.metadata
+		FROM releases AS r
+		INNER JOIN temp_query_app_releaseversions AS q
+		ON r.appName = q.appName AND r.releaseversion = q.releaseversion
+		WHERE q.queryId = ?;
+	`)
+	metadataRows, err := transaction.QueryContext(
+		ctx,
+		selectQuery,
+		queryID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+		}
+	}(metadataRows)
+	for metadataRows.Next() {
+		var appName string
+		var metadataStr string
+
+		err := metadataRows.Scan(&appName, &metadataStr)
+		if err != nil {
+			return nil, err
+		}
+		var metaData = DBReleaseMetaData{
+			SourceAuthor:    "",
+			SourceCommitId:  "",
+			SourceMessage:   "",
+			DisplayVersion:  "",
+			UndeployVersion: false,
+			IsMinor:         false,
+			CiLink:          "",
+			IsPrepublish:    false,
+		}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s", err, metadataStr)
+		}
+		result[appName] = metaData.SourceCommitId
+	}
+	return result, nil
 }
