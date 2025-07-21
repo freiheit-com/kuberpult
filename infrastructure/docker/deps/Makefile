@@ -27,4 +27,4 @@ build-main: build-pr
 	docker push $(DEPS_MAIN_IMAGE)
 
 retag-main:
-	@echo "Skipping retag-main"
+	@echo "Skipping retag-main SVEN TEST PR"
