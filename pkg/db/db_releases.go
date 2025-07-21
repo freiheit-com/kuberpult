@@ -814,7 +814,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 	var releases = make(map[ReleaseKey]string)
 	//Get releases for which we found any relevant deployment. We want to extract the commit hash for that release
 	query := h.AdaptQuery(`
-			SELECT appName, metadata, releaseVersion FROM releases_history
+			SELECT appName, metadata, releaseVersion, revision FROM releases_history
 			WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) ORDER BY version;
 		`)
 	releasesRows, err := transaction.QueryContext(
@@ -837,9 +837,9 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 		var releaseVersion uint64
 		var appName string
 		var metadataStr string
-
+		var revision uint64
 		//Get the metadata
-		err := releasesRows.Scan(&appName, &metadataStr, &releaseVersion)
+		err := releasesRows.Scan(&appName, &metadataStr, &releaseVersion, &revision)
 		if err != nil {
 			return nil, err
 		}
@@ -858,7 +858,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 		if err != nil {
 			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s", err, metadataStr)
 		}
-		releases[ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion}] = metaData.SourceCommitId
+		releases[ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion, Revision: revision}] = metaData.SourceCommitId
 	}
 	err = closeRows(releasesRows)
 	if err != nil {
