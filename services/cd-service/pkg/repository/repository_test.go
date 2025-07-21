@@ -150,10 +150,10 @@ func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, tr
 	return "error", ErrInvalidJson
 }
 
-func convertToSet(list []uint64) map[int]bool {
-	set := make(map[int]bool)
+func convertToSet(list []types.ReleaseNumbers) map[types.ReleaseNumbers]bool {
+	set := make(map[types.ReleaseNumbers]bool)
 	for _, i := range list {
-		set[int(i)] = true
+		set[i] = true
 	}
 	return set
 }
@@ -1220,8 +1220,9 @@ func BenchmarkApplyQueue(t *testing.B) {
 			}
 		}
 		releases, _ := repo.State().GetAllApplicationReleases(ctx, transaction, "foo")
+
 		if !cmp.Equal(expectedReleases, releases) {
-			t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, releases))
+			t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
 		}
 
 		return nil
