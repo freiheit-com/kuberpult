@@ -614,7 +614,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				upstreamVersionByApp[app] = uint64(*allLatestDeploymentsUpstreamEnv[app])
 			}
 		}
-		commitIdByApp, err := getCommitIDs(ctx, transaction, state, upstreamVersionByApp)
+		commitIdByApp, err := state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, upstreamVersionByApp)
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("could not get all commits for apps to deploy: %v", err)
 		}
