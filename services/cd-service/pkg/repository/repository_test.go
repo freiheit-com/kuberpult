@@ -418,20 +418,11 @@ func TestApplyQueue(t *testing.T) {
 				{}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(3),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(1),
+				makeReleaseNumberVersion(2),
+				makeReleaseNumberVersion(3),
 			},
-		},
+		}, //\{\n\s+Version:\s+uversion\(3\),\n\s+Revision:\s+0,\n\s+},
 		{
 			Name: "cancellation in the middle (after)",
 			Actions: []action{
@@ -441,14 +432,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(3),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(1),
+				makeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -460,14 +445,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(3),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(2),
+				makeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -480,14 +459,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(1),
+				makeReleaseNumberVersion(2),
 			},
 		},
 		{
@@ -499,14 +472,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(3),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(1),
+				makeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -518,14 +485,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(3),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(2),
+				makeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -538,14 +499,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(1),
+				makeReleaseNumberVersion(2),
 			},
 		},
 		{
@@ -557,14 +512,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(3),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(2),
+				makeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -577,14 +526,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(3),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(1),
+				makeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -597,14 +540,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(1),
+				makeReleaseNumberVersion(2),
 			},
 		},
 		{
@@ -617,14 +554,8 @@ func TestApplyQueue(t *testing.T) {
 				{}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(3),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(2),
+				makeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -638,14 +569,8 @@ func TestApplyQueue(t *testing.T) {
 				{},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(3),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(1),
+				makeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -658,14 +583,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
+				makeReleaseNumberVersion(1),
+				makeReleaseNumberVersion(2),
 			},
 		},
 	}

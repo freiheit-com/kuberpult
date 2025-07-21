@@ -18,6 +18,7 @@ package types
 
 import (
 	"cmp"
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -98,3 +99,20 @@ func CompareReleaseNumbers(a, b ReleaseNumbers) int {
 	// Versions are the same, compare revisions
 	return cmp.Compare(a.Revision, b.Revision)
 }
+
+func (r ReleaseNumbers) String() string {
+	if r.Version == nil {
+		return "<nil_version>"
+	}
+	return fmt.Sprintf("%d.%d", *r.Version, r.Revision)
+}
+
+//func (r *ReleaseNumbers) String() string {
+//	if r.Version == nil {
+//		return "<nil_version>"
+//	}
+//	return fmt.Sprintf("%d.%d", *r.Version, r.Revision)
+//}
+//
+//var _ fmt.Stringer = ReleaseNumbers{}         // Verify that T implements I.
+//var _ fmt.Stringer = (*ReleaseNumbers{})(nil) // Verify that *T implements I.

@@ -449,11 +449,11 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	v, r, err := c.calculateVersion(ctx, transaction, state)
+	version, err := c.calculateVersion(ctx, transaction, state)
 	if err != nil {
 		return "", err
 	}
-	version := types.ReleaseNumbers{Version: &v, Revision: r}
+
 	if !valid.ApplicationName(c.Application) {
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
@@ -809,24 +809,24 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 	return nil
 }
 
-func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (uint64, uint64, error) {
+func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (types.ReleaseNumbers, error) {
 	if c.Version == 0 {
-		return 0, 0, fmt.Errorf("version is required when using the database")
+		return types.ReleaseNumbers{Version: nil, Revision: 0}, fmt.Errorf("version is required when using the database")
 	} else {
 		metaData, err := state.DBHandler.DBSelectReleaseByReleaseNumbers(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 		if err != nil {
-			return 0, 0, fmt.Errorf("could not calculate version, error: %v", err)
+			return types.ReleaseNumbers{Version: nil, Revision: 0}, fmt.Errorf("could not calculate version, error: %v", err)
 		}
 		if metaData == nil {
 			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v.%v", c.Application, c.Version, c.Revision)
-			return c.Version, c.Revision, nil
+			return types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, nil
 		}
-		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v.%v", *metaData.ReleaseNumbers.Version, c.Revision, metaData)
+		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v", metaData.ReleaseNumbers, metaData)
 
-		existingRelease := metaData.ReleaseNumbers.Version
+		existingRelease := metaData.ReleaseNumbers
 		logger.FromContext(ctx).Sugar().Warnf("comparing release %v.%v: %v", c.Version, c.Revision, existingRelease)
 		// check if version differs, if it's the same, that's ok
-		return 0, 0, c.sameAsExistingDB(ctx, transaction, state, metaData)
+		return types.ReleaseNumbers{Version: nil, Revision: 0}, c.sameAsExistingDB(ctx, transaction, state, metaData)
 	}
 }
 
@@ -1089,7 +1089,7 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
 	}
 
-	isUndeploy, err := state.IsUndeployVersion(ctx, transaction, u.Application, *lastRelease.Version)
+	isUndeploy, err := state.IsUndeployVersion(ctx, transaction, u.Application, lastRelease)
 	if err != nil {
 		return "", err
 	}
@@ -1288,7 +1288,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return types.Greater(versions[j], versions[i])
 	})
 
-	deployments, err := state.GetAllDeploymentsForApp(ctx, transaction, name)
+	deployments, err := state.GetAllDeploymentsForAppFromDB(ctx, transaction, name)
 	if err != nil {
 		return nil, err
 	}

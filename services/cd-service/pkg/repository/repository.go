@@ -946,10 +946,6 @@ func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.T
 	return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 }
 
-func (s *State) GetAllDeploymentsForApp(ctx context.Context, transaction *sql.Tx, appName string) (map[types.EnvName]types.ReleaseNumbers, error) {
-	return s.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
-}
-
 func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName string) (map[types.EnvName]types.ReleaseNumbers, error) {
 	result, err := s.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, appName)
 	if err != nil {
@@ -1132,11 +1128,11 @@ func extractPrNumber(sourceMessage string) string {
 	}
 }
 
-func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version uint64) (bool, error) {
+func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version types.ReleaseNumbers) (bool, error) {
 	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx,
 		transaction,
 		application,
-		types.ReleaseNumbers{Version: &version, Revision: 0}, //Undeploy versions do not have revisions
+		version,
 		true,
 	)
 	return release.Metadata.UndeployVersion, err
