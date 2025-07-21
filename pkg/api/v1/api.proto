@@ -17,6 +17,7 @@ service GitService {
   rpc RetryFailedEvent(RetryFailedEventRequest) returns(RetryFailedEventResponse) {}
   rpc SkipEslEvent(SkipEslEventRequest) returns (SkipEslEventResponse) {}
 }
+// Hello world SU TEST THIS PR
 
 message GetGitTagsRequest {
 }
