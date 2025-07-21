@@ -65,7 +65,7 @@ ifeq ($(SKIP_RETAG_MAIN_AS_PR),1)
 	@echo "Skipping retag-main"
 else
 	@echo "Starting retag-main: Tagging the main image as PR image"
-	test -n "$(MAIN_PATH)" || exit 0; docker tag $(MAIN_IMAGE_NAME) $(IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
+	test -n "$(MAIN_PATH)" || exit 0; docker pull $(MAIN_IMAGE_NAME) && docker tag $(MAIN_IMAGE_NAME) $(IMAGE_NAME) && docker push $(IMAGE_NAME)
 endif
 
 
