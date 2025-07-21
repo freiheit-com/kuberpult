@@ -37,8 +37,8 @@ type Credentials struct {
 func base64encode(c []byte) string {
 	var buf bytes.Buffer
 	enc := base64.NewEncoder(base64.StdEncoding, &buf)
-	enc.Write(c) //nolint: errcheck
-	enc.Close()
+	_, _ = enc.Write(c) //nolint: errcheck
+	_ = enc.Close()
 	return buf.String()
 }
 
@@ -52,7 +52,7 @@ func (c *Credentials) load() (*credentialsStore, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer pkey.Close()
+		defer func() { _ = pkey.Close() }()
 		privKeyContent, err := io.ReadAll(pkey)
 		if err != nil {
 			return nil, err

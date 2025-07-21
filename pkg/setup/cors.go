@@ -49,7 +49,7 @@ func (check *CORSMiddleware) ServeHTTP(rw http.ResponseWriter, req *http.Request
 	policy := check.PolicyFor(req)
 	if policy == nil {
 		rw.WriteHeader(403)
-		req.Body.Close()
+		req.Body.Close() //nolint:errcheck
 		return
 	}
 
@@ -64,7 +64,7 @@ func (check *CORSMiddleware) ServeHTTP(rw http.ResponseWriter, req *http.Request
 		rw.Header().Add("Access-Control-Allow-Origin", policy.AllowOrigin)
 
 		rw.WriteHeader(204)
-		req.Body.Close()
+		req.Body.Close() //nolint:errcheck
 		return
 	}
 	rw.Header().Add("Access-Control-Allow-Origin", policy.AllowOrigin)

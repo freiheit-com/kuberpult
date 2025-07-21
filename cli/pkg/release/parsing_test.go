@@ -528,6 +528,85 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
+			name: "--revision is specified",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234", "--revision", "10"},
+			expectedCmdArgs: &commandLineArguments{
+				skipSignatures: true,
+
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest-file.yaml",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"potato-team",
+					},
+				},
+				sourceCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"0123abcdef0123abcdef0123abcdef0123abcdef",
+					},
+				},
+				previousCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					},
+				},
+				sourceAuthor: cli_utils.RepeatedString{
+					Values: []string{
+						"potato@tomato.com",
+					},
+				},
+				sourceMessage: cli_utils.RepeatedString{
+					Values: []string{
+						"test source message",
+					},
+				},
+				version: cli_utils.RepeatedInt{
+					Values: []int64{
+						1234,
+					},
+				},
+				revision: cli_utils.RepeatedInt{
+					Values: []int64{
+						10,
+					},
+				},
+			},
+		},
+		{
+			name: "--version is specified twice",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--revision", "456", "--revision", "10"},
+			expectedError: errMatcher{
+				msg: "the --revision arg must be set at most once",
+			},
+		},
+		{
+			name: "--revision is set to non-integer value",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--revision", "abc"},
+			expectedError: errMatcher{
+				msg: "error while parsing command line arguments, error: invalid value \"abc\" for flag -revision: the provided value \"abc\" is not an integer",
+			},
+		},
+		{
+			name: "--revision is set to negative integer value",
+			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "123", "--revision", "-123"},
+			expectedError: errMatcher{
+				msg: "the --revision arg value must be positive",
+			},
+		},
+		{
 			name: "--display_version is specified",
 			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_message", "test source message", "--version", "1234", "--display_version", "1.23.4"},
 			expectedCmdArgs: &commandLineArguments{
@@ -905,7 +984,10 @@ func TestParseArgs(t *testing.T) {
 				t.Fatalf("error encoutered while creating test directory, error: %v", err)
 			}
 			t.Cleanup(func() {
-				os.RemoveAll(dir)
+				err := os.RemoveAll(dir)
+				if err != nil {
+					t.Fatalf("error while cleaning up: %v", err)
+				}
 			})
 
 			for i := range tc.setup {

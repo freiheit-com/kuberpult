@@ -43,7 +43,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cloudrun"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -198,8 +197,7 @@ type RepositoryConfig struct {
 	ArgoCdGenerateFiles bool
 	MinorRegexes        []*regexp.Regexp
 
-	DBHandler      *db.DBHandler
-	CloudRunClient *cloudrun.CloudRunClient
+	DBHandler *db.DBHandler
 
 	DisableQueue bool
 }
@@ -307,7 +305,7 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 	}
 }
 
-func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool) ([]transformerBatch, error, *TransformerResult) {
+func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch) ([]transformerBatch, *TransformerResult, error) {
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
 
@@ -333,10 +331,10 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 		changes.Combine(subChanges)
 		i++
 	}
-	return transformerBatches, nil, changes
+	return transformerBatches, changes, nil
 }
 
-var panicError = errors.New("Panic")
+var errPanic = errors.New("Panic")
 
 func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
 	if r.config.MaximumCommitsPerPush < 2 {
@@ -383,7 +381,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch) {
 	  return
 	}
 	*/
-	var err error = panicError
+	var err = errPanic
 
 	// Check that the first transformerBatch is not already canceled
 	select {
@@ -403,7 +401,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch) {
 	// Try to fetch more items from the queue in order to push more things together
 	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
 
-	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
+	transformerBatches, changes, err := r.applyTransformerBatches(transformerBatches)
 	if len(transformerBatches) == 0 {
 		return
 	}
@@ -569,7 +567,7 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 
 func CombineArray(others []*TransformerResult) *TransformerResult {
 	//exhaustruct:ignore
-	var r *TransformerResult = &TransformerResult{}
+	var r = &TransformerResult{}
 	for i := range others {
 		r.Combine(others[i])
 	}
@@ -664,7 +662,6 @@ func (r *repository) StateAt() (*State, error) {
 		MinorRegexes:              r.config.MinorRegexes,
 		MaxNumThreads:             int(r.config.MaxNumThreads),
 		DBHandler:                 r.DB,
-		CloudRunClient:            r.config.CloudRunClient,
 		ParallelismOneTransaction: r.config.ParallelismOneTransaction,
 	}, nil
 }
@@ -679,8 +676,7 @@ type State struct {
 	MaxNumThreads             int
 	ParallelismOneTransaction bool
 	// DbHandler will be nil if the DB is disabled
-	DBHandler      *db.DBHandler
-	CloudRunClient *cloudrun.CloudRunClient
+	DBHandler *db.DBHandler
 }
 
 type Actor struct {
@@ -690,6 +686,7 @@ type Actor struct {
 
 type Lock struct {
 	Message           string
+	LockId            string
 	CreatedBy         Actor
 	CreatedAt         time.Time
 	CiLink            string
@@ -717,6 +714,7 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	for _, lock := range locks {
 		genericLock := Lock{
 			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
 			CreatedBy: Actor{
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
@@ -728,10 +726,6 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 		result[lock.LockID] = genericLock
 	}
 	return result, nil
-}
-
-func (s *State) GetEnvironmentLocks(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[string]Lock, error) {
-	return s.GetEnvironmentLocksFromDB(ctx, transaction, environment)
 }
 
 func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (map[string]Lock, error) {
@@ -755,6 +749,7 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 	for _, lock := range locks {
 		genericLock := Lock{
 			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
 			CreatedBy: Actor{
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
@@ -790,6 +785,7 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *
 	for _, lock := range locks {
 		genericLock := Lock{
 			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
 			CreatedBy: Actor{
 				Name:  lock.Metadata.CreatedByName,
 				Email: lock.Metadata.CreatedByEmail,
@@ -815,14 +811,6 @@ func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, 
 	return "", time.Time{}, err
 }
 
-type SuccessReason int64
-
-const (
-	NoReason SuccessReason = iota
-	DirDoesNotExist
-	DirNotEmpty
-)
-
 func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (*uint64, error) {
 	queuedDeployment, err := s.DBHandler.DBSelectLatestDeploymentAttempt(ctx, transaction, environment, application)
 
@@ -831,8 +819,8 @@ func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx,
 	}
 
 	var v *uint64
-	if queuedDeployment.Version != nil {
-		parsedInt := uint64(*queuedDeployment.Version)
+	if queuedDeployment.ReleaseNumbers.Version != nil {
+		parsedInt := *queuedDeployment.ReleaseNumbers.Version
 		v = &parsedInt
 	} else {
 		v = nil
@@ -848,8 +836,8 @@ func (s *State) GetQueuedVersionAllAppsFromDB(ctx context.Context, transaction *
 	}
 	for _, queuedDeployment := range queuedDeployments {
 		var v *uint64
-		if queuedDeployment.Version != nil {
-			parsedInt := uint64(*queuedDeployment.Version)
+		if queuedDeployment.ReleaseNumbers.Version != nil {
+			parsedInt := *queuedDeployment.ReleaseNumbers.Version
 			v = &parsedInt
 		} else {
 			v = nil
@@ -864,13 +852,6 @@ func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, en
 }
 
 func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) error {
-	queuedVersion, err := s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
-	if err != nil {
-		return err
-	}
-	if queuedVersion == nil {
-		return nil // nothing to do
-	}
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
 func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName, allApps []string) (map[string]*int64, error) {
@@ -886,18 +867,14 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	if err != nil {
 		return nil, err
 	}
-	if depl == nil || depl.Version == nil {
+	if depl == nil || depl.ReleaseNumbers.Version == nil {
 		return nil, nil
 	}
-	var v = uint64(*depl.Version)
+	var v = *depl.ReleaseNumbers.Version
 	return &v, nil
 }
 
-func (s *State) GetTeamName(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
-	return s.GetApplicationTeamOwner(ctx, transaction, application)
-}
-
-var InvalidJson = errors.New("JSON file is not valid")
+var ErrInvalidJson = errors.New("JSON file is not valid")
 
 func envExists(envConfigs map[types.EnvName]config.EnvironmentConfig, envNameToSearchFor types.EnvName) bool {
 	if _, found := envConfigs[envNameToSearchFor]; found {
@@ -1041,7 +1018,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 		}
 	}
 	if len(groupEnvNames) == 0 {
-		return nil, fmt.Errorf("No environment found with given group '%s'", envGroup)
+		return nil, fmt.Errorf("no environment found with given group '%s'", envGroup)
 	}
 	sort.Strings(groupEnvNames)
 	return types.StringsToEnvNames(groupEnvNames), nil
@@ -1103,7 +1080,8 @@ func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.
 }
 
 type Release struct {
-	Version uint64
+	Version  uint64
+	Revision uint64
 	/**
 	"UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
 	It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
@@ -1141,6 +1119,7 @@ func (rel *Release) ToProto() *api.Release {
 		IsPrepublish:    rel.IsPrepublish,
 		Environments:    types.EnvNamesToStrings(rel.Environments),
 		CiLink:          rel.CiLink,
+		Revision:        rel.Revision,
 	}
 }
 
@@ -1171,7 +1150,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 	}
 	for _, rel := range rels {
 		r := &Release{
-			Version:         rel.ReleaseNumber,
+			Version:         *rel.ReleaseNumbers.Version,
 			UndeployVersion: rel.Metadata.UndeployVersion,
 			SourceAuthor:    rel.Metadata.SourceAuthor,
 			SourceCommitId:  rel.Metadata.SourceCommitId,
@@ -1182,6 +1161,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 			IsPrepublish:    rel.Metadata.IsPrepublish,
 			Environments:    rel.Environments,
 			CiLink:          rel.Metadata.CiLink,
+			Revision:        rel.ReleaseNumbers.Revision,
 		}
 		result = append(result, r)
 	}
@@ -1197,7 +1177,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		return nil, nil
 	}
 	return &Release{
-		Version:         env.ReleaseNumber,
+		Version:         *env.ReleaseNumbers.Version,
 		UndeployVersion: env.Metadata.UndeployVersion,
 		SourceAuthor:    env.Metadata.SourceAuthor,
 		SourceCommitId:  env.Metadata.SourceCommitId,
@@ -1208,6 +1188,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		IsPrepublish:    env.Metadata.IsPrepublish,
 		Environments:    env.Environments,
 		CiLink:          env.Metadata.CiLink,
+		Revision:        env.ReleaseNumbers.Revision,
 	}, nil
 }
 
@@ -1261,36 +1242,6 @@ func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transact
 		return "", fmt.Errorf("could not get team of app %s - could not find app", application)
 	}
 	return app.Metadata.Team, nil
-}
-
-// ProcessQueue checks if there is something in the queue
-// deploys if necessary
-// deletes the queue
-func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (string, error) {
-	queuedVersion, err := s.GetQueuedVersionFromDB(ctx, transaction, environment, application)
-	queueDeploymentMessage := ""
-	if err != nil {
-		// could not read queued version.
-		return "", err
-	} else {
-		if queuedVersion == nil {
-			// if there is no version queued, that's not an issue, just do nothing:
-			return "", nil
-		}
-
-		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(ctx, transaction, environment, application)
-		if err != nil {
-			return "", err
-		}
-
-		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
-			// delete queue, it's outdated! But if we can't, that's not really a problem, as it would be overwritten
-			// whenever the next deployment happens:
-			err = s.DeleteQueuedVersion(ctx, transaction, environment, application)
-			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
-		}
-	}
-	return queueDeploymentMessage, nil
 }
 
 func (s *State) ProcessQueueAllApps(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (string, error) {

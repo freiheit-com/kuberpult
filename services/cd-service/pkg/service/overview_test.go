@@ -122,6 +122,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Version:     1,
+					Revision:    0,
 					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
@@ -132,6 +133,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test-with-team",
 					Version:     2,
+					Revision:    0,
 					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
@@ -143,6 +145,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test-with-incorrect-pr-number",
 					Version:     3,
+					Revision:    0,
 					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
@@ -153,6 +156,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				&repository.CreateApplicationVersion{
 					Application: "test-with-only-pr-number",
 					Version:     4,
+					Revision:    0,
 					Manifests: map[types.EnvName]string{
 						"development": "dev",
 					},
@@ -457,7 +461,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				return ov.LightweightApps[i].Name < ov.LightweightApps[j].Name
 			})
 			if diff := cmp.Diff(tc.ExpectedOverview, ov, protocmp.Transform(), getOverviewIgnoredTypes(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
-				t.Errorf("overview missmatch (-want, +got): %s\n", diff)
+				t.Errorf("overview missmatch (-want, +got): %s", diff)
 			}
 			for _, appName := range tc.AppNamesToCheck {
 				appDetails, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: appName})
@@ -466,7 +470,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tc.ExpectedAppDetails[appName], appDetails, getAppDetailsIgnoredTypes(), cmpopts.IgnoreFields(api.Release{}, "CreatedAt"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime"), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt")); diff != "" {
-					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+					t.Errorf("response missmatch (-want, +got): %s", diff)
 				}
 			}
 		})
@@ -522,7 +526,7 @@ func TestOverviewService(t *testing.T) {
 					defer wg.Done()
 					err := svc.StreamOverview(&api.GetOverviewRequest{}, &stream)
 					if err != nil {
-						t.Fatal(err)
+						t.Error(err)
 					}
 				}()
 
@@ -1026,6 +1030,175 @@ func TestGetApplicationDetails(t *testing.T) {
 						env:      "v1",
 						thirdEnv: "v2",
 					},
+				},
+			},
+		},
+		{
+			Name:    "Get App details - Revisions",
+			AppName: appName,
+			ExpectedResponse: &api.GetAppDetailsResponse{
+				Application: &api.Application{
+					Name: appName,
+					Releases: []*api.Release{
+						{
+							Version:        2,
+							Revision:       0,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{string(env), string(secondEnv)},
+						},
+						{
+							Version:        1,
+							Revision:       2,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{string(env), string(secondEnv)},
+						},
+						{
+							Version:        1,
+							Revision:       1,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{string(env), string(secondEnv)},
+						},
+					},
+					Team: "team-123",
+				},
+				Deployments: map[string]*api.Deployment{
+					string(env): {
+						Version:         2,
+						QueuedVersion:   0,
+						UndeployVersion: false,
+						DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+							DeployAuthor: "test tester",
+						},
+					},
+				},
+				TeamLocks: map[string]*api.Locks{
+					"development": {
+						Locks: []*api.Lock{
+							{
+								LockId:  "my-team-lock",
+								Message: "team lock for team 123",
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+				},
+				AppLocks: map[string]*api.Locks{
+					"development": {
+						Locks: []*api.Lock{
+							{
+								LockId:  "my-app-lock",
+								Message: "app lock for test-app",
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: types.StringPtr(env),
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: types.StringPtr(secondEnv),
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					Revision:              1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[types.EnvName]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					Revision:              0,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 2,
+					Application:           appName,
+					Manifests: map[types.EnvName]string{
+						env:       "v3",
+						secondEnv: "v4",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               1,
+					Revision:              2,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 3,
+					Application:           appName,
+					Manifests: map[types.EnvName]string{
+						env:       "v5",
+						secondEnv: "v6",
+					},
+				},
+				&repository.CreateEnvironmentTeamLock{
+					Team:        "team-123",
+					Environment: env,
+					LockId:      "my-team-lock",
+					Message:     "team lock for team 123",
+				},
+
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: env,
+					LockId:      "my-app-lock",
+					Message:     "app lock for test-app",
 				},
 			},
 		},
@@ -1822,7 +1995,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tc.ExpectedAppDetails[currentAppName], response, getAppDetailsIgnoredTypes(), cmpopts.IgnoreFields(api.Release{}, "CreatedAt"), cmpopts.IgnoreFields(api.Deployment_DeploymentMetaData{}, "DeployTime"), cmpopts.IgnoreFields(api.Lock{}, "CreatedAt")); diff != "" {
-					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+					t.Errorf("response missmatch (-want, +got): %s", diff)
 				}
 			}
 		})
@@ -2069,7 +2242,7 @@ func TestCalculateWarnings(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tc.ExpectedWarnings[appName], appDetails.Application.Warnings, getAppDetailsIgnoredTypes()); diff != "" {
-					t.Errorf("response missmatch (-want, +got): %s\n", diff)
+					t.Errorf("response missmatch (-want, +got): %s", diff)
 				}
 			}
 		})
@@ -2083,8 +2256,8 @@ func TestDeploymentHistory(t *testing.T) {
 	today := created.Round(time.Hour * 24)
 	yesterday := today.AddDate(0, 0, -1)
 	tomorrow := yesterday.AddDate(0, 0, 2)
-	versionOne := int64(1)
-	versionTwo := int64(2)
+	versionOne := uint64(1)
+	versionTwo := uint64(2)
 	dev := "dev"
 	staging := "staging"
 
@@ -2122,31 +2295,43 @@ func TestDeploymentHistory(t *testing.T) {
 			Name: "Test non-empty deployment history",
 			Setup: []db.Deployment{
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           testApp,
-					Version:       &versionOne,
+					Created: created,
+					Env:     "dev",
+					App:     testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 0,
 				},
 				{
-					Created:       created,
-					Env:           "staging",
-					App:           testApp,
-					Version:       &versionOne,
+					Created: created,
+					Env:     "staging",
+					App:     testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 0,
 				},
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           testApp2,
-					Version:       &versionTwo,
+					Created: created,
+					Env:     "dev",
+					App:     testApp2,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionTwo,
+					},
 					TransformerID: 0,
 				},
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           testApp,
-					Version:       &versionTwo,
+					Created: created,
+					Env:     "dev",
+					App:     testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionTwo,
+					},
 					TransformerID: 0,
 				},
 			},
@@ -2215,31 +2400,43 @@ func TestDeploymentHistory(t *testing.T) {
 			Name: "Test non-empty deployment history for a different environment",
 			Setup: []db.Deployment{
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           testApp,
-					Version:       &versionOne,
+					Created: created,
+					Env:     "dev",
+					App:     testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 0,
 				},
 				{
-					Created:       created,
-					Env:           "staging",
-					App:           testApp,
-					Version:       &versionOne,
+					Created: created,
+					Env:     "staging",
+					App:     testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 0,
 				},
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           testApp2,
-					Version:       &versionTwo,
+					Created: created,
+					Env:     "dev",
+					App:     testApp2,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionTwo,
+					},
 					TransformerID: 0,
 				},
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           testApp,
-					Version:       &versionTwo,
+					Created: created,
+					Env:     "dev",
+					App:     testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionTwo,
+					},
 					TransformerID: 0,
 				},
 			},
@@ -2306,38 +2503,53 @@ func TestDeploymentHistory(t *testing.T) {
 			Name: "we are still able to retrieve commit hash from a very old release",
 			Setup: []db.Deployment{
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           testApp,
-					Version:       &versionOne,
+					Created: created,
+					Env:     "dev",
+					App:     testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 0,
 				},
 				{
-					Created:       created,
-					Env:           "staging",
-					App:           testApp,
-					Version:       &versionOne,
+					Created: created,
+					Env:     "staging",
+					App:     testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 0,
 				},
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           testApp2,
-					Version:       &versionTwo,
+					Created: created,
+					Env:     "dev",
+					App:     testApp2,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionTwo,
+					},
 					TransformerID: 0,
 				},
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           testApp,
-					Version:       &versionTwo,
+					Created: created,
+					Env:     "dev",
+					App:     testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionTwo,
+					},
 					TransformerID: 0,
 				},
 			},
 			SetupReleases: []db.DBReleaseWithMetaData{
 				{
-					App:           testApp,
-					ReleaseNumber: 1,
+					App: testApp,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev":     "dev",
@@ -2416,10 +2628,13 @@ func TestDeploymentHistory(t *testing.T) {
 			Name: "Test no deployment in the specified time frame",
 			Setup: []db.Deployment{
 				{
-					Created:       created,
-					Env:           "dev",
-					App:           "testapp",
-					Version:       &versionOne,
+					Created: created,
+					Env:     "dev",
+					App:     "testapp",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 0,
 				},
 			},
@@ -2573,10 +2788,13 @@ func TestDeploymentHistory(t *testing.T) {
 					return err
 				}
 
-				defer rows.Close()
+				defer func() { _ = rows.Close() }()
 				for i := 1; rows.Next() && i < len(tc.ExpectedCsvLines); i++ {
 					var createdAt time.Time
-					rows.Scan(&createdAt)
+					err = rows.Scan(&createdAt)
+					if err != nil {
+						return fmt.Errorf("error scanning row: %w", err)
+					}
 					line := fmt.Sprintf("%s,%s", createdAt.Format(time.RFC3339), tc.ExpectedCsvLines[i])
 					expectedLinesWithCreated = append(expectedLinesWithCreated, line)
 				}

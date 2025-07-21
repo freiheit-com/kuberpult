@@ -35,19 +35,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
-type errMatcher struct {
-	msg string
-}
-
-func (e errMatcher) Error() string {
-	return e.msg
-}
-
-func (e errMatcher) Is(err error) bool {
-	return e.Error() == err.Error()
-}
-
 var devEnvironment db.DBEnvironment = db.DBEnvironment{
 	Name: "development",
 	Config: config.EnvironmentConfig{
@@ -63,8 +50,11 @@ var devEnvironment db.DBEnvironment = db.DBEnvironment{
 }
 
 var appRelease db.DBReleaseWithMetaData = db.DBReleaseWithMetaData{
-	ReleaseNumber: 1,
-	App:           "app",
+	ReleaseNumbers: types.ReleaseNumbers{
+		Revision: 0,
+		Version:  &appVersion,
+	},
+	App: "app",
 	Manifests: db.DBReleaseManifests{
 		Manifests: map[types.EnvName]string{
 			"development": `
@@ -88,7 +78,7 @@ data:
 	},
 }
 
-var appVersion int64 = 1
+var appVersion uint64 = 1
 
 func TestToRevision(t *testing.T) {
 	tcs := []struct {
@@ -213,9 +203,12 @@ func TestGenerateManifest(t *testing.T) {
 					}
 
 					err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-						App:     release.App,
-						Env:     tc.SetupEnv.Name,
-						Version: &appVersion,
+						App: release.App,
+						Env: tc.SetupEnv.Name,
+						ReleaseNumbers: types.ReleaseNumbers{
+							Revision: 0,
+							Version:  &appVersion,
+						},
 					})
 					if err != nil {
 						return err

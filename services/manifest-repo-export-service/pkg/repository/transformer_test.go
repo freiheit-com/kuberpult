@@ -357,7 +357,6 @@ func TestTransformerWorksWithDb(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -376,7 +375,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					if t.GetDBEventType() == db.EvtDeployApplicationVersion || t.GetDBEventType() == db.EvtDeployApplicationVersion {
+					if t.GetDBEventType() == db.EvtDeployApplicationVersion {
 						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx+1), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
 						if err != nil {
 							return err
@@ -390,12 +389,16 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				version := uint64(1)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &version,
+						Revision: 0,
+					},
+					Created:   time.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
@@ -462,9 +465,9 @@ func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 			if errors.Is(err, os.ErrNotExist) {
 				return nil
 			}
-			return fmt.Errorf("Error on Stat for file %s: %v\n", contentRequirement.path, err)
+			return fmt.Errorf("error on Stat for file %s: %v", contentRequirement.path, err)
 		}
-		return fmt.Errorf("File exists %s\n", contentRequirement.path)
+		return fmt.Errorf("file exists '%s'", contentRequirement.path) //nolint:staticcheck
 	}
 	return nil
 }
@@ -554,7 +557,6 @@ func TestDeploymentEvent(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -591,12 +593,16 @@ func TestDeploymentEvent(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				version := uint64(1)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &version,
+						Revision: 0,
+					},
+					Created:   time.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
@@ -735,7 +741,6 @@ func TestReleaseTrain(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _, _ := SetupRepositoryTestWithDB(t)
@@ -762,8 +767,7 @@ func TestReleaseTrain(t *testing.T) {
 					}
 
 					if t.GetDBEventType() == db.EvtReleaseTrain {
-						var sourceTrainUpstream string
-						sourceTrainUpstream = "staging"
+						var sourceTrainUpstream = "staging"
 						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, t.GetEslVersion(), "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "production", SourceTrainUpstream: &sourceTrainUpstream})
 						if err != nil {
 							return err
@@ -781,12 +785,16 @@ func TestReleaseTrain(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				version := uint64(1)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &version,
+						Revision: 0,
+					},
+					Created:   time.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
@@ -809,12 +817,14 @@ func TestReleaseTrain(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				var v int64
-				v = 1
+				var v uint64 = 1
 				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-					App:           appName,
-					Env:           "production",
-					Version:       &v,
+					App: appName,
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &v,
+						Revision: 0,
+					},
 					TransformerID: 5,
 				})
 				if err != nil {
@@ -1292,7 +1302,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -1313,20 +1323,27 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				version := uint64(1)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &version,
+						Revision: 0,
+					},
+					Created:   time.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 
 				if tc.MinorRelease != 0 {
 					err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-						ReleaseNumber: tc.MinorRelease,
-						Created:       time.Time{},
-						App:           appName,
-						Manifests:     db.DBReleaseManifests{},
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  &tc.MinorRelease,
+							Revision: 0,
+						},
+						Created:   time.Time{},
+						App:       appName,
+						Manifests: db.DBReleaseManifests{},
 						Metadata: db.DBReleaseMetaData{
 							IsMinor: true,
 						},
@@ -1334,10 +1351,13 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 				}
 				if tc.PrepublishRelease != 0 {
 					err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-						ReleaseNumber: tc.PrepublishRelease,
-						Created:       time.Time{},
-						App:           appName,
-						Manifests:     db.DBReleaseManifests{},
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  &tc.PrepublishRelease,
+							Revision: 0,
+						},
+						Created:   time.Time{},
+						App:       appName,
+						Manifests: db.DBReleaseManifests{},
 						Metadata: db.DBReleaseMetaData{
 							IsPrepublish: true,
 						},
@@ -1499,7 +1519,7 @@ func TestReplacedByEvents(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -1549,19 +1569,30 @@ func TestReplacedByEvents(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				v1 := uint64(1)
+				v2 := uint64(2)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &v1,
+						Revision: 0,
+					},
+					Created:   time.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
+				if err != nil {
+					return err
+				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 2,
-					Created:       time.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &v2,
+						Revision: 0,
+					},
+					Created:   time.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
@@ -1639,7 +1670,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -1681,19 +1712,31 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 				if err != nil {
 					return err
 				}
+
+				v1 := uint64(1)
+				v2 := uint64(2)
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 1,
-					Created:       time.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &v1,
+						Revision: 0,
+					},
+					Created:   time.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
+				if err != nil {
+					return err
+				}
 				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumber: 2,
-					Created:       time.Time{},
-					App:           appName,
-					Manifests:     db.DBReleaseManifests{},
-					Metadata:      db.DBReleaseMetaData{},
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  &v2,
+						Revision: 0,
+					},
+					Created:   time.Time{},
+					App:       appName,
+					Manifests: db.DBReleaseManifests{},
+					Metadata:  db.DBReleaseMetaData{},
 				})
 				if err != nil {
 					return err
@@ -2184,7 +2227,7 @@ func TestLocks(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -2231,8 +2274,11 @@ func TestLocks(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumber: concreteTransformer.Version,
-							App:           concreteTransformer.Application,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &concreteTransformer.Version,
+								Revision: 0,
+							},
+							App: concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
 								Manifests: concreteTransformer.Manifests,
 							},
@@ -2491,7 +2537,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -2528,8 +2574,11 @@ func TestCreateUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumber: concreteTransformer.Version,
-							App:           concreteTransformer.Application,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &concreteTransformer.Version,
+								Revision: 0,
+							},
+							App: concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
 								Manifests: concreteTransformer.Manifests,
 							},
@@ -2555,12 +2604,14 @@ func TestCreateUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
-					var version int64
-					version = 2
+					var version uint64 = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumber: 2,
-							App:           appName,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: 0,
+							},
+							App: appName,
 							Manifests: db.DBReleaseManifests{
 								Manifests: map[types.EnvName]string{ //empty manifest
 									envAcceptance:  "",
@@ -2581,15 +2632,24 @@ func TestCreateUndeployLogic(t *testing.T) {
 						}
 
 						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							Version:       &version,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: 0,
+							},
 							App:           appName,
 							Env:           envAcceptance,
 							Metadata:      db.DeploymentMetadata{},
 							Created:       time.Now(),
 							TransformerID: tr.GetEslVersion(),
 						})
+						if err2 != nil {
+							t.Fatal(err2)
+						}
 						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							Version:       &version,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: 0,
+							},
 							App:           appName,
 							Env:           envAcceptance2,
 							Metadata:      db.DeploymentMetadata{},
@@ -2909,7 +2969,7 @@ func TestUndeployLogic(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
@@ -2944,8 +3004,11 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumber: concreteTransformer.Version,
-							App:           concreteTransformer.Application,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &concreteTransformer.Version,
+								Revision: 0,
+							},
+							App: concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
 								Manifests: concreteTransformer.Manifests,
 							},
@@ -2971,13 +3034,15 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 					}
-					var version int64
-					version = 2
+					var version uint64 = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
 						concreteTransformer := tr.(*CreateUndeployApplicationVersion)
 						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumber: 2,
-							App:           concreteTransformer.Application,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: 0,
+							},
+							App: concreteTransformer.Application,
 							Manifests: db.DBReleaseManifests{
 								Manifests: map[types.EnvName]string{ //empty manifest
 									"": "",
@@ -2996,7 +3061,10 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							Version:       &version,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: 0,
+							},
 							App:           appName,
 							Env:           envAcceptance,
 							Metadata:      db.DeploymentMetadata{},
@@ -3007,7 +3075,10 @@ func TestUndeployLogic(t *testing.T) {
 							t.Fatal(err2)
 						}
 						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							Version:       &version,
+							ReleaseNumbers: types.ReleaseNumbers{
+								Version:  &version,
+								Revision: 0,
+							},
 							App:           appName,
 							Env:           envAcceptance,
 							Metadata:      db.DeploymentMetadata{},
@@ -3206,7 +3277,7 @@ spec:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())

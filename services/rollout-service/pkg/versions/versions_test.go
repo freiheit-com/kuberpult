@@ -62,12 +62,6 @@ type expectedVersion struct {
 	IsProduction     bool
 }
 
-type mockOverviewStreamMessage struct {
-	Overview     *api.GetOverviewResponse
-	Error        error
-	ConnectError error
-}
-
 type mockOverviewClient struct {
 	grpc.ClientStream
 	OverviewResponse           *api.GetOverviewResponse
@@ -78,7 +72,6 @@ type mockOverviewClient struct {
 	StartStep                  chan struct{}
 	Steps                      chan step
 	savedStep                  *step
-	current                    int
 }
 
 // GetOverview implements api.OverviewServiceClient
@@ -953,6 +946,9 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 func setupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatal(err)
+	}
 	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
 	if err != nil {
 		t.Fatal(err)
@@ -984,10 +980,14 @@ func setupDB(t *testing.T) *db.DBHandler {
 		if err != nil {
 			return err
 		}
+		var version uint64 = 1234
 		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-			ReleaseNumber: 1234,
-			Created:       time.Unix(123456789, 0).UTC(),
-			App:           "foo",
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: 0,
+				Version:  &version,
+			},
+			Created: time.Unix(123456789, 0).UTC(),
+			App:     "foo",
 			Manifests: db.DBReleaseManifests{
 				Manifests: map[types.EnvName]string{"staging": ""},
 			},
@@ -996,12 +996,15 @@ func setupDB(t *testing.T) *db.DBHandler {
 		if err != nil {
 			return err
 		}
-		var version int64 = 1234
+
 		err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-			Created:       time.Unix(123456789, 0).UTC(),
-			App:           "foo",
-			Env:           "staging",
-			Version:       &version,
+			Created: time.Unix(123456789, 0).UTC(),
+			App:     "foo",
+			Env:     "staging",
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: 0,
+				Version:  &version,
+			},
 			TransformerID: 0,
 		})
 

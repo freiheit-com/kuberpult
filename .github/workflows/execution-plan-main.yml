@@ -8,7 +8,7 @@ name: "Execution Plan on main"
 
 jobs:
   execution-plan:
-    uses: ./.github/workflows/execution-plan-snippet-earthly.yml
+    uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       trigger: main
     secrets: inherit

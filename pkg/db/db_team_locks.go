@@ -67,7 +67,7 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not read team lock from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not read team lock from DB. Error: %w", err)
 	}
 	teamLocks := make(map[types.EnvName]map[string][]TeamLock)
 	for rows.Next() {
@@ -92,14 +92,14 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		if _, ok := teamLocks[row.Env]; !ok {
 			teamLocks[row.Env] = make(map[string][]TeamLock)
@@ -138,7 +138,7 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not read team lock from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not read team lock from DB. Error: %w", err)
 	}
 	if rows.Next() {
 		var row = TeamLock{
@@ -162,14 +162,14 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		row.Metadata = resultJson
 		return &row, nil
@@ -298,7 +298,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 		limit,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not read team lock from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not read team lock from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -330,14 +330,14 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning team locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		row.Metadata = resultJson
 		teamLocks = append(teamLocks, row)
@@ -410,7 +410,7 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	existingTeamLock, err := h.DBSelectTeamLock(ctx, tx, environment, teamName, lockID)
 
 	if err != nil {
-		return fmt.Errorf("Could not obtain existing team lock: %w\n", err)
+		return fmt.Errorf("could not obtain existing team lock: %w", err)
 	}
 
 	if existingTeamLock == nil {
@@ -459,7 +459,7 @@ func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not insert team lock for team '%s' and environment '%s' and lockid '%s' into DB. Error: %w\n",
+			"could not insert team lock for team '%s' and environment '%s' and lockid '%s' into DB. Error: %w",
 			teamName,
 			environment,
 			lockID,
@@ -483,7 +483,7 @@ func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not delete team_lock for team '%s' and environment '%s' and lockId '%s' from DB. Error: %w\n",
+			"could not delete team_lock for team '%s' and environment '%s' and lockId '%s' from DB. Error: %w",
 			teamName,
 			environment,
 			lockId,
@@ -520,7 +520,7 @@ func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *s
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not insert team lock history for team '%s' and environment '%s' and lockid '%s' into DB. Error: %w\n",
+			"could not insert team lock history for team '%s' and environment '%s' and lockid '%s' into DB. Error: %w",
 			teamName,
 			environment,
 			lockID,
@@ -532,7 +532,7 @@ func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *s
 // process rows functions
 func (h *DBHandler) processTeamLockRows(ctx context.Context, err error, rows *sql.Rows) ([]TeamLock, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not read team lock from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not read team lock from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -563,14 +563,14 @@ func (h *DBHandler) processTeamLockRows(ctx context.Context, err error, rows *sq
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		row.Metadata = resultJson
 		teamLocks = append(teamLocks, row)
@@ -588,7 +588,7 @@ func (h *DBHandler) processAllTeamLocksRows(ctx context.Context, err error, rows
 	defer span.Finish()
 
 	if err != nil {
-		return nil, fmt.Errorf("could not query all_team_locks table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query all_team_locks table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -597,7 +597,7 @@ func (h *DBHandler) processAllTeamLocksRows(ctx context.Context, err error, rows
 		}
 	}(rows)
 	//exhaustruct:ignore
-	var result []string = make([]string, 0)
+	var result = make([]string, 0)
 	for rows.Next() {
 		var lockId string
 		err := rows.Scan(&lockId)
@@ -605,7 +605,7 @@ func (h *DBHandler) processAllTeamLocksRows(ctx context.Context, err error, rows
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("Error scanning releases row from DB. Error: %w", err)
 		}
 
 		result = append(result, lockId)

@@ -31,12 +31,10 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/lib/pq"
 
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
-
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/google/go-cmp/cmp"
@@ -331,10 +329,10 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("transaction error: %v", err)
 			}
-			var jsonInterface interface{} = tc.dataType
+			var jsonInterface = tc.dataType
 			err = json.Unmarshal(([]byte)(row.EventJson), &jsonInterface)
 			if err != nil {
-				t.Fatalf("marshal error: %v\njson: \n%s\n", err, row.EventJson)
+				t.Fatalf("marshal error: %v\njson: \n%s", err, row.EventJson)
 			}
 			tc.Transformer.SetEslVersion(0) // the eslVersion is not part of the json blob anymore
 			if diff := cmp.Diff(tc.Transformer, jsonInterface, protocmp.Transform()); diff != "" {
@@ -444,11 +442,11 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -467,6 +465,9 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
 				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
 			})
+			if err != nil {
+				t.Fatalf("unexpected error selecting env locks: %v", err)
+			}
 
 			if locks == nil {
 				t.Fatalf("Expected locks but got none")
@@ -606,11 +607,11 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -630,6 +631,9 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 				locks, err := repo.State().DBHandler.DBSelectAllTeamLocks(ctx, transaction, envAcceptance, team)
 				return &locks, err
 			})
+			if err != nil {
+				t.Fatalf("unexpected error selecting team locks: %v", err)
+			}
 
 			if locks == nil {
 				t.Fatalf("Expected locks but got none")
@@ -637,6 +641,145 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 
 			if diff := cmp.Diff(tc.ExpectedLockIds, *locks); diff != "" {
 				t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCreateApplicationVersionDBRevisions(t *testing.T) {
+	const appName = "app1"
+	tcs := []struct {
+		Name               string
+		Transformers       []Transformer
+		expectedDbContent  *db.DBAppWithMetaData
+		expectedDbReleases []types.ReleaseNumbers
+	}{
+		{
+			Name: "create two identical versions with different revision",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    1,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "t1",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    2,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{test}",
+					},
+					Team: "t1",
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				App:         appName,
+				StateChange: db.AppStateChangeCreate,
+				Metadata: db.DBAppMetaData{
+					Team: "t1",
+				},
+			},
+			expectedDbReleases: []types.ReleaseNumbers{
+				{
+					Revision: 2,
+					Version:  uversion(10),
+				},
+				{
+					Revision: 1,
+					Version:  uversion(10),
+				},
+			},
+		},
+		{
+			Name: "create two identical versions with different revision - invert order of creation",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    2,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{test}",
+					},
+					Team: "t1",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     10,
+					Revision:    1,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "t1",
+				},
+			},
+			expectedDbContent: &db.DBAppWithMetaData{
+				App:         appName,
+				StateChange: db.AppStateChangeCreate,
+				Metadata: db.DBAppMetaData{
+					Team: "t1",
+				},
+			},
+			expectedDbReleases: []types.ReleaseNumbers{
+				{
+					Revision: 2,
+					Version:  uversion(10),
+				},
+				{
+					Revision: 1,
+					Version:  uversion(10),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, tc.expectedDbContent.App)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedDbContent, res); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				actualRelease, err3 := state.DBHandler.DBSelectAllReleaseNumbersOfApp(ctx, transaction, appName)
+				if err3 != nil {
+					return fmt.Errorf("error: %v", err3)
+				}
+				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				environment, err4 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "acceptance")
+				if err4 != nil {
+					return fmt.Errorf("error retrieving environment: %w", err)
+				}
+				if diff := cmp.Diff([]string{appName}, environment.Applications); diff != "" {
+					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err3 != nil {
+				t.Fatalf("expected no error, got %v", err3)
 			}
 		})
 	}
@@ -1130,21 +1273,21 @@ func TestMinorFlag(t *testing.T) {
 			repo := SetupRepositoryTestWithDB(t).(*repository)
 			repo.config.MinorRegexes = tc.MinorRegexes
 			err3 := repo.State().DBHandler.WithTransactionR(ctxWithTime, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
+				_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
 					Environment: "acceptance",
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				})
 				if err != nil {
 					return err
 				}
-				_, state, _, err = repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
+				_, _, _, err = repo.ApplyTransformersInternal(ctx, transaction, &CreateEnvironment{
 					Environment: "new env",
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				})
 				if err != nil {
 					return err
 				}
-				_, state, _, err = repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					return err
 				}
@@ -1273,13 +1416,19 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 					EslVersion: 2,
 					Env:        "production",
 					App:        testAppName,
-					Version:    nil,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  nil,
+						Revision: 0,
+					},
 				},
 				{
 					EslVersion: 1,
 					Env:        "production",
 					App:        testAppName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
 				},
 			},
 		},
@@ -1347,7 +1496,10 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 					EslVersion: 1,
 					Env:        envProduction,
 					App:        testAppName,
-					Version:    version(1),
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
 				},
 			},
 		},
@@ -1888,11 +2040,11 @@ func TestEvents(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -1907,7 +2059,7 @@ func TestEvents(t *testing.T) {
 					t.Fatal(err)
 				}
 				if len(rows) != len(tc.expectedDBEvents) {
-					t.Fatalf("error event count mismatch expected '%d' events but got '%d' rows:\n%v\n", len(tc.expectedDBEvents), len(rows), rows)
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d' rows:\n%v", len(tc.expectedDBEvents), len(rows), rows)
 				}
 				dEvents, err := DBParseToEvents(rows)
 				if err != nil {
@@ -2302,16 +2454,23 @@ func TestReleaseTrain(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			//check deployments
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
-			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-				if err2 != nil {
-					return err2
+			for _, transformer := range tc.Transformers {
+				err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, transformer)
+					if err2 != nil {
+						return err2
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("Err: %v", err)
 				}
+			}
 
-				deployment, dplError := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				deployment, dplError := r.State().DBHandler.DBSelectLatestDeployment(ctx, transaction, tc.TargetApp, tc.TargetEnv)
 				if dplError != nil {
 					return dplError
 				}
@@ -2319,17 +2478,17 @@ func TestReleaseTrain(t *testing.T) {
 				if deployment == nil {
 					t.Fatalf("Expected deployment but none was found.")
 				}
-				if deployment.Version == nil {
+				if deployment.ReleaseNumbers.Version == nil {
 					t.Fatalf("Expected deployment version, but got nil.")
 
 				}
-				if diff := cmp.Diff(uint(*deployment.Version), tc.ExpectedVersion); diff != "" {
+				if diff := cmp.Diff(uint(*deployment.ReleaseNumbers.Version), tc.ExpectedVersion); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Err: %v\n", err)
+				t.Fatalf("Err: %v", err)
 			}
 		})
 	}
@@ -2373,8 +2532,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			},
 			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
 				"app": {
-					App:           "app",
-					ReleaseNumber: 1,
+					App: "app",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(1),
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{},
 					},
@@ -2419,8 +2581,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			},
 			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
 				"app": {
-					App:           "app",
-					ReleaseNumber: 1,
+					App: "app",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(1),
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
@@ -2477,8 +2642,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			},
 			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
 				"app": {
-					App:           "app",
-					ReleaseNumber: 1,
+					App: "app",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(1),
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
@@ -2487,8 +2655,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environments: []types.EnvName{"dev"},
 				},
 				"app2": {
-					App:           "app2",
-					ReleaseNumber: 1,
+					App: "app2",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(1),
+					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
 							"dev": "doesn't matter",
@@ -2510,11 +2681,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
-			var err error = nil
+			var err error
 			repo = SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				var batchError *TransformerBatchApplyError = nil
+				var batchError *TransformerBatchApplyError
 				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
@@ -2869,7 +3040,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            1,
-				TransformerError: errMatcher{"error at index 1 of transformer batch: could not delete environment with name 'this-env-does-not-exist' from DB."},
+				TransformerError: errMatcher{"error at index 1 of transformer batch: could not delete environment with name 'this-env-does-not-exist' from DB"},
 			},
 		},
 		{
@@ -2977,7 +3148,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment locks for this environment exist"},
 			},
 		},
 		{
@@ -3017,7 +3188,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Application locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Application locks for this environment exist"},
 			},
 		},
 		{
@@ -3058,7 +3229,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Team locks for this environment exist."},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Team locks for this environment exist"},
 			},
 		},
 		{
@@ -3103,7 +3274,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
+				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
 			},
 		},
 		{
@@ -3159,7 +3330,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            6,
-				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: Could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion."},
+				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion"},
 			},
 		},
 	}
@@ -3358,7 +3529,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 				if err2 != nil {
 					t.Fatal(err)
 				}
-				if allReleases == nil || len(allReleases) == 0 {
+				if len(allReleases) == 0 {
 					t.Fatal("Expected some releases, but got none")
 				}
 				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases); diff != "" {
@@ -3420,9 +3591,12 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(1),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(1),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3455,9 +3629,12 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(1),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(1),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3490,9 +3667,12 @@ func TestAllowedCILinksState(t *testing.T) {
 			expectedAllReleases: []int64{1},
 			expectedDeployments: []db.Deployment{
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(1),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(1),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3524,7 +3704,7 @@ func TestAllowedCILinksState(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            1,
-				TransformerError: errMatcher{"general_failure:{message:\"Provided CI Link: https://github.com/freiheit-com/kuberpult is not valid or does not match any of the allowed domain\"}"},
+				TransformerError: errMatcher{"general_failure:{message:\"provided CI Link: https://github.com/freiheit-com/kuberpult is not valid or does not match any of the allowed domain\"}"},
 			},
 		},
 		{
@@ -3549,7 +3729,7 @@ func TestAllowedCILinksState(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            1,
-				TransformerError: errMatcher{"general_failure:{message:\"Provided CI Link: https://google.com/search?q=freiheit.com is not valid or does not match any of the allowed domain\"}"},
+				TransformerError: errMatcher{"general_failure:{message:\"provided CI Link: https://google.com/search?q=freiheit.com is not valid or does not match any of the allowed domain\"}"},
 			},
 		},
 	}
@@ -3638,9 +3818,12 @@ func TestUndeployDBState(t *testing.T) {
 			expectedAllReleases: []int64{},
 			expectedDeployments: []db.Deployment{
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: nil,
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  nil,
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3648,9 +3831,12 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(2),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(2),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3658,9 +3844,12 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerID: 3,
 				},
 				{
-					App:     appName,
-					Env:     envProduction,
-					Version: version(1),
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(1),
+					},
 					Metadata: db.DeploymentMetadata{
 						DeployedByEmail: "testmail@example.com",
 						DeployedByName:  "test tester",
@@ -3723,8 +3912,8 @@ func TestUndeployDBState(t *testing.T) {
 	}
 }
 
-func version(v int) *int64 {
-	var result = int64(v)
+func uversion(v int) *uint64 {
+	var result = uint64(v)
 	return &result
 }
 
@@ -4009,7 +4198,7 @@ func TestTimestampConsistency(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Err: %v\n", err)
+				t.Fatalf("Err: %v", err)
 			}
 		})
 	}
@@ -4185,7 +4374,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -4219,8 +4408,8 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				t.Fatalf("expected %d events, but got %d", len(tc.expectedEvents), len(mockClient.events))
 			}
 			for i := range tc.expectedEvents {
-				var expectedEvent statsd.Event = tc.expectedEvents[i]
-				var actualEvent statsd.Event = *mockClient.events[i]
+				var expectedEvent = tc.expectedEvents[i]
+				var actualEvent = *mockClient.events[i]
 
 				if diff := cmp.Diff(expectedEvent, actualEvent, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
 					t.Errorf("got %v, want %v, diff (-want +got) %s", actualEvent, expectedEvent, diff)
@@ -4337,7 +4526,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -4400,9 +4589,9 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			sortGauges(tc.expectedGauges)
 			sortGauges(mockClient.gauges)
 			for i := range tc.expectedGauges {
-				var expectedGauge Gauge = tc.expectedGauges[i]
+				var expectedGauge = tc.expectedGauges[i]
 				sort.Strings(expectedGauge.Tags)
-				var actualGauge Gauge = mockClient.gauges[i]
+				var actualGauge = mockClient.gauges[i]
 				sort.Strings(actualGauge.Tags)
 				t.Logf("actualGauges:[%v] %v:%v", i, actualGauge.Name, actualGauge.Tags)
 				t.Logf("expectedGauges:[%v] %v:%v", i, expectedGauge.Name, expectedGauge.Tags)
@@ -4662,15 +4851,23 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			//check deployments
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
-			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
-				if err2 != nil {
-					return err2
+			for _, transformer := range tc.Transformers {
+				err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, transformer)
+					if err2 != nil {
+						return err2
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("Err: %v", err)
 				}
-				changes, err := state.DBHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, tc.targetTransformer)
+			}
+
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				changes, err := r.State().DBHandler.DBReadUnsyncedAppsForTransfomerID(ctx, transaction, tc.targetTransformer)
 				if err != nil {
 					return err
 				}
@@ -4680,7 +4877,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Err: %v\n", err)
+				t.Fatalf("Err: %v", err)
 			}
 		})
 	}

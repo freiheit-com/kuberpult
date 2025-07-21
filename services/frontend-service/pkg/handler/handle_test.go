@@ -50,6 +50,35 @@ func (c *mockReleaseTrainPrognosisServiceClient) GetReleaseTrainPrognosis(_ cont
 	return c.response, nil
 }
 
+// The createTestForm function from the artifact
+func createTestForm() (*multipart.Form, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	err := writer.WriteField("version", "1")
+	if err != nil {
+		return nil, err
+	}
+	fileWriter, err := writer.CreateFormFile("manifests[development]", "test.txt")
+	if err != nil {
+		return nil, err
+	}
+	_, err = io.WriteString(fileWriter, "This is the file content.")
+	if err != nil {
+		return nil, err
+	}
+	err = writer.Close()
+	if err != nil {
+		return nil, err
+	}
+	req := httptest.NewRequest("POST", "/upload", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	err = req.ParseMultipartForm(32 << 20)
+	if err != nil {
+		return nil, err
+	}
+	return req.MultipartForm, nil
+}
+
 func TestServer_Handle(t *testing.T) {
 	exampleKey, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
 	if err != nil {
@@ -98,6 +127,12 @@ func TestServer_Handle(t *testing.T) {
 		Signature: exampleSignature,
 		CiLink:    "https://google.com",
 	})
+
+	// 1. Create a valid, parsable form using the function from the artifact
+	form, err := createTestForm()
+	if err != nil {
+		t.Fatalf("Failed to create test form: %v", err)
+	}
 
 	tests := []struct {
 		name                                 string
@@ -338,6 +373,85 @@ func TestServer_Handle(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "create release",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/release",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"version":     {"1"},
+						"application": {"my-app"},
+						"revision":    {"1"},
+					},
+					File: form.File,
+				},
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_Success{
+									Success: &api.CreateReleaseResponseSuccess{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusCreated,
+			},
+			expectedBody: "{\"Success\":{}}\n",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateRelease{
+							CreateRelease: &api.CreateReleaseRequest{Application: "my-app", Version: 1, Revision: 1, Manifests: map[string]string{
+								"development": "This is the file content.",
+							}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "create release, revision is not a number",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/release",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"version":     {"1"},
+						"application": {"my-app"},
+						"revision":    {"abcd"},
+					},
+					File: form.File,
+				},
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_Success{
+									Success: &api.CreateReleaseResponseSuccess{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Invalid version: strconv.ParseUint: parsing \"abcd\": invalid syntax",
 		},
 		{
 			name: "release train prognosis",
@@ -1372,6 +1486,9 @@ func TestServer_Handle(t *testing.T) {
 				CommitDeploymentsClient:     commitInfoClient,
 				KeyRing:                     tt.KeyRing,
 				AzureAuth:                   tt.AzureAuthEnabled,
+				Config: config.ServerConfig{
+					RevisionsEnabled: true,
+				},
 			}
 
 			w := httptest.NewRecorder()

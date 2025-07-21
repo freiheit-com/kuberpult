@@ -45,9 +45,11 @@ type SimplifiedApplicationServiceClient interface {
 	Watch(ctx context.Context, qry *application.ApplicationQuery, opts ...grpc.CallOption) (application.ApplicationService_WatchClient, error)
 }
 
+type WriteOnceCh = *chan struct{}
+
 type Processor interface {
 	Push(ctx context.Context, last *ArgoOverview) error
-	Consume(ctx context.Context, hlth *setup.HealthReporter) error
+	Consume(ctx context.Context, hlth *setup.HealthReporter, chPtr WriteOnceCh) error
 	CreateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo)
 	UpdateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo, existingApp *v1alpha1.Application)
 	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment)
@@ -104,11 +106,12 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) error {
 	}
 }
 
-func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
+func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter, chPtr WriteOnceCh) error {
 	if hlth != nil {
 		hlth.ReportReady("event-consuming")
 	}
 
+	var alreadyWritten = false
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
 	for {
 		select {
@@ -130,6 +133,11 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			case <-ctx.Done():
 				return nil
 			}
+		}
+		if !alreadyWritten && chPtr != nil {
+			ch := *chPtr
+			ch <- struct{}{}
+			alreadyWritten = true
 		}
 	}
 }

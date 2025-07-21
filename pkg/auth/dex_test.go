@@ -184,7 +184,10 @@ func TestDexRoundTripper(t *testing.T) {
 				T:      http.DefaultTransport,
 			}
 			req, _ := http.NewRequest(http.MethodGet, "/", bytes.NewBuffer([]byte("")))
-			rt.RoundTrip(req)
+			_, err := rt.RoundTrip(req)
+			if err != nil {
+				t.Fatal("round tripper did not succeed:", err)
+			}
 			target, _ := url.Parse(mockDexServer.URL)
 			if diff := cmp.Diff(req.Host, target.Host); diff != "" {
 				t.Errorf("got %v, want %v, diff (-want +got) %s", req.Host, target.Host, diff)
@@ -391,7 +394,7 @@ func MockOIDCTestServer(issuerURL string, keySet jwk.Set) *httptest.Server {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.RequestURI {
 		case "/dex/.well-known/openid-configuration":
-			io.WriteString(w, fmt.Sprintf(`
+			_, _ = io.WriteString(w, fmt.Sprintf(`
 {
   "issuer": "%[1]s",
   "authorization_endpoint": "%[1]s/auth",
@@ -410,7 +413,7 @@ func MockOIDCTestServer(issuerURL string, keySet jwk.Set) *httptest.Server {
 }`, issuerURL))
 		case "/dex/keys":
 			out, _ := json.Marshal(keySet)
-			_, _ = io.WriteString(w, string(out))
+			_, _ = io.Writer.Write(w, out)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

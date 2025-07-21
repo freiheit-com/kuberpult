@@ -19,6 +19,7 @@ import {
     AppDetailsState,
     EnvironmentGroupExtended,
     getAppDetails,
+    ReleaseNumbers,
     showSnackbarError,
     showSnackbarWarn,
     updateAppDetails,
@@ -48,25 +49,36 @@ import { Tooltip } from '../tooltip/tooltip';
 const numberOfDisplayedReleasesOnHome = 6;
 
 const getReleasesToDisplay = (
-    deployedReleases: number[],
-    allReleases: number[],
-    minorReleases: number[],
+    deployedReleases: ReleaseNumbers[],
+    allReleases: ReleaseNumbers[],
+    minorReleases: ReleaseNumbers[],
     ignoreMinors: boolean
-): number[] => {
+): ReleaseNumbers[] => {
+    if (allReleases.length === 0) {
+        return [];
+    }
     if (ignoreMinors) {
         allReleases = allReleases.filter(
-            (version) => !minorReleases.includes(version) || deployedReleases.includes(version)
+            (version) =>
+                !minorReleases.find((v) => v.version === version.version && v.revision === version.revision) ||
+                deployedReleases.find((v) => v.version === version.version && v.revision === version.revision)
         );
     }
     // all deployed releases are important and the latest release is also important
-    const importantReleases = deployedReleases.includes(allReleases[0])
+    const importantReleases = deployedReleases.find(
+        (v) => v.version === allReleases[0].version && v.revision === allReleases[0].revision
+    )
         ? deployedReleases
         : [allReleases[0], ...deployedReleases];
     // number of remaining releases to get from history
     const numOfTrailingReleases = numberOfDisplayedReleasesOnHome - importantReleases.length;
     // find the index of the last deployed release e.g. Prod (or -1 when there's no deployed releases)
     const oldestImportantReleaseIndex = importantReleases.length
-        ? allReleases.findIndex((version) => version === importantReleases.slice(-1)[0])
+        ? allReleases.findIndex(
+              (version) =>
+                  version.version === importantReleases.slice(-1)[0].version &&
+                  version.revision === importantReleases.slice(-1)[0].revision
+          )
         : -1;
     // take the deployed releases + a slice from the oldest element (or very first, see above) with total length 6
     return [
@@ -75,9 +87,17 @@ const getReleasesToDisplay = (
     ];
 };
 
-function getNumberOfReleasesBetween(releases: number[], higherVersion: number, lowerVersion: number): number {
+function getNumberOfReleasesBetween(
+    releases: ReleaseNumbers[],
+    higherVersion: ReleaseNumbers,
+    lowerVersion: ReleaseNumbers
+): number {
     // diff = index of lower version (older release) - index of higher version (newer release) - 1
-    return releases.findIndex((ver) => ver === lowerVersion) - releases.findIndex((ver) => ver === higherVersion) - 1;
+    return (
+        releases.findIndex((ver) => ver.version === lowerVersion.version && ver.revision === lowerVersion.revision) -
+        releases.findIndex((ver) => ver.version === higherVersion.version && ver.revision === higherVersion.revision) -
+        1
+    );
 }
 
 export const DiffElement: React.FC<{ diff: number; title: string; navCallback: () => void }> = ({
@@ -321,7 +341,17 @@ export const ErrorServiceLane: React.FC<{
         <div className="service__releases">{}</div>
     </div>
 );
-
+function filterDuplicateReleases(releases: ReleaseNumbers[]): ReleaseNumbers[] {
+    const seen = new Set<string>();
+    const toReturn: ReleaseNumbers[] = [];
+    releases.forEach((curr) => {
+        if (curr && !seen.has(curr.version.toString() + '.' + curr.revision.toString())) {
+            toReturn.push(curr);
+            seen.add(curr.version.toString() + '.' + curr.revision.toString());
+        }
+    });
+    return toReturn;
+}
 export const ReadyServiceLane: React.FC<{
     application: OverviewApplication;
     hideMinors: boolean;
@@ -330,13 +360,23 @@ export const ReadyServiceLane: React.FC<{
     const { application, hideMinors } = props;
     const { navCallback } = useNavigateWithSearchParams('releasehistory/' + application.name);
     const appDetails = props.allAppData.details;
-    const allReleases = [...new Set(appDetails?.application?.releases.map((d) => d.version))];
+    const allReleases = [
+        ...new Set(appDetails?.application?.releases.map((d) => ({ version: d.version, revision: d.revision }))),
+    ];
     const deployments = appDetails?.deployments;
+    // eslint-disable-next-line no-console
     const allDeployedReleaseNumbers = [];
     for (const prop in deployments) {
-        allDeployedReleaseNumbers.push(deployments[prop].version);
+        allDeployedReleaseNumbers.push({ version: deployments[prop].version, revision: 0 }); //Deployments do not support revisions, yet
     }
-    const deployedReleases = [...new Set(allDeployedReleaseNumbers.map((v) => v).sort((n1, n2) => n2 - n1))];
+
+    // we need to filter duplicate deployed releases as there might be multiple deployments for the same release. And a release
+    // is important if there is at least one
+    const deployedReleases = filterDuplicateReleases(
+        allDeployedReleaseNumbers
+            .map((v) => v)
+            .sort((n1, n2) => (n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version))
+    );
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
         if (allReleases.length === 0) {
@@ -386,11 +426,9 @@ export const ReadyServiceLane: React.FC<{
         minorReleases = [];
     }
     const prepareUndeployOrUndeployText = deriveUndeployMessage(appDetails?.application?.undeploySummary);
-    const releases = [
-        ...new Set(
-            getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) => n2 - n1)
-        ),
-    ];
+    const releases = getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) =>
+        n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version
+    );
     const releases_lane =
         !!releases &&
         releases.map((rel, index) => {
@@ -401,8 +439,8 @@ export const ReadyServiceLane: React.FC<{
                     ? getNumberOfReleasesBetween(allReleases, rel, releases[index + 1])
                     : getNumberOfReleasesBetween(allReleases, rel, allReleases.slice(-1)[0]) + 1;
             return (
-                <div key={application.name + '-' + rel} className="service-lane__diff">
-                    <ReleaseCard app={application.name} version={rel} key={application.name + '-' + rel} />
+                <div key={application.name + '-' + rel.version + '.' + rel.revision} className="service-lane__diff">
+                    <ReleaseCard app={application.name} versionInfo={rel} key={application.name + '-' + rel} />
                     {!!diff && (
                         <DiffElement
                             diff={diff}

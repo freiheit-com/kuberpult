@@ -71,7 +71,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 		switch {
 		case envPrognosis.SkipCause != nil:
 			retEnvPrognosis.Outcome = envPrognosis.SkipCause
-			retEnvPrognosis.Locks = envPrognosis.Locks
+			retEnvPrognosis.EnvLocks = envPrognosis.EnvLocks
 		case envPrognosis.Error != nil:
 			// this case should never be reached since an error in the environment prognosis is propagated to the release train prognosis
 			return nil, fmt.Errorf("error in an environment release train, environment: %s, error: %w", envName, envPrognosis.Error)
@@ -84,14 +84,14 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 			for appName, appPrognosis := range envPrognosis.AppsPrognoses {
 				//exhaustruct:ignore
 				retAppPrognosis := &api.ReleaseTrainAppPrognosis{}
+				retAppPrognosis.AppLocks = rp.ConvertLockMapToLockList(appPrognosis.AppLocks)
+				retAppPrognosis.TeamLocks = rp.ConvertLockMapToLockList(appPrognosis.TeamLocks)
 				if appPrognosis.SkipCause != nil {
 					retAppPrognosis.Outcome = appPrognosis.SkipCause
-					retAppPrognosis.Locks = appPrognosis.Locks
 				} else {
 					retAppPrognosis.Outcome = &api.ReleaseTrainAppPrognosis_DeployedVersion{
 						DeployedVersion: appPrognosis.Version,
 					}
-					retAppPrognosis.Locks = appPrognosis.Locks
 				}
 				retEnvPrognosis.GetAppsPrognoses().Prognoses[appName] = retAppPrognosis
 			}

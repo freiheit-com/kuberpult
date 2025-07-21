@@ -112,7 +112,7 @@ func (p *PanicTransformer) Transform(ctx context.Context, state *State, transfor
 	panic("panic tranformer")
 }
 
-var TransformerError = errors.New("error transformer")
+var ErrTransformer = errors.New("error transformer")
 
 type ErrorTransformer struct{}
 
@@ -121,7 +121,7 @@ func (p *ErrorTransformer) GetDBEventType() db.EventType {
 }
 
 func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
-	return "error", TransformerError
+	return "error", ErrTransformer
 }
 
 func (p *ErrorTransformer) SetEslVersion(_ db.TransformerID) {
@@ -147,7 +147,7 @@ func (p *InvalidJsonTransformer) GetEslVersion() db.TransformerID {
 }
 
 func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
-	return "error", InvalidJson
+	return "error", ErrInvalidJson
 }
 
 func convertToSet(list []uint64) map[int]bool {
@@ -173,11 +173,11 @@ func TestApplyQueuePanic(t *testing.T) {
 			Actions: []action{
 				{
 					Transformer:   &PanicTransformer{},
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				},
 			},
 		},
@@ -185,12 +185,12 @@ func TestApplyQueuePanic(t *testing.T) {
 			Name: "panic at the middle",
 			Actions: []action{
 				{
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
 					Transformer:   &PanicTransformer{},
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				},
 			},
 		},
@@ -198,12 +198,12 @@ func TestApplyQueuePanic(t *testing.T) {
 			Name: "panic at the end",
 			Actions: []action{
 				{
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				}, {
 					Transformer:   &PanicTransformer{},
-					ExpectedError: panicError,
+					ExpectedError: errPanic,
 				},
 			},
 		},
@@ -273,7 +273,10 @@ func TestApplyQueuePanic(t *testing.T) {
 			}()
 			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
 			defer cancel()
-			processQueue(ctx, nil)
+			err = processQueue(ctx, nil)
+			if err != nil {
+				t.Fatalf("processQueue: %v", err)
+			}
 		})
 	}
 }
@@ -371,7 +374,9 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 				started:  started,
 			}
 
-			go repo.Apply(ctx, transformer)
+			go func() {
+				_ = repo.Apply(ctx, transformer)
+			}()
 
 			// first, wait, until the transformer has started:
 			<-started
@@ -494,7 +499,7 @@ func TestApplyQueue(t *testing.T) {
 			Name: "error at the start",
 			Actions: []action{
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: TransformerError, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrTransformer, Index: 0},
 					Transformer:   &ErrorTransformer{},
 				}, {}, {},
 			},
@@ -507,7 +512,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{},
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: TransformerError, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrTransformer, Index: 0},
 					Transformer:   &ErrorTransformer{},
 				}, {},
 			},
@@ -520,7 +525,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{}, {},
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: TransformerError, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrTransformer, Index: 0},
 					Transformer:   &ErrorTransformer{},
 				},
 			},
@@ -532,7 +537,7 @@ func TestApplyQueue(t *testing.T) {
 			Name: "Invalid json error at start",
 			Actions: []action{
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: InvalidJson, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrInvalidJson, Index: 0},
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{}, {},
@@ -546,7 +551,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{},
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: InvalidJson, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrInvalidJson, Index: 0},
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{},
@@ -560,7 +565,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{}, {},
 				{
-					ExpectedError: &TransformerBatchApplyError{TransformerError: InvalidJson, Index: 0},
+					ExpectedError: &TransformerBatchApplyError{TransformerError: ErrInvalidJson, Index: 0},
 					Transformer:   &InvalidJsonTransformer{},
 				},
 			},
@@ -587,7 +592,7 @@ func TestApplyQueue(t *testing.T) {
 			// The worker go routine is now blocked. We can move some items into the queue now.
 			results := make([]<-chan error, len(tc.Actions))
 			for i, action := range tc.Actions {
-				ctx, cancel := context.WithCancel(testutil.MakeTestContext())
+				ctx, cancel := context.WithCancel(testutil.MakeTestContext()) //nolint:govet
 				if action.CancelBeforeAdd {
 					cancel()
 				}
@@ -633,7 +638,7 @@ func TestApplyQueue(t *testing.T) {
 			if applyErr != nil {
 				t.Fatalf("could not run slow transformer: %v", applyErr)
 			}
-		})
+		}) //nolint:govet
 	}
 }
 
@@ -835,9 +840,9 @@ func TestApplyTransformerBatch(t *testing.T) {
 			repo := SetupRepositoryTestWithDB(t)
 
 			repoInternal := repo.(*repository)
-			resultingBatches, err, _ := repoInternal.applyTransformerBatches(tc.Batches, false)
+			resultingBatches, _, err := repoInternal.applyTransformerBatches(tc.Batches)
 			if err != nil {
-				t.Errorf("Got error here but was not expecting: %v\n", err)
+				t.Errorf("Got error here but was not expecting: %v", err)
 			}
 
 			if tc.failingBatchIndexes == nil {
@@ -929,7 +934,6 @@ func TestLimitTooSmall(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			var i = 0
 			for range tc.QueueCapacity {
-				t.Logf("adding setup transformers %d", i)
 				noop := &nilTransformer{}
 				errCh := repo.(*repository).applyDeferred(ctx, noop)
 				if errCh == nil {
@@ -938,20 +942,16 @@ func TestLimitTooSmall(t *testing.T) {
 				i++
 			}
 
-			var actualError error = nil
-
+			var actualError error
 			errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
 			select {
 			case e := <-repo.(*repository).queue.transformerBatches:
 				repo.(*repository).ProcessQueueOnce(ctx, e)
 			default:
 			}
-			select {
-			case err := <-errCh:
-				actualError = err
-			}
+			actualError = <-errCh
 
-			var expectedError = errMatcher{fmt.Sprintf("queue is full. Queue Capacity: %d.", tc.QueueCapacity)}
+			var expectedError = errMatcher{fmt.Sprintf("queue is full. Queue Capacity: %d", tc.QueueCapacity)}
 			var expErrStr = fmt.Sprintf("%v", expectedError)
 			var actErrStr = fmt.Sprintf("%v", actualError)
 			if expErrStr != actErrStr {
@@ -992,7 +992,6 @@ func TestLimitFitsExactly(t *testing.T) {
 			var errChannels = make([]<-chan error, 0)
 			var i = 0
 			for range tc.QueueCapacity - 1 { // we fill it so that 1 element still fits in
-				t.Logf("adding setup transformers %d", i)
 				noop := &nilTransformer{}
 				errCh := repo.(*repository).applyDeferred(ctx, noop)
 				if errCh == nil {
@@ -1002,7 +1001,7 @@ func TestLimitFitsExactly(t *testing.T) {
 				i++
 			}
 
-			var actualError error = nil
+			var actualError error
 
 			// first put int the new transformer, this should return a channel with error queue is full:
 			errCh := repo.(*repository).applyDeferred(ctx, noopTransformer)
@@ -1027,10 +1026,7 @@ func TestLimitFitsExactly(t *testing.T) {
 				t.Logf("go: ProcessQueueOnce end")
 			default:
 			}
-			select {
-			case err := <-errCh:
-				actualError = err
-			}
+			actualError = <-errCh
 
 			var expectedErr error = nil
 			var expErrStr = fmt.Sprintf("%v", expectedErr)

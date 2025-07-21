@@ -300,7 +300,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				}
 				// check that the envlock was created/deleted
 				{
-					envLocks, err := tc.svc.Repository.State().GetEnvironmentLocks(ctx, transaction, "production")
+					envLocks, err := tc.svc.Repository.State().GetEnvironmentLocksFromDB(ctx, transaction, "production")
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -658,8 +658,14 @@ func setupRepositoryTestWithAllOptions(t *testing.T, withBackgroundJob bool) (re
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
+	err = cmd.Start()
+	if err != nil {
+		return nil, fmt.Errorf("git init could not start error: %v", err)
+	}
+	err = cmd.Wait()
+	if err != nil {
+		return nil, fmt.Errorf("git init wait error: %v", err)
+	}
 	t.Logf("test created dir: %s", localDir)
 
 	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())

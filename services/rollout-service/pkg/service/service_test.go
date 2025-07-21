@@ -165,7 +165,6 @@ type Count struct {
 }
 
 type MockClient struct {
-	events []*statsd.Event
 	Gauges []Gauge
 	Counts []Count
 	statsd.ClientInterface
@@ -518,7 +517,6 @@ func TestArgoEvents(t *testing.T) {
 	const deployedVersion = 42
 
 	const aaEnv1 = "test-env-de-1"
-	const aaEnv2 = "test-env-de-2"
 	const parentAAEnvironment = "env"
 
 	type DBArgoEventData struct {
@@ -842,6 +840,9 @@ func TestArgoEvents(t *testing.T) {
 func SetupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("migrationspath: %v", err)
+	}
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", migrationsPath)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
@@ -873,10 +874,14 @@ func SetupDB(t *testing.T) *db.DBHandler {
 		if err1 != nil {
 			return err1
 		}
+		var version uint64 = 1234
 		err1 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-			ReleaseNumber: 1234,
-			Created:       time.Unix(123456789, 0).UTC(),
-			App:           "foo",
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: 0,
+				Version:  &version,
+			},
+			Created: time.Unix(123456789, 0).UTC(),
+			App:     "foo",
 			Manifests: db.DBReleaseManifests{
 				Manifests: map[types.EnvName]string{"staging": ""},
 			},
@@ -885,12 +890,15 @@ func SetupDB(t *testing.T) *db.DBHandler {
 		if err1 != nil {
 			return err1
 		}
-		var version int64 = 1234
+
 		err1 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-			Created:       time.Unix(123456789, 0).UTC(),
-			App:           "foo",
-			Env:           "staging",
-			Version:       &version,
+			Created: time.Unix(123456789, 0).UTC(),
+			App:     "foo",
+			Env:     "staging",
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: 0,
+				Version:  &version,
+			},
 			TransformerID: 1,
 		})
 		return err1

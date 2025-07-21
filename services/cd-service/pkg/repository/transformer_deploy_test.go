@@ -173,7 +173,7 @@ func TestDeployApplicationVersionPartTwo(t *testing.T) {
 		firstCommitHash = "cafe456789012345789001234578900123457890"
 		ciLink          = "https://example.com/42"
 	)
-	var version int64 = 1
+	var version uint64 = 1
 	setupTransformers := []Transformer{
 		&CreateEnvironment{
 			Authentication: Authentication{},
@@ -242,7 +242,10 @@ func TestDeployApplicationVersionPartTwo(t *testing.T) {
 				Created: time.Time{}, // ignored
 				App:     "app1",
 				Env:     "dev",
-				Version: &version,
+				ReleaseNumbers: types.ReleaseNumbers{
+					Revision: 0,
+					Version:  &version,
+				},
 				Metadata: db.DeploymentMetadata{
 					DeployedByName:  "test tester",
 					DeployedByEmail: "testmail@example.com",

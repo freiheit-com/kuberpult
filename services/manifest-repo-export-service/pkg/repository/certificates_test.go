@@ -95,7 +95,7 @@ func writeFile(t *testing.T, content string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
-	fmt.Fprint(file, content)
+	defer func() { _ = file.Close() }()
+	_, _ = fmt.Fprint(file, content)
 	return p
 }

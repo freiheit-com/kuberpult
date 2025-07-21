@@ -259,6 +259,8 @@ message CreateReleaseRequest {
   string previous_commit_id = 11;
   string ci_link = 12;
   bool is_prepublish = 13;
+  repeated string deploy_to_downstream_environments = 14;
+  uint64 revision = 15;
 }
 
 message CreateReleaseResponseSuccess {
@@ -278,6 +280,14 @@ message CreateReleaseResponseAppNameTooLong {
 }
 
 message CreateReleaseResponseAlreadyExistsSame {
+}
+
+message CreateReleaseResponseMissingManifest {
+  repeated string missing_manifest = 1;
+}
+
+message CreateReleaseResponseIsNoDownstream {
+  repeated string no_downstream = 1;
 }
 
 enum DifferingField {
@@ -303,6 +313,8 @@ message CreateReleaseResponse {
     CreateReleaseResponseGeneralFailure general_failure = 4;
     CreateReleaseResponseAlreadyExistsSame already_exists_same = 5;
     CreateReleaseResponseAlreadyExistsDifferent already_exists_different = 6;
+    CreateReleaseResponseMissingManifest missing_manifest = 7;
+    CreateReleaseResponseIsNoDownstream is_no_downstream = 8;
   }
 }
 
@@ -695,6 +707,7 @@ message Release {
   bool is_prepublish = 10;
   repeated string environments = 11;
   string ci_link = 12;
+  uint64 revision = 13;
 }
 
 enum UndeploySummary {
@@ -785,7 +798,8 @@ message ReleaseTrainAppPrognosis {
     ReleaseTrainAppSkipCause skip_cause = 1;
     uint64 deployed_version = 2;
   }
-  repeated Lock locks = 3;
+  repeated Lock appLocks = 3;
+  repeated Lock teamLocks = 4;
 }
 
 enum ReleaseTrainEnvSkipCause {
@@ -804,7 +818,7 @@ message ReleaseTrainEnvPrognosis {
     ReleaseTrainEnvSkipCause skip_cause = 1;
     AppsPrognosesWrapper apps_prognoses = 2;
   }
-  repeated Lock locks = 3;
+  map<string,Lock> envLocks = 3;
 }
 
 message GetReleaseTrainPrognosisResponse {
@@ -824,10 +838,6 @@ message Manifest {
 message GetManifestsResponse {
   Release release = 1;
   map<string, Manifest> manifests = 2;
-}
-
-service CloudRunService {
-  rpc QueueDeployment (QueueDeploymentRequest) returns (QueueDeploymentResponse) {}
 }
 
 message QueueDeploymentRequest {

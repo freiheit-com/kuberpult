@@ -21,9 +21,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"strconv"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
@@ -48,7 +49,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -313,7 +313,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -331,7 +330,80 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		})
 	}
 }
+func TestCreateApplicationVersionErrors(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
+	}{
+		{
+			Name: "create a downstream deployment without a manifest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					WriteCommitData:                true,
+					DeployToDownstreamEnvironments: []types.EnvName{"foo"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"missing_manifest:{missing_manifest:\"foo\"}"},
+			},
+		},
+		{
+			Name: "create a downstream deployment to an upstream",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					WriteCommitData:                true,
+					DeployToDownstreamEnvironments: []types.EnvName{"acceptance"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"is_no_downstream:{no_downstream:\"acceptance\"}"},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			t.Parallel()
 
+			// optimization: no need to set up the repository if this fails
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, transaction, tc.Transformers...)
+				return err
+			})
+
+			if err == nil {
+				t.Fatalf("expected error, got none.")
+			}
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
 func TestCreateApplicationVersionIdempotency(t *testing.T) {
 	tcs := []struct {
 		Name          string
@@ -442,7 +514,6 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
@@ -470,7 +541,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 	type TestCase struct {
 		Name             string
 		Transformers     []Transformer
-		db               bool
 		expectedDBEvents []db.EventRow // the events that the last transformer created
 	}
 
@@ -904,7 +974,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			tc := tc
 			t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
@@ -915,7 +984,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			var lastTransformerId db.TransformerID = -1
 			for index, transformer := range tc.Transformers {
 				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
-					var batchError *TransformerBatchApplyError = nil
+					var batchError *TransformerBatchApplyError
 					_, _, _, batchError = repo.ApplyTransformersInternal(ctx, tx, transformer)
 					if batchError != nil {
 						t.Fatalf("encountered error but no error is expected here: %d '%v'", index, batchError)
@@ -1040,7 +1109,6 @@ func TestUndeployErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -1139,8 +1207,8 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:         nil,
 						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
-						Locks: []*api.Lock{
-							{
+						EnvLocks: map[string]*api.Lock{
+							"IdA": {
 								Message:   "mA",
 								LockId:    "IdA",
 								CreatedAt: timestamppb.Now(),
@@ -1150,6 +1218,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
+						AllLatestDeployments: map[string]*int64{},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -1157,8 +1226,8 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:         nil,
 						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
-						Locks: []*api.Lock{
-							{
+						EnvLocks: map[string]*api.Lock{
+							"IdB": {
 								Message:   "mB",
 								LockId:    "IdB",
 								CreatedAt: timestamppb.Now(),
@@ -1168,6 +1237,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
+						AllLatestDeployments: map[string]*int64{},
 					},
 				},
 			},
@@ -1200,15 +1270,17 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
 					},
 				},
 			},
@@ -1247,15 +1319,19 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
+						EnvLocks:             nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
+						EnvLocks:             nil,
 					},
 				},
 			},
@@ -1291,17 +1367,19 @@ func TestReleaseTrainErrors(t *testing.T) {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						Locks:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						EnvLocks:             nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						Locks:         nil,
-						AppsPrognoses: nil,
+						Error:                nil,
+						EnvLocks:             nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]*int64{},
 					},
 				},
 			},
@@ -1311,7 +1389,6 @@ func TestReleaseTrainErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -1592,28 +1669,30 @@ func TestTransformerChanges(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			//repo := setupRepositoryTest(t)
 			repo := SetupRepositoryTestWithDB(t)
 
-			dbHandler := repo.State().DBHandler
+			state := repo.State()
+			dbHandler := state.DBHandler
 
-			_ = dbHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
-				// note that we only check the LAST error here:
-				if err != nil {
-					t.Fatalf("Expected no error: %v", err)
-				}
-				// we only diff the changes from the last transformer here:
-				lastChanges := actualChanges[len(actualChanges)-1]
-				if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
-					t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
-				}
-				return nil
-			})
-
+			for i, transformer := range tc.Transformers {
+				_ = dbHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, transformer)
+					// note that we only check the LAST error here:
+					if i == len(tc.Transformers)-1 {
+						if err != nil {
+							t.Fatalf("Expected no error: %v", err)
+						}
+						// we only diff the changes from the last transformer here:
+						lastChanges := actualChanges[len(actualChanges)-1]
+						if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
+							t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
+						}
+					}
+					return nil
+				})
+			}
 		})
 	}
 }
@@ -3266,20 +3345,25 @@ func TestRbacTransformerTest(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			dir := t.TempDir()
 			remoteDir := path.Join(dir, "remote")
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
+			err := cmd.Start()
+			if err != nil {
+				t.Fatalf("cannot start: %v", err)
+			}
+			err = cmd.Wait()
+			if err != nil {
+				t.Fatalf("cannot wait: %v", err)
+			}
 			ctx := testutil.MakeTestContextDexEnabled()
 			if tc.ctx != nil {
 				ctx = tc.ctx
 			}
 			repo := SetupRepositoryTestWithDB(t)
 			r := repo.(*repository)
-			var err error
 			for _, tf := range tc.Transformers {
 				err = r.Apply(ctx, tf)
 				if err != nil {
@@ -3406,20 +3490,6 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	}
 }
 
-// Injects an error in the filesystem of the state
-type injectErr struct {
-	Transformer
-	collector *testfs.UsageCollector
-	operation testfs.Operation
-	filename  string
-	err       error
-}
-
-func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
-	s, err := i.Transformer.Transform(ctx, state, t, transaction)
-	return s, err
-}
-
 func mockSendMetrics(repo Repository, interval time.Duration) <-chan bool {
 	ch := make(chan bool, 1)
 	go RegularlySendDatadogMetrics(repo, interval, func(repo Repository, even bool) { ch <- true })
@@ -3436,7 +3506,6 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			repo := SetupRepositoryTestWithDB(t)
 
@@ -3523,7 +3592,6 @@ func TestDatadogQueueMetric(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
 			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
@@ -3670,13 +3738,12 @@ func TestDeleteEnvFromApp(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: errMatcher{"Couldn't write environment '' into environments table, error: remove from env with environment does not exist: ''"},
+				TransformerError: errMatcher{"couldn't write environment '' into environments table, error: remove from env with environment does not exist: ''"},
 			},
 			shouldSucceed: false,
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
@@ -3772,7 +3839,6 @@ func TestDeleteLocks(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			ctx := testutil.MakeTestContext()
@@ -3917,13 +3983,12 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: status.Error(codes.InvalidArgument, "error: No environment found with given group 'dev'"),
+				TransformerError: status.Error(codes.InvalidArgument, "error: no environment found with given group 'dev'"),
 			},
 			shouldSucceed: false,
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
@@ -3943,8 +4008,8 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 func TestReleaseTrainsWithCommitHash(t *testing.T) {
 	appName := "app"
 	groupName := "prodgroup"
-	versionOne := int64(1)
-	versionTwo := int64(2)
+	versionOne := uint64(1)
+	versionTwo := uint64(2)
 
 	tcs := []struct {
 		Name                string
@@ -3999,15 +4064,22 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "production",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+
+						Version: &versionOne,
+					},
 					TransformerID: 5,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 4,
 				},
 			},
@@ -4076,15 +4148,21 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "production",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 7,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionTwo,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionTwo,
+					},
 					TransformerID: 6,
 				},
 			},
@@ -4153,15 +4231,21 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "production",
-					Version:       &versionTwo,
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionTwo,
+					},
 					TransformerID: 7,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionTwo,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionTwo,
+					},
 					TransformerID: 6,
 				},
 			},
@@ -4227,15 +4311,21 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "development",
-					Version:       &versionOne,
+					App: "app",
+					Env: "development",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 5,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 6,
 				},
 			},
@@ -4294,9 +4384,12 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 4,
 				},
 			},
@@ -4360,15 +4453,21 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 4,
 				},
 				{
-					App:           "app",
-					Env:           "production",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 7,
 				},
 			},
@@ -4430,36 +4529,43 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 			ExpectedDeployments: []db.Deployment{
 				{
-					App:           "app",
-					Env:           "production1",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production1",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 6,
 				},
 				{
-					App:           "app",
-					Env:           "production2",
-					Version:       &versionOne,
+					App: "app",
+					Env: "production2",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 6,
 				},
 				{
-					App:           "app",
-					Env:           "staging",
-					Version:       &versionOne,
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
 					TransformerID: 5,
 				},
 			},
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			tc := tc
 			t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			var err error = nil
+			var err error
 			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
 
 			var commitHashes []string
@@ -4490,7 +4596,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					t.Fatalf("Error applying transformers step %d: %v", idx, err)
 				}
 
-				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on sqlite do not collide when multiple stages are involved.
+				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on the db do not collide when multiple stages are involved.
 			}
 
 			// Run the Release Train
@@ -4587,9 +4693,7 @@ func TestLifeTimeValidation(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			tc := tc
 			t.Parallel()
 			isValid := isValidLifeTime(tc.InputLifeTime)
 			if isValid != tc.ExpectedResult {
@@ -4607,9 +4711,129 @@ func DBParseToEvents(rows []db.EventRow) ([]event.Event, error) {
 	for _, row := range rows {
 		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
 		if err != nil {
-			return result, fmt.Errorf("Error unmarshalling event: %v\n", err)
+			return result, fmt.Errorf("Error unmarshalling event: %v", err)
 		}
 		result = append(result, evGo.EventData)
 	}
 	return result, nil
+}
+
+func makeEnvironmentConfig(groupName *string) config.EnvironmentConfig {
+	return config.EnvironmentConfig{
+		Upstream:         nil,
+		ArgoCd:           nil,
+		EnvironmentGroup: groupName,
+		ArgoCdConfigs:    nil,
+	}
+}
+
+func TestGetEnvironmentGroupsOrEnvironment(t *testing.T) {
+	var devEnv = makeEnvironmentConfig(conversion.FromString("group1"))
+	var dev2Env = makeEnvironmentConfig(conversion.FromString("group1"))
+	var prodEnv = makeEnvironmentConfig(conversion.FromString("groupProd"))
+	tcs := []struct {
+		Name            string
+		InputEnvConfigs map[types.EnvName]config.EnvironmentConfig
+		InputTargetName string
+		InputTargetType string
+
+		ExpectedIsGroup bool
+		ExpectedMap     EnvMap
+	}{
+		{
+			Name:            "empty",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{},
+			InputTargetName: envAcceptance,
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENT.String(),
+
+			ExpectedIsGroup: false,
+			ExpectedMap:     map[types.EnvName]config.EnvironmentConfig{},
+		},
+		{
+			Name: "one env in group",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+			InputTargetName: "group1",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENTGROUP.String(),
+
+			ExpectedIsGroup: true,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+		},
+		{
+			Name: "two envs in group",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev":  devEnv,
+				"dev2": dev2Env,
+			},
+			InputTargetName: "group1",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENTGROUP.String(),
+
+			ExpectedIsGroup: true,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"dev":  devEnv,
+				"dev2": dev2Env,
+			},
+		},
+		{
+			Name: "one env without group",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+			InputTargetName: "dev",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENT.String(),
+
+			ExpectedIsGroup: false,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+		},
+		{
+			Name: "find one of two envs",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev":  devEnv,
+				"prod": prodEnv,
+			},
+			InputTargetName: "dev",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENT.String(),
+
+			ExpectedIsGroup: false,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"dev": devEnv,
+			},
+		},
+		{
+			Name: "find other one of two envs in group",
+			InputEnvConfigs: map[types.EnvName]config.EnvironmentConfig{
+				"dev":  devEnv,
+				"prod": prodEnv,
+			},
+			InputTargetName: "prod",
+			InputTargetType: api.ReleaseTrainRequest_ENVIRONMENT.String(),
+
+			ExpectedIsGroup: false,
+			ExpectedMap: map[types.EnvName]config.EnvironmentConfig{
+				"prod": prodEnv,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			actualMap, actualOk := GetEnvironmentGroupsEnvironmentsOrEnvironment(tc.InputEnvConfigs, tc.InputTargetName, tc.InputTargetType)
+
+			if actualOk != tc.ExpectedIsGroup {
+				t.Errorf("result mismatch in 'ok' value (-want, +got):\n -%v, +%v", tc.ExpectedIsGroup, actualOk)
+			}
+
+			if diff := cmp.Diff(actualMap, tc.ExpectedMap); diff != "" {
+				t.Errorf("result mismatch in map (-want, +got):\n -%v, +%v\n%s", tc.ExpectedMap, actualMap, diff)
+			}
+
+		})
+	}
+
 }

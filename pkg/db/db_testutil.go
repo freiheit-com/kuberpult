@@ -69,6 +69,9 @@ func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPat
 
 		MaxIdleConnections: 0,
 		MaxOpenConnections: 0,
+
+		DatadogEnabled:     false,
+		DatadogServiceName: "",
 	}
 
 	dbHandler, err := Connect(ctx, *dbConfig)

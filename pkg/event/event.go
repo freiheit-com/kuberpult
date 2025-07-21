@@ -49,7 +49,7 @@ type NewRelease struct {
 	Environments map[string]struct{} `fs:"environments"`
 }
 
-func (_ *NewRelease) eventType() string {
+func (*NewRelease) eventType() string {
 	return string(EventTypeNewRelease)
 }
 
@@ -75,7 +75,7 @@ type Deployment struct {
 	SourceTrainUpstream         *string `fs:"source_train_upstream" json:"SourceTrainUpstream"`
 }
 
-func (_ *Deployment) eventType() string {
+func (*Deployment) eventType() string {
 	return string(EventTypeDeployment)
 }
 
@@ -109,7 +109,7 @@ type LockPreventedDeployment struct {
 	LockType    string `fs:"lock_type"`
 }
 
-func (_ *LockPreventedDeployment) eventType() string {
+func (*LockPreventedDeployment) eventType() string {
 	return string(EventTypeLockPreventedDeployment)
 }
 
@@ -141,7 +141,7 @@ type ReplacedBy struct {
 	CommitIDtoReplace string `fs:"commit"`
 }
 
-func (_ *ReplacedBy) eventType() string {
+func (*ReplacedBy) eventType() string {
 	return string(EventTypeReplaceBy)
 }
 
@@ -214,7 +214,7 @@ func UnMarshallEvent(eventType EventType, eventJson string) (DBEventGo, error) {
 	err := json.Unmarshal([]byte(eventJson), &generalEvent)
 
 	if err != nil {
-		return DBEventGo{}, fmt.Errorf("Error processing general event. Json Unmarshall of general event failed: %s\n", eventJson)
+		return DBEventGo{}, fmt.Errorf("error processing general event. Json Unmarshall of general event failed with json '%s' and error %w", eventJson, err)
 	}
 
 	return generalEvent, nil

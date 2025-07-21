@@ -117,7 +117,7 @@ func readPgpKeyRing() (openpgp.KeyRing, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	return openpgp.ReadArmoredKeyRing(file)
 }
 
@@ -171,7 +171,7 @@ func runServer(ctx context.Context) error {
 		grpc_zap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 	}
 
-	var cred credentials.TransportCredentials = insecure.NewCredentials()
+	var cred = insecure.NewCredentials()
 	if c.CdServerSecure {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
@@ -623,12 +623,13 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
 	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
 	if err != nil {
+		logger.FromContext(httpCtx).Sugar().Infof("could not get context from dex: %v", err)
 		return nil
 	}
 	headerRole64 := req.Header.Get(auth.HeaderUserRole)
 	headerRole, err := auth.Decode64(headerRole64)
 	if err != nil {
-		logger.FromContext(httpCtx).Info("could not decode user role")
+		logger.FromContext(httpCtx).Sugar().Infof("could not decode user role %s: %v", headerRole64, err)
 		return nil
 	}
 	return &auth.DexAuthContext{Role: strings.Split(headerRole, ",")}

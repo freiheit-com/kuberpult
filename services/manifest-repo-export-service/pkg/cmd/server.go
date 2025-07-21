@@ -19,11 +19,12 @@ package cmd
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"github.com/freiheit-com/kuberpult/pkg/backoff"
 	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"strconv"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"encoding/json"
@@ -46,6 +47,8 @@ import (
 const (
 	minReleaseVersionsLimit = 5
 	maxReleaseVersionsLimit = 30
+
+	maxEslProcessingTimeSeconds int64 = 600 // see eslProcessingIdleTimeSeconds in values.yaml
 )
 
 func RunServer() {
@@ -53,6 +56,10 @@ func RunServer() {
 		err := Run(ctx)
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Errorf("error in startup: %v %#v", err, err)
+			err2 := logger.FromContext(ctx).Sync()
+			if err2 != nil {
+				panic(errors.Join(err, err2))
+			}
 		}
 		return nil
 	})
@@ -164,16 +171,23 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
-	var eslProcessingIdleTimeSeconds uint64
+	var eslProcessingIdleTimeSeconds int64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
 		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not set, using default backoff of 10 seconds")
 		eslProcessingIdleTimeSeconds = 10
 	} else {
-		eslProcessingIdleTimeSeconds, err = strconv.ParseUint(val, 10, 64)
+		eslProcessingIdleTimeSeconds, err = strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return fmt.Errorf("error converting KUBERPULT_ESL_PROCESSING_BACKOFF, error: %w", err)
 		}
 	}
+	if eslProcessingIdleTimeSeconds < 1 {
+		return fmt.Errorf("error KUBERPULT_ESL_PROCESSING_BACKOFF must be >=1 but was: %v", eslProcessingIdleTimeSeconds)
+	}
+	if eslProcessingIdleTimeSeconds > maxEslProcessingTimeSeconds {
+		return fmt.Errorf("error KUBERPULT_ESL_PROCESSING_BACKOFF must be <=%v but was: %v", maxEslProcessingTimeSeconds, eslProcessingIdleTimeSeconds)
+	}
+	log.Infof("eslProcessingTimeSeconds: %d", eslProcessingIdleTimeSeconds)
 
 	networkTimeoutSecondsStr, err := valid.ReadEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
 	if err != nil {
@@ -221,21 +235,9 @@ func Run(ctx context.Context) error {
 
 			MaxIdleConnections: dbMaxIdle,
 			MaxOpenConnections: dbMaxOpen,
-		}
-	} else if dbOption == "sqlite" {
-		dbCfg = db.DBConfig{
-			DbHost:         dbLocation,
-			DbPort:         dbAuthProxyPort,
-			DriverName:     "sqlite3",
-			DbName:         dbName,
-			DbPassword:     dbPassword,
-			DbUser:         dbUserName,
-			MigrationsPath: dbMigrationLocation,
-			WriteEslOnly:   false,
-			SSLMode:        sslMode,
 
-			MaxIdleConnections: dbMaxIdle,
-			MaxOpenConnections: dbMaxOpen,
+			DatadogServiceName: "kuberpult-manifest-repo-export-service",
+			DatadogEnabled:     enableTraces,
 		}
 	} else {
 		logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")
@@ -400,9 +402,12 @@ func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*se
 	}
 }
 
-func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds uint64) error {
+func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds int64) error {
 	log := logger.FromContext(ctx).Sugar()
-	sleepDuration := createBackOffProvider(time.Second * time.Duration(eslProcessingIdleTimeSeconds))
+	var sleepDuration = backoff.MakeSimpleBackoff(
+		time.Second*time.Duration(eslProcessingIdleTimeSeconds),
+		time.Second*time.Duration(maxEslProcessingTimeSeconds),
+	)
 
 	const transactionRetries = 10
 	for {
@@ -417,7 +422,10 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 		oldCommitId, err := repo.GetHeadCommitId()
 		if err != nil {
 			d := sleepDuration.NextBackOff()
-			logger.FromContext(ctx).Sugar().Warnf("error getting current commid ID, will try again in %v", d)
+			if sleepDuration.IsAtMax() {
+				return err
+			}
+			logger.FromContext(ctx).Sugar().Infof("error getting current commid ID, will try again in %v: %v", d, err)
 			time.Sleep(d)
 			continue
 		}
@@ -574,15 +582,6 @@ func handleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHa
 
 }
 
-func createBackOffProvider(initialInterval time.Duration) backoff.BackOff {
-	return backoff.NewExponentialBackOff(
-		backoff.WithMultiplier(2),
-		backoff.WithRandomizationFactor(0.5),
-		backoff.WithInitialInterval(initialInterval),
-		backoff.WithMaxElapsedTime(10*time.Minute),
-	)
-}
-
 func calculateProcessDelay(_ context.Context, nextEslToProcess *db.EslEventRow, currentTime time.Time) (float64, error) {
 	if nextEslToProcess == nil {
 		return 0, nil
@@ -630,7 +629,7 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 		// no error, but also no transformer to process:
 		return nil, nil
 	}
-	logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s\n", esl.EventJson)
+	logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s", esl.EventJson)
 	err = json.Unmarshal(([]byte)(esl.EventJson), &t)
 	if err != nil {
 		return nil, err

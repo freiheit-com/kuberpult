@@ -23,7 +23,7 @@ import (
 
 	"fmt"
 	"slices"
-	"sort"
+
 	"sync"
 	"sync/atomic"
 	"time"
@@ -103,13 +103,14 @@ func (o *OverviewServiceServer) GetAppDetails(
 			uintRels[idx] = uint64(r)
 		}
 		//Does not get the manifest and gets all releases at the same time
-		releases, err := o.DBHandler.DBSelectReleasesByVersions(ctx, transaction, appName, uintRels, false)
+		releases, err := o.DBHandler.DBSelectReleasesByVersionsAndRevision(ctx, transaction, appName, uintRels, false)
 		if err != nil {
 			return nil, err
 		}
+
 		for _, currentRelease := range releases {
 			var tmp = &repository.Release{
-				Version:         currentRelease.ReleaseNumber,
+				Version:         *currentRelease.ReleaseNumbers.Version,
 				UndeployVersion: currentRelease.Metadata.UndeployVersion,
 				SourceAuthor:    currentRelease.Metadata.SourceAuthor,
 				SourceCommitId:  currentRelease.Metadata.SourceCommitId,
@@ -120,15 +121,12 @@ func (o *OverviewServiceServer) GetAppDetails(
 				IsPrepublish:    currentRelease.Metadata.IsPrepublish,
 				Environments:    currentRelease.Environments,
 				CiLink:          currentRelease.Metadata.CiLink,
+				Revision:        currentRelease.ReleaseNumbers.Revision,
 			}
 			result.Releases = append(result.Releases, tmp.ToProto())
 		}
-		//Highest to lowest
-		sort.Slice(result.Releases, func(i, j int) bool {
-			return result.Releases[j].Version < result.Releases[i].Version
-		})
 
-		appTeamName, err := o.Repository.State().GetTeamName(ctx, transaction, appName)
+		appTeamName, err := o.Repository.State().GetApplicationTeamOwner(ctx, transaction, appName)
 		if err != nil {
 			return nil, fmt.Errorf("app team not found: %s", appName)
 		}
@@ -218,21 +216,21 @@ func (o *OverviewServiceServer) GetAppDetails(
 		// Cache queued versions to check with deployments
 		queuedVersions := make(map[types.EnvName]*uint64)
 		for _, queuedDeployment := range queuedDeployments {
-			if queuedDeployment.Version != nil {
-				parsedInt := uint64(*queuedDeployment.Version)
+			if queuedDeployment.ReleaseNumbers.Version != nil {
+				parsedInt := *queuedDeployment.ReleaseNumbers.Version
 				queuedVersions[queuedDeployment.Env] = &parsedInt
 			}
 		}
 		for envName, currentDeployment := range deployments {
 
 			// Test that deployment's release has the deployment's environment
-			deploymentRelease := getReleaseFromVersion(releases, uint64(*currentDeployment.Version))
+			deploymentRelease := getReleaseFromVersion(releases, *currentDeployment.ReleaseNumbers.Version)
 			if deploymentRelease != nil && !slices.Contains(deploymentRelease.Environments, envName) {
 				continue
 			}
 
 			deployment := &api.Deployment{
-				Version:         uint64(*currentDeployment.Version),
+				Version:         *currentDeployment.ReleaseNumbers.Version,
 				QueuedVersion:   0,
 				UndeployVersion: false,
 				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
@@ -267,7 +265,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 
 func getReleaseFromVersion(releases []*db.DBReleaseWithMetaData, version uint64) *db.DBReleaseWithMetaData {
 	for _, curr := range releases {
-		if curr.ReleaseNumber == version {
+		if *curr.ReleaseNumbers.Version == version {
 			return curr
 		}
 	}
@@ -676,7 +674,7 @@ func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks 
 				// appName is not deployed here, ignore it
 				continue
 			}
-			versionInEnv := envDeployment.Version
+			versionInEnv := envDeployment.ReleaseNumbers.Version
 
 			upstreamDeployment, ok := appDeployments[types.EnvName(*upstreamEnvName)]
 			if !ok {
@@ -685,7 +683,7 @@ func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks 
 					WarningType: &api.Warning_UpstreamNotDeployed{
 						UpstreamNotDeployed: &api.UpstreamNotDeployed{
 							UpstreamEnvironment: *upstreamEnvName,
-							ThisVersion:         uint64(*versionInEnv),
+							ThisVersion:         *versionInEnv,
 							ThisEnvironment:     env.Name,
 						},
 					},
@@ -693,14 +691,14 @@ func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks 
 				result = append(result, &warning)
 				continue
 			}
-			versionInUpstreamEnv := upstreamDeployment.Version
+			versionInUpstreamEnv := upstreamDeployment.ReleaseNumbers.Version
 			if *versionInEnv > *versionInUpstreamEnv && len(appLocks) == 0 {
 				var warning = api.Warning{
 					WarningType: &api.Warning_UnusualDeploymentOrder{
 						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
-							UpstreamVersion:     uint64(*versionInUpstreamEnv),
+							UpstreamVersion:     *versionInUpstreamEnv,
 							UpstreamEnvironment: *upstreamEnvName,
-							ThisVersion:         uint64(*versionInEnv),
+							ThisVersion:         *versionInEnv,
 							ThisEnvironment:     env.Name,
 						},
 					},
@@ -756,7 +754,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 		}
 
 		previousReleaseVersions := make(map[string]uint64)
-		defer deploymentRows.Close()
+		defer func() { _ = deploymentRows.Close() }()
 		//Get all relevant deployments and store its information
 		for i := uint64(2); deploymentRows.Next(); i++ {
 			var created time.Time

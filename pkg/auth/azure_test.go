@@ -65,28 +65,28 @@ func TestValidateTokenStatic(t *testing.T) {
 		{
 			Name:          "Not a token",
 			Token:         "asdf",
-			ExpectedError: prefixErrMatcher{"Failed to parse the JWT."},
+			ExpectedError: prefixErrMatcher{"failed to parse the JWT:"},
 		},
 		{
 			Name:          "Not initialized",
 			Token:         "asdf",
 			noInit:        true,
-			ExpectedError: errMatcher{"JWKS not initialized."},
+			ExpectedError: errMatcher{"jwks not initialized"},
 		},
 		{
 			Name:          "Not a token 2",
 			Token:         "asdf.asdf.asdf",
-			ExpectedError: prefixErrMatcher{"Failed to parse the JWT."},
+			ExpectedError: prefixErrMatcher{"failed to parse the JWT:"},
 		},
 		{
 			Name:          "Kid not present",
 			Token:         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.WDlNbJFe8ZX6C1mS27xwxg-9tk8vtkk6sDgucRj8xW0",
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is unverifiable: error while executing keyfunc: the JWT has an invalid kid: could not find kid in JWT header"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is unverifiable: error while executing keyfunc: the JWT has an invalid kid: could not find kid in JWT header"},
 		},
 		{
 			Name:          "Kid not part of jwks",
 			Token:         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFzZGYifQ.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.aNyAK8qpCScGchUmv1q1pBXOddWKN8_7agLUo7pXDog",
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is unverifiable: error while executing keyfunc: the given key ID was not found in the JWKS"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is unverifiable: error while executing keyfunc: the given key ID was not found in the JWKS"},
 		},
 	}
 
@@ -125,6 +125,9 @@ zlPl5AxNZ3g1yELWYbm9+ygTtlgzznMvcZvIMiffJANqtXv1r+vctkvlLB0iUJap
 /X2H2x/nOuD+L+/K4KDBAkAHcO3Gv7VZsSHfnd/JfDzxtL0MFWerGZyGlaNFmX27
 1dWRXvcS5A0zPMgiBWfvHFx2DpSiceffqnis+UryeE+L
 -----END RSA PRIVATE KEY-----`))
+	if err != nil {
+		return "", fmt.Errorf("could not parse rsa key %w", err)
+	}
 	claims := jwt.MapClaims{}
 	if len(clientId) > 0 {
 		claims["aud"] = clientId
@@ -179,42 +182,42 @@ func TestValidateTokenGenerated(t *testing.T) {
 			Name:          "invalid client id",
 			ClientId:      "invalidClient",
 			TenantId:      "tenantId",
-			ExpectedError: errMatcher{"Unknown client id provided: invalidClient"},
+			ExpectedError: errMatcher{"unknown client id provided: invalidClient"},
 			Kid:           "testKey",
 		},
 		{
 			Name:          "No client id",
 			ClientId:      "",
 			TenantId:      "tenantId",
-			ExpectedError: errMatcher{"Client id not found in token."},
+			ExpectedError: errMatcher{"client id not found in token"},
 			Kid:           "testKey",
 		},
 		{
 			Name:          "invalid tenant id",
 			ClientId:      "clientId",
 			TenantId:      "invalidTenant",
-			ExpectedError: errMatcher{"Unknown tenant id provided: invalidTenant"},
+			ExpectedError: errMatcher{"unknown tenant id provided: invalidTenant"},
 			Kid:           "testKey",
 		},
 		{
 			Name:          "No tenant id",
 			ClientId:      "clientId",
 			TenantId:      "",
-			ExpectedError: errMatcher{"Tenant id not found in token."},
+			ExpectedError: errMatcher{"tenant id not found in token"},
 			Kid:           "testKey",
 		},
 		{
 			Name:          "invalid  kid",
 			ClientId:      "clientId",
 			TenantId:      "tenantId",
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is unverifiable: error while executing keyfunc: the given key ID was not found in the JWKS"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is unverifiable: error while executing keyfunc: the given key ID was not found in the JWKS"},
 			Kid:           "tests",
 		},
 		{
 			Name:          "Expired key",
 			ClientId:      "clientId",
 			TenantId:      "tenantId",
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token has invalid claims: token is expired"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token has invalid claims: token is expired"},
 			Expiry:        time.Now().Unix(),
 			Kid:           "testKey",
 		},
@@ -281,14 +284,14 @@ func TestHttpMiddleware(t *testing.T) {
 			Name:          "api call - wrong url",
 			Path:          "/environment/production/locks/999",
 			Method:        http.MethodGet,
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call - wrong url path",
 			Path:          "/environment/production/releasetrainisawsome",
 			Method:        http.MethodGet,
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
@@ -313,35 +316,35 @@ func TestHttpMiddleware(t *testing.T) {
 			Name:          "api call create environment GET",
 			Path:          "/environments/dev",
 			Method:        http.MethodGet,
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment wrong url",
 			Path:          "/environments/dev/something",
 			Method:        http.MethodPost,
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment another wrong url GET",
 			Path:          "/environments/something/dev",
 			Method:        http.MethodPost,
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment another wrong url POST",
 			Path:          "/environments/something/dev",
 			Method:        http.MethodPost,
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment - no env",
 			Path:          "/environments/",
 			Method:        http.MethodPost,
-			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
+			ExpectedError: errMatcher{"failed to parse the JWT: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 	}

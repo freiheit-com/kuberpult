@@ -308,7 +308,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	}
 }
 
-func (r *repository) applyTransformerBatches(ctx context.Context, transformer Transformer, allowFetchAndReset bool, transaction *sql.Tx) (error, *TransformerResult) {
+func (r *repository) applyTransformerBatches(ctx context.Context, transformer Transformer, allowFetchAndReset bool, transaction *sql.Tx) (*TransformerResult, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "applyTransformerBatches")
 	defer span.Finish()
 	span.SetTag("allowFetchAndReset", allowFetchAndReset)
@@ -317,18 +317,18 @@ func (r *repository) applyTransformerBatches(ctx context.Context, transformer Tr
 	subChanges, applyErr := r.ApplyTransformer(ctx, transaction, transformer)
 	changes.Combine(subChanges)
 	if applyErr != nil {
-		if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
+		if errors.Is(applyErr.TransformerError, ErrInvalidJson) && allowFetchAndReset {
 			// Invalid state. fetch and reset and redo
 			err := r.FetchAndReset(ctx)
 			if err != nil {
-				return err, nil
+				return nil, err
 			}
 			return r.applyTransformerBatches(ctx, transformer, false, transaction)
 		} else {
-			return applyErr, nil
+			return nil, applyErr
 		}
 	}
-	return nil, changes
+	return changes, nil
 }
 
 func (r *repository) useRemote(callback func(*git.Remote) error) error {
@@ -386,16 +386,16 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sq
 	log := logger.FromContext(ctx).Sugar()
 
 	// Apply the items
-	apply := func() (error, *TransformerResult) {
-		err, changes := r.applyTransformerBatches(ctx, t, true, tx)
+	apply := func() (*TransformerResult, error) {
+		changes, err := r.applyTransformerBatches(ctx, t, true, tx)
 		if err != nil {
 			log.Warnf("rolling back transaction because of %v", err)
-			return err, nil
+			return nil, err
 		}
-		return nil, changes
+		return changes, nil
 	}
 
-	err, _ := apply()
+	_, err := apply()
 	if err != nil {
 		return fmt.Errorf("first apply failed, aborting: %v", err)
 	}
@@ -487,7 +487,7 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 	allCommitsPath := "commits"
 	commitPrefixes, err := fs.ReadDir(allCommitsPath)
 	if err != nil {
-		return fmt.Errorf("could not read commits dir: %w\n", err)
+		return fmt.Errorf("could not read commits dir: %s - error: %w", allCommitsPath, err)
 	}
 	for _, currentPrefix := range commitPrefixes {
 		currentpath := fs.Join(allCommitsPath, currentPrefix.Name())
@@ -527,7 +527,7 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 					}
 					eventJson, err := json.Marshal(currentEvent)
 					if err != nil {
-						return fmt.Errorf("Could not marshal event: %w\n", err)
+						return fmt.Errorf("could not marshal event: %w", err)
 					}
 					err = dbHandler.WriteEvent(ctx, transaction, 0, currentEvent.EventMetadata.Uuid, event.EventType(currentEvent.EventMetadata.EventType), commitID, eventJson)
 					if err != nil {
@@ -595,7 +595,7 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 
 func CombineArray(others []*TransformerResult) *TransformerResult {
 	//exhaustruct:ignore
-	var r *TransformerResult = &TransformerResult{}
+	var r = &TransformerResult{}
 	for i := range others {
 		r.Combine(others[i])
 	}
@@ -728,7 +728,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 		return err
 	}
 	var zero git.Oid
-	var rev *git.Oid = &zero
+	var rev = &zero
 	if remoteRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", r.config.Branch)); err != nil {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
@@ -1014,7 +1014,7 @@ func decodeJsonFile(fs billy.Filesystem, path string, out interface{}) error {
 	if file, err := fs.Open(path); err != nil {
 		return wrapFileError(err, path, "could not decode json file")
 	} else {
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		dec := json.NewDecoder(file)
 		return dec.Decode(out)
 	}
@@ -1025,7 +1025,7 @@ func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*confi
 	var envConfig config.EnvironmentConfig
 	if err := decodeJsonFile(s.Filesystem, fileName, &envConfig); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("%s : %w", fileName, InvalidJson)
+			return nil, fmt.Errorf("%s : %w", fileName, ErrInvalidJson)
 		}
 	}
 	return &envConfig, nil
@@ -1082,19 +1082,21 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 			if err != nil {
 				return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 			}
-			var versionIntPtr *int64
+			var versionIntPtr *uint64
 			if version != nil {
-				var versionInt = int64(*version)
-				versionIntPtr = &versionInt
+				versionIntPtr = version
 				deploymentsForApp[envName] = int64(*version)
 			} else {
 				versionIntPtr = nil
 			}
 			deployment := db.Deployment{
-				Created:       time.Time{},
-				App:           appName,
-				Env:           envName,
-				Version:       versionIntPtr,
+				Created: time.Time{},
+				App:     appName,
+				Env:     envName,
+				ReleaseNumbers: types.ReleaseNumbers{
+					Revision: 0,
+					Version:  versionIntPtr,
+				},
 				TransformerID: 0,
 				Metadata: db.DeploymentMetadata{
 					DeployedByName:  "",
@@ -1161,9 +1163,12 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 
 		}
 		dbRelease := db.DBReleaseWithMetaData{
-			Created:       *now,
-			ReleaseNumber: releaseVersion,
-			App:           app,
+			Created: *now,
+			ReleaseNumbers: types.ReleaseNumbers{
+				Version:  &releaseVersion,
+				Revision: repoRelease.Revision,
+			},
+			App: app,
 			Manifests: db.DBReleaseManifests{
 				Manifests: manifestsMap,
 			},
@@ -1254,6 +1259,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 		IsMinor:         false,
 		IsPrepublish:    false,
 		Environments:    []string{},
+		Revision:        0,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
@@ -1672,7 +1678,7 @@ func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.
 			} else {
 				versionIntPtr = nil
 			}
-			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, versionIntPtr)
+			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, version)
 			if err != nil {
 				var deref int64
 				if versionIntPtr == nil {
@@ -1931,10 +1937,10 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	if err != nil {
 		return nil, err
 	}
-	if depl == nil || depl.Version == nil {
+	if depl == nil || depl.ReleaseNumbers.Version == nil {
 		return nil, nil
 	}
-	var v = uint64(*depl.Version)
+	var v = *depl.ReleaseNumbers.Version
 	return &v, nil
 }
 
@@ -1975,7 +1981,7 @@ func (s *State) GetTeamName(application string) (string, error) {
 	}
 }
 
-var InvalidJson = errors.New("JSON file is not valid")
+var ErrInvalidJson = errors.New("JSON file is not valid")
 
 func envExists(envConfigs map[types.EnvName]config.EnvironmentConfig, envNameToSearchFor types.EnvName) bool {
 	if _, found := envConfigs[envNameToSearchFor]; found {
@@ -2047,7 +2053,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 		}
 	}
 	if len(groupEnvNames) == 0 {
-		return nil, fmt.Errorf("No environment found with given group '%s'", envGroup)
+		return nil, fmt.Errorf("no environment found with given group '%s'", envGroup)
 	}
 	types.Sort(groupEnvNames)
 	return groupEnvNames, nil
@@ -2087,7 +2093,8 @@ func (s *State) GetApplicationReleasesFromFile(application string) ([]uint64, er
 }
 
 type Release struct {
-	Version uint64
+	Version  uint64
+	Revision uint64
 	/**
 	"UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
 	It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
@@ -2124,6 +2131,7 @@ func (rel *Release) ToProto() *api.Release {
 		IsPrepublish:    false,
 		Environments:    []string{},
 		CiLink:          "", //does not matter here
+		Revision:        rel.Revision,
 	}
 }
 
@@ -2170,6 +2178,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		IsMinor:         false,
 		IsPrepublish:    false,
 		Environments:    nil,
+		Revision:        0,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
@@ -2291,7 +2300,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 	if file, err := fs.Open(path); err != nil {
 		return nil, err
 	} else {
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		return io.ReadAll(file)
 	}
 }

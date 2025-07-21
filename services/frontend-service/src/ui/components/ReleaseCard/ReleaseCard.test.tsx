@@ -18,6 +18,7 @@ import { render } from '@testing-library/react';
 import {
     AppDetailsResponse,
     AppDetailsState,
+    ReleaseNumbers,
     updateAppDetails,
     UpdateGitSyncStatus,
     UpdateOverview,
@@ -51,7 +52,7 @@ describe('Release Card', () => {
         name: string;
         props: {
             app: string;
-            version: number;
+            versionInfo: ReleaseNumbers;
         };
         rels: Release[];
         environments: { [key: string]: Environment };
@@ -60,7 +61,7 @@ describe('Release Card', () => {
     const data: TestData[] = [
         {
             name: 'using a sample release - useRelease hook',
-            props: { app: 'test1', version: 2 },
+            props: { app: 'test1', versionInfo: { version: 2, revision: 0 } },
             appDetails: {
                 test1: {
                     details: {
@@ -80,6 +81,7 @@ describe('Release Card', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: 0,
                                 },
                             ],
                             team: 'test-team',
@@ -110,13 +112,14 @@ describe('Release Card', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environments: {},
         },
         {
             name: 'using a full release - component test',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', versionInfo: { version: 2, revision: 0 } },
             appDetails: {
                 test2: {
                     details: {
@@ -136,6 +139,7 @@ describe('Release Card', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: 0,
                                 },
                             ],
                             team: 'test-team',
@@ -166,13 +170,14 @@ describe('Release Card', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environments: {},
         },
         {
             name: 'using a deployed release - useDeployedAt test',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', versionInfo: { version: 2, revision: 0 } },
             appDetails: {
                 test2: {
                     details: {
@@ -192,6 +197,7 @@ describe('Release Card', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: 0,
                                 },
                             ],
                             team: 'test-team',
@@ -228,6 +234,7 @@ describe('Release Card', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environments: {
@@ -240,7 +247,7 @@ describe('Release Card', () => {
         },
         {
             name: 'using an undeployed release - useDeployedAt test',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', versionInfo: { version: 2, revision: 0 } },
             appDetails: {
                 test2: {
                     details: {
@@ -260,6 +267,7 @@ describe('Release Card', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: 0,
                                 },
                             ],
                             team: 'test-team',
@@ -296,6 +304,7 @@ describe('Release Card', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environments: {
@@ -308,7 +317,7 @@ describe('Release Card', () => {
         },
         {
             name: 'using another environment - useDeployedAt test',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', versionInfo: { version: 2, revision: 0 } },
             appDetails: {
                 test2: {
                     details: {
@@ -328,6 +337,7 @@ describe('Release Card', () => {
                                     isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
+                                    revision: 0,
                                 },
                             ],
                             team: 'test-team',
@@ -364,6 +374,7 @@ describe('Release Card', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environments: {
@@ -376,7 +387,7 @@ describe('Release Card', () => {
         },
         {
             name: 'using a prepublished release',
-            props: { app: 'test2', version: 2 },
+            props: { app: 'test2', versionInfo: { version: 2, revision: 0 } },
             appDetails: {
                 test2: {
                     details: {
@@ -396,6 +407,7 @@ describe('Release Card', () => {
                                     isPrepublish: true,
                                     environments: [],
                                     ciLink: '',
+                                    revision: 0,
                                 },
                             ],
                             team: 'test-team',
@@ -432,6 +444,7 @@ describe('Release Card', () => {
                     isPrepublish: true,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environments: {},
@@ -503,6 +516,7 @@ const commonAppDetails: { [key: string]: AppDetailsResponse } = {
                         isPrepublish: false,
                         environments: [],
                         ciLink: '',
+                        revision: 0,
                     },
                 ],
                 team: 'test-team',
@@ -548,7 +562,7 @@ describe('Release Card Rollout Status', () => {
         name: string;
         props: {
             app: string;
-            version: number;
+            versionInfo: ReleaseNumbers;
         };
         rels: Release[];
         environmentGroups: EnvironmentGroup[];
@@ -560,7 +574,7 @@ describe('Release Card Rollout Status', () => {
     const data: TestData[] = [
         {
             name: 'shows success when it is deployed',
-            props: { app: 'test1', version: 2 },
+            props: { app: 'test1', versionInfo: { version: 2, revision: 0 } },
             appDetails: commonAppDetails,
             rels: [
                 {
@@ -576,6 +590,7 @@ describe('Release Card Rollout Status', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environmentGroups: [
@@ -638,7 +653,7 @@ describe('Release Card Rollout Status', () => {
         },
         {
             name: 'shows most interesting status with AA environments',
-            props: { app: 'test1', version: 2 },
+            props: { app: 'test1', versionInfo: { version: 2, revision: 0 } },
             appDetails: commonAppDetails,
             rels: [
                 {
@@ -654,6 +669,7 @@ describe('Release Card Rollout Status', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environmentGroups: [
@@ -814,7 +830,7 @@ describe('Release Card Git Sync Status', () => {
         name: string;
         props: {
             app: string;
-            version: number;
+            versionInfo: ReleaseNumbers;
         };
         rels: Release[];
         environmentGroups: EnvironmentGroup[];
@@ -826,7 +842,7 @@ describe('Release Card Git Sync Status', () => {
     const data: TestData[] = [
         {
             name: 'shows success when it is deployed',
-            props: { app: 'test1', version: 2 },
+            props: { app: 'test1', versionInfo: { version: 2, revision: 0 } },
             appDetails: commonAppDetails,
             rels: [
                 {
@@ -842,6 +858,7 @@ describe('Release Card Git Sync Status', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environmentGroups: [
@@ -887,7 +904,7 @@ describe('Release Card Git Sync Status', () => {
         },
         {
             name: 'shows progressing when it is unsynced',
-            props: { app: 'test1', version: 2 },
+            props: { app: 'test1', versionInfo: { version: 2, revision: 0 } },
             appDetails: commonAppDetails,
             rels: [
                 {
@@ -903,6 +920,7 @@ describe('Release Card Git Sync Status', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environmentGroups: [
@@ -954,7 +972,7 @@ describe('Release Card Git Sync Status', () => {
         },
         {
             name: 'shows error when it is sync failed',
-            props: { app: 'test1', version: 2 },
+            props: { app: 'test1', versionInfo: { version: 2, revision: 0 } },
             appDetails: commonAppDetails,
             rels: [
                 {
@@ -970,6 +988,7 @@ describe('Release Card Git Sync Status', () => {
                     isPrepublish: false,
                     environments: [],
                     ciLink: '',
+                    revision: 0,
                 },
             ],
             environmentGroups: [

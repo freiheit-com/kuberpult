@@ -323,6 +323,7 @@ type DeployApplicationVersion struct {
 	Environment           types.EnvName                   `json:"env"`
 	Application           string                          `json:"app"`
 	Version               uint64                          `json:"version"`
+	Revision              uint64                          `json:"revision"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
 	WriteCommitData       bool                            `json:"writeCommitData"`
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
@@ -662,7 +663,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	}
 
 	if lock == nil {
-		return "", fmt.Errorf("no application lock found to create with lock id '%s', for application '%s' on environment '%s'.\n", c.LockId, c.Application, c.Environment)
+		return "", fmt.Errorf("no application lock found to create with lock id '%s', for application '%s' on environment '%s'", c.LockId, c.Application, c.Environment)
 	}
 
 	chroot, err := fs.Chroot(appDir)
@@ -717,7 +718,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		return "", err
 	}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w.", lockDir, err)
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	}
 
 	queueMessage, err = state.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
@@ -735,6 +736,7 @@ type CreateApplicationVersion struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	Version               uint64                   `json:"version"`
+	Revision              uint64                   `json:"revision"`
 	Application           string                   `json:"app"`
 	Manifests             map[types.EnvName]string `json:"manifests"`
 	SourceCommitId        string                   `json:"sourceCommitId"`
@@ -781,7 +783,7 @@ func (c *CreateApplicationVersion) Transform(
 		if !valid.SHA1CommitID(commitId) {
 			logger.FromContext(ctx).
 				Sugar().
-				Warnf("%s commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commitId, helperText)
+				Warnf("%s commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s", commitId, helperText)
 		}
 	}
 
@@ -845,7 +847,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 		if len(ev) == 0 {
-			return "", fmt.Errorf("No new release event to read from database for application '%s'.\n", c.Application)
+			return "", fmt.Errorf("no new release event to read from database for application '%s'", c.Application)
 		}
 
 		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, c.PreviousCommit, state)
@@ -896,6 +898,7 @@ func (c *CreateApplicationVersion) Transform(
 					AuthorName:  c.SourceAuthor,
 					AuthorEmail: "",
 				},
+				Revision: c.Revision,
 			}
 			err = tCtx.Execute(d, transaction)
 			if err != nil {
@@ -1119,7 +1122,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		for _, currentApp := range apps {
 			currentTeamName, err := state.GetTeamName(currentApp)
 			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
+				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s", currentApp)
 			} else {
 				if c.Team == currentTeamName {
 					foundTeam = true
@@ -1152,14 +1155,14 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	}
 
 	if lock == nil {
-		return "", fmt.Errorf("could not write team lock information to manifest. No team lock found on database for team '%s' on environment '%s' with ID '%s'.\n", c.Team, c.Environment, c.LockId)
+		return "", fmt.Errorf("could not write team lock information to manifest. No team lock found on database for team '%s' on environment '%s' with ID '%s'", c.Team, c.Environment, c.LockId)
 	}
 
 	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("Created lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+	return fmt.Sprintf("Created lock %q on environment %q for team %q.", c.LockId, c.Environment, c.Team), nil
 }
 
 type DeleteEnvironmentTeamLock struct {
@@ -1495,7 +1498,7 @@ func (u *ReleaseTrain) Transform(
 			TransformerMetadata: u.TransformerMetadata,
 			Environment:         currentDeployment.Env,
 			Application:         currentDeployment.App,
-			Version:             uint64(*currentDeployment.Version),
+			Version:             *currentDeployment.ReleaseNumbers.Version,
 			LockBehaviour:       api.LockBehavior_RECORD,
 			WriteCommitData:     u.WriteCommitData,
 			SourceTrain: &DeployApplicationVersionSource{
@@ -1504,6 +1507,7 @@ func (u *ReleaseTrain) Transform(
 			},
 			TransformerEslVersion: u.TransformerEslVersion,
 			Author:                "",
+			Revision:              0,
 		}, transaction); err != nil {
 			return "", err
 		}
@@ -1520,7 +1524,7 @@ func (u *ReleaseTrain) Transform(
 			return "", err
 		}
 		lockPreventedEvent := eventData.EventData.(*event.LockPreventedDeployment)
-		commitMessage += fmt.Sprintf("skipped application %s on environment %s\n", lockPreventedEvent.Application, lockPreventedEvent.Environment)
+		commitMessage += fmt.Sprintf("skipped application %s on environment %s", lockPreventedEvent.Application, lockPreventedEvent.Environment)
 	}
 	return commitMessage, nil
 }
@@ -1637,13 +1641,13 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	fs := state.Filesystem
 	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, c.Application, false)
 	if err != nil {
-		return "", fmt.Errorf("Could not get last relase for app '%v': %v\n", c.Application, err)
+		return "", fmt.Errorf("could not get last relase for app '%v': %v", c.Application, err)
 	}
 	var nextReleaseNumber uint64
 	if len(lastRelease) == 0 {
 		return "", fmt.Errorf("cannot undeploy application '%v'", c.Application)
 	}
-	nextReleaseNumber = lastRelease[0].ReleaseNumber
+	nextReleaseNumber = *lastRelease[0].ReleaseNumbers.Version
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, nextReleaseNumber)
 
@@ -1712,6 +1716,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 					AuthorName:  "",
 					AuthorEmail: "",
 				},
+				Revision: 0,
 			}
 			err := tCtx.Execute(d, transaction)
 			if err != nil {

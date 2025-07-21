@@ -21,6 +21,7 @@ IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
 IMAGENAME_VERSIONED=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(VERSION)
 IMAGENAME_VERSIONED_PR=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
 IMAGENAME_VERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main-$(VERSION)
+IMAGENAME_UNVERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main
 
 build:
 	docker build -t $(IMAGENAME) -f Dockerfile ../../../
@@ -34,6 +35,8 @@ build-main: build publish
 	echo "Building on main"
 	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_MAIN)
 	docker push $(IMAGENAME_VERSIONED_MAIN)
+	docker tag $(IMAGENAME) $(IMAGENAME_UNVERSIONED_MAIN)
+	docker push $(IMAGENAME_UNVERSIONED_MAIN)
 
 .PHONY: cleanup-pr
 cleanup-pr:
@@ -56,3 +59,6 @@ publish: release
 .PHONY: get-builder-image
 get-builder-image:
 	@echo "$(KUBERPULT_BUILDER)"
+
+retag-main:
+	@echo "Skipping retag-main"
