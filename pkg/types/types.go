@@ -81,7 +81,6 @@ type ReleaseNumbers struct {
 	Revision uint64
 }
 
-// Return s
 func Greater(i, j ReleaseNumbers) bool {
 	return CompareReleaseNumbers(i, j) > 0
 }

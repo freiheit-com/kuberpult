@@ -978,6 +978,94 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:    "Select multiple deployments, with revisions",
+			AppName: "app1",
+			SetupDeployments: []*Deployment{
+				{
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 1,
+						Version:  uversion(6),
+					},
+					TransformerID: 0,
+				},
+				{
+					App: "app1",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(6),
+					},
+					TransformerID: 0,
+				},
+				{
+					App: "app2",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(6),
+					},
+					TransformerID: 0,
+				},
+			},
+			ExpectedDeployments: map[types.EnvName]Deployment{
+				"dev": {
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 1,
+						Version:  uversion(6),
+					},
+					TransformerID: 0,
+				},
+				"staging": {
+					App: "app1",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  uversion(6),
+					},
+					TransformerID: 0,
+				},
+			},
+		},
+		{
+			Name:    "Deployment with revisions, existing deployment gets replaced",
+			AppName: "app1",
+			SetupDeployments: []*Deployment{
+				{
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 5,
+						Version:  uversion(10),
+					},
+					TransformerID: 0,
+				},
+				{
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 12,
+						Version:  uversion(10),
+					},
+					TransformerID: 0,
+				},
+			},
+			ExpectedDeployments: map[types.EnvName]Deployment{
+				"dev": {
+					App: "app1",
+					Env: "dev",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 12,
+						Version:  uversion(10),
+					},
+					TransformerID: 0,
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
