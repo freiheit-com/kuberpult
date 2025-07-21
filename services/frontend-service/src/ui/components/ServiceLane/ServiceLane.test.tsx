@@ -669,14 +669,17 @@ describe('Service Lane Diff', () => {
 type TestDataImportantRels = {
     name: string;
     releases: Release[];
-    currentlyDeployedVersion: number;
+    currentlyDeployedVersion: ReleaseNumbers;
     minorReleaseIndex: number;
 };
 
 const dataImportantRels: TestDataImportantRels[] = [
     {
         name: 'Gets deployed release first and 5 trailing releases',
-        currentlyDeployedVersion: 9,
+        currentlyDeployedVersion: {
+            version: 9,
+            revision: 0,
+        },
         releases: [
             makeRelease(9),
             makeRelease(7),
@@ -691,7 +694,10 @@ const dataImportantRels: TestDataImportantRels[] = [
     },
     {
         name: 'Gets latest release first, then deployed release and 4 trailing releases',
-        currentlyDeployedVersion: 7,
+        currentlyDeployedVersion: {
+            version: 7,
+            revision: 0,
+        },
         releases: [
             makeRelease(9),
             makeRelease(7),
@@ -706,7 +712,10 @@ const dataImportantRels: TestDataImportantRels[] = [
     },
     {
         name: 'jumps over not important second release',
-        currentlyDeployedVersion: 6,
+        currentlyDeployedVersion: {
+            version: 6,
+            revision: 0,
+        },
         releases: [
             makeRelease(9),
             makeRelease(7), // not important
@@ -721,7 +730,10 @@ const dataImportantRels: TestDataImportantRels[] = [
     },
     {
         name: 'Minor release should be ignored',
-        currentlyDeployedVersion: 9,
+        currentlyDeployedVersion: {
+            version: 9,
+            revision: 0,
+        },
         releases: [
             makeRelease(9),
             makeRelease(7),
@@ -731,6 +743,24 @@ const dataImportantRels: TestDataImportantRels[] = [
             makeRelease(3),
             makeRelease(2),
             makeRelease(1), // not important
+        ],
+        minorReleaseIndex: 1,
+    },
+    {
+        name: 'Test revisions',
+        currentlyDeployedVersion: {
+            version: 9,
+            revision: 7,
+        },
+        releases: [
+            makeRelease(9, '', '', false, 9),
+            makeRelease(9, '', '', false, 7),
+            makeRelease(9, '', '', false, 6),
+            makeRelease(9, '', '', false, 5),
+            makeRelease(9, '', '', false, 4),
+            makeRelease(9, '', '', false, 3),
+            makeRelease(9, '', '', false, 2),
+            makeRelease(9, '', '', false, 1),
         ],
         minorReleaseIndex: 1,
     },
@@ -781,8 +811,8 @@ describe('Service Lane Important Releases', () => {
                         application: sampleApp,
                         deployments: {
                             foo: {
-                                version: testcase.currentlyDeployedVersion,
-                                revision: 0,
+                                version: testcase.currentlyDeployedVersion.version,
+                                revision: testcase.currentlyDeployedVersion.revision,
                                 undeployVersion: false,
                                 queuedVersion: 0,
                             },
@@ -805,7 +835,12 @@ describe('Service Lane Important Releases', () => {
                     revision: testcase.releases[0].revision,
                 },
             });
-            if (testcase.currentlyDeployedVersion !== testcase.releases[0].version) {
+            if (
+                !(
+                    testcase.currentlyDeployedVersion.version === testcase.releases[0].version &&
+                    testcase.currentlyDeployedVersion.revision === testcase.releases[0].revision
+                )
+            ) {
                 // then - the currently deployed version always important and displayed second after latest
                 mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
                     {
@@ -815,7 +850,11 @@ describe('Service Lane Important Releases', () => {
                     Spy.IGNORE
                 );
             }
-            if (testcase.releases[1].version > testcase.currentlyDeployedVersion) {
+            if (
+                testcase.releases[1].version > testcase.currentlyDeployedVersion.version ||
+                (testcase.releases[1].version === testcase.currentlyDeployedVersion.version &&
+                    testcase.releases[1].revision > testcase.currentlyDeployedVersion.revision)
+            ) {
                 // then - second release not deployed and not latest -> not important
                 mock_ReleaseCard.ReleaseCard.wasNotCalledWith(Spy.IGNORE);
             }
