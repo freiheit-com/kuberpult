@@ -422,7 +422,7 @@ func TestApplyQueue(t *testing.T) {
 				makeReleaseNumberVersion(2),
 				makeReleaseNumberVersion(3),
 			},
-		}, //\{\n\s+Version:\s+uversion\(3\),\n\s+Revision:\s+0,\n\s+},
+		},
 		{
 			Name: "cancellation in the middle (after)",
 			Actions: []action{
