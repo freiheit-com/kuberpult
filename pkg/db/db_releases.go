@@ -897,7 +897,7 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 		args...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not push query app releases table. Query: %v, Error: %w\n", insertQuery, err)
+		return nil, fmt.Errorf("could not insert into query app releases table. Query: %v, Error: %w", insertQuery, err)
 	}
 	selectQuery := h.AdaptQuery(`
 		SELECT r.appName, r.metadata
