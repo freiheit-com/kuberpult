@@ -53,7 +53,7 @@ function createMatrix() {
   stageArrayFullBuild=false
   for stageADirectory in $STAGE_A_BUILDS
   do
-    grepOutput=$(echo "${ALL_FILES}" | grep "infrastructure/docker/${stageADirectory}")
+    grepOutput=$(echo "${ALL_FILES}" | grep "^infrastructure/docker/${stageADirectory}")
   # shellcheck disable=SC2181
     if [ $? -eq 0 ]
     then
@@ -99,7 +99,7 @@ function createMatrix() {
   stageArray=""
   for stageBDirectory in $STAGE_B_BUILDS
   do
-    grepOutput=$(echo "${ALL_FILES}" | grep "${stageBDirectory}")
+    grepOutput=$(echo "${ALL_FILES}" | grep "^${stageBDirectory}")
   # shellcheck disable=SC2181
     if [ $? -eq 0 ]
     then
