@@ -78,19 +78,18 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 		if deployment == nil {
 			return nil, fmt.Errorf("could not find deployment for app=%s and env=%s", appName, envName)
 		}
-		if deployment.ReleaseNumbers.Version == nil {
+		if deployment.ReleaseNumbers.Version == nil { //the repo server is used by argo cd when rollout is enabled, so no revision is needed
 			return nil, fmt.Errorf("could not find version for app=%s and env=%s", appName, envName)
 		}
-		releaseVersion := *deployment.ReleaseNumbers.Version
 
 		var release *db.DBReleaseWithMetaData
-		release, err = r.dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, releaseVersion, true)
+		release, err = r.dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, deployment.ReleaseNumbers, true)
 		if err != nil {
 			return nil, err
 		}
 		result := &ReleaseResult{
 			manifest:       release.Manifests.Manifests[envName],
-			releaseVersion: releaseVersion,
+			releaseVersion: *deployment.ReleaseNumbers.Version,
 		}
 		return result, nil
 	})

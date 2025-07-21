@@ -1341,7 +1341,7 @@ func TestAllDeployments(t *testing.T) {
 		Name     string
 		AppName  string
 		data     []data
-		expected map[types.EnvName]int64
+		expected map[types.EnvName]types.ReleaseNumbers
 	}{
 		{
 			Name:    "Simple Write",
@@ -1352,8 +1352,11 @@ func TestAllDeployments(t *testing.T) {
 					Version: 3,
 				},
 			},
-			expected: map[types.EnvName]int64{
-				"development": 3,
+			expected: map[types.EnvName]types.ReleaseNumbers{
+				"development": {
+					Version:  uversion(3),
+					Revision: 0,
+				},
 			},
 		},
 		{
@@ -1369,9 +1372,15 @@ func TestAllDeployments(t *testing.T) {
 					Version: 2,
 				},
 			},
-			expected: map[types.EnvName]int64{
-				"development": 3,
-				"staging":     2,
+			expected: map[types.EnvName]types.ReleaseNumbers{
+				"development": {
+					Version:  uversion(3),
+					Revision: 0,
+				},
+				"staging": {
+					Version:  uversion(2),
+					Revision: 0,
+				},
 			},
 		},
 		{
@@ -1395,9 +1404,15 @@ func TestAllDeployments(t *testing.T) {
 					Version: 3,
 				},
 			},
-			expected: map[types.EnvName]int64{
-				"development": 3,
-				"staging":     3,
+			expected: map[types.EnvName]types.ReleaseNumbers{
+				"development": {
+					Version:  uversion(3),
+					Revision: 0,
+				},
+				"staging": {
+					Version:  uversion(3),
+					Revision: 0,
+				},
 			},
 		},
 		{
@@ -1421,9 +1436,15 @@ func TestAllDeployments(t *testing.T) {
 					Version: 1,
 				},
 			},
-			expected: map[types.EnvName]int64{
-				"development": 1,
-				"staging":     1,
+			expected: map[types.EnvName]types.ReleaseNumbers{
+				"development": {
+					Version:  uversion(1),
+					Revision: 0,
+				},
+				"staging": {
+					Version:  uversion(1),
+					Revision: 0,
+				},
 			},
 		},
 	}
