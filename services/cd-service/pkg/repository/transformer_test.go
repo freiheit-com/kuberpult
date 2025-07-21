@@ -313,7 +313,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -383,7 +382,6 @@ func TestCreateApplicationVersionErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
@@ -516,7 +514,6 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctxWithTime := time2.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
@@ -977,7 +974,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			tc := tc
 			t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
@@ -1113,7 +1109,6 @@ func TestUndeployErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -1394,7 +1389,6 @@ func TestReleaseTrainErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -1675,7 +1669,6 @@ func TestTransformerChanges(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -3513,7 +3506,6 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			repo := SetupRepositoryTestWithDB(t)
 
@@ -3600,7 +3592,6 @@ func TestDatadogQueueMetric(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
 			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
@@ -3747,13 +3738,12 @@ func TestDeleteEnvFromApp(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: errMatcher{"Couldn't write environment '' into environments table, error: remove from env with environment does not exist: ''"},
+				TransformerError: errMatcher{"couldn't write environment '' into environments table, error: remove from env with environment does not exist: ''"},
 			},
 			shouldSucceed: false,
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
@@ -3849,7 +3839,6 @@ func TestDeleteLocks(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			ctx := testutil.MakeTestContext()
@@ -3994,13 +3983,12 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: status.Error(codes.InvalidArgument, "error: No environment found with given group 'dev'"),
+				TransformerError: status.Error(codes.InvalidArgument, "error: no environment found with given group 'dev'"),
 			},
 			shouldSucceed: false,
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
@@ -4571,9 +4559,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			tc := tc
 			t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
@@ -4707,9 +4693,7 @@ func TestLifeTimeValidation(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			tc := tc
 			t.Parallel()
 			isValid := isValidLifeTime(tc.InputLifeTime)
 			if isValid != tc.ExpectedResult {
@@ -4727,7 +4711,7 @@ func DBParseToEvents(rows []db.EventRow) ([]event.Event, error) {
 	for _, row := range rows {
 		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
 		if err != nil {
-			return result, fmt.Errorf("Error unmarshalling event: %v\n", err)
+			return result, fmt.Errorf("Error unmarshalling event: %v", err)
 		}
 		result = append(result, evGo.EventData)
 	}
@@ -4836,9 +4820,7 @@ func TestGetEnvironmentGroupsOrEnvironment(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			tc := tc
 			t.Parallel()
 
 			actualMap, actualOk := GetEnvironmentGroupsEnvironmentsOrEnvironment(tc.InputEnvConfigs, tc.InputTargetName, tc.InputTargetType)
@@ -4848,7 +4830,7 @@ func TestGetEnvironmentGroupsOrEnvironment(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(actualMap, tc.ExpectedMap); diff != "" {
-				t.Errorf("result mismatch in map (-want, +got):\n -%v, +%v\n%s\n", tc.ExpectedMap, actualMap, diff)
+				t.Errorf("result mismatch in map (-want, +got):\n -%v, +%v\n%s", tc.ExpectedMap, actualMap, diff)
 			}
 
 		})

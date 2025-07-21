@@ -129,8 +129,10 @@ func TestServerHeader(t *testing.T) {
 					if res.StatusCode != 200 {
 						t.Logf("status: %q", res.StatusCode)
 						<-time.After(1 * time.Second)
+						_ = res.Body.Close()
 						continue
 					}
+					_ = res.Body.Close()
 					break
 				}
 				//
@@ -142,6 +144,11 @@ func TestServerHeader(t *testing.T) {
 				if err != nil {
 					t.Errorf("expected no error but got %q", err)
 				}
+				defer func() {
+					if req.Body != nil {
+						_ = req.Body.Close()
+					}
+				}()
 				req.Header = tc.RequestHeaders
 				res, err := http.DefaultClient.Do(req)
 				if err != nil {

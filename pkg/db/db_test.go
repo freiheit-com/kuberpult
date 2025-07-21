@@ -90,19 +90,19 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 
 			dbConfig.MigrationsPath = dbConfig.MigrationsPath + "/migrations"
 			loc, mkdirErr := createMigrationFolder(dbDir)
 			if mkdirErr != nil {
-				t.Fatalf("Error creating migrations folder. Error: %v\n", mkdirErr)
+				t.Fatalf("Error creating migrations folder. Error: %v", mkdirErr)
 			}
 
 			ts := time.Now().Unix()
 			migrationFileNameAbsPath := path.Join(loc, strconv.FormatInt(ts, 10)+"_testing.up.sql")
 			wErr := os.WriteFile(migrationFileNameAbsPath, []byte(tc.migrationFile), os.ModePerm)
 			if wErr != nil {
-				t.Fatalf("Error creating migration file. Error: %v\n", wErr)
+				t.Fatalf("Error creating migration file. Error: %v", wErr)
 			}
 
 			migErr := RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
-				t.Fatalf("Error running migration script. Error: %v\n", migErr)
+				t.Fatalf("Error running migration script. Error: %v", migErr)
 			}
 
 			db, err := Connect(ctx, *dbConfig)
@@ -111,15 +111,15 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 
 			}
 			tx, err := db.BeginTransaction(ctx, false)
 			if err != nil {
-				t.Fatalf("Error creating transaction. Error: %v\n", err)
+				t.Fatalf("Error creating transaction. Error: %v", err)
 			}
 			m, err := db.DBSelectAllApplications(ctx, tx)
 			if err != nil {
-				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
+				t.Fatalf("Error querying dabatabse. Error: %v", err)
 			}
 			err = tx.Commit()
 			if err != nil {
-				t.Fatalf("Error commiting transaction. Error: %v\n", err)
+				t.Fatalf("Error commiting transaction. Error: %v", err)
 			}
 
 			if diff := cmp.Diff(tc.expectedData, m); diff != "" {
@@ -379,11 +379,11 @@ func TestMigrationCommitEvent(t *testing.T) {
 				//Check for migration event
 				contains, err := dbHandler.DBContainsMigrationCommitEvent(ctx, transaction)
 				if err != nil {
-					t.Errorf("could not get migration event: %v\n", err)
+					t.Errorf("could not get migration event: %v", err)
 
 				}
 				if !contains {
-					t.Errorf("migration event was not created: %v\n", err)
+					t.Errorf("migration event was not created: %v", err)
 				}
 				return nil
 			})
@@ -484,7 +484,7 @@ func TestCommitEvents(t *testing.T) {
 
 			migErr := RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
-				t.Fatalf("Error running migration script. Error: %v\n", migErr)
+				t.Fatalf("Error running migration script. Error: %v", migErr)
 			}
 
 			db, err := Connect(ctx, *dbConfig)
@@ -494,27 +494,27 @@ func TestCommitEvents(t *testing.T) {
 
 			err = db.RunCustomMigrationsEventSourcingLight(ctx)
 			if err != nil {
-				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
+				t.Fatalf("Error running custom migrations for esl table. Error: %v", err)
 
 			}
 			err = db.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
 				if err != nil {
-					t.Fatalf("Error creating transaction. Error: %v\n", err)
+					t.Fatalf("Error creating transaction. Error: %v", err)
 				}
 				err := writeEventAux(ctx, db, tx, tc.commitHash, tc.event)
 				if err != nil {
-					t.Fatalf("Error writing event to DB. Error: %v\n", err)
+					t.Fatalf("Error writing event to DB. Error: %v", err)
 				}
 
 				m, err := db.DBSelectAllEventsForCommit(ctx, tx, tc.commitHash, 0, 100)
 				if err != nil {
-					t.Fatalf("Error querying dabatabse. Error: %v\n", err)
+					t.Fatalf("Error querying dabatabse. Error: %v", err)
 				}
 				for _, currEvent := range m {
 					e, err := event.UnMarshallEvent(event.EventType(tc.event.EventMetadata.EventType), currEvent.EventJson)
 
 					if err != nil {
-						t.Fatalf("Error obtaining event from DB. Error: %v\n", err)
+						t.Fatalf("Error obtaining event from DB. Error: %v", err)
 					}
 
 					if diff := cmp.Diff(e.EventData, tc.event.EventData); diff != "" {
@@ -633,7 +633,7 @@ func TestReadLockPreventedEvents(t *testing.T) {
 
 			migErr := RunDBMigrations(ctx, *dbConfig)
 			if migErr != nil {
-				t.Fatalf("Error running migration script. Error: %v\n", migErr)
+				t.Fatalf("Error running migration script. Error: %v", migErr)
 			}
 
 			db, err := Connect(ctx, *dbConfig)
@@ -643,7 +643,7 @@ func TestReadLockPreventedEvents(t *testing.T) {
 
 			err = db.RunCustomMigrationsEventSourcingLight(ctx)
 			if err != nil {
-				t.Fatalf("Error running custom migrations for esl table. Error: %v\n", err)
+				t.Fatalf("Error running custom migrations for esl table. Error: %v", err)
 
 			}
 			err = db.WithTransactionR(ctx, 0, false, func(ctx context.Context, tx *sql.Tx) error {
@@ -1453,12 +1453,12 @@ func TestAllDeployments(t *testing.T) {
 					}
 					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment)
 					if err != nil {
-						t.Fatalf("Error updating all deployments: %v\n", err)
+						t.Fatalf("Error updating all deployments: %v", err)
 					}
 				}
 				result, err := dbHandler.DBSelectAllDeploymentsForApp(ctx, transaction, tc.AppName)
 				if err != nil {
-					t.Fatalf("Error reading from all deployments: %v\n", err)
+					t.Fatalf("Error reading from all deployments: %v", err)
 				}
 				if diff := cmp.Diff(tc.expected, result); diff != "" {
 					t.Fatalf("mismatch result (-want, +got):\n%s", diff)
@@ -2968,7 +2968,7 @@ func TestDeleteRelease(t *testing.T) {
 
 				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumbers)
 				if errDelete != nil {
-					t.Fatalf("error: %v\n", errDelete)
+					t.Fatalf("error: %v", errDelete)
 				}
 
 				allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, tc.toInsert.App)
@@ -3163,7 +3163,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 				t.Fatalf("error while running the transaction for selecting the target environment, error: %v", err)
 			}
 			if diff := cmp.Diff(envEntry, tc.ExpectedEntry, cmpopts.IgnoreFields(DBEnvironment{}, "Created")); diff != "" {
-				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, envEntry, diff)
+				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s", tc.ExpectedEntry, envEntry, diff)
 			}
 		})
 	}
@@ -3281,7 +3281,7 @@ func TestReadEnvironmentBatch(t *testing.T) {
 				t.Fatalf("error while running the transaction for selecting the target environment, error: %v", err)
 			}
 			if diff := cmp.Diff(environments, tc.ExpectedEnvs, cmpopts.IgnoreFields(DBEnvironment{}, "Created")); diff != "" {
-				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEnvs, environments, diff)
+				t.Fatalf("the received environment entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s", tc.ExpectedEnvs, environments, diff)
 			}
 		})
 	}
@@ -3596,7 +3596,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 				t.Fatalf("error while running the transaction for selecting the target all environment, error: %v", err)
 			}
 			if diff := cmp.Diff(*allEnvsEntry, tc.ExpectedEntry); diff != "" {
-				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, allEnvsEntry, diff)
+				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s", tc.ExpectedEntry, allEnvsEntry, diff)
 			}
 		})
 	}
@@ -3648,7 +3648,7 @@ func TestReadWriteAllApplications(t *testing.T) {
 				t.Fatalf("error while running the transaction for selecting the target all applications, error: %v", err)
 			}
 			if diff := cmp.Diff(*allAppsEntry, tc.ExpectedEntry); diff != "" {
-				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s\n", tc.ExpectedEntry, *allAppsEntry, diff)
+				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s", tc.ExpectedEntry, *allAppsEntry, diff)
 			}
 		})
 	}
@@ -6156,7 +6156,7 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"could not insert release for app '%s' and version '%v' into DB. Error: %w\n",
+			"could not insert release for app '%s' and version '%v' into DB. Error: %w",
 			release.App,
 			*release.ReleaseNumbers.Version,
 			err)

@@ -42,7 +42,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/database"
 	psql "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	_ "github.com/lib/pq"
 
 	ddsql "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 )
@@ -199,19 +198,19 @@ func (h *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
 func RunDBMigrations(ctx context.Context, cfg DBConfig) error {
 	d, err := Connect(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("DB Error opening DB connection. Error:  %w\n", err)
+		return fmt.Errorf("DB Error opening DB connection. Error:  %w", err)
 	}
-	defer d.DB.Close() //nolint:errcheck
+	defer func() { _ = d.DB.Close() }()
 
 	m, err := d.getMigrationHandler()
 
 	if err != nil {
-		return fmt.Errorf("Error creating migration instance. Error: %w\n", err)
+		return fmt.Errorf("error creating migration instance. Error: %w", err)
 	}
-	defer m.Close() //nolint:errcheck
+	defer func() { _, _ = m.Close() }()
 	if err := m.Up(); err != nil {
 		if !errors.Is(err, migrate.ErrNoChange) {
-			return fmt.Errorf("Error running DB migrations. Error: %w\n", err)
+			return fmt.Errorf("error running DB migrations. Error: %w", err)
 		}
 	}
 	return nil
@@ -247,11 +246,11 @@ func Remove(s []string, r string) []string {
 func closeRows(rows *sql.Rows) error {
 	err := rows.Close()
 	if err != nil {
-		return fmt.Errorf("row closing error: %v\n", err)
+		return fmt.Errorf("row closing error: %v", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return fmt.Errorf("row has error: %v\n", err)
+		return fmt.Errorf("row has error: %v", err)
 	}
 	return nil
 }
@@ -328,7 +327,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		jsonToInsert)
 
 	if err != nil {
-		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err)
 	}
 	return nil
 }
@@ -357,7 +356,7 @@ func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eve
 		data)
 
 	if err != nil {
-		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err)
 	}
 	return nil
 }
@@ -414,7 +413,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		selectQuery,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err))
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -434,7 +433,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, onErr(fmt.Errorf("Error scanning event_sourcing_light row from DB. Error: %w\n", err))
+			return nil, onErr(fmt.Errorf("error scanning event_sourcing_light row from DB. Error: %w", err))
 		}
 	} else {
 		row = nil
@@ -460,7 +459,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 		eslVersion,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -482,7 +481,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("event_sourcing_light: Error scanning row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("event_sourcing_light: Error scanning row from DB. Error: %w", err)
 		}
 	}
 	err = closeRows(rows)
@@ -521,7 +520,7 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 		transformerID)
 
 	if err != nil {
-		return fmt.Errorf("Error inserting event information into DB. Error: %w\n", err)
+		return fmt.Errorf("error inserting event information into DB. Error: %w", err)
 	}
 	return nil
 }
@@ -541,7 +540,7 @@ func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql
 	})
 
 	if err != nil {
-		return fmt.Errorf("error marshalling lock new release event to Json. Error: %v\n", err)
+		return fmt.Errorf("error marshalling lock new release event to Json. Error: %v", err)
 	}
 	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeNewRelease, sourceCommitHash, jsonToInsert)
 }
@@ -558,7 +557,7 @@ func (h *DBHandler) DBWriteLockPreventedDeploymentEvent(ctx context.Context, tra
 	})
 
 	if err != nil {
-		return fmt.Errorf("error marshalling lock prevented deployment event to Json. Error: %v\n", err)
+		return fmt.Errorf("error marshalling lock prevented deployment event to Json. Error: %v", err)
 	}
 	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeLockPreventedDeployment, sourceCommitHash, jsonToInsert)
 }
@@ -575,7 +574,7 @@ func (h *DBHandler) DBWriteReplacedByEvent(ctx context.Context, transaction *sql
 	})
 
 	if err != nil {
-		return fmt.Errorf("error marshalling replacedBys event to Json. Error: %v\n", err)
+		return fmt.Errorf("error marshalling replacedBys event to Json. Error: %v", err)
 	}
 	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeReplaceBy, sourceCommitHash, jsonToInsert)
 }
@@ -598,7 +597,7 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql
 	}
 
 	if err != nil {
-		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
+		return fmt.Errorf("error marshalling deployment event to Json. Error: %v", err)
 	}
 	return h.WriteEvent(ctx, transaction, transformerID, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
 }
@@ -657,7 +656,7 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 
 	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID, limit)
 	if err != nil {
-		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
+		return nil, fmt.Errorf("error querying commit_events. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -675,29 +674,29 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("error scanning commit_events row from DB. Error: %w", err)
 		}
 
 		eventGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
 		if err != nil {
-			return nil, fmt.Errorf("Could not unmarshall commit event: %v\n", err)
+			return nil, fmt.Errorf("could not unmarshall commit event: %v", err)
 		}
 		result = append(result, eventGo)
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row closing error: %v", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row has error: %v", err)
 	}
 	return result, nil
 }
 
 func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, err error) (*EventRow, error) {
 	if err != nil {
-		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
+		return nil, fmt.Errorf("error querying commit_events. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -714,18 +713,18 @@ func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, 
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("error scanning commit_events row from DB. Error: %w", err)
 		}
 	} else {
 		row = nil
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row closing error: %v", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row has error: %v", err)
 	}
 	return row, nil
 }
@@ -789,7 +788,7 @@ func (h *DBHandler) DBSelectAllLockPreventedEventsForTransformerID(ctx context.C
 
 func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([]EventRow, error) {
 	if err != nil {
-		return nil, fmt.Errorf("Error querying commit_events. Error: %w\n", err)
+		return nil, fmt.Errorf("error querying commit_events. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -810,11 +809,11 @@ func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, fmt.Errorf("commit_events: row closing error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row closing error: %v", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("commit_events: row has error: %v\n", err)
+		return nil, fmt.Errorf("commit_events: row has error: %v", err)
 	}
 	return result, nil
 }
@@ -833,7 +832,7 @@ func processSingleCommitEventRow(rows *sql.Rows) (*EventRow, error) {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Error scanning commit_events row from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("error scanning commit_events row from DB. Error: %w", err)
 	}
 	return &row, nil
 }
@@ -1230,7 +1229,7 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, writeAl
 		//Migration event
 		err = h.WriteEvent(ctx, transaction, 0, MigrationCommitEventUUID, event.EventTypeDBMigrationEventType, MigrationCommitEventHash, []byte("{}"))
 		if err != nil {
-			return fmt.Errorf("error writing migration commit event to the database: %w\n", err)
+			return fmt.Errorf("error writing migration commit event to the database: %w", err)
 		}
 		return nil
 	})
@@ -1346,7 +1345,7 @@ func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllApp
 
 		err = h.runCustomMigrationApps(ctx, transaction, &allAppsRepo)
 		if err != nil {
-			return fmt.Errorf("could not perform apps table migration: %v\n", err)
+			return fmt.Errorf("could not perform apps table migration: %v", err)
 		}
 		return nil
 	})
@@ -1390,7 +1389,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query environment_locks table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query environment_locks table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -1407,7 +1406,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment lock row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("error scanning environment lock row from DB. Error: %w", err)
 		}
 		err = closeRows(rows)
 		if err != nil {
@@ -1417,7 +1416,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLocks(ctx context.Context, tx *sql.Tx) (
 		var dataJson = AllEnvLocksJson{}
 		err = json.Unmarshal(([]byte)(row.Data), &dataJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error scanning application lock row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("error scanning application lock row from DB. Error: %w", err)
 		}
 		return &AllEnvLocksGo{
 			Version:         row.Version,
@@ -1451,7 +1450,7 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 		lockID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query environment locks table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query environment locks table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -1475,14 +1474,14 @@ func (h *DBHandler) DBSelectEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		err = closeRows(rows)
 		if err != nil {
@@ -1521,7 +1520,7 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 	existingEnvLock, err := h.DBSelectEnvironmentLock(ctx, tx, environment, lockID)
 
 	if err != nil {
-		return fmt.Errorf("Could not obtain existing environment lock: %w\n", err)
+		return fmt.Errorf("Could not obtain existing environment lock: %w", err)
 	}
 
 	if existingEnvLock == nil {
@@ -1579,7 +1578,7 @@ func (h *DBHandler) DBWriteEnvironmentLockInternal(ctx context.Context, tx *sql.
 		jsonToInsert)
 
 	if err != nil {
-		return fmt.Errorf("could not write environment lock into DB. Error: %w\n", err)
+		return fmt.Errorf("could not write environment lock into DB. Error: %w", err)
 	}
 	return nil
 }
@@ -1612,7 +1611,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 		limit,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
 	envLocks := make([]EnvironmentLock, 0)
 	for rows.Next() {
@@ -1630,14 +1629,14 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		envLocks = append(envLocks, EnvironmentLock{
 			EslVersion: row.EslVersion,
@@ -1698,7 +1697,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
 	envLocks := make(map[types.EnvName][]EnvironmentLock)
 	for rows.Next() {
@@ -1716,14 +1715,14 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = LockMetadata{}
 		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		if _, ok := envLocks[row.Env]; !ok {
 			envLocks[row.Env] = make([]EnvironmentLock, 0)
@@ -1760,7 +1759,7 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 
 	rows, err := tx.QueryContext(ctx, selectQuery, environment)
 	if err != nil {
-		return nil, fmt.Errorf("could not query all env locks table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query all env locks table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -1782,14 +1781,14 @@ func (h *DBHandler) DBSelectAllEnvironmentLocks(ctx context.Context, tx *sql.Tx,
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
 		var resultJson = AllEnvLocksJson{}
 		err = json.Unmarshal(([]byte)(row.Data), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Data)
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Data)
 		}
 
 		var resultGo = AllEnvLocksGo{
@@ -1847,7 +1846,7 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 				" LIMIT 1;")
 		rows, err = tx.QueryContext(ctx, selectQuery, environment, id)
 		if err != nil {
-			return nil, fmt.Errorf("could not query environment locks table from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("could not query environment locks table from DB. Error: %w", err)
 		}
 
 		var row = DBEnvironmentLock{
@@ -1864,14 +1863,14 @@ func (h *DBHandler) DBSelectEnvironmentLockSet(ctx context.Context, tx *sql.Tx, 
 				if errors.Is(err, sql.ErrNoRows) {
 					return nil, nil
 				}
-				return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w\n", err)
+				return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 			}
 
 			//exhaustruct:ignore
 			var resultJson = LockMetadata{}
 			err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, row.Metadata)
+				return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 			}
 			envLocks = append(envLocks, EnvironmentLock{
 				EslVersion: row.EslVersion,
@@ -1919,7 +1918,7 @@ func (h *DBHandler) DBWriteAllEnvironmentLocks(ctx context.Context, transaction 
 		environment,
 		jsonToInsert)
 	if err != nil {
-		return fmt.Errorf("could not insert all env locks into DB. Error: %w\n", err)
+		return fmt.Errorf("could not insert all env locks into DB. Error: %w", err)
 	}
 	return nil
 }
@@ -1939,7 +1938,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	existingEnvLock, err := h.DBSelectEnvironmentLock(ctx, tx, environment, lockID)
 
 	if err != nil {
-		return fmt.Errorf("Could not obtain existing environment lock: %w\n", err)
+		return fmt.Errorf("could not obtain existing environment lock: %w", err)
 	}
 
 	if existingEnvLock == nil {
@@ -1958,7 +1957,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	err = h.DBWriteEnvironmentLockInternal(ctx, tx, *existingEnvLock, previousVersion)
 
 	if err != nil {
-		return fmt.Errorf("could not delete environment lock from DB. Error: %w\n", err)
+		return fmt.Errorf("could not delete environment lock from DB. Error: %w", err)
 	}
 	return nil
 }
@@ -2032,7 +2031,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 		appName, limit)
 
 	if err != nil {
-		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -2231,7 +2230,7 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	latestDeployment, err := h.DBSelectLatestDeploymentAttempt(ctx, tx, deployment.Env, deployment.App)
 
 	if err != nil {
-		return fmt.Errorf("Could not get latest deployment attempt from deployments table")
+		return fmt.Errorf("could not get latest deployment attempt from deployments table: %w", err)
 	}
 	var previousEslVersion EslVersion
 
@@ -2260,14 +2259,14 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	)
 
 	if err != nil {
-		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w\n", err)
+		return fmt.Errorf("could not write deployment attempts table in DB. Error: %w", err)
 	}
 	return nil
 }
 
 func (h *DBHandler) processDeploymentAttemptsRows(ctx context.Context, rows *sql.Rows, err error) ([]*QueuedDeployment, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -2292,7 +2291,7 @@ func (h *DBHandler) processDeploymentAttemptsRows(ctx context.Context, rows *sql
 
 func (h *DBHandler) processDeploymentAttemptsRow(ctx context.Context, rows *sql.Rows, err error) (*QueuedDeployment, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -2325,7 +2324,7 @@ func (h *DBHandler) processSingleDeploymentAttemptsRow(ctx context.Context, rows
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Error scanning deployment attempts row from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("error scanning deployment attempts row from DB. Error: %w", err)
 	}
 
 	if releaseVersion.Valid {
@@ -2500,7 +2499,7 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table
 		eslEvent.TransformerEslVersion)
 
 	if err != nil {
-		return fmt.Errorf("could not write failed esl event into DB. Error: %w\n", err)
+		return fmt.Errorf("could not write failed esl event into DB. Error: %w", err)
 	}
 	return nil
 }
@@ -2523,7 +2522,7 @@ func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslE
 		eslEvent.TransformerEslVersion)
 
 	if err != nil {
-		return onErr(fmt.Errorf("could not delete failed esl event from DB. Error: %w\n", err))
+		return onErr(fmt.Errorf("could not delete failed esl event from DB. Error: %w", err))
 	}
 	return nil
 }
@@ -2542,7 +2541,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, pageSize+1, pageNumber*pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 	}
 
 	defer func(rows *sql.Rows) {
@@ -2565,13 +2564,13 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 		}
 		err := rows.Scan(&row.Created, &row.EventType, &row.EventJson, &row.Reason, &row.TransformerEslVersion)
 		if err != nil {
-			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 		}
 		failedEsls = append(failedEsls, row)
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+		return nil, fmt.Errorf("could not close rows. Error: %w", err)
 	}
 
 	return failedEsls, nil
@@ -2593,7 +2592,7 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, eslVersion)
 	if err != nil {
-		return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 	}
 
 	defer func(rows *sql.Rows) {
@@ -2616,12 +2615,12 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 		}
 		err := rows.Scan(&row.Created, &row.EventType, &row.EventJson, &row.Reason, &row.TransformerEslVersion)
 		if err != nil {
-			return nil, fmt.Errorf("could not read failed events from DB. Error: %w\n", err)
+			return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 		}
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+		return nil, fmt.Errorf("could not close rows. Error: %w", err)
 	}
 
 	return row, nil
@@ -2641,7 +2640,7 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w", err))
 	}
 
 	defer func(rows *sql.Rows) {
@@ -2662,13 +2661,13 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 		}
 		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
 		if err != nil {
-			return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w\n", err))
+			return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w", err))
 		}
 		failedEsls = append(failedEsls, row)
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not close rows. Error: %w\n", err))
+		return nil, onErr(fmt.Errorf("could not close rows. Error: %w", err))
 	}
 
 	return failedEsls, nil
@@ -2708,7 +2707,7 @@ func (h *DBHandler) DBSkipFailedEslEvent(ctx context.Context, tx *sql.Tx, transf
 		return onErr(grpc.FailedPrecondition(ctx, fmt.Errorf("could not find failed esl event where transformer esl version is %d", transformerEslVersion)))
 	}
 	if err != nil {
-		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w\n", err))
+		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w", err))
 	}
 	return nil
 }
@@ -2748,7 +2747,7 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+		return nil, fmt.Errorf("could not close rows. Error: %w", err)
 	}
 	return &now, nil
 }
@@ -2831,7 +2830,7 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("could not close rows. Error: %w\n", err)
+		return nil, fmt.Errorf("could not close rows. Error: %w", err)
 	}
 	return timestamp, nil
 }

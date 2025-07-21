@@ -308,7 +308,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	}
 }
 
-func (r *repository) applyTransformerBatches(ctx context.Context, transformer Transformer, allowFetchAndReset bool, transaction *sql.Tx) (error, *TransformerResult) {
+func (r *repository) applyTransformerBatches(ctx context.Context, transformer Transformer, allowFetchAndReset bool, transaction *sql.Tx) (*TransformerResult, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "applyTransformerBatches")
 	defer span.Finish()
 	span.SetTag("allowFetchAndReset", allowFetchAndReset)
@@ -317,18 +317,18 @@ func (r *repository) applyTransformerBatches(ctx context.Context, transformer Tr
 	subChanges, applyErr := r.ApplyTransformer(ctx, transaction, transformer)
 	changes.Combine(subChanges)
 	if applyErr != nil {
-		if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
+		if errors.Is(applyErr.TransformerError, ErrInvalidJson) && allowFetchAndReset {
 			// Invalid state. fetch and reset and redo
 			err := r.FetchAndReset(ctx)
 			if err != nil {
-				return err, nil
+				return nil, err
 			}
 			return r.applyTransformerBatches(ctx, transformer, false, transaction)
 		} else {
-			return applyErr, nil
+			return nil, applyErr
 		}
 	}
-	return nil, changes
+	return changes, nil
 }
 
 func (r *repository) useRemote(callback func(*git.Remote) error) error {
@@ -386,16 +386,16 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sq
 	log := logger.FromContext(ctx).Sugar()
 
 	// Apply the items
-	apply := func() (error, *TransformerResult) {
-		err, changes := r.applyTransformerBatches(ctx, t, true, tx)
+	apply := func() (*TransformerResult, error) {
+		changes, err := r.applyTransformerBatches(ctx, t, true, tx)
 		if err != nil {
 			log.Warnf("rolling back transaction because of %v", err)
-			return err, nil
+			return nil, err
 		}
-		return nil, changes
+		return changes, nil
 	}
 
-	err, _ := apply()
+	_, err := apply()
 	if err != nil {
 		return fmt.Errorf("first apply failed, aborting: %v", err)
 	}
@@ -487,7 +487,7 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 	allCommitsPath := "commits"
 	commitPrefixes, err := fs.ReadDir(allCommitsPath)
 	if err != nil {
-		return fmt.Errorf("could not read commits dir: %w\n", err)
+		return fmt.Errorf("could not read commits dir: %s - error: %w", allCommitsPath, err)
 	}
 	for _, currentPrefix := range commitPrefixes {
 		currentpath := fs.Join(allCommitsPath, currentPrefix.Name())
@@ -527,7 +527,7 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 					}
 					eventJson, err := json.Marshal(currentEvent)
 					if err != nil {
-						return fmt.Errorf("Could not marshal event: %w\n", err)
+						return fmt.Errorf("could not marshal event: %w", err)
 					}
 					err = dbHandler.WriteEvent(ctx, transaction, 0, currentEvent.EventMetadata.Uuid, event.EventType(currentEvent.EventMetadata.EventType), commitID, eventJson)
 					if err != nil {
@@ -595,7 +595,7 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 
 func CombineArray(others []*TransformerResult) *TransformerResult {
 	//exhaustruct:ignore
-	var r *TransformerResult = &TransformerResult{}
+	var r = &TransformerResult{}
 	for i := range others {
 		r.Combine(others[i])
 	}
@@ -728,7 +728,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 		return err
 	}
 	var zero git.Oid
-	var rev *git.Oid = &zero
+	var rev = &zero
 	if remoteRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", r.config.Branch)); err != nil {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
@@ -1014,7 +1014,7 @@ func decodeJsonFile(fs billy.Filesystem, path string, out interface{}) error {
 	if file, err := fs.Open(path); err != nil {
 		return wrapFileError(err, path, "could not decode json file")
 	} else {
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		dec := json.NewDecoder(file)
 		return dec.Decode(out)
 	}
@@ -1025,7 +1025,7 @@ func (s *State) GetEnvironmentConfigFromManifest(environmentName string) (*confi
 	var envConfig config.EnvironmentConfig
 	if err := decodeJsonFile(s.Filesystem, fileName, &envConfig); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("%s : %w", fileName, InvalidJson)
+			return nil, fmt.Errorf("%s : %w", fileName, ErrInvalidJson)
 		}
 	}
 	return &envConfig, nil
@@ -1981,7 +1981,7 @@ func (s *State) GetTeamName(application string) (string, error) {
 	}
 }
 
-var InvalidJson = errors.New("JSON file is not valid")
+var ErrInvalidJson = errors.New("JSON file is not valid")
 
 func envExists(envConfigs map[types.EnvName]config.EnvironmentConfig, envNameToSearchFor types.EnvName) bool {
 	if _, found := envConfigs[envNameToSearchFor]; found {
@@ -2053,7 +2053,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 		}
 	}
 	if len(groupEnvNames) == 0 {
-		return nil, fmt.Errorf("No environment found with given group '%s'", envGroup)
+		return nil, fmt.Errorf("no environment found with given group '%s'", envGroup)
 	}
 	types.Sort(groupEnvNames)
 	return groupEnvNames, nil
@@ -2300,7 +2300,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 	if file, err := fs.Open(path); err != nil {
 		return nil, err
 	} else {
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		return io.ReadAll(file)
 	}
 }

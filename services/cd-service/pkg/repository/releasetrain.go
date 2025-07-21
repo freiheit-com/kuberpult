@@ -239,7 +239,7 @@ func (c *ReleaseTrain) Transform(
 	defer span.Finish()
 	//Prognosis can be a costly operation. Abort straight away if ci link is not valid
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
@@ -567,7 +567,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		return failedPrognosis(grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", envName, err)))
 	}
 
-	var source types.EnvName = upstreamEnvName
+	var source = upstreamEnvName
 	if upstreamLatest {
 		source = "latest"
 	}
@@ -582,12 +582,12 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 	allLatestDeploymentsTargetEnv, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, envName)
 	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
 	}
 
 	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
 	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Could not obtain latest deployments for env %s: %w", envName, err)))
+		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
 	}
 
 	if len(envLocks) > 0 {
@@ -792,7 +792,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 		releaseEnvs, exists := allLatestReleaseEnvironments[appName][versionToDeploy]
 		if !exists {
-			return failedPrognosis(fmt.Errorf("No release found for app %s and versionToDeploy %d", appName, versionToDeploy))
+			return failedPrognosis(fmt.Errorf("no release found for app %s and versionToDeploy %d", appName, versionToDeploy))
 		}
 
 		found := false

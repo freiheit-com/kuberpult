@@ -104,7 +104,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 	err := r.ParseForm()
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not parse form. Error: %s\n", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Could not parse form. Error: %s", err), http.StatusBadRequest)
 	}
 
 	subjectToken := r.Form["subject_token"]
@@ -133,7 +133,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 	req, err := http.NewRequest("POST", dexContactUrl+"/dex/token", strings.NewReader(data.Encode()))
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Not able to construct http request to dex error: %s\n", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Not able to construct http request to dex error: %s", err), http.StatusInternalServerError)
 		return
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -142,7 +142,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 	dexResponse, err := httpClient.Do(req)
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s\n", err), http.StatusBadGateway)
+		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s", err), http.StatusBadGateway)
 		return
 	}
 
@@ -162,7 +162,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 		if err != nil {
 			return
 		}
-		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s\n", dexResponse.Status, string(v)), http.StatusBadGateway)
+		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s", dexResponse.Status, string(v)), http.StatusBadGateway)
 	}
 }
 
@@ -204,7 +204,7 @@ func (s *PublicApiServer) GetPublicApiSchema(w http.ResponseWriter, _ *http.Requ
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(content)
 	if err != nil {
-		fmt.Printf("Error writing response: %v\n", err)
+		fmt.Printf("Error writing response: %v", err)
 	}
 }
 

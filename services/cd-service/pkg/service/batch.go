@@ -527,7 +527,7 @@ func (d *BatchServer) ProcessBatch(
 		if errors.Is(err, repository.ErrQueueFull) {
 			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
 		}
-		var applyErr *repository.TransformerBatchApplyError = repository.UnwrapUntilTransformerBatchApplyError(err)
+		var applyErr = repository.UnwrapUntilTransformerBatchApplyError(err)
 		if applyErr != nil {
 			resp, handledErr := d.handleError(applyErr, err)
 			return resp, onErr(handledErr)
