@@ -2335,7 +2335,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 	return queueDeploymentMessage, nil
 }
 
-func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags []*api.TagData, err error) {
+func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, repoName string) (tags []*api.TagData, err error) {
 	repo, err := openOrCreate(repoName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open/create repo: %v", err)
@@ -2397,6 +2397,9 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 			break
 		}
 		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
+		var tag *api.TagData
+		var tagName string
+		var commitId string
 		if lookupErr != nil {
 			tagCommit, err := repo.LookupCommit(tagObject.Target())
 			// If LookupTag fails, fallback to LookupCommit
@@ -2404,15 +2407,36 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 			if err != nil {
 				return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
 			}
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
-
+			tagName = tagObject.Name()
+			commitId = tagCommit.Id().String()
 		} else {
 			tagCommit, err := repo.LookupCommit(tagRef.TargetId())
 			if err != nil {
 				return nil, fmt.Errorf("unable to lookup tag [%s]: %v", tagObject.Name(), err)
 			}
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
+			tagName = tagObject.Name()
+			commitId = tagCommit.Id().String()
 		}
+
+		result, err := db.WithTransactionT(handler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
+			return handler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitId)
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		tag = &api.TagData{
+			Tag:        tagName,
+			CommitId:   commitId,
+			CommitDate: nil,
+		}
+		if result != nil {
+			tag.CommitDate = timestamppb.New(*result)
+		} else {
+			// could not find a commit date - this means something went wrong before this endpoint was called
+			// e.g. in a db migration
+		}
+		tags = append(tags, tag)
 	}
 
 	return tags, nil

@@ -281,11 +281,7 @@ func TestGetTagsNoTags(t *testing.T) {
 
 		_, _, repoConfig := SetupRepositoryTestWithDB(t)
 		localDir := repoConfig.Path
-		tags, err := GetTags(
-			*repoConfig,
-			localDir,
-			testutil.MakeTestContext(),
-		)
+		tags, err := GetTags(testutil.MakeTestContext(), nil, *repoConfig, localDir)
 		if err != nil {
 			t.Fatalf("new: expected no error, got '%e'", err)
 		}
@@ -359,11 +355,7 @@ func TestGetTags(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			tags, err := GetTags(
-				*repoConfig,
-				localDir,
-				testutil.MakeTestContext(),
-			)
+			tags, err := GetTags(testutil.MakeTestContext(), nil, *repoConfig, localDir)
 			if err != nil {
 				t.Fatalf("new: expected no error, got '%e'", err)
 			}

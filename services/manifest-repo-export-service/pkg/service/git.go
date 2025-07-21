@@ -50,6 +50,7 @@ type GitServer struct {
 	shutdown                    <-chan struct{}
 	streamGitSyncStatusInitFunc sync.Once
 	notify                      notify.Notify
+	DBHandler                   *db.DBHandler
 }
 
 func (s *GitServer) GetProductSummary(_ context.Context, _ *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
@@ -57,12 +58,20 @@ func (s *GitServer) GetProductSummary(_ context.Context, _ *api.GetProductSummar
 }
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
+	var tags []*api.TagData
+	err := logger.Wrap(ctx, func(ctx context.Context) error {
+		var innerError error
+		tags, innerError = repository.GetTags(ctx, s.DBHandler, s.Config, "./repository_tags")
+		if innerError != nil {
+			return fmt.Errorf("unable to get tags from repository: %v", innerError)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
+		return nil, err
 	}
-
 	return &api.GetGitTagsResponse{TagData: tags}, nil
+
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
