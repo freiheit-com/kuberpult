@@ -879,7 +879,7 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 	tableQuery := h.AdaptQuery(`CREATE TEMP TABLE IF NOT EXISTS temp_query_app_releaseversions(queryId INTEGER, appName VARCHAR NOT NULL, releaseVersion INTEGER);`)
 	_, err := transaction.Exec(tableQuery)
 	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not create query app releases table. Error: %w", err)
 	}
 	insertQuery := h.AdaptQuery(`INSERT INTO temp_query_app_releaseversions VALUES (?, ?, ?)` + strings.Repeat(`, (?, ?, ?)`, len(versionByApp)-1) + `;`)
 	args := make([]interface{}, len(versionByApp)*3)
@@ -912,7 +912,7 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 		queryID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query releases table from DB. Error: %w\n", err)
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -940,7 +940,7 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s\n", err, metadataStr)
+			return nil, fmt.Errorf("Error during json unmarshal of metadata for releases. Error: %w. Data: %s", err, metadataStr)
 		}
 		result[appName] = metaData.SourceCommitId
 	}

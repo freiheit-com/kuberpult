@@ -608,19 +608,18 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			}
 			envLocksMap[lockId] = newLock
 		}
+		upstreamVersionByApp := make(map[string]uint64)
+		for _, app := range apps {
+			if allLatestDeploymentsUpstreamEnv[app] != nil {
+				upstreamVersionByApp[app] = uint64(*allLatestDeploymentsUpstreamEnv[app])
+			}
+		}
+		commitIdByApp, err := getCommitIDs(ctx, transaction, state, upstreamVersionByApp)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("could not get all commits for apps to deploy: %v", err)
+		}
 
 		for _, appName := range apps {
-			releases := c.AllLatestReleasesCache[appName]
-			var release uint64
-			if releases == nil {
-				release = 0
-			} else {
-				release = uint64(releases[len(releases)-1])
-			}
-			commitID, err := getCommitID(ctx, transaction, state, release, appName)
-			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
-			}
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 				SkipCause:          nil,
 				EnvLocks:           envLocksMap,
@@ -628,7 +627,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           nil,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: commitID,
+				NewReleaseCommitId: commitIdByApp[appName],
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -657,16 +656,6 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	allTeams, err := state.GetAllApplicationsTeamOwner(ctx, transaction)
 	if err != nil {
 		return failedPrognosis(err)
-	}
-	upstreamVersionByApp := make(map[string]uint64)
-	for _, app := range apps {
-		if allLatestDeploymentsUpstreamEnv[app] != nil {
-			upstreamVersionByApp[app] = uint64(*allLatestDeploymentsUpstreamEnv[app])
-		}
-	}
-	commitIdByApp, err := getCommitIDs(ctx, transaction, state, upstreamVersionByApp)
-	if err != nil {
-		logger.FromContext(ctx).Sugar().Warnf("could not get all commits for apps to deploy: %v", err)
 	}
 
 	for _, appName := range apps {
