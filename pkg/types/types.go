@@ -106,3 +106,14 @@ func (r ReleaseNumbers) String() string {
 	}
 	return fmt.Sprintf("%d.%d", *r.Version, r.Revision)
 }
+
+func MakeReleaseNumbers(v, r uint64) ReleaseNumbers {
+	return ReleaseNumbers{
+		Version:  &v,
+		Revision: r,
+	}
+}
+
+func MakeReleaseNumberVersion(v uint64) ReleaseNumbers {
+	return MakeReleaseNumbers(v, 0)
+}

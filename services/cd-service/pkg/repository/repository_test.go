@@ -418,9 +418,9 @@ func TestApplyQueue(t *testing.T) {
 				{}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(2),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -432,8 +432,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -445,8 +445,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(2),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -459,8 +459,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
 			},
 		},
 		{
@@ -472,8 +472,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -485,8 +485,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(2),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -499,8 +499,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
 			},
 		},
 		{
@@ -512,8 +512,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(2),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -526,8 +526,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -540,8 +540,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
 			},
 		},
 		{
@@ -554,8 +554,8 @@ func TestApplyQueue(t *testing.T) {
 				{}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(2),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -569,8 +569,8 @@ func TestApplyQueue(t *testing.T) {
 				{},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -583,8 +583,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
 			},
 		},
 	}

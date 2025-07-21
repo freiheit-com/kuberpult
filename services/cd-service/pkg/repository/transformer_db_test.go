@@ -688,8 +688,8 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-				makeReleaseNumbers(10, 2),
-				makeReleaseNumbers(10, 1),
+				types.MakeReleaseNumbers(10, 2),
+				types.MakeReleaseNumbers(10, 1),
 			},
 		},
 		{
@@ -726,8 +726,8 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-				makeReleaseNumbers(10, 2),
-				makeReleaseNumbers(10, 1),
+				types.MakeReleaseNumbers(10, 2),
+				types.MakeReleaseNumbers(10, 1),
 			},
 		},
 	}
@@ -804,7 +804,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-				makeReleaseNumbers(10000, 0),
+				types.MakeReleaseNumbers(10000, 0),
 			},
 		},
 		{
@@ -839,8 +839,8 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
 			},
 		},
 		{
@@ -875,8 +875,8 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
 			},
 		},
 	}
@@ -944,7 +944,7 @@ func TestMinorFlag(t *testing.T) {
 			},
 			ExpectedMinors: []types.ReleaseNumbers{},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(10),
 			},
 		},
 		{
@@ -966,10 +966,10 @@ func TestMinorFlag(t *testing.T) {
 				},
 			},
 			ExpectedMinors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(11),
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(10),
 			},
 		},
 		{
@@ -992,8 +992,8 @@ func TestMinorFlag(t *testing.T) {
 			},
 			ExpectedMinors: []types.ReleaseNumbers{},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
 			},
 		},
 		{
@@ -1015,10 +1015,10 @@ func TestMinorFlag(t *testing.T) {
 				},
 			},
 			ExpectedMinors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(11),
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(10),
 			},
 		},
 		{
@@ -1041,8 +1041,8 @@ func TestMinorFlag(t *testing.T) {
 			},
 			ExpectedMinors: []types.ReleaseNumbers{},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
 			},
 		},
 		{
@@ -1072,9 +1072,9 @@ func TestMinorFlag(t *testing.T) {
 			},
 			ExpectedMinors: []types.ReleaseNumbers{},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
-				makeReleaseNumberVersion(12),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(12),
 			},
 		},
 		{
@@ -1104,11 +1104,11 @@ func TestMinorFlag(t *testing.T) {
 				},
 			},
 			ExpectedMinors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(11),
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(12),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(12),
 			},
 		},
 		{
@@ -1138,9 +1138,9 @@ func TestMinorFlag(t *testing.T) {
 			},
 			ExpectedMinors: []types.ReleaseNumbers{},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
-				makeReleaseNumberVersion(12),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(12),
 			},
 		},
 		{
@@ -1170,11 +1170,11 @@ func TestMinorFlag(t *testing.T) {
 				},
 			},
 			ExpectedMinors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(12),
+				types.MakeReleaseNumberVersion(12),
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
 			},
 		},
 		{
@@ -1203,11 +1203,11 @@ func TestMinorFlag(t *testing.T) {
 				},
 			},
 			ExpectedMinors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(12),
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(12),
+				types.MakeReleaseNumberVersion(11),
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(10),
 			},
 		},
 		{
@@ -1237,11 +1237,11 @@ func TestMinorFlag(t *testing.T) {
 			},
 			MinorRegexes: []*regexp.Regexp{regexp.MustCompile(".*manifest.*")},
 			ExpectedMinors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(11),
-				makeReleaseNumberVersion(12),
+				types.MakeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(12),
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(10),
 			},
 		},
 		{
@@ -1271,11 +1271,11 @@ func TestMinorFlag(t *testing.T) {
 			},
 			MinorRegexes: []*regexp.Regexp{regexp.MustCompile(".*firstLine.*"), regexp.MustCompile(".*secondLine.*")},
 			ExpectedMinors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(12),
+				types.MakeReleaseNumberVersion(12),
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
 			},
 		},
 		{
@@ -1306,9 +1306,9 @@ func TestMinorFlag(t *testing.T) {
 			MinorRegexes:   []*regexp.Regexp{regexp.MustCompile(".*firstLine.*"), regexp.MustCompile(".*ItDoesNotMatch.*")},
 			ExpectedMinors: []types.ReleaseNumbers{},
 			ExpectedMajors: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
-				makeReleaseNumberVersion(12),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(12),
 			},
 		},
 	}
@@ -1474,7 +1474,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 					EslVersion:     1,
 					Env:            "production",
 					App:            testAppName,
-					ReleaseNumbers: makeReleaseNumberVersion(1),
+					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 				},
 			},
 		},
@@ -1542,7 +1542,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 					EslVersion:     1,
 					Env:            envProduction,
 					App:            testAppName,
-					ReleaseNumbers: makeReleaseNumberVersion(1),
+					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 				},
 			},
 		},
@@ -1621,8 +1621,8 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				},
 			},
 			ExpectedActiveReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(2),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -1676,9 +1676,9 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				},
 			},
 			ExpectedActiveReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(1),
-				makeReleaseNumberVersion(2),
-				makeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 	}
@@ -2583,7 +2583,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
 				"app": {
 					App:            "app",
-					ReleaseNumbers: makeReleaseNumberVersion(1),
+					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{},
 					},
@@ -4057,8 +4057,8 @@ func TestTransaction(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
 			},
 		},
 		{
@@ -4093,8 +4093,8 @@ func TestTransaction(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-				makeReleaseNumberVersion(10),
-				makeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
 			},
 		},
 	}
@@ -4963,15 +4963,4 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 			}
 		})
 	}
-}
-
-func makeReleaseNumbers(v, r uint64) types.ReleaseNumbers {
-	return types.ReleaseNumbers{
-		Version:  &v,
-		Revision: r,
-	}
-}
-
-func makeReleaseNumberVersion(v uint64) types.ReleaseNumbers {
-	return makeReleaseNumbers(v, 0)
 }
