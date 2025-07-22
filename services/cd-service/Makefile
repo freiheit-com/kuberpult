@@ -17,7 +17,6 @@
 MIN_COVERAGE=63.4
 MIN_COVERAGE_TRAIN=80.5
 MIN_COVERAGE_DEPLOY=83.8
-SKIP_BUILDER=1
 include ../../infrastructure/make/go/include.mk
 
 test: test-with-coverage
