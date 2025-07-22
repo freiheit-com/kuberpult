@@ -178,7 +178,7 @@ func (c *ReleaseTrain) Prognosis(
 		}
 	}
 
-	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, nil)
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction)
 	if err != nil {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err)),
@@ -264,7 +264,7 @@ func (c *ReleaseTrain) Transform(
 	types.Sort(envNames)
 	span.SetTag("environments", len(envNames))
 
-	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, nil)
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction)
 	if err != nil {
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
 	}
@@ -316,7 +316,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	maxThreads int,
 	parentCtx context.Context,
 	configs map[types.EnvName]config.EnvironmentConfig,
-	allLatestReleases map[string][]int64,
+	allLatestReleases map[string][]types.ReleaseNumbers,
 	state *State,
 	t TransformerContext,
 	transaction *sql.Tx,
@@ -421,7 +421,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	return "", nil
 }
 
-func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName types.EnvName, trainGroup *string, configs map[types.EnvName]config.EnvironmentConfig, releases map[string][]int64) error {
+func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName types.EnvName, trainGroup *string, configs map[types.EnvName]config.EnvironmentConfig, releases map[string][]types.ReleaseNumbers) error {
 	spanOne, ctx, onErr := tracing.StartSpanFromContext(ctx, "runEnvReleaseTrainBackground")
 	spanOne.SetTag("kuberpultEnvironment", envName)
 	defer spanOne.Finish()
@@ -448,7 +448,7 @@ func (c *envReleaseTrain) runEnvPrognosisBackground(
 	ctx context.Context,
 	state *State,
 	envName types.EnvName,
-	releases map[string][]int64,
+	releases map[string][]types.ReleaseNumbers,
 ) (*ReleaseTrainEnvironmentPrognosis, error) {
 	result, err := db.WithTransactionT(state.DBHandler, ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*ReleaseTrainEnvironmentPrognosis, error) {
 		prognosis := c.prognosis(ctx, state, transaction, releases)
@@ -460,7 +460,7 @@ func (c *envReleaseTrain) runEnvPrognosisBackground(
 	return result, err
 }
 
-type AllLatestReleasesCache map[string][]int64
+type AllLatestReleasesCache map[string][]types.ReleaseNumbers
 
 type envReleaseTrain struct {
 	Parent                *ReleaseTrain
@@ -716,7 +716,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				logger.FromContext(ctx).Sugar().Warnf("app %s appears to have no releases on env=%s, so it is skipped", appName, envName)
 				continue
 			}
-			versionToDeploy = uint64(allLatestReleases[appName][int(math.Max(0, float64(l-1)))])
+			versionToDeploy = allLatestReleases[appName][int(math.Max(0, float64(l-1)))]
 		} else {
 			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
 

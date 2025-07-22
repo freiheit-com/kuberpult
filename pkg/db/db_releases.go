@@ -311,13 +311,13 @@ func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, t
 	return data, nil
 }
 
-func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (map[string][]int64, error) {
+func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (map[string][]types.ReleaseNumbers, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfAllApps")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
-		SELECT appname, releaseVersion 
+		SELECT appname, releaseVersion, revision
 		FROM releases
-		ORDER BY releaseVersion;
+		ORDER BY releaseVersion DESC, revision DESC;
 	`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
@@ -761,7 +761,7 @@ func (h *DBHandler) processAppReleaseNumbersRows(ctx context.Context, err error,
 	return result, nil
 }
 
-func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err error, rows *sql.Rows) (map[string][]int64, error) {
+func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err error, rows *sql.Rows) (map[string][]types.ReleaseNumbers, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
@@ -772,12 +772,12 @@ func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err e
 		}
 	}(rows)
 
-	var result = make(map[string][]int64)
+	var result = make(map[string][]types.ReleaseNumbers)
 	for rows.Next() {
 		var appName string
-		var releaseVersion int64
-
-		err := rows.Scan(&appName, &releaseVersion)
+		var releaseVersion uint64
+		var revision uint64
+		err := rows.Scan(&appName, &releaseVersion, &revision)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -786,9 +786,9 @@ func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err e
 		}
 
 		if _, ok := result[appName]; !ok {
-			result[appName] = []int64{}
+			result[appName] = []types.ReleaseNumbers{}
 		}
-		result[appName] = append(result[appName], releaseVersion)
+		result[appName] = append(result[appName], types.MakeReleaseNumbers(releaseVersion, revision))
 	}
 
 	err = closeRows(rows)

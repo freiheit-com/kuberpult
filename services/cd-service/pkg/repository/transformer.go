@@ -449,7 +449,7 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	v, r, err := c.calculateVersion(ctx, transaction, state)
+	version, err := c.calculateVersion(ctx, transaction, state)
 	if err != nil {
 		return "", err
 	}
@@ -1090,7 +1090,7 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
 	}
 
-	isUndeploy, err := state.IsUndeployVersion(ctx, transaction, u.Application, *lastRelease.Version)
+	isUndeploy, err := state.IsUndeployVersion(ctx, transaction, u.Application, lastRelease)
 	if err != nil {
 		return "", err
 	}

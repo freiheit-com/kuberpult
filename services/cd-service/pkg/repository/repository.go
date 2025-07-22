@@ -857,7 +857,7 @@ func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx
 	return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 }
 
-func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, allApps []string) (map[string][]int64, error) {
+func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx) (map[string][]types.ReleaseNumbers, error) {
 	return s.DBHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
 }
 
