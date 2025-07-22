@@ -23,6 +23,7 @@ import {
     DisplayLock,
     FlushGitSyncStatus,
     FlushRolloutStatus,
+    ReleaseNumbers,
     SnackbarStatus,
     UpdateAction,
     updateActions,
@@ -820,6 +821,7 @@ describe('Test addAction duplicate detection', () => {
                         environment: 'dev',
                         application: 'app1',
                         version: 1,
+                        revision: 0,
                         ignoreAllLocks: false,
                         lockBehavior: LockBehavior.IGNORE,
                     },
@@ -832,6 +834,7 @@ describe('Test addAction duplicate detection', () => {
                         environment: 'dev',
                         application: 'app2',
                         version: 1,
+                        revision: 0,
                         ignoreAllLocks: false,
                         lockBehavior: LockBehavior.IGNORE,
                     },
@@ -958,6 +961,7 @@ describe('Test maxActions', () => {
                                 environment: 'foo',
                                 application: 'bread' + i,
                                 version: i,
+                                revision: 0,
                                 ignoreAllLocks: false,
                                 lockBehavior: LockBehavior.IGNORE,
                             },
@@ -1024,6 +1028,7 @@ describe('Test useLocksConflictingWithActions', () => {
                             environment: 'dev',
                             application: 'app1',
                             version: 1,
+                            revision: 0,
                             ignoreAllLocks: false,
                             lockBehavior: LockBehavior.IGNORE,
                         },
@@ -1102,6 +1107,7 @@ describe('Test useLocksConflictingWithActions', () => {
                             environment: 'dev',
                             application: 'app2',
                             version: 1,
+                            revision: 0,
                             ignoreAllLocks: false,
                             lockBehavior: LockBehavior.IGNORE,
                         },
@@ -1179,6 +1185,7 @@ describe('Test addAction blocking release train additions', () => {
                         environment: 'dev',
                         application: 'app1',
                         version: 1,
+                        revision: 0,
                         ignoreAllLocks: false,
                         lockBehavior: LockBehavior.IGNORE,
                     },
@@ -1191,6 +1198,7 @@ describe('Test addAction blocking release train additions', () => {
                         environment: 'dev',
                         application: 'app2',
                         version: 1,
+                        revision: 0,
                         ignoreAllLocks: false,
                         lockBehavior: LockBehavior.IGNORE,
                     },
@@ -1207,6 +1215,7 @@ describe('Test addAction blocking release train additions', () => {
                         environment: 'dev',
                         application: 'app1',
                         version: 1,
+                        revision: 0,
                         ignoreAllLocks: false,
                         lockBehavior: LockBehavior.IGNORE,
                     },
@@ -1275,6 +1284,7 @@ describe('Test addAction blocking release train additions', () => {
                         environment: 'dev',
                         application: 'app1',
                         version: 1,
+                        revision: 0,
                         ignoreAllLocks: false,
                         lockBehavior: LockBehavior.IGNORE,
                     },
@@ -1306,7 +1316,7 @@ describe('Test Calculate Release Difference', () => {
         name: string;
         inputOverview: GetOverviewResponse;
         inputAppDetails: { [p: string]: AppDetailsResponse };
-        inputVersion: number;
+        inputVersion: ReleaseNumbers;
         expectedDifference: number;
     };
 
@@ -1346,7 +1356,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                 ],
             },
-            inputVersion: 10,
+            inputVersion: { version: 10, revision: 0 },
             expectedDifference: 0,
         },
 
@@ -1395,6 +1405,7 @@ describe('Test Calculate Release Difference', () => {
                         deployments: {
                             test: {
                                 version: 12,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                             },
@@ -1432,7 +1443,7 @@ describe('Test Calculate Release Difference', () => {
                 ],
                 manifestRepoUrl: '',
             },
-            inputVersion: 10,
+            inputVersion: { version: 10, revision: 0 },
             expectedDifference: 0,
         },
         {
@@ -1494,6 +1505,7 @@ describe('Test Calculate Release Difference', () => {
                         deployments: {
                             [envName]: {
                                 version: 10,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                             },
@@ -1533,7 +1545,7 @@ describe('Test Calculate Release Difference', () => {
                 manifestRepoUrl: '',
             },
 
-            inputVersion: 15,
+            inputVersion: { version: 15, revision: 0 },
             expectedDifference: 2,
         },
         {
@@ -1581,6 +1593,7 @@ describe('Test Calculate Release Difference', () => {
                         deployments: {
                             [envName]: {
                                 version: 12,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                             },
@@ -1618,7 +1631,7 @@ describe('Test Calculate Release Difference', () => {
                 ],
                 manifestRepoUrl: '',
             },
-            inputVersion: 10,
+            inputVersion: { version: 10, revision: 0 },
             expectedDifference: -1,
         },
         {
@@ -1666,6 +1679,7 @@ describe('Test Calculate Release Difference', () => {
                         deployments: {
                             [envName]: {
                                 version: 12,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                             },
@@ -1703,7 +1717,7 @@ describe('Test Calculate Release Difference', () => {
                     },
                 ],
             },
-            inputVersion: 11,
+            inputVersion: { version: 11, revision: 0 },
             expectedDifference: 0,
         },
     ];

@@ -227,7 +227,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const { className, app, versionInfo } = props;
     // the ReleaseCard only displays actual releases, so we can assume that it exists here:
     const openReleaseDialog = useOpenReleaseDialog(app, versionInfo.version, versionInfo.revision);
-    const deployedAt = useCurrentlyDeployedAtGroup(app, versionInfo.version);
+    const deployedAt = useCurrentlyDeployedAtGroup(app, versionInfo);
 
     const syncStatus = useGitSyncStatus((getter) => getter);
 
@@ -318,7 +318,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         <Tooltip id={app + versionInfo.version + versionInfo.revision} tooltipContent={tooltipContents}>
             <div className={'release-card__container'}>
                 <div className="release__environments">
-                    <EnvironmentGroupChipList app={props.app} version={props.versionInfo.version} smallEnvChip />
+                    <EnvironmentGroupChipList app={props.app} version={props.versionInfo} smallEnvChip />
                 </div>
                 <div
                     className={classNames(

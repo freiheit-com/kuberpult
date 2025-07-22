@@ -29,7 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -947,28 +946,24 @@ func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.T
 	return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 }
 
-func (s *State) GetAllDeploymentsForApp(ctx context.Context, transaction *sql.Tx, appName string) (map[types.EnvName]int64, error) {
-	return s.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
-}
-
-func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName string) (map[types.EnvName]int64, error) {
+func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName string) (map[types.EnvName]types.ReleaseNumbers, error) {
 	result, err := s.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, appName)
 	if err != nil {
 		return nil, err
 	}
 	if result == nil {
-		return map[types.EnvName]int64{}, nil
+		return map[types.EnvName]types.ReleaseNumbers{}, nil
 	}
 	return result, nil
 }
 
-func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[types.EnvName]int64, error) {
+func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[types.EnvName]types.ReleaseNumbers, error) {
 	result, err := s.DBHandler.DBSelectAllDeploymentsForAppAtTimestamp(ctx, transaction, appName, ts)
 	if err != nil {
 		return nil, err
 	}
 	if result == nil {
-		return map[types.EnvName]int64{}, nil
+		return map[types.EnvName]types.ReleaseNumbers{}, nil
 	}
 	return result, nil
 }
@@ -1067,7 +1062,7 @@ func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]str
 	return applications, nil
 }
 
-func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]uint64, error) {
+func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]types.ReleaseNumbers, error) {
 	releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 	if err != nil {
 		return nil, fmt.Errorf("could not get all releases of app %s: %v", application, err)
@@ -1075,8 +1070,7 @@ func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.
 	if releases == nil {
 		return nil, fmt.Errorf("could not get all releases of app %s (nil)", application)
 	}
-	res := conversion.ToUint64Slice(releases)
-	return res, nil
+	return releases, nil
 }
 
 type Release struct {
@@ -1134,8 +1128,13 @@ func extractPrNumber(sourceMessage string) string {
 	}
 }
 
-func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version uint64) (bool, error) {
-	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
+func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version types.ReleaseNumbers) (bool, error) {
+	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx,
+		transaction,
+		application,
+		version,
+		true,
+	)
 	return release.Metadata.UndeployVersion, err
 }
 
@@ -1168,7 +1167,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 	return result, nil
 }
 
-func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version uint64) (*Release, error) {
+func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version types.ReleaseNumbers) (*Release, error) {
 	env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 	if err != nil {
 		return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
@@ -1192,7 +1191,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 	}, nil
 }
 
-func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application string, version uint64) (map[types.EnvName]*api.Manifest, error) {
+func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application string, version types.ReleaseNumbers) (map[types.EnvName]*api.Manifest, error) {
 	manifests := map[types.EnvName]*api.Manifest{}
 	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 	if err != nil {

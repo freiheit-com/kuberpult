@@ -367,7 +367,7 @@ export const ReadyServiceLane: React.FC<{
     // eslint-disable-next-line no-console
     const allDeployedReleaseNumbers = [];
     for (const prop in deployments) {
-        allDeployedReleaseNumbers.push({ version: deployments[prop].version, revision: 0 }); //Deployments do not support revisions, yet
+        allDeployedReleaseNumbers.push({ version: deployments[prop].version, revision: deployments[prop].revision });
     }
 
     // we need to filter duplicate deployed releases as there might be multiple deployments for the same release. And a release

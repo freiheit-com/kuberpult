@@ -61,11 +61,19 @@ describe('Release Card Mini', () => {
             environments: [],
         },
         {
-            name: 'withthout commit id, without displayVersion',
+            name: 'without commit id, without displayVersion',
             props: { app: 'test2', version: 2, revision: 0 },
             rels: [makeRelease(2, '', '')],
             expectedMessage: 'test2',
-            expectedLabel: '#2 ',
+            expectedLabel: '#2.0 ',
+            environments: [],
+        },
+        {
+            name: 'without commit id, without displayVersion, with some revision',
+            props: { app: 'test2', version: 2, revision: 2 },
+            rels: [makeRelease(2, '', '', false, 2)],
+            expectedMessage: 'test2',
+            expectedLabel: '#2.2 ',
             environments: [],
         },
         {
@@ -134,6 +142,7 @@ describe('Release Card Mini', () => {
                         deployments: {
                             other: {
                                 version: 2,
+                                revision: 0,
                                 queuedVersion: 0,
                                 undeployVersion: false,
                             },

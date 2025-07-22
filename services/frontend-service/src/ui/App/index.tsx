@@ -209,13 +209,15 @@ export const App: React.FC = () => {
     );
 
     const [params] = useSearchParams();
-    const { app, version } = useReleaseDialogParams();
+    const { app, version, revision } = useReleaseDialogParams();
     const currentOpenConfig = getOpenEnvironmentConfigDialog(params);
 
     return (
         <AzureAuthProvider>
             <div className={'app-container--v2'}>
-                {app && version ? <ReleaseDialog app={app} version={version} /> : null}
+                {app && version ? (
+                    <ReleaseDialog app={app} version={{ version: version, revision: revision ? revision : 0 }} />
+                ) : null}
                 {currentOpenConfig.length > 0 ? <EnvironmentConfigDialog environmentName={currentOpenConfig} /> : null}
                 <NavigationBar />
                 <div className="mdc-drawer-app-content">

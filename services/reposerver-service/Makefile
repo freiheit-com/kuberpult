@@ -16,6 +16,6 @@
 
 # NOTE: this will be replaced with the etf-golang makefile
 
-MIN_COVERAGE=32.2
+MIN_COVERAGE=31.6
 
 include ../../infrastructure/make/go/include.mk

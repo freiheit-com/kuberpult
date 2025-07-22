@@ -1202,6 +1202,176 @@ func TestGetApplicationDetails(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:    "Get App details - Revisions",
+			AppName: appName,
+			ExpectedResponse: &api.GetAppDetailsResponse{
+				Application: &api.Application{
+					Name: appName,
+					Releases: []*api.Release{
+						{
+							Version:        2,
+							Revision:       3,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{string(env), string(secondEnv)},
+						},
+						{
+							Version:        2,
+							Revision:       2,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{string(env), string(secondEnv)},
+						},
+						{
+							Version:        2,
+							Revision:       1,
+							SourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+							SourceAuthor:   "example <example@example.com>",
+							SourceMessage:  "changed something (#678)",
+							PrNumber:       "678",
+							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
+							Environments:   []string{string(env), string(secondEnv)},
+						},
+					},
+					Team: "team-123",
+				},
+				Deployments: map[string]*api.Deployment{
+					string(env): {
+						Version:         2,
+						QueuedVersion:   0,
+						UndeployVersion: false,
+						DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+							DeployAuthor: "test tester",
+						},
+						Revision: 3,
+					},
+				},
+				TeamLocks: map[string]*api.Locks{
+					"development": {
+						Locks: []*api.Lock{
+							{
+								LockId:  "my-team-lock",
+								Message: "team lock for team 123",
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+				},
+				AppLocks: map[string]*api.Locks{
+					"development": {
+						Locks: []*api.Lock{
+							{
+								LockId:  "my-app-lock",
+								Message: "app lock for test-app",
+								CreatedBy: &api.Actor{
+									Name:  "test tester",
+									Email: "testmail@example.com",
+								},
+							},
+						},
+					},
+				},
+			},
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: env,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: types.StringPtr(env),
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: secondEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: types.StringPtr(secondEnv),
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					Revision:              2,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 1,
+					Application:           appName,
+					Manifests: map[types.EnvName]string{
+						env:       "v1",
+						secondEnv: "v2",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					Revision:              3,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 2,
+					Application:           appName,
+					Manifests: map[types.EnvName]string{
+						env:       "v3",
+						secondEnv: "v4",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Authentication:        repository.Authentication{},
+					Version:               2,
+					Revision:              1,
+					SourceCommitId:        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+					SourceAuthor:          "example <example@example.com>",
+					SourceMessage:         "changed something (#678)",
+					Team:                  "team-123",
+					DisplayVersion:        "",
+					WriteCommitData:       true,
+					PreviousCommit:        "",
+					TransformerEslVersion: 3,
+					Application:           appName,
+					Manifests: map[types.EnvName]string{
+						env:       "v5",
+						secondEnv: "v6",
+					},
+				},
+				&repository.CreateEnvironmentTeamLock{
+					Team:        "team-123",
+					Environment: env,
+					LockId:      "my-team-lock",
+					Message:     "team lock for team 123",
+				},
+
+				&repository.CreateEnvironmentApplicationLock{
+					Application: appName,
+					Environment: env,
+					LockId:      "my-app-lock",
+					Message:     "app lock for test-app",
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc

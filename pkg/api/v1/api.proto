@@ -328,6 +328,7 @@ message DeployRequest {
   string environment = 1;
   string application = 2;
   uint64 version = 3;
+  uint64 revision = 6;
   bool ignore_all_locks = 4 [deprecated = true];
   LockBehavior lock_behavior = 5;
 }
@@ -537,6 +538,7 @@ message Deployment {
   // google.protobuf.Timestamp deploy_date = 5; // This is never used
   bool undeploy_version = 6;
   DeploymentMetaData deployment_meta_data = 7;
+  uint64 revision = 8;
 }
 
 message GetOverviewRequest {

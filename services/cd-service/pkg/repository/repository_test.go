@@ -150,10 +150,10 @@ func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, tr
 	return "error", ErrInvalidJson
 }
 
-func convertToSet(list []uint64) map[int]bool {
-	set := make(map[int]bool)
+func convertToSet(list []types.ReleaseNumbers) map[TestStruct]bool {
+	set := make(map[TestStruct]bool)
 	for _, i := range list {
-		set[int(i)] = true
+		set[TestStruct{Version: *i.Version, Revision: i.Revision}] = true
 	}
 	return set
 }
@@ -410,15 +410,17 @@ func TestApplyQueue(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Actions          []action
-		ExpectedReleases []uint64
+		ExpectedReleases []types.ReleaseNumbers
 	}{
 		{
 			Name: "simple",
 			Actions: []action{
 				{}, {}, {},
 			},
-			ExpectedReleases: []uint64{
-				1, 2, 3,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -429,8 +431,9 @@ func TestApplyQueue(t *testing.T) {
 					ExpectedError:  context.Canceled,
 				}, {},
 			},
-			ExpectedReleases: []uint64{
-				1, 3,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -441,8 +444,9 @@ func TestApplyQueue(t *testing.T) {
 					ExpectedError:  context.Canceled,
 				}, {}, {},
 			},
-			ExpectedReleases: []uint64{
-				2, 3,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -454,8 +458,9 @@ func TestApplyQueue(t *testing.T) {
 					ExpectedError:  context.Canceled,
 				},
 			},
-			ExpectedReleases: []uint64{
-				1, 2,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
 			},
 		},
 		{
@@ -466,8 +471,9 @@ func TestApplyQueue(t *testing.T) {
 					ExpectedError:   context.Canceled,
 				}, {},
 			},
-			ExpectedReleases: []uint64{
-				1, 3,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -478,8 +484,9 @@ func TestApplyQueue(t *testing.T) {
 					ExpectedError:   context.Canceled,
 				}, {}, {},
 			},
-			ExpectedReleases: []uint64{
-				2, 3,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -491,8 +498,9 @@ func TestApplyQueue(t *testing.T) {
 					ExpectedError:   context.Canceled,
 				},
 			},
-			ExpectedReleases: []uint64{
-				1, 2,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
 			},
 		},
 		{
@@ -503,8 +511,9 @@ func TestApplyQueue(t *testing.T) {
 					Transformer:   &ErrorTransformer{},
 				}, {}, {},
 			},
-			ExpectedReleases: []uint64{
-				2, 3,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -516,8 +525,9 @@ func TestApplyQueue(t *testing.T) {
 					Transformer:   &ErrorTransformer{},
 				}, {},
 			},
-			ExpectedReleases: []uint64{
-				1, 3,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -529,8 +539,9 @@ func TestApplyQueue(t *testing.T) {
 					Transformer:   &ErrorTransformer{},
 				},
 			},
-			ExpectedReleases: []uint64{
-				1, 2,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
 			},
 		},
 		{
@@ -542,8 +553,9 @@ func TestApplyQueue(t *testing.T) {
 				},
 				{}, {},
 			},
-			ExpectedReleases: []uint64{
-				2, 3,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -556,8 +568,9 @@ func TestApplyQueue(t *testing.T) {
 				},
 				{},
 			},
-			ExpectedReleases: []uint64{
-				1, 3,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(3),
 			},
 		},
 		{
@@ -569,8 +582,9 @@ func TestApplyQueue(t *testing.T) {
 					Transformer:   &InvalidJsonTransformer{},
 				},
 			},
-			ExpectedReleases: []uint64{
-				1, 2,
+			ExpectedReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
 			},
 		},
 	}
@@ -630,7 +644,7 @@ func TestApplyQueue(t *testing.T) {
 			}
 			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				releases, _ := repo.State().GetAllApplicationReleases(ctx, transaction, "foo")
-				if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
+				if !cmp.Equal(tc.ExpectedReleases, releases) {
 					t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
 				}
 				return nil
@@ -1161,6 +1175,11 @@ func SetupRepositoryBenchmark(t *testing.B) (Repository, *db.DBHandler) {
 	return repo, dbHandler
 }
 
+type TestStruct struct {
+	Version  uint64
+	Revision uint64
+}
+
 func BenchmarkApplyQueue(t *testing.B) {
 	t.StopTimer()
 	repo, _ := SetupRepositoryBenchmark(t)
@@ -1171,7 +1190,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 	// The worker go routine is now blocked. We can move some items into the queue now.
 	results := make([]error, t.N)
 	expectedResults := make([]error, t.N)
-	expectedReleases := make(map[int]bool, t.N)
+	expectedReleases := make(map[TestStruct]bool, t.N)
 
 	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
@@ -1197,7 +1216,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 			}
 			expectedResults[i] = expectedResult
 			if expectedResult == nil {
-				expectedReleases[i] = true
+				expectedReleases[TestStruct{Version: uint64(i), Revision: 0}] = true
 			}
 		}
 		for i := 0; i < t.N; i++ {
@@ -1206,8 +1225,9 @@ func BenchmarkApplyQueue(t *testing.B) {
 			}
 		}
 		releases, _ := repo.State().GetAllApplicationReleases(ctx, transaction, "foo")
-		if !cmp.Equal(expectedReleases, convertToSet(releases)) {
-			t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
+
+		if diff := cmp.Diff(expectedReleases, convertToSet(releases)); diff != "" {
+			t.Fatalf("Output mismatch (-want +got): %s\n", diff)
 		}
 
 		return nil

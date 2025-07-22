@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"strconv"
 	"time"
 
@@ -99,7 +100,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 		if err != nil || deployment == nil {
 			return nil, onErr(fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, application, err))
 		}
-		release, err := v.db.DBSelectReleaseByVersion(ctx, tx, application, releaseVersion, true)
+		release, err := v.db.DBSelectReleaseByVersion(ctx, tx, application, types.ReleaseNumbers{Version: &releaseVersion, Revision: 0}, true)
 		if err != nil {
 			return nil, onErr(fmt.Errorf("could not get release of app %s: %v", application, err))
 		}

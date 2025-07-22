@@ -688,14 +688,8 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-				{
-					Revision: 2,
-					Version:  uversion(10),
-				},
-				{
-					Revision: 1,
-					Version:  uversion(10),
-				},
+				types.MakeReleaseNumbers(10, 2),
+				types.MakeReleaseNumbers(10, 1),
 			},
 		},
 		{
@@ -732,14 +726,8 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-				{
-					Revision: 2,
-					Version:  uversion(10),
-				},
-				{
-					Revision: 1,
-					Version:  uversion(10),
-				},
+				types.MakeReleaseNumbers(10, 2),
+				types.MakeReleaseNumbers(10, 1),
 			},
 		},
 	}
@@ -791,7 +779,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 		Name               string
 		Transformers       []Transformer
 		expectedDbContent  *db.DBAppWithMetaData
-		expectedDbReleases []int64
+		expectedDbReleases []types.ReleaseNumbers
 	}{
 		{
 			Name: "create one version",
@@ -815,7 +803,9 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "",
 				},
 			},
-			expectedDbReleases: []int64{10000},
+			expectedDbReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumbers(10000, 0),
+			},
 		},
 		{
 			Name: "create two versions, same team",
@@ -848,7 +838,10 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "noteam",
 				},
 			},
-			expectedDbReleases: []int64{10, 11},
+			expectedDbReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+			},
 		},
 		{
 			Name: "create two versions, different teams",
@@ -881,7 +874,10 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 					Team: "new",
 				},
 			},
-			expectedDbReleases: []int64{10, 11},
+			expectedDbReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -931,8 +927,8 @@ func TestMinorFlag(t *testing.T) {
 	tcs := []struct {
 		Name           string
 		Transformers   []Transformer
-		ExpectedMinors []uint64
-		ExpectedMajors []uint64
+		ExpectedMinors []types.ReleaseNumbers
+		ExpectedMajors []types.ReleaseNumbers
 		MinorRegexes   []*regexp.Regexp
 	}{
 		{
@@ -946,8 +942,10 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{},
-			ExpectedMajors: []uint64{10},
+			ExpectedMinors: []types.ReleaseNumbers{},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+			},
 		},
 		{
 			Name: "No next Release, Previous Releases manifest equals current releases",
@@ -967,8 +965,12 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{11},
-			ExpectedMajors: []uint64{10},
+			ExpectedMinors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(11),
+			},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+			},
 		},
 		{
 			Name: "No next Release, Previous Releases Manifest does not equal current's",
@@ -988,8 +990,11 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{},
-			ExpectedMajors: []uint64{10, 11},
+			ExpectedMinors: []types.ReleaseNumbers{},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+			},
 		},
 		{
 			Name: "No prev Release, next Releases Manifest equals current's",
@@ -1009,8 +1014,12 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{11},
-			ExpectedMajors: []uint64{10},
+			ExpectedMinors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(11),
+			},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+			},
 		},
 		{
 			Name: "No prev Release, next Releases Manifest does not equal current's",
@@ -1030,8 +1039,11 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{},
-			ExpectedMajors: []uint64{10, 11},
+			ExpectedMinors: []types.ReleaseNumbers{},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+			},
 		},
 		{
 			Name: "prev, next, and current are not equal",
@@ -1058,8 +1070,12 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{},
-			ExpectedMajors: []uint64{10, 11, 12},
+			ExpectedMinors: []types.ReleaseNumbers{},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(12),
+			},
 		},
 		{
 			Name: "prev and current are equal but not next",
@@ -1087,8 +1103,13 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{11},
-			ExpectedMajors: []uint64{10, 12},
+			ExpectedMinors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(11),
+			},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(12),
+			},
 		},
 		{
 			Name: "prev and next are equal but not current",
@@ -1115,8 +1136,12 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{},
-			ExpectedMajors: []uint64{10, 11, 12},
+			ExpectedMinors: []types.ReleaseNumbers{},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(12),
+			},
 		},
 		{
 			Name: "current and next are equal but not prev",
@@ -1144,8 +1169,13 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{12},
-			ExpectedMajors: []uint64{10, 11},
+			ExpectedMinors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(12),
+			},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+			},
 		},
 		{
 			Name: "all equal",
@@ -1172,8 +1202,13 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMinors: []uint64{11, 12},
-			ExpectedMajors: []uint64{10},
+			ExpectedMinors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(12),
+				types.MakeReleaseNumberVersion(11),
+			},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+			},
 		},
 		{
 			Name: "With Regex, all manifests are equal",
@@ -1200,9 +1235,14 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			MinorRegexes:   []*regexp.Regexp{regexp.MustCompile(".*manifest.*")},
-			ExpectedMinors: []uint64{11, 12},
-			ExpectedMajors: []uint64{10},
+			MinorRegexes: []*regexp.Regexp{regexp.MustCompile(".*manifest.*")},
+			ExpectedMinors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(12),
+			},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+			},
 		},
 		{
 			Name: "Multiple Regexes",
@@ -1229,9 +1269,14 @@ func TestMinorFlag(t *testing.T) {
 					},
 				},
 			},
-			MinorRegexes:   []*regexp.Regexp{regexp.MustCompile(".*firstLine.*"), regexp.MustCompile(".*secondLine.*")},
-			ExpectedMinors: []uint64{12},
-			ExpectedMajors: []uint64{10, 11},
+			MinorRegexes: []*regexp.Regexp{regexp.MustCompile(".*firstLine.*"), regexp.MustCompile(".*secondLine.*")},
+			ExpectedMinors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(12),
+			},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+			},
 		},
 		{
 			Name: "Multiple Regexes and one of them do not match",
@@ -1259,8 +1304,12 @@ func TestMinorFlag(t *testing.T) {
 				},
 			},
 			MinorRegexes:   []*regexp.Regexp{regexp.MustCompile(".*firstLine.*"), regexp.MustCompile(".*ItDoesNotMatch.*")},
-			ExpectedMinors: []uint64{},
-			ExpectedMajors: []uint64{10, 11, 12},
+			ExpectedMinors: []types.ReleaseNumbers{},
+			ExpectedMajors: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+				types.MakeReleaseNumberVersion(12),
+			},
 		},
 	}
 
@@ -1297,7 +1346,7 @@ func TestMinorFlag(t *testing.T) {
 						return err
 					}
 					if !release.Metadata.IsMinor {
-						t.Errorf("Expected release %d to be minor but its major", minorVersion)
+						t.Errorf("Expected release %v to be minor but its major", minorVersion)
 					}
 				}
 				for _, majorVersion := range tc.ExpectedMajors {
@@ -1306,7 +1355,7 @@ func TestMinorFlag(t *testing.T) {
 						return err
 					}
 					if release.Metadata.IsMinor {
-						t.Errorf("Expected release %d to be major but its minor", majorVersion)
+						t.Errorf("Expected release %v to be major but its minor", majorVersion)
 					}
 				}
 				return nil
@@ -1422,13 +1471,10 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 					},
 				},
 				{
-					EslVersion: 1,
-					Env:        "production",
-					App:        testAppName,
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
+					EslVersion:     1,
+					Env:            "production",
+					App:            testAppName,
+					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 				},
 			},
 		},
@@ -1493,13 +1539,10 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 			},
 			expectedDbContent: []db.QueuedDeployment{
 				{
-					EslVersion: 1,
-					Env:        envProduction,
-					App:        testAppName,
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
+					EslVersion:     1,
+					Env:            envProduction,
+					App:            testAppName,
+					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 				},
 			},
 		},
@@ -1537,7 +1580,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 		Name                   string
 		ReleaseVersionLimit    uint
 		Transformers           []Transformer
-		ExpectedActiveReleases []int64
+		ExpectedActiveReleases []types.ReleaseNumbers
 	}{
 		{
 			Name:                "Three Versions, Keep 2",
@@ -1577,7 +1620,10 @@ func TestCleanupOldVersionDB(t *testing.T) {
 					Version:     3,
 				},
 			},
-			ExpectedActiveReleases: []int64{2, 3},
+			ExpectedActiveReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
+			},
 		},
 		{
 			Name:                "No release is old, but number of releases > ReleaseVersionLimit",
@@ -1629,7 +1675,11 @@ func TestCleanupOldVersionDB(t *testing.T) {
 					Version:     3,
 				},
 			},
-			ExpectedActiveReleases: []int64{1, 2, 3},
+			ExpectedActiveReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -2532,11 +2582,8 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			},
 			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
 				"app": {
-					App: "app",
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  uversion(1),
-					},
+					App:            "app",
+					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{},
 					},
@@ -2703,7 +2750,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				}
 
 				for appName, appConfig := range tc.expectedLatestRelease {
-					app, err := r.DB.DBSelectReleaseByVersion(ctx, transaction, appName, 1, false)
+					app, err := r.DB.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: uversion(1), Revision: 0}, false)
 					if err != nil {
 						return err
 					}
@@ -3483,7 +3530,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 		TargetApp              string
 		Transformers           []Transformer
 		expectedError          *TransformerBatchApplyError
-		expectedReleaseNumbers []int64
+		expectedReleaseNumbers []types.ReleaseNumbers
 	}{
 		{
 			Name: "Success",
@@ -3508,7 +3555,16 @@ func TestCreateUndeployDBState(t *testing.T) {
 					Application: appName,
 				},
 			},
-			expectedReleaseNumbers: []int64{1, 2},
+			expectedReleaseNumbers: []types.ReleaseNumbers{
+				{
+					Version:  uversion(1),
+					Revision: 0,
+				},
+				{
+					Version:  uversion(2),
+					Revision: 0,
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -3535,7 +3591,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 				}
-				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, uint64(allReleases[len(allReleases)-1]), true)
+				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, allReleases[len(allReleases)-1], true)
 				if err2 != nil {
 					t.Fatal(err)
 				}
@@ -3565,7 +3621,7 @@ func TestAllowedCILinksState(t *testing.T) {
 		TargetApp           string
 		Transformers        []Transformer
 		expectedError       *TransformerBatchApplyError
-		expectedAllReleases []int64
+		expectedAllReleases []types.ReleaseNumbers
 		expectedDeployments []db.Deployment
 	}{
 		{
@@ -3588,7 +3644,12 @@ func TestAllowedCILinksState(t *testing.T) {
 					AllowedDomains:        []string{"google.com", "freiheit.com"},
 				},
 			},
-			expectedAllReleases: []int64{1},
+			expectedAllReleases: []types.ReleaseNumbers{
+				{
+					Version:  uversion(1),
+					Revision: 0,
+				},
+			},
 			expectedDeployments: []db.Deployment{
 				{
 					App: appName,
@@ -3626,7 +3687,12 @@ func TestAllowedCILinksState(t *testing.T) {
 					AllowedDomains:        []string{""},
 				},
 			},
-			expectedAllReleases: []int64{1},
+			expectedAllReleases: []types.ReleaseNumbers{
+				{
+					Version:  uversion(1),
+					Revision: 0,
+				},
+			},
 			expectedDeployments: []db.Deployment{
 				{
 					App: appName,
@@ -3664,7 +3730,12 @@ func TestAllowedCILinksState(t *testing.T) {
 					AllowedDomains:        []string{"google.com", "freiheit.com"},
 				},
 			},
-			expectedAllReleases: []int64{1},
+			expectedAllReleases: []types.ReleaseNumbers{
+				{
+					Version:  uversion(1),
+					Revision: 0,
+				},
+			},
 			expectedDeployments: []db.Deployment{
 				{
 					App: appName,
@@ -3786,7 +3857,7 @@ func TestUndeployDBState(t *testing.T) {
 		TargetApp           string
 		Transformers        []Transformer
 		expectedError       *TransformerBatchApplyError
-		expectedAllReleases []int64
+		expectedAllReleases []types.ReleaseNumbers
 		expectedDeployments []db.Deployment
 	}{
 		{
@@ -3815,7 +3886,7 @@ func TestUndeployDBState(t *testing.T) {
 					TransformerEslVersion: 3,
 				},
 			},
-			expectedAllReleases: []int64{},
+			expectedAllReleases: []types.ReleaseNumbers{},
 			expectedDeployments: []db.Deployment{
 				{
 					App: appName,
@@ -3923,7 +3994,7 @@ func TestTransaction(t *testing.T) {
 		Name               string
 		Transformers       []Transformer
 		expectedDbContent  *db.DBAppWithMetaData
-		expectedDbReleases []int64
+		expectedDbReleases []types.ReleaseNumbers
 	}{
 		{
 			Name: "create one version",
@@ -3947,7 +4018,12 @@ func TestTransaction(t *testing.T) {
 					Team: "",
 				},
 			},
-			expectedDbReleases: []int64{10000},
+			expectedDbReleases: []types.ReleaseNumbers{
+				{
+					Version:  uversion(10000),
+					Revision: 0,
+				},
+			},
 		},
 		{
 			Name: "create two versions, same team",
@@ -3980,7 +4056,10 @@ func TestTransaction(t *testing.T) {
 					Team: "noteam",
 				},
 			},
-			expectedDbReleases: []int64{10, 11},
+			expectedDbReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+			},
 		},
 		{
 			Name: "create two versions, different teams",
@@ -4013,7 +4092,10 @@ func TestTransaction(t *testing.T) {
 					Team: "new",
 				},
 			},
-			expectedDbReleases: []int64{10, 11},
+			expectedDbReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(10),
+				types.MakeReleaseNumberVersion(11),
+			},
 		},
 	}
 	for _, tc := range tcs {

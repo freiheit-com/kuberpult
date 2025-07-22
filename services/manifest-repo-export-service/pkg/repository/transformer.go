@@ -358,7 +358,7 @@ func (c *DeployApplicationVersion) Transform(
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
-	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, c.Version, true)
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 	if err != nil {
 		return "", err
 	}
@@ -1026,7 +1026,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	indexToKeep := positionOfOldestVersion - 1
 	majorsCount := 0
 	for ; indexToKeep >= 0; indexToKeep-- {
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versions[indexToKeep], false)
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: &versions[indexToKeep], Revision: 0}, false)
 		if err != nil {
 			return nil, err
 		}

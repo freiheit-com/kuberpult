@@ -1690,7 +1690,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 		if err != nil {
 			return err
 		}
-		err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, 0, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+		err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, types.ReleaseNumbers{Version: &versionZero, Revision: 0}, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 		if err != nil {
 			return err
 		}
@@ -1721,7 +1721,8 @@ func BenchmarkApplyQueue(t *testing.B) {
 			if err != nil {
 				return err
 			}
-			err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, db.TransformerID(i), uint64(i), generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+			var v = uint64(i)
+			err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, db.TransformerID(i), types.ReleaseNumbers{Version: &v, Revision: 0}, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
 			if err != nil {
 				return err
 			}
