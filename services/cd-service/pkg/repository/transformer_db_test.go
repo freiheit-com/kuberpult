@@ -839,10 +839,8 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(10),
 				types.MakeReleaseNumberVersion(11),
->>>>>>>
 			},
 		},
 		{
@@ -994,10 +992,8 @@ func TestMinorFlag(t *testing.T) {
 			},
 			ExpectedMinors: []types.ReleaseNumbers{},
 			ExpectedMajors: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(10),
 				types.MakeReleaseNumberVersion(11),
->>>>>>>
 			},
 		},
 		{
@@ -1045,10 +1041,8 @@ func TestMinorFlag(t *testing.T) {
 			},
 			ExpectedMinors: []types.ReleaseNumbers{},
 			ExpectedMajors: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(10),
 				types.MakeReleaseNumberVersion(11),
->>>>>>>
 			},
 		},
 		{
@@ -1116,7 +1110,6 @@ func TestMinorFlag(t *testing.T) {
 			ExpectedMajors: []types.ReleaseNumbers{
 				types.MakeReleaseNumberVersion(10),
 				types.MakeReleaseNumberVersion(12),
->>>>>>>
 			},
 		},
 		{
@@ -1184,7 +1177,6 @@ func TestMinorFlag(t *testing.T) {
 			ExpectedMajors: []types.ReleaseNumbers{
 				types.MakeReleaseNumberVersion(10),
 				types.MakeReleaseNumberVersion(11),
->>>>>>>
 			},
 		},
 		{
@@ -1253,7 +1245,6 @@ func TestMinorFlag(t *testing.T) {
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
 				types.MakeReleaseNumberVersion(10),
->>>>>>>
 			},
 		},
 		{
@@ -1318,11 +1309,9 @@ func TestMinorFlag(t *testing.T) {
 			MinorRegexes:   []*regexp.Regexp{regexp.MustCompile(".*firstLine.*"), regexp.MustCompile(".*ItDoesNotMatch.*")},
 			ExpectedMinors: []types.ReleaseNumbers{},
 			ExpectedMajors: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(10),
 				types.MakeReleaseNumberVersion(11),
 				types.MakeReleaseNumberVersion(12),
->>>>>>>
 			},
 		},
 	}
@@ -1635,10 +1624,8 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				},
 			},
 			ExpectedActiveReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(2),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -4073,10 +4060,8 @@ func TestTransaction(t *testing.T) {
 				},
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(10),
 				types.MakeReleaseNumberVersion(11),
->>>>>>>
 			},
 		},
 		{

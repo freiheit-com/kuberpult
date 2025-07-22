@@ -460,10 +460,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(1),
 				types.MakeReleaseNumberVersion(2),
->>>>>>>
 			},
 		},
 		{
@@ -488,10 +486,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(2),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -517,10 +513,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(2),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -547,10 +541,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(1),
 				types.MakeReleaseNumberVersion(2),
->>>>>>>
 			},
 		},
 		{
@@ -578,10 +570,8 @@ func TestApplyQueue(t *testing.T) {
 				{},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(1),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -1203,7 +1193,6 @@ func BenchmarkApplyQueue(t *testing.B) {
 	expectedResults := make([]error, t.N)
 
 	expectedReleases := make(map[TestStruct]bool, t.N)
->>>>>>>
 
 	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
