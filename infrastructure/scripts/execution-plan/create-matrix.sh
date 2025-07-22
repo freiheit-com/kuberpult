@@ -7,7 +7,7 @@
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
-STAGE_A_BUILDS="builder deps"
+STAGE_A_BUILDS="builder"
 STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service services/manifest-repo-export-service services/rollout-service services/reposerver-service"
 
 function debug() {

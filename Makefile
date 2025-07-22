@@ -107,6 +107,7 @@ integration-test:
 	mkdir -p $(INTEGRATION_TEST_CONFIG_DIR)
 	rm -f $(INTEGRATION_TEST_CONFIG_FILE)
 	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml down
+	docker volume rm -f cluster-setup_k3s-server
 	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml up -d
 	while [ ! -s "$(INTEGRATION_TEST_CONFIG_FILE)" ]; do \
 		sleep 1; \
