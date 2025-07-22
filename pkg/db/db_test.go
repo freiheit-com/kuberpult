@@ -1423,10 +1423,8 @@ func TestAllDeployments(t *testing.T) {
 				},
 			},
 			expected: map[types.EnvName]types.ReleaseNumbers{
-
 				"development": types.MakeReleaseNumberVersion(1),
 				"staging":     types.MakeReleaseNumberVersion(1),
->>>>>>>
 			},
 		},
 	}

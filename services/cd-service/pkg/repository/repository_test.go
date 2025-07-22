@@ -418,11 +418,9 @@ func TestApplyQueue(t *testing.T) {
 				{}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(1),
 				types.MakeReleaseNumberVersion(2),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -437,7 +435,6 @@ func TestApplyQueue(t *testing.T) {
 
 				types.MakeReleaseNumberVersion(1),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -449,10 +446,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(2),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -480,10 +475,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(1),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -511,10 +504,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(1),
 				types.MakeReleaseNumberVersion(2),
->>>>>>>
 			},
 		},
 		{
@@ -542,10 +533,8 @@ func TestApplyQueue(t *testing.T) {
 				}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(1),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -574,10 +563,8 @@ func TestApplyQueue(t *testing.T) {
 				{}, {},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(2),
 				types.MakeReleaseNumberVersion(3),
->>>>>>>
 			},
 		},
 		{
@@ -607,10 +594,8 @@ func TestApplyQueue(t *testing.T) {
 				},
 			},
 			ExpectedReleases: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(1),
 				types.MakeReleaseNumberVersion(2),
->>>>>>>
 			},
 		},
 	}
@@ -1244,9 +1229,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 			}
 			expectedResults[i] = expectedResult
 			if expectedResult == nil {
-
 				expectedReleases[TestStruct{Version: uint64(i), Revision: 0}] = true
->>>>>>>
 			}
 		}
 		for i := 0; i < t.N; i++ {
@@ -1256,10 +1239,8 @@ func BenchmarkApplyQueue(t *testing.B) {
 		}
 		releases, _ := repo.State().GetAllApplicationReleases(ctx, transaction, "foo")
 
-
 		if diff := cmp.Diff(expectedReleases, convertToSet(releases)); diff != "" {
 			t.Fatalf("Output mismatch (-want +got): %s\n", diff)
->>>>>>>
 		}
 
 		return nil

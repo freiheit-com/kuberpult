@@ -118,7 +118,7 @@ type ReleaseTrainApplicationPrognosis struct {
 	TeamLocks map[string]*api.Lock
 	AppLocks  map[string]*api.Lock
 
-	Version            uint64
+	Version            types.ReleaseNumbers
 	Team               string
 	NewReleaseCommitId string
 	ExistingDeployment *db.Deployment
@@ -131,7 +131,7 @@ type ReleaseTrainEnvironmentPrognosis struct {
 	EnvLocks  map[string]*api.Lock
 
 	AppsPrognoses        map[string]ReleaseTrainApplicationPrognosis // map key is app name
-	AllLatestDeployments map[string]*int64                           // map key is app name
+	AllLatestDeployments map[string]types.ReleaseNumbers             // map key is app name
 }
 
 type ReleaseTrainPrognosisOutcome = uint64
@@ -503,7 +503,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			Error:                nil,
 			EnvLocks:             nil,
 			AppsPrognoses:        nil,
-			AllLatestDeployments: map[string]*int64{},
+			AllLatestDeployments: map[string]types.ReleaseNumbers{},
 		}
 	}
 
@@ -533,7 +533,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			Error:                nil,
 			EnvLocks:             nil,
 			AppsPrognoses:        nil,
-			AllLatestDeployments: map[string]*int64{},
+			AllLatestDeployments: map[string]types.ReleaseNumbers{},
 		}
 	}
 
@@ -545,7 +545,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			Error:                nil,
 			EnvLocks:             nil,
 			AppsPrognoses:        nil,
-			AllLatestDeployments: map[string]*int64{},
+			AllLatestDeployments: map[string]types.ReleaseNumbers{},
 		}
 	}
 
@@ -559,7 +559,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				Error:                nil,
 				EnvLocks:             nil,
 				AppsPrognoses:        nil,
-				AllLatestDeployments: map[string]*int64{},
+				AllLatestDeployments: map[string]types.ReleaseNumbers{},
 			}
 		}
 	}
@@ -587,10 +587,10 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	}
 	var targetCommitIDByApp map[string]string
 	{
-		targetVersionByApp := make(map[string]uint64)
+		targetVersionByApp := make(map[string]types.ReleaseNumbers)
 		for _, app := range apps {
-			if allLatestDeploymentsTargetEnv[app] != nil {
-				targetVersionByApp[app] = uint64(*allLatestDeploymentsTargetEnv[app])
+			if allLatestDeploymentsTargetEnv[app].Version != nil {
+				targetVersionByApp[app] = allLatestDeploymentsTargetEnv[app]
 			}
 		}
 		targetCommitIDByApp, err = state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, targetVersionByApp)
@@ -599,16 +599,16 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 	}
 
-	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
+	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName)
 	if err != nil {
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
 	}
 	var upstreamCommitIDByApp map[string]string
 	{
-		upstreamVersionByApp := make(map[string]uint64)
+		upstreamVersionByApp := make(map[string]types.ReleaseNumbers)
 		for _, app := range apps {
-			if allLatestDeploymentsUpstreamEnv[app] != nil {
-				upstreamVersionByApp[app] = uint64(*allLatestDeploymentsUpstreamEnv[app])
+			if allLatestDeploymentsUpstreamEnv[app].Version != nil {
+				upstreamVersionByApp[app] = allLatestDeploymentsUpstreamEnv[app]
 			}
 		}
 		upstreamCommitIDByApp, err = state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, upstreamVersionByApp)
@@ -641,7 +641,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				EnvLocks:           envLocksMap,
 				TeamLocks:          nil,
 				AppLocks:           nil,
-				Version:            0,
+				Version:            types.MakeReleaseNumberVersion(0),
 				Team:               "",
 				NewReleaseCommitId: upstreamCommitIDByApp[appName],
 				ExistingDeployment: nil,
@@ -687,7 +687,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					EnvLocks:           nil,
 					TeamLocks:          nil,
 					AppLocks:           nil,
-					Version:            0,
+					Version:            types.MakeReleaseNumberVersion(0),
 					Team:               team,
 					NewReleaseCommitId: upstreamCommitIDByApp[appName],
 					ExistingDeployment: nil,
@@ -703,11 +703,11 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 		currentlyDeployedVersion := allLatestDeploymentsTargetEnv[appName]
 
-		var versionToDeploy uint64
+		var versionToDeploy types.ReleaseNumbers
 		if overrideVersions != nil {
 			for _, override := range overrideVersions {
 				if override.App == appName {
-					versionToDeploy = *override.Version.Version
+					versionToDeploy = override.Version
 				}
 			}
 		} else if upstreamLatest {
@@ -720,7 +720,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		} else {
 			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
 
-			if upstreamVersion == nil {
+			if upstreamVersion.Version == nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
@@ -728,7 +728,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					EnvLocks:           nil,
 					TeamLocks:          nil,
 					AppLocks:           nil,
-					Version:            0,
+					Version:            types.MakeReleaseNumberVersion(0),
 					Team:               "",
 					NewReleaseCommitId: upstreamCommitIDByApp[appName],
 					ExistingDeployment: nil,
@@ -736,9 +736,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				}
 				continue
 			}
-			versionToDeploy = uint64(*upstreamVersion)
+			versionToDeploy = upstreamVersion
 		}
-		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == int64(versionToDeploy) {
+		if currentlyDeployedVersion.Version != nil && types.Equal(currentlyDeployedVersion, versionToDeploy) {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
@@ -746,7 +746,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				EnvLocks:           nil,
 				TeamLocks:          nil,
 				AppLocks:           nil,
-				Version:            0,
+				Version:            types.MakeReleaseNumberVersion(0),
 				Team:               "",
 				NewReleaseCommitId: upstreamCommitIDByApp[appName],
 				ExistingDeployment: nil,
@@ -786,7 +786,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				EnvLocks:           nil,
 				TeamLocks:          nil,
 				AppLocks:           appLocksMap,
-				Version:            0,
+				Version:            types.MakeReleaseNumberVersion(0),
 				Team:               "",
 				NewReleaseCommitId: upstreamCommitIDByApp[appName],
 				ExistingDeployment: nil,
@@ -815,7 +815,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				EnvLocks:           nil,
 				TeamLocks:          nil,
 				AppLocks:           nil,
-				Version:            0,
+				Version:            types.MakeReleaseNumberVersion(0),
 				Team:               "",
 				NewReleaseCommitId: upstreamCommitIDByApp[appName],
 				ExistingDeployment: nil,
@@ -837,7 +837,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					EnvLocks:           nil,
 					TeamLocks:          nil,
 					AppLocks:           nil,
-					Version:            0,
+					Version:            types.MakeReleaseNumberVersion(0),
 					Team:               teamName,
 					NewReleaseCommitId: upstreamCommitIDByApp[appName],
 					ExistingDeployment: nil,
@@ -877,7 +877,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					EnvLocks:           nil,
 					TeamLocks:          teamLocksMap,
 					AppLocks:           nil,
-					Version:            0,
+					Version:            types.MakeReleaseNumberVersion(0),
 					Team:               teamName,
 					NewReleaseCommitId: upstreamCommitIDByApp[appName],
 					ExistingDeployment: nil,
@@ -1004,7 +1004,7 @@ func (c *envReleaseTrain) applyPrognosis(
 		d := &DeployApplicationVersion{
 			Environment:     c.Env, // here we deploy to the next env
 			Application:     appName,
-			Version:         appPrognosis.Version,
+			Version:         *appPrognosis.Version.Version,
 			LockBehaviour:   api.LockBehavior_RECORD,
 			Authentication:  c.Parent.Authentication,
 			WriteCommitData: c.WriteCommitData,
@@ -1016,7 +1016,7 @@ func (c *envReleaseTrain) applyPrognosis(
 			TransformerEslVersion: c.TransformerEslVersion,
 			CiLink:                c.CiLink,
 			SkipCleanup:           true,
-			Revision:              0, //FIXME: Revisions not yet supported on release trains SRX-WZMFH5
+			Revision:              appPrognosis.Version.Revision,
 		}
 		prognosisData := DeployPrognosis{
 			TeamName:           appPrognosis.Team,
@@ -1089,20 +1089,20 @@ func (c *envReleaseTrain) renderEnvironmentSkipCause() func(SkipCause *api.Relea
 
 func (c *envReleaseTrain) renderApplicationSkipCause(
 	_ context.Context,
-	allLatestDeployments map[string]*int64,
+	allLatestDeployments map[string]types.ReleaseNumbers,
 ) func(Prognosis *ReleaseTrainApplicationPrognosis, appName string) string {
 	return func(Prognosis *ReleaseTrainApplicationPrognosis, appName string) string {
 		envConfig := c.AllEnvConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
-		var currentlyDeployedVersion uint64
-		if latestDeploymentVersion, found := allLatestDeployments[appName]; found && latestDeploymentVersion != nil {
-			currentlyDeployedVersion = uint64(*latestDeploymentVersion)
+		var currentlyDeployedVersion types.ReleaseNumbers
+		if latestDeploymentVersion, found := allLatestDeployments[appName]; found && latestDeploymentVersion.Version != nil {
+			currentlyDeployedVersion = latestDeploymentVersion
 		}
 		switch Prognosis.SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
 			return fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)
 		case api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION:
-			return fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, currentlyDeployedVersion)
+			return fmt.Sprintf("skipping %q because it is already in the version %v\n", appName, currentlyDeployedVersion)
 		case api.ReleaseTrainAppSkipCause_APP_IS_LOCKED:
 			return fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env)
 		case api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV:

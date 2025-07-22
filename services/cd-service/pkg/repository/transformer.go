@@ -454,8 +454,6 @@ func (c *CreateApplicationVersion) Transform(
 		return "", err
 	}
 
-
->>>>>>>
 	if !valid.ApplicationName(c.Application) {
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
@@ -811,7 +809,6 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 	return nil
 }
 
-
 func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (types.ReleaseNumbers, error) {
 	if c.Version == 0 {
 		return types.ReleaseNumbers{Version: nil, Revision: 0}, fmt.Errorf("version is required when using the database")
@@ -823,7 +820,6 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 		if metaData == nil {
 			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v.%v", c.Application, c.Version, c.Revision)
 			return types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, nil
->>>>>>>
 		}
 		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v", metaData.ReleaseNumbers, metaData)
 
@@ -832,7 +828,6 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 		// check if version differs, if it's the same, that's ok
 
 		return types.ReleaseNumbers{Version: nil, Revision: 0}, c.sameAsExistingDB(ctx, transaction, state, metaData)
->>>>>>>
 	}
 }
 

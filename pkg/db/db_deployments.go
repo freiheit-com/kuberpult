@@ -111,11 +111,11 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	return processAllLatestDeploymentsForApp(rows)
 }
 
-func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName types.EnvName) (map[string]*int64, error) {
+func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName types.EnvName) (map[string]types.ReleaseNumbers, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsOnEnvironment")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
-		SELECT appname, releaseVersion
+		SELECT appname, releaseVersion, revision
 		FROM deployments
 		WHERE deployments.envName= ?;
 	`)
@@ -636,12 +636,13 @@ func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[types.EnvName]Deploy
 	return result, nil
 }
 
-func processAllLatestDeployments(rows *sql.Rows) (map[string]*int64, error) {
-	result := make(map[string]*int64)
+func processAllLatestDeployments(rows *sql.Rows) (map[string]types.ReleaseNumbers, error) {
+	result := make(map[string]types.ReleaseNumbers)
 	for rows.Next() {
 		var releaseVersion sql.NullInt64
 		var appName string
-		err := rows.Scan(&appName, &releaseVersion)
+		var revision uint64
+		err := rows.Scan(&appName, &releaseVersion, &revision)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -650,7 +651,11 @@ func processAllLatestDeployments(rows *sql.Rows) (map[string]*int64, error) {
 		}
 
 		if releaseVersion.Valid {
-			result[appName] = &releaseVersion.Int64
+			v := uint64(releaseVersion.Int64)
+			result[appName] = types.ReleaseNumbers{
+				Version:  &v,
+				Revision: revision,
+			}
 		}
 	}
 	err := rows.Close()

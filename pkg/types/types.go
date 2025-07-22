@@ -91,6 +91,10 @@ func GreaterOrEqual(i, j ReleaseNumbers) bool {
 	return CompareReleaseNumbers(i, j) >= 0
 }
 
+func Equal(i, j ReleaseNumbers) bool {
+	return CompareReleaseNumbers(i, j) == 0
+}
+
 func CompareReleaseNumbers(a, b ReleaseNumbers) int {
 	// Compare versions
 	vCmp := cmp.Compare(*a.Version, *b.Version)
