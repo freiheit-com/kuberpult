@@ -385,7 +385,10 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
 									"potato-app": &api.ReleaseTrainAppPrognosis{
 										Outcome: &api.ReleaseTrainAppPrognosis_DeployedVersion{
-											DeployedVersion: 2,
+											DeployedVersion: &api.ReleaseTrainPrognosisDeployedVersion{
+												Version:  2,
+												Revision: 0,
+											},
 										},
 									},
 								},

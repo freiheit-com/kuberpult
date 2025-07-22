@@ -2318,13 +2318,13 @@ func TestReleaseTrain(t *testing.T) {
 		Name                 string
 		ReleaseVersionsLimit uint
 		Transformers         []Transformer
-		ExpectedVersion      uint
+		ExpectedVersion      types.ReleaseNumbers
 		TargetEnv            types.EnvName
 		TargetApp            string
 	}{
 		{
 			Name:            "Release train",
-			ExpectedVersion: 2,
+			ExpectedVersion: types.MakeReleaseNumberVersion(2),
 			TargetEnv:       envProduction,
 			TargetApp:       testAppName,
 			Transformers: []Transformer{
@@ -2385,7 +2385,7 @@ func TestReleaseTrain(t *testing.T) {
 		},
 		{
 			Name:            "Release train from Latest",
-			ExpectedVersion: 2,
+			ExpectedVersion: types.MakeReleaseNumberVersion(2),
 			TargetEnv:       envAcceptance,
 			TargetApp:       testAppName,
 			Transformers: []Transformer{
@@ -2431,7 +2431,7 @@ func TestReleaseTrain(t *testing.T) {
 		},
 		{
 			Name:            "Release train for a Team",
-			ExpectedVersion: 2,
+			ExpectedVersion: types.MakeReleaseNumberVersion(2),
 			TargetApp:       "test-my-app",
 			TargetEnv:       envProduction,
 			Transformers: []Transformer{
@@ -2535,8 +2535,8 @@ func TestReleaseTrain(t *testing.T) {
 					t.Fatalf("Expected deployment version, but got nil.")
 
 				}
-				if diff := cmp.Diff(uint(*deployment.ReleaseNumbers.Version), tc.ExpectedVersion); diff != "" {
-					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				if diff := cmp.Diff(tc.ExpectedVersion, deployment.ReleaseNumbers); diff != "" {
+					t.Fatalf("deployed version mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})

@@ -393,19 +393,17 @@ func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context,
 	SELECT
 		MAX(version) AS latest,
 		appname,
-		envname,
-		revision
+		envname
 	FROM
 		deployments_history
 	WHERE deployments_history.appname = (?) AND created <= (?) AND deployments_history.releaseVersion IS NOT NULL
 	GROUP BY
-		envName, appname, revision
+		envName, appname
 	) AS latest
 	JOIN
 		deployments_history AS deployments_history
 	ON
 		latest.latest=deployments_history.version
-		AND latest.revision=deployments_history.revision
 		AND latest.appname=deployments_history.appname
 		AND latest.envName=deployments_history.envName;`)
 	if h == nil {

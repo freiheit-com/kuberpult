@@ -105,6 +105,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 						Team:           "",
 						App:            currentApp,
 						Version:        strconv.FormatInt(int64(*version.Version), 10),
+						Revision:       strconv.FormatInt(int64(version.Revision), 10),
 						Environment:    *in.Environment,
 					})
 
@@ -156,6 +157,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 									Team:           "",
 									App:            currentApp,
 									Version:        strconv.FormatInt(int64(*version.Version), 10),
+									Revision:       strconv.FormatInt(int64(version.Revision), 10),
 									Environment:    string(envName),
 								})
 
@@ -182,7 +184,11 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			if err != nil {
 				return nil, fmt.Errorf("could not parse version to integer %s: %v", row.Version, err)
 			}
-			release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, row.App, v, false, *ts)
+			r, err := strconv.ParseUint(row.Revision, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("could not parse version to integer %s: %v", row.Revision, err)
+			}
+			release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, row.App, types.MakeReleaseNumbers(v, r), false, *ts)
 			if err != nil {
 				return nil, fmt.Errorf("error getting release for version")
 			}
@@ -190,7 +196,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			if err != nil {
 				return nil, fmt.Errorf("could not find app %s: %v", row.App, err)
 			}
-			productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.Metadata.SourceCommitId, DisplayVersion: release.Metadata.DisplayVersion, Environment: row.Environment, Team: team})
+			productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, Revision: row.Revision, CommitId: release.Metadata.SourceCommitId, DisplayVersion: release.Metadata.DisplayVersion, Environment: row.Environment, Team: team})
 		}
 		return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
 	})

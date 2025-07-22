@@ -51,7 +51,7 @@ export const TableFiltered: React.FC<TableProps> = (props) => {
         if (app.commitId !== '') {
             return app.commitId;
         }
-        return app.version;
+        return app.version + '.' + app.revision;
     };
     const displayTeams = props.teams;
     if (displayTeams.includes('<No Team>')) {

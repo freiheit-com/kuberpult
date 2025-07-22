@@ -163,13 +163,13 @@ func (h *DBHandler) DBSelectReleaseByReleaseNumbers(ctx context.Context, tx *sql
 	return data, nil
 }
 
-func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion uint64, ignorePrepublishes bool, ts time.Time) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion types.ReleaseNumbers, ignorePrepublishes bool, ts time.Time) (*DBReleaseWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersionAtTimestamp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases_history
-		WHERE appName=? AND releaseVersion=? AND created <= (?)
+		WHERE appName=? AND releaseVersion=? AND revision=? AND created <= (?)
 		ORDER BY version DESC
 		LIMIT 1;
 	`)
@@ -178,13 +178,14 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 		ctx,
 		selectQuery,
 		app,
-		releaseVersion,
+		releaseVersion.Version,
+		releaseVersion.Revision,
 		ts,
 	)
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
 }
 
-type AppVersionEnvironments map[string]map[types.ReleaseNumbers][]types.EnvName // first key is the appName
+type AppVersionEnvironments map[string]map[string][]types.EnvName // first key is the appName
 
 func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, tx *sql.Tx) (AppVersionEnvironments, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
@@ -670,7 +671,7 @@ func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error
 		}
 	}(rows)
 	//exhaustruct:ignore
-	var result = make(map[string]map[types.ReleaseNumbers][]types.EnvName)
+	var result = make(map[string]map[string][]types.EnvName)
 	for rows.Next() {
 		var environmentsStr sql.NullString
 		var appName string
@@ -691,9 +692,9 @@ func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error
 			}
 		}
 		if _, exists := result[appName]; !exists {
-			result[appName] = make(map[types.ReleaseNumbers][]types.EnvName)
+			result[appName] = make(map[string][]types.EnvName)
 		}
-		result[appName][types.MakeReleaseNumbers(releaseVersion, revision)] = environments
+		result[appName][fmt.Sprintf("%d.%d", releaseVersion, revision)] = environments
 	}
 	err = closeRows(rows)
 	if err != nil {
@@ -883,8 +884,8 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 	if err != nil {
 		return nil, fmt.Errorf("could not create query app releases table. Error: %w", err)
 	}
-	insertQuery := h.AdaptQuery(`INSERT INTO temp_query_app_releaseversions VALUES (?, ?, ?, ?)` + strings.Repeat(`, (?, ?, ?)`, len(versionByApp)-1) + `;`)
-	args := make([]interface{}, len(versionByApp)*3)
+	insertQuery := h.AdaptQuery(`INSERT INTO temp_query_app_releaseversions VALUES (?, ?, ?, ?)` + strings.Repeat(`, (?, ?, ?, ?)`, len(versionByApp)-1) + `;`)
+	args := make([]interface{}, len(versionByApp)*4)
 	i := 0
 	for appName, releaseVersion := range versionByApp {
 		args[i] = queryID

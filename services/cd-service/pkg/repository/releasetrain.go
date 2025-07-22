@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math"
 	"sort"
 	"time"
 
@@ -716,7 +715,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				logger.FromContext(ctx).Sugar().Warnf("app %s appears to have no releases on env=%s, so it is skipped", appName, envName)
 				continue
 			}
-			versionToDeploy = allLatestReleases[appName][int(math.Max(0, float64(l-1)))]
+			versionToDeploy = allLatestReleases[appName][0] //Releases come ordered version DESC, revision DESC (also garanteed to have at least 1 element)
 		} else {
 			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
 
@@ -795,9 +794,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			continue
 		}
 
-		releaseEnvs, exists := allLatestReleaseEnvironments[appName][versionToDeploy]
+		releaseEnvs, exists := allLatestReleaseEnvironments[appName][fmt.Sprintf("%v", versionToDeploy)]
 		if !exists {
-			return failedPrognosis(fmt.Errorf("no release found for app %s and versionToDeploy %d", appName, versionToDeploy))
+			return failedPrognosis(fmt.Errorf("no release found for app %s and versionToDeploy %v", appName, versionToDeploy))
 		}
 
 		found := false

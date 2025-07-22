@@ -100,6 +100,7 @@ describe('Product Version Data', () => {
                 {
                     app: 'testing-app',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -127,12 +128,21 @@ describe('Product Version Data', () => {
                 {
                     app: 'testing-app',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
                     team: 'sre-team',
                 },
-                { app: 'tester', version: '10', commitId: '4565', displayVersion: '', environment: 'dev', team: '' },
+                {
+                    app: 'tester',
+                    version: '10',
+                    revision: '0',
+                    commitId: '4565',
+                    displayVersion: '',
+                    environment: 'dev',
+                    team: '',
+                },
             ],
             environmentGroups: [
                 {
@@ -201,6 +211,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -217,6 +228,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -225,6 +237,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app2',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -241,6 +254,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -249,6 +263,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app 2',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -257,6 +272,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app 3',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -273,6 +289,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -281,6 +298,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app 2',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -289,6 +307,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app 3',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -297,6 +316,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app 4',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
@@ -305,6 +325,7 @@ describe('Test table filtering', () => {
                 {
                     app: 'testing-app 5',
                     version: '4',
+                    revision: '0',
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',

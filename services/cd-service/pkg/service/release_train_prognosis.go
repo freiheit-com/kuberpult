@@ -92,7 +92,10 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 					retAppPrognosis.Outcome = appPrognosis.SkipCause
 				} else {
 					retAppPrognosis.Outcome = &api.ReleaseTrainAppPrognosis_DeployedVersion{
-						DeployedVersion: *appPrognosis.Version.Version,
+						DeployedVersion: &api.ReleaseTrainPrognosisDeployedVersion{
+							Version:  *appPrognosis.Version.Version,
+							Revision: appPrognosis.Version.Revision,
+						},
 					}
 				}
 				retEnvPrognosis.GetAppsPrognoses().Prognoses[appName] = retAppPrognosis
