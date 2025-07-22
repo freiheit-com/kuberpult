@@ -51,18 +51,18 @@ jobs:
       run: |
        VERSION=$IMAGE_TAG_KUBERPULT make -C trivy build-base-image
        VERSION=$IMAGE_TAG_KUBERPULT make -C trivy push-base-image
-    - name: Run trivy scan
+    - name: Log image that trivy will check
       run: |
         echo "IMAGE_TAG_KUBERPULT: ${IMAGE_TAG_KUBERPULT}"
-#      run: |
-#        if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
-#          echo "Skipping trivy in PR, because this is done in `make build-pr` now."
-#        elif [[ ${{ inputs.trigger }} == "main" ]]; then
-#          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make -C trivy scan-all
-#        fi
-#    - name: Archive reports
-#      uses: actions/upload-artifact@v4
-#      with:
-#        name: vulnerability-report
-#        path: trivy/kuberpult*.tar.gz
-#
+    - name: Run trivy scan
+      run: |
+        if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
+          echo "Skipping trivy in PR, because this is done in `make build-pr` now."
+        elif [[ ${{ inputs.trigger }} == "main" ]]; then
+          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make -C trivy scan-all
+        fi
+    - name: Archive reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: vulnerability-report
+        path: trivy/kuberpult*.tar.gz
