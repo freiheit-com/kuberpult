@@ -25,6 +25,7 @@ MAIN_PATH=
 SERVICE_DIR:=/kp/pkg
 SKIP_TRIVY=1
 SKIP_RETAG_MAIN_AS_PR=1
+SKIP_DEPS=1
 include $(ROOT_DIR)/infrastructure/make/go/include.mk
 
 PKG_WITHOUT_DOCKER?=0
