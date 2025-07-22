@@ -135,6 +135,7 @@ func RunServer() {
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
 
 		var c Config
+
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
