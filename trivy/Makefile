@@ -22,7 +22,7 @@ VERSION?=$(shell git describe --always --long --tags || echo 0.0.1)
 TRIVY_IMAGE_URL:=$(TRIVY_IMAGE_REGISTRY):$(VERSION)
 SERVICE?=cd-service
 GCP_CREDENTIALS_PATH?=$(HOME)/.config/gcloud/application_default_credentials.json
-KUBERPULT_SERVICE_IMAGE=$(IMAGE_REGISTRY)/kuberpult-$(SERVICE):$(VERSION)
+KUBERPULT_SERVICE_IMAGE?=$(IMAGE_REGISTRY)/kuberpult-$(SERVICE):$(VERSION)
 KUBERPULT_SERVICE_REPORT_HTML=kuberpult-$(SERVICE).html
 KUBERPULT_REPORT_DIR="kuberpult-$(VERSION)-reports"
 
@@ -36,7 +36,7 @@ build-base-image:
 push-base-image:
 	docker push $(TRIVY_IMAGE_URL)
 
-scan-service-pr:
+scan-service-pr: build-base-image
 	docker run --rm -e TRIVY_USERNAME="" -e GOOGLE_APPLICATION_CREDENTIALS="/root/credentials.json" -v "$(GCP_CREDENTIALS_PATH)":/root/credentials.json:ro $(TRIVY_IMAGE_URL) \
 		trivy --db-repository $(TRIVY_DB_REPO)  --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image "$(KUBERPULT_SERVICE_IMAGE)"
 

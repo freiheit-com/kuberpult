@@ -20,6 +20,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
+	"sort"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -35,9 +39,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"math"
-	"sort"
-	"time"
 )
 
 func createLockPreventedDeploymentEvent(application string, environment types.EnvName, lockMsg, lockType string) *event.LockPreventedDeployment {
@@ -584,10 +585,36 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	if err != nil {
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
 	}
+	var targetCommitIDByApp map[string]string
+	{
+		targetVersionByApp := make(map[string]uint64)
+		for _, app := range apps {
+			if allLatestDeploymentsTargetEnv[app] != nil {
+				targetVersionByApp[app] = uint64(*allLatestDeploymentsTargetEnv[app])
+			}
+		}
+		targetCommitIDByApp, err = state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, targetVersionByApp)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("could not get all target commits for apps to deploy: %v", err)
+		}
+	}
 
 	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, apps)
 	if err != nil {
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
+	}
+	var upstreamCommitIDByApp map[string]string
+	{
+		upstreamVersionByApp := make(map[string]uint64)
+		for _, app := range apps {
+			if allLatestDeploymentsUpstreamEnv[app] != nil {
+				upstreamVersionByApp[app] = uint64(*allLatestDeploymentsUpstreamEnv[app])
+			}
+		}
+		upstreamCommitIDByApp, err = state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, upstreamVersionByApp)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("could not get all upstream commits for apps to deploy: %v", err)
+		}
 	}
 
 	if len(envLocks) > 0 {
@@ -609,17 +636,6 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 
 		for _, appName := range apps {
-			releases := c.AllLatestReleasesCache[appName]
-			var release uint64
-			if releases == nil {
-				release = 0
-			} else {
-				release = uint64(releases[len(releases)-1])
-			}
-			commitID, err := getCommitID(ctx, transaction, state, release, appName)
-			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
-			}
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 				SkipCause:          nil,
 				EnvLocks:           envLocksMap,
@@ -627,7 +643,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           nil,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: commitID,
+				NewReleaseCommitId: upstreamCommitIDByApp[appName],
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -657,19 +673,8 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	if err != nil {
 		return failedPrognosis(err)
 	}
-	for _, appName := range apps {
-		releases := c.AllLatestReleasesCache[appName]
-		var release uint64
-		if releases == nil {
-			release = 0
-		} else {
-			release = uint64(releases[len(releases)-1])
-		}
-		commitID, err := getCommitID(ctx, transaction, state, release, appName)
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
-		}
 
+	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			team, ok := allTeams[appName]
 			if !ok {
@@ -684,7 +689,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               team,
-					NewReleaseCommitId: commitID,
+					NewReleaseCommitId: upstreamCommitIDByApp[appName],
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -725,7 +730,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               "",
-					NewReleaseCommitId: commitID,
+					NewReleaseCommitId: upstreamCommitIDByApp[appName],
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -743,7 +748,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           nil,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: commitID,
+				NewReleaseCommitId: upstreamCommitIDByApp[appName],
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -783,7 +788,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           appLocksMap,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: commitID,
+				NewReleaseCommitId: upstreamCommitIDByApp[appName],
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -812,7 +817,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				AppLocks:           nil,
 				Version:            0,
 				Team:               "",
-				NewReleaseCommitId: commitID,
+				NewReleaseCommitId: upstreamCommitIDByApp[appName],
 				ExistingDeployment: nil,
 				OldReleaseCommitId: "",
 			}
@@ -834,7 +839,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               teamName,
-					NewReleaseCommitId: commitID,
+					NewReleaseCommitId: upstreamCommitIDByApp[appName],
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -874,7 +879,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					AppLocks:           nil,
 					Version:            0,
 					Team:               teamName,
-					NewReleaseCommitId: commitID,
+					NewReleaseCommitId: upstreamCommitIDByApp[appName],
 					ExistingDeployment: nil,
 					OldReleaseCommitId: "",
 				}
@@ -887,29 +892,17 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			return failedPrognosis(err)
 		}
 
-		var existingVersion *uint64 = nil
-		if existingDeployment != nil && existingDeployment.ReleaseNumbers.Version != nil {
-			var tmp2 = (uint64)(*existingDeployment.ReleaseNumbers.Version)
-			existingVersion = &tmp2
-		}
-		var oldReleaseCommitId = ""
-		if existingVersion != nil {
-			oldReleaseCommitId, _ = getCommitID(ctx, transaction, state, *existingVersion, appName)
-			// continue anyway, this is only for events
-		}
-
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 			SkipCause: nil,
-
 			EnvLocks:  nil,
 			TeamLocks: nil,
 			AppLocks:  nil,
 
 			Version:            versionToDeploy,
 			Team:               teamName,
-			NewReleaseCommitId: commitID,
+			NewReleaseCommitId: upstreamCommitIDByApp[appName],
 			ExistingDeployment: existingDeployment,
-			OldReleaseCommitId: oldReleaseCommitId,
+			OldReleaseCommitId: targetCommitIDByApp[appName],
 		}
 	}
 	return &ReleaseTrainEnvironmentPrognosis{
