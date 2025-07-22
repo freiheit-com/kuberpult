@@ -19,7 +19,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0 # fetch all
-        fetch-tags: true # but we do need tags
+        fetch-tags: true # we need tags for make version
     - name: "Authenticate to Google Cloud"
       uses: google-github-actions/auth@v2
       with:
@@ -46,14 +46,16 @@ jobs:
         elif [[ ${{ inputs.trigger }} == "main" ]]; then
           echo "IMAGE_TAG_KUBERPULT=main-$(make version)" >> $GITHUB_ENV
         fi
+    - name: Log image name that trivy will check
+      run: |
+        echo "IMAGE_TAG_KUBERPULT: ${IMAGE_TAG_KUBERPULT}"
+        echo "git tag: "
+        git describe --always --long --tags
     - name: Run and build trivy base image
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
        VERSION=$IMAGE_TAG_KUBERPULT make -C trivy build-base-image
        VERSION=$IMAGE_TAG_KUBERPULT make -C trivy push-base-image
-    - name: Log image that trivy will check
-      run: |
-        echo "IMAGE_TAG_KUBERPULT: ${IMAGE_TAG_KUBERPULT}"
     - name: Run trivy scan
       run: |
         if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
