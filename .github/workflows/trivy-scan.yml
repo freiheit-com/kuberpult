@@ -18,7 +18,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 1 # we do not need older commits
+        fetch-depth: 0 # fetch all
         fetch-tags: true # but we do need tags
     - name: "Authenticate to Google Cloud"
       uses: google-github-actions/auth@v2
@@ -63,3 +63,4 @@ jobs:
       with:
         name: vulnerability-report
         path: trivy/kuberpult*.tar.gz
+
