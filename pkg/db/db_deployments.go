@@ -388,7 +388,7 @@ func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context,
 	SELECT
 		deployments_history.envName,
 		deployments_history.releaseVersion,
-	    deployments_history.revision
+	        deployments_history.revision
 	FROM (
 	SELECT
 		MAX(version) AS latest,
