@@ -18,7 +18,7 @@ MIN_COVERAGE=32.2
 MAKEFLAGS += --no-builtin-rules
 CONTEXT=../..
 # Avoid calling docker to build the deps image:
-SKIP_BUILDER=0
+SKIP_BUILDER=1
 # avoid calling docker to run buf:
 PKG_WITHOUT_DOCKER=1
 

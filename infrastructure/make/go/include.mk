@@ -22,7 +22,7 @@ ifeq ($(SKIP_BUILDER),0)
 	@echo "docker build builder image"
 	IMAGE_TAG=latest $(MAKE) -C $(ROOT_DIR)/infrastructure/docker/builder build
 else
-	@echo "Skipping docker build for deps image"
+	@echo "Skipping docker build for builder image"
 endif
 
 .PHONY: compile
