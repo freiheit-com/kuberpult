@@ -134,8 +134,7 @@ func (c *Config) storageBackend() repository.StorageBackend {
 func RunServer() {
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
 
-		var c Config
-
+		var c Config // TODO SU remove this comment
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))

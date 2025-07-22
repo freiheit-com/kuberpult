@@ -25,9 +25,23 @@ else
 	@echo "Skipping docker build for builder image"
 endif
 
-.PHONY: compile
-compile: deps
-	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(BUILDER_IMAGE) sh -c 'test -n "$(MAIN_PATH)" || exit 0; cd $(MAIN_PATH) && CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi'
+APP_NAME := service-was-built
+GO_FILES := $(shell find . -type f -name '*.go')
+#GO_FILES:=$(shell find $(ROOT_DIR) -iname "*.go" ) go.mod go.sum
+
+#go-binary:
+
+
+clean:
+	rm $(APP_NAME)
+
+build-go: $(APP_NAME)
+#.PHONY: compile
+compile: deps build-go
+$(APP_NAME): $(GO_FILES)
+	echo go files: $(GO_FILES)
+	exit 0
+	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(BUILDER_IMAGE) sh -c 'test -n "$(MAIN_PATH)" || exit 0; cd $(MAIN_PATH) && CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi' && echo > $(APP_NAME)
 
 .PHONY: unit-test
 unit-test: deps
