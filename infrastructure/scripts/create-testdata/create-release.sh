@@ -59,8 +59,8 @@ case "${RELEASE_VERSION:-}" in
 	*) release_version+=('--form-string' "version=${RELEASE_VERSION:-}");;
 esac
 
-#rev=${REVISION:-"0"}
-#revision=('--form-string' "revision=${rev}")
+rev=${REVISION:-"0"}
+revision=('--form-string' "revision=${rev}")
 
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
@@ -112,6 +112,7 @@ curl http://localhost:${FRONTEND_PORT}/api/release \
   -H "author-name:${AUTHOR}=" \
   "${inputs[@]}" \
   "${release_version[@]}" \
+  "${revision[@]}" \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
