@@ -138,6 +138,7 @@ export const enableDexAuth = (setValidToken: boolean): void => {
             manifestRepoUrl: 'dontcare',
             sourceRepoUrl: 'dontcare',
             branch: 'dontcare',
+            revisionsEnabled: false,
         },
     });
 };

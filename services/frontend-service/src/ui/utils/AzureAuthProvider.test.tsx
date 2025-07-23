@@ -240,6 +240,7 @@ describe('AuthProvider', () => {
                     },
                 },
                 configReady: true,
+                revisionsEnabled: false,
             });
 
             // when

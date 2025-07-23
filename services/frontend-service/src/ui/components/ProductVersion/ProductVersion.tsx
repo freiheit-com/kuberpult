@@ -53,7 +53,7 @@ export const TableFiltered: React.FC<TableProps> = (props) => {
         if (app.commitId !== '') {
             return app.commitId;
         }
-        if (configs.RevisionsEnabled) {
+        if (configs.revisionsEnabled) {
             return app.version + '.' + app.revision;
         }
         return app.version;
