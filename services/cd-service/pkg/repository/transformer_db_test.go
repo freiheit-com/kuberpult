@@ -22,11 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"regexp"
 	"sort"
 	"testing"
 	gotime "time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/lib/pq"
@@ -1462,16 +1463,14 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 			},
 			expectedDbContent: []db.QueuedDeployment{
 				{
-					EslVersion: 2,
-					Env:        "production",
-					App:        testAppName,
+					Env: "production",
+					App: testAppName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  nil,
 						Revision: 0,
 					},
 				},
 				{
-					EslVersion:     1,
 					Env:            "production",
 					App:            testAppName,
 					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
@@ -1539,7 +1538,6 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 			},
 			expectedDbContent: []db.QueuedDeployment{
 				{
-					EslVersion:     1,
 					Env:            envProduction,
 					App:            testAppName,
 					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
