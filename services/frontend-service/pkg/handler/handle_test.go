@@ -484,7 +484,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody: "{\"development\":{\"Outcome\":{\"AppsPrognoses\":{\"prognoses\":{\"foo_app\":{\"Outcome\":{\"DeployedVersion\":99}}}}}}}",
+			expectedBody: "{\"development\":{\"Outcome\":{\"AppsPrognoses\":{\"prognoses\":{\"foo_app\":{\"Outcome\":{\"DeployedVersion\":{\"version\":99}}}}}}}}",
 			expectedReleaseTrainPrognosisRequest: &api.ReleaseTrainRequest{
 				Target:     "development",
 				Team:       "",
