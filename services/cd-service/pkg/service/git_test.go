@@ -212,15 +212,16 @@ func TestGetProductDB(t *testing.T) {
 						Application: "test",
 						Environment: "development",
 						Version:     1,
-						Revision:    0,
+						Revision:    1,
 					},
 				},
 				{
+
 					&rp.DeployApplicationVersion{
 						Application: "test",
 						Environment: "development",
 						Version:     1,
-						Revision:    1,
+						Revision:    0,
 					},
 				},
 			},
@@ -228,14 +229,14 @@ func TestGetProductDB(t *testing.T) {
 				{
 					ProductSummary: []*api.ProductSummary{
 						{
-							App: "test", Version: "1", Revision: "0", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
+							App: "test", Version: "1", Revision: "1", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
 						},
 					},
 				},
 				{
 					ProductSummary: []*api.ProductSummary{
 						{
-							App: "test", Version: "1", Revision: "1", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
+							App: "test", Version: "1", Revision: "0", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
 						},
 					},
 				},

@@ -469,7 +469,10 @@ func TestServer_Handle(t *testing.T) {
 								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
 									"foo_app": &api.ReleaseTrainAppPrognosis{
 										Outcome: &api.ReleaseTrainAppPrognosis_DeployedVersion{
-											DeployedVersion: 99,
+											DeployedVersion: &api.ReleaseTrainPrognosisDeployedVersion{
+												Version:  99,
+												Revision: 0,
+											},
 										},
 									},
 								},
