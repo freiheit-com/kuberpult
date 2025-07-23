@@ -45,7 +45,7 @@ endif
 gen: grpc-api-gen publicapi
 
 grpc-api-gen: api/v1/api.EnvironmentConfig_grpc.pb.go
-api/v1/api.EnvironmentConfig_grpc.pb.go api/v1/api.pb.go api/v1/api.pb.gw.go api/v1/api_grpc.pb.go: api/v1/api.proto buf.yaml buf.gen.yaml buf.lock
+api/v1/api.EnvironmentConfig_grpc.pb.go api/v1/api.pb.go api/v1/api.pb.gw.go api/v1/api_grpc.pb.go: api/v1/api.proto buf.yaml buf.gen.yaml buf.lock deps
 	if grep -q '^import "google/api/annotations.proto"' $< || grep -q '^import "google/api/http.proto"' $< ; then echo 'Instead of using google.api.http protobuf annotations we write HTTP handlers by hand' ; exit 1 ; fi
 ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"

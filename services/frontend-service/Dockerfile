@@ -1,4 +1,4 @@
-ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:main
+ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:latest
 FROM ${BUILDER_IMAGE} AS builder
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
@@ -29,7 +29,7 @@ WORKDIR /kp/
 ADD Makefile.variables .
 ADD Makefile .
 RUN make -C pkg gen SKIP_BUILDER=1 PKG_WITHOUT_DOCKER=1
-RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/frontend-service/cmd/server/main.go
+RUN GOARCH=arm64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/frontend-service/cmd/server/main.go
 
 # Build js:
 WORKDIR /kp/services/frontend-service/

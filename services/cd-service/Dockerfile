@@ -1,4 +1,4 @@
-ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:main
+ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:latest
 FROM ${BUILDER_IMAGE} as builder
 FROM alpine:3.21
 ENV TZ=Europe/Berlin
