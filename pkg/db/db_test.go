@@ -4150,8 +4150,8 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 				},
 			},
 			Expected: map[string][]types.ReleaseNumbers{
-				"app1": {types.MakeReleaseNumberVersion(1), types.MakeReleaseNumberVersion(2)},
-				"app2": {types.MakeReleaseNumberVersion(1), types.MakeReleaseNumberVersion(2)},
+				"app1": {types.MakeReleaseNumberVersion(2), types.MakeReleaseNumberVersion(1)},
+				"app2": {types.MakeReleaseNumberVersion(2), types.MakeReleaseNumberVersion(1)},
 			},
 		},
 	}
