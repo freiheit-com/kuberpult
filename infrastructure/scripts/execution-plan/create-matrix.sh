@@ -55,9 +55,9 @@ function createMatrix() {
   do
     grepOutput=$(echo "${ALL_FILES}" | grep "^infrastructure/docker/${stageADirectory}")
   # shellcheck disable=SC2181
-    if [ $? -eq 0 ]
+    if [ $? -eq 0 ] || [ "${makeTarget}" = "build-main" ]
     then
-      debug "adding stage-a directory ${stageADirectory} to the list because of a change in $(echo -e "${grepOutput}" | head -n 1)"
+      debug "adding stage-a directory ${stageADirectory} to the list because of a change in $(echo -e "${grepOutput}" | head -n 1) OR ${makeTarget}==build-main"
       inner=$(jq -n --arg directory "infrastructure/docker/${stageADirectory}" \
                     --arg command "make -C infrastructure/docker/${stageADirectory} ${makeTarget}" \
                     --arg artifacts "" \
