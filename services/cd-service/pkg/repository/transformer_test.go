@@ -1218,7 +1218,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[string]*int64{},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -1237,7 +1237,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[string]*int64{},
 					},
 				},
 			},
@@ -1272,7 +1272,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:                nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[string]*int64{},
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -1280,7 +1280,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:                nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[string]*int64{},
 					},
 				},
 			},
@@ -1321,7 +1321,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:                nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[string]*int64{},
 						EnvLocks:             nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
@@ -1330,7 +1330,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:                nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[string]*int64{},
 						EnvLocks:             nil,
 					},
 				},
@@ -1370,7 +1370,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Error:                nil,
 						EnvLocks:             nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[string]*int64{},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -1379,7 +1379,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Error:                nil,
 						EnvLocks:             nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[string]*int64{},
 					},
 				},
 			},

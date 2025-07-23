@@ -826,7 +826,6 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 		existingRelease := metaData.ReleaseNumbers
 		logger.FromContext(ctx).Sugar().Warnf("comparing release %v.%v: %v", c.Version, c.Revision, existingRelease)
 		// check if version differs, if it's the same, that's ok
-
 		return types.ReleaseNumbers{Version: nil, Revision: 0}, c.sameAsExistingDB(ctx, transaction, state, metaData)
 	}
 }
