@@ -21,7 +21,7 @@ import {
     useEnvironmentGroups,
     useEnvironments,
     addAction,
-    showSnackbarError,
+    showSnackbarError, useFrontendConfig,
 } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
@@ -44,6 +44,7 @@ export type TableProps = {
 };
 
 export const TableFiltered: React.FC<TableProps> = (props) => {
+    const { configs } = useFrontendConfig((c) => c);
     const versionToDisplay = (app: ProductSummary): string => {
         if (app.displayVersion !== '') {
             return app.displayVersion;
@@ -51,7 +52,10 @@ export const TableFiltered: React.FC<TableProps> = (props) => {
         if (app.commitId !== '') {
             return app.commitId;
         }
-        return app.version + '.' + app.revision;
+        if (configs.RevisionsEnabled) {
+            return app.version + '.' + app.revision;
+        }
+        return app.version;
     };
     const displayTeams = props.teams;
     if (displayTeams.includes('<No Team>')) {

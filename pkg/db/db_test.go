@@ -1112,24 +1112,21 @@ func TestReadAllLatestDeployment(t *testing.T) {
 		Name                string
 		EnvName             types.EnvName
 		SetupDeployments    []*Deployment
-		ExpectedDeployments map[string]*int64
+		ExpectedDeployments map[string]types.ReleaseNumbers
 	}{
 		{
 			Name:    "Select one deployment",
 			EnvName: "dev",
 			SetupDeployments: []*Deployment{
 				{
-					App: "app1",
-					Env: "dev",
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  uversion(7),
-					},
-					TransformerID: 0,
+					App:            "app1",
+					Env:            "dev",
+					ReleaseNumbers: types.MakeReleaseNumberVersion(7),
+					TransformerID:  0,
 				},
 			},
-			ExpectedDeployments: map[string]*int64{
-				"app1": version(7),
+			ExpectedDeployments: map[string]types.ReleaseNumbers{
+				"app1": types.MakeReleaseNumberVersion(7),
 			},
 		},
 		{
@@ -1146,17 +1143,14 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					TransformerID: 0,
 				},
 				{
-					App: "app1",
-					Env: "dev",
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  uversion(8),
-					},
-					TransformerID: 0,
+					App:            "app1",
+					Env:            "dev",
+					ReleaseNumbers: types.MakeReleaseNumberVersion(8),
+					TransformerID:  0,
 				},
 			},
-			ExpectedDeployments: map[string]*int64{
-				"app1": version(8),
+			ExpectedDeployments: map[string]types.ReleaseNumbers{
+				"app1": types.MakeReleaseNumberVersion(8),
 			},
 		},
 		{
@@ -1173,13 +1167,10 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					TransformerID: 0,
 				},
 				{
-					App: "app2",
-					Env: "dev",
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  uversion(8),
-					},
-					TransformerID: 0,
+					App:            "app2",
+					Env:            "dev",
+					ReleaseNumbers: types.MakeReleaseNumberVersion(8),
+					TransformerID:  0,
 				},
 				{
 					App: "app3",
@@ -1191,9 +1182,9 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
-			ExpectedDeployments: map[string]*int64{
-				"app1": version(7),
-				"app2": version(8),
+			ExpectedDeployments: map[string]types.ReleaseNumbers{
+				"app1": types.MakeReleaseNumberVersion(7),
+				"app2": types.MakeReleaseNumberVersion(8),
 			},
 		},
 	}
@@ -4132,47 +4123,35 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 	tcs := []struct {
 		Name     string
 		Releases []DBReleaseWithMetaData
-		Expected map[string][]int64
+		Expected map[string][]types.ReleaseNumbers
 	}{
 		{
 			Name: "Retrieve multiple releases",
 			Releases: []DBReleaseWithMetaData{
 				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
-					App:       "app1",
-					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
+					App:            "app1",
+					Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(2),
-						Revision: 0,
-					},
-					App:       "app1",
-					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.MakeReleaseNumberVersion(2),
+					App:            "app1",
+					Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
-					App:       "app2",
-					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
+					App:            "app2",
+					Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(2),
-						Revision: 0,
-					},
-					App:       "app2",
-					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					ReleaseNumbers: types.MakeReleaseNumberVersion(2),
+					App:            "app2",
+					Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
-			Expected: map[string][]int64{
-				"app1": {1, 2},
-				"app2": {1, 2},
+			Expected: map[string][]types.ReleaseNumbers{
+				"app1": {types.MakeReleaseNumberVersion(1), types.MakeReleaseNumberVersion(2)},
+				"app2": {types.MakeReleaseNumberVersion(1), types.MakeReleaseNumberVersion(2)},
 			},
 		},
 	}

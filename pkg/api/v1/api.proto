@@ -413,6 +413,7 @@ message GetFrontendConfigResponse {
   string kuberpult_version = 4;
   string branch = 5;
   string manifest_repo_url = 6;
+  bool revisions_enabled = 7;
 }
 
 message GetVersionRequest {

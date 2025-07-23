@@ -51,6 +51,7 @@ func (c *FrontendConfigServiceServer) GetConfig(
 		ManifestRepoUrl:  c.Config.ManifestRepoUrl,
 		KuberpultVersion: c.Config.KuberpultVersion,
 		Branch:           c.Config.Branch,
+		RevisionsEnabled: c.Config.RevisionsEnabled,
 	}
 	return &result, nil
 }
