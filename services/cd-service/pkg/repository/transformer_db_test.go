@@ -2501,6 +2501,83 @@ func TestReleaseTrain(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:            "Release train - Test revision",
+			ExpectedVersion: types.MakeReleaseNumbers(1, 1),
+			TargetApp:       "test-my-app",
+			TargetEnv:       envProduction,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+					TransformerEslVersion: 0,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+					TransformerEslVersion: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test-my-app",
+					Manifests: map[types.EnvName]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					Team:                  testAppName,
+					WriteCommitData:       true,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 0,
+				},
+				&DeployApplicationVersion{
+					Environment:           envProduction,
+					Application:           "test-my-app",
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test-my-app",
+					Manifests: map[types.EnvName]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData:       true,
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 0,
+					Team:                  testAppName,
+				},
+				&DeployApplicationVersion{
+					Environment:           envAcceptance,
+					Application:           "test-my-app",
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 0,
+				},
+				&DeployApplicationVersion{
+					Environment:           envAcceptance,
+					Application:           "test-my-app",
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 0,
+				},
+				&ReleaseTrain{
+					Target:                envProduction,
+					Team:                  testAppName,
+					TransformerEslVersion: 0,
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
