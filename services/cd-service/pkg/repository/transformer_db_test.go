@@ -1104,7 +1104,6 @@ func TestMinorFlag(t *testing.T) {
 				},
 			},
 			ExpectedMinors: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(11),
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
@@ -1171,7 +1170,6 @@ func TestMinorFlag(t *testing.T) {
 				},
 			},
 			ExpectedMinors: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(12),
 			},
 			ExpectedMajors: []types.ReleaseNumbers{
@@ -1239,7 +1237,6 @@ func TestMinorFlag(t *testing.T) {
 			},
 			MinorRegexes: []*regexp.Regexp{regexp.MustCompile(".*manifest.*")},
 			ExpectedMinors: []types.ReleaseNumbers{
-
 				types.MakeReleaseNumberVersion(11),
 				types.MakeReleaseNumberVersion(12),
 			},
