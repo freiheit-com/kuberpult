@@ -139,6 +139,7 @@ message ReplacedByEvent{
   string replaced_by_commit_id = 1;
   string application = 2;
   string environment = 3;
+  string test_delete_me = 4;
 }
 
 message TagData {

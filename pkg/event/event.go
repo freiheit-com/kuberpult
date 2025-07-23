@@ -151,6 +151,7 @@ func (ev *ReplacedBy) toProto(trg *api.Event) {
 			Application:        ev.Application,
 			Environment:        ev.Environment,
 			ReplacedByCommitId: ev.CommitIDtoReplace,
+			TestDeleteMe:       "test-delete-me",
 		},
 	}
 }
