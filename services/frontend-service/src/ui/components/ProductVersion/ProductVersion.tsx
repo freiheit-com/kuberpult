@@ -21,7 +21,8 @@ import {
     useEnvironmentGroups,
     useEnvironments,
     addAction,
-    showSnackbarError, useFrontendConfig,
+    showSnackbarError,
+    useFrontendConfig,
 } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
