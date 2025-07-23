@@ -532,7 +532,7 @@ describe('Action details', () => {
                 type: ActionTypes.Deploy,
                 name: 'Deploy',
                 dialogTitle: 'Please be aware:',
-                summary: 'Deploy version 1337.0 of "bread" to foo',
+                summary: 'Deploy version 1337 of "bread" to foo',
                 tooltip: '',
                 environment: 'foo',
                 application: 'bread',
@@ -559,7 +559,7 @@ describe('Action details', () => {
                 type: ActionTypes.Deploy,
                 name: 'Deploy',
                 dialogTitle: 'Please be aware:',
-                summary: 'Advancing by 1 releases up to version 1338.0 of bread to foo',
+                summary: 'Advancing by 1 releases up to version 1338 of bread to foo',
                 tooltip: '',
                 environment: 'foo',
                 application: 'bread',
@@ -586,7 +586,7 @@ describe('Action details', () => {
                 type: ActionTypes.Deploy,
                 name: 'Deploy',
                 dialogTitle: 'Please be aware:',
-                summary: 'Rolling back by 1 releases down to version 1336.0 of bread to foo',
+                summary: 'Rolling back by 1 releases down to version 1336 of bread to foo',
                 tooltip: '',
                 environment: 'foo',
                 application: 'bread',
@@ -757,7 +757,7 @@ describe('Action details', () => {
             };
             updateAppDetails.set(appDetails);
             const obtainedDetails = renderHook(() =>
-                getActionDetails(testcase.action, appLocks, envLocks, teamLocks, appDetails)
+                getActionDetails(testcase.action, appLocks, envLocks, teamLocks, appDetails, false)
             ).result.current;
             expect(obtainedDetails).toStrictEqual(testcase.expectedDetails);
         });
@@ -1105,7 +1105,7 @@ describe('Action failed after applying ', () => {
             const appLocks = testcase.appLocks || [];
             const teamLocks = testcase.teamLocks || [];
             const appDetails: { [key: string]: AppDetailsResponse } = {};
-            showFailedActionMessage(testcase.error, testcase.actions, appLocks, envLocks, teamLocks, appDetails);
+            showFailedActionMessage(testcase.error, testcase.actions, appLocks, envLocks, teamLocks, appDetails, false);
 
             expect(UpdateSnackbar.get().show).toBe(true);
             expect(UpdateSnackbar.get().status).toBe(SnackbarStatus.ERROR);

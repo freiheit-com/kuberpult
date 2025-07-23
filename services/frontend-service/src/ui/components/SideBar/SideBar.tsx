@@ -35,6 +35,7 @@ import {
     useAppDetails,
     AppDetailsResponse,
     InvalidateAppLocks,
+    useFrontendConfig,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -84,7 +85,8 @@ export const getActionDetails = (
     appLocks: DisplayLock[],
     envLocks: DisplayLock[],
     teamLocks: DisplayLock[],
-    appDetails: { [key: string]: AppDetailsResponse }
+    appDetails: { [key: string]: AppDetailsResponse },
+    revisionsEnabled: boolean
 ): ActionDetails => {
     switch (action?.$case) {
         case 'createEnvironmentLock':
@@ -205,14 +207,15 @@ export const getActionDetails = (
                         action.deploy.environment,
                         appDetails[action.deploy.application]
                     );
+                    const displayVersion = revisionsEnabled
+                        ? action.deploy.version + '.' + action.deploy.revision
+                        : action.deploy.version;
                     if (releaseDiff > 0) {
                         return (
                             'Rolling back by ' +
                             releaseDiff +
                             ' releases down to version ' +
-                            action.deploy.version +
-                            '.' +
-                            action.deploy.revision +
+                            displayVersion +
                             ' of ' +
                             action.deploy.application +
                             ' to ' +
@@ -223,9 +226,7 @@ export const getActionDetails = (
                             'Advancing by ' +
                             releaseDiff * -1 +
                             ' releases up to version ' +
-                            action.deploy.version +
-                            '.' +
-                            action.deploy.revision +
+                            displayVersion +
                             ' of ' +
                             action.deploy.application +
                             ' to ' +
@@ -234,9 +235,7 @@ export const getActionDetails = (
                     } else {
                         return (
                             'Deploy version ' +
-                            action.deploy.version +
-                            '.' +
-                            action.deploy.revision +
+                            displayVersion +
                             ' of "' +
                             action.deploy.application +
                             '" to ' +
@@ -312,7 +311,8 @@ export const showFailedActionMessage = (
     appLocks: DisplayLock[],
     envLocks: DisplayLock[],
     teamLocks: DisplayLock[],
-    appDetails: { [key: string]: AppDetailsResponse }
+    appDetails: { [key: string]: AppDetailsResponse },
+    revisionsEnabled: boolean
 ): void => {
     const GrpcErrorPermissionDenied = 7;
     if (e.code === GrpcErrorPermissionDenied) {
@@ -324,7 +324,7 @@ export const showFailedActionMessage = (
             const errorMessage = match[2];
             const failedActionIndex = parseInt(match[1], 10);
             const failedAction = actions[failedActionIndex];
-            const details = getActionDetails(failedAction, envLocks, appLocks, teamLocks, appDetails);
+            const details = getActionDetails(failedAction, envLocks, appLocks, teamLocks, appDetails, revisionsEnabled);
             showSnackbarError(`${details.summary} failed: ${errorMessage}. Please try again`);
         } else {
             showSnackbarError('Actions were not applied. Please try again');
@@ -339,7 +339,15 @@ type SideBarListItemProps = {
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
     const { environmentLocks, appLocks, teamLocks } = useAllLocks();
     const appDetails = useAppDetails((m) => m);
-    const actionDetails = getActionDetails(action, appLocks, environmentLocks, teamLocks, appDetails);
+    const { configs } = useFrontendConfig((c) => c);
+    const actionDetails = getActionDetails(
+        action,
+        appLocks,
+        environmentLocks,
+        teamLocks,
+        appDetails,
+        configs.revisionsEnabled
+    );
     const release = useRelease(actionDetails.application ?? '', actionDetails.version ?? 0, 0);
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     const similarLocks = useLocksSimilarTo(action);
@@ -480,6 +488,7 @@ export const SideBarList = (): JSX.Element => {
 };
 
 export const SideBar: React.FC<{ className?: string }> = (props) => {
+    const { configs } = useFrontendConfig((c) => c);
     const className = 'mdc-drawer-sidebar--displayed'; //props;
     const { environmentLocks, appLocks, teamLocks } = useAllLocks();
     const appDetails = useAppDetails((m) => m);
@@ -604,7 +613,15 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 .catch((e) => {
                     // eslint-disable-next-line no-console
                     console.error('error in batch request: ', e);
-                    showFailedActionMessage(e, actions, appLocks, environmentLocks, teamLocks, appDetails);
+                    showFailedActionMessage(
+                        e,
+                        actions,
+                        appLocks,
+                        environmentLocks,
+                        teamLocks,
+                        appDetails,
+                        configs.revisionsEnabled
+                    );
                 })
                 .finally(() => {
                     appNamesToInvalidate.forEach((appName) => invalidateAppDetailsForApp(appName));

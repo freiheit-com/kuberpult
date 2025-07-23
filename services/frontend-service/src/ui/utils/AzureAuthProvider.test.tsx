@@ -238,9 +238,9 @@ describe('AuthProvider', () => {
                             redirectUrl: 'example.com',
                         },
                     },
+                    revisionsEnabled: false,
                 },
                 configReady: true,
-                revisionsEnabled: false,
             });
 
             // when

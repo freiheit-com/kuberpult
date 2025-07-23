@@ -26,6 +26,9 @@ jest.mock('../../utils/store', () => ({
     refreshTags() {
         return {};
     },
+    useFrontendConfig() {
+        return {};
+    },
     useEnvironmentGroups() {
         return mock_UseEnvGroups();
     },
