@@ -87,7 +87,7 @@ func TestGetProductDB(t *testing.T) {
 				{
 					ProductSummary: []*api.ProductSummary{
 						{
-							App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "sre-team", Environment: "development",
+							App: "test", Version: "1", Revision: "0", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "sre-team", Environment: "development",
 						},
 					},
 				},
@@ -154,14 +154,89 @@ func TestGetProductDB(t *testing.T) {
 				{
 					ProductSummary: []*api.ProductSummary{
 						{
-							App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
+							App: "test", Version: "1", Revision: "0", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
 						},
 					},
 				},
 				{
 					ProductSummary: []*api.ProductSummary{
 						{
-							App: "test", Version: "2", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
+							App: "test", Version: "2", Revision: "0", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:     "Test Product - Revision",
+			givenEnv: conversion.FromString("development"),
+			SetupStages: [][]rp.Transformer{
+				{
+					&rp.CreateEnvironment{
+						Environment: "development",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Latest: true,
+							},
+							ArgoCd:           nil,
+							EnvironmentGroup: conversion.FromString("dev"),
+						},
+					},
+					&rp.CreateApplicationVersion{
+						Application: "test",
+						Manifests: map[types.EnvName]string{
+							"development": "dev",
+						},
+						SourceAuthor:    "example <example@example.com>",
+						SourceCommitId:  "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+						SourceMessage:   "changed something (#678)",
+						DisplayVersion:  "v1.0.2",
+						WriteCommitData: true,
+						Version:         1,
+						Revision:        0,
+					},
+					&rp.CreateApplicationVersion{
+						Application: "test",
+						Manifests: map[types.EnvName]string{
+							"development": "dev",
+						},
+						SourceAuthor:    "example <example@example.com>",
+						SourceCommitId:  "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+						SourceMessage:   "changed something (#678)",
+						DisplayVersion:  "v1.0.2",
+						WriteCommitData: true,
+						Version:         1,
+						Revision:        1,
+					},
+					&rp.DeployApplicationVersion{
+						Application: "test",
+						Environment: "development",
+						Version:     1,
+						Revision:    1,
+					},
+				},
+				{
+
+					&rp.DeployApplicationVersion{
+						Application: "test",
+						Environment: "development",
+						Version:     1,
+						Revision:    0,
+					},
+				},
+			},
+			expectedProductSummary: []*api.GetProductSummaryResponse{
+				{
+					ProductSummary: []*api.ProductSummary{
+						{
+							App: "test", Version: "1", Revision: "1", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
+						},
+					},
+				},
+				{
+					ProductSummary: []*api.ProductSummary{
+						{
+							App: "test", Version: "1", Revision: "0", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "", Environment: "development",
 						},
 					},
 				},
@@ -206,7 +281,7 @@ func TestGetProductDB(t *testing.T) {
 				{
 					ProductSummary: []*api.ProductSummary{
 						{
-							App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "sre-team", Environment: "development",
+							App: "test", Version: "1", Revision: "0", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "sre-team", Environment: "development",
 						},
 					},
 				},
@@ -292,7 +367,7 @@ func TestGetProductDB(t *testing.T) {
 				{
 					ProductSummary: []*api.ProductSummary{
 						{
-							App: "test2", Version: "2", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "sre-team", Environment: "staging",
+							App: "test2", Version: "2", Revision: "0", DisplayVersion: "v1.0.2", CommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Team: "sre-team", Environment: "staging",
 						},
 					},
 				},

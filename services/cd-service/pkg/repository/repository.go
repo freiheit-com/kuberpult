@@ -853,11 +853,11 @@ func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, en
 func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) error {
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
-func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName, allApps []string) (map[string]*int64, error) {
+func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[string]types.ReleaseNumbers, error) {
 	return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 }
 
-func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, allApps []string) (map[string][]int64, error) {
+func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx) (map[string][]types.ReleaseNumbers, error) {
 	return s.DBHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
 }
 

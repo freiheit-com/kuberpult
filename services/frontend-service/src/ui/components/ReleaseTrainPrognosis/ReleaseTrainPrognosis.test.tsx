@@ -382,7 +382,10 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                     'app-1': {
                                         outcome: {
                                             $case: 'deployedVersion',
-                                            deployedVersion: 1,
+                                            deployedVersion: {
+                                                version: 1,
+                                                revision: 0,
+                                            },
                                         },
                                         appLocks: [],
                                         teamLocks: [],
@@ -390,7 +393,10 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                     'app-2': {
                                         outcome: {
                                             $case: 'deployedVersion',
-                                            deployedVersion: 2,
+                                            deployedVersion: {
+                                                version: 2,
+                                                revision: 0,
+                                            },
                                         },
                                         appLocks: [],
                                         teamLocks: [],
@@ -408,7 +414,10 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                                     'app-3': {
                                         outcome: {
                                             $case: 'deployedVersion',
-                                            deployedVersion: 1,
+                                            deployedVersion: {
+                                                version: 1,
+                                                revision: 0,
+                                            },
                                         },
                                         appLocks: [],
                                         teamLocks: [],

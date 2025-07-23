@@ -1237,6 +1237,7 @@ export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendCon
         manifestRepoUrl: '',
         branch: '',
         kuberpultVersion: '0',
+        revisionsEnabled: false,
     },
     configReady: false,
 });

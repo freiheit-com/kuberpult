@@ -66,6 +66,7 @@ type FrontendConfig struct {
 	SourceRepoUrl    string        `json:"source"`
 	ManifestRepoUrl  string        `json:"manifestRepoUrl"`
 	Branch           string        `json:"branch"`
+	RevisionsEnabled bool          `json:"revisionsEnabled"`
 }
 
 type ArgoCdConfig struct {

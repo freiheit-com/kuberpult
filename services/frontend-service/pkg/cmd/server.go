@@ -331,6 +331,7 @@ func runServer(ctx context.Context) error {
 			SourceRepoUrl:    c.SourceRepoUrl,
 			KuberpultVersion: c.Version,
 			Branch:           c.GitBranch,
+			RevisionsEnabled: c.RevisionsEnabled,
 		},
 	}
 

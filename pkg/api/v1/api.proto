@@ -49,6 +49,7 @@ message ProductSummary {
   string display_version = 4;
   string environment = 5;
   string team = 6;
+  string revision = 7;
 }
 
 message GetCommitInfoRequest {
@@ -412,6 +413,7 @@ message GetFrontendConfigResponse {
   string kuberpult_version = 4;
   string branch = 5;
   string manifest_repo_url = 6;
+  bool revisions_enabled = 7;
 }
 
 message GetVersionRequest {
@@ -795,10 +797,15 @@ enum ReleaseTrainAppSkipCause {
   APP_WITHOUT_TEAM = 7; // the app is not assigned to a team
 }
 
+message ReleaseTrainPrognosisDeployedVersion {
+  uint64 version = 1;
+  uint64 revision = 2;
+}
+
 message ReleaseTrainAppPrognosis {
   oneof outcome {
     ReleaseTrainAppSkipCause skip_cause = 1;
-    uint64 deployed_version = 2;
+    ReleaseTrainPrognosisDeployedVersion deployed_version = 2;
   }
   repeated Lock appLocks = 3;
   repeated Lock teamLocks = 4;
@@ -811,6 +818,7 @@ enum ReleaseTrainEnvSkipCause {
   UPSTREAM_ENV_CONFIG_NOT_FOUND = 3;
   ENV_IS_LOCKED = 4;
 }
+
 
 message ReleaseTrainEnvPrognosis {
   message AppsPrognosesWrapper {

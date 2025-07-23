@@ -2315,13 +2315,13 @@ func TestReleaseTrain(t *testing.T) {
 		Name                 string
 		ReleaseVersionsLimit uint
 		Transformers         []Transformer
-		ExpectedVersion      uint
+		ExpectedVersion      types.ReleaseNumbers
 		TargetEnv            types.EnvName
 		TargetApp            string
 	}{
 		{
 			Name:            "Release train",
-			ExpectedVersion: 2,
+			ExpectedVersion: types.MakeReleaseNumberVersion(2),
 			TargetEnv:       envProduction,
 			TargetApp:       testAppName,
 			Transformers: []Transformer{
@@ -2382,7 +2382,7 @@ func TestReleaseTrain(t *testing.T) {
 		},
 		{
 			Name:            "Release train from Latest",
-			ExpectedVersion: 2,
+			ExpectedVersion: types.MakeReleaseNumberVersion(2),
 			TargetEnv:       envAcceptance,
 			TargetApp:       testAppName,
 			Transformers: []Transformer{
@@ -2428,7 +2428,7 @@ func TestReleaseTrain(t *testing.T) {
 		},
 		{
 			Name:            "Release train for a Team",
-			ExpectedVersion: 2,
+			ExpectedVersion: types.MakeReleaseNumberVersion(2),
 			TargetApp:       "test-my-app",
 			TargetEnv:       envProduction,
 			Transformers: []Transformer{
@@ -2498,6 +2498,83 @@ func TestReleaseTrain(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:            "Release train - Test revision",
+			ExpectedVersion: types.MakeReleaseNumbers(1, 1),
+			TargetApp:       "test-my-app",
+			TargetEnv:       envProduction,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+					TransformerEslVersion: 0,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+					TransformerEslVersion: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test-my-app",
+					Manifests: map[types.EnvName]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					Team:                  testAppName,
+					WriteCommitData:       true,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 0,
+				},
+				&DeployApplicationVersion{
+					Environment:           envProduction,
+					Application:           "test-my-app",
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 0,
+				},
+				&CreateApplicationVersion{
+					Application: "test-my-app",
+					Manifests: map[types.EnvName]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					WriteCommitData:       true,
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 0,
+					Team:                  testAppName,
+				},
+				&DeployApplicationVersion{
+					Environment:           envAcceptance,
+					Application:           "test-my-app",
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 0,
+				},
+				&DeployApplicationVersion{
+					Environment:           envAcceptance,
+					Application:           "test-my-app",
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 0,
+				},
+				&ReleaseTrain{
+					Target:                envProduction,
+					Team:                  testAppName,
+					TransformerEslVersion: 0,
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -2532,8 +2609,8 @@ func TestReleaseTrain(t *testing.T) {
 					t.Fatalf("Expected deployment version, but got nil.")
 
 				}
-				if diff := cmp.Diff(uint(*deployment.ReleaseNumbers.Version), tc.ExpectedVersion); diff != "" {
-					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				if diff := cmp.Diff(tc.ExpectedVersion, deployment.ReleaseNumbers); diff != "" {
+					t.Fatalf("deployed version mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
 			})

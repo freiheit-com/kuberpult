@@ -469,7 +469,10 @@ func TestServer_Handle(t *testing.T) {
 								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
 									"foo_app": &api.ReleaseTrainAppPrognosis{
 										Outcome: &api.ReleaseTrainAppPrognosis_DeployedVersion{
-											DeployedVersion: 99,
+											DeployedVersion: &api.ReleaseTrainPrognosisDeployedVersion{
+												Version:  99,
+												Revision: 0,
+											},
 										},
 									},
 								},
@@ -481,7 +484,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody: "{\"development\":{\"Outcome\":{\"AppsPrognoses\":{\"prognoses\":{\"foo_app\":{\"Outcome\":{\"DeployedVersion\":99}}}}}}}",
+			expectedBody: "{\"development\":{\"Outcome\":{\"AppsPrognoses\":{\"prognoses\":{\"foo_app\":{\"Outcome\":{\"DeployedVersion\":{\"version\":99}}}}}}}}",
 			expectedReleaseTrainPrognosisRequest: &api.ReleaseTrainRequest{
 				Target:     "development",
 				Team:       "",

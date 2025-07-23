@@ -49,7 +49,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 	dbHandler := t.Repo.State().DBHandler
 	var prognosis rp.ReleaseTrainPrognosis
 
-        const readOnly=false // generally speaking, the prognoses only read data, however `DBSelectCommitIdAppReleaseVersions` requires write access for a temporary table.
+	const readOnly = false // generally speaking, the prognoses only read data, however `DBSelectCommitIdAppReleaseVersions` requires write access for a temporary table.
 	_ = dbHandler.WithTransaction(ctx, readOnly, func(ctx context.Context, transaction *sql.Tx) error {
 		configs, err := t.Repo.State().GetAllEnvironmentConfigs(ctx, transaction)
 		if err != nil {
@@ -92,7 +92,10 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 					retAppPrognosis.Outcome = appPrognosis.SkipCause
 				} else {
 					retAppPrognosis.Outcome = &api.ReleaseTrainAppPrognosis_DeployedVersion{
-						DeployedVersion: appPrognosis.Version,
+						DeployedVersion: &api.ReleaseTrainPrognosisDeployedVersion{
+							Version:  *appPrognosis.Version.Version,
+							Revision: appPrognosis.Version.Revision,
+						},
 					}
 				}
 				retEnvPrognosis.GetAppsPrognoses().Prognoses[appName] = retAppPrognosis

@@ -171,7 +171,11 @@ const AppPrognosisRow: React.FC<{ appName: string; appPrognosis: ReleaseTrainApp
             outcomeCell = <AppPrognosisOutcomeSkipCell skipCause={outcome.skipCause} />;
         } else {
             outcomeCell = (
-                <AppPrognosisOutcomeReleaseCell appName={appName} version={outcome.deployedVersion} revision={0} />
+                <AppPrognosisOutcomeReleaseCell
+                    appName={appName}
+                    version={outcome.deployedVersion.version}
+                    revision={outcome.deployedVersion.revision}
+                />
             );
         }
     }
