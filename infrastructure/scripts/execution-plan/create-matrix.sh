@@ -7,7 +7,7 @@
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
-STAGE_A_BUILDS="builder"
+STAGE_A_BUILDS="infrastructure/docker/builder"
 STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service services/manifest-repo-export-service services/rollout-service services/reposerver-service"
 
 function debug() {
@@ -49,17 +49,32 @@ function createMatrix() {
   fi
   debug "grep for pkg: ${grepOutput}"
 
+  # if we have a change in protobuf, we need to rebuild the builder image:
+  grepOutput=$(echo "${ALL_FILES}" | grep '^pkg/api/v1/api.proto')
+  # shellcheck disable=SC2181
+  if [ "$?" -eq 0 ]
+  then
+    debug "pkg/api/v1/api.proto was touched, therefore we need to build the builder as well."
+    for stageA in $STAGE_A_BUILDS
+    do
+      ALL_FILES=$(echo -e "${ALL_FILES}\n${stageA}\n")
+    done
+  else
+    debug "pkg/api/v1/api.proto untouched, no need to build all of stage B"
+  fi
+  debug "grep for pkg: ${grepOutput}"
+
   stageArray=""
   stageArrayFullBuild=false
   for stageADirectory in $STAGE_A_BUILDS
   do
-    grepOutput=$(echo "${ALL_FILES}" | grep "^infrastructure/docker/${stageADirectory}")
+    grepOutput=$(echo "${ALL_FILES}" | grep "^${stageADirectory}")
   # shellcheck disable=SC2181
     if [ $? -eq 0 ] || [ "${makeTarget}" = "build-main" ]
     then
       debug "adding stage-a directory ${stageADirectory} to the list because of a change in $(echo -e "${grepOutput}" | head -n 1) OR ${makeTarget}==build-main"
-      inner=$(jq -n --arg directory "infrastructure/docker/${stageADirectory}" \
-                    --arg command "make -C infrastructure/docker/${stageADirectory} ${makeTarget}" \
+      inner=$(jq -n --arg directory "${stageADirectory}" \
+                    --arg command "make -C ${stageADirectory} ${makeTarget}" \
                     --arg artifacts "" \
                     --arg artifactName "Artifact_infrastructure_docker_${stageADirectory}" \
                     '$ARGS.named'
@@ -67,8 +82,8 @@ function createMatrix() {
       stageArrayFullBuild=true
     else
       debug "adding ${stageADirectory} to the list, despite no change, in order to tag the main image."
-      inner=$(jq -n --arg directory "infrastructure/docker/${stageADirectory}" \
-                    --arg command "make -C infrastructure/docker/${stageADirectory} retag-main" \
+      inner=$(jq -n --arg directory "${stageADirectory}" \
+                    --arg command "make -C ${stageADirectory} retag-main" \
                     --arg artifacts "" \
                     --arg artifactName "Artifact_infrastructure_docker_${stageADirectory}" \
                     '$ARGS.named'
