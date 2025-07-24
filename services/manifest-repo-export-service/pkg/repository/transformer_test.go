@@ -955,11 +955,11 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
 					fileData: []byte("123456789abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
 					fileData: []byte("abcdef"),
 				},
 			},
@@ -1063,16 +1063,16 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
 					fileData: []byte("123456789abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
 					fileData: []byte("abcdef"),
 				},
 			},
 			ExpectedAuthor:      &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
-			ExpectedDeletedFile: "/applications/" + appName + "/releases/1/source_commit_id",
+			ExpectedDeletedFile: "/applications/" + appName + "/releases/1.0/source_commit_id",
 		},
 		{
 			Name: "CleanupOldApplicationVersions with a minor release", //ReleaseLimit is 2
@@ -1173,15 +1173,15 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			MinorRelease: 3,
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
 					fileData: []byte("123456789abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
 					fileData: []byte("abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/1/source_commit_id",
+					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
 					fileData: []byte("123456789"),
 				},
 			},
@@ -1286,15 +1286,15 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			PrepublishRelease: 3,
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
 					fileData: []byte("123456789abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
 					fileData: []byte("abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/1/source_commit_id",
+					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
 					fileData: []byte("123456789"),
 				},
 			},
@@ -1663,7 +1663,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 			},
 			expectedData: []*FilenameAndData{
 				{
-					path:     "applications/app1/releases/2/environments/acceptance/manifests.yaml",
+					path:     "applications/app1/releases/2.0/environments/acceptance/manifests.yaml",
 					fileData: []byte(" "),
 				},
 			},
@@ -2418,7 +2418,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 			},
 			expectedData: []*FilenameAndData{
 				{
-					path:     "/applications/app1/releases/2/undeploy",
+					path:     "/applications/app1/releases/2.0/undeploy",
 					fileData: []byte(""),
 				},
 				{
@@ -2521,7 +2521,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 			},
 			expectedData: []*FilenameAndData{
 				{ //There is an undeploy version
-					path:     "/applications/app1/releases/2/undeploy",
+					path:     "/applications/app1/releases/2.0/undeploy",
 					fileData: []byte(""),
 				},
 				{ //The first env has the undeploy version deployed
@@ -2797,7 +2797,7 @@ func TestUndeployLogic(t *testing.T) {
 					fileData: []byte(""),
 				},
 				{
-					path:     "/applications/app1/releases/2/undeploy",
+					path:     "/applications/app1/releases/2.0/undeploy",
 					fileData: []byte(""),
 				},
 				{
@@ -2958,7 +2958,7 @@ func TestUndeployLogic(t *testing.T) {
 					fileData: []byte(""),
 				},
 				{ //There is no undeploy version, because all releases have been deleted
-					path:     "/applications/app1/releases/2/undeploy",
+					path:     "/applications/app1/releases/2.0/undeploy",
 					fileData: []byte(""),
 				},
 				{ //The second env has the undeploy version *queued*
