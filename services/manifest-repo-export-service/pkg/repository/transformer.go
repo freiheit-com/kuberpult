@@ -46,7 +46,6 @@ import (
 
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -1041,30 +1040,6 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return nil, nil
 	}
 	return versions[0:indexToKeep], nil
-}
-
-func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
-	var err error
-	releasesDir := releasesDirectory(fs, application)
-	err = fs.MkdirAll(releasesDir, 0777)
-	if err != nil {
-		return 0, err
-	}
-	if entries, err := fs.ReadDir(releasesDir); err != nil {
-		return 0, err
-	} else {
-		var lastRelease uint64 = 0
-		for _, e := range entries {
-			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
-				//TODO(HVG): decide what to do with bad named releases
-			} else {
-				if i > lastRelease {
-					lastRelease = i
-				}
-			}
-		}
-		return lastRelease, nil
-	}
 }
 
 type CreateEnvironmentTeamLock struct {
