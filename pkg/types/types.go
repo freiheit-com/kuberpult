@@ -147,13 +147,13 @@ func MakeReleaseNumberFromString(str string) (ReleaseNumbers, error) {
 	if version, err := strconv.ParseUint(parts[0], 10, 64); err == nil {
 		rel.Version = &version
 	} else {
-		return MakeEmptyReleaseNumbers(), fmt.Errorf("error generating release number. %s is not a valid major version", parts[0])
+		return MakeEmptyReleaseNumbers(), fmt.Errorf("error generating release number. %s is not a valid version", parts[0])
 	}
 
 	if revision, err := strconv.ParseUint(parts[1], 10, 64); err == nil {
 		rel.Revision = revision
 	} else {
-		return MakeEmptyReleaseNumbers(), fmt.Errorf("error generating release number. %s is not a valid major version", parts[0])
+		return MakeEmptyReleaseNumbers(), fmt.Errorf("error generating release number. %s is not a valid revision", parts[1])
 	}
 	return rel, nil
 }
