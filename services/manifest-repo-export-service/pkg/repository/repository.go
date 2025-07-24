@@ -2432,10 +2432,9 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 		}
 		if result != nil {
 			tag.CommitDate = timestamppb.New(*result)
-		} else {
-			// could not find a commit date - this means something went wrong before this endpoint was called
-			// e.g. in a db migration
 		}
+		// else: could not find a commit date - this means something went wrong before this endpoint was called
+		// e.g. in a db migration
 		tags = append(tags, tag)
 	}
 
