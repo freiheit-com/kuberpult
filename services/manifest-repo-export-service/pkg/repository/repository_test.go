@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -1576,10 +1578,15 @@ func getTransformer(i int) (Transformer, error) {
 	// return &ErrorTransformer{}, TransformerError
 }
 
-func convertToSet(list []uint64) map[int]bool {
-	set := make(map[int]bool)
+type TestStruct struct {
+	Version  uint64
+	Revision uint64
+}
+
+func convertToSet(list []types.ReleaseNumbers) map[TestStruct]bool {
+	set := make(map[TestStruct]bool)
 	for _, i := range list {
-		set[int(i)] = true
+		set[TestStruct{Version: *i.Version, Revision: i.Revision}] = true
 	}
 	return set
 }
@@ -1645,107 +1652,107 @@ func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 	return repo, remoteDir
 }
 
-//func BenchmarkApplyQueue(t *testing.B) {
-//	t.StopTimer()
-//	repo, _ := setupRepositoryBenchmarkWithPath(t)
-//	ctx := testutil.MakeTestContext()
-//	generator := testutil.NewIncrementalUUIDGenerator()
-//	dbHandler := repo.State().DBHandler
-//
-//	repoInternal := repo.(*repository)
-//	// The worker go routine is now blocked. We can move some items into the queue now.
-//	results := make([]error, t.N)
-//	expectedResults := make([]error, t.N)
-//	expectedReleases := make(map[int]bool, t.N)
-//	tf, _ := getTransformer(0)
-//
-//	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-//		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-//		if err != nil {
-//			return err
-//		}
-//		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{
-//			Team: "team-123",
-//		})
-//		if err != nil {
-//			return err
-//		}
-//		err = dbHandler.DBWriteEslEventInternal(ctx, tf.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tf.GetMetadata().AuthorName, AuthorEmail: tf.GetMetadata().AuthorEmail})
-//		if err != nil {
-//			return err
-//		}
-//		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-//			ReleaseNumbers: types.ReleaseNumbers{
-//				Revision: 0,
-//				Version:  &versionZero,
-//			},
-//			Created:   time.Time{},
-//			App:       "foo",
-//			Manifests: db.DBReleaseManifests{},
-//			Metadata:  db.DBReleaseMetaData{},
-//		})
-//		if err != nil {
-//			return err
-//		}
-//		err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, types.ReleaseNumbers{Version: &versionZero, Revision: 0}, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
-//		if err != nil {
-//			return err
-//		}
-//		err = repoInternal.Apply(ctx, transaction, tf)
-//		if err != nil {
-//			return err
-//		}
-//		expectedReleases[0] = true
-//
-//		t.StartTimer()
-//		for i := 1; i < t.N; i++ {
-//			tf, expectedResult := getTransformer(i)
-//			err = dbHandler.DBWriteEslEventInternal(ctx, tf.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tf.GetMetadata().AuthorName, AuthorEmail: tf.GetMetadata().AuthorEmail})
-//			if err != nil {
-//				return err
-//			}
-//			version := uint64(i)
-//			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-//				ReleaseNumbers: types.ReleaseNumbers{
-//					Revision: 0,
-//					Version:  &version,
-//				},
-//				Created:   time.Time{},
-//				App:       "foo",
-//				Manifests: db.DBReleaseManifests{},
-//				Metadata:  db.DBReleaseMetaData{},
-//			})
-//			if err != nil {
-//				return err
-//			}
-//			var v = uint64(i)
-//			err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, db.TransformerID(i), types.ReleaseNumbers{Version: &v, Revision: 0}, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
-//			if err != nil {
-//				return err
-//			}
-//			results[i] = repoInternal.Apply(ctx, transaction, tf)
-//			expectedResults[i] = expectedResult
-//			if expectedResult == nil {
-//				expectedReleases[i] = true
-//			}
-//		}
-//
-//		return nil
-//	})
-//	if err != nil {
-//		t.Errorf("Error applying transformers: %v", err)
-//	}
-//
-//	for i := 0; i < t.N; i++ {
-//		if diff := cmp.Diff(expectedResults[i], results[i], cmpopts.EquateErrors()); diff != "" {
-//			t.Errorf("result[%d] expected error \"%v\" but got \"%v\"", i, expectedResults[i], err)
-//		}
-//	}
-//	releases, _ := repo.State().GetAllApplicationReleasesFromManifest("foo")
-//	if !cmp.Equal(expectedReleases, convertToSet(releases)) {
-//		t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
-//	}
-//}
+func BenchmarkApplyQueue(t *testing.B) {
+	t.StopTimer()
+	repo, _ := setupRepositoryBenchmarkWithPath(t)
+	ctx := testutil.MakeTestContext()
+	generator := testutil.NewIncrementalUUIDGenerator()
+	dbHandler := repo.State().DBHandler
+
+	repoInternal := repo.(*repository)
+	// The worker go routine is now blocked. We can move some items into the queue now.
+	results := make([]error, t.N)
+	expectedResults := make([]error, t.N)
+	expectedReleases := make(map[int]bool, t.N)
+	tf, _ := getTransformer(0)
+
+	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{
+			Team: "team-123",
+		})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBWriteEslEventInternal(ctx, tf.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tf.GetMetadata().AuthorName, AuthorEmail: tf.GetMetadata().AuthorEmail})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: 0,
+				Version:  &versionZero,
+			},
+			Created:   time.Time{},
+			App:       "foo",
+			Manifests: db.DBReleaseManifests{},
+			Metadata:  db.DBReleaseMetaData{},
+		})
+		if err != nil {
+			return err
+		}
+		err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, types.ReleaseNumbers{Version: &versionZero, Revision: 0}, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+		if err != nil {
+			return err
+		}
+		err = repoInternal.Apply(ctx, transaction, tf)
+		if err != nil {
+			return err
+		}
+		expectedReleases[0] = true
+
+		t.StartTimer()
+		for i := 1; i < t.N; i++ {
+			tf, expectedResult := getTransformer(i)
+			err = dbHandler.DBWriteEslEventInternal(ctx, tf.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tf.GetMetadata().AuthorName, AuthorEmail: tf.GetMetadata().AuthorEmail})
+			if err != nil {
+				return err
+			}
+			version := uint64(i)
+			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				ReleaseNumbers: types.ReleaseNumbers{
+					Revision: 0,
+					Version:  &version,
+				},
+				Created:   time.Time{},
+				App:       "foo",
+				Manifests: db.DBReleaseManifests{},
+				Metadata:  db.DBReleaseMetaData{},
+			})
+			if err != nil {
+				return err
+			}
+			var v = uint64(i)
+			err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, db.TransformerID(i), types.ReleaseNumbers{Version: &v, Revision: 0}, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
+			if err != nil {
+				return err
+			}
+			results[i] = repoInternal.Apply(ctx, transaction, tf)
+			expectedResults[i] = expectedResult
+			if expectedResult == nil {
+				expectedReleases[i] = true
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Errorf("Error applying transformers: %v", err)
+	}
+
+	for i := 0; i < t.N; i++ {
+		if diff := cmp.Diff(expectedResults[i], results[i], cmpopts.EquateErrors()); diff != "" {
+			t.Errorf("result[%d] expected error \"%v\" but got \"%v\"", i, expectedResults[i], err)
+		}
+	}
+	releases, _ := repo.State().GetAllApplicationReleasesFromManifest("foo")
+	if !cmp.Equal(expectedReleases, convertToSet(releases)) {
+		t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
+	}
+}
 
 type Gauge struct {
 	Name  string

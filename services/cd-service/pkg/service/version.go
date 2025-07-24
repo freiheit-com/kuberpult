@@ -74,7 +74,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 			ver, err := strconv.ParseUint(req.Release, 10, 64)
 			release.Version = &ver
 			if err != nil {
-				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
+				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected number, 'Major.Minor' or 'latest")
 			}
 		}
 		repoRelease, err := state.GetApplicationRelease(ctx, transaction, req.Application, release)
