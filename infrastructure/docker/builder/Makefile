@@ -61,4 +61,4 @@ get-builder-image:
 	@echo "$(KUBERPULT_BUILDER)"
 
 retag-main:
-	@echo "Skipping retag-main"
+	docker pull $(IMAGENAME_UNVERSIONED_MAIN) && docker tag $(IMAGENAME_UNVERSIONED_MAIN) $(IMAGENAME_VERSIONED_PR) && docker push $(IMAGENAME_VERSIONED_PR)
