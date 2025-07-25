@@ -1520,7 +1520,7 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 	existingEnvLock, err := h.DBSelectEnvironmentLock(ctx, tx, environment, lockID)
 
 	if err != nil {
-		return fmt.Errorf("Could not obtain existing environment lock: %w", err)
+		return fmt.Errorf("could not obtain existing environment lock: %w", err)
 	}
 
 	if existingEnvLock == nil {

@@ -244,12 +244,12 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning apps row from DB. Error: %w", err)
 		}
 		var metaData = DBAppMetaData{Team: ""}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
+			return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
 	} else {
@@ -282,12 +282,12 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning apps row from DB. Error: %w", err)
 		}
 		var metaData = DBAppMetaData{Team: ""}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
+			return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
 		result = append(result, row)
@@ -318,7 +318,7 @@ func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err 
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning apps row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning apps row from DB. Error: %w", err)
 		}
 		result = append(result, appname)
 	}
