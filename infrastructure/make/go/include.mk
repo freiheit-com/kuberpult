@@ -35,7 +35,8 @@ bench-test:
 
 .PHONY: lint
 lint:
-	docker run --rm -w $(SERVICE_DIR) -v ".:$(SERVICE_DIR)" $(BUILDER_IMAGE) sh -c 'golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./... || $(SKIP_LINT_ERRORS) && exhaustruct -test=false $$(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api" | grep -v "github.com/freiheit-com/kuberpult/pkg/publicapi")'
+	$(MAKE) -C $(ROOT_DIR)/pkg gen
+	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" $(SERVICE_DIR)/...'
 
 .PHONY: docker
 docker: compile

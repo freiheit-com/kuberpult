@@ -19,6 +19,7 @@ CGO_ENABLED=0
 MAIN_PATH=cmd/kuberpult-client
 SERVICE=client
 MIN_COVERAGE=67.1
+#SERVICE_DIR=/kp/cli
 
 include ../infrastructure/make/go/include.mk
 
@@ -30,3 +31,8 @@ build-pr: build release
 
 build-main: IMAGE_TAG=main-$(VERSION)
 build-main: build release
+
+.PHONY: lint
+lint:
+	$(MAKE) -C $(ROOT_DIR)/pkg gen
+	docker run --rm -w /kp/ -v $(shell pwd)/..:/kp/ $(BUILDER_IMAGE) sh -c 'cd cli && GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./...'

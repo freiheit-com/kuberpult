@@ -140,6 +140,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 	req.Header.Add("Authorization", "Basic "+toBasicAuth(client.ClientID, client.ClientSecret))
 
 	dexResponse, err := httpClient.Do(req)
+	defer func() { _ = dexResponse.Body.Close() }()
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error when contacting dex. error: %s", err), http.StatusBadGateway)
