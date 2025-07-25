@@ -333,7 +333,7 @@ func Run(ctx context.Context) error {
 			Opts:     []grpc.ServerOption{},
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
-				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10})
+				api.RegisterGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10, DBHandler: dbHandler})
 				api.RegisterMigrationServiceServer(srv, migrationServer)
 				reflection.Register(srv)
 			},
@@ -553,8 +553,6 @@ func handleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHa
 	}
 	if eslVersion == nil {
 		log.Infof("did not find cutoff")
-	} else {
-		log.Infof("found cutoff: %d", *eslVersion)
 	}
 	esl, err := readEslEvent(ctx, transaction, eslVersion, log, dbHandler)
 	if err != nil {

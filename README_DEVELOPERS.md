@@ -29,7 +29,7 @@ There's no need to push the image.
 
 ```bash
 cd services/cd-service
-git init --bare repository_remote
+git init --bare repository_remote --initial-branch=master
 cd ../..
 ```
 - This repository is bare, to populate it, fill it with data as described in `README.md` or https://github.com/freiheit-com/kuberpult/pull/95

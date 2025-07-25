@@ -71,22 +71,15 @@ cleanup-main:
 
 .PHONY: builder
 builder:
-	IMAGE_TAG=latest make -C infrastructure/docker/builder build
+	IMAGE_TAG=main make -C infrastructure/docker/builder build
 
 compose-down:
 	docker compose down
 
-prepare-compose:
+prepare-compose: builder
 	IMAGE_TAG=local make -C services/cd-service docker
 	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 	IMAGE_TAG=local make -C services/frontend-service docker
-
-
-.PHONY: all-services
-all-services:
-	@for service in services/*; do \
-		make -C $$service docker; \
-	done
 
 kuberpult: prepare-compose compose-down
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up

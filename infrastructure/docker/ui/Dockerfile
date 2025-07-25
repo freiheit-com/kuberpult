@@ -25,8 +25,5 @@ RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
 
 RUN chown -R kp:kp /kp
 
-COPY start.sh /kp/start.sh
-RUN chmod +x /kp/start.sh
-
 USER kp
 CMD [ "sh","-c","cd /kp && pnpm i && pnpm start" ]

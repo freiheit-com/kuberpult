@@ -280,11 +280,9 @@ func TestGetTagsNoTags(t *testing.T) {
 
 		_, _, repoConfig := SetupRepositoryTestWithDB(t)
 		localDir := repoConfig.Path
-		tags, err := GetTags(
-			*repoConfig,
-			localDir,
-			testutil.MakeTestContext(),
-		)
+		// dbHandler can be nil here, because that part of the code is not reached, because we do not have tags:
+		var dbHandler *db.DBHandler
+		tags, err := GetTags(testutil.MakeTestContext(), dbHandler, *repoConfig, localDir)
 		if err != nil {
 			t.Fatalf("new: expected no error, got '%e'", err)
 		}
@@ -302,12 +300,12 @@ func TestGetTags(t *testing.T) {
 		tagsToAdd    []string
 	}{
 		{
-			Name:         "Tags added to be returned",
+			Name:         "Single Tag is returned",
 			tagsToAdd:    []string{"v1.0.0"},
 			expectedTags: []api.TagData{{Tag: "refs/tags/v1.0.0", CommitId: ""}},
 		},
 		{
-			Name:         "Tags added in opposite order and are sorted",
+			Name:         "Multiple tags are returned sorted",
 			tagsToAdd:    []string{"v1.0.1", "v0.0.1"},
 			expectedTags: []api.TagData{{Tag: "refs/tags/v0.0.1", CommitId: ""}, {Tag: "refs/tags/v1.0.1", CommitId: ""}},
 		},
@@ -316,7 +314,7 @@ func TestGetTags(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			_, _, repoConfig := SetupRepositoryTestWithDB(t)
+			_, dbHandler, repoConfig := SetupRepositoryTestWithDB(t)
 			localDir := repoConfig.Path
 			_, err := New(
 				testutil.MakeTestContext(),
@@ -358,11 +356,7 @@ func TestGetTags(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			tags, err := GetTags(
-				*repoConfig,
-				localDir,
-				testutil.MakeTestContext(),
-			)
+			tags, err := GetTags(testutil.MakeTestContext(), dbHandler, *repoConfig, localDir)
 			if err != nil {
 				t.Fatalf("new: expected no error, got '%e'", err)
 			}

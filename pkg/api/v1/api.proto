@@ -145,6 +145,7 @@ message ReplacedByEvent{
 message TagData {
   string tag = 1;
   string commit_id = 2;
+  google.protobuf.Timestamp commit_date = 3;
 }
 
 service BatchService {
