@@ -129,9 +129,11 @@ export const ProductVersion: React.FC = () => {
     const envList = useEnvironmentGroupCombinations(envGroupResponse);
     const [searchParams, setSearchParams] = useSearchParams();
     const [environment, setEnvironment] = React.useState(searchParams.get('env') || envList[0]);
+
     const [showSummary, setShowSummary] = useState(false);
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [productSummaries, setProductSummaries] = useState(Array<ProductSummary>());
+
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
     const [selectedTag, setSelectedTag] = React.useState('');
     const envsList = useEnvironments();
@@ -148,8 +150,13 @@ export const ProductVersion: React.FC = () => {
     React.useEffect(() => {
         let tag = searchParams.get('tag');
         if (tag === null) {
+            // if there is no tag in the url, use the first valid tag that we know of:
             if (tagsResponse.response.tagData.length === 0) return;
-            tag = tagsResponse.response.tagData[0].commitId;
+            const tagData = tagsResponse.response.tagData.filter((elem) => !!elem.commitDate);
+            if (tagData.length === 0) {
+                return;
+            }
+            tag = tagData[0].commitId;
             if (tag === null) return;
             setSelectedTag(tag);
             searchParams.set('tag', tag);
@@ -265,8 +272,12 @@ export const ProductVersion: React.FC = () => {
                                 Select a Tag
                             </option>
                             {tagsResponse.response.tagData.map((tag) => (
-                                <option value={tag.commitId} key={tag.tag}>
-                                    {tag.tag.slice(10)}
+                                <option value={tag.commitId} key={tag.tag} disabled={!tag.commitDate}>
+                                    {tag.commitId.substring(0, 12)}
+                                    {' @ '}
+                                    {tag.tag.replace('refs/tags/', '')}
+                                    {' @ '}
+                                    {tag.commitDate ? String(tag.commitDate.toISOString()) : '(timestamp missing)'}
                                 </option>
                             ))}
                         </select>

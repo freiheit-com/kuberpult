@@ -51,7 +51,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const appNameParam = params.get('application') || '';
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
-    const version = useKuberpultVersion() || '2.6.0';
+    const version = useKuberpultVersion() || '0.0.0-local';
     const cookieValue = document.cookie
         .split('; ')
         .find((row) => row.startsWith('kuberpult.oauth='))
