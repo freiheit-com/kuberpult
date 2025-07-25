@@ -1663,7 +1663,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 	// The worker go routine is now blocked. We can move some items into the queue now.
 	results := make([]error, t.N)
 	expectedResults := make([]error, t.N)
-	expectedReleases := make(map[int]bool, t.N)
+	expectedReleases := make(map[TestStruct]bool, t.N)
 	tf, _ := getTransformer(0)
 
 	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1702,7 +1702,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 		if err != nil {
 			return err
 		}
-		expectedReleases[0] = true
+		expectedReleases[TestStruct{Version: 0, Revision: 0}] = true
 
 		t.StartTimer()
 		for i := 1; i < t.N; i++ {
@@ -1733,7 +1733,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 			results[i] = repoInternal.Apply(ctx, transaction, tf)
 			expectedResults[i] = expectedResult
 			if expectedResult == nil {
-				expectedReleases[i] = true
+				expectedReleases[TestStruct{Version: uint64(i), Revision: 0}] = true
 			}
 		}
 

@@ -21,7 +21,6 @@ import {
     useBranch,
     useGitSyncStatus,
     useManifestRepoUrl,
-    useFrontendConfig,
     ReleaseNumbers,
 } from './store';
 import classNames from 'classnames';
@@ -73,7 +72,7 @@ export const deriveReleaseDirLink = (
     baseUrl: string | undefined,
     branch: string | undefined,
     app: string,
-    version: ReleaseNumbers,
+    version: ReleaseNumbers
 ): string | undefined => {
     if (baseUrl && branch) {
         baseUrl = baseUrl.replace(/{branch}/gi, branch);

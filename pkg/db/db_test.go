@@ -2423,7 +2423,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.ReleaseNumbers.Version)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.ReleaseNumbers)
 					if err != nil {
 						return err
 					}
@@ -2494,7 +2494,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, tc.ReleaseNumbers.Version)
+				err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, tc.Env, tc.AppName, *tc.ReleaseNumbers)
 				if err != nil {
 					return err
 				}
@@ -2599,7 +2599,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.ReleaseNumbers.Version)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.ReleaseNumbers)
 					if err != nil {
 						return err
 					}
@@ -2709,7 +2709,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, deployments := range tc.Deployments {
-					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.ReleaseNumbers.Version)
+					err := dbHandler.DBWriteDeploymentAttempt(ctx, transaction, deployments.Env, deployments.App, deployments.ReleaseNumbers)
 					if err != nil {
 						return err
 					}
