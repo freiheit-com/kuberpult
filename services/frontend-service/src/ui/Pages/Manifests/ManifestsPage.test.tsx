@@ -24,9 +24,12 @@ import { Manifest, Priority } from '../../../api/api';
 const targetApp = 'appName';
 
 const targetReleaseVersion = '1';
+const targetReleaseRevision = '0';
 jest.mock('react-router-dom', () => ({
     ...jest.requireActual('react-router-dom'),
-    useSearchParams: () => [new URLSearchParams({ app: targetApp, release: targetReleaseVersion })],
+    useSearchParams: () => [
+        new URLSearchParams({ app: targetApp, release: targetReleaseVersion, revision: targetReleaseRevision }),
+    ],
 }));
 describe('Manifests Page', () => {
     const getNode = (): JSX.Element | any => (

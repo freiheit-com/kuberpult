@@ -717,7 +717,7 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 	}(rows)
 	result := []types.ReleaseNumbers{}
 	for rows.Next() {
-		curr := types.ReleaseNumbers{Version: nil, Revision: 0}
+		curr := types.MakeEmptyReleaseNumbers()
 		err := rows.Scan(&curr.Version, &curr.Revision)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

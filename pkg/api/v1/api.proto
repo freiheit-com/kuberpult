@@ -838,6 +838,7 @@ message GetReleaseTrainPrognosisResponse {
 message GetManifestsRequest {
   string application = 1;
   string release = 2;
+  string revision = 3;
 }
 
 message Manifest {

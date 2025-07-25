@@ -417,10 +417,10 @@ var (
 func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, application string) (types.ReleaseNumbers, error) {
 	releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 	if err != nil {
-		return types.ReleaseNumbers{Version: nil, Revision: 0}, fmt.Errorf("could not get releases of app %s: %v", application, err)
+		return types.MakeEmptyReleaseNumbers(), fmt.Errorf("could not get releases of app %s: %v", application, err)
 	}
 	if len(releases) == 0 {
-		return types.ReleaseNumbers{Version: nil, Revision: 0}, nil
+		return types.MakeEmptyReleaseNumbers(), nil
 	}
 	l := len(releases)
 	return releases[l-1], nil
@@ -699,8 +699,8 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 	sort.Slice(releaseVersions, func(i, j int) bool {
 		return *releaseVersions[i].Version > *releaseVersions[j].Version || (*releaseVersions[i].Version == *releaseVersions[j].Version && releaseVersions[i].Revision > releaseVersions[j].Revision)
 	})
-	nextVersion := types.ReleaseNumbers{Version: nil, Revision: 0}
-	previousVersion := types.ReleaseNumbers{Version: nil, Revision: 0}
+	nextVersion := types.MakeEmptyReleaseNumbers()
+	previousVersion := types.MakeEmptyReleaseNumbers()
 	for i := len(releaseVersions) - 1; i >= 0; i-- {
 		if types.Greater(releaseVersions[i], version) {
 			nextVersion = releaseVersions[i]
@@ -811,11 +811,11 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 
 func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transaction *sql.Tx, state *State) (types.ReleaseNumbers, error) {
 	if c.Version == 0 {
-		return types.ReleaseNumbers{Version: nil, Revision: 0}, fmt.Errorf("version is required when using the database")
+		return types.MakeEmptyReleaseNumbers(), fmt.Errorf("version is required when using the database")
 	} else {
 		metaData, err := state.DBHandler.DBSelectReleaseByReleaseNumbers(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 		if err != nil {
-			return types.ReleaseNumbers{Version: nil, Revision: 0}, fmt.Errorf("could not calculate version, error: %v", err)
+			return types.MakeEmptyReleaseNumbers(), fmt.Errorf("could not calculate version, error: %v", err)
 		}
 		if metaData == nil {
 			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v.%v", c.Application, c.Version, c.Revision)
@@ -826,7 +826,7 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 		existingRelease := metaData.ReleaseNumbers
 		logger.FromContext(ctx).Sugar().Warnf("comparing release %v.%v: %v", c.Version, c.Revision, existingRelease)
 		// check if version differs, if it's the same, that's ok
-		return types.ReleaseNumbers{Version: nil, Revision: 0}, c.sameAsExistingDB(ctx, transaction, state, metaData)
+		return types.MakeEmptyReleaseNumbers(), c.sameAsExistingDB(ctx, transaction, state, metaData)
 	}
 }
 
@@ -982,7 +982,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	v := uint64(*lastRelease.Version + 1)
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
-			Revision: 0,
+			Revision: 0, //Undeploy versions always have revision 0
 			Version:  &v,
 		},
 		App: c.Application,

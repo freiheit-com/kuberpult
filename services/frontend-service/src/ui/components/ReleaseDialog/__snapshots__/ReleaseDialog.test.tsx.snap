@@ -51,7 +51,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 >
                    
                   <a
-                    href="/ui/manifest?app=test1&release=2"
+                    href="/ui/manifest?app=test1&release=2&revision=0"
                     title="Opens the release directory in the manifest repository for this release"
                   >
                     Manifest
@@ -383,7 +383,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                 >
                    
                   <a
-                    href="/ui/manifest?app=test1&release=2"
+                    href="/ui/manifest?app=test1&release=2&revision=0"
                     title="Opens the release directory in the manifest repository for this release"
                   >
                     Manifest
@@ -715,7 +715,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 >
                    
                   <a
-                    href="/ui/manifest?app=test1&release=2"
+                    href="/ui/manifest?app=test1&release=2&revision=0"
                     title="Opens the release directory in the manifest repository for this release"
                   >
                     Manifest
@@ -1267,7 +1267,7 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                 >
                    
                   <a
-                    href="/ui/manifest?app=test1&release=4"
+                    href="/ui/manifest?app=test1&release=4&revision=0"
                     title="Opens the release directory in the manifest repository for this release"
                   >
                     Manifest

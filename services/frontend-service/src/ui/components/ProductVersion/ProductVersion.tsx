@@ -85,7 +85,7 @@ export const TableFiltered: React.FC<TableProps> = (props) => {
                             <td>
                                 <DisplayManifestLink
                                     app={sum.app}
-                                    version={Number(sum.version)}
+                                    version={{ version: Number(sum.version), revision: sum.revision }}
                                     displayString="Manifest Link"
                                 />
                             </td>

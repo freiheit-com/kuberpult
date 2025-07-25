@@ -15,7 +15,15 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 import React from 'react';
-import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useGitSyncStatus, useManifestRepoUrl } from './store';
+import {
+    useArgoCdBaseUrl,
+    useSourceRepoUrl,
+    useBranch,
+    useGitSyncStatus,
+    useManifestRepoUrl,
+    useFrontendConfig,
+    ReleaseNumbers,
+} from './store';
 import classNames from 'classnames';
 import { Argo } from '../../images';
 
@@ -65,11 +73,14 @@ export const deriveReleaseDirLink = (
     baseUrl: string | undefined,
     branch: string | undefined,
     app: string,
-    version: number
+    version: ReleaseNumbers,
 ): string | undefined => {
     if (baseUrl && branch) {
         baseUrl = baseUrl.replace(/{branch}/gi, branch);
-        baseUrl = baseUrl.replace(/{dir}/gi, 'applications/' + app + '/releases/' + version);
+        baseUrl = baseUrl.replace(
+            /{dir}/gi,
+            'applications/' + app + '/releases/' + version.version + '.' + version.revision
+        );
         return baseUrl;
     }
     return undefined;
@@ -152,12 +163,12 @@ export const DisplaySourceLink: React.FC<{ displayString: string; commitId: stri
     return null;
 };
 
-export const DisplayManifestLink: React.FC<{ displayString: string; app: string; version: number }> = (
+export const DisplayManifestLink: React.FC<{ displayString: string; app: string; version: ReleaseNumbers }> = (
     props
 ): JSX.Element | null => {
     const { displayString, app, version } = props;
 
-    let manifestLink = '/ui/manifest?app=' + app + '&release=' + version;
+    let manifestLink = '/ui/manifest?app=' + app + '&release=' + version.version + '&revision=' + version.revision;
     const manifestRepo = useManifestRepoUrl();
     const branch = useBranch();
 
@@ -166,7 +177,7 @@ export const DisplayManifestLink: React.FC<{ displayString: string; app: string;
         manifestLink = relLinkDir ? relLinkDir : manifestLink; //If we cant get a proper repo link, use internal page
     }
 
-    if (manifestLink && version) {
+    if (manifestLink && version.version) {
         return (
             <a title={'Opens the release directory in the manifest repository for this release'} href={manifestLink}>
                 {displayString}
