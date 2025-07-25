@@ -3577,7 +3577,7 @@ func TestReleasesAndDeployments(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					setupDatabaseData(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
 				}
 
 				// actual transformer to be tested:
@@ -3613,7 +3613,7 @@ func TestReleasesAndDeployments(t *testing.T) {
 	}
 }
 
-func setupDatabaseData(ctx context.Context, transaction *sql.Tx, tr Transformer, dbHandler *db.DBHandler, t *testing.T, authorEmail string, authorName string) {
+func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr Transformer, dbHandler *db.DBHandler, t *testing.T, authorEmail string, authorName string) {
 	if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 		concreteTransformer := tr.(*CreateEnvironmentLock)
 		err2 := dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
@@ -3837,7 +3837,7 @@ func TestReleaseTrainTransformer(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					setupDatabaseData(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
 				}
 				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, tc.ExtraDeployments)
 				if err != nil {
