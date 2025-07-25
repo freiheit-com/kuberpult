@@ -1,0 +1,18 @@
+version: "2"
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - unused
+    - asciicheck
+    - bodyclose
+    - copyloopvar
+  disable:
+    - staticcheck
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+output:
+  format: tab # This is where you set the output format to 'tab'
+  sort-results: true # Equivalent to --sort-results
