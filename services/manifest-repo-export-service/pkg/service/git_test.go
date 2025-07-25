@@ -20,6 +20,8 @@ import (
 	"context"
 	"database/sql"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"os/exec"
+	"path"
 	"sort"
 	"testing"
 	"time"
@@ -1854,7 +1856,7 @@ func TestGetGitTags(t *testing.T) {
 	tagsToAdd := []string{"v1.0.1", "v0.0.1"}
 	expectedTags := []*api.TagData{&api.TagData{Tag: "refs/tags/v0.0.1", CommitId: ""}, &api.TagData{Tag: "refs/tags/v1.0.1", CommitId: ""}}
 
-	repo, remoteDir := setupRepositoryTestWithPath(t)
+	repo, dbHandler, remoteDir := setupRepositoryTestWithPathAndDB(t)
 	config := rp.RepositoryConfig{
 		ArgoCdGenerateFiles:  true,
 		DBHandler:            repo.State().DBHandler,
@@ -1869,6 +1871,7 @@ func TestGetGitTags(t *testing.T) {
 		Repository: repo,
 		Config:     config,
 		PageSize:   uint64(100),
+		DBHandler:  dbHandler,
 	}
 
 	gitRepo, err := git.OpenRepository(config.Path)
@@ -1912,4 +1915,64 @@ func TestGetGitTags(t *testing.T) {
 	if diff := cmp.Diff(expectedTags, res.TagData, cmpopts.IgnoreUnexported(api.TagData{}), cmpopts.IgnoreFields(api.TagData{}, "CommitId")); diff != "" {
 		t.Fatalf("tags mismatch (-want, +got):\n%s", diff)
 	}
+}
+
+func setupRepositoryTestWithPathAndDB(t *testing.T) (rp.Repository, *db.DBHandler, string) {
+	ctx := context.Background()
+	migrationsPath, err := db.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatalf("CreateMigrationsPath error: %v", err)
+	}
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	if err != nil {
+		t.Fatalf("SetupPostgres: %v", err)
+	}
+
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err = cmd.Start()
+	if err != nil {
+		t.Errorf("could not start git init")
+		return nil, nil, ""
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Errorf("could not wait for git init to finish")
+		return nil, nil, ""
+	}
+
+	repoCfg := rp.RepositoryConfig{
+		URL:                  remoteDir,
+		Path:                 localDir,
+		CommitterEmail:       "kuberpult@freiheit.com",
+		CommitterName:        "kuberpult",
+		ArgoCdGenerateFiles:  true,
+		ReleaseVersionLimit:  2,
+		MinimizeExportedData: false,
+	}
+
+	if dbConfig != nil {
+
+		migErr := db.RunDBMigrations(ctx, *dbConfig)
+		if migErr != nil {
+			t.Fatal(migErr)
+		}
+
+		dbHandler, err := db.Connect(ctx, *dbConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		repoCfg.DBHandler = dbHandler
+	}
+
+	repo, err := rp.New(
+		testutil.MakeTestContext(),
+		repoCfg,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, repoCfg.DBHandler, remoteDir
 }
