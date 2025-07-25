@@ -15,14 +15,16 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import './ProductVersion.scss';
 import * as React from 'react';
+import { useState } from 'react';
 import {
+    addAction,
     refreshTags,
-    useTags,
+    showSnackbarError,
+    TagResponse,
     useEnvironmentGroups,
     useEnvironments,
-    addAction,
-    showSnackbarError,
     useFrontendConfig,
+    useTags,
 } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
@@ -34,7 +36,6 @@ import {
 } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../button';
-import { useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
 import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
@@ -60,7 +61,7 @@ export const TableFiltered: React.FC<TableProps> = (props) => {
     };
     const displayTeams = props.teams;
     if (displayTeams.includes('<No Team>')) {
-        displayTeams.filter((team, index) => team !== '<No Team>');
+        displayTeams.filter((team) => team !== '<No Team>');
         displayTeams.push('');
     }
     return (
@@ -75,7 +76,7 @@ export const TableFiltered: React.FC<TableProps> = (props) => {
                     <th>SourceRepoLink</th>
                 </tr>
                 {props.productSummary
-                    .filter((row, index) => props.teams.length <= 0 || displayTeams.includes(row.team))
+                    .filter((row) => props.teams.length <= 0 || displayTeams.includes(row.team))
                     .map((sum) => (
                         <tr key={sum.app + sum.environment} className="table_data">
                             <td>{sum.app}</td>
@@ -119,6 +120,21 @@ const useEnvironmentGroupCombinations = (envGroupResponse: EnvironmentGroup[]): 
     return envList;
 };
 
+type ProductSummaries = {
+    summaries: ProductSummary[];
+    error: string | null;
+};
+
+type ErrorMessageProps = {
+    message: string;
+};
+
+const ErrorMessageContainer: React.FC<ErrorMessageProps> = (props) => (
+    <div className={'warning-container'}>
+        <div className={'warning-message'}>{props.message}</div>
+    </div>
+);
+
 export const ProductVersion: React.FC = () => {
     const { authHeader } = useAzureAuthSub((auth) => auth);
     React.useEffect(() => {
@@ -130,14 +146,14 @@ export const ProductVersion: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [environment, setEnvironment] = React.useState(searchParams.get('env') || envList[0]);
 
-    const [showSummary, setShowSummary] = useState(false);
     const [summaryLoading, setSummaryLoading] = useState(false);
-    const [productSummaries, setProductSummaries] = useState(Array<ProductSummary>());
+    const [productSummaries, setProductSummaries] = useState<ProductSummaries>({ summaries: [], error: null });
 
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
     const [selectedTag, setSelectedTag] = React.useState('');
     const envsList = useEnvironments();
     const tagsResponse = useTags();
+    const filteredTagData = tagsResponse.response.tagData.filter((elem) => !!elem.commitDate);
 
     const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -147,24 +163,21 @@ export const ProductVersion: React.FC = () => {
         },
         [searchParams, setSearchParams]
     );
+
     React.useEffect(() => {
         let tag = searchParams.get('tag');
         if (tag === null) {
             // if there is no tag in the url, use the first valid tag that we know of:
-            if (tagsResponse.response.tagData.length === 0) return;
-            const tagData = tagsResponse.response.tagData.filter((elem) => !!elem.commitDate);
-            if (tagData.length === 0) {
+            if (filteredTagData.length === 0) {
                 return;
             }
-            tag = tagData[0].commitId;
+            tag = filteredTagData[0].commitId;
             if (tag === null) return;
             setSelectedTag(tag);
             searchParams.set('tag', tag);
             setSearchParams(searchParams);
         }
         const env = splitCombinedGroupName(environment);
-        setShowSummary(true);
-        setSummaryLoading(true);
         useApi
             .gitService()
             .GetProductSummary(
@@ -172,13 +185,13 @@ export const ProductVersion: React.FC = () => {
                 authHeader
             )
             .then((result: GetProductSummaryResponse) => {
-                setProductSummaries(result.productSummary);
+                setProductSummaries({ summaries: result.productSummary, error: null });
             })
             .catch((e) => {
-                showSnackbarError(e.message);
+                setProductSummaries({ summaries: [], error: e.message });
             });
         setSummaryLoading(false);
-    }, [tagsResponse, envGroupResponse, environment, searchParams, setSearchParams, authHeader]);
+    }, [tagsResponse, filteredTagData, envGroupResponse, environment, searchParams, setSearchParams, authHeader]);
 
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -237,18 +250,35 @@ export const ProductVersion: React.FC = () => {
         [selectedTag, teams]
     );
 
-    if (!tagsResponse.tagsReady) {
+    if (tagsResponse.tagsReady === TagResponse.LOADING) {
         return <Spinner message="Loading Git Tags" />;
+    } else if (tagsResponse.tagsReady === TagResponse.ERROR) {
+        return <ErrorMessageContainer message={'Loading Git Tags failed, please try again in a moment.'} />;
+    } else if (tagsResponse.response.tagData.length === 0) {
+        return <ErrorMessageContainer message={'There are no git tags in your manifest repository.'} />;
+    } else if (filteredTagData.length === 0) {
+        return (
+            <ErrorMessageContainer
+                message={
+                    'There are no valid git tags in your manifest repository. ' +
+                    'Git tags must be created via a call to kuberpults REST api. '
+                }
+            />
+        );
     }
     if (summaryLoading) {
         return <Spinner message="Loading Production Version" />;
     }
+    if (productSummaries.error) {
+        return <ErrorMessageContainer message={productSummaries.error} />;
+    }
+
+    const groupName = splitCombinedGroupName(environment)[0];
+    const envsFiltered = envsList.filter((env) => groupName === env.config?.upstream?.environment);
 
     const dialog = (
         <EnvSelectionDialog
-            environments={envsList
-                .filter((env, index) => splitCombinedGroupName(environment)[0] === env.config?.upstream?.environment)
-                .map((env) => env.name)}
+            environments={envsFiltered.map((env) => env.name)}
             open={showReleaseTrainEnvs}
             onCancel={handleClose}
             onSubmit={confirmReleaseTrainFunction}
@@ -303,17 +333,9 @@ export const ProductVersion: React.FC = () => {
                 <div />
             )}
             <div>
-                {showSummary ? (
-                    <div className="table_padding">
-                        <TableFiltered productSummary={productSummaries} teams={teams} />
-                    </div>
-                ) : (
-                    <div className="page_description">
-                        {
-                            'This page shows the version of the product for the selected environment based on tags to the repository. If there are no tags, then no data can be shown.'
-                        }
-                    </div>
-                )}
+                <div className="table_padding">
+                    <TableFiltered productSummary={productSummaries.summaries} teams={teams} />
+                </div>
             </div>
         </div>
     );
