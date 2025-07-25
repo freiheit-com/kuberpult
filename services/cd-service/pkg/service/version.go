@@ -21,11 +21,9 @@ import (
 	"database/sql"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"os"
-	"strconv"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"os"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -71,10 +69,13 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 				return nil, status.Errorf(codes.NotFound, "no releases found for application %s", req.Application)
 			}
 		} else {
-			ver, err := strconv.ParseUint(req.Release, 10, 64)
-			release.Version = &ver
+			if req.Revision == "" {
+				release, err = types.MakeReleaseNumberFromString(req.Release)
+			} else {
+				release, err = types.MakeReleaseNumberFromString(req.Release + "." + req.Revision)
+			}
 			if err != nil {
-				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
+				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected number, 'Major.Minor' or 'latest")
 			}
 		}
 		repoRelease, err := state.GetApplicationRelease(ctx, transaction, req.Application, release)

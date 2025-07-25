@@ -58,7 +58,11 @@ export const ReleaseVersionWithLinks: React.FC<ReleaseVersionWithLinksProps> = (
         </div>
         <div className={'links-right'}>
             <DisplaySourceLink displayString={'Source'} commitId={release.sourceCommitId} />{' '}
-            <DisplayManifestLink version={release.version} app={application} displayString={'Manifest'} />
+            <DisplayManifestLink
+                version={{ version: release.version, revision: release.revision }}
+                app={application}
+                displayString={'Manifest'}
+            />
         </div>
     </div>
 );

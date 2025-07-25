@@ -20,6 +20,7 @@ import {
     useManifestInfo,
     ManifestRequestState,
     useEnvironmentNames,
+    useFrontendConfig,
 } from '../../utils/store';
 import { Spinner } from '../../components/Spinner/Spinner';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
@@ -30,20 +31,29 @@ import { Manifest } from '../../components/Manifests/Manifests';
 export const ManifestsPage: React.FC = () => {
     const { authHeader } = useAzureAuthSub((auth) => auth);
     const [urlParameters] = useSearchParams();
+    const { configs } = useFrontendConfig((c) => c);
     const envs = useEnvironmentNames();
     const applicationParam = urlParameters.get('app');
     const releaseParam = urlParameters.get('release');
+    const revisionParam = urlParameters.get('revision');
     const application = applicationParam ? applicationParam : '';
     const releaseNumber = releaseParam ? releaseParam : '';
+    const revisionNumber = revisionParam ? revisionParam : '';
     const manifestResponse = useManifestInfo((res) => res);
 
     React.useEffect(() => {
-        getManifest(application, releaseNumber, authHeader);
-    }, [application, releaseNumber, authHeader]);
+        getManifest(application, releaseNumber, revisionNumber, authHeader);
+    }, [application, releaseNumber, authHeader, revisionNumber]);
 
     const element = useGlobalLoadingState();
     if (element) {
         return element;
+    }
+
+    let displayVersion = releaseNumber;
+
+    if (configs.revisionsEnabled) {
+        displayVersion = releaseNumber + '.' + revisionNumber;
     }
 
     switch (manifestResponse.manifestInfoReady) {
@@ -62,7 +72,7 @@ export const ManifestsPage: React.FC = () => {
                 <div>
                     <main className="main-content manifests-page">
                         <h1>
-                            Kuberpult could not find the manifests for release {releaseNumber} of {application}.
+                            Kuberpult could not find the manifests for release {displayVersion} of {application}.
                         </h1>
                     </main>
                 </div>
@@ -72,7 +82,7 @@ export const ManifestsPage: React.FC = () => {
                 <div>
                     <main className="manifests-page main-content">
                         <h1>
-                            Manifests for release {releaseNumber} of '{applicationParam}'.
+                            Manifests for release {displayVersion} of '{applicationParam}'.
                         </h1>
                         {manifestResponse.response ? (
                             envs.map((currentEnv) =>

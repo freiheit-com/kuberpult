@@ -58,14 +58,24 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
               Select a Tag
             </option>
             <option
+              disabled=""
               value="123"
             >
+              123
+               @ 
               dummyTag
+               @ 
+              (timestamp missing)
             </option>
             <option
+              disabled=""
               value="859"
             >
+              859
+               @ 
               dummyTag2
+               @ 
+              (timestamp missing)
             </option>
           </select>
           <select
@@ -207,9 +217,14 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
               Select a Tag
             </option>
             <option
+              disabled=""
               value="123"
             >
+              123
+               @ 
               dummyTag
+               @ 
+              (timestamp missing)
             </option>
           </select>
           <select

@@ -550,7 +550,11 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             <span className="links">
                                 <DisplaySourceLink commitId={release.sourceCommitId} displayString={'Source'} />
                                 &nbsp;
-                                <DisplayManifestLink app={app} version={release.version} displayString="Manifest" />
+                                <DisplayManifestLink
+                                    app={app}
+                                    version={{ version: release.version, revision: release.revision }}
+                                    displayString="Manifest"
+                                />
                                 &nbsp;
                                 <DisplayCommitHistoryLink
                                     commitId={release.sourceCommitId}

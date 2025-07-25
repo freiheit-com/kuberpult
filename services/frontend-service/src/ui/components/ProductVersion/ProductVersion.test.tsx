@@ -21,13 +21,14 @@ import { Spy } from 'spy4js';
 
 const mock_UseEnvGroups = Spy('envGroup');
 const mock_UseTags = Spy('Overview');
+const mock_FrontendConfig = Spy('FrontendConfig');
 
 jest.mock('../../utils/store', () => ({
     refreshTags() {
         return {};
     },
     useFrontendConfig() {
-        return {};
+        return mock_FrontendConfig();
     },
     useEnvironmentGroups() {
         return mock_UseEnvGroups();
@@ -78,6 +79,7 @@ describe('Product Version Data', () => {
         tags: TagData[];
         productSummary: ProductSummary[];
     };
+    const date = new Date();
     const data: TestData[] = [
         {
             name: 'No tags to Display',
@@ -165,11 +167,22 @@ describe('Product Version Data', () => {
             mock_UseEnvGroups.returns(testCase.environmentGroups);
             mock_UseTags.returns({ response: { tagData: testCase.tags }, tagsReady: true });
             mockGetProductSummary.mockResolvedValue({ productSummary: testCase.productSummary });
+            mock_FrontendConfig.returns({
+                configsReady: true,
+                configs: {
+                    sourceRepoUrl: '',
+                    manifestRepoUrl: '',
+                    branch: '',
+                    kuberpultVersion: '0',
+                    revisionsEnabled: false,
+                },
+            });
             render(
                 <MemoryRouter>
                     <ProductVersion />
                 </MemoryRouter>
             );
+
             await act(global.nextTick);
             expect(document.body).toMatchSnapshot();
             if (testCase.expectedDropDown !== '') {

@@ -410,7 +410,7 @@ func TestGetManifests(t *testing.T) {
 				fixtureRelease(appName, 3),
 			),
 			req:     fixtureRequest(func(req *api.GetManifestsRequest) { req.Release = "" }),
-			wantErr: status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'"),
+			wantErr: status.Error(codes.InvalidArgument, "invalid release number, expected number, 'Major.Minor' or 'latest'"),
 		},
 		&testCase{
 			name: "no application specified",

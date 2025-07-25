@@ -21,6 +21,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"os/exec"
@@ -28,11 +32,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -1573,10 +1572,15 @@ func getTransformer(i int) (Transformer, error) {
 	// return &ErrorTransformer{}, TransformerError
 }
 
-func convertToSet(list []uint64) map[int]bool {
-	set := make(map[int]bool)
+type TestStruct struct {
+	Version  uint64
+	Revision uint64
+}
+
+func convertToSet(list []types.ReleaseNumbers) map[TestStruct]bool {
+	set := make(map[TestStruct]bool)
 	for _, i := range list {
-		set[int(i)] = true
+		set[TestStruct{Version: *i.Version, Revision: i.Revision}] = true
 	}
 	return set
 }
@@ -1653,7 +1657,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 	// The worker go routine is now blocked. We can move some items into the queue now.
 	results := make([]error, t.N)
 	expectedResults := make([]error, t.N)
-	expectedReleases := make(map[int]bool, t.N)
+	expectedReleases := make(map[TestStruct]bool, t.N)
 	tf, _ := getTransformer(0)
 
 	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1692,7 +1696,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 		if err != nil {
 			return err
 		}
-		expectedReleases[0] = true
+		expectedReleases[TestStruct{Version: 0, Revision: 0}] = true
 
 		t.StartTimer()
 		for i := 1; i < t.N; i++ {
@@ -1723,7 +1727,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 			results[i] = repoInternal.Apply(ctx, transaction, tf)
 			expectedResults[i] = expectedResult
 			if expectedResult == nil {
-				expectedReleases[i] = true
+				expectedReleases[TestStruct{Version: uint64(i), Revision: 0}] = true
 			}
 		}
 

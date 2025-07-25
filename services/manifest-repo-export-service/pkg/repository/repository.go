@@ -893,7 +893,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 				}
 				return err
 			}
-			if version == nil || *version == 0 {
+			if version.Version == nil || *version.Version == 0 {
 				// if nothing is deployed, ignore it
 				continue
 			}
@@ -1075,29 +1075,22 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 	}
 
 	for _, appName := range apps {
-		deploymentsForApp := map[types.EnvName]int64{}
+		deploymentsForApp := map[types.EnvName]types.ReleaseNumbers{}
 		for _, envName := range envNames {
-			var version *uint64
+			var version types.ReleaseNumbers
 			version, err = s.GetEnvironmentApplicationVersionFromManifest(envName, appName)
 			if err != nil {
 				return fmt.Errorf("could not get version of app %s in env %s", appName, envName)
 			}
-			var versionIntPtr *uint64
-			if version != nil {
-				versionIntPtr = version
-				deploymentsForApp[envName] = int64(*version)
-			} else {
-				versionIntPtr = nil
-			}
+
+			deploymentsForApp[envName] = version
+
 			deployment := db.Deployment{
-				Created: time.Time{},
-				App:     appName,
-				Env:     envName,
-				ReleaseNumbers: types.ReleaseNumbers{
-					Revision: 0,
-					Version:  versionIntPtr,
-				},
-				TransformerID: 0,
+				Created:        time.Time{},
+				App:            appName,
+				Env:            envName,
+				ReleaseNumbers: version,
+				TransformerID:  0,
 				Metadata: db.DeploymentMetadata{
 					DeployedByName:  "",
 					DeployedByEmail: "",
@@ -1165,7 +1158,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 		dbRelease := db.DBReleaseWithMetaData{
 			Created: *now,
 			ReleaseNumbers: types.ReleaseNumbers{
-				Version:  &releaseVersion,
+				Version:  &repoRelease.Version,
 				Revision: repoRelease.Revision,
 			},
 			App: app,
@@ -1212,7 +1205,7 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 	return nil
 }
 
-func (s *State) GetApplicationReleaseManifestsFromManifest(application string, version uint64) (map[types.EnvName]*api.Manifest, error) {
+func (s *State) GetApplicationReleaseManifestsFromManifest(application string, version types.ReleaseNumbers) (map[types.EnvName]*api.Manifest, error) {
 	manifests := map[types.EnvName]*api.Manifest{}
 	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
 
@@ -1242,14 +1235,14 @@ func (s *State) GetApplicationReleaseManifestsFromManifest(application string, v
 	return manifests, nil
 }
 
-func (s *State) GetApplicationReleaseFromManifest(application string, version uint64) (*Release, error) {
+func (s *State) GetApplicationReleaseFromManifest(application string, version types.ReleaseNumbers) (*Release, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
 	if err != nil {
 		return nil, wrapFileError(err, base, "could not call stat")
 	}
 	release := Release{
-		Version:         version,
+		Version:         *version.Version,
 		UndeployVersion: false,
 		SourceAuthor:    "",
 		SourceCommitId:  "",
@@ -1259,7 +1252,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 		IsMinor:         false,
 		IsPrepublish:    false,
 		Environments:    []string{},
-		Revision:        0,
+		Revision:        version.Revision,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
@@ -1309,7 +1302,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ui
 	return &release, nil
 }
 
-func (s *State) IsUndeployVersionFromManifest(application string, version uint64) (bool, error) {
+func (s *State) IsUndeployVersionFromManifest(application string, version types.ReleaseNumbers) (bool, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
 	if err != nil {
@@ -1324,18 +1317,20 @@ func (s *State) IsUndeployVersionFromManifest(application string, version uint64
 	return true, nil
 }
 
-func (s *State) GetAllApplicationReleasesFromManifest(application string) ([]uint64, error) {
+func (s *State) GetAllApplicationReleasesFromManifest(application string) ([]types.ReleaseNumbers, error) {
 	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
 	} else {
-		result := make([]uint64, 0, len(ns))
+		result := make([]types.ReleaseNumbers, 0, len(ns))
 		for _, n := range ns {
-			if i, err := strconv.ParseUint(n, 10, 64); err == nil {
-				result = append(result, i)
+			r, err := types.MakeReleaseNumberFromString(n)
+			if err == nil {
+				result = append(result, r)
 			}
+
 		}
 		sort.Slice(result, func(i, j int) bool {
-			return result[i] < result[j]
+			return types.Greater(result[j], result[i])
 		})
 		return result, nil
 	}
@@ -1665,29 +1660,16 @@ func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.
 		}
 
 		for _, currentApp := range appNames {
-			var version *uint64
+			var version types.ReleaseNumbers
 			version, err := s.GetQueuedVersionFromManifest(envName, currentApp)
 			if err != nil {
 				return err
 			}
 
-			var versionIntPtr *int64
-			if version != nil {
-				var versionInt = int64(*version)
-				versionIntPtr = &versionInt
-			} else {
-				versionIntPtr = nil
-			}
 			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, version)
 			if err != nil {
-				var deref int64
-				if versionIntPtr == nil {
-					deref = 0
-				} else {
-					deref = *versionIntPtr
-				}
-				return fmt.Errorf("error writing existing queued application version '%d' to DB for app '%s' on environment '%s': %w",
-					deref, currentApp, envName, err)
+				return fmt.Errorf("error writing existing queued application version '%v' to DB for app '%s' on environment '%s': %w",
+					version, currentApp, envName, err)
 			}
 		}
 	}
@@ -1749,23 +1731,23 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	return result, nil
 }
 
-func (s *State) GetLastRelease(ctx context.Context, fs billy.Filesystem, application string) (uint64, error) {
+func (s *State) GetLastRelease(ctx context.Context, fs billy.Filesystem, application string) (types.ReleaseNumbers, error) {
 	var err error
 	releasesDir := releasesDirectory(fs, application)
 	err = fs.MkdirAll(releasesDir, 0777)
 	if err != nil {
-		return 0, err
+		return types.MakeEmptyReleaseNumbers(), err
 	}
 	if entries, err := fs.ReadDir(releasesDir); err != nil {
-		return 0, err
+		return types.MakeEmptyReleaseNumbers(), err
 	} else {
-		var lastRelease uint64 = 0
+		var lastRelease types.ReleaseNumbers
 		for _, e := range entries {
-			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
+			if curr, err := types.MakeReleaseNumberFromString(e.Name()); err != nil {
 				logger.FromContext(ctx).Sugar().Warnf("Bad name for release: '%s'\n", e.Name())
 			} else {
-				if i > lastRelease {
-					lastRelease = i
+				if lastRelease.Version == nil || types.Greater(curr, lastRelease) {
+					lastRelease = curr
 				}
 			}
 		}
@@ -1912,7 +1894,7 @@ func (s *State) DeleteDirIfEmpty(directoryName string) (SuccessReason, error) {
 	return DirNotEmpty, nil
 }
 
-func (s *State) GetQueuedVersionFromManifest(environment types.EnvName, application string) (*uint64, error) {
+func (s *State) GetQueuedVersionFromManifest(environment types.EnvName, application string) (types.ReleaseNumbers, error) {
 	return s.readSymlink(environment, application, queueFileName)
 }
 
@@ -1926,45 +1908,45 @@ func (s *State) DeleteQueuedVersionIfExists(environment types.EnvName, applicati
 	if err != nil {
 		return err
 	}
-	if queuedVersion == nil {
+	if queuedVersion.Version == nil {
 		return nil // nothing to do
 	}
 	return s.DeleteQueuedVersion(environment, application)
 }
 
-func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (*uint64, error) {
+func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (types.ReleaseNumbers, error) {
 	depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
 	if err != nil {
-		return nil, err
+		return types.MakeEmptyReleaseNumbers(), err
 	}
 	if depl == nil || depl.ReleaseNumbers.Version == nil {
-		return nil, nil
+		return types.MakeEmptyReleaseNumbers(), nil
 	}
-	var v = *depl.ReleaseNumbers.Version
-	return &v, nil
+
+	return depl.ReleaseNumbers, nil
 }
 
-func (s *State) GetEnvironmentApplicationVersionFromManifest(environment types.EnvName, application string) (*uint64, error) {
+func (s *State) GetEnvironmentApplicationVersionFromManifest(environment types.EnvName, application string) (types.ReleaseNumbers, error) {
 	return s.readSymlink(environment, application, "version")
 }
 
 // returns nil if there is no file
-func (s *State) readSymlink(environment types.EnvName, application string, symlinkName string) (*uint64, error) {
+func (s *State) readSymlink(environment types.EnvName, application string, symlinkName string) (types.ReleaseNumbers, error) {
 	version := s.Filesystem.Join("environments", string(environment), "applications", application, symlinkName)
 	if lnk, err := s.Filesystem.Readlink(version); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// if the link does not exist, we return nil
-			return nil, nil
+			return types.MakeEmptyReleaseNumbers(), nil
 		}
-		return nil, fmt.Errorf("failed reading symlink %q: %w", version, err)
+		return types.MakeEmptyReleaseNumbers(), fmt.Errorf("failed reading symlink %q: %w", version, err)
 	} else {
 		target := s.Filesystem.Join("environments", string(environment), "applications", application, lnk)
 		if stat, err := s.Filesystem.Stat(target); err != nil {
 			// if the file that the link points to does not exist, that's an error
-			return nil, fmt.Errorf("failed stating %q: %w", target, err)
+			return types.MakeEmptyReleaseNumbers(), fmt.Errorf("failed stating %q: %w", target, err)
 		} else {
-			res, err := strconv.ParseUint(stat.Name(), 10, 64)
-			return &res, err
+			res, err := types.MakeReleaseNumberFromString(stat.Name())
+			return res, err
 		}
 	}
 }
@@ -2075,18 +2057,22 @@ func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
 }
 
-func (s *State) GetApplicationReleasesFromFile(application string) ([]uint64, error) {
+func (s *State) GetApplicationReleasesFromFile(application string) ([]types.ReleaseNumbers, error) {
 	if ns, err := names(s.Filesystem, s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
 	} else {
-		result := make([]uint64, 0, len(ns))
+		result := make([]types.ReleaseNumbers, 0, len(ns))
 		for _, n := range ns {
 			if i, err := strconv.ParseUint(n, 10, 64); err == nil {
-				result = append(result, i)
+				result = append(result, types.MakeReleaseNumberVersion(i))
+			} else {
+				if ver, err := types.MakeReleaseNumberFromString(n); err == nil {
+					result = append(result, ver)
+				}
 			}
 		}
 		sort.Slice(result, func(i, j int) bool {
-			return result[i] < result[j]
+			return types.Greater(result[j], result[i])
 		})
 		return result, nil
 	}
@@ -2146,7 +2132,7 @@ func extractPrNumber(sourceMessage string) string {
 	}
 }
 
-func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {
+func (s *State) IsUndeployVersion(application string, version types.ReleaseNumbers) (bool, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
 	if err != nil {
@@ -2161,14 +2147,14 @@ func (s *State) IsUndeployVersion(application string, version uint64) (bool, err
 	return true, nil
 }
 
-func (s *State) GetApplicationRelease(application string, version uint64) (*Release, error) {
+func (s *State) GetApplicationRelease(application string, version types.ReleaseNumbers) (*Release, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
 	if err != nil {
 		return nil, wrapFileError(err, base, "could not call stat")
 	}
 	release := Release{
-		Version:         version,
+		Version:         *version.Version,
 		UndeployVersion: false,
 		SourceAuthor:    "",
 		SourceCommitId:  "",
@@ -2178,7 +2164,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		IsMinor:         false,
 		IsPrepublish:    false,
 		Environments:    nil,
-		Revision:        0,
+		Revision:        version.Revision,
 	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
@@ -2228,7 +2214,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 	return &release, nil
 }
 
-func (s *State) GetApplicationReleaseManifests(application string, version uint64) (map[string]*api.Manifest, error) {
+func (s *State) GetApplicationReleaseManifests(application string, version types.ReleaseNumbers) (map[string]*api.Manifest, error) {
 	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
 
 	entries, err := s.Filesystem.ReadDir(dir)
@@ -2315,7 +2301,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 		// could not read queued version.
 		return "", err
 	} else {
-		if queuedVersion == nil {
+		if queuedVersion.Version == nil {
 			// if there is no version queued, that's not an issue, just do nothing:
 			return "", nil
 		}
@@ -2325,11 +2311,11 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 			return "", err
 		}
 
-		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
+		if currentlyDeployedVersion.Version != nil && types.Equal(queuedVersion, currentlyDeployedVersion) {
 			// delete queue, it's outdated! But if we can't, that's not really a problem, as it would be overwritten
 			// whenever the next deployment happens:
 			err = s.DeleteQueuedVersion(environment, application)
-			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
+			return fmt.Sprintf("deleted queued version %v because it was already deployed. app=%q env=%q", queuedVersion, application, environment), err
 		}
 	}
 	return queueDeploymentMessage, nil

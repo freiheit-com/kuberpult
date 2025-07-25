@@ -21,11 +21,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
-	"strconv"
-
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -68,14 +66,14 @@ func (o *VersionServiceServer) GetVersion(
 		if err != nil {
 			return nil, err
 		}
-		if version != nil {
-			res.Version = *version
+		if version.Version != nil {
+			res.Version = *version.Version
 			_, deployedAt, err := state.GetDeploymentMetaData(envName, in.Application)
 			if err != nil {
 				return nil, err
 			}
 			res.DeployedAt = timestamppb.New(deployedAt)
-			release, err := state.GetApplicationRelease(in.Application, *version)
+			release, err := state.GetApplicationRelease(in.Application, version)
 			if err != nil {
 				return nil, err
 			}
@@ -107,20 +105,20 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 	result, err := db.WithTransactionT(state.DBHandler, ctx, 1, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
 		var (
 			err     error
-			release uint64
+			release types.ReleaseNumbers
 		)
 		if req.Release == "latest" {
 			release, err = state.GetLastRelease(ctx, state.Filesystem, req.Application)
 			if err != nil {
 				return nil, wrapError("application", err)
 			}
-			if release == 0 {
+			if release.Version == nil {
 				return nil, status.Errorf(codes.NotFound, "no releases found for application %s", req.Application)
 			}
 		} else {
-			release, err = strconv.ParseUint(req.Release, 10, 64)
+			release, err = types.MakeReleaseNumberFromString(req.Release)
 			if err != nil {
-				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
+				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected number, 'Major.Minor' or 'latest'")
 			}
 		}
 		repoRelease, err := state.GetApplicationRelease(req.Application, release)
