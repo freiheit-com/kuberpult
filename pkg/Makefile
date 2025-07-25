@@ -36,10 +36,10 @@ test: gen unit-test
 lint: gen
 ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"
-	GOFLAGS="-buildvcs=false" golangci-lint run --out-format=tab --sort-results --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...
+	GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...
 else
 	@echo "Running in docker"
-	docker run --rm -w /kp/ -v "..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --out-format=tab --sort-results --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...'
+	docker run --rm -w /kp/ -v "..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...'
 endif
 
 gen: grpc-api-gen publicapi
