@@ -53,4 +53,4 @@ jobs:
         make -C charts/kuberpult test-helm
     - name: Run integration tests
       run: |
-        make integration-test   
+        IMAGE_TAG_KUBERPULT=pr-$(make version) make integration-test
