@@ -19,6 +19,7 @@ package types
 import (
 	"cmp"
 	"fmt"
+	"strconv"
 
 	"sort"
 	"strings"
@@ -121,4 +122,38 @@ func MakeReleaseNumbers(v, r uint64) ReleaseNumbers {
 
 func MakeReleaseNumberVersion(v uint64) ReleaseNumbers {
 	return MakeReleaseNumbers(v, 0)
+}
+
+func MakeEmptyReleaseNumbers() ReleaseNumbers {
+	return ReleaseNumbers{
+		Version:  nil,
+		Revision: 0,
+	}
+}
+
+func MakeReleaseNumberFromString(str string) (ReleaseNumbers, error) {
+	parts := strings.Split(str, ".")
+	var rel ReleaseNumbers
+	if len(parts) == 1 { //If there are no revisions...
+		if version, err := strconv.ParseUint(parts[0], 10, 64); err == nil {
+			rel = MakeReleaseNumberVersion(version)
+			return rel, err
+		}
+		return MakeEmptyReleaseNumbers(), fmt.Errorf("error generating release number. %s is not a valid release number", str)
+	} else if len(parts) != 2 {
+		return MakeEmptyReleaseNumbers(), fmt.Errorf("error generating release number. %s is not a valid release number", str)
+	}
+	//There is a revision, something like 1.1/1.0(...)
+	if version, err := strconv.ParseUint(parts[0], 10, 64); err == nil {
+		rel.Version = &version
+	} else {
+		return MakeEmptyReleaseNumbers(), fmt.Errorf("error generating release number. %s is not a valid version", parts[0])
+	}
+
+	if revision, err := strconv.ParseUint(parts[1], 10, 64); err == nil {
+		rel.Revision = revision
+	} else {
+		return MakeEmptyReleaseNumbers(), fmt.Errorf("error generating release number. %s is not a valid revision", parts[1])
+	}
+	return rel, nil
 }

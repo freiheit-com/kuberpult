@@ -46,7 +46,6 @@ import (
 
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -79,8 +78,8 @@ var (
 	ctxMarkerGenerateUuidKey = &ctxMarkerGenerateUuid{}
 )
 
-func versionToString(Version uint64) string {
-	return strconv.FormatUint(Version, 10)
+func versionToString(Version types.ReleaseNumbers) string {
+	return fmt.Sprintf("%v", Version)
 }
 
 // releasesDirectory returns applications/<app>/releases/
@@ -99,12 +98,12 @@ func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvN
 }
 
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
-func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version uint64) string {
+func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version types.ReleaseNumbers) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
 }
 
 // environmentApplicationDirectory returns applications/<app>/releases/<version>/environments/
-func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application string, version uint64) string {
+func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application string, version types.ReleaseNumbers) string {
 	return fs.Join(releasesDirectoryWithVersion(fs, application, version), "environments")
 }
 
@@ -282,6 +281,7 @@ type QueueApplicationVersion struct {
 	Environment           types.EnvName
 	Application           string
 	Version               uint64
+	Revision              uint64
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
@@ -309,7 +309,7 @@ func (c *QueueApplicationVersion) Transform(
 	if err := fs.Remove(queuedVersionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, types.MakeReleaseNumbers(c.Version, c.Revision))
 	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), queuedVersionFile); err != nil {
 		return "", err
 	}
@@ -357,7 +357,7 @@ func (c *DeployApplicationVersion) Transform(
 	envName := types.EnvName(c.Environment)
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
-	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, c.Version)
+	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, types.MakeReleaseNumbers(c.Version, c.Revision))
 	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 	if err != nil {
 		return "", err
@@ -767,7 +767,7 @@ func (c *CreateApplicationVersion) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	version := c.Version
+	version := types.MakeReleaseNumbers(c.Version, c.Revision)
 	fs := state.Filesystem
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
@@ -888,7 +888,7 @@ func (c *CreateApplicationVersion) Transform(
 				SourceTrain:           nil,
 				Environment:           env,
 				Application:           c.Application,
-				Version:               version,
+				Version:               *version.Version,
 				LockBehaviour:         api.LockBehavior_IGNORE,
 				Authentication:        c.Authentication,
 				WriteCommitData:       c.WriteCommitData,
@@ -898,7 +898,7 @@ func (c *CreateApplicationVersion) Transform(
 					AuthorName:  c.SourceAuthor,
 					AuthorEmail: "",
 				},
-				Revision: c.Revision,
+				Revision: version.Revision,
 			}
 			err = tCtx.Execute(d, transaction)
 			if err != nil {
@@ -911,7 +911,7 @@ func (c *CreateApplicationVersion) Transform(
 		return GetNoOpMessage(c)
 	}
 
-	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
+	return fmt.Sprintf("created version %v of %q", version, c.Application), nil
 }
 
 func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, previousCommitId string, state *State) error {
@@ -986,7 +986,7 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
 // Releases older that the oldest deployed release are eligible for deletion. releaseVersionsLimit
-func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, appName string) ([]uint64, error) {
+func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, appName string) ([]types.ReleaseNumbers, error) {
 	// 1) get release in each env:
 	envConfigs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	//envConfigs, err := state.GetEnvironmentConfigs()
@@ -1000,24 +1000,21 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if len(versions) == 0 {
 		return nil, err
 	}
-	sort.Slice(versions, func(i, j int) bool {
-		return versions[i] < versions[j]
-	})
-	// Use the latest version as oldest deployed version
+
 	oldestDeployedVersion := versions[len(versions)-1]
 	for env := range envConfigs {
 		version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, appName)
 		if err != nil {
 			return nil, err
 		}
-		if version != nil {
-			if *version < oldestDeployedVersion {
-				oldestDeployedVersion = *version
+		if version.Version != nil {
+			if types.Greater(oldestDeployedVersion, version) {
+				oldestDeployedVersion = version
 			}
 		}
 	}
 	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
-		return versions[i] >= oldestDeployedVersion
+		return types.GreaterOrEqual(versions[i], oldestDeployedVersion)
 	})
 
 	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
@@ -1026,7 +1023,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	indexToKeep := positionOfOldestVersion - 1
 	majorsCount := 0
 	for ; indexToKeep >= 0; indexToKeep-- {
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: &versions[indexToKeep], Revision: 0}, false)
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: versions[indexToKeep].Version, Revision: versions[indexToKeep].Revision}, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1044,30 +1041,6 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		return nil, nil
 	}
 	return versions[0:indexToKeep], nil
-}
-
-func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
-	var err error
-	releasesDir := releasesDirectory(fs, application)
-	err = fs.MkdirAll(releasesDir, 0777)
-	if err != nil {
-		return 0, err
-	}
-	if entries, err := fs.ReadDir(releasesDir); err != nil {
-		return 0, err
-	} else {
-		var lastRelease uint64 = 0
-		for _, e := range entries {
-			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
-				//TODO(HVG): decide what to do with bad named releases
-			} else {
-				if i > lastRelease {
-					lastRelease = i
-				}
-			}
-		}
-		return lastRelease, nil
-	}
 }
 
 type CreateEnvironmentTeamLock struct {
@@ -1372,7 +1345,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 ) (string, error) {
 	fs := state.Filesystem
 	var err error
-	var oldVersions []uint64
+	var oldVersions []types.ReleaseNumbers
 	oldVersions, err = findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
@@ -1507,7 +1480,7 @@ func (u *ReleaseTrain) Transform(
 			},
 			TransformerEslVersion: u.TransformerEslVersion,
 			Author:                "",
-			Revision:              0,
+			Revision:              currentDeployment.ReleaseNumbers.Revision,
 		}, transaction); err != nil {
 			return "", err
 		}
@@ -1643,11 +1616,11 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	if err != nil {
 		return "", fmt.Errorf("could not get last relase for app '%v': %v", c.Application, err)
 	}
-	var nextReleaseNumber uint64
+	var nextReleaseNumber types.ReleaseNumbers
 	if len(lastRelease) == 0 {
 		return "", fmt.Errorf("cannot undeploy application '%v'", c.Application)
 	}
-	nextReleaseNumber = *lastRelease[0].ReleaseNumbers.Version
+	nextReleaseNumber = lastRelease[0].ReleaseNumbers
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, nextReleaseNumber)
 
@@ -1705,7 +1678,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				SourceTrain: nil,
 				Environment: env,
 				Application: c.Application,
-				Version:     nextReleaseNumber,
+				Version:     *nextReleaseNumber.Version,
 				// the train should queue deployments, instead of giving up:
 				LockBehaviour:         api.LockBehavior_RECORD,
 				Authentication:        c.Authentication,
@@ -1716,7 +1689,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 					AuthorName:  "",
 					AuthorEmail: "",
 				},
-				Revision: 0,
+				Revision: nextReleaseNumber.Revision,
 			}
 			err := tCtx.Execute(d, transaction)
 			if err != nil {

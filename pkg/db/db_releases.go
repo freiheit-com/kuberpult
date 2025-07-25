@@ -519,11 +519,11 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 	return nil
 }
 
-func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion uint64, createAt time.Time) error {
+func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion types.ReleaseNumbers, createAt time.Time) error {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBMigrationUpdateReleasesTimestamp")
 	defer span.Finish()
 	historyUpdateQuery := h.AdaptQuery(`
-		UPDATE releases_history SET created=? WHERE appname=? AND releaseversion=?;
+		UPDATE releases_history SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
 	`)
 	span.SetTag("query", historyUpdateQuery)
 
@@ -532,7 +532,8 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 		historyUpdateQuery,
 		createAt,
 		application,
-		releaseversion,
+		*releaseversion.Version,
+		releaseversion.Revision,
 	)
 	if err != nil {
 		return onErr(fmt.Errorf(
@@ -545,7 +546,7 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 	span2, ctx, onErr2 := tracing.StartSpanFromContext(ctx, "DBUpdateReleaseTimestamp")
 	defer span2.Finish()
 	releasesUpdateQuery := h.AdaptQuery(`
-		UPDATE releases SET created=? WHERE appname=? AND releaseversion=?;
+		UPDATE releases SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
 	`)
 	span.SetTag("query", releasesUpdateQuery)
 
@@ -554,7 +555,8 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 		releasesUpdateQuery,
 		createAt,
 		application,
-		releaseversion,
+		*releaseversion.Version,
+		releaseversion.Revision,
 	)
 	if err != nil {
 		return onErr2(onErr(fmt.Errorf(
@@ -715,7 +717,7 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 	}(rows)
 	result := []types.ReleaseNumbers{}
 	for rows.Next() {
-		curr := types.ReleaseNumbers{Version: nil, Revision: 0}
+		curr := types.MakeEmptyReleaseNumbers()
 		err := rows.Scan(&curr.Version, &curr.Revision)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

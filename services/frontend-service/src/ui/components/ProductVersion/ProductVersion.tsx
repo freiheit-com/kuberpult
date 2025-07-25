@@ -86,7 +86,7 @@ export const TableFiltered: React.FC<TableProps> = (props) => {
                             <td>
                                 <DisplayManifestLink
                                     app={sum.app}
-                                    version={Number(sum.version)}
+                                    version={{ version: Number(sum.version), revision: Number(sum.revision) }}
                                     displayString="Manifest Link"
                                 />
                             </td>
@@ -285,7 +285,6 @@ export const ProductVersion: React.FC = () => {
             envSelectionDialog={false}
         />
     );
-
     return (
         <div className="product_version">
             <h1 className="environment_name">{'Product Version Page'}</h1>

@@ -2173,7 +2173,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context
 	return h.processDeploymentAttemptsRows(ctx, rows, err)
 }
 
-func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName string, version *uint64) error {
+func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName string, version types.ReleaseNumbers) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer span.Finish()
 
@@ -2184,14 +2184,11 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 		return fmt.Errorf("DBWriteDeploymentAttempt: no transaction provided")
 	}
 	return h.dbWriteDeploymentAttemptInternal(ctx, tx, &QueuedDeployment{
-		EslVersion: 0,
-		Created:    time.Time{},
-		Env:        envName,
-		App:        appName,
-		ReleaseNumbers: types.ReleaseNumbers{
-			Version:  version,
-			Revision: 0,
-		},
+		EslVersion:     0,
+		Created:        time.Time{},
+		Env:            envName,
+		App:            appName,
+		ReleaseNumbers: version,
 	})
 }
 

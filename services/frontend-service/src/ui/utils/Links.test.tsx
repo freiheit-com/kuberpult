@@ -25,7 +25,7 @@ import {
     KuberpultGitHubLink,
 } from './Links';
 import { GetFrontendConfigResponse_ArgoCD } from '../../api/api';
-import { UpdateFrontendConfig } from './store';
+import { ReleaseNumbers, UpdateFrontendConfig } from './store';
 import { elementQuerySelectorSafe } from '../../setupTests';
 
 const setupArgoCd = (baseUrl: string | undefined, namespace: string) => {
@@ -191,7 +191,7 @@ describe('DisplayManifestLink', () => {
     const cases: {
         name: string;
         displayVersion: string;
-        version: number;
+        version: ReleaseNumbers;
         app: string;
         sourceRepo: string;
         expectedLink: string | undefined;
@@ -199,31 +199,31 @@ describe('DisplayManifestLink', () => {
         {
             name: 'Test with displayVersion',
             displayVersion: '1',
-            version: 1,
+            version: { version: 1, revision: 0 },
             app: 'foo',
             sourceRepo: 'https://example.com/testing/{dir}/{branch}',
-            expectedLink: 'https://example.com/testing/applications/foo/releases/1/main',
+            expectedLink: 'https://example.com/testing/applications/foo/releases/1.0/main',
         },
         {
             name: 'Test without DisplayVersion',
             displayVersion: '',
-            version: 1,
+            version: { version: 1, revision: 0 },
             app: 'foo',
             sourceRepo: 'https://example.com/testing/{branch}/{dir}',
-            expectedLink: 'https://example.com/testing/main/applications/foo/releases/1',
+            expectedLink: 'https://example.com/testing/main/applications/foo/releases/1.0',
         },
         {
             name: 'Test without repo link should render internal',
             displayVersion: '1',
-            version: 1,
+            version: { version: 1, revision: 0 },
             app: 'foo',
             sourceRepo: '',
-            expectedLink: '/ui/manifest?app=foo&release=1',
+            expectedLink: '/ui/manifest?app=foo&release=1&revision=0',
         },
         {
             name: 'Test with undeployVersion should render nothing',
             displayVersion: '1',
-            version: 0,
+            version: { version: 0, revision: 0 },
             app: 'foo',
             sourceRepo: 'https://example.com/testing',
             expectedLink: undefined,

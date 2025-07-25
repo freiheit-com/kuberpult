@@ -19,7 +19,9 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/http"
+	"strconv"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -142,19 +144,26 @@ func (s Server) handleApplicationRelease(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
+	r, err := types.MakeReleaseNumberFromString(releaseNum)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("provided version is invalid: %v", err), http.StatusPreconditionFailed)
+		return
+	}
+
 	group, _ := xpath.Shift(tail)
 	switch group {
 	case "manifests":
-		s.handleApplicationReleaseManifests(w, req, applicationID, releaseNum)
+		s.handleApplicationReleaseManifests(w, req, applicationID, r)
 	default:
 		http.Error(w, fmt.Sprintf("unknown endpoint 'api/application/%s/%s'", releaseNum, group), http.StatusNotFound)
 	}
 }
 
-func (s Server) handleApplicationReleaseManifests(w http.ResponseWriter, req *http.Request, applicationID ApplicationID, releaseNum string) {
+func (s Server) handleApplicationReleaseManifests(w http.ResponseWriter, req *http.Request, applicationID ApplicationID, numbers types.ReleaseNumbers) {
 	resp, err := s.VersionClient.GetManifests(req.Context(), &api.GetManifestsRequest{
 		Application: string(applicationID),
-		Release:     releaseNum,
+		Release:     strconv.FormatUint(*numbers.Version, 10),
+		Revision:    strconv.FormatUint(numbers.Revision, 10),
 	})
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)

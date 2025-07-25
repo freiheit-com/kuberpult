@@ -955,11 +955,11 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
 					fileData: []byte("123456789abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
 					fileData: []byte("abcdef"),
 				},
 			},
@@ -1063,16 +1063,16 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
 					fileData: []byte("123456789abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
 					fileData: []byte("abcdef"),
 				},
 			},
 			ExpectedAuthor:      &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
-			ExpectedDeletedFile: "/applications/" + appName + "/releases/1/source_commit_id",
+			ExpectedDeletedFile: "/applications/" + appName + "/releases/1.0/source_commit_id",
 		},
 		{
 			Name: "CleanupOldApplicationVersions with a minor release", //ReleaseLimit is 2
@@ -1173,15 +1173,15 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			MinorRelease: 3,
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
 					fileData: []byte("123456789abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
 					fileData: []byte("abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/1/source_commit_id",
+					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
 					fileData: []byte("123456789"),
 				},
 			},
@@ -1286,15 +1286,15 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 			PrepublishRelease: 3,
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/applications/" + appName + "/releases/3/source_commit_id",
+					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
 					fileData: []byte("123456789abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/2/source_commit_id",
+					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
 					fileData: []byte("abcdef"),
 				},
 				{
-					path:     "/applications/" + appName + "/releases/1/source_commit_id",
+					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
 					fileData: []byte("123456789"),
 				},
 			},
@@ -1663,7 +1663,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 			},
 			expectedData: []*FilenameAndData{
 				{
-					path:     "applications/app1/releases/2/environments/acceptance/manifests.yaml",
+					path:     "applications/app1/releases/2.0/environments/acceptance/manifests.yaml",
 					fileData: []byte(" "),
 				},
 			},
@@ -2418,7 +2418,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 			},
 			expectedData: []*FilenameAndData{
 				{
-					path:     "/applications/app1/releases/2/undeploy",
+					path:     "/applications/app1/releases/2.0/undeploy",
 					fileData: []byte(""),
 				},
 				{
@@ -2521,7 +2521,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 			},
 			expectedData: []*FilenameAndData{
 				{ //There is an undeploy version
-					path:     "/applications/app1/releases/2/undeploy",
+					path:     "/applications/app1/releases/2.0/undeploy",
 					fileData: []byte(""),
 				},
 				{ //The first env has the undeploy version deployed
@@ -2797,7 +2797,7 @@ func TestUndeployLogic(t *testing.T) {
 					fileData: []byte(""),
 				},
 				{
-					path:     "/applications/app1/releases/2/undeploy",
+					path:     "/applications/app1/releases/2.0/undeploy",
 					fileData: []byte(""),
 				},
 				{
@@ -2958,7 +2958,7 @@ func TestUndeployLogic(t *testing.T) {
 					fileData: []byte(""),
 				},
 				{ //There is no undeploy version, because all releases have been deleted
-					path:     "/applications/app1/releases/2/undeploy",
+					path:     "/applications/app1/releases/2.0/undeploy",
 					fileData: []byte(""),
 				},
 				{ //The second env has the undeploy version *queued*
@@ -3338,6 +3338,539 @@ spec:
 			}
 			if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
 				t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+func TestReleasesAndDeployments(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		ExpectedError error
+		ExpectedFile  []*FilenameAndData
+	}{
+		{
+			Name: "Create two releases with revisions and check their manifests",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"production": "some production manifest 1.0",
+						"staging":    "some staging manifest 1.0",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 3,
+					Team:                  "team-123",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"production": "some production manifest 1.1",
+						"staging":    "some staging manifest 1.1",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 4,
+					Team:                  "team-123",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "applications/" + appName + "/releases/1.0/environments/production/manifests.yaml",
+					fileData: []byte("some production manifest 1.0"),
+				},
+				{
+					path:     "applications/" + appName + "/releases/1.0/environments/staging/manifests.yaml",
+					fileData: []byte("some staging manifest 1.0"),
+				},
+				{
+					path:     "applications/" + appName + "/releases/1.1/environments/production/manifests.yaml",
+					fileData: []byte("some production manifest 1.1"),
+				},
+				{
+					path:     "applications/" + appName + "/releases/1.1/environments/staging/manifests.yaml",
+					fileData: []byte("some staging manifest 1.1"),
+				},
+			},
+		},
+		{
+			Name: "Check deployments",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"production": "some production manifest 1.0",
+						"staging":    "some staging manifest 1.0",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 3,
+					Team:                  "team-123",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"production": "some production manifest 1.1",
+						"staging":    "some staging manifest 1.1",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 4,
+					Team:                  "team-123",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "staging",
+					Application:           appName,
+					Version:               1,
+					Revision:              1,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 5,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "production",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 5,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "applications/" + appName + "/releases/1.0/environments/production/manifests.yaml",
+					fileData: []byte("some production manifest 1.0"),
+				},
+				{
+					path:     "applications/" + appName + "/releases/1.0/environments/staging/manifests.yaml",
+					fileData: []byte("some staging manifest 1.0"),
+				},
+				{
+					path:     "applications/" + appName + "/releases/1.1/environments/production/manifests.yaml",
+					fileData: []byte("some production manifest 1.1"),
+				},
+				{
+					path:     "applications/" + appName + "/releases/1.1/environments/staging/manifests.yaml",
+					fileData: []byte("some staging manifest 1.1"),
+				},
+				{
+					path:     "environments/production/applications/myapp/manifests/manifests.yaml",
+					fileData: []byte("some production manifest 1.0"),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _, _ := SetupRepositoryTestWithDB(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, tr := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if tc.ExpectedFile != nil {
+				for i := range tc.ExpectedFile {
+					expectedFile := tc.ExpectedFile[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+				}
+			}
+		})
+	}
+}
+
+func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr Transformer, dbHandler *db.DBHandler, t *testing.T, authorEmail string, authorName string) {
+	if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
+		concreteTransformer := tr.(*CreateEnvironmentLock)
+		err2 := dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
+			CreatedByName:  concreteTransformer.AuthorName,
+			CreatedByEmail: concreteTransformer.AuthorEmail,
+			Message:        concreteTransformer.Message,
+			CiLink:         "", //not transported to repo
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtCreateEnvironment {
+		concreteTransformer := tr.(*CreateEnvironment)
+		err2 := dbHandler.DBWriteEnvironment(ctx, transaction, concreteTransformer.Environment, concreteTransformer.Config, []string{})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtDeleteEnvironmentLock {
+		concreteTransformer := tr.(*DeleteEnvironmentLock)
+		err2 := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.LockId)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtDeployApplicationVersion {
+		concreteTransformer := tr.(*DeployApplicationVersion)
+		err2 := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+			App:            concreteTransformer.Application,
+			ReleaseNumbers: types.MakeReleaseNumbers(concreteTransformer.Version, concreteTransformer.Revision),
+			Metadata: db.DeploymentMetadata{
+				DeployedByEmail: authorEmail,
+				DeployedByName:  authorName,
+			},
+			TransformerID: concreteTransformer.TransformerEslVersion,
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
+		concreteTransformer := tr.(*CreateApplicationVersion)
+		err2 := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, concreteTransformer.Application, db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+			ReleaseNumbers: types.ReleaseNumbers{
+				Version:  &concreteTransformer.Version,
+				Revision: concreteTransformer.Revision,
+			},
+			App: concreteTransformer.Application,
+			Manifests: db.DBReleaseManifests{
+				Manifests: concreteTransformer.Manifests,
+			},
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtCreateEnvironmentApplicationLock {
+		concreteTransformer := tr.(*CreateEnvironmentApplicationLock)
+		err2 := dbHandler.DBWriteApplicationLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), concreteTransformer.Application, db.LockMetadata{
+			CreatedByName:  concreteTransformer.AuthorName,
+			CreatedByEmail: concreteTransformer.AuthorEmail,
+			Message:        concreteTransformer.Message,
+			CiLink:         "", //not transported to repo
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtDeleteEnvironmentApplicationLock {
+		concreteTransformer := tr.(*DeleteEnvironmentApplicationLock)
+		err2 := dbHandler.DBDeleteApplicationLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.Application, concreteTransformer.LockId)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtCreateEnvironmentTeamLock {
+		concreteTransformer := tr.(*CreateEnvironmentTeamLock)
+
+		err2 := dbHandler.DBWriteTeamLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), concreteTransformer.Team, db.LockMetadata{
+			CreatedByName:  concreteTransformer.AuthorName,
+			CreatedByEmail: concreteTransformer.AuthorEmail,
+			Message:        concreteTransformer.Message,
+			CiLink:         "", //not transported to repo
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtDeleteEnvironmentTeamLock {
+		concreteTransformer := tr.(*DeleteEnvironmentTeamLock)
+		err2 := dbHandler.DBDeleteTeamLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.Team, concreteTransformer.LockId)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+}
+
+func TestReleaseTrainTransformer(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	var versionOne uint64 = 1
+	tcs := []struct {
+		Name             string
+		Transformers     []Transformer
+		ExpectedError    error
+		ExtraDeployments db.Deployment //Release trains need deployments to be written into the database beforehand needed
+		ExpectedFile     []*FilenameAndData
+	}{
+		{
+			Name: "Release train with revisions",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"production": "some production manifest 1.1",
+						"staging":    "some staging manifest 1.1",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 3,
+					Team:                  "team-123",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:           "staging",
+					Application:           appName,
+					Version:               1,
+					Revision:              1,
+					WriteCommitData:       false,
+					TransformerEslVersion: 4,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&ReleaseTrain{
+					Target:                "production",
+					WriteCommitData:       false,
+					TransformerEslVersion: 5,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExtraDeployments: db.Deployment{
+				App: appName,
+				Env: "production",
+				ReleaseNumbers: types.ReleaseNumbers{
+					Version:  &versionOne,
+					Revision: 1,
+				},
+				TransformerID: 5,
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "environments/production/applications/myapp/manifests/manifests.yaml", //From Release train
+					fileData: []byte("some production manifest 1.1"),
+				},
+				{
+					path:     "environments/staging/applications/myapp/manifests/manifests.yaml", //From deployment
+					fileData: []byte("some staging manifest 1.1"),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _, _ := SetupRepositoryTestWithDB(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, tr := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, tr, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+				err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, tc.ExtraDeployments)
+				if err != nil {
+					return err
+				}
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if tc.ExpectedFile != nil {
+				for i := range tc.ExpectedFile {
+					expectedFile := tc.ExpectedFile[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+				}
 			}
 		})
 	}

@@ -279,10 +279,15 @@ export const [useManifestInfo, updateManifestInfo] = createStore<ManifestRespons
     response: undefined,
     manifestInfoReady: ManifestRequestState.LOADING,
 });
-export const getManifest = (applicationName: string, release: string, authHeader: AuthHeader): void => {
+export const getManifest = (
+    applicationName: string,
+    release: string,
+    revision: string,
+    authHeader: AuthHeader
+): void => {
     useApi
         .versionService()
-        .GetManifests({ application: applicationName, release: release }, authHeader)
+        .GetManifests({ application: applicationName, release: release, revision: revision }, authHeader)
         .then((result: GetManifestsResponse) => {
             updateManifestInfo.set({ response: result, manifestInfoReady: ManifestRequestState.READY });
         })
