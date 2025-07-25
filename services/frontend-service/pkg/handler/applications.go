@@ -153,7 +153,7 @@ func (s Server) handleApplicationRelease(w http.ResponseWriter, req *http.Reques
 	group, _ := xpath.Shift(tail)
 	switch group {
 	case "manifests":
-		s.handleApplicationReleaseManifests(w, req, applicationID, releaseNum)
+		s.handleApplicationReleaseManifests(w, req, applicationID, r)
 	default:
 		http.Error(w, fmt.Sprintf("unknown endpoint 'api/application/%s/%s'", releaseNum, group), http.StatusNotFound)
 	}

@@ -91,6 +91,7 @@ describe('Test Manifests', () => {
         releaseVersion: string;
         response: ManifestResponse;
         expectedMessage: string;
+        revisionsEnabled: boolean;
     }
 
     const errorTestData: dataEnvT[] = [
@@ -103,6 +104,7 @@ describe('Test Manifests', () => {
                 manifestInfoReady: ManifestRequestState.NOTFOUND,
             },
             expectedMessage: 'Kuberpult could not find the manifests for release 1 of appName.',
+            revisionsEnabled: false,
         },
         {
             name: 'error fetching manifests',
@@ -113,6 +115,7 @@ describe('Test Manifests', () => {
                 manifestInfoReady: ManifestRequestState.ERROR,
             },
             expectedMessage: 'Something went wrong fetching data from Kuberpult.',
+            revisionsEnabled: false,
         },
     ];
 
@@ -159,6 +162,7 @@ describe('Test Manifests', () => {
                 manifestInfoReady: ManifestRequestState.READY,
             },
             expectedMessage: '',
+            revisionsEnabled: false,
         },
         {
             name: 'mulitple manifests ',
@@ -194,6 +198,7 @@ describe('Test Manifests', () => {
                 manifestInfoReady: ManifestRequestState.READY,
             },
             expectedMessage: '',
+            revisionsEnabled: false,
         },
     ];
 

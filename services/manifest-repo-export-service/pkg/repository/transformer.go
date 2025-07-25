@@ -281,6 +281,7 @@ type QueueApplicationVersion struct {
 	Environment           types.EnvName
 	Application           string
 	Version               uint64
+	Revision              uint64
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
@@ -308,7 +309,7 @@ func (c *QueueApplicationVersion) Transform(
 	if err := fs.Remove(queuedVersionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, types.MakeReleaseNumberVersion(c.Version))
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, types.MakeReleaseNumbers(c.Version, c.Revision))
 	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), queuedVersionFile); err != nil {
 		return "", err
 	}
