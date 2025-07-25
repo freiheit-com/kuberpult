@@ -30,7 +30,10 @@ There's no need to push the image.
 ```bash
 cd services/cd-service
 git init --bare repository_remote --initial-branch=master
-cd ../..
+git clone ./repository_remote/ repository_checkedout
+cd repository_checkedout
+git commit --allow-empty -m 'initial commit' && git push
+cd ../../..
 ```
 - This repository is bare, to populate it, fill it with data as described in `README.md` or https://github.com/freiheit-com/kuberpult/pull/95
 - the value of environment variables are defaulted to `KUBERPULT_GIT_URL=./repository_remote` and `KUBERPULT_GIT_BRANCH=master`
