@@ -1,13 +1,12 @@
 version: "2"
 linters:
   enable:
-    - copyloopvar
     - errcheck
     - govet
     - ineffassign
     - unused
     - asciicheck
-  disable:
+#  disable:
     - bodyclose
     - staticcheck
     - copyloopvar
