@@ -443,7 +443,7 @@ func (c *DeployApplicationVersion) Transform(
 	if err := tCtx.Execute(d, transaction); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+	return fmt.Sprintf("deployed version %v of %q to %q", types.MakeReleaseNumbers(c.Version, c.Revision), c.Application, c.Environment), nil
 }
 
 func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
