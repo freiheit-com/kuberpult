@@ -28,7 +28,7 @@ const (
 	HttpDefaultTimeout = 180
 )
 
-func doRequest(request *http.Request, timeoutSeconds int) (*http.Response, []byte, error) {
+func doRequest(request *http.Request, timeoutSeconds int) (int, []byte, error) {
 	//exhaustruct:ignore
 	client := &http.Client{
 		Timeout: time.Duration(timeoutSeconds) * time.Second,
@@ -40,28 +40,28 @@ func doRequest(request *http.Request, timeoutSeconds int) (*http.Response, []byt
 
 	resp, err := client.Do(request)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error issuing the HTTP request, error: %w", err)
+		return 0, nil, fmt.Errorf("error issuing the HTTP request, error: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to read response: %v with error: %w", resp, err)
+		return 0, nil, fmt.Errorf("unable to read response: %v with error: %w", resp, err)
 	}
 
-	return resp, body, nil
+	return resp.StatusCode, body, nil
 }
 
 func IssueHttpRequest(req http.Request, retries uint64, timeoutSeconds int) error {
 	var i uint64
 	for i = 0; i < retries+1; i++ {
-		response, body, err := doRequest(&req, timeoutSeconds)
+		statusCode, body, err := doRequest(&req, timeoutSeconds)
 		if err != nil {
 			log.Printf("error issuing http request: %v", err)
-		} else if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
-			log.Printf("Recieved response code %d - %s from Kuberpult\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
+		} else if statusCode != http.StatusCreated && statusCode != http.StatusOK {
+			log.Printf("Recieved response code %d - %s from Kuberpult\nResponse body:\n%s\n", statusCode, http.StatusText(statusCode), string(body))
 		} else {
-			log.Printf("Success: %d - %s\nResponse body:\n%s\n", response.StatusCode, http.StatusText(response.StatusCode), string(body))
+			log.Printf("Success: %d - %s\nResponse body:\n%s\n", statusCode, http.StatusText(statusCode), string(body))
 			return nil
 		}
 		if i < retries {
@@ -74,11 +74,11 @@ func IssueHttpRequest(req http.Request, retries uint64, timeoutSeconds int) erro
 }
 
 func IssueHttpRequestWithBodyReturn(req http.Request, timeoutSeconds int) ([]byte, error) {
-	response, body, err := doRequest(&req, timeoutSeconds)
+	statusCode, body, err := doRequest(&req, timeoutSeconds)
 	if err != nil {
 		return nil, err
-	} else if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received response code %d - %s from Kuberpult\nResponse body:\n%s", response.StatusCode, http.StatusText(response.StatusCode), string(body))
+	} else if statusCode != http.StatusCreated && statusCode != http.StatusOK {
+		return nil, fmt.Errorf("received response code %d - %s from Kuberpult\nResponse body:\n%s", statusCode, http.StatusText(statusCode), string(body))
 	} else {
 		return body, nil
 	}
