@@ -57,7 +57,7 @@ describe('Commit info page tests', () => {
             expectedNumLoginPage: 0,
         },
         {
-            name: 'An Error is shown when the environemnt name is not provided in the URL',
+            name: 'An Error is shown when the environment name is not provided in the URL',
             fakeLoadEverything: true,
             enableDex: false,
             enableDexValidToken: false,
