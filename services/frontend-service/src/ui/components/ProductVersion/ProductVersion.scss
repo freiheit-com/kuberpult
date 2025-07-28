@@ -100,3 +100,14 @@ Copyright freiheit.com*/
     background-color: var(--mdc-theme-primary);
     color: white;
 }
+
+.warning-container {
+    background-color: $warning-color;
+    border-radius: 4px;
+}
+.warning-message {
+    text-align: center;
+    line-height: 3em;
+    font-size: large;
+    color: darkred;
+}

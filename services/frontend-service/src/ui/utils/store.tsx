@@ -111,8 +111,14 @@ export const [useAllEnvLocks, updateAllEnvLocks] = createStore<{
 
 type TagsResponse = {
     response: GetGitTagsResponse;
-    tagsReady: boolean;
+    tagsReady: TagResponse;
 };
+
+export enum TagResponse {
+    LOADING,
+    READY,
+    ERROR,
+}
 
 export enum CommitInfoState {
     LOADING,
@@ -184,13 +190,17 @@ export const refreshTags = (authHeader: AuthHeader): void => {
     api.gitService()
         .GetGitTags({}, authHeader)
         .then((result: GetGitTagsResponse) => {
-            updateTag.set({ response: result, tagsReady: true });
+            updateTag.set({ response: result, tagsReady: TagResponse.READY });
         })
         .catch((e) => {
+            updateTag.set({ response: { tagData: [] }, tagsReady: TagResponse.ERROR });
             showSnackbarError(e.message);
         });
 };
-export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
+export const [useTag, updateTag] = createStore<TagsResponse>({
+    response: tagsResponse,
+    tagsReady: TagResponse.LOADING,
+});
 
 export const emptyDetails: { [key: string]: AppDetailsResponse } = {};
 export const [useAppDetails, updateAppDetails] = createStore<{ [key: string]: AppDetailsResponse }>(emptyDetails);
