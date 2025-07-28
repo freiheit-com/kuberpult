@@ -8,7 +8,6 @@ linters:
     - asciicheck
     - bodyclose
     - copyloopvar
-  disable:
     - staticcheck
 issues:
   max-same-issues: 0

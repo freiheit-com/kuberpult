@@ -135,7 +135,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, onErr(fmt.Errorf("Error table for next eslVersion. Error: %w", err))
+			return nil, onErr(fmt.Errorf("error table for next eslVersion. Error: %w", err))
 		}
 		allCombinations = append(allCombinations, EnvApp{
 			AppName: currApp,
@@ -183,7 +183,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, onErr(fmt.Errorf("Error table for next eslVersion. Error: %w", err))
+			return nil, onErr(fmt.Errorf("error table for next eslVersion. Error: %w", err))
 		}
 		allCombinations = append(allCombinations, EnvApp{
 			AppName: currApp,
@@ -311,7 +311,7 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error table scanning git_sync_status. Error: %w", err)
+			return nil, fmt.Errorf("error table scanning git_sync_status. Error: %w", err)
 		}
 		syncData = append(syncData, curr)
 	}
@@ -410,7 +410,7 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 			if errors.Is(err, sql.ErrNoRows) {
 				return 0, nil
 			}
-			return -1, fmt.Errorf("Error scanning git sync status. Could not retrive number of apps with status %q. Error: %w", status, err)
+			return -1, fmt.Errorf("error scanning git sync status. Could not retrive number of apps with status %q. Error: %w", status, err)
 		}
 	}
 	err = closeRows(rows)
