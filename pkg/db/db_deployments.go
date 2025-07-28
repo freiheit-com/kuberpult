@@ -731,7 +731,7 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning oldest_deployments row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning oldest_deployments row from DB. Error: %w", err)
 		}
 		deployments[rowEnv] = rowVersion
 	}

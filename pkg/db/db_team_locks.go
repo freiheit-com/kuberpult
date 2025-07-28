@@ -92,7 +92,7 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore
@@ -563,7 +563,7 @@ func (h *DBHandler) processTeamLockRows(ctx context.Context, err error, rows *sq
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning environment locks row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
 		}
 
 		//exhaustruct:ignore

@@ -638,7 +638,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		if withManifests {
 			err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of manifests for releases. Error: %w. Data: %s", err, metadataStr)
+				return nil, fmt.Errorf("error during json unmarshal of manifests for releases. Error: %w. Data: %s", err, metadataStr)
 			}
 		}
 		row.Manifests = manifestData
@@ -646,7 +646,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		if environmentsStr.Valid && environmentsStr.String != "" {
 			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s", err, environmentsStr.String)
+				return nil, fmt.Errorf("error during json unmarshal of environments for releases. Error: %w. Data: %s", err, environmentsStr.String)
 			}
 		}
 		row.Environments = environments
@@ -690,7 +690,7 @@ func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error
 		if environmentsStr.Valid && environmentsStr.String != "" {
 			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
 			if err != nil {
-				return nil, fmt.Errorf("Error during json unmarshal of environments for releases. Error: %w. Data: %s", err, environmentsStr.String)
+				return nil, fmt.Errorf("error during json unmarshal of environments for releases. Error: %w. Data: %s", err, environmentsStr.String)
 			}
 		}
 		if _, exists := result[appName]; !exists {
