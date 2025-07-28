@@ -137,33 +137,36 @@ func (s Server) handleApiApplication(w http.ResponseWriter, req *http.Request, t
 }
 
 func (s Server) handleApplicationRelease(w http.ResponseWriter, req *http.Request, tail string, applicationID ApplicationID) {
+	group, _ := xpath.Shift(tail)
 	releaseNum, tail := xpath.Shift(tail)
 
 	if releaseNum == "" {
 		http.Error(w, "missing release number", http.StatusNotFound)
 		return
 	}
-
+	var version string
+	var revision string
 	r, err := types.MakeReleaseNumberFromString(releaseNum)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("provided version is invalid: %v", err), http.StatusPreconditionFailed)
-		return
+	if err != nil { //We also accept versions like "latest". This supports both all types of inputs.
+		version = releaseNum
+	} else {
+		version = strconv.FormatUint(*r.Version, 10)
+		revision = strconv.FormatUint(r.Revision, 10)
 	}
 
-	group, _ := xpath.Shift(tail)
 	switch group {
 	case "manifests":
-		s.handleApplicationReleaseManifests(w, req, applicationID, r)
+		s.handleApplicationReleaseManifests(w, req, applicationID, version, revision)
 	default:
-		http.Error(w, fmt.Sprintf("unknown endpoint 'api/application/%s/%s'", releaseNum, group), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("unknown endpoint 'api/application/%s/%s/%s'", applicationID, group, releaseNum), http.StatusNotFound)
 	}
 }
 
-func (s Server) handleApplicationReleaseManifests(w http.ResponseWriter, req *http.Request, applicationID ApplicationID, numbers types.ReleaseNumbers) {
+func (s Server) handleApplicationReleaseManifests(w http.ResponseWriter, req *http.Request, applicationID ApplicationID, version string, revision string) {
 	resp, err := s.VersionClient.GetManifests(req.Context(), &api.GetManifestsRequest{
 		Application: string(applicationID),
-		Release:     strconv.FormatUint(*numbers.Version, 10),
-		Revision:    strconv.FormatUint(numbers.Revision, 10),
+		Release:     version,
+		Revision:    revision,
 	})
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)

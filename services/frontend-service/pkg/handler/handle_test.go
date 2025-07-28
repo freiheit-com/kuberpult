@@ -50,6 +50,21 @@ func (c *mockReleaseTrainPrognosisServiceClient) GetReleaseTrainPrognosis(_ cont
 	return c.response, nil
 }
 
+type mockVersionClient struct {
+	request  *api.GetManifestsRequest
+	response *api.GetManifestsResponse
+}
+
+func (c *mockVersionClient) GetManifests(_ context.Context, in *api.GetManifestsRequest, _ ...grpc.CallOption) (*api.GetManifestsResponse, error) {
+	c.request = in
+	return c.response, nil
+}
+
+// Not used, needs to be implemented
+func (c *mockVersionClient) GetVersion(_ context.Context, in *api.GetVersionRequest, _ ...grpc.CallOption) (*api.GetVersionResponse, error) {
+	return nil, nil
+}
+
 // The createTestForm function from the artifact
 func createTestForm() (*multipart.Form, error) {
 	body := &bytes.Buffer{}
@@ -142,6 +157,7 @@ func TestServer_Handle(t *testing.T) {
 		AzureAuthEnabled                     bool
 		batchResponse                        *api.BatchResponse
 		releaseTrainPrognosisResponse        *api.GetReleaseTrainPrognosisResponse
+		versionClientResponse                *api.GetManifestsResponse
 		expectedResp                         *http.Response
 		expectedBody                         string
 		expectedBatchRequest                 *api.BatchRequest
@@ -452,6 +468,72 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusBadRequest,
 			},
 			expectedBody: "Invalid version: strconv.ParseUint: parsing \"abcd\": invalid syntax",
+		},
+		{
+			name: "Get manifests - full version",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/api/application/app/release/manifests/1.0",
+				},
+			},
+			versionClientResponse: &api.GetManifestsResponse{
+				Release: nil,
+				Manifests: map[string]*api.Manifest{
+					"development": {
+						Environment: exampleEnvironment,
+						Content:     "development manifest content",
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"manifests\":{\"development\":{\"environment\":\"development\",\"content\":\"development manifest content\"}}}",
+		},
+		{
+			name: "Get manifests - only release number",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/api/application/app/release/manifests/1",
+				},
+			},
+			versionClientResponse: &api.GetManifestsResponse{
+				Release: nil,
+				Manifests: map[string]*api.Manifest{
+					"development": {
+						Environment: exampleEnvironment,
+						Content:     "development manifest content",
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"manifests\":{\"development\":{\"environment\":\"development\",\"content\":\"development manifest content\"}}}",
+		},
+		{
+			name: "Get manifests - latest",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/api/application/app/release/manifests/latest",
+				},
+			},
+			versionClientResponse: &api.GetManifestsResponse{
+				Release: nil,
+				Manifests: map[string]*api.Manifest{
+					"development": {
+						Environment: exampleEnvironment,
+						Content:     "development manifest content",
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"manifests\":{\"development\":{\"environment\":\"development\",\"content\":\"development manifest content\"}}}",
 		},
 		{
 			name: "release train prognosis",
@@ -1482,10 +1564,14 @@ func TestServer_Handle(t *testing.T) {
 			releaseTrainPrognosisClient := &mockReleaseTrainPrognosisServiceClient{
 				response: tt.releaseTrainPrognosisResponse,
 			}
+			versionClient := &mockVersionClient{
+				response: tt.versionClientResponse,
+			}
 			commitInfoClient := &mockCommitDeploymentServiceClient{}
 			s := Server{
 				BatchClient:                 batchClient,
 				ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+				VersionClient:               versionClient,
 				CommitDeploymentsClient:     commitInfoClient,
 				KeyRing:                     tt.KeyRing,
 				AzureAuth:                   tt.AzureAuthEnabled,

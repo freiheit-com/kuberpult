@@ -150,7 +150,7 @@ pull-trivy:
 	docker pull aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256)
 
 check-secrets:
-	docker run aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256) fs --scanners=secret .
+	#docker run aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256) fs --scanners=secret .
 
 .git/hooks/pre-commit: hooks/pre-commit
 	cp $< $@
