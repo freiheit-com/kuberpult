@@ -137,8 +137,8 @@ func (s Server) handleApiApplication(w http.ResponseWriter, req *http.Request, t
 }
 
 func (s Server) handleApplicationRelease(w http.ResponseWriter, req *http.Request, tail string, applicationID ApplicationID) {
-	group, _ := xpath.Shift(tail)
-	releaseNum, tail := xpath.Shift(tail)
+	group, tail := xpath.Shift(tail)
+	releaseNum, _ := xpath.Shift(tail)
 
 	if releaseNum == "" {
 		http.Error(w, "missing release number", http.StatusNotFound)
