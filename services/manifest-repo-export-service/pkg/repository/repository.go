@@ -1258,6 +1258,23 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 		if err != nil {
 			return fmt.Errorf("error writing Release to DB for app %s: %v", app, err)
 		}
+		envs, err := s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("error getting all envs: %v", err)
+		}
+		for env, _ := range envs {
+			logger.FromContext(ctx).Info(fmt.Sprintf("updating timestamp for %s, %s, %s", app, env, releaseVersion))
+			_, createdAt, err := s.GetDeploymentMetaData(types.EnvName(env), app)
+			if err != nil {
+				return fmt.Errorf("error getting deployment metadata: %v", err)
+			}
+			if !createdAt.IsZero() {
+				err = dbHandler.DBMigrationUpdateDeploymentsTimestamp(ctx, transaction, app, repoRelease.Version, types.EnvName(env), createdAt)
+				if err != nil {
+					return fmt.Errorf("error writing Deployment to DB for app %s and env %s: %v", app, env, err)
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -1295,7 +1312,11 @@ func (s *State) GetApplicationReleaseManifestsFromManifest(application string, v
 func (s *State) GetApplicationReleaseFromManifest(application string, version types.ReleaseNumbers) (*Release, error) {
 	base, err := s.checkWhichVersionDirectoryExists(s.Filesystem, application, version)
 	if err != nil {
-		return nil, wrapFileError(err, base, "could not call stat")
+		base = releasesDirectoryWithVersionWithoutRevision(s.Filesystem, application, strconv.Itoa(int(*version.Version)))
+		_, err := s.Filesystem.Stat(base)
+		if err != nil {
+			return nil, wrapFileError(err, base, "could not call stat")
+		}
 	}
 	release := Release{
 		Version:         *version.Version,
@@ -1361,7 +1382,11 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ty
 func (s *State) IsUndeployVersionFromManifest(application string, version types.ReleaseNumbers) (bool, error) {
 	base, err := s.checkWhichVersionDirectoryExists(s.Filesystem, application, version)
 	if err != nil {
-		return false, wrapFileError(err, base, "could not call stat")
+		base = releasesDirectoryWithVersionWithoutRevision(s.Filesystem, application, strconv.Itoa(int(*version.Version)))
+		_, err := s.Filesystem.Stat(base)
+		if err != nil {
+			return false, wrapFileError(err, base, "could not call stat")
+		}
 	}
 	if _, err := readFile(s.Filesystem, s.Filesystem.Join(base, "undeploy")); err != nil {
 		if !os.IsNotExist(err) {
