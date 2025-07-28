@@ -62,6 +62,7 @@ import (
 type Repository interface {
 	Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
+	PushTag(ctx context.Context, tag types.GitTag) error
 	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
@@ -125,6 +126,8 @@ type repository struct {
 
 	ddMetrics statsd.ClientInterface
 }
+
+var _ Repository = &repository{} // ensure interface is implemented
 
 type RepositoryConfig struct {
 	// Mandatory Config
@@ -377,6 +380,14 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 	}
 }
 
+func PushTagsActionCallback(pushOptions git.PushOptions, r *repository, tagName types.GitTag) PushActionFunc {
+	return func() error {
+		return r.useRemote(func(remote *git.Remote) error {
+			return remote.Push([]string{fmt.Sprintf("refs/tags/%s:refs/tags/%s", tagName, tagName)}, &pushOptions)
+		})
+	}
+}
+
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
 func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sql.Tx) error {
@@ -445,7 +456,7 @@ func (r *repository) GetHeadCommitId() (*git.Oid, error) {
 	branchHead := fmt.Sprintf("refs/heads/%s", r.config.Branch)
 	ref, err := r.repository.References.Lookup(branchHead)
 	if err != nil {
-		return nil, fmt.Errorf("Error fetching reference \"%s\": %v", branchHead, err)
+		return nil, fmt.Errorf("error fetching reference \"%s\": %v", branchHead, err)
 	}
 	return ref.Target(), nil
 }
@@ -622,11 +633,7 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 			return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
 		}
 
-		committer := &git.Signature{
-			Name:  r.config.CommitterName,
-			Email: r.config.CommitterEmail,
-			When:  time.Now(),
-		}
+		committer := r.makeGitSignature()
 
 		transformerMetadata := transformer.GetMetadata()
 		if transformerMetadata.AuthorEmail == "" || transformerMetadata.AuthorName == "" {
@@ -679,6 +686,14 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	}
 
 	return result, nil
+}
+
+func (r *repository) makeGitSignature() *git.Signature {
+	return &git.Signature{
+		Name:  r.config.CommitterName,
+		Email: r.config.CommitterEmail,
+		When:  time.Now(),
+	}
 }
 
 func (r *repository) shouldCreateNewCommit(commitMessages []string) bool {
@@ -792,6 +807,40 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 		},
 		eb,
 	)
+}
+
+func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "PushTag")
+	defer span.Finish()
+
+	currentCommit, err := r.GetHeadCommitId()
+	if err != nil {
+		return err
+	}
+	lookedUpCommit, err := r.repository.LookupCommit(currentCommit)
+	if err != nil {
+		return err
+	}
+
+	sig := r.makeGitSignature()
+	tagMessage := fmt.Sprintf("Kuberpult-generated tag %s", tag)
+	_, err = r.repository.Tags.Create(string(tag), lookedUpCommit, sig, tagMessage)
+	if err != nil {
+		return err
+	}
+	pushOptions := git.PushOptions{
+		PbParallelism: 0,
+		Headers:       nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
+		},
+	}
+	err = r.Push(ctx, PushTagsActionCallback(pushOptions, r, tag))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State) error {

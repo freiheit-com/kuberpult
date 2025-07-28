@@ -122,6 +122,7 @@ type Transformer interface {
 	GetMetadata() *TransformerMetadata
 	GetEslVersion() db.TransformerID
 	SetEslVersion(id db.TransformerID)
+	GetGitTag() types.GitTag
 }
 
 type TransformerContext interface {
@@ -331,6 +332,12 @@ type DeployApplicationVersion struct {
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
+var _ Transformer = &DeployApplicationVersion{} // ensure it implements Transformer
+
+func (c *DeployApplicationVersion) GetGitTag() types.GitTag {
+	return ""
+}
+
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
 	return db.EvtDeployApplicationVersion
 }
@@ -474,7 +481,12 @@ type CreateEnvironmentLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
 
+var _ Transformer = &CreateEnvironmentLock{} // ensure it implements Transformer
+
+func (c *CreateEnvironmentLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateEnvironmentLock) GetEslVersion() db.TransformerID {
@@ -563,7 +575,12 @@ type DeleteEnvironmentLock struct {
 	Environment           types.EnvName    `json:"env"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
 
+var _ Transformer = &DeleteEnvironmentLock{} // ensure it implements Transformer
+
+func (c *DeleteEnvironmentLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeleteEnvironmentLock) GetEslVersion() db.TransformerID {
@@ -620,7 +637,12 @@ type CreateEnvironmentApplicationLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
 
+var _ Transformer = &CreateEnvironmentApplicationLock{} // ensure it implements Transformer
+
+func (c *CreateEnvironmentApplicationLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateEnvironmentApplicationLock) GetEslVersion() db.TransformerID {
@@ -686,7 +708,12 @@ type DeleteEnvironmentApplicationLock struct {
 	Application           string           `json:"app"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
 
+var _ Transformer = &DeleteEnvironmentApplicationLock{} // ensure it implements Transformer
+
+func (c *DeleteEnvironmentApplicationLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
@@ -747,6 +774,12 @@ type CreateApplicationVersion struct {
 	WriteCommitData       bool                     `json:"writeCommitData"`
 	PreviousCommit        string                   `json:"previousCommit"`
 	TransformerEslVersion db.TransformerID         `json:"-"`
+}
+
+var _ Transformer = &CreateApplicationVersion{} // ensure it implements Transformer
+
+func (c *CreateApplicationVersion) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateApplicationVersion) GetEslVersion() db.TransformerID {
@@ -1051,7 +1084,12 @@ type CreateEnvironmentTeamLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
 
+var _ Transformer = &CreateEnvironmentTeamLock{} // ensure it implements Transformer
+
+func (c *CreateEnvironmentTeamLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateEnvironmentTeamLock) GetEslVersion() db.TransformerID {
@@ -1145,7 +1183,12 @@ type DeleteEnvironmentTeamLock struct {
 	Team                  string           `json:"team"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
 
+var _ Transformer = &DeleteEnvironmentTeamLock{} // ensure it implements Transformer
+
+func (c *DeleteEnvironmentTeamLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeleteEnvironmentTeamLock) GetEslVersion() db.TransformerID {
@@ -1206,7 +1249,12 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
 
+var _ Transformer = &CreateEnvironment{} // ensure it implements Transformer
+
+func (c *CreateEnvironment) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateEnvironment) GetEslVersion() db.TransformerID {
@@ -1322,7 +1370,12 @@ type CleanupOldApplicationVersions struct {
 	Application           string
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
 
+var _ Transformer = &CleanupOldApplicationVersions{} // ensure it implements Transformer
+
+func (c *CleanupOldApplicationVersions) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CleanupOldApplicationVersions) GetEslVersion() db.TransformerID {
@@ -1394,17 +1447,24 @@ type ReleaseTrain struct {
 	Repo                  Repository       `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 	TargetType            string           `json:"targetType"`
+	GitTag                types.GitTag     `json:"gitTag"`
 }
 
-func (c *ReleaseTrain) GetEslVersion() db.TransformerID {
-	return c.TransformerEslVersion
+var _ Transformer = &ReleaseTrain{} // ensure it implements Transformer
+
+func (u *ReleaseTrain) GetGitTag() types.GitTag {
+	return types.GitTag(u.GitTag)
 }
 
-func (c *ReleaseTrain) SetEslVersion(eslVersion db.TransformerID) {
-	c.TransformerEslVersion = eslVersion
+func (u *ReleaseTrain) GetEslVersion() db.TransformerID {
+	return u.TransformerEslVersion
 }
 
-func (c *ReleaseTrain) GetDBEventType() db.EventType {
+func (u *ReleaseTrain) SetEslVersion(eslVersion db.TransformerID) {
+	u.TransformerEslVersion = eslVersion
+}
+
+func (u *ReleaseTrain) GetDBEventType() db.EventType {
 	return db.EvtReleaseTrain
 }
 
@@ -1507,6 +1567,12 @@ type MigrationTransformer struct {
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
+var _ Transformer = &MigrationTransformer{} // ensure it implements Transformer
+
+func (c *MigrationTransformer) GetGitTag() types.GitTag {
+	return ""
+}
+
 func (c *MigrationTransformer) GetDBEventType() db.EventType {
 	return db.EvtMigrationTransformer
 }
@@ -1528,6 +1594,12 @@ type DeleteEnvFromApp struct {
 	Application           string           `json:"app"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+var _ Transformer = &DeleteEnvFromApp{} // ensure it implements Transformer
+
+func (c *DeleteEnvFromApp) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeleteEnvFromApp) GetEslVersion() db.TransformerID {
@@ -1591,6 +1663,12 @@ type CreateUndeployApplicationVersion struct {
 	Application           string           `json:"app"`
 	WriteCommitData       bool             `json:"writeCommitData"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+var _ Transformer = &CreateUndeployApplicationVersion{} // ensure it implements Transformer
+
+func (c *CreateUndeployApplicationVersion) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateUndeployApplicationVersion) GetEslVersion() db.TransformerID {
@@ -1710,7 +1788,12 @@ type UndeployApplication struct {
 	TransformerMetadata   `json:"metadata"`
 	Application           string           `json:"app"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
 
+var _ Transformer = &UndeployApplication{} // ensure it implements Transformer
+
+func (c *UndeployApplication) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (u *UndeployApplication) GetEslVersion() db.TransformerID {
@@ -1825,6 +1908,12 @@ type CreateEnvironmentGroupLock struct {
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
+var _ Transformer = &CreateEnvironmentGroupLock{} // ensure it implements Transformer
+
+func (c *CreateEnvironmentGroupLock) GetGitTag() types.GitTag {
+	return ""
+}
+
 func (c *CreateEnvironmentGroupLock) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
@@ -1853,6 +1942,12 @@ type DeleteEnvironmentGroupLock struct {
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
+var _ Transformer = &DeleteEnvironmentGroupLock{} // ensure it implements Transformer
+
+func (c *DeleteEnvironmentGroupLock) GetGitTag() types.GitTag {
+	return ""
+}
+
 func (c *DeleteEnvironmentGroupLock) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
@@ -1879,6 +1974,12 @@ type DeleteEnvironment struct {
 	TransformerMetadata   `json:"metadata"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+var _ Transformer = &DeleteEnvironment{} // ensure it implements Transformer
+
+func (d *DeleteEnvironment) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (d *DeleteEnvironment) GetEslVersion() db.TransformerID {

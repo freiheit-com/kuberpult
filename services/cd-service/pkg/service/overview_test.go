@@ -712,7 +712,6 @@ func TestOverviewService(t *testing.T) {
 }
 
 func TestGetApplicationDetails(t *testing.T) {
-	//var dev = "dev"
 	var env types.EnvName = "development"
 	var secondEnv types.EnvName = "development2"
 	var stagingGroup types.EnvName = "stagingGroup"
