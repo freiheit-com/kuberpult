@@ -874,7 +874,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 }
 
 func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, transaction *sql.Tx, versionByApp map[string]types.ReleaseNumbers) (map[string]string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBCreateTempAppVersionTable")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectCommitIdAppReleaseVersions")
 	defer span.Finish()
 	result := make(map[string]string)
 	if len(versionByApp) < 1 {
