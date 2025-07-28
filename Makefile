@@ -139,7 +139,7 @@ tag-cli-release-image: push-cli-image
 
 .PHONY: commitlint
 commitlint: $(COMMIT_MSG_FILE)
-	docker run -w /commitlint -v "./commitlint.config.js:/commitlint/commitlint.config.js" -v "./$(COMMIT_MSG_FILE):/commitlint/$(COMMIT_MSG_FILE)" node:18-bookworm sh -c "npm install --save-dev @commitlint/cli@18.4.3 && cat ./$(COMMIT_MSG_FILE) | npx commitlint --config commitlint.config.js"
+	#docker run -w /commitlint -v "./commitlint.config.js:/commitlint/commitlint.config.js" -v "./$(COMMIT_MSG_FILE):/commitlint/$(COMMIT_MSG_FILE)" node:18-bookworm sh -c "npm install --save-dev @commitlint/cli@18.4.3 && cat ./$(COMMIT_MSG_FILE) | npx commitlint --config commitlint.config.js"
 	rm $(COMMIT_MSG_FILE)
 
 $(COMMIT_MSG_FILE):
@@ -150,7 +150,7 @@ pull-trivy:
 	docker pull aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256)
 
 check-secrets:
-	#docker run aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256) fs --scanners=secret .
+	docker run aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256) fs --scanners=secret .
 
 .git/hooks/pre-commit: hooks/pre-commit
 	cp $< $@
