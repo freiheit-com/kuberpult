@@ -162,6 +162,7 @@ func TestServer_Handle(t *testing.T) {
 		expectedBody                         string
 		expectedBatchRequest                 *api.BatchRequest
 		expectedReleaseTrainPrognosisRequest *api.ReleaseTrainRequest
+		expectedGetManifestRequest           *api.GetManifestsRequest
 	}{
 		{
 			name: "wrongly routed",
@@ -490,6 +491,11 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusOK,
 			},
 			expectedBody: "{\"manifests\":{\"development\":{\"environment\":\"development\",\"content\":\"development manifest content\"}}}",
+			expectedGetManifestRequest: &api.GetManifestsRequest{
+				Application: "app",
+				Release:     "1",
+				Revision:    "0",
+			},
 		},
 		{
 			name: "Get manifests - only release number",
@@ -507,6 +513,11 @@ func TestServer_Handle(t *testing.T) {
 						Content:     "development manifest content",
 					},
 				},
+			},
+			expectedGetManifestRequest: &api.GetManifestsRequest{
+				Application: "app",
+				Release:     "1",
+				Revision:    "0",
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -529,6 +540,11 @@ func TestServer_Handle(t *testing.T) {
 						Content:     "development manifest content",
 					},
 				},
+			},
+			expectedGetManifestRequest: &api.GetManifestsRequest{
+				Application: "app",
+				Release:     "latest",
+				Revision:    "0",
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -1602,6 +1618,9 @@ func TestServer_Handle(t *testing.T) {
 			}
 			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create batch request mismatch: %s", d)
+			}
+			if d := cmp.Diff(tt.expectedGetManifestRequest, versionClient.request, protocmp.Transform()); d != "" {
+				t.Errorf("get manifests request mismatch: %s", d)
 			}
 		})
 	}

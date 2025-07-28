@@ -149,6 +149,7 @@ func (s Server) handleApplicationRelease(w http.ResponseWriter, req *http.Reques
 	r, err := types.MakeReleaseNumberFromString(releaseNum)
 	if err != nil { //We also accept versions like "latest". This supports all types of inputs (1/1.1(...)/latest).
 		version = releaseNum
+		revision = "0"
 	} else {
 		version = strconv.FormatUint(*r.Version, 10)
 		revision = strconv.FormatUint(r.Revision, 10)
