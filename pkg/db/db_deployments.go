@@ -341,7 +341,7 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
 		}
 		if releaseVersion.Valid {
 			conv := uint64(releaseVersion.Int64)
@@ -550,7 +550,7 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
 		}
 		if releaseVersion.Valid {
 			conv := uint64(releaseVersion.Int64)
@@ -559,7 +559,7 @@ func processDeployment(rows *sql.Rows) (*Deployment, error) {
 
 		err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s", err, row.Metadata)
+			return nil, fmt.Errorf("error during json unmarshal in deployments. Error: %w. Data: %s", err, row.Metadata)
 		}
 		toReturn = &Deployment{
 			Created: row.Created,
@@ -611,11 +611,11 @@ func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[types.EnvName]Deploy
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
 		}
 		err = json.Unmarshal(([]byte)(jsonMetadata), &curr.Metadata)
 		if err != nil {
-			return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s", err, jsonMetadata)
+			return nil, fmt.Errorf("error during json unmarshal in deployments. Error: %w. Data: %s", err, jsonMetadata)
 		}
 		if releaseVersion.Valid {
 			conv := uint64(releaseVersion.Int64)
@@ -645,7 +645,7 @@ func processAllLatestDeployments(rows *sql.Rows) (map[string]types.ReleaseNumber
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
 		}
 
 		if releaseVersion.Valid {
@@ -686,7 +686,7 @@ func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Ro
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Error scanning deployments row from DB. Error: %w", err)
+		return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
 	}
 
 	if releaseVersion.Valid {
@@ -696,7 +696,7 @@ func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Ro
 
 	err = json.Unmarshal(([]byte)(row.Metadata), &resultJson)
 	if err != nil {
-		return nil, fmt.Errorf("Error during json unmarshal in deployments. Error: %w. Data: %s", err, row.Metadata)
+		return nil, fmt.Errorf("error during json unmarshal in deployments. Error: %w. Data: %s", err, row.Metadata)
 	}
 
 	return &Deployment{
@@ -731,7 +731,7 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Error scanning oldest_deployments row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning oldest_deployments row from DB. Error: %w", err)
 		}
 		deployments[rowEnv] = rowVersion
 	}
