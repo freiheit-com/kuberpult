@@ -35,4 +35,5 @@ FROM (
   FROM
     deployment_attempts_history AS history) latestByAppEnv
 WHERE
-  latestByAppEnv.r <= 1;
+  latestByAppEnv.r <= 1
+  AND releaseversion IS NOT NULL;
