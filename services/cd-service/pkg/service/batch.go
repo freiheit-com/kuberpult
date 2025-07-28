@@ -351,7 +351,7 @@ func (d *BatchServer) processAction(
 				TransformerEslVersion: 0,
 				CiLink:                in.CiLink,
 				AllowedDomains:        d.Config.AllowedCILinkDomains,
-				GitTag:                in.GitTag,
+				GitTag:                types.GitTag(in.GitTag),
 			}, &api.BatchResult{
 				Result: &api.BatchResult_ReleaseTrain{
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},
