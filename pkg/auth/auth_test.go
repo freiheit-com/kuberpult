@@ -69,7 +69,7 @@ func TestToFromContext(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := WriteUserToContext(context.Background(), tc.Author)
@@ -138,7 +138,7 @@ func TestGetUserOrDefault(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			actualUser := GetUserOrDefault(tc.OptionalUser, tc.DefaultUser)

@@ -22,14 +22,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"regexp"
 	"sort"
 	"testing"
 	gotime "time"
 
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/lib/pq"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -37,9 +42,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/time"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/protobuf/testing/protocmp"
 )
 
 var (
@@ -298,7 +300,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		return
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
@@ -434,7 +436,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -599,7 +601,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -732,7 +734,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -881,7 +883,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1314,7 +1316,7 @@ func TestMinorFlag(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1421,7 +1423,7 @@ func TestFilterManifestLines(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
@@ -1480,7 +1482,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
@@ -1548,7 +1550,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
@@ -1683,7 +1685,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1804,7 +1806,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
@@ -1893,7 +1895,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
@@ -2265,7 +2267,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
@@ -2577,7 +2579,7 @@ func TestReleaseTrain(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -3113,7 +3115,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -3459,7 +3461,7 @@ func TestDeleteEnvironment(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -3565,7 +3567,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -3645,7 +3647,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -3882,7 +3884,7 @@ func TestAllowedCILinksState(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -4008,7 +4010,7 @@ func TestUndeployDBState(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -4176,7 +4178,7 @@ func TestTransaction(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -4282,7 +4284,7 @@ func TestTimestampConsistency(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -4378,7 +4380,7 @@ func TestIsCustomErrorRetryable(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(fmt.Sprintf("endless_loop_check_%s", tc.InputCode.Error()), func(t *testing.T) {
 			t.Parallel()
 
@@ -4530,7 +4532,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
 			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
@@ -4682,7 +4684,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
 			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
@@ -4814,7 +4816,7 @@ func TestChangedApps(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
@@ -5006,7 +5008,7 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)

@@ -17,9 +17,10 @@ Copyright freiheit.com*/
 package uuid
 
 import (
-	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"testing"
 	"time"
+
+	"github.com/onokonem/sillyQueueServer/timeuuid"
 )
 
 // this tests that we can get the time out of a time-uuid.
@@ -43,7 +44,7 @@ func TestUuidTimeRoundTrip(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 

@@ -24,10 +24,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	git "github.com/libgit2/git2go/v34"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 type Certificates struct {

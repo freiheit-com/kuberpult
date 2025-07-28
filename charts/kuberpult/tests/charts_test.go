@@ -738,7 +738,7 @@ ingress:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
@@ -794,7 +794,7 @@ environment_configs:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirname := t.TempDir()
 			_, err := runHelm(t, []byte(tc.Values), testDirname)
@@ -1263,7 +1263,7 @@ db:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
@@ -1474,7 +1474,7 @@ frontend:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
@@ -1727,7 +1727,7 @@ argocd:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
@@ -1790,7 +1790,7 @@ db:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
@@ -1979,7 +1979,7 @@ ingress:
 							t.Fatalf("output mismatch (-want, +got):\n%s", diff)
 						}
 					}
-					if diff := cmp.Diff(ExpectedAnnotations, out.ObjectMeta.Annotations); diff != "" {
+					if diff := cmp.Diff(ExpectedAnnotations, out.Annotations); diff != "" {
 						t.Fatalf("wrong ingress annotation (-want, +got):\n%s", diff)
 					}
 				}
@@ -2207,7 +2207,7 @@ argocd:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
@@ -2217,13 +2217,13 @@ argocd:
 			if deployments, err := getDeployments(outputFile); err != nil {
 				t.Fatalf("%v", err)
 			} else {
-				cdPodAnnotations := deployments["kuberpult-cd-service"].Spec.Template.ObjectMeta.Annotations
+				cdPodAnnotations := deployments["kuberpult-cd-service"].Spec.Template.Annotations
 				filterDDVersion(cdPodAnnotations)
-				manifestPodAnnotations := deployments["kuberpult-manifest-repo-export-service"].Spec.Template.ObjectMeta.Annotations
+				manifestPodAnnotations := deployments["kuberpult-manifest-repo-export-service"].Spec.Template.Annotations
 				filterDDVersion(manifestPodAnnotations)
-				frontendPodAnnotations := deployments["kuberpult-frontend-service"].Spec.Template.ObjectMeta.Annotations
+				frontendPodAnnotations := deployments["kuberpult-frontend-service"].Spec.Template.Annotations
 				filterDDVersion(frontendPodAnnotations)
-				rolloutPodAnnotations := deployments["kuberpult-rollout-service"].Spec.Template.ObjectMeta.Annotations
+				rolloutPodAnnotations := deployments["kuberpult-rollout-service"].Spec.Template.Annotations
 				filterDDVersion(rolloutPodAnnotations)
 				if diff := cmp.Diff(tc.ExpectedCdPodAnnotations, cdPodAnnotations); diff != "" {
 					t.Fatalf("wrong cd pod annotations (-want, +got):\n%s", diff)
@@ -2241,16 +2241,16 @@ argocd:
 			if service, err := getServices(outputFile); err != nil {
 				t.Fatalf("%v", err)
 			} else {
-				if diff := cmp.Diff(tc.ExpectedCdServiceAnnotations, service["kuberpult-cd-service"].ObjectMeta.Annotations); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedCdServiceAnnotations, service["kuberpult-cd-service"].Annotations); diff != "" {
 					t.Fatalf("wrong cd service annotations (-want, +got):\n%s", diff)
 				}
-				if diff := cmp.Diff(tc.ExpectedManifestRepoExportServiceAnnotations, service["kuberpult-manifest-repo-export-service"].ObjectMeta.Annotations); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedManifestRepoExportServiceAnnotations, service["kuberpult-manifest-repo-export-service"].Annotations); diff != "" {
 					t.Fatalf("wrong manifest repo export service annotations (-want, +got):\n%s", diff)
 				}
-				if diff := cmp.Diff(tc.ExpectedFrontendServiceAnnotations, service["kuberpult-frontend-service"].ObjectMeta.Annotations); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedFrontendServiceAnnotations, service["kuberpult-frontend-service"].Annotations); diff != "" {
 					t.Fatalf("wrong frontend service annotations (-want, +got):\n%s", diff)
 				}
-				if diff := cmp.Diff(tc.ExpectedRolloutServiceAnnotations, service["kuberpult-rollout-service"].ObjectMeta.Annotations); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedRolloutServiceAnnotations, service["kuberpult-rollout-service"].Annotations); diff != "" {
 					t.Fatalf("wrong rollout service annotations (-want, +got):\n%s", diff)
 				}
 			}
@@ -2363,7 +2363,7 @@ manifestRepoExport:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
@@ -2415,7 +2415,7 @@ db:
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
 			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)

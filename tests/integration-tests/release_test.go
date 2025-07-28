@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -30,11 +29,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
 	"context"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 )
 
 const (
@@ -599,7 +602,7 @@ func TestServeHttpInvalidInput(t *testing.T) {
 	}}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
@@ -704,7 +707,7 @@ func TestServeHttpBasics(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
@@ -721,7 +724,7 @@ func TestServeHttpBasics(t *testing.T) {
 				}
 
 				for key := range tc.ExpectedHeaders {
-					expectedValue, _ := tc.ExpectedHeaders[key]
+					expectedValue := tc.ExpectedHeaders[key]
 					actualValue := resp.Header.Get(key)
 					if expectedValue != actualValue {
 						t.Fatalf("Http header with key %v: Expected %v but got %v", key, expectedValue, actualValue)

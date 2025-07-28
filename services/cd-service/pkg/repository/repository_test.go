@@ -21,12 +21,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 
@@ -209,7 +210,7 @@ func TestApplyQueuePanic(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			// create a remote
@@ -305,7 +306,7 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
 			migrationsPath, err := db.CreateMigrationsPath(4)
@@ -590,7 +591,7 @@ func TestApplyQueue(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := SetupRepositoryTestWithAllOptions(t, false, 100, true)
@@ -697,7 +698,7 @@ func TestProcessQueueOnce(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -848,7 +849,7 @@ func TestApplyTransformerBatch(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -942,7 +943,7 @@ func TestLimitTooSmall(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false)
@@ -999,7 +1000,7 @@ func TestLimitFitsExactly(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false)
@@ -1086,7 +1087,7 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient

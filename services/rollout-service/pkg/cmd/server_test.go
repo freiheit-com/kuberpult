@@ -71,7 +71,7 @@ func TestService(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := context.Background()
 			err := runServer(ctx, tc.Config)
@@ -116,7 +116,7 @@ func TestClientConfig(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			clientConfig, err := tc.Config.ClientConfig()
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {

@@ -22,12 +22,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/http"
 	"regexp"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
@@ -38,12 +39,13 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	backoff "github.com/cenkalti/backoff/v4"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 )

@@ -21,21 +21,23 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os/exec"
 	"path"
 	"testing"
 	gotime "time"
 
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -208,7 +210,7 @@ func TestVersion(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			ctx := context.Background()
@@ -435,7 +437,7 @@ func TestGetManifests(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc // TODO SRX-SRRONB: Remove after switching to go v1.22
+		// TODO SRX-SRRONB: Remove after switching to go v1.22
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)

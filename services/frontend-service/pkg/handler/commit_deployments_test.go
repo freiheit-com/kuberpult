@@ -19,14 +19,16 @@ package handler
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/google/go-cmp/cmp"
+
 	"google.golang.org/grpc"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
 type mockCommitDeploymentServiceClient struct {
@@ -99,7 +101,7 @@ func TestHandleCommitDeployments(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			req := httptest.NewRequest(http.MethodGet, "/api/commit-deployments", nil)

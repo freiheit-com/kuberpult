@@ -23,10 +23,11 @@ import (
 	"io/fs"
 	"slices"
 
-	"github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/go-git/go-billy/v5"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
+
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/uuid"
 )
 
 type EventType string

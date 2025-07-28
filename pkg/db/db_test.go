@@ -33,13 +33,14 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap"
+
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"go.uber.org/zap"
 )
 
 type errMatcher struct {
@@ -82,7 +83,7 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
@@ -239,7 +240,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
@@ -309,7 +310,7 @@ func TestCustomMigrationsApps(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
@@ -361,7 +362,7 @@ func TestMigrationCommitEvent(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
@@ -469,7 +470,7 @@ func TestCommitEvents(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
@@ -616,7 +617,7 @@ func TestReadLockPreventedEvents(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
@@ -698,7 +699,7 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -741,7 +742,7 @@ func TestHelperFunctions(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -807,7 +808,7 @@ func TestReadWriteDeployment(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -1070,7 +1071,7 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -1190,7 +1191,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -1273,7 +1274,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -1421,7 +1422,7 @@ func TestAllDeployments(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -1499,7 +1500,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -1582,7 +1583,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -1753,7 +1754,7 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2021,7 +2022,7 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2192,7 +2193,7 @@ func TestReadAllActiveTeamLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2285,7 +2286,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2415,7 +2416,7 @@ func TestQueueApplicationVersion(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2487,7 +2488,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2591,7 +2592,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2701,7 +2702,7 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2776,7 +2777,7 @@ func TestReadWriteTeamLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2868,7 +2869,7 @@ func TestDeleteTeamLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -2943,7 +2944,7 @@ func TestDeleteRelease(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -3122,7 +3123,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -3240,7 +3241,7 @@ func TestReadEnvironmentBatch(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -3347,7 +3348,7 @@ func TestReadWriteEslEvent(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -3475,7 +3476,7 @@ func TestReadWriteFailedEslEvent(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -3554,7 +3555,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -3606,7 +3607,7 @@ func TestReadWriteAllApplications(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -3919,7 +3920,7 @@ func TestReadReleasesByApp(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -4088,7 +4089,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -4157,7 +4158,7 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -4286,7 +4287,7 @@ func TestReadAllManifestsAllReleases(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -4419,7 +4420,7 @@ func TestDBWriteReadUnsynced(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -4480,7 +4481,7 @@ func TestBulkUpdateUnsynced(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -4560,7 +4561,7 @@ func TestBulkInsertFunction(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -4689,7 +4690,7 @@ func TestBulkReadUnsynced(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -4886,7 +4887,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -5030,7 +5031,7 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -5232,7 +5233,7 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -5447,7 +5448,7 @@ func TestDBSelectAllTeamLocksOfAllEnvs(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -5640,7 +5641,7 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -5802,7 +5803,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -5917,7 +5918,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -6001,7 +6002,7 @@ func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -6071,7 +6072,7 @@ func TestDBSelectCommitIdAppReleaseVersionsMany(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()

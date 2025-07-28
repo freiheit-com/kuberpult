@@ -20,10 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 // simpleHash is a basic hash function for strings

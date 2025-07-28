@@ -25,10 +25,11 @@ import (
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"github.com/google/go-cmp/cmp"
+
 	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
-	"github.com/google/go-cmp/cmp"
 )
 
 type step struct {
@@ -303,7 +304,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			mpv, handler, _ := pkgmetrics.Init()

@@ -18,9 +18,10 @@ package migrations
 
 import (
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"strconv"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
 func ParseKuberpultVersion(version string) (*api.KuberpultVersion, error) {

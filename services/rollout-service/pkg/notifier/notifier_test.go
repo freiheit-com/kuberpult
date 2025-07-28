@@ -47,7 +47,7 @@ func TestNotifier(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := context.Background()
 			// chan without capacity will block all requests

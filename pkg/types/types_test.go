@@ -18,10 +18,12 @@ package types
 
 import (
 	"fmt"
-	errs "github.com/freiheit-com/kuberpult/pkg/errorMatcher"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"testing"
+
+	errs "github.com/freiheit-com/kuberpult/pkg/errorMatcher"
 )
 
 func TestReleaseNumberParsing(t *testing.T) {
@@ -81,7 +83,7 @@ func TestReleaseNumberParsing(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			parsedVersion, err := MakeReleaseNumberFromString(tc.Version)
 			if tc.expectedError != nil {

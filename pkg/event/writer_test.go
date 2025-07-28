@@ -79,7 +79,7 @@ func Test_write(t *testing.T) {
 			Event: (*string)(nil),
 		},
 	} {
-		test := test
+
 		t.Run(test.Name, func(t *testing.T) {
 			t.Parallel()
 			fs := memfs.New()

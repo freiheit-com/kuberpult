@@ -17,8 +17,9 @@ Copyright freiheit.com*/
 package conversion
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestSlice(t *testing.T) {
@@ -44,7 +45,7 @@ func TestSlice(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			actual := ToUint64Slice(tc.Input)

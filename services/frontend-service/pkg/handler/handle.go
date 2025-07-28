@@ -20,13 +20,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 
+	"github.com/freiheit-com/kuberpult/pkg/publicapi"
+
 	"github.com/ProtonMail/go-crypto/openpgp"
+
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"

@@ -28,9 +28,10 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
 func TestServerHeader(t *testing.T) {
@@ -111,7 +112,7 @@ func TestServerHeader(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			var wg sync.WaitGroup
 			ctx, cancel := context.WithCancel(context.Background())
@@ -219,7 +220,7 @@ func TestGrpcForwardHeader(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			var wg sync.WaitGroup
 			ctx, cancel := context.WithCancel(context.Background())

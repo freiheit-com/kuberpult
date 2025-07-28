@@ -82,7 +82,7 @@ func TestHealthReporterBasics(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			bo := &mockBackoff{}
 			fakeClock := &mockClock{}
@@ -160,7 +160,7 @@ background_job_ready{name="a"} 0
 		hr       *HealthReporter
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			stateChange := make(chan Deadline)
 			cfg := ServerConfig{
@@ -316,7 +316,7 @@ func TestHealthReporterRetry(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			stepCh := make(chan step)
 			stateChange := make(chan struct{}, len(tc.Steps))

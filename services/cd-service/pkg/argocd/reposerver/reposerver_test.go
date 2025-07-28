@@ -20,21 +20,23 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	v1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
-	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/protobuf/testing/protocmp"
 	"os/exec"
 	"path"
 	"regexp"
 	"strings"
 	"testing"
+
+	v1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/testing/protocmp"
+
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
 const appVersion = 1
@@ -93,7 +95,7 @@ func TestToRevision(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(fmt.Sprintf("TestToRevision_%v", tc.ReleaseVersion), func(t *testing.T) {
 			{
 				// one way test:
@@ -171,7 +173,7 @@ func TestGenerateManifest(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name+"_with_db", func(t *testing.T) {
 			repo, cfg := SetupRepositoryTestWithDBOptions(t, false)
 			ctx := testutil.MakeTestContext()
@@ -218,7 +220,7 @@ func TestGetRevisionMetadata(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			srv := (*reposerver)(nil)
 			req := argorepo.RepoServerRevisionMetadataRequest{}

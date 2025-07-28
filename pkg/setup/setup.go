@@ -33,9 +33,10 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 
+	"google.golang.org/grpc"
+
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
-	"google.golang.org/grpc"
 )
 
 var (

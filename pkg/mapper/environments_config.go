@@ -17,8 +17,9 @@ Copyright freiheit.com*/
 package mapper
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"sort"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"

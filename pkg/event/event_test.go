@@ -71,7 +71,7 @@ func Test_roundtrip(t *testing.T) {
 			},
 		},
 	} {
-		test := test
+
 		t.Run(test.Name, func(t *testing.T) {
 			t.Parallel()
 			fs := memfs.New()

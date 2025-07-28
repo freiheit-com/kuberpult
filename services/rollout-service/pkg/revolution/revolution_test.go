@@ -42,9 +42,10 @@ import (
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestRevolution(t *testing.T) {
@@ -252,7 +253,7 @@ func TestRevolution(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			reqCh := make(chan *request)
 			ctx, cancel := context.WithCancel(context.Background())

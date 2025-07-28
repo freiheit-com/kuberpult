@@ -19,10 +19,12 @@ package db
 import (
 	"context"
 	"database/sql"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp"
-	"testing"
 )
 
 func TestDBArgoEvent(t *testing.T) {
@@ -111,7 +113,7 @@ func TestDBArgoEvent(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()

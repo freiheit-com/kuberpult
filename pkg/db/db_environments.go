@@ -22,15 +22,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type DBEnvironment struct {

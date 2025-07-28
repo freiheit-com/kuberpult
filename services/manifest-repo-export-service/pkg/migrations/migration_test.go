@@ -19,17 +19,20 @@ package migrations
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
-	"google.golang.org/protobuf/testing/protocmp"
 	"os/exec"
 	"path"
 	"testing"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"google.golang.org/protobuf/testing/protocmp"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
+
 	"github.com/google/go-cmp/cmp"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
 func TestMigrationsCutoff(t *testing.T) {
@@ -66,7 +69,7 @@ func TestMigrationsCutoff(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 

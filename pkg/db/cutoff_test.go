@@ -22,8 +22,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 )
 
 // For testing purposes only
@@ -48,7 +49,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()

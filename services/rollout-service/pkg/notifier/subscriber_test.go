@@ -22,10 +22,11 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
-	"github.com/google/go-cmp/cmp"
 )
 
 type expectedNotification struct {
@@ -145,7 +146,7 @@ func TestSubscribe(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := context.Background()
 			notifications := make(chan expectedNotification, len(tc.Steps))
@@ -197,7 +198,7 @@ func TestSubscriberHandlesReconnects(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := context.Background()
 			notifications := make(chan expectedNotification, tc.Disconnects)

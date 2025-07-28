@@ -17,16 +17,18 @@ Copyright freiheit.com*/
 package service
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"reflect"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestGetCommitReleaseNumber(t *testing.T) {
@@ -47,7 +49,7 @@ func TestGetCommitReleaseNumber(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			releaseVersion, err := getCommitReleaseNumber(tc.eventJson)
@@ -145,7 +147,7 @@ func TestGetCommitStatus(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			status := getCommitStatus(tc.releaseNumber, tc.environmentReleases, tc.allEnvironments)
@@ -488,7 +490,7 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			var repo repository.Repository
 			repo, err := setupRepositoryTestWithDB(t)

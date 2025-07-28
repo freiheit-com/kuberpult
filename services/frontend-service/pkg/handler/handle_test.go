@@ -32,12 +32,13 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/stretchr/testify/assert"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 )
 
 type mockReleaseTrainPrognosisServiceClient struct {
@@ -1767,7 +1768,7 @@ func TestServer_Rollout(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			rolloutClient := &mockRolloutClient{response: tt.statusResponse}
 			s := Server{

@@ -17,8 +17,9 @@ Copyright freiheit.com*/
 package auth
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -74,7 +75,7 @@ func TestValidateRbacPermission(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			permission, err := ValidateRbacPermission(tc.Permission)
 			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
@@ -122,7 +123,7 @@ func TestValidateTeamRbacPermission(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			tp := RBACTeams{Permissions: make(map[string][]string)}
 			team, users, err := ValidateTeamRbacPermission(tc.Permission)
@@ -165,7 +166,7 @@ func TestValidateRbacGroup(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			group, err := ValidateRbacGroup(tc.Group)
 			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
@@ -241,7 +242,7 @@ func TestCheckUserTeamPermissions(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			err := CheckUserTeamPermissions(tc.rbacConfig, tc.user, tc.team, tc.action)
 			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
@@ -355,7 +356,7 @@ func TestCheckUserPermissions(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			err := CheckUserPermissions(tc.rbacConfig, tc.user, tc.env, tc.team, tc.envGroup, tc.application, tc.action)
 			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
@@ -400,7 +401,7 @@ func TestValidateRbacPermissionWildcards(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			// Test all wildcard possible combinations (2^8).
 			for _, permission := range tc.permissions {
@@ -444,7 +445,7 @@ func TestCheckUserPermissionsWildcards(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			// Test all wildcard possible combinations (2^8).
 			for _, policy := range tc.policies {
@@ -471,7 +472,7 @@ func TestReadScopes(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			scopes := ReadScopes(tc.ScopesString)
 			if diff := cmp.Diff(tc.WantScopes, scopes); diff != "" {
