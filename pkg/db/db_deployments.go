@@ -623,13 +623,12 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		},
 	})
 }
-func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion uint64, env types.EnvName, createdAt time.Time) error {
+func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion uint64, env types.EnvName, createdAt time.Time, revision uint64) error {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBMigrationUpdateDeploymentsTimestamp")
 	defer span.Finish()
 	historyUpdateQuery := h.AdaptQuery(`
-		UPDATE deployments_history SET created=? WHERE appname=? AND releaseversion=? AND envname=?;
+		UPDATE deployments_history SET created=? WHERE appname=? AND releaseversion=? AND envname=? AND revision=?;
 	`)
-	span.SetTag("query", historyUpdateQuery)
 
 	_, err := transaction.ExecContext(
 		ctx,
@@ -638,6 +637,7 @@ func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, t
 		application,
 		releaseversion,
 		string(env),
+		revision,
 	)
 	if err != nil {
 		return onErr(fmt.Errorf(
@@ -648,12 +648,9 @@ func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, t
 			err))
 	}
 
-	span2, ctx, onErr2 := tracing.StartSpanFromContext(ctx, "DBUpdateDeploymentTimestamp")
-	defer span2.Finish()
 	deploymentsUpdateQuery := h.AdaptQuery(`
-		UPDATE deployments SET created=? WHERE appname=? AND releaseversion=? AND envname=?;
+		UPDATE deployments SET created=? WHERE appname=? AND releaseversion=? AND envname=? AND revision=?;
 	`)
-	span.SetTag("query", deploymentsUpdateQuery)
 
 	_, err = transaction.ExecContext(
 		ctx,
@@ -662,13 +659,14 @@ func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, t
 		application,
 		releaseversion,
 		string(env),
+		revision,
 	)
 	if err != nil {
-		return onErr2(onErr(fmt.Errorf(
+		return onErr(fmt.Errorf(
 			"could not update releases timestamp for app '%s' and version '%v' into DB. Error: %w",
 			application,
 			releaseversion,
-			err)))
+			err))
 	}
 	return nil
 

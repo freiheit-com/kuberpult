@@ -1269,7 +1269,7 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 				return fmt.Errorf("error getting deployment metadata: %v", err)
 			}
 			if !createdAt.IsZero() {
-				err = dbHandler.DBMigrationUpdateDeploymentsTimestamp(ctx, transaction, app, repoRelease.Version, types.EnvName(env), createdAt)
+				err = dbHandler.DBMigrationUpdateDeploymentsTimestamp(ctx, transaction, app, repoRelease.Version, types.EnvName(env), createdAt, repoRelease.Revision)
 				if err != nil {
 					return fmt.Errorf("error writing Deployment to DB for app %s and env %s: %v", app, env, err)
 				}
