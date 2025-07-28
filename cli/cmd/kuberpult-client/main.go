@@ -17,8 +17,9 @@ Copyright freiheit.com*/
 package main
 
 import (
-	"github.com/freiheit-com/kuberpult/cli/pkg/cmd"
 	"os"
+
+	"github.com/freiheit-com/kuberpult/cli/pkg/cmd"
 )
 
 func main() {

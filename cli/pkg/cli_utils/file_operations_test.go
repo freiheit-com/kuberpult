@@ -37,7 +37,7 @@ func TestWriteToFile(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
+
 		dir := t.TempDir()
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

@@ -24,9 +24,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
 
 type mockHttpServer struct {
@@ -689,7 +690,7 @@ func TestRequestCreationRelease(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -809,7 +810,7 @@ func TestRequestCreationGetManifests(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

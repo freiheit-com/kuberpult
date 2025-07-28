@@ -82,7 +82,7 @@ func TestParseCommandLineArgsString(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
@@ -162,7 +162,7 @@ func TestParseCommandLineArgsInt(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			fs := flag.NewFlagSet("flag set", flag.ContinueOnError)

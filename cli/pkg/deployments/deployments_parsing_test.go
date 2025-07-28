@@ -54,7 +54,7 @@ func TestValidateCommitHash(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			actual := validateCommitHash(tc.commit)
@@ -100,7 +100,7 @@ func TestParseArgsCommitDeployments(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			cliArgs, err := ParseArgsCommitDeployments(tc.args)
@@ -153,7 +153,7 @@ func TestParseArgsDeploymentCommit(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			cliArgs, err := ParseArgsDeploymentCommit(tc.args)
