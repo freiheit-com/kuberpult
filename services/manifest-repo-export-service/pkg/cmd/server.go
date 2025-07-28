@@ -518,7 +518,7 @@ func processEsls(
 					}
 					var gitTag = transformer.GetGitTag()
 					if gitTag != "" {
-						return handleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
+						return HandleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
 					}
 					return nil
 				}
@@ -554,7 +554,7 @@ func processEsls(
 	}
 }
 
-func handleGitTagPush(ctx context.Context, repo repository.Repository, gitTag types.GitTag, ddMetrics statsd.ClientInterface, failOnErrorWithGitTags bool) error {
+func HandleGitTagPush(ctx context.Context, repo repository.Repository, gitTag types.GitTag, ddMetrics statsd.ClientInterface, failOnErrorWithGitTags bool) error {
 	gitTagErr := repo.PushTag(ctx, gitTag)
 	if gitTagErr == nil {
 		return nil
