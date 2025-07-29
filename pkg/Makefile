@@ -29,6 +29,7 @@ include $(ROOT_DIR)/infrastructure/make/go/include.mk
 
 PKG_WITHOUT_DOCKER?=0
 PKG_VOLUME=""
+
 all: gen lint test
 test: gen unit-test
 
