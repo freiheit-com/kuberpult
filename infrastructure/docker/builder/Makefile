@@ -25,9 +25,9 @@ IMAGENAME_UNVERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:
 CACHEIMAGE?=
 
 build:
-	docker buildx build --cache-from type=registry,ref=$(IMAGENAME_UNVERSIONED_MAIN) -t $(IMAGENAME) -f Dockerfile ../../../
+	docker build -t $(IMAGENAME) -f Dockerfile ../../../
 
-build-pr: pull-main build publish
+build-pr: build publish
 	echo "Building on pull request"
 	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_PR)
 	docker push $(IMAGENAME_VERSIONED_PR)
@@ -61,8 +61,6 @@ publish: release
 get-builder-image:
 	@echo "$(KUBERPULT_BUILDER)"
 
-retag-main: pull-main
-	docker tag $(IMAGENAME_UNVERSIONED_MAIN) $(IMAGENAME_VERSIONED_PR) && docker push $(IMAGENAME_VERSIONED_PR)
+retag-main:
+	docker pull $(IMAGENAME_UNVERSIONED_MAIN) && docker tag $(IMAGENAME_UNVERSIONED_MAIN) $(IMAGENAME_VERSIONED_PR) && docker push $(IMAGENAME_VERSIONED_PR)
 
-pull-main:
-	docker pull $(IMAGENAME_UNVERSIONED_MAIN)
