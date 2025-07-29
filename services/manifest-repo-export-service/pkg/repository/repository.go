@@ -1262,7 +1262,7 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 		if err != nil {
 			return fmt.Errorf("error getting all envs: %v", err)
 		}
-		for env, _ := range envs {
+		for env := range envs {
 			logger.FromContext(ctx).Info(fmt.Sprintf("updating timestamp for %s, %s, %s", app, env, releaseVersion))
 			_, createdAt, err := s.GetDeploymentMetaData(types.EnvName(env), app)
 			if err != nil {
