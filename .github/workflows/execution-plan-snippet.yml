@@ -144,7 +144,6 @@ jobs:
       - name: Install Buf
         uses: bufbuild/buf-action@v1
         with:
-          version: '1.47.2'
           setup_only: true
       - name: Install oapi-codegen
         run: |
