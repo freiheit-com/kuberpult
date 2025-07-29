@@ -19,10 +19,12 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	sorting2 "github.com/freiheit-com/kuberpult/cli/pkg/sorting"
-	"github.com/google/go-cmp/cmp"
 	"log"
 	"os"
+
+	"github.com/google/go-cmp/cmp"
+
+	sorting2 "github.com/freiheit-com/kuberpult/cli/pkg/sorting"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 	"github.com/freiheit-com/kuberpult/cli/pkg/deployments"

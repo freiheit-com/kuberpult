@@ -25,12 +25,13 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
 
 type testSrv struct {
@@ -360,7 +361,7 @@ func TestBroadcast(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name+" (streaming)", func(t *testing.T) {
 			bc := New()
 			ctx, cancel := context.WithCancel(context.Background())
@@ -480,7 +481,7 @@ func TestBroadcastDoesntGetStuck(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			bc := New()
 			// srv1 will just be blocked
@@ -809,7 +810,7 @@ func TestGetStatus(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			bc := New()

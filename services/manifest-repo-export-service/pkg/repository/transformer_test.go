@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"os/exec"
 	"path"
@@ -30,19 +29,23 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+
+	"github.com/go-git/go-billy/v5"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/go-git/go-billy/v5"
 
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 )
 
 const (

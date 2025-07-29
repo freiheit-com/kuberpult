@@ -15,3 +15,10 @@ issues:
 output:
   format: tab # This is where you set the output format to 'tab'
   sort-results: true # Equivalent to --sort-results
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/freiheit-com/kuberpult

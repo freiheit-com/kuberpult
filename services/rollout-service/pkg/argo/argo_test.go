@@ -19,24 +19,26 @@ package argo
 import (
 	"context"
 	"fmt"
+	"io"
+	"sync"
+	"testing"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/cenkalti/backoff/v4"
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sync"
-	"testing"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false

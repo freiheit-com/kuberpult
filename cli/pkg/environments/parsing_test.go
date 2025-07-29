@@ -35,9 +35,10 @@ package environments
 import (
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -97,7 +98,7 @@ func TestReadArgsDeleteEnvironment(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -132,7 +133,7 @@ func TestParseArgsDeleteEnvironment(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

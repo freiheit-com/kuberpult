@@ -20,26 +20,29 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
+
+	"go.uber.org/zap"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
-	"go.uber.org/zap"
-	"sync"
 
 	"sort"
 	"strconv"
 	"strings"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
 type GitServer struct {

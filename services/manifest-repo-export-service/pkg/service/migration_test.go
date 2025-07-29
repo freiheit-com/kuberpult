@@ -19,11 +19,13 @@ package service
 import (
 	"context"
 	"database/sql"
+	"testing"
+
+	"google.golang.org/protobuf/testing/protocmp"
+
 	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	migrations2 "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/migrations"
-	"google.golang.org/protobuf/testing/protocmp"
-	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -74,7 +76,7 @@ func TestEnsureCustomMigrationApplied(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 
@@ -167,7 +169,7 @@ func TestMigrationDetails(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			wasRun = false
 

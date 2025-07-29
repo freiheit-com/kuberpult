@@ -20,7 +20,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
+
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -35,14 +37,15 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
 
 type step struct {
@@ -460,7 +463,7 @@ func TestArgoConnection(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())
@@ -754,7 +757,7 @@ func TestArgoEvents(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())

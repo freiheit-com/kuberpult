@@ -166,7 +166,7 @@ func TestReadArgsAppLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -272,7 +272,7 @@ func TestReadArgsDeleteAppLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -342,7 +342,7 @@ func TestParseArgsCreateAppLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -381,7 +381,7 @@ func TestParseArgsDeleteAppLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

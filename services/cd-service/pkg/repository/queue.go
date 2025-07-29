@@ -28,6 +28,7 @@ This queue does not improve the latency, because each request still waits for th
 import (
 	"context"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 

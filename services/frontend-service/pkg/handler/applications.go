@@ -19,9 +19,10 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/http"
 	"strconv"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"

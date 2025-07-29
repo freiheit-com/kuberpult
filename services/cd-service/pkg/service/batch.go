@@ -30,12 +30,13 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type LockType string

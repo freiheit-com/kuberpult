@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"fmt"
@@ -28,6 +29,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -36,9 +41,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type OverviewServiceServer struct {

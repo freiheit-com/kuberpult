@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
 
@@ -87,7 +88,7 @@ func TestDispatcher(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())

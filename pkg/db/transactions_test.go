@@ -18,9 +18,10 @@ package db
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/lib/pq"
-	"testing"
 )
 
 func TestIsRetryableError(t *testing.T) {
@@ -45,7 +46,7 @@ func TestIsRetryableError(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(fmt.Sprintf("error_code_is_retryable_%s", tc.InputCode), func(t *testing.T) {
 			t.Parallel()
 
@@ -80,7 +81,7 @@ func TestIsNotRetryableError(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(fmt.Sprintf("error_code_is_not_retryable_%s", tc.InputCode), func(t *testing.T) {
 			t.Parallel()
 
@@ -120,7 +121,7 @@ func TestIsNotRetryableErrorEndlessLoop(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(fmt.Sprintf("endless_loop_check_%s", tc.InputCode.Error()), func(t *testing.T) {
 			t.Parallel()
 

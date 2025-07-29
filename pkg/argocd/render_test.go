@@ -17,13 +17,15 @@ Copyright freiheit.com*/
 package argocd
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
+
+	"github.com/google/go-cmp/cmp"
+	godebug "github.com/kylelemons/godebug/diff"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
-	"github.com/google/go-cmp/cmp"
-	godebug "github.com/kylelemons/godebug/diff"
 )
 
 func TestRender(t *testing.T) {
@@ -240,7 +242,7 @@ spec:
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var (

@@ -20,10 +20,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os/exec"
 	"path"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -241,7 +242,7 @@ func TestBatchServiceWorks(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
@@ -397,7 +398,7 @@ func TestBatchServiceFails(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
@@ -509,7 +510,7 @@ func TestBatchServiceErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
@@ -587,7 +588,7 @@ func TestBatchServiceLimit(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
@@ -808,7 +809,7 @@ func TestReleaseTrain(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
@@ -1068,7 +1069,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 
 			repo, err := setupRepositoryTestWithDB(t)
@@ -1212,7 +1213,7 @@ func TestActiveActiveEnvironmentNames(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			err := ValidateEnvironment(tc.EnvironmentName, tc.InputEnvConfig)

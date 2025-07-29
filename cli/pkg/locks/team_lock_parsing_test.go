@@ -166,7 +166,7 @@ func TestReadArgsTeamLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -272,7 +272,7 @@ func TestReadArgsDeleteTeamLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -345,7 +345,7 @@ func TestParseArgsCreateTeamLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -385,7 +385,7 @@ func TestParseArgsDeleteTeamLock(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

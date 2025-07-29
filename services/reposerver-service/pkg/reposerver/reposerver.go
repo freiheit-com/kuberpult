@@ -21,13 +21,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"

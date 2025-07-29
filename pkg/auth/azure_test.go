@@ -230,7 +230,7 @@ func TestValidateTokenGenerated(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			duration, err := time.ParseDuration("10m")
@@ -350,7 +350,7 @@ func TestHttpMiddleware(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			r := strings.NewReader("Test message incoming")
@@ -475,7 +475,7 @@ func TestAllowBypassingAzureAuth(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			actualResult := AllowBypassingAzureAuth(tc.allowedPaths, tc.requestUrlPath, tc.requestMethod, tc.allowedPrefixes)

@@ -40,7 +40,7 @@ func TestServiceName(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Setenv("DD_SERVICE", tc.DdServiceEnv)
 			result := ServiceName(tc.DefaultName)

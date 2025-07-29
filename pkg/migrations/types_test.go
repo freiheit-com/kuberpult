@@ -17,12 +17,14 @@ Copyright freiheit.com*/
 package migrations
 
 import (
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/protobuf/testing/protocmp"
 	"testing"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/testing/protocmp"
+
 	"github.com/google/go-cmp/cmp"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -86,7 +88,7 @@ func TestParseKuberpultVersion(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			actualVersion, actualErr := ParseKuberpultVersion(tc.kuberpultVersionInput)
 

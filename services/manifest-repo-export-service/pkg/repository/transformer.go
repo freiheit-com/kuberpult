@@ -22,11 +22,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"path"
 	"slices"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	yaml3 "gopkg.in/yaml.v3"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
@@ -39,10 +46,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
-	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	yaml3 "gopkg.in/yaml.v3"
 
 	"os"
 	"sort"

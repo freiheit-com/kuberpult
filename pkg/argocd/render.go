@@ -19,10 +19,11 @@ package argocd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"path/filepath"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 

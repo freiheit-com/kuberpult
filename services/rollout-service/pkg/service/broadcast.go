@@ -19,9 +19,10 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 

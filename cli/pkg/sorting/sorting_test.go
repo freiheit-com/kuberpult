@@ -17,8 +17,9 @@ Copyright freiheit.com*/
 package sorting
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestSortKeys(t *testing.T) {
@@ -52,7 +53,7 @@ func TestSortKeys(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			actualKeys := SortKeys(tc.Input)
 			if diff := cmp.Diff(tc.ExpectedKeys, actualKeys); diff != "" {

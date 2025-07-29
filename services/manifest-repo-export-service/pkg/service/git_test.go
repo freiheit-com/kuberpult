@@ -19,17 +19,19 @@ package service
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os/exec"
 	"path"
 	"sort"
 	"testing"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
+	git "github.com/libgit2/git2go/v34"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	git "github.com/libgit2/git2go/v34"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -943,7 +945,7 @@ func TestGetCommitInfo(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 
@@ -1189,7 +1191,7 @@ func TestGetSyncData(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			pageSize := 100
@@ -1510,7 +1512,7 @@ func TestRetryEvent(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			pageSize := 100
@@ -1762,7 +1764,7 @@ func TestSkipEvent(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			pageSize := 100

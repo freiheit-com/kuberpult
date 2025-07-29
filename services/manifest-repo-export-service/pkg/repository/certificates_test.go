@@ -59,7 +59,7 @@ func TestCertificateStore(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			file := writeFile(t, tc.KnownHosts)

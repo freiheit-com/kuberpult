@@ -20,9 +20,10 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 

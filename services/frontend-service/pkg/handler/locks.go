@@ -27,6 +27,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"

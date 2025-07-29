@@ -19,16 +19,19 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestDeployApplicationVersionPartOne(t *testing.T) {
@@ -122,7 +125,7 @@ func TestDeployApplicationVersionPartOne(t *testing.T) {
 		return
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
@@ -257,7 +260,7 @@ func TestDeployApplicationVersionPartTwo(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -410,7 +413,7 @@ func TestDeployApplicationVersionWithRevision(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()

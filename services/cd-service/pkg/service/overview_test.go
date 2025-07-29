@@ -20,11 +20,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"sort"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -32,11 +39,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type mockOverviewService_StreamOverviewServer struct {
@@ -431,7 +433,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
@@ -676,7 +678,7 @@ func TestOverviewService(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
@@ -1374,7 +1376,7 @@ func TestGetApplicationDetails(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
@@ -1732,7 +1734,7 @@ func TestGetAllAppLocks(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
@@ -1876,7 +1878,7 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
@@ -2383,7 +2385,7 @@ func TestCalculateWarnings(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+
 		t.Run(tc.Name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository

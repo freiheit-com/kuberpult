@@ -27,8 +27,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/metrics"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/freiheit-com/kuberpult/pkg/metrics"
 )
 
 func TestBasicAuthHandler(t *testing.T) {

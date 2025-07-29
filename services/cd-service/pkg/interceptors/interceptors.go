@@ -20,8 +20,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"google.golang.org/grpc"
+
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 )
 
 // UnaryUserContextInterceptor assumes that there is a user in the context

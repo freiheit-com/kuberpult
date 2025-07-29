@@ -20,8 +20,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 

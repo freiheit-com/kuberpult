@@ -22,26 +22,30 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/lib/pq"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
+
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	config "github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
 	psql "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+
+	config "github.com/freiheit-com/kuberpult/pkg/config"
 
 	ddsql "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 )

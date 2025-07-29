@@ -24,9 +24,10 @@ import (
 	"net/http"
 	"strings"
 
+	"google.golang.org/grpc/metadata"
+
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"google.golang.org/grpc/metadata"
 )
 
 type ctxMarker struct{}

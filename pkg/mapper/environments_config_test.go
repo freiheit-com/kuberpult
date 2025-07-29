@@ -17,14 +17,16 @@ Copyright freiheit.com*/
 package mapper
 
 import (
+	"github.com/google/go-cmp/cmp/cmpopts"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/freiheit-com/kuberpult/pkg/config"
 )
 
 func makeUpstreamLatest() *api.EnvironmentConfig_Upstream {

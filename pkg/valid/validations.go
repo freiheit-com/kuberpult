@@ -18,12 +18,13 @@ package valid
 
 import (
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/mail"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 const (
