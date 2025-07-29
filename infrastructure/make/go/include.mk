@@ -40,7 +40,7 @@ bench-test:
 
 .PHONY: lint
 lint:
-	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" $(SERVICE_DIR)/...'
+	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" $(SERVICE_DIR)/...'
 
 .PHONY: docker
 docker: compile
