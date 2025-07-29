@@ -195,32 +195,6 @@ func SetupRepositoryTestWithDB(t *testing.T, ctx context.Context) (repository.Re
 		return nil, nil, nil
 	}
 
-	//// git commit --allow-empty -m "Initial commit"
-	//cmd = exec.Command("git", "commit", "--allow-empty", "-m", "Initial commit in unit test")
-	//err = cmd.Start()
-	//if err != nil {
-	//	t.Fatalf("error starting commit %v", err)
-	//	return nil, nil, nil
-	//}
-	//err = cmd.Wait()
-	//if err != nil {
-	//	t.Fatalf("error waiting commit %v", err)
-	//	return nil, nil, nil
-	//}
-
-	//// git commit --allow-empty -m "Initial commit"
-	//cmd = exec.Command("git", "push", "origin/main")
-	//err = cmd.Start()
-	//if err != nil {
-	//	t.Fatalf("error starting push %v", err)
-	//	return nil, nil, nil
-	//}
-	//err = cmd.Wait()
-	//if err != nil {
-	//	t.Fatalf("error waiting push %v", err)
-	//	return nil, nil, nil
-	//}
-
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
 	if migErr != nil {
 		t.Fatal(migErr)
@@ -233,6 +207,7 @@ func SetupRepositoryTestWithDB(t *testing.T, ctx context.Context) (repository.Re
 	config := repository.RepositoryConfig{
 		URL:                 "file://" + remoteDir,
 		Path:                localDir,
+		TagsPath:            localDir, // in a test we can use the same directory for tags and other operations
 		CommitterEmail:      "kuberpult@freiheit.com",
 		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,

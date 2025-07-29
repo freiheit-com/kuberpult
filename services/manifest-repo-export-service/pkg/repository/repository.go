@@ -152,6 +152,7 @@ type RepositoryConfig struct {
 	MinimizeExportedData bool
 
 	DDMetrics statsd.ClientInterface
+	TagsPath  string
 }
 
 func openOrCreate(path string) (*git.Repository, error) {

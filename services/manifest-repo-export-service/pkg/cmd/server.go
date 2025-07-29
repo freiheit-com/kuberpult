@@ -263,6 +263,7 @@ func Run(ctx context.Context) error {
 	cfg := repository.RepositoryConfig{
 		URL:            gitUrl,
 		Path:           "./repository",
+		TagsPath:       "./repository_tags",
 		CommitterEmail: "kuberpult@freiheit.com",
 		CommitterName:  "kuberpult",
 		Credentials: repository.Credentials{
