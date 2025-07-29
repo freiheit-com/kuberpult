@@ -26,7 +26,6 @@ compile:
 .PHONY: unit-test
 unit-test:
 	cd $(ABS_ROOT_DIR)/pkg && buf generate
-	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 	oapi-codegen -generate "std-http-server" -o $(ABS_ROOT_DIR)/pkg/publicapi/server-gen.go -package publicapi $(ABS_ROOT_DIR)/pkg/publicapi/api.yaml
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
 	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" -v $(MIGRATION_VOLUME) $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html"
