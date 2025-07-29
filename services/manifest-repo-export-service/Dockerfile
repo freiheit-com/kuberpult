@@ -20,4 +20,10 @@ RUN mkdir -p database/migrations
 COPY database/migrations /migrations
 COPY services/manifest-repo-export-service/cmd/server/bin/main /main
 
+COPY go.mod go.sum ./
+RUN go mod download
+COPY pkg pkg
+RUN cd pkg && buf generate
+RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
+
 CMD /main

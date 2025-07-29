@@ -21,9 +21,3 @@ RUN mv linux-amd64/helm /usr/local/bin/helm
 RUN chmod +x /usr/local/bin/helm
 
 WORKDIR /kp
-COPY go.mod go.sum ./
-RUN go mod download
-COPY pkg pkg
-RUN cd pkg && buf generate
-RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
