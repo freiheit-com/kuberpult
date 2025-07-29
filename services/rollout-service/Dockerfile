@@ -7,11 +7,11 @@ RUN chown -R kp:kp /kp
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
-COPY cmd/server/lib/ /lib
-COPY cmd/server/usr/ /usr
+COPY services/rollout-service/cmd/server/lib/ /lib
+COPY services/rollout-service/cmd/server/usr/ /usr
 
 USER kp
 WORKDIR /kp
-COPY ./cmd/server/bin/main /main
+COPY ./services/rollout-service/cmd/server/bin/main /main
 
 CMD /main
