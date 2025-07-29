@@ -22,7 +22,6 @@ IMAGENAME_VERSIONED=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(VERSI
 IMAGENAME_VERSIONED_PR=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
 IMAGENAME_VERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main-$(VERSION)
 IMAGENAME_UNVERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main
-CACHEIMAGE?=
 
 build:
 	docker build -t $(IMAGENAME) -f Dockerfile ../../../
@@ -63,4 +62,3 @@ get-builder-image:
 
 retag-main:
 	docker pull $(IMAGENAME_UNVERSIONED_MAIN) && docker tag $(IMAGENAME_UNVERSIONED_MAIN) $(IMAGENAME_VERSIONED_PR) && docker push $(IMAGENAME_VERSIONED_PR)
-
