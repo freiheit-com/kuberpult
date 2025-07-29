@@ -27,7 +27,7 @@ CACHEIMAGE?=
 build:
 	docker build --cache-from $(IMAGENAME_UNVERSIONED_MAIN) $(CACHEIMAGE) -t $(IMAGENAME) -f Dockerfile ../../../
 
-build-pr: build publish
+build-pr: pull-main build publish
 	echo "Building on pull request"
 	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_PR)
 	docker push $(IMAGENAME_VERSIONED_PR)
