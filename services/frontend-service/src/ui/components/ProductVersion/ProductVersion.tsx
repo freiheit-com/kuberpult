@@ -221,6 +221,7 @@ export const ProductVersion: React.FC = () => {
                                 team: '',
                                 ciLink: '',
                                 targetType: ReleaseTrainRequest_TargetType.UNKNOWN,
+                                gitTag: '',
                             },
                         },
                     });
@@ -241,6 +242,7 @@ export const ProductVersion: React.FC = () => {
                             team: teams[0],
                             ciLink: '',
                             targetType: ReleaseTrainRequest_TargetType.UNKNOWN,
+                            gitTag: '',
                         },
                     },
                 });

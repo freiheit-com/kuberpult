@@ -61,6 +61,7 @@ type ReleaseTrain struct {
 	TargetType            string           `json:"targetType"`
 	CiLink                string           `json:"-"`
 	AllowedDomains        []string         `json:"-"`
+	GitTag                types.GitTag     `json:"gitTag"`
 }
 
 func (c *ReleaseTrain) GetDBEventType() db.EventType {

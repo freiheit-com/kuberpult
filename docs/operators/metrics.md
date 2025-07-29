@@ -1,5 +1,6 @@
 ## Datadog Metrics
-Kuberpult uploads mulitple metrics to datadog.
+Kuberpult uploads multiple metrics to datadog.
+Metrics are only sent if `dogstatsdMetrics.enabled==true`.
 
 ### `cd-service` Metrics
 The cd-service uploads the following metrics to datadog:
@@ -7,21 +8,22 @@ The cd-service uploads the following metrics to datadog:
 * `application_lock_count` - the count of current environment application locks, for a given application in a given environment;
 * `lastDeployed` - the time since the last deployment in minutes;
 * `request_queue_size` - the current size of the request queue;
-* `git_sync_unsynced` - Number of the applications that have unsynced git sync status
-* `git_sync_failed` - Number of the applications that have failed git sync status
+* `git_sync_unsynced` - Number of the applications that have unsynced git sync status;
+* `git_sync_failed` - Number of the applications that have failed git sync status;
 
 ### `manifest-repo-export-service` Metrics
-The manifest-repo-export-service uploads the following metrics to Datadog (if `manifestRepoExport.enabled: true`)
-* `manifest_export_push_failures` - number of failures in pushing changes to git
-* `process_delay_seconds` - The duration between the earliest unprocessed event and now in seconds. 0 means everything has been processed.
-* `git_sync_unsynced` - Number of the applications that have unsynced git sync status
-* `git_sync_failed` - Number of the applications that have failed git sync status
+The manifest-repo-export-service uploads the following metrics to Datadog (if `manifestRepoExport.enabled: true`):
+* `manifest_export_push_failures` - Triggered each time we fail to push a commit to git;
+* `manifest_export_tag_push_failures` - Triggered each time we fail to push a git tag to git; Uses a datadog tag (`kuberpult_tag_name`) with the git tag name supplied in the release train;
+* `process_delay_seconds` - The duration between the earliest unprocessed event and `now` in seconds; 0 means everything has been processed;
+* `git_sync_unsynced` - Number of the applications that have unsynced git sync status;
+* `git_sync_failed` - Number of the applications that have failed git sync status;
 
 ### `rollout-service` Metrics
 The rollout-service uploads the following metrics to datadog, if `rollout.enabled: true`:
-* `argo_events_fill_rate` - Number of events that are currently in the argo events queue divided by its capacity
-* `kuberpult_events_fill_rate` - Number of events that are currently in the kuberpult events queue divided by its capacity
-* `dora_failed_events` - Number of failed attempts to send dora events to revolution
-* `dora_successful_events` - Number of successful attempts to send dora events to revolution
-* `argo_discarded_events` - Number of argo events that were discarded because the channel was full
+* `argo_events_fill_rate` - Number of events that are currently in the argo events queue divided by its capacity;
+* `kuberpult_events_fill_rate` - Number of events that are currently in the kuberpult events queue divided by its capacity;
+* `dora_failed_events` - Number of failed attempts to send dora events to revolution;
+* `dora_successful_events` - Number of successful attempts to send dora events to revolution;
+* `argo_discarded_events` - Number of argo events that were discarded because the channel was full;
 

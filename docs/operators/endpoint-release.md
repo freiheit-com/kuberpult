@@ -17,19 +17,15 @@ The `/release` endpoint accepts several parameters:
 * `source_author` git author of the new change.
 * `source_message` git commit message of the new change.
 * `author-email` and `author-name` are base64 encoded http headers. They define the `git author` that pushes to the manifest repository.
-* `version` (required/recommended) This field is **required** if the database is enabled!
-  If not set, Kuberpult will just use `last release number + 1`. It is recommended to set this to a unique number, for example the number of commits in your git main branch.
-  This way, if you have parallel executions of `/release` for the same service, Kuberpult will sort them in the right order.
-* `team` (optional) team name of the microservice. Used to filter more easily for relevant services in kuberpult's UI and also written as label to the Argo CD app to allow filtering in the Argo CD UI. The team name has a maximum size of 20 characters.
+* `version` (required)
+  It is required to set this to a unique number, for example the number of commits in your git main branch.
+  This way, if you have parallel executions of `/release` for the same service, Kuberpult will sort them in the right order, while keeping idempotency.
+* `team` (optional) query parameter of the team name of the microservice. Used to filter more easily for relevant services in kuberpult's UI and also written as label to the Argo CD app to allow filtering in the Argo CD UI. The team name has a maximum size of 20 characters.
 
-
-
-### Caveats
-Note that the `/release` endpoint can be rather slow. This is because it involves running `git push` to a real repository, which in itself is a slow operation. Usually this takes about 1 second, but it highly depends on your Git Hosting Provider. This applies to all endpoints that have to write to the git repo (which is most of the endpoints).
 
 ### CLI
 
-There is a Kubeprult command line client for communicating with the `/release` endpoint now at [`cli`](https://github.com/freiheit-com/kuberpult/tree/main/cli). The usage is as follows:
+There is a Kuberpult command line client for communicating with the `/release` endpoint now at [`cli`](https://github.com/freiheit-com/kuberpult/tree/main/cli). The usage is as follows:
 
 ```
 kuberpult-client release \
@@ -79,7 +75,12 @@ The goal behind this endpoint is to authenticate the requests before creating ne
 If the user creating the release does not have sufficient permissions, the request is denied.
 
 If you want to enable this endpoint without authentication, set [enableDespiteNoAuth](https://github.com/freiheit-com/kuberpult/blob/main/charts/kuberpult/values.yaml#L359) to true.
+
 ### Parameters
 
 The `/api/release` endpoint accepts the same parameters as `/release` except for the signatures, which are not supported for this endpoint.
 An example for this can be found [here](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/create-testdata/create-release.sh#L80).
+
+### Additional Parameters
+
+* `gitTag` (optional) query parameter of the git tag to be created in the manifest-repo-export. Note that git tags need to be unique per repository, otherwise git push fails, see `manifestRepoExport.failOnErrorWithGitPushTags`.

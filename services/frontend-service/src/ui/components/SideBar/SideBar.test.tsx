@@ -666,6 +666,7 @@ describe('Action details', () => {
                         commitHash: '',
                         ciLink: '',
                         targetType: ReleaseTrainRequest_TargetType.UNKNOWN,
+                        gitTag: '',
                     },
                 },
             },

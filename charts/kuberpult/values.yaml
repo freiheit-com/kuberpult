@@ -220,6 +220,18 @@ manifestRepoExport:
   eslProcessingIdleTimeSeconds: 5
   # Timeout in seconds used for network operations
   networkTimeoutSeconds: 120
+
+  # This flag only applies when the "gitTag" query parameter in the release train api is used.
+  # It handles what happens, if the git tag cannot be pushed to the remote of the manifest-repo:
+  # failOnErrorWithGitPushTags==true: The export considers the event processing failed, and tries again. Use this if the git tags are critical for your CI/CD operations.
+  # failOnErrorWithGitPushTags==false: The export considers the event processing successful, despite the failing git tag push.
+  #
+  # Pushing the *commit* always happens before pushing the tag, and failing to push the commit is always considered an error.
+  # Note that if there was no commit created (because the release train did not deploy anything),
+  # then we do not attempt to push the tag either, because pushing is a slow operation.
+  # 
+  # Consider setting `dogstatsdMetrics.enabled:true`, then the failings of git push operations are measured in the metric "manifest_export_tag_push_failures".
+  failOnErrorWithGitPushTags: true
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.
