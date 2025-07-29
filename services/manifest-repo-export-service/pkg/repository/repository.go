@@ -2538,12 +2538,12 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 			commitId = tagCommit.Id().String()
 		}
 
-		if err != nil {
-			return nil, err
-		}
 		result, err := db.WithTransactionT(handler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
 			return handler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitId)
 		})
+		if err != nil {
+			return nil, err
+		}
 		tag = &api.TagData{
 			Tag:        tagName,
 			CommitId:   commitId,
