@@ -229,6 +229,8 @@ manifestRepoExport:
   # Pushing the *commit* always happens before pushing the tag, and failing to push the commit is always considered an error.
   # Note that if there was no commit created (because the release train did not deploy anything),
   # then we do not attempt to push the tag either, because pushing is a slow operation.
+  # 
+  # Consider setting `dogstatsdMetrics.enabled:true`, then the failings of git push operations are measured in the metric "manifest_export_tag_push_failures".
   failOnErrorWithGitPushTags: true
 frontend:
   image: kuberpult-frontend-service
