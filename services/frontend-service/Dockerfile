@@ -46,8 +46,6 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /kp/main /main
 COPY --from=builder /kp/services/frontend-service/build /build
 
-COPY go.mod go.sum ./
-RUN go mod download
 COPY pkg pkg
 RUN cd pkg && buf generate
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest

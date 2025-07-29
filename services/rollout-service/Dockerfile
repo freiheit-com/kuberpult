@@ -14,8 +14,6 @@ USER kp
 WORKDIR /kp
 COPY ./services/rollout-service/cmd/server/bin/main /main
 
-COPY go.mod go.sum ./
-RUN go mod download
 COPY pkg pkg
 RUN cd pkg && buf generate
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
