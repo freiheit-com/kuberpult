@@ -2544,6 +2544,7 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 		if err != nil {
 			return nil, err
 		}
+
 		tag = &api.TagData{
 			Tag:        tagName,
 			CommitId:   commitId,
