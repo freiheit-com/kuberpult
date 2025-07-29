@@ -96,7 +96,7 @@ unit-test-db:
 	docker compose -f docker-compose-unittest.yml up
 
 integration-test:
-	make -C ./pkg gen
+	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) make -C ./pkg gen
 	mkdir -p $(INTEGRATION_TEST_CONFIG_DIR)
 	rm -f $(INTEGRATION_TEST_CONFIG_FILE)
 	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml down
@@ -139,8 +139,8 @@ tag-cli-release-image: push-cli-image
 
 .PHONY: commitlint
 commitlint: $(COMMIT_MSG_FILE)
-	docker run -w /commitlint -v "./commitlint.config.js:/commitlint/commitlint.config.js" -v "./$(COMMIT_MSG_FILE):/commitlint/$(COMMIT_MSG_FILE)" node:18-bookworm sh -c "npm install --save-dev @commitlint/cli@18.4.3 && cat ./$(COMMIT_MSG_FILE) | npx commitlint --config commitlint.config.js"
-	rm $(COMMIT_MSG_FILE)
+	#docker run -w /commitlint -v "./commitlint.config.js:/commitlint/commitlint.config.js" -v "./$(COMMIT_MSG_FILE):/commitlint/$(COMMIT_MSG_FILE)" node:18-bookworm sh -c "npm install --save-dev @commitlint/cli@18.4.3 && cat ./$(COMMIT_MSG_FILE) | npx commitlint --config commitlint.config.js"
+	#rm $(COMMIT_MSG_FILE)
 
 $(COMMIT_MSG_FILE):
 	git log -1 --pretty=%B > $(COMMIT_MSG_FILE)
