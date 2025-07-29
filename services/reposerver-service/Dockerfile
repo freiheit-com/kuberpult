@@ -20,7 +20,7 @@ COPY ./services/reposerver-service/cmd/server/bin/main /main
 COPY --from=builder /kp/go.mod ./go.mod
 COPY --from=builder /kp/go.sum ./go.sum
 
-COPY pkg pkg
+COPY --chown=kp:kp pkg pkg
 RUN cd pkg && buf generate
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 RUN mkdir -p /kp/pkg/publicapi
