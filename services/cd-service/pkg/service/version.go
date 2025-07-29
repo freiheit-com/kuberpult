@@ -45,7 +45,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 		return nil, status.Error(codes.InvalidArgument, "no application specified")
 	}
 	dm := api.DummyMessage{
-		Test: "t";
+		Test: "t",
 	} //Test to see if the cd-service runs buf generate and can identify this new type
 	fmt.Println(dm.Test)
 	state := o.Repository.State()

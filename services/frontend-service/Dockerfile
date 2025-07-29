@@ -2,7 +2,7 @@ ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpu
 FROM ${BUILDER_IMAGE} AS builder
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
-
+COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
 # frontend-service:
 ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
 ADD services/frontend-service/pkg /kp/services/frontend-service/pkg
