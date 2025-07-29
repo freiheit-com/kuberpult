@@ -22,6 +22,6 @@ RUN chmod +x /usr/local/bin/helm
 
 WORKDIR /kp
 
-# The Go mod
+# Installing Go dependencies should be the only Go-code related step done on the builder image
 COPY go.mod go.sum ./
 RUN go mod download
