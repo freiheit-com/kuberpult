@@ -143,7 +143,6 @@ jobs:
           fetch-depth: 0
       - name: Install Buf
         uses: bufbuild/buf-action@v1
-        if: ${{ github.event_name != 'pull_request' }}
         with:
           version: '1.47.2'
           setup_only: true
