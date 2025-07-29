@@ -28,7 +28,7 @@ SKIP_RETAG_MAIN_AS_PR=1
 include $(ROOT_DIR)/infrastructure/make/go/include.mk
 
 PKG_WITHOUT_DOCKER?=0
-
+PKG_VOLUME=""
 all: gen lint test
 test: gen unit-test
 
@@ -52,7 +52,7 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 	buf generate
 else
 	@echo "Running in docker"
-	docker run -w /kp/pkg --rm -v "./api/v1:/kp/pkg/api/v1" $(BUILDER_IMAGE) sh -c "buf generate"
+	docker run -w /kp/pkg --rm -v ".:/kp/pkg/" $(BUILDER_IMAGE) sh -c "buf generate"
 endif
 
 publicapi: publicapi/$(GO_SERVER_GEN)
@@ -61,8 +61,7 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"
 	buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml
 else
-	@echo "Running in docker"
-	docker run -w /kp/pkg --rm -v "./publicapi:/kp/pkg/publicapi" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
+	@echo "Running in docker" "./publicapi:/kp/pkg/publicapi" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
 endif
 
 release: #no-op
