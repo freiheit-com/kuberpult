@@ -8,7 +8,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 COPY services/rollout-service/cmd/server/lib/ /lib
-COPY services/rollout-service/server/usr/ /usr
+COPY services/rollout-service/cmd/server/usr/ /usr
 
 USER kp
 WORKDIR /kp
