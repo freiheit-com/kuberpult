@@ -21,8 +21,6 @@ RUN mv linux-amd64/helm /usr/local/bin/helm
 RUN chmod +x /usr/local/bin/helm
 
 WORKDIR /kp
-RUN mkdir -p database/migrations
-COPY database/migrations database/migrations
 COPY go.mod go.sum ./
 RUN go mod download
 COPY pkg pkg
