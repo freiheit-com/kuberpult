@@ -1,21 +1,24 @@
 ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:main
 FROM ${BUILDER_IMAGE} as builder
 FROM alpine:3.21
+ARG CONTEXT
 ENV TZ=Europe/Berlin
 RUN adduser --disabled-password --home "/kp" --uid 1000 kp
 RUN chown -R kp:kp /kp
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /kp/database/migrations /migrations
-COPY gitconfig /etc/gitconfig
-COPY policy.csv /etc/policy.csv
-COPY team.csv /etc/team.csv
+COPY $CONTEXT/gitconfig /etc/gitconfig
+COPY $CONTEXT/policy.csv /etc/policy.csv
+COPY $CONTEXT/team.csv /etc/team.csv
 
-COPY cmd/server/lib/ /lib
-COPY cmd/server/usr/ /usr
+COPY $CONTEXT/cmd/server/lib/ /lib
+COPY $CONTEXT/cmd/server/usr/ /usr
 
 USER kp
 WORKDIR /kp
-COPY ./cmd/server/bin/main /main
+RUN mkdir -p database/migrations
+COPY database/migrations /migrations
+
+COPY $CONTEXT/cmd/server/bin/main /main
 
 CMD /main
