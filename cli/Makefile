@@ -19,6 +19,7 @@ CGO_ENABLED=0
 MAIN_PATH=cmd/kuberpult-client
 SERVICE=client
 MIN_COVERAGE=67.1
+CONTEXT?=../
 #SERVICE_DIR=/kp/cli
 
 include ../infrastructure/make/go/include.mk
