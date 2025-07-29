@@ -10,7 +10,7 @@ IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):$(IMAGE_TAG)
 MAIN_IMAGE_NAME=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):main
 SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
-CONTEXT?=../../
+CONTEXT=../../
 SKIP_TRIVY?=0
 SKIP_RETAG_MAIN_AS_PR?=0
 SKIP_BUILDER?=0
@@ -43,7 +43,7 @@ lint:
 docker: compile
 	mkdir -p $(MAIN_PATH)/lib
 	mkdir -p $(MAIN_PATH)/usr
-	test -n "$(MAIN_PATH)" || exit 0; docker build --build-arg CONTEXT=services/$(SERVICE) -f Dockerfile $(CONTEXT) -t $(IMAGE_NAME)
+	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile $(CONTEXT) -t $(IMAGE_NAME)
 
 .PHONY: release
 release:

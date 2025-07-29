@@ -2,21 +2,21 @@ ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpu
 FROM ${BUILDER_IMAGE} AS builder
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
-ARG CONTENXT
+
 # frontend-service:
-ADD $CONTEXT/cmd/server/ /kp/services/frontend-service/cmd/server/
-ADD $CONTEXT/pkg /kp/services/frontend-service/pkg
-ADD $CONTEXT/package.json /kp/services/frontend-service/
-ADD $CONTEXT/src /kp/services/frontend-service/src
-ADD $CONTEXT/buf* /kp/services/frontend-service/
-ADD $CONTEXT/pnpm-lock.yaml /kp/services/frontend-service/
-ADD $CONTEXT/pnpm-workspace.yaml /kp/services/frontend-service/
-ADD $CONTEXT/tsconfig.json /kp/services/frontend-service/
-ADD $CONTEXT/.prettierrc /kp/services/frontend-service/
-ADD $CONTEXT/.nvmrc /kp/services/frontend-service/
-ADD $CONTEXT/.npmrc /kp/services/frontend-service/
-ADD $CONTEXT/.eslintrc /kp/services/frontend-service/
-ADD $CONTEXT/public /kp/services/frontend-service/public
+ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
+ADD services/frontend-service/pkg /kp/services/frontend-service/pkg
+ADD services/frontend-service/package.json /kp/services/frontend-service/
+ADD services/frontend-service/src /kp/services/frontend-service/src
+ADD services/frontend-service/buf* /kp/services/frontend-service/
+ADD services/frontend-service/pnpm-lock.yaml /kp/services/frontend-service/
+ADD services/frontend-service/pnpm-workspace.yaml /kp/services/frontend-service/
+ADD services/frontend-service/tsconfig.json /kp/services/frontend-service/
+ADD services/frontend-service/.prettierrc /kp/services/frontend-service/
+ADD services/frontend-service/.nvmrc /kp/services/frontend-service/
+ADD services/frontend-service/.npmrc /kp/services/frontend-service/
+ADD services/frontend-service/.eslintrc /kp/services/frontend-service/
+ADD services/frontend-service/public /kp/services/frontend-service/public
 ADD pkg/api/v1 /kp/services/frontend-service/api
 ADD infrastructure /kp/infrastructure
 
