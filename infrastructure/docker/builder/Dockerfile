@@ -21,3 +21,7 @@ RUN mv linux-amd64/helm /usr/local/bin/helm
 RUN chmod +x /usr/local/bin/helm
 
 WORKDIR /kp
+
+COPY go.mod go.sum ./
+RUN go mod download
+
