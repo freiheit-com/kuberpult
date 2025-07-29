@@ -96,6 +96,7 @@ func (c *DeployApplicationVersion) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 ) (*DeployPrognosis, error) {
+	db.DummyPKGFunction() //Dummy Pkg change to verify CI is working
 	var manifestContent []byte
 	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 	if err != nil {

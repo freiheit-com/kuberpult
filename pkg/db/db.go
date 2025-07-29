@@ -216,6 +216,10 @@ func RunDBMigrations(ctx context.Context, cfg DBConfig) error {
 	return nil
 }
 
+func DummyPKGFunction() {
+	fmt.Println("Dummy PKG change Delete me - used for testing purposes for CI fixes")
+}
+
 func (h *DBHandler) AdaptQuery(query string) string {
 	if h.DriverName == "postgres" {
 		return SqliteToPostgresQuery(query)
