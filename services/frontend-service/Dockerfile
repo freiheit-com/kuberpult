@@ -3,6 +3,8 @@ FROM ${BUILDER_IMAGE} AS builder
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
+COPY --from=builder /usr/local/go /usr/local/go
+ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 # frontend-service:
 ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
 ADD services/frontend-service/pkg /kp/services/frontend-service/pkg
@@ -45,6 +47,8 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /kp/main /main
 COPY --from=builder /kp/services/frontend-service/build /build
+COPY --from=builder /kp/go.mod /go.mod
+COPY --from=builder /kp/go.sum /go.sum
 
 COPY pkg pkg
 RUN cd pkg && buf generate

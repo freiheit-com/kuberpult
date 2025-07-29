@@ -3,10 +3,14 @@ FROM ${BUILDER_IMAGE} AS builder
 FROM alpine:3.21
 ENV TZ=Europe/Berlin
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
+COPY --from=builder /usr/local/go /usr/local/go
+ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 RUN adduser --disabled-password --home "/kp" --uid 1000 kp
 RUN chown -R kp:kp /kp
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder /kp/go.mod /go.mod
+COPY --from=builder /kp/go.sum /go.sum
 
 COPY services/rollout-service/cmd/server/lib/ /lib
 COPY services/rollout-service/cmd/server/usr/ /usr

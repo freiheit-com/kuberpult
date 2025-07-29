@@ -3,6 +3,8 @@ FROM ${BUILDER_IMAGE} AS builder
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata alpine-sdk go make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
+COPY --from=builder /usr/local/go /usr/local/go
+ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 COPY /services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgit2.sh
 COPY services/manifest-repo-export-service/gitconfig /etc/gitconfig
 RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
@@ -11,6 +13,8 @@ RUN adduser --disabled-password --home "/kp" --uid 1000 kp
 RUN chown -R kp:kp /kp
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder /kp/go.mod /go.mod
+COPY --from=builder /kp/go.sum /go.sum
 
 COPY services/manifest-repo-export-service/cmd/server/lib/ /lib
 COPY services/manifest-repo-export-service/cmd/server/usr/ /usr

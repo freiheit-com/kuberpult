@@ -62,7 +62,7 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"
 	buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml
 else
-	@echo "Running in docker" "./publicapi:/kp/pkg/publicapi" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
+	@echo "Running in docker" "./publicapi:/kp/pkg/publicapi" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o /kp/pkg/publicapi/$(GO_SERVER_GEN) -package publicapi /kp/pkg/publicapi/api.yaml'
 endif
 
 release: #no-op
