@@ -69,6 +69,7 @@ type Repository interface {
 	FetchAndReset(ctx context.Context) error
 	PushRepo(ctx context.Context) error
 	GetHeadCommitId() (*git.Oid, error)
+	FixCommitsTimestamp(ctx context.Context, state State) (error)
 	Notify() *notify.Notify
 }
 
@@ -1275,6 +1276,47 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func(r *repository) FixCommitsTimestamp(ctx context.Context, state State) (error) {
+	revwalk, err := r.repository.Walk()
+	if err != nil {
+		return fmt.Errorf("Failed to create revwalk: %v", err)
+	}
+	head, err := r.repository.Head()
+	if err != nil {
+		return fmt.Errorf("Failed to get HEAD: %v", err)
+	}
+
+	// Push HEAD to revwalk
+	err = revwalk.Push(head.Target())
+	if err != nil {
+		return fmt.Errorf("Failed to push HEAD to revwalk: %v", err)
+	}
+	dbHandler := state.DBHandler
+	err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		err = revwalk.Iterate(func(commit *git.Commit) bool {
+			commit, err := r.repository.LookupCommit(commit.Id())
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Errorf("Failed to lookup commit %s: %v", commit.Id().String(), err)
+				return true // continue
+			}
+
+			logger.FromContext(ctx).Sugar().Infof("Commit: %s, Time: %s\n", commit.Id().String(), time.Unix(commit.Committer().When.Unix(), 0))
+			err = dbHandler.DBUpdateCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), commit.Committer().When)
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Errorf("Failed to lookup commit %s: %v", commit.Id().String(), err)
+				return true
+			}
+			
+			return true
+			})
+		return err
+	})
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Errorf("Failed during revwalk: %v", err)
 	}
 	return nil
 }
@@ -2496,9 +2538,6 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 			commitId = tagCommit.Id().String()
 		}
 
-		result, err := db.WithTransactionT(handler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
-			return handler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitId)
-		})
 		if err != nil {
 			return nil, err
 		}
@@ -2506,10 +2545,6 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 		tag = &api.TagData{
 			Tag:        tagName,
 			CommitId:   commitId,
-			CommitDate: nil,
-		}
-		if result != nil {
-			tag.CommitDate = timestamppb.New(*result)
 		}
 		// else: could not find a commit date - this means something went wrong before this endpoint was called
 		// e.g. in a db migration

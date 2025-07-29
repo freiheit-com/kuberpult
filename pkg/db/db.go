@@ -1795,6 +1795,32 @@ func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *s
 	return nil
 }
 
+func (h *DBHandler) DBUpdateCommitTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string, timestamp time.Time) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateCommitTransactionTimestamp")
+	defer span.Finish()
+
+	if h == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("attempting to write to the commit_transaction_timestamps table without a transaction")
+	}
+
+	insertQuery := h.AdaptQuery(
+		"UPDATE commit_transaction_timestamps SET transactionTimestamp=? WHERE commitHash=?;",
+	)
+
+	_, err := tx.Exec(
+		insertQuery,
+		timestamp,
+		commitHash,
+	)
+	if err != nil {
+		return fmt.Errorf("DBUpdateCommitTransactionTimestamp error executing query: %w", err)
+	}
+	return nil
+}
+
 func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string) (*time.Time, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
 	defer span.Finish()
