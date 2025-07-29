@@ -1,5 +1,6 @@
-ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:latest
-FROM ${BUILDER_IMAGE} AS builder
+ARG BUILDER_IMAGE_TAG
+ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder
+FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
 FROM alpine:3.21
 ENV TZ=Europe/Berlin
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf

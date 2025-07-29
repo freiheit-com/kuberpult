@@ -40,14 +40,13 @@ bench-test:
 
 .PHONY: lint
 lint:
-	$(MAKE) -C $(ROOT_DIR)/pkg gen
 	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" $(SERVICE_DIR)/...'
 
 .PHONY: docker
 docker: compile
 	mkdir -p $(MAIN_PATH)/lib
 	mkdir -p $(MAIN_PATH)/usr
-	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile $(CONTEXT) -t $(IMAGE_NAME)
+	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) $(CONTEXT) -t $(IMAGE_NAME)
 
 .PHONY: release
 release:

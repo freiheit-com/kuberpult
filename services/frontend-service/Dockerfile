@@ -1,5 +1,6 @@
-ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:main
-FROM ${BUILDER_IMAGE} AS builder
+ARG BUILDER_IMAGE_TAG
+ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder
+FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
