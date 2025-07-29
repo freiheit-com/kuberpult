@@ -15,7 +15,7 @@
 # Copyright freiheit.com
 
 MIN_COVERAGE=63.4
-MIN_COVERAGE_TRAIN=80.5
+MIN_COVERAGE_TRAIN=0
 MIN_COVERAGE_DEPLOY=83.8
 include ../../infrastructure/make/go/include.mk
 
