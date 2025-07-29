@@ -1,7 +1,6 @@
 ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:main
 FROM ${BUILDER_IMAGE} as builder
 FROM alpine:3.21
-ARG path=
 ENV TZ=Europe/Berlin
 RUN adduser --disabled-password --home "/kp" --uid 1000 kp
 RUN chown -R kp:kp /kp
