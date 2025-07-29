@@ -1,4 +1,4 @@
-FROM bufbuild/buf:1.26.1 AS buf
+FROM bufbuild/buf:1.55.1 AS buf
 FROM golang:1.24.2-alpine3.21
 
 COPY --from=buf /usr/local/bin/buf /usr/local/bin/buf
