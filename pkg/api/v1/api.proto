@@ -19,6 +19,7 @@ service GitService {
 }
 
 message DummyMessage {
+  string test = 1;
 }
 
 message GetGitTagsRequest {
