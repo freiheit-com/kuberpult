@@ -221,7 +221,6 @@ func TestHandleOneEvent(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := context.Background()
 			repo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
-			//const eslVersion = 0
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, transformer := range setup {
