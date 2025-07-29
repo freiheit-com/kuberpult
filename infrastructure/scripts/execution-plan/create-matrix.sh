@@ -64,6 +64,21 @@ function createMatrix() {
   fi
   debug "grep for pkg: ${grepOutput}"
 
+  # if we have a change in protobuf, we need to rebuild the builder image:
+  grepOutput=$(echo "${ALL_FILES}" | grep '^go.mod')
+  # shellcheck disable=SC2181
+  if [ "$?" -eq 0 ]
+  then
+    debug "go.mod was touched, therefore we need to build the builder as well."
+    for stageA in $STAGE_A_BUILDS
+    do
+      ALL_FILES=$(echo -e "${ALL_FILES}\n${stageA}\n")
+    done
+  else
+    debug "go.mod untouched, no need to build all of stage B"
+  fi
+  debug "grep for go.mod: ${grepOutput}"
+
   stageArray=""
   stageArrayFullBuild=false
   for stageADirectory in $STAGE_A_BUILDS
