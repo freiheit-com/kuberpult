@@ -16,7 +16,7 @@ SKIP_RETAG_MAIN_AS_PR?=0
 SKIP_BUILDER?=0
 MAKEFLAGS += --no-builtin-rules
 ABS_ROOT_DIR=$(shell git rev-parse --show-toplevel)
-
+MIGRATION_VOLUME="$(ABS_ROOT_DIR)/database/migrations:/kp/database/migrations"
 .PHONY: compile
 compile:
 	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(BUILDER_IMAGE) sh -c 'test -n "$(MAIN_PATH)" || exit 0; cd $(MAIN_PATH) && CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi'
@@ -24,14 +24,14 @@ compile:
 .PHONY: unit-test
 unit-test:
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
-	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" -v "$(ABS_ROOT_DIR)/database/migrations:/kp/database/migrations" $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html"
+	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" -v $(MIGRATION_VOLUME) $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html"
 	$(ROOT_DIR)/infrastructure/coverage/check-coverage-go.sh coverage.out $(MIN_COVERAGE) $(SERVICE)
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
 .PHONY: bench-test
 bench-test:
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
-	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) -bench=. ./..."
+	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" -v $(MIGRATION_VOLUME) $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) -bench=. ./..."
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
 .PHONY: lint
