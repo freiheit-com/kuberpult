@@ -25,7 +25,7 @@ IMAGENAME_UNVERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:
 CACHEIMAGE?=
 
 build:
-	docker build --cache-from $(IMAGENAME_UNVERSIONED_MAIN) $(CACHEIMAGE) -t $(IMAGENAME) -f Dockerfile ../../../
+	DOCKER_BUILDKIT=1 docker build --cache-from $(IMAGENAME_UNVERSIONED_MAIN) --build-arg BUILDKIT_INLINE_CACHE=1 $(CACHEIMAGE) -t $(IMAGENAME) -f Dockerfile ../../../
 
 build-pr: pull-main build publish
 	echo "Building on pull request"
