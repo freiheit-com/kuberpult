@@ -83,7 +83,7 @@ function createMatrix() {
     else
       debug "adding ${stageADirectory} to the list, despite no change, in order to tag the main image."
       inner=$(jq -n --arg directory "${stageADirectory}" \
-                    --arg command "make -C ${stageADirectory} retag-main" \
+                    --arg command "make -C ${stageADirectory} build-pr" \
                     --arg artifacts "" \
                     --arg artifactName "Artifact_infrastructure_docker_${stageADirectory}" \
                     '$ARGS.named'
@@ -128,7 +128,7 @@ function createMatrix() {
     else
       debug "adding ${stageBDirectory} to the list, despite no change, in order to tag the main image."
       inner=$(jq -n --arg directory "${stageBDirectory}" \
-                    --arg command "make -C ${stageBDirectory} retag-main" \
+                    --arg command "make -C ${stageBDirectory} build-pr" \
                     --arg artifacts "" \
                     --arg artifactName "Artifact_$(sanitizeArtifactName "${stageBDirectory}")" \
                     '$ARGS.named'
