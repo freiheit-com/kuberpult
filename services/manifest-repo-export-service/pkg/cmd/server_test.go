@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	errs "github.com/freiheit-com/kuberpult/pkg/errorMatcher"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/service"
@@ -90,15 +91,21 @@ func TestCalculateProcessDelay(t *testing.T) {
 func TestPushGitTags(t *testing.T) {
 	var setup = makeSetupTransformer()
 	tcs := []struct {
-		Name          string
-		tagsToAdd     []types.GitTag
-		expectedError error
-		expectedTags  *api.GetGitTagsResponse
+		Name                   string
+		tagsToAdd              []types.GitTag
+		overwriteTagsPath      bool
+		failOnErrorWithGitTags bool
+		expectedPushError      error
+		expectedGetTagsError   error
+		expectedTags           *api.GetGitTagsResponse
 	}{
 		{
-			Name:          "Single Tag is returned",
-			tagsToAdd:     []types.GitTag{"moin"},
-			expectedError: nil,
+			Name:                   "Single Tag is returned",
+			tagsToAdd:              []types.GitTag{"moin"},
+			overwriteTagsPath:      false,
+			failOnErrorWithGitTags: true,
+			expectedPushError:      nil,
+			expectedGetTagsError:   nil,
 			expectedTags: &api.GetGitTagsResponse{
 				TagData: []*api.TagData{
 					{
@@ -109,12 +116,36 @@ func TestPushGitTags(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:                   "Invalid tags path",
+			tagsToAdd:              []types.GitTag{"moin"},
+			overwriteTagsPath:      true,
+			failOnErrorWithGitTags: true,
+			expectedPushError:      nil,
+			expectedGetTagsError: errs.ErrMatcher{
+				Message: "tagsPath must not be empty",
+			},
+			expectedTags: nil,
+		},
+		{
+			Name:                   "Invalid tags path, but ignore error=true",
+			tagsToAdd:              []types.GitTag{"moin"},
+			overwriteTagsPath:      true,
+			failOnErrorWithGitTags: false,
+			expectedPushError:      nil,
+			expectedGetTagsError: errs.ErrMatcher{
+				Message: "tagsPath must not be empty",
+			},
+			expectedTags: nil,
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			//t.Parallel()
 			ctx := context.Background()
 			repo, dbHandler, repoConfig := SetupRepositoryTestWithDB(t, ctx)
+			if tc.overwriteTagsPath {
+				repoConfig.TagsPath = ""
+			}
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, transformer := range setup {
@@ -127,8 +158,8 @@ func TestPushGitTags(t *testing.T) {
 			})
 
 			for _, tagToAdd := range tc.tagsToAdd {
-				actualErr := HandleGitTagPush(ctx, repo, tagToAdd, nil, true)
-				if diff := cmp.Diff(tc.expectedError, actualErr, cmpopts.EquateErrors()); diff != "" {
+				actualErr := HandleGitTagPush(ctx, repo, tagToAdd, nil, tc.failOnErrorWithGitTags)
+				if diff := cmp.Diff(tc.expectedPushError, actualErr, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 			}
@@ -141,14 +172,94 @@ func TestPushGitTags(t *testing.T) {
 			}
 
 			actualTags, actualErr := sv.GetGitTags(ctx, nil)
-			if actualErr != nil {
-				t.Fatalf("Unexpected error in getgittags: %v", actualErr)
+			if diff := cmp.Diff(tc.expectedGetTagsError, actualErr, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
-			//	if diff := cmp.Diff(expectedRelease, release, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
 
 			if diff := cmp.Diff(tc.expectedTags, actualTags, protocmp.Transform(), protocmp.IgnoreFields(&api.TagData{}, "commit_id")); diff != "" {
 				t.Fatalf("tags mismatch (-want, +got):\n%s", diff)
 			}
+
+		})
+	}
+}
+
+func TestHandleOneEvent(t *testing.T) {
+	var setup = makeSetupTransformer()
+	type CutoffData struct {
+		eventType db.EventType
+		data      interface{}
+		metadata  db.ESLMetadata
+	}
+	tcs := []struct {
+		Name                string
+		withCutoff          *CutoffData
+		expectedError       error
+		expectedTransformer repository.Transformer
+		expectedRow         *db.EslEventRow
+	}{
+		{
+			Name:                "does nothing when there is no read cutoff",
+			withCutoff:          nil,
+			expectedError:       nil,
+			expectedTransformer: nil,
+			expectedRow:         nil,
+		},
+		{
+			Name: "finds the cutoff",
+			withCutoff: &CutoffData{
+				eventType: db.EvtCreateApplicationVersion,
+				data:      nil,
+				metadata:  db.ESLMetadata{},
+			},
+			expectedError:       nil,
+			expectedTransformer: nil,
+			expectedRow:         nil,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+			//const eslVersion = 0
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, transformer := range setup {
+					applyErr := repo.Apply(ctx, transaction, transformer)
+					if applyErr != nil {
+						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+					}
+					if tc.withCutoff != nil {
+						err := dbHandler.DBWriteEslEventInternal(ctx, tc.withCutoff.eventType, transaction, tc.withCutoff.data, tc.withCutoff.metadata)
+						if err != nil {
+							t.Fatalf("Unexpected error inserting event: Error: %v", err)
+						}
+						eventRow, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
+						if err != nil {
+							t.Fatalf("Unexpected error inserting event: Error: %v", err)
+						}
+						err = db.DBWriteCutoff(dbHandler, ctx, transaction, eventRow.EslVersion)
+						if err != nil {
+							t.Fatalf("Unexpected error inserting cutoff: Error: %v", err)
+						}
+					}
+				}
+				return nil
+			})
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				actualTransformer, actualRow, actualError := HandleOneEvent(ctx, transaction, dbHandler, nil, repo)
+				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.expectedTransformer, actualTransformer); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.expectedRow, actualRow); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
 
 		})
 	}
