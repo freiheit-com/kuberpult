@@ -25,3 +25,4 @@ WORKDIR /kp
 # Installing Go dependencies should be the only Go-code related step done on the builder image
 COPY go.mod go.sum ./
 RUN go mod download
+RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
