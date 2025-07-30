@@ -871,6 +871,7 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo) error {
 	fs := state.Filesystem
+	// TODO SU
 	if apps, err := state.GetEnvironmentApplications(ctx, transaction, info.ParentEnvironmentName); err != nil {
 		return err
 	} else {
@@ -2043,6 +2044,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 	return groupEnvNames, nil
 }
 
+// TODO SU
 func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]string, error) {
 	envApps, err := s.DBHandler.DBSelectEnvironmentApplications(ctx, transaction, environment)
 	if err != nil {
