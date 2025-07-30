@@ -658,10 +658,12 @@ message EnvironmentConfig {
 message CreateEnvironmentRequest {
   string environment = 1;
   EnvironmentConfig config = 2;
+  bool dryrun = 3;
 }
 
 message DeleteEnvironmentRequest {
   string environment = 1;
+  bool dryrun = 2;
 }
 
 message GetEnvironmentConfigRequest {
