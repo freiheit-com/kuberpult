@@ -40,7 +40,7 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 	GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...
 else
 	@echo "Running in docker"
-	docker run --rm -w /kp/pkg -v "$(shell pwd)/..:/kp/" -v ".:/kp/pkg/" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o /kp/pkg/publicapi/$(GO_SERVER_GEN) -package publicapi /kp/pkg/publicapi/api.yaml && GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./...'
+	docker run --rm --user "$(shell id -u):$(shell id -g)" -w /kp/pkg -v "$(shell pwd)/..:/kp/" -v ".:/kp/pkg/" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o /kp/pkg/publicapi/$(GO_SERVER_GEN) -package publicapi /kp/pkg/publicapi/api.yaml && GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./...'
 endif
 
 gen: grpc-api-gen publicapi
