@@ -37,10 +37,10 @@ test: gen unit-test
 lint: gen
 ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"
-	GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...
+	GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false ./pkg/...
 else
 	@echo "Running in docker"
-	docker run --rm -w /kp/ -v "$(shell pwd)/..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...'
+	docker run --rm -w /kp/ -v "$(shell pwd)/..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false ./pkg/...'
 endif
 
 gen: grpc-api-gen publicapi
@@ -62,7 +62,8 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"
 	buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml
 else
-	@echo "Running in docker" "./publicapi:/kp/pkg/publicapi" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o /kp/pkg/publicapi/$(GO_SERVER_GEN) -package publicapi /kp/pkg/publicapi/api.yaml'
+	@echo "Running in docker"
+	docker run -w /kp/pkg --rm -v ".:/kp/pkg" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
 endif
 
 release: #no-op
