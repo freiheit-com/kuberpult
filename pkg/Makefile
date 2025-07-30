@@ -40,11 +40,11 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 	GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...
 else
 	@echo "Running in docker"
-	docker run --rm --user "$(shell id -u):$(shell id -g)" -w /kp/pkg -v "$(shell pwd)/..:/kp/" -v ".:/kp/pkg/" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o /kp/pkg/publicapi/$(GO_SERVER_GEN) -package publicapi /kp/pkg/publicapi/api.yaml && GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./...'
+	docker run --rm -w /kp/ -v "$(shell pwd)/..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...'
 endif
 
 gen: grpc-api-gen publicapi
-gen-svc: grpc-api-gen
+
 grpc-api-gen: api/v1/api.EnvironmentConfig_grpc.pb.go
 api/v1/api.EnvironmentConfig_grpc.pb.go api/v1/api.pb.go api/v1/api.pb.gw.go api/v1/api_grpc.pb.go: api/v1/api.proto buf.yaml buf.gen.yaml buf.lock
 	if grep -q '^import "google/api/annotations.proto"' $< || grep -q '^import "google/api/http.proto"' $< ; then echo 'Instead of using google.api.http protobuf annotations we write HTTP handlers by hand' ; exit 1 ; fi
