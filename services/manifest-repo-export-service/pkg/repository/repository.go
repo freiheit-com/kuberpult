@@ -872,14 +872,14 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo) error {
 	fs := state.Filesystem
 	// TODO SU
-	if apps, err := state.GetEnvironmentApplications(ctx, transaction, info.ParentEnvironmentName); err != nil {
+	if apps, err := state.DBHandler.DBSelectEnvironmentApplicationsWithMetadata(ctx, transaction, info.ParentEnvironmentName); err != nil {
 		return err
 	} else {
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
-		sort.Strings(apps)
-		for _, appName := range apps {
+		//sort.Strings(apps)
+		for _, appName := range apps.Sorting {
 			oneAppData, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, appName)
 			if err != nil {
 				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
@@ -887,7 +887,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 			if oneAppData == nil {
 				return fmt.Errorf("skipping app '%s' because it was not found in the apps table", appName)
 			}
-			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, info.ParentEnvironmentName, appName)
+			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, info.ParentEnvironmentName, string(appName))
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -901,7 +901,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 				continue
 			}
 			appData = append(appData, argocd.AppData{
-				AppName:  appName,
+				AppName:  string(appName),
 				TeamName: oneAppData.Metadata.Team,
 			})
 		}
@@ -2045,16 +2045,16 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 }
 
 // TODO SU
-func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]string, error) {
-	envApps, err := s.DBHandler.DBSelectEnvironmentApplications(ctx, transaction, environment)
-	if err != nil {
-		return make([]string, 0), err
-	}
-	if envApps == nil {
-		return make([]string, 0), nil
-	}
-	return envApps, nil
-}
+//func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]string, error) {
+//	envApps, err := s.DBHandler.DBSelectEnvironmentApplications(ctx, transaction, environment)
+//	if err != nil {
+//		return make([]string, 0), err
+//	}
+//	if envApps == nil {
+//		return make([]string, 0), nil
+//	}
+//	return envApps, nil
+//}
 
 // GetApplicationsFromFile returns apps from the filesystem
 func (s *State) GetApplicationsFromFile() ([]string, error) {
@@ -2249,7 +2249,7 @@ func (s *State) GetApplicationReleaseManifests(application string, version types
 }
 
 func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
-	app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
+	app, err := s.DBHandler.DBSelectApp(ctx, transaction, types.AppName(application))
 	if err != nil {
 		return "", fmt.Errorf("could not get team of app '%s': %v", application, err)
 	}

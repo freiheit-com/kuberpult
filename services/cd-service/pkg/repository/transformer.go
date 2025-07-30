@@ -468,7 +468,7 @@ func (c *CreateApplicationVersion) Transform(
 	if !slices.Contains(allApps, c.Application) {
 		// this app is new
 		//We need to check that this is not an app that has been previously deleted
-		app, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
+		app, err := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(c.Application))
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not read apps: %v", err))
 		}
@@ -488,7 +488,7 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	} else {
 		// app is not new, but metadata may have changed
-		existingApp, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
+		existingApp, err := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(c.Application))
 		if err != nil {
 			return "", err
 		}
@@ -632,7 +632,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", err
 		}
 
-		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, types.AppName(c.Application))
 		if err != nil {
 			return "", err
 		}
@@ -859,7 +859,7 @@ func (c *CreateApplicationVersion) sameAsExistingDB(ctx context.Context, transac
 		}
 	}
 	if c.Team != "" {
-		appData, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
+		appData, err := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(c.Application))
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("team is different1 '%s'!='%s'", c.Team, appData.Metadata.Team)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, "")
@@ -1021,7 +1021,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if found {
 			hasUpstream = config.Upstream != nil
 		}
-		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, types.AppName(c.Application))
 		if err != nil {
 			return "", err
 		}
@@ -1151,7 +1151,7 @@ func (u *UndeployApplication) Transform(
 		}
 		return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
 	}
-	dbApp, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, u.Application)
+	dbApp, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, types.AppName(u.Application))
 	if err != nil {
 		return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
 	}
@@ -1390,7 +1390,7 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 	}
 	if checkTeam {
 		if team == "" && application != "*" {
-			team, err = s.GetApplicationTeamOwner(ctx, transaction, application)
+			team, err = s.GetApplicationTeamOwner(ctx, transaction, types.AppName(application))
 
 			if err != nil {
 				return err

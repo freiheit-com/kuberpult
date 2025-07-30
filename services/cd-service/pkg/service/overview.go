@@ -126,7 +126,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			result.Releases = append(result.Releases, tmp.ToProto())
 		}
 
-		appTeamName, err := o.Repository.State().GetApplicationTeamOwner(ctx, transaction, appName)
+		appTeamName, err := o.Repository.State().GetApplicationTeamOwner(ctx, transaction, types.AppName(appName))
 		if err != nil {
 			return nil, fmt.Errorf("app team not found: %s", appName)
 		}

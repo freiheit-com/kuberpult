@@ -251,28 +251,28 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 	return result, nil
 }
 
-func (h *DBHandler) DBSelectEnvironmentApplicationsWithMetadata(ctx context.Context, transaction *sql.Tx, envName types.EnvName) ([]string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplications")
+type AppsWithSorting struct {
+	Map     map[types.AppName]*DBAppWithMetaData
+	Sorting []types.AppName
+}
+
+func (h *DBHandler) DBSelectEnvironmentApplicationsWithMetadata(ctx context.Context, transaction *sql.Tx, envName types.EnvName) (*AppsWithSorting, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplicationsWithMetadata")
 	defer span.Finish()
 
-	if h == nil {
-		return nil, nil
-	}
-	if transaction == nil {
-		return nil, fmt.Errorf("no transaction provided when selecting environment applications")
-	}
 	acceptableEnvFormat := `["` + envName + `"]`
 
-	selectQuery := h.AdaptQuery(`
+	selectQuery := h.AdaptQuery(fmt.Sprintf(`
 		SELECT appName, stateChange, metadata
 		FROM apps
-		WHERE appName IN
+		WHERE stateChange <> '%s'
+		AND appName IN
 		(
 			select DISTINCT appname
 			FROM releases r
 			WHERE r.environments @> ?
 		);
-	`)
+	`, AppStateChangeDelete))
 
 	rows, err := transaction.QueryContext(ctx, selectQuery, acceptableEnvFormat)
 	if err != nil {
@@ -286,11 +286,11 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsWithMetadata(ctx context.Cont
 		}
 	}(rows)
 
-	result, err := h.processAppsRow(ctx, rows, err)
+	result, err := h.processAppsRows(ctx, rows, err)
 	if err != nil {
 		return nil, err
 	}
-	return result
+	return result, nil
 }
 
 func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName types.EnvName, ts time.Time) ([]string, error) {
