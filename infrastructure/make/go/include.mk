@@ -25,6 +25,9 @@ compile:
 
 .PHONY: unit-test
 unit-test:
+	pwd
+	ls -al /home/runner/work/kuberpult/kuberpult/pkg/
+	ls -al /home/runner/work/kuberpult/kuberpult/pkg/publicapi/
 	touch $(ABS_ROOT_DIR)/pkg/publicapi/server-gen.go
 	cd $(ABS_ROOT_DIR)/pkg/ && oapi-codegen -generate "std-http-server" -o $(ABS_ROOT_DIR)/pkg/publicapi/server-gen.go -package publicapi $(ABS_ROOT_DIR)/pkg/publicapi/api.yaml
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
