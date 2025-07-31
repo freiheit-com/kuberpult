@@ -23,10 +23,6 @@ PKG_VOLUME?=-v $(ABS_ROOT_DIR)/pkg:/kp/pkg
 compile:
 	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'test -n "$(MAIN_PATH)" || exit 0; cd $(MAIN_PATH) && CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi'
 
-.PHONY: gen-public-api
-gen-public-api:
-	cd $(ABS_ROOT_DIR)/pkg/ && oapi-codegen -generate "std-http-server" -o $(ABS_ROOT_DIR)/pkg/publicapi/server-gen.go -package publicapi $(ABS_ROOT_DIR)/pkg/publicapi/api.yaml
-
 .PHONY: unit-test
 unit-test:
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
@@ -42,7 +38,6 @@ bench-test:
 
 .PHONY: lint
 lint:
-	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) $(MAKE) -C $(ROOT_DIR)/pkg gen
 	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false $(SERVICE_DIR)/...'
 
 .PHONY: docker
@@ -81,11 +76,14 @@ endif
 datadog-wrapper:
 	docker run --rm -v "datadog-init:/datadog-init" datadog/serverless-init:1-alpine
 
-test: gen-public-api unit-test
+gen:
+	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) $(MAKE) -C $(ROOT_DIR)/pkg gen
+
+test: unit-test
 
 build-pr: IMAGE_TAG=pr-$(VERSION)
 build-pr: BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
 build-pr: lint unit-test bench-test docker release trivy-scan
 
 build-main: IMAGE_TAG=main-$(VERSION)
-build-main: lint unit-test bench-test docker release-main trivy-scan
+build-main: gen lint unit-test bench-test docker release-main trivy-scan
