@@ -4,7 +4,6 @@ FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
-COPY --from=builder /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 # frontend-service:
 ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
@@ -53,7 +52,6 @@ COPY --from=builder /kp/go.sum /go.sum
 
 COPY --chown=kp:kp pkg pkg
 RUN cd pkg && buf generate
-RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
 
 CMD ["/main"]

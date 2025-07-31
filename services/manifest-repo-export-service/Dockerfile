@@ -4,7 +4,6 @@ FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata alpine-sdk go make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
-COPY --from=builder /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 COPY /services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgit2.sh
 COPY services/manifest-repo-export-service/gitconfig /etc/gitconfig
@@ -28,7 +27,6 @@ COPY services/manifest-repo-export-service/cmd/server/bin/main /main
 
 COPY --chown=kp:kp pkg pkg
 RUN cd pkg && buf generate
-RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
 
 CMD /main
