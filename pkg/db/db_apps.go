@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"sort"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -57,7 +58,7 @@ type DBAppWithMetaData struct {
 
 // SELECTS
 
-func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
+func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (*DBAppWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -76,15 +77,15 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	return h.processAppsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (map[types.AppName]*DBAppWithMetaData, error) {
+func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (*AppsWithSorting, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
 	defer span.Finish()
-	selectQuery := h.AdaptQuery(`
+	selectQuery := h.AdaptQuery(fmt.Sprintf(`
 		SELECT appname, stateChange, metadata
 		FROM apps
-		WHERE stateChange <> 'AppStateChangeDelete'
+		WHERE stateChange <> '%s'
 		ORDER BY appname;
-	`)
+	`, AppStateChangeDelete))
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(ctx, selectQuery)
 
@@ -112,7 +113,7 @@ func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appN
 	return h.processAppsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
+func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (*DBAppWithMetaData, error) {
 	app, err := h.DBSelectApp(ctx, tx, appName)
 	if err != nil {
 		return nil, err
@@ -263,8 +264,7 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	return row, nil
 }
 
-func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) (map[types.AppName]*DBAppWithMetaData, error) {
-
+func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) (*AppsWithSorting, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
@@ -274,7 +274,7 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
 		}
 	}(rows)
-	result := make(map[types.AppName]*DBAppWithMetaData)
+	result := MakeAppsWithSorting()
 	for rows.Next() {
 		//exhaustruct:ignore
 		var row = &DBAppWithMetaData{}
@@ -292,13 +292,15 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
-		result[types.AppName(row.App)] = row
+		result.Map[types.AppName(row.App)] = row
+		result.Sorting = append(result.Sorting, types.AppName(row.App))
 	}
+	sort.Sort(types.AppNameByName(result.Sorting))
 	err = closeRows(rows)
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &result, nil
 }
 
 func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err error) ([]string, error) {
@@ -313,7 +315,6 @@ func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err 
 	}(rows)
 	var result = make([]string, 0)
 	for rows.Next() {
-		//exhaustruct:ignore
 		var appname string
 		err := rows.Scan(&appname)
 		if err != nil {

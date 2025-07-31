@@ -79,7 +79,7 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases
-		WHERE COALESCE(environments, '') = '' AND COALESCE(manifests, '') != ''
+		WHERE (environments is NULL OR environments = '[]'::jsonb) AND COALESCE(manifests, '') != ''
 		LIMIT 100;
 	`)
 	span.SetTag("query", selectQuery)

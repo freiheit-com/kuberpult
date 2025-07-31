@@ -211,17 +211,14 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 	if transaction == nil {
 		return nil, fmt.Errorf("no transaction provided when selecting environment applications")
 	}
-	acceptableEnvFormats := []any{`["` + envName + `"]`, `["` + envName + `",%`, `%,"` + envName + `"]`, `%,"` + envName + `",%`}
+	acceptableEnvFormat := `["` + envName + `"]`
 
 	selectQuery := h.AdaptQuery(`
-		select DISTINCT appname FROM releases r WHERE 
-			r.environments = ? 
-			OR r.environments LIKE ? 
-			OR r.environments LIKE ?
-			OR r.environments LIKE ?; 
+		select DISTINCT appname FROM releases r WHERE
+			r.environments @> ?;
 	`)
 
-	rows, err := transaction.QueryContext(ctx, selectQuery, acceptableEnvFormats...)
+	rows, err := transaction.QueryContext(ctx, selectQuery, acceptableEnvFormat)
 	if err != nil {
 		return nil, fmt.Errorf("error while executing query to get all environments, error: %w", err)
 	}
@@ -249,6 +246,55 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 	err = closeRows(rows)
 	if err != nil {
 		return nil, fmt.Errorf("error while closing rows, error: %w", err)
+	}
+	return result, nil
+}
+
+type AppsWithSorting struct {
+	Map     map[types.AppName]*DBAppWithMetaData
+	Sorting []types.AppName
+}
+
+func MakeAppsWithSorting() AppsWithSorting {
+	return AppsWithSorting{
+		Map:     map[types.AppName]*DBAppWithMetaData{},
+		Sorting: []types.AppName{},
+	}
+}
+
+func (h *DBHandler) DBSelectEnvironmentApplicationsWithMetadata(ctx context.Context, transaction *sql.Tx, envName types.EnvName) (*AppsWithSorting, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplicationsWithMetadata")
+	defer span.Finish()
+
+	acceptableEnvFormat := `["` + envName + `"]`
+
+	selectQuery := h.AdaptQuery(fmt.Sprintf(`
+		SELECT appName, stateChange, metadata
+		FROM apps
+		WHERE stateChange <> '%s'
+		AND appName IN
+		(
+			select DISTINCT appname
+			FROM releases r
+			WHERE r.environments @> ?
+		);
+	`, AppStateChangeDelete))
+
+	rows, err := transaction.QueryContext(ctx, selectQuery, acceptableEnvFormat)
+	if err != nil {
+		return nil, fmt.Errorf("error while executing query to get all environments, error: %w", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row on releases table, error: %w", err)
+		}
+	}(rows)
+
+	result, err := h.processAppsRows(ctx, rows, err)
+	if err != nil {
+		return nil, err
 	}
 	return result, nil
 }
