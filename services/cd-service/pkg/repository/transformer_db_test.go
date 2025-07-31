@@ -743,7 +743,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, tc.expectedDbContent.App)
+				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(tc.expectedDbContent.App))
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
@@ -892,7 +892,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, tc.expectedDbContent.App)
+				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(tc.expectedDbContent.App))
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
@@ -4187,7 +4187,7 @@ func TestTransaction(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, tc.expectedDbContent.App)
+				res, err2 := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(tc.expectedDbContent.App))
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
