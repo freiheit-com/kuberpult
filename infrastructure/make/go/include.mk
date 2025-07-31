@@ -79,7 +79,7 @@ datadog-wrapper:
 gen:
 	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) $(MAKE) -C $(ROOT_DIR)/pkg gen
 
-test: unit-test
+test: gen unit-test
 
 build-pr: IMAGE_TAG=pr-$(VERSION)
 build-pr: BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
