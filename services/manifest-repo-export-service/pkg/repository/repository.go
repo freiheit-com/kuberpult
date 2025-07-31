@@ -610,13 +610,15 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	if applyErr != nil {
 		return nil, applyErr
 	}
-	if err := r.afterTransform(ctx, transaction, *state); err != nil {
-		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
-	}
 
 	result := CombineArray(changes)
 
 	if r.shouldCreateNewCommit(commitMsg) {
+		// afterTransform only makes sense, if there was a change in this commit:
+		if err := r.afterTransform(ctx, transaction, *state); err != nil {
+			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
+		}
+
 		treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 		if insertError != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}

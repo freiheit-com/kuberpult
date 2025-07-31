@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -75,7 +76,7 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	return h.processAppsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) ([]*DBAppWithMetaData, error) {
+func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (map[types.AppName]*DBAppWithMetaData, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
@@ -262,7 +263,8 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	return row, nil
 }
 
-func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) ([]*DBAppWithMetaData, error) {
+func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) (map[types.AppName]*DBAppWithMetaData, error) {
+
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
@@ -272,7 +274,7 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
 		}
 	}(rows)
-	var result []*DBAppWithMetaData
+	result := make(map[types.AppName]*DBAppWithMetaData)
 	for rows.Next() {
 		//exhaustruct:ignore
 		var row = &DBAppWithMetaData{}
@@ -290,7 +292,7 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
-		result = append(result, row)
+		result[types.AppName(row.App)] = row
 	}
 	err = closeRows(rows)
 	if err != nil {
