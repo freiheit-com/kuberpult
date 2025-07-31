@@ -25,7 +25,7 @@ compile:
 
 .PHONY: unit-test
 unit-test:
-	docker run --user "$(shell id -u):$(shell id -g)" --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" -v $(MIGRATION_VOLUME) $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c "cd /kp/pkg/ && oapi-codegen -generate "std-http-server" -o /kp/pkg/publicapi/server-gen.go -package publicapi /kp/pkg/publicapi/api.yaml"
+	cd $(ABS_ROOT_DIR)/pkg/ && oapi-codegen -generate "std-http-server" -o $(ABS_ROOT_DIR)/pkg/publicapi/server-gen.go -package publicapi $(ABS_ROOT_DIR)/pkg/publicapi/api.yaml
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
 	docker run --rm -w $(SERVICE_DIR) --network host -v ".:$(SERVICE_DIR)" -v $(MIGRATION_VOLUME) $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html"
 	$(ROOT_DIR)/infrastructure/coverage/check-coverage-go.sh coverage.out $(MIN_COVERAGE) $(SERVICE)
