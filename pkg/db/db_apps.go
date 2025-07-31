@@ -77,11 +77,7 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName types.A
 	return h.processAppsRow(ctx, rows, err)
 }
 
-// <<<<<<< HEAD // TODO SU
 func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (*AppsWithSorting, error) {
-	//=======
-	//func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (map[types.AppName]*DBAppWithMetaData, error) {
-	//>>>>>>> origin/main
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(`
@@ -301,12 +297,8 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
-		//<<<<<<< HEAD // TODO SU
 		result.Map[types.AppName(row.App)] = row
 		result.Sorting = append(result.Sorting, types.AppName(row.App))
-		//=======
-		//result[types.AppName(row.App)] = row
-		//>>>>>>> origin/main
 	}
 	sort.Sort(types.AppNameByName(result.Sorting))
 	err = closeRows(rows)

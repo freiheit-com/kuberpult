@@ -870,19 +870,16 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 }
 
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo) error {
-	fs := state.Filesystem
-	// TODO SU
-	if apps, err := state.DBHandler.DBSelectEnvironmentApplicationsWithMetadata(ctx, transaction, info.ParentEnvironmentName); err != nil {
+	if sortedAppMap, err := state.DBHandler.DBSelectEnvironmentApplicationsWithMetadata(ctx, transaction, info.ParentEnvironmentName); err != nil {
 		return err
 	} else {
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
-		appData := []argocd.AppData{}
-		//sort.Strings(apps)
-		for _, appName := range apps.Sorting {
-			oneAppData, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, appName)
-			if err != nil {
-				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
+		var appData []argocd.AppData
+		for _, appName := range sortedAppMap.Sorting {
+			oneAppData, ok := sortedAppMap.Map[appName]
+			if !ok {
+				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db", appName)
 			}
 			if oneAppData == nil {
 				return fmt.Errorf("skipping app '%s' because it was not found in the apps table", appName)
@@ -914,12 +911,13 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		} else {
 			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
 			defer spanWrite.Finish()
+			filesystem := state.Filesystem
 			for apiVersion, content := range manifests {
-				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+				if err := filesystem.MkdirAll(filesystem.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
 				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", info.GetFullyQualifiedName()))
-				if err := util.WriteFile(fs, target, content, 0666); err != nil {
+				target := filesystem.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", info.GetFullyQualifiedName()))
+				if err := util.WriteFile(filesystem, target, content, 0666); err != nil {
 					return err
 				}
 			}
@@ -2043,18 +2041,6 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 	types.Sort(groupEnvNames)
 	return groupEnvNames, nil
 }
-
-// TODO SU
-//func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]string, error) {
-//	envApps, err := s.DBHandler.DBSelectEnvironmentApplications(ctx, transaction, environment)
-//	if err != nil {
-//		return make([]string, 0), err
-//	}
-//	if envApps == nil {
-//		return make([]string, 0), nil
-//	}
-//	return envApps, nil
-//}
 
 // GetApplicationsFromFile returns apps from the filesystem
 func (s *State) GetApplicationsFromFile() ([]string, error) {

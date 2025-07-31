@@ -28,8 +28,4 @@ RUN cd pkg && buf generate
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
 
-<<<<<<< HEAD
-# Rebuild-Counter: 2
-=======
-# Rebuild-Counter: 3
->>>>>>> origin/main
+# Rebuild-Counter: 4.5
