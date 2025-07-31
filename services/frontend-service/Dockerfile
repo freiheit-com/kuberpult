@@ -22,8 +22,11 @@ ADD pkg/api/v1 /kp/services/frontend-service/api
 ADD infrastructure /kp/infrastructure
 
 # global pkg:
-ADD pkg /kp/pkg
+COPY --chown=kp:kp pkg pkg
 COPY go.sum go.mod /kp/
+
+RUN cd pkg && buf generate
+RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
 
 # Build go:
 WORKDIR /kp/
@@ -49,9 +52,5 @@ COPY --from=builder /kp/services/frontend-service/build /build
 COPY --from=builder /kp/go.mod /go.mod
 COPY --from=builder /kp/go.sum /go.sum
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
-
-COPY --chown=kp:kp pkg pkg
-RUN cd pkg && buf generate
-RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
 
 CMD ["/main"]
