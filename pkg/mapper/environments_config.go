@@ -318,12 +318,12 @@ func TransformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 	return nil
 }
 
-func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConfig_ArgoCD {
-	var syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows
-	var accessList []*api.EnvironmentConfig_ArgoCD_AccessEntry
-	var ignoreDifferences []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences
+func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCD {
+	var syncWindows []*api.ArgoCD_SyncWindows
+	var accessList []*api.ArgoCD_AccessEntry
+	var ignoreDifferences []*api.ArgoCD_IgnoreDifferences
 	for _, i := range config.SyncWindows {
-		syncWindow := &api.EnvironmentConfig_ArgoCD_SyncWindows{
+		syncWindow := &api.ArgoCD_SyncWindows{
 			Kind:         i.Kind,
 			Duration:     i.Duration,
 			Schedule:     i.Schedule,
@@ -333,7 +333,7 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConf
 	}
 
 	for _, i := range config.ClusterResourceWhitelist {
-		access := &api.EnvironmentConfig_ArgoCD_AccessEntry{
+		access := &api.ArgoCD_AccessEntry{
 			Group: i.Group,
 			Kind:  i.Kind,
 		}
@@ -341,7 +341,7 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConf
 	}
 
 	for _, i := range config.IgnoreDifferences {
-		ignoreDiff := &api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
+		ignoreDiff := &api.ArgoCD_IgnoreDifferences{
 			Group:                 i.Group,
 			Kind:                  i.Kind,
 			Name:                  i.Name,
@@ -353,8 +353,8 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConf
 		ignoreDifferences = append(ignoreDifferences, ignoreDiff)
 	}
 
-	return &api.EnvironmentConfig_ArgoCD{
-		Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+	return &api.ArgoCD{
+		Destination: &api.ArgoCD_Destination{
 			Name:                 config.Destination.Name,
 			Server:               config.Destination.Server,
 			Namespace:            config.Destination.Namespace,

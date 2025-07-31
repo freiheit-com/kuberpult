@@ -95,8 +95,8 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 					Environment: conversion.FromString("upstream"),
 					Latest:      conversion.Bool(true),
 				},
-				Argocd: &api.EnvironmentConfig_ArgoCD{
-					IgnoreDifferences: []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
+				Argocd: &api.ArgoCD{
+					IgnoreDifferences: []*api.ArgoCD_IgnoreDifferences{
 						{
 							Group:     "diffGroup",
 							Kind:      "diffKind",
@@ -119,21 +119,21 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 					SyncOptions: []string{
 						"syncOption",
 					},
-					SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{
+					SyncWindows: []*api.ArgoCD_SyncWindows{
 						{
 							Kind:     "syncWindowKind",
 							Schedule: "syncWindowSchedule",
 							Duration: "syncWindowDuration",
 						},
 					},
-					Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+					Destination: &api.ArgoCD_Destination{
 						Name:                 "destination",
 						Server:               "destinationServer",
 						Namespace:            conversion.FromString("destinationNamespace"),
 						AppProjectNamespace:  conversion.FromString("destinationAppProjectNamespace"),
 						ApplicationNamespace: conversion.FromString("destinationApplicationNamespace"),
 					},
-					AccessList: []*api.EnvironmentConfig_ArgoCD_AccessEntry{
+					AccessList: []*api.ArgoCD_AccessEntry{
 						{
 							Group: "accessListGroup",
 							Kind:  "accessListKind",
@@ -152,18 +152,18 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 				t.Fatalf("transformed api config upstream does not match expectation: %s", cmp.Diff(tc.expectedApiConfig.Upstream, actualApiConfig.Upstream, cmpopts.IgnoreUnexported(api.EnvironmentConfig_Upstream{})))
 			}
 			if !cmp.Equal(tc.expectedApiConfig.Argocd, actualApiConfig.Argocd, cmpopts.IgnoreUnexported(
-				api.EnvironmentConfig_ArgoCD{},
-				api.EnvironmentConfig_ArgoCD_AccessEntry{},
-				api.EnvironmentConfig_ArgoCD_Destination{},
-				api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
-				api.EnvironmentConfig_ArgoCD_SyncWindows{},
+				api.ArgoCD{},
+				api.ArgoCD_AccessEntry{},
+				api.ArgoCD_Destination{},
+				api.ArgoCD_IgnoreDifferences{},
+				api.ArgoCD_SyncWindows{},
 			)) {
 				t.Fatalf("transformed api config argo cd does not match expectation: %s", cmp.Diff(tc.expectedApiConfig.Argocd, actualApiConfig.Argocd, cmpopts.IgnoreUnexported(
-					api.EnvironmentConfig_ArgoCD{},
-					api.EnvironmentConfig_ArgoCD_AccessEntry{},
-					api.EnvironmentConfig_ArgoCD_Destination{},
-					api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
-					api.EnvironmentConfig_ArgoCD_SyncWindows{},
+					api.ArgoCD{},
+					api.ArgoCD_AccessEntry{},
+					api.ArgoCD_Destination{},
+					api.ArgoCD_IgnoreDifferences{},
+					api.ArgoCD_SyncWindows{},
 				)))
 			}
 			if !cmp.Equal(tc.expectedApiConfig.EnvironmentGroup, actualApiConfig.EnvironmentGroup, cmpopts.IgnoreUnexported(api.EnvironmentGroup{})) {
@@ -173,20 +173,20 @@ func TestEnnvironmentConfigToApi(t *testing.T) {
 			if !cmp.Equal(tc.expectedApiConfig, actualApiConfig, cmpopts.IgnoreUnexported(
 				api.EnvironmentConfig{},
 				api.EnvironmentConfig_Upstream{},
-				api.EnvironmentConfig_ArgoCD{},
-				api.EnvironmentConfig_ArgoCD_AccessEntry{},
-				api.EnvironmentConfig_ArgoCD_Destination{},
-				api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
-				api.EnvironmentConfig_ArgoCD_SyncWindows{},
+				api.ArgoCD{},
+				api.ArgoCD_AccessEntry{},
+				api.ArgoCD_Destination{},
+				api.ArgoCD_IgnoreDifferences{},
+				api.ArgoCD_SyncWindows{},
 			)) {
 				t.Fatalf("transformed api config does not match expectation: %s", cmp.Diff(tc.expectedApiConfig, actualApiConfig, cmpopts.IgnoreUnexported(
 					api.EnvironmentConfig{},
 					api.EnvironmentConfig_Upstream{},
-					api.EnvironmentConfig_ArgoCD{},
-					api.EnvironmentConfig_ArgoCD_AccessEntry{},
-					api.EnvironmentConfig_ArgoCD_Destination{},
-					api.EnvironmentConfig_ArgoCD_IgnoreDifferences{},
-					api.EnvironmentConfig_ArgoCD_SyncWindows{},
+					api.ArgoCD{},
+					api.ArgoCD_AccessEntry{},
+					api.ArgoCD_Destination{},
+					api.ArgoCD_IgnoreDifferences{},
+					api.ArgoCD_SyncWindows{},
 				)))
 			}
 		})
