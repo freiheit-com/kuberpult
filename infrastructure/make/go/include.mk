@@ -76,14 +76,14 @@ endif
 datadog-wrapper:
 	docker run --rm -v "datadog-init:/datadog-init" datadog/serverless-init:1-alpine
 
-gen-api:
+gen-pkg:
 	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) $(MAKE) -C $(ROOT_DIR)/pkg gen
 
 test: gen-api unit-test
 
 build-pr: IMAGE_TAG=pr-$(VERSION)
 build-pr: BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
-build-pr: gen-api lint unit-test bench-test docker release trivy-scan
+build-pr: gen-pkg lint unit-test bench-test docker release trivy-scan
 
 build-main: IMAGE_TAG=main-$(VERSION)
-build-main: gen-api lint unit-test bench-test docker release-main trivy-scan
+build-main: gen-pkg lint unit-test bench-test docker release-main trivy-scan
