@@ -83,7 +83,7 @@ test: gen unit-test
 
 build-pr: IMAGE_TAG=pr-$(VERSION)
 build-pr: BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
-build-pr: lint unit-test bench-test docker release trivy-scan
+build-pr: gen lint unit-test bench-test docker release trivy-scan
 
 build-main: IMAGE_TAG=main-$(VERSION)
 build-main: gen lint unit-test bench-test docker release-main trivy-scan
