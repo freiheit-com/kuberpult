@@ -10,19 +10,24 @@ RUN adduser --disabled-password --home "/kp" --uid 1000 kp
 RUN chown -R kp:kp /kp
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /kp/go.mod /go.mod
-COPY --from=builder /kp/go.sum /go.sum
 
 COPY services/rollout-service/cmd/server/lib/ /lib
 COPY services/rollout-service/cmd/server/usr/ /usr
 
 USER kp
 WORKDIR /kp
-COPY ./services/rollout-service/cmd/server/bin/main /main
+
+COPY --from=builder /kp/go.mod ./go.mod
+COPY --from=builder /kp/go.sum ./go.sum
 
 COPY --chown=kp:kp pkg pkg
 RUN cd pkg && buf generate
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
+
+COPY --chown=kp:kp services/rollout-service services/rollout-service
+
+RUN cd services/rollout-service && CGO_ENABLED=false GOOS=linux go build -o bin/main cmd/server/main.go
+RUN ldd services/rollout-service/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%
 
 CMD /main
