@@ -27,11 +27,11 @@ include ../infrastructure/make/go/include.mk
 test: unit-test
 build: lint test docker
 
-build-pr: IMAGE_TAG=pr-$(VERSION)
-build-pr: build release
+#build-pr: IMAGE_TAG=pr-$(VERSION)
+build-pr-internal: build release
 
-build-main: IMAGE_TAG=main-$(VERSION)
-build-main: build release
+#build-main: IMAGE_TAG=main-$(VERSION)
+build-main-internal: build release
 
 .PHONY: lint
 lint:
