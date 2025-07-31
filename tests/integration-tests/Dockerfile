@@ -29,7 +29,6 @@ RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passp
 RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > /kp/kuberpult-keyring.gpg
 
 COPY charts/kuberpult .
-COPY database/migrations database/migrations
 COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
 COPY infrastructure/scripts/create-testdata/create-release.sh .
