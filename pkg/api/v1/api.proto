@@ -640,12 +640,12 @@ message EnvironmentConfig {
   }
 
   message ArgoConfigs {
-    repeated ArgoCD configs = 1;
+    repeated ArgoCDEnvironmentConfiguration configs = 1;
     string common_env_prefix = 2;
   }
 
   Upstream upstream = 1;
-  ArgoCD argocd  = 2;
+  ArgoCDEnvironmentConfiguration argocd  = 2;
 
   // Buf somehow generates the wrong go annotation in this case.
   // To fix it, we changed the spelling, but now violate a linter rule.
@@ -663,7 +663,7 @@ message CreateEnvironmentRequest {
 
 message ExtendAAEnvironmentRequest {
   string environment_name = 1;
-  ArgoCD argo_cd_configuration = 2;
+  ArgoCDEnvironmentConfiguration argo_cd_configuration = 2;
 }
 
 message DeleteEnvironmentRequest {
