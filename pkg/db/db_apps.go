@@ -77,7 +77,11 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName types.A
 	return h.processAppsRow(ctx, rows, err)
 }
 
+// <<<<<<< HEAD // TODO SU
 func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (*AppsWithSorting, error) {
+	//=======
+	//func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (map[types.AppName]*DBAppWithMetaData, error) {
+	//>>>>>>> origin/main
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(fmt.Sprintf(`
@@ -265,6 +269,7 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 }
 
 func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) (*AppsWithSorting, error) {
+	//func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) (map[types.AppName]*DBAppWithMetaData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
@@ -274,7 +279,11 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
 		}
 	}(rows)
-	result := AppsWithSorting{nil, nil}
+	//<<<<<<< HEAD
+	result := MakeAppsWithSorting()
+	//=======
+	//	result := make(map[types.AppName]*DBAppWithMetaData)
+	//>>>>>>> origin/main
 	for rows.Next() {
 		//exhaustruct:ignore
 		var row = &DBAppWithMetaData{}
@@ -292,8 +301,12 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
+		//<<<<<<< HEAD // TODO SU
 		result.Map[types.AppName(row.App)] = row
 		result.Sorting = append(result.Sorting, types.AppName(row.App))
+		//=======
+		//result[types.AppName(row.App)] = row
+		//>>>>>>> origin/main
 	}
 	sort.Sort(types.AppNameByName(result.Sorting))
 	err = closeRows(rows)

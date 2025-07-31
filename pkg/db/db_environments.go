@@ -256,6 +256,13 @@ type AppsWithSorting struct {
 	Sorting []types.AppName
 }
 
+func MakeAppsWithSorting() AppsWithSorting {
+	return AppsWithSorting{
+		Map:     map[types.AppName]*DBAppWithMetaData{},
+		Sorting: []types.AppName{},
+	}
+}
+
 func (h *DBHandler) DBSelectEnvironmentApplicationsWithMetadata(ctx context.Context, transaction *sql.Tx, envName types.EnvName) (*AppsWithSorting, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplicationsWithMetadata")
 	defer span.Finish()
