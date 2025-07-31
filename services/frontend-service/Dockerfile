@@ -24,7 +24,7 @@ ADD infrastructure /kp/infrastructure
 # global pkg:
 COPY --chown=kp:kp pkg pkg
 COPY go.sum go.mod /kp/
-
+RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 RUN cd pkg && buf generate
 RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
 
