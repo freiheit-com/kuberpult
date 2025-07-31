@@ -265,7 +265,6 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 }
 
 func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) (*AppsWithSorting, error) {
-	//func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) (map[types.AppName]*DBAppWithMetaData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
@@ -275,11 +274,7 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
 		}
 	}(rows)
-	//<<<<<<< HEAD
 	result := MakeAppsWithSorting()
-	//=======
-	//	result := make(map[types.AppName]*DBAppWithMetaData)
-	//>>>>>>> origin/main
 	for rows.Next() {
 		//exhaustruct:ignore
 		var row = &DBAppWithMetaData{}
@@ -320,7 +315,6 @@ func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err 
 	}(rows)
 	var result = make([]string, 0)
 	for rows.Next() {
-		//exhaustruct:ignore
 		var appname string
 		err := rows.Scan(&appname)
 		if err != nil {
