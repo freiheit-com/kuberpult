@@ -174,7 +174,6 @@ message BatchAction {
     CreateEnvironmentTeamLockRequest create_environment_team_lock = 14;
     DeleteEnvironmentTeamLockRequest delete_environment_team_lock = 15;
     DeleteEnvironmentRequest delete_environment = 16;
-
   }
 }
 
