@@ -184,7 +184,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 	}
 }
 
-func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, envName string, argoCDConfig *api.ArgoCD) string {
+func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, envName string, argoCDConfig *api.ArgoCDEnvironmentConfiguration) string {
 	return commonPrefix + "-" + envName + "-" + argoCDConfig.ConcreteEnvName
 }
 
@@ -232,7 +232,7 @@ type AppInfo struct {
 	TeamName                     string
 	EnvironmentName              string
 	ParentEnvironmentName        string
-	ArgoEnvironmentConfiguration *api.ArgoCD
+	ArgoEnvironmentConfiguration *api.ArgoCDEnvironmentConfiguration
 }
 
 func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {

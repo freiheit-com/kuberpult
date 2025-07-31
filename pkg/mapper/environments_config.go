@@ -318,12 +318,12 @@ func TransformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 	return nil
 }
 
-func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCD {
-	var syncWindows []*api.ArgoCD_SyncWindows
-	var accessList []*api.ArgoCD_AccessEntry
-	var ignoreDifferences []*api.ArgoCD_IgnoreDifferences
+func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCDEnvironmentConfiguration {
+	var syncWindows []*api.ArgoCDEnvironmentConfiguration_SyncWindows
+	var accessList []*api.ArgoCDEnvironmentConfiguration_AccessEntry
+	var ignoreDifferences []*api.ArgoCDEnvironmentConfiguration_IgnoreDifferences
 	for _, i := range config.SyncWindows {
-		syncWindow := &api.ArgoCD_SyncWindows{
+		syncWindow := &api.ArgoCDEnvironmentConfiguration_SyncWindows{
 			Kind:         i.Kind,
 			Duration:     i.Duration,
 			Schedule:     i.Schedule,
@@ -333,7 +333,7 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCD {
 	}
 
 	for _, i := range config.ClusterResourceWhitelist {
-		access := &api.ArgoCD_AccessEntry{
+		access := &api.ArgoCDEnvironmentConfiguration_AccessEntry{
 			Group: i.Group,
 			Kind:  i.Kind,
 		}
@@ -341,7 +341,7 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCD {
 	}
 
 	for _, i := range config.IgnoreDifferences {
-		ignoreDiff := &api.ArgoCD_IgnoreDifferences{
+		ignoreDiff := &api.ArgoCDEnvironmentConfiguration_IgnoreDifferences{
 			Group:                 i.Group,
 			Kind:                  i.Kind,
 			Name:                  i.Name,
@@ -353,8 +353,8 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCD {
 		ignoreDifferences = append(ignoreDifferences, ignoreDiff)
 	}
 
-	return &api.ArgoCD{
-		Destination: &api.ArgoCD_Destination{
+	return &api.ArgoCDEnvironmentConfiguration{
+		Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 			Name:                 config.Destination.Name,
 			Server:               config.Destination.Server,
 			Namespace:            config.Destination.Namespace,

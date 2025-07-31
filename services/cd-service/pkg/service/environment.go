@@ -60,7 +60,7 @@ func TransformEnvironmentConfigToApi(in config.EnvironmentConfig) *api.Environme
 	}
 }
 
-func transformArgoCdToConfig(conf *api.ArgoCD) *config.EnvironmentConfigArgoCd {
+func transformArgoCdToConfig(conf *api.ArgoCDEnvironmentConfiguration) *config.EnvironmentConfigArgoCd {
 	syncWindows := transformSyncWindowsToConfig(conf.SyncWindows)
 	clusterResourceWhitelist := transformAccessListToConfig(conf.AccessList)
 	ignoreDifferences := transformIgnoreDifferencesToConfig(conf.IgnoreDifferences)
@@ -106,11 +106,11 @@ func transformUpstreamToApi(in *config.EnvironmentConfigUpstream) *api.Environme
 	}
 }
 
-func transformArgoCdToApi(in *config.EnvironmentConfigArgoCd) *api.ArgoCD {
+func transformArgoCdToApi(in *config.EnvironmentConfigArgoCd) *api.ArgoCDEnvironmentConfiguration {
 	if in == nil {
 		return nil
 	}
-	return &api.ArgoCD{
+	return &api.ArgoCDEnvironmentConfiguration{
 		ApplicationAnnotations: in.ApplicationAnnotations,
 		IgnoreDifferences:      transformIgnoreDifferencesToApi(in.IgnoreDifferences),
 		SyncOptions:            in.SyncOptions,
@@ -128,7 +128,7 @@ func transformArgoCdConfigsToApi(in *config.ArgoCDConfigs) *api.EnvironmentConfi
 
 	toReturn := &api.EnvironmentConfig_ArgoConfigs{
 		CommonEnvPrefix: *in.CommonEnvPrefix,
-		Configs:         make([]*api.ArgoCD, 0),
+		Configs:         make([]*api.ArgoCDEnvironmentConfiguration, 0),
 	}
 
 	for _, cfg := range in.ArgoCdConfigurations {
@@ -153,7 +153,7 @@ func transformArgoCdConfigsToConfig(in *api.EnvironmentConfig_ArgoConfigs) *conf
 	return toReturn
 }
 
-func transformSyncWindowsToConfig(syncWindows []*api.ArgoCD_SyncWindows) []config.ArgoCdSyncWindow {
+func transformSyncWindowsToConfig(syncWindows []*api.ArgoCDEnvironmentConfiguration_SyncWindows) []config.ArgoCdSyncWindow {
 	var transformedSyncWindows []config.ArgoCdSyncWindow
 	for _, syncWindow := range syncWindows {
 		transformedSyncWindows = append(transformedSyncWindows, config.ArgoCdSyncWindow{
@@ -166,10 +166,10 @@ func transformSyncWindowsToConfig(syncWindows []*api.ArgoCD_SyncWindows) []confi
 	return transformedSyncWindows
 }
 
-func transformSyncWindowsToApi(in []config.ArgoCdSyncWindow) []*api.ArgoCD_SyncWindows {
-	var out []*api.ArgoCD_SyncWindows
+func transformSyncWindowsToApi(in []config.ArgoCdSyncWindow) []*api.ArgoCDEnvironmentConfiguration_SyncWindows {
+	var out []*api.ArgoCDEnvironmentConfiguration_SyncWindows
 	for _, syncWindow := range in {
-		out = append(out, &api.ArgoCD_SyncWindows{
+		out = append(out, &api.ArgoCDEnvironmentConfiguration_SyncWindows{
 			Applications: nil,
 			Kind:         syncWindow.Kind,
 			Schedule:     syncWindow.Schedule,
@@ -179,10 +179,10 @@ func transformSyncWindowsToApi(in []config.ArgoCdSyncWindow) []*api.ArgoCD_SyncW
 	return out
 }
 
-func transformIgnoreDifferencesToApi(in []config.ArgoCdIgnoreDifference) []*api.ArgoCD_IgnoreDifferences {
-	var out []*api.ArgoCD_IgnoreDifferences
+func transformIgnoreDifferencesToApi(in []config.ArgoCdIgnoreDifference) []*api.ArgoCDEnvironmentConfiguration_IgnoreDifferences {
+	var out []*api.ArgoCDEnvironmentConfiguration_IgnoreDifferences
 	for _, currentIgnoreDifferences := range in {
-		out = append(out, &api.ArgoCD_IgnoreDifferences{
+		out = append(out, &api.ArgoCDEnvironmentConfiguration_IgnoreDifferences{
 			Kind:                  currentIgnoreDifferences.Kind,
 			Group:                 currentIgnoreDifferences.Group,
 			Name:                  currentIgnoreDifferences.Name,
@@ -195,7 +195,7 @@ func transformIgnoreDifferencesToApi(in []config.ArgoCdIgnoreDifference) []*api.
 	return out
 }
 
-func transformAccessListToConfig(accessList []*api.ArgoCD_AccessEntry) []config.AccessEntry {
+func transformAccessListToConfig(accessList []*api.ArgoCDEnvironmentConfiguration_AccessEntry) []config.AccessEntry {
 	var transformedAccessList []config.AccessEntry
 	for _, accessEntry := range accessList {
 		transformedAccessList = append(transformedAccessList, config.AccessEntry{
@@ -206,10 +206,10 @@ func transformAccessListToConfig(accessList []*api.ArgoCD_AccessEntry) []config.
 	return transformedAccessList
 }
 
-func transformAccessEntryToApi(in []config.AccessEntry) []*api.ArgoCD_AccessEntry {
-	var out []*api.ArgoCD_AccessEntry
+func transformAccessEntryToApi(in []config.AccessEntry) []*api.ArgoCDEnvironmentConfiguration_AccessEntry {
+	var out []*api.ArgoCDEnvironmentConfiguration_AccessEntry
 	for _, accessEntry := range in {
-		out = append(out, &api.ArgoCD_AccessEntry{
+		out = append(out, &api.ArgoCDEnvironmentConfiguration_AccessEntry{
 			Group: accessEntry.Group,
 			Kind:  accessEntry.Kind,
 		})
@@ -217,7 +217,7 @@ func transformAccessEntryToApi(in []config.AccessEntry) []*api.ArgoCD_AccessEntr
 	return out
 }
 
-func transformIgnoreDifferencesToConfig(ignoreDifferences []*api.ArgoCD_IgnoreDifferences) []config.ArgoCdIgnoreDifference {
+func transformIgnoreDifferencesToConfig(ignoreDifferences []*api.ArgoCDEnvironmentConfiguration_IgnoreDifferences) []config.ArgoCdIgnoreDifference {
 	var transformedIgnoreDifferences []config.ArgoCdIgnoreDifference
 	for _, ignoreDifference := range ignoreDifferences {
 		transformedIgnoreDifferences = append(transformedIgnoreDifferences, config.ArgoCdIgnoreDifference{
@@ -233,7 +233,7 @@ func transformIgnoreDifferencesToConfig(ignoreDifferences []*api.ArgoCD_IgnoreDi
 	return transformedIgnoreDifferences
 }
 
-func transformDestinationToConfig(in *api.ArgoCD_Destination) config.ArgoCdDestination {
+func transformDestinationToConfig(in *api.ArgoCDEnvironmentConfiguration_Destination) config.ArgoCdDestination {
 	if in == nil {
 		//exhaustruct:ignore
 		return config.ArgoCdDestination{}
@@ -247,12 +247,12 @@ func transformDestinationToConfig(in *api.ArgoCD_Destination) config.ArgoCdDesti
 	}
 }
 
-func transformDestinationToApi(in *config.ArgoCdDestination) *api.ArgoCD_Destination {
+func transformDestinationToApi(in *config.ArgoCdDestination) *api.ArgoCDEnvironmentConfiguration_Destination {
 	if in == nil {
 		//exhaustruct:ignore
-		return &api.ArgoCD_Destination{}
+		return &api.ArgoCDEnvironmentConfiguration_Destination{}
 	}
-	return &api.ArgoCD_Destination{
+	return &api.ArgoCDEnvironmentConfiguration_Destination{
 		Name:                 in.Name,
 		Server:               in.Server,
 		Namespace:            in.Namespace,

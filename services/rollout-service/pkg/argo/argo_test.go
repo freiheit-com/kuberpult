@@ -340,8 +340,8 @@ func TestArgoConsume(t *testing.T) {
 									Name:     "staging",
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
-										Argocd: &api.ArgoCD{
-											Destination: &api.ArgoCD_Destination{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 												Name:   "staging",
 												Server: "test-server",
 											},
@@ -399,8 +399,8 @@ func TestArgoConsume(t *testing.T) {
 									Name:     "staging",
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
-										Argocd: &api.ArgoCD{
-											Destination: &api.ArgoCD_Destination{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 												Name:   "staging",
 												Server: "test-server",
 											},
@@ -475,8 +475,8 @@ func TestArgoConsume(t *testing.T) {
 									Name:     "staging",
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
-										Argocd: &api.ArgoCD{
-											Destination: &api.ArgoCD_Destination{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 												Name:   "staging",
 												Server: "test-server",
 											},
@@ -552,8 +552,8 @@ func TestArgoConsume(t *testing.T) {
 									Name:     "staging",
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
-										Argocd: &api.ArgoCD{
-											Destination: &api.ArgoCD_Destination{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 												Name:   "staging",
 												Server: "test-server",
 											},
@@ -648,8 +648,8 @@ func TestArgoConsume(t *testing.T) {
 									Name:     "staging",
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
-										Argocd: &api.ArgoCD{
-											Destination: &api.ArgoCD_Destination{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 												Name:   "staging",
 												Server: "test-server",
 											},
@@ -726,8 +726,8 @@ func TestArgoConsume(t *testing.T) {
 									Name:     "staging",
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
-										Argocd: &api.ArgoCD{
-											Destination: &api.ArgoCD_Destination{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 												Name:   "staging",
 												Server: "test-server",
 											},
@@ -763,8 +763,8 @@ func TestArgoConsume(t *testing.T) {
 									Name:     "staging",
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
-										Argocd: &api.ArgoCD{
-											Destination: &api.ArgoCD_Destination{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 												Name:   "staging",
 												Server: "test-server",
 											},
@@ -882,8 +882,8 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 									Name:     "staging",
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
-										Argocd: &api.ArgoCD{
-											Destination: &api.ArgoCD_Destination{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 												Name:   "staging",
 												Server: "test-server",
 											},
@@ -900,8 +900,8 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 				Name:     "development",
 				Priority: api.Priority_UPSTREAM,
 				Config: &api.EnvironmentConfig{
-					Argocd: &api.ArgoCD{
-						Destination: &api.ArgoCD_Destination{
+					Argocd: &api.ArgoCDEnvironmentConfiguration{
+						Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 							Name:   "development",
 							Server: "test-server",
 						},
@@ -927,8 +927,8 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 									//Applications: map[string]*api.Environment_Application{},
 									Priority: api.Priority_UPSTREAM,
 									Config: &api.EnvironmentConfig{
-										Argocd: &api.ArgoCD{
-											Destination: &api.ArgoCD_Destination{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 												Name:   "staging",
 												Server: "test-server",
 											},
@@ -945,8 +945,8 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 				Name:     "development",
 				Priority: api.Priority_UPSTREAM,
 				Config: &api.EnvironmentConfig{
-					Argocd: &api.ArgoCD{
-						Destination: &api.ArgoCD_Destination{
+					Argocd: &api.ArgoCDEnvironmentConfiguration{
+						Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 							Name:   "development",
 							Server: "test-server",
 						},
@@ -1051,8 +1051,8 @@ func TestReactToKuberpultEvents(t *testing.T) {
 										Name:     "staging",
 										Priority: api.Priority_UPSTREAM,
 										Config: &api.EnvironmentConfig{
-											Argocd: &api.ArgoCD{
-												Destination: &api.ArgoCD_Destination{
+											Argocd: &api.ArgoCDEnvironmentConfiguration{
+												Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 													Name:   "staging",
 													Server: "test-server",
 												},
@@ -1113,17 +1113,17 @@ func TestReactToKuberpultEvents(t *testing.T) {
 										Config: &api.EnvironmentConfig{
 											ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
 												CommonEnvPrefix: "test",
-												Configs: []*api.ArgoCD{
+												Configs: []*api.ArgoCDEnvironmentConfiguration{
 													{
 														ConcreteEnvName: "de-1",
-														Destination: &api.ArgoCD_Destination{
+														Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 															Name:   "staging",
 															Server: "test-server",
 														},
 													},
 													{
 														ConcreteEnvName: "de-2",
-														Destination: &api.ArgoCD_Destination{
+														Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 															Name:   "staging",
 															Server: "test-server",
 														},
@@ -1208,17 +1208,17 @@ func TestReactToKuberpultEvents(t *testing.T) {
 										Config: &api.EnvironmentConfig{
 											ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
 												CommonEnvPrefix: "test",
-												Configs: []*api.ArgoCD{
+												Configs: []*api.ArgoCDEnvironmentConfiguration{
 													{
 														ConcreteEnvName: "de-1",
-														Destination: &api.ArgoCD_Destination{
+														Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 															Name:   "staging",
 															Server: "test-server",
 														},
 													},
 													{
 														ConcreteEnvName: "de-2",
-														Destination: &api.ArgoCD_Destination{
+														Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 															Name:   "staging",
 															Server: "test-server",
 														},
@@ -1320,17 +1320,17 @@ func TestReactToKuberpultEvents(t *testing.T) {
 										Config: &api.EnvironmentConfig{
 											ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
 												CommonEnvPrefix: "test",
-												Configs: []*api.ArgoCD{
+												Configs: []*api.ArgoCDEnvironmentConfiguration{
 													{
 														ConcreteEnvName: "de-1",
-														Destination: &api.ArgoCD_Destination{
+														Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 															Name:   "staging",
 															Server: "test-server",
 														},
 													},
 													{
 														ConcreteEnvName: "de-2",
-														Destination: &api.ArgoCD_Destination{
+														Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 															Name:   "staging",
 															Server: "test-server",
 														},

@@ -596,7 +596,7 @@ enum Priority {
   YOLO = 5;
 }
 
-message ArgoCD {
+message ArgoCDEnvironmentConfiguration {
   message SyncWindows {
     string           kind = 1; // "allow" or "deny"
     string           schedule = 2; // crontab format
