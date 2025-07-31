@@ -1,8 +1,9 @@
-ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:main
-FROM ${BUILDER_IMAGE} AS builder
+ARG BUILDER_IMAGE_TAG
+ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder
+FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
-
+ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 # frontend-service:
 ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
 ADD services/frontend-service/pkg /kp/services/frontend-service/pkg
@@ -21,8 +22,11 @@ ADD pkg/api/v1 /kp/services/frontend-service/api
 ADD infrastructure /kp/infrastructure
 
 # global pkg:
-ADD pkg /kp/pkg
+COPY --chown=kp:kp pkg pkg
 COPY go.sum go.mod /kp/
+RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+RUN cd pkg && buf generate
+RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
 
 # Build go:
 WORKDIR /kp/
@@ -45,4 +49,8 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /kp/main /main
 COPY --from=builder /kp/services/frontend-service/build /build
+COPY --from=builder /kp/go.mod /go.mod
+COPY --from=builder /kp/go.sum /go.sum
+COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
+
 CMD ["/main"]

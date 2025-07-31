@@ -1,4 +1,4 @@
-FROM bufbuild/buf:1.26.1 AS buf
+FROM bufbuild/buf:1.55.1 AS buf
 FROM golang:1.24.2-alpine3.21
 
 COPY --from=buf /usr/local/bin/buf /usr/local/bin/buf
@@ -21,11 +21,8 @@ RUN mv linux-amd64/helm /usr/local/bin/helm
 RUN chmod +x /usr/local/bin/helm
 
 WORKDIR /kp
+
+# Installing Go dependencies should be the only Go-code related step done on the builder image
 COPY go.mod go.sum ./
 RUN go mod download
-COPY pkg pkg
-RUN cd pkg && buf generate
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
-
-# Rebuild-Counter: 3
