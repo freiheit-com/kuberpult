@@ -64,7 +64,7 @@ function createMatrix() {
   fi
   debug "grep for pkg: ${grepOutput}"
 
-  # if we have a change in protobuf, we need to rebuild the builder image:
+  # if we have a change in go.mod, we need to rebuild the builder image:
   grepOutput=$(echo "${ALL_FILES}" | grep '^go.mod')
   # shellcheck disable=SC2181
   if [ "$?" -eq 0 ]

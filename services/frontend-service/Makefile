@@ -22,14 +22,6 @@ PKG_WITHOUT_DOCKER=1
 
 include ../../infrastructure/make/go/include.mk
 
-#test: unit-test
-#
-#build-pr: IMAGE_TAG=pr-$(VERSION)
-#build-pr: lint unit-test bench-test docker release
-#
-#build-main: IMAGE_TAG=main-$(VERSION)
-#build-main: lint unit-test bench-test docker release
-
 gen-api:
 	mkdir -p src/api
 	buf generate --path api --timeout 5m

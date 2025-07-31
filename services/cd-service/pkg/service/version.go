@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"google.golang.org/grpc/codes"
@@ -44,10 +43,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 	if req.Application == "" {
 		return nil, status.Error(codes.InvalidArgument, "no application specified")
 	}
-	dm := api.DummyMessage{
-		Test: "t",
-	} //Test to see if the cd-service runs buf generate and can identify this new type
-	fmt.Println(dm.Test)
+
 	state := o.Repository.State()
 
 	wrapError := func(what string, err error) error {

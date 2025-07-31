@@ -18,10 +18,6 @@ service GitService {
   rpc SkipEslEvent(SkipEslEventRequest) returns (SkipEslEventResponse) {}
 }
 
-message DummyMessage {
-  string test = 1;
-}
-
 message GetGitTagsRequest {
 }
 
