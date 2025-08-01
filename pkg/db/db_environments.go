@@ -211,17 +211,14 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 	if transaction == nil {
 		return nil, fmt.Errorf("no transaction provided when selecting environment applications")
 	}
-	acceptableEnvFormats := []any{`["` + envName + `"]`, `["` + envName + `",%`, `%,"` + envName + `"]`, `%,"` + envName + `",%`}
+	acceptableEnvFormat := `["` + envName + `"]`
 
 	selectQuery := h.AdaptQuery(`
-		select DISTINCT appname FROM releases r WHERE 
-			r.environments = ? 
-			OR r.environments LIKE ? 
-			OR r.environments LIKE ?
-			OR r.environments LIKE ?; 
+		select DISTINCT appname FROM releases r WHERE
+			r.environments @> ?;
 	`)
 
-	rows, err := transaction.QueryContext(ctx, selectQuery, acceptableEnvFormats...)
+	rows, err := transaction.QueryContext(ctx, selectQuery, acceptableEnvFormat)
 	if err != nil {
 		return nil, fmt.Errorf("error while executing query to get all environments, error: %w", err)
 	}

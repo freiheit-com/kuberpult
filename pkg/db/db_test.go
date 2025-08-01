@@ -239,7 +239,6 @@ func TestCustomMigrationReleases(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
@@ -4994,7 +4993,6 @@ func SetupRepositoryTestWithDBMigrationPath(t *testing.T, migrationsPath string,
 }
 
 func TestReadReleasesWithoutEnvironments(t *testing.T) {
-
 	tcs := []struct {
 		Name        string
 		Releases    []DBReleaseWithMetaData
@@ -5030,7 +5028,6 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -5040,15 +5037,18 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 				for _, release := range tc.Releases {
 					err := dbHandler.DBInsertReleaseWithoutEnvironment(ctx, transaction, release)
 					if err != nil {
-						return fmt.Errorf("error while writing release, error: %w", err)
+						t.Fatalf("error while writing release, error: %v", err)
+						return nil
 					}
 				}
 				releases, err := dbHandler.DBSelectReleasesWithoutEnvironments(ctx, transaction)
 				if err != nil {
-					return fmt.Errorf("error while selecting release, error: %w", err)
+					t.Fatalf("error while selecting release, error: %v", err)
+					return nil
 				}
 				if diff := cmp.Diff(tc.Expected, releases, cmpopts.IgnoreFields(DBReleaseWithMetaData{}, "Created")); diff != "" {
-					return fmt.Errorf("releases mismatch (-want +got):\n%s", diff)
+					t.Fatalf("releases mismatch (-want +got):\n%s", diff)
+					return nil
 				}
 				return nil
 			})
@@ -6144,7 +6144,7 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
-	environmentStr := ""
+	environmentStr := "[]"
 
 	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
