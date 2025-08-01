@@ -108,6 +108,21 @@ func releasesDirectoryWithVersionNumber(fs billy.Filesystem, application string,
 	return fs.Join(releasesDirectory(fs, application), version)
 }
 
+func (s *State) checkIfReleaseDirectoryExists(fs billy.Filesystem, application string, version types.ReleaseNumbers) (string, error) {
+	revisionedVersion := releasesDirectoryWithVersion(fs, application, version)
+	_, err := s.Filesystem.Stat(revisionedVersion)
+	if err != nil {
+		num := strconv.Itoa(int(*version.Version)) //Check for old release version
+		v := releasesDirectoryWithVersionNumber(fs, application, num)
+		_, err = fs.Stat(v)
+		if err != nil {
+			return "", err
+		}
+		return v, nil
+	}
+	return revisionedVersion, nil
+}
+
 // environmentApplicationDirectory returns applications/<app>/releases/<version>/environments/
 func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application string, version types.ReleaseNumbers) string {
 	return fs.Join(releasesDirectoryWithVersion(fs, application, version), "environments")
@@ -1360,15 +1375,9 @@ func (c *CleanupOldApplicationVersions) Transform(
 	msg := ""
 	for _, oldRelease := range oldVersions {
 		// delete oldRelease:
-		releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
-		_, err := fs.Stat(releasesDir)
+		releasesDir, err := state.checkIfReleaseDirectoryExists(fs, c.Application, oldRelease)
 		if err != nil {
-			num := strconv.Itoa(int(*oldRelease.Version)) //Check for old release version
-			releasesDir = releasesDirectoryWithVersionNumber(fs, c.Application, num)
-			_, err = fs.Stat(releasesDir)
-			if err != nil {
-				return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
-			}
+			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
 		{
 			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
