@@ -2101,9 +2101,7 @@ func TestServer_HandleAAEnvironments(t *testing.T) {
 				t.Errorf("error reading response body: %s", err)
 			}
 			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
-				//t.Errorf("response body mismatch: %s", d)
 				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tt.expectedBody, d)
-
 			}
 			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create batch request mismatch: %s", d)
