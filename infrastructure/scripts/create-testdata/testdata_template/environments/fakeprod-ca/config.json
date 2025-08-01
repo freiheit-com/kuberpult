@@ -1,0 +1,35 @@
+{
+  "argocd": {
+    "destination": {
+      "server": "https://kubernetes.default.svc",
+      "namespace": "*"
+    },
+    "applicationAnnotations": {
+      "notifications.argoproj.io/subscribe.on-degraded.teams":"",
+      "notifications.argoproj.io/subscribe.on-sync-failed.teams":""
+    },
+    "accessList": [
+      {
+        "group": "*",
+        "kind": "ClusterSecretStore"
+      },
+      {
+        "group": "*",
+        "kind": "ClusterIssuer"
+      }
+    ],
+    "ignoreDifferences": [
+      {
+        "group": "apps",
+        "kind": "Deployment",
+        "jsonPointers": [
+          "/spec/replicas"
+        ]
+      }
+    ]
+  },
+  "environmentGroup": "prod",
+  "upstream": {
+    "environment": "staging"
+  }
+}
