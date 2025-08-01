@@ -560,6 +560,8 @@ describe('Git Sync Status', () => {
                             },
                         },
                     },
+                    processDelaySeconds: 0,
+                    processDelayEvents: 0,
                 },
             ],
 
@@ -583,9 +585,13 @@ describe('Git Sync Status', () => {
                             },
                         },
                     },
+                    processDelaySeconds: 0,
+                    processDelayEvents: 0,
                 },
                 {
                     appStatuses: {},
+                    processDelaySeconds: 0,
+                    processDelayEvents: 0,
                 },
             ],
 
@@ -608,9 +614,13 @@ describe('Git Sync Status', () => {
                             },
                         },
                     },
+                    processDelaySeconds: 0,
+                    processDelayEvents: 0,
                 },
                 {
                     appStatuses: {},
+                    processDelaySeconds: 0,
+                    processDelayEvents: 0,
                 },
                 { error: true },
             ],

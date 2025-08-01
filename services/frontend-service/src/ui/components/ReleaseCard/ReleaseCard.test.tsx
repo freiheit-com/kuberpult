@@ -901,6 +901,8 @@ describe('Release Card Git Sync Status', () => {
             ],
             gitSyncStatus: {
                 appStatuses: {},
+                processDelaySeconds: 0,
+                processDelayEvents: 0,
             },
 
             expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_SYNCED,
@@ -969,6 +971,8 @@ describe('Release Card Git Sync Status', () => {
                         },
                     },
                 },
+                processDelaySeconds: 0,
+                processDelayEvents: 0,
             },
 
             expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_UNSYNCED,
@@ -1038,6 +1042,8 @@ describe('Release Card Git Sync Status', () => {
                         },
                     },
                 },
+                processDelaySeconds: 0,
+                processDelayEvents: 0,
             },
 
             expectedStatusIcon: GitSyncStatus.GIT_SYNC_STATUS_ERROR,

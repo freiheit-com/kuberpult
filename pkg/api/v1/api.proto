@@ -83,6 +83,8 @@ enum GitSyncStatus {
 
 message GetGitSyncStatusResponse {
   map<string, EnvSyncStatus> app_statuses = 1; //AppName -> map[EnvName] GitSyncStatus
+  double process_delay_seconds = 2;
+  uint64 process_delay_events = 3;
 }
 
 message EnvSyncStatus {

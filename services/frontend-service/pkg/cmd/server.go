@@ -21,12 +21,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"io"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 
 	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 
