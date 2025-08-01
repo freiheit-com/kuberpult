@@ -71,7 +71,7 @@ cleanup-main:
 
 .PHONY: builder
 builder:
-	IMAGE_TAG=main make -C infrastructure/docker/builder build
+	IMAGE_TAG=local make -C infrastructure/docker/builder build
 
 compose-down:
 	docker compose down
