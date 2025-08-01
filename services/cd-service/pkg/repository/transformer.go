@@ -2169,7 +2169,6 @@ func (c *ExtendAAEnvironment) Transform(
 	var found bool
 	for idx, currentConfig := range env.Config.ArgoCdConfigs.ArgoCdConfigurations {
 		if currentConfig.ConcreteEnvName == c.ArgoCDConfig.ConcreteEnvName {
-			logger.FromContext(ctx).Sugar().Infof("Argo CD configuration for %q found. Updating existing configuration.", c.ArgoCDConfig.ConcreteEnvName)
 			env.Config.ArgoCdConfigs.ArgoCdConfigurations[idx] = &c.ArgoCDConfig
 			found = true
 		}
