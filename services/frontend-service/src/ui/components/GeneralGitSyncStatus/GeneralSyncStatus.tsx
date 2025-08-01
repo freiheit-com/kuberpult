@@ -21,6 +21,7 @@ import { GitSyncStatus } from '../../../api/api';
 import { SmallSpinner } from '../Spinner/Spinner';
 import { Git } from '../../../images';
 import { useNavigate } from 'react-router-dom';
+import { Tooltip } from '../tooltip/tooltip';
 
 export type GeneralGitSyncStatusProps = {
     enabled: boolean;
@@ -30,6 +31,11 @@ export const GeneralGitSyncStatus: React.FC<GeneralGitSyncStatusProps> = (props)
     const gitSyncStatus = useGitSyncStatus((m) => m);
     let label;
     const navigate = useNavigate();
+    const content = (
+        <div>
+            {gitSyncStatus.getDelayEvents()} Events, {gitSyncStatus.getDelaySeconds()} seconds
+        </div>
+    );
 
     const routeChange = React.useCallback((): void => {
         const path = `/ui/failedEvents`;
@@ -51,10 +57,11 @@ export const GeneralGitSyncStatus: React.FC<GeneralGitSyncStatusProps> = (props)
             label = <UnknownGeneralSynStatus></UnknownGeneralSynStatus>;
     }
     return (
-        <div onClick={routeChange} className={'mdc-top-app-bar__section top-app-bar--narrow-filter'}>
-            {' '}
-            {props.enabled ? label : ''}
-        </div>
+        <Tooltip tooltipContent={content}>
+            <div onClick={routeChange} className={'mdc-top-app-bar__section top-app-bar--narrow-filter'}>
+                {props.enabled ? label : ''}
+            </div>
+        </Tooltip>
     );
 };
 

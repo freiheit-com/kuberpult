@@ -1566,6 +1566,14 @@ class GitSyncStatusGetter {
         return status ? status : GitSyncStatus.GIT_SYNC_STATUS_SYNCED; //Synced by default
     }
 
+    getDelayEvents(): number | undefined {
+        return this.store.response?.processDelayEvents;
+    }
+
+    getDelaySeconds(): number | undefined {
+        return this.store.response?.processDelaySeconds;
+    }
+
     getHighestPriorityGitStatus(): GitSyncStatus | undefined {
         if (!this.store.enabled) {
             return GitSyncStatus.GIT_SYNC_STATUS_UNKNOWN;

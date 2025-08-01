@@ -600,7 +600,7 @@ func HandleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHa
 	if eslVersion == nil {
 		log.Infof("did not find cutoff")
 	}
-	esl, err := readEslEvent(ctx, transaction, eslVersion, log, dbHandler)
+	esl, err := dbHandler.DBReadEslEvent(ctx, transaction, eslVersion)
 	if err != nil {
 		return nil, esl, fmt.Errorf("error in readEslEvent %v", err)
 	}
@@ -627,6 +627,7 @@ func HandleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHa
 }
 
 func calculateProcessDelay(_ context.Context, nextEslToProcess *db.EslEventRow, currentTime time.Time) (float64, error) {
+	/// export to UI
 	if nextEslToProcess == nil {
 		return 0, nil
 	}
@@ -635,29 +636,6 @@ func calculateProcessDelay(_ context.Context, nextEslToProcess *db.EslEventRow, 
 	}
 	diff := currentTime.Sub(nextEslToProcess.Created).Seconds()
 	return diff, nil
-}
-
-func readEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *db.EslVersion, log *zap.SugaredLogger, dbHandler *db.DBHandler) (*db.EslEventRow, error) {
-	if eslVersion == nil {
-		log.Warnf("no cutoff found, starting at the beginning of time.")
-		// no read cutoff yet, we have to start from the beginning
-		esl, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
-		if err != nil {
-			return nil, err
-		}
-		if esl == nil {
-			log.Warnf("no esl events found")
-			return nil, nil
-		}
-		return esl, nil
-	} else {
-		log.Debugf("cutoff found, starting at t>cutoff: %d", *eslVersion)
-		esl, err := dbHandler.DBReadEslEventLaterThan(ctx, transaction, *eslVersion)
-		if err != nil {
-			return nil, err
-		}
-		return esl, nil
-	}
 }
 
 func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.EslEventRow, tx *sql.Tx) (repository.Transformer, error) {
