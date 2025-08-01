@@ -2177,7 +2177,12 @@ func (c *ExtendAAEnvironment) Transform(
 		configs = append(configs, &c.ArgoCDConfig)
 	}
 
+	slices.SortFunc(configs, func(d1 *config.EnvironmentConfigArgoCd, d2 *config.EnvironmentConfigArgoCd) int {
+		return strings.Compare(d1.ConcreteEnvName, d2.ConcreteEnvName)
+	})
+
 	env.Config.ArgoCdConfigs.ArgoCdConfigurations = configs
+
 	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, env.Applications)
 	if err != nil {
 		return "", fmt.Errorf("could not extend Active/Active environment: %q. %w", envName, err)

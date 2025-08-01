@@ -1894,8 +1894,40 @@ func TestExtendAAEnvironment(t *testing.T) {
 					ArgoCdConfigs: &config.ArgoCDConfigs{
 						CommonEnvPrefix: &commonName,
 						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+
 							testutil.MakeDummyArgoCdConfig("test"),
 							testutil.MakeDummyArgoCdConfig("test-2"),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Create empty AA Environment and extend it twice - test alphabetical order",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("b"),
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("a"),
+				},
+			},
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
+				"staging": {
+					ArgoCdConfigs: &config.ArgoCDConfigs{
+						CommonEnvPrefix: &commonName,
+						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+
+							testutil.MakeDummyArgoCdConfig("a"),
+							testutil.MakeDummyArgoCdConfig("b"),
 						},
 					},
 				},

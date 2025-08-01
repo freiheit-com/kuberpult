@@ -215,13 +215,8 @@ func (s Server) handleAPIExtendAAEnvironment(w http.ResponseWriter, req *http.Re
 
 	if signature, ok := form.Value["signature"]; ok {
 		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader([]byte(config[0])), bytes.NewReader([]byte(signature[0])), nil); err != nil {
-			if err != pgperrors.ErrUnknownIssuer {
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
-				return
-			}
 			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprintf(w, "Invalid signature")
+			_, _ = fmt.Fprintf(w, "Invalid Signature: %v", err)
 			return
 		}
 	} else if s.AzureAuth {

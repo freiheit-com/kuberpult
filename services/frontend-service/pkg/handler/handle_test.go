@@ -1612,9 +1612,7 @@ func TestServer_Handle(t *testing.T) {
 				t.Errorf("error reading response body: %s", err)
 			}
 			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
-				//t.Errorf("response body mismatch: %s", d)
 				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tt.expectedBody, d)
-
 			}
 			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create batch request mismatch: %s", d)
@@ -1947,7 +1945,6 @@ func TestServer_HandleAAEnvironments(t *testing.T) {
 				MultipartForm: &multipart.Form{
 					Value: map[string][]string{
 						"config": []string{exampleConfig},
-						//"signature": []string{exampleConfigSignature},
 					},
 				},
 			},
@@ -2002,8 +1999,8 @@ func TestServer_HandleAAEnvironments(t *testing.T) {
 				},
 				MultipartForm: &multipart.Form{
 					Value: map[string][]string{
-						"config":    []string{exampleConfig},
-						"signature": []string{exampleConfigSignature},
+						"config":    {exampleConfig},
+						"signature": {exampleConfigSignature},
 					},
 				},
 			},
@@ -2065,35 +2062,15 @@ func TestServer_HandleAAEnvironments(t *testing.T) {
 				},
 				MultipartForm: &multipart.Form{
 					Value: map[string][]string{
-						"config":    []string{exampleConfig},
-						"signature": []string{"my bad signature"},
+						"config":    {exampleConfig},
+						"signature": {"my bad signature"},
 					},
 				},
 			},
 			expectedResp: &http.Response{
-				StatusCode: http.StatusInternalServerError,
+				StatusCode: http.StatusUnauthorized,
 			},
-			expectedBody: "Internal: Invalid Signature: EOF",
-		},
-		{
-			name:    "create environment - Azure disabled - invalid signature",
-			KeyRing: exampleKeyRing,
-			req: &http.Request{
-				Method: http.MethodPost,
-				URL: &url.URL{
-					Path: "/api/environments/envName/cluster/",
-				},
-				MultipartForm: &multipart.Form{
-					Value: map[string][]string{
-						"config":    []string{exampleConfig},
-						"signature": []string{"my bad signature"},
-					},
-				},
-			},
-			expectedResp: &http.Response{
-				StatusCode: http.StatusInternalServerError,
-			},
-			expectedBody: "Internal: Invalid Signature: EOF",
+			expectedBody: "Invalid Signature: EOF",
 		},
 	}
 	for _, tt := range tests {
@@ -2111,11 +2088,9 @@ func TestServer_HandleAAEnvironments(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			if len(tt.req.URL.Path) >= 4 && tt.req.URL.Path[:4] == "/api" {
-				s.HandleAPI(w, tt.req)
-			} else {
-				s.Handle(w, tt.req)
-			}
+
+			s.HandleAPI(w, tt.req)
+
 			resp := w.Result()
 
 			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
