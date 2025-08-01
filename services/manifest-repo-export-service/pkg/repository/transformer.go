@@ -1941,6 +1941,5 @@ func (c *ExtendAAEnvironment) Transform(
 	_ TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	// group locks are handled on the cd-service, and split into environment locks
 	return GetNoOpMessage(c)
 } //This should be a no OP as AA environments only matter for ArgoCD File generation
