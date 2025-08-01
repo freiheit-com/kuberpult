@@ -28,7 +28,7 @@ RUN cd pkg && oapi-codegen -generate "std-http-server" -o publicapi/server-gen.g
 
 COPY --chown=kp:kp services/reposerver-service services/reposerver-service
 
-RUN cd services/reposerver-service && CGO_ENABLED=false GOOS=linux go build -o bin/main cmd/server/main.go
+RUN cd services/reposerver-service && CGO_ENABLED=false GOOS=linux go build -o /kp/main cmd/server/main.go
 RUN ldd services/reposerver-service/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%
 
-CMD /main
+CMD /kp/main

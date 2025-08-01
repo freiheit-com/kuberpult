@@ -32,7 +32,7 @@ RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.
 
 COPY --chown=kp:kp services/cd-service services/cd-service
 
-RUN cd services/cd-service && CGO_ENABLED=false GOOS=linux go build -o bin/main cmd/server/main.go
+RUN cd services/cd-service && CGO_ENABLED=false GOOS=linux go build -o /kp/main cmd/server/main.go
 RUN ldd services/cd-service/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%
 
-CMD /main
+CMD /kp/main
