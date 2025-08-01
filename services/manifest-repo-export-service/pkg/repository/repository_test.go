@@ -568,7 +568,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 			},
 			ExpectedFiles: []string{
-				"argocd/v1alpha1/staging.yaml",
+				"argocd/v1alpha1/common-development-test-1.yaml",
 			},
 		},
 	}
