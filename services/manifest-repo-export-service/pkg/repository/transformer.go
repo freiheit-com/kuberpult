@@ -1914,3 +1914,33 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 
 	return fmt.Sprintf("delete environment %q", d.Environment), nil
 }
+
+type ExtendAAEnvironment struct {
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           types.EnvName                  `json:"env"`
+	ArgoCDConfig          config.EnvironmentConfigArgoCd `json:"config"`
+	TransformerEslVersion db.TransformerID               `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+func (c *ExtendAAEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *ExtendAAEnvironment) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
+}
+
+func (c *ExtendAAEnvironment) GetDBEventType() db.EventType {
+	return db.EvtExtendAAEnvironment
+}
+
+func (c *ExtendAAEnvironment) Transform(
+	_ context.Context,
+	_ *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	// group locks are handled on the cd-service, and split into environment locks
+	return GetNoOpMessage(c)
+} //This should be a no OP as AA environments only matter for ArgoCD File generation

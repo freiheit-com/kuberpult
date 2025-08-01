@@ -101,10 +101,14 @@ func MakeEnvConfigUpstream(upstream types.EnvName, argoCd *config.EnvironmentCon
 }
 
 func MakeDummyArgoCdConfig(concreteEnvName string) *config.EnvironmentConfigArgoCd {
+	return MakeArgoCdConfigDestination(concreteEnvName, "destination-name", "server")
+}
+
+func MakeArgoCdConfigDestination(concreteEnvName, destinationName, destinationServer string) *config.EnvironmentConfigArgoCd {
 	return &config.EnvironmentConfigArgoCd{
 		Destination: config.ArgoCdDestination{
-			Name:                 "destination-name",
-			Server:               "server",
+			Name:                 destinationName,
+			Server:               destinationServer,
 			Namespace:            nil,
 			AppProjectNamespace:  nil,
 			ApplicationNamespace: nil,

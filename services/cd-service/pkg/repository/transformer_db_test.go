@@ -1837,6 +1837,177 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 	}
 }
 
+func TestExtendAAEnvironment(t *testing.T) {
+	type TestCase struct {
+		Name                      string
+		Transformers              []Transformer
+		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
+		expectedError             *TransformerBatchApplyError
+	}
+	commonName := "CN"
+	testCases := []TestCase{
+		{
+			Name: "Create empty AA Environment and extend it",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+				},
+			},
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
+				"staging": {
+					ArgoCdConfigs: &config.ArgoCDConfigs{
+						CommonEnvPrefix: &commonName,
+						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+							testutil.MakeDummyArgoCdConfig("test"),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Create empty AA Environment and extend it twice",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test-2"),
+				},
+			},
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
+				"staging": {
+					ArgoCdConfigs: &config.ArgoCDConfigs{
+						CommonEnvPrefix: &commonName,
+						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+							testutil.MakeDummyArgoCdConfig("test"),
+							testutil.MakeDummyArgoCdConfig("test-2"),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Extending an already existing env updates its configuration",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeArgoCdConfigDestination("test", "dest-name-to-overwrite", "dest-server-to-overwrite"),
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+				},
+			},
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
+				"staging": {
+					ArgoCdConfigs: &config.ArgoCDConfigs{
+						CommonEnvPrefix: &commonName,
+						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+							testutil.MakeDummyArgoCdConfig("test"),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Extending an environment that does not exist results in an error",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment:  "prod",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            2,
+				TransformerError: errMatcher{"rpc error: code = FailedPrecondition desc = error: Environment with name \"prod\" not found"},
+			},
+		},
+		{
+			Name: "Extending a non-AA environment results in an error",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment:  "development",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            2,
+				TransformerError: errMatcher{"rpc error: code = FailedPrecondition desc = error: Environment with name \"development\" is not an Active/Active environment"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				result, err2 := state.GetAllEnvironmentConfigs(ctx, transaction)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedEnvironmentConfig, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err3 != nil {
+				if diff := cmp.Diff(tc.expectedError, err3.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
 func TestEventGenerationFromTransformers(t *testing.T) {
 	type TestCase struct {
 		Name                      string

@@ -1895,3 +1895,244 @@ func TestWriteCorrespondingResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestServer_HandleAAEnvironments(t *testing.T) {
+	exampleKey, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exampleKeyRing := openpgp.EntityList{exampleKey}
+
+	exampleConfig := `
+{
+	"accessList": [],
+	"applicationAnnotations": {},
+	"destination": {
+  		"namespace": "*", 
+  		"server": "https://example.com:443"
+	}
+}
+`
+	// workaround for *bool
+	starFlag := "*"
+
+	signatureBuffer := bytes.Buffer{}
+	err = openpgp.ArmoredDetachSign(&signatureBuffer, exampleKey, bytes.NewReader([]byte(exampleConfig)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exampleConfigSignature := signatureBuffer.String()
+
+	tests := []struct {
+		name                 string
+		req                  *http.Request
+		KeyRing              openpgp.KeyRing
+		signature            string
+		AzureAuthEnabled     bool
+		batchResponse        *api.BatchResponse
+		expectedResp         *http.Response
+		expectedBody         string
+		expectedBatchRequest *api.BatchRequest
+	}{
+		{
+			name: "create environment  - more data version",
+			req: &http.Request{
+				Method: http.MethodPost,
+				Header: http.Header{
+					"Content-Type": []string{"multipart/form-data"},
+				},
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config": []string{exampleConfig},
+						//"signature": []string{exampleConfigSignature},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ExtendAaEnvironment{
+							ExtendAaEnvironment: &api.ExtendAAEnvironmentRequest{
+								EnvironmentName: "envName",
+								ArgoCdConfiguration: &api.ArgoCDEnvironmentConfiguration{
+									SyncWindows: nil,
+									Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+										Server:    "https://example.com:443",
+										Namespace: &starFlag,
+									},
+									AccessList:             []*api.ArgoCDEnvironmentConfiguration_AccessEntry{},
+									ApplicationAnnotations: nil,
+									IgnoreDifferences:      nil,
+									SyncOptions:            nil,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "create environment but additional path params",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/my-awesome-path",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "Extend Active/Active environment does not accept any extra arguments, got: '/my-awesome-path'\n",
+		},
+		{
+			name:             "extend environment - Azure enabled",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config":    []string{exampleConfig},
+						"signature": []string{exampleConfigSignature},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ExtendAaEnvironment{
+							ExtendAaEnvironment: &api.ExtendAAEnvironmentRequest{
+								EnvironmentName: "envName",
+								ArgoCdConfiguration: &api.ArgoCDEnvironmentConfiguration{
+									SyncWindows: nil,
+									Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+										Server:    "https://example.com:443",
+										Namespace: &starFlag,
+									},
+									AccessList:             []*api.ArgoCDEnvironmentConfiguration_AccessEntry{},
+									ApplicationAnnotations: nil,
+									IgnoreDifferences:      nil,
+									SyncOptions:            nil,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "create environment - Azure enabled - missing signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config": []string{exampleConfig},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Missing signature in request body",
+		},
+		{
+			name:             "create environment - Azure enabled - invalid signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config":    []string{exampleConfig},
+						"signature": []string{"my bad signature"},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			expectedBody: "Internal: Invalid Signature: EOF",
+		},
+		{
+			name:    "create environment - Azure disabled - invalid signature",
+			KeyRing: exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config":    []string{exampleConfig},
+						"signature": []string{"my bad signature"},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			expectedBody: "Internal: Invalid Signature: EOF",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			batchClient := &mockBatchClient{batchResponse: tt.batchResponse}
+			commitInfoClient := &mockCommitDeploymentServiceClient{}
+			s := Server{
+				BatchClient:             batchClient,
+				CommitDeploymentsClient: commitInfoClient,
+				KeyRing:                 tt.KeyRing,
+				AzureAuth:               tt.AzureAuthEnabled,
+				Config: config.ServerConfig{
+					RevisionsEnabled: true,
+				},
+			}
+
+			w := httptest.NewRecorder()
+			if len(tt.req.URL.Path) >= 4 && tt.req.URL.Path[:4] == "/api" {
+				s.HandleAPI(w, tt.req)
+			} else {
+				s.Handle(w, tt.req)
+			}
+			resp := w.Result()
+
+			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
+				t.Errorf("response mismatch: %s", d)
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("error reading response body: %s", err)
+			}
+			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
+				//t.Errorf("response body mismatch: %s", d)
+				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tt.expectedBody, d)
+
+			}
+			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
+				t.Errorf("create batch request mismatch: %s", d)
+			}
+		})
+	}
+}

@@ -159,6 +159,7 @@ frontend:
     requests:
       memory: 200Mi
       cpu: 0.5
+  enableRevisions: true
 rollout:
   enabled: true
   resources:

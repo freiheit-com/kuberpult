@@ -184,3 +184,65 @@ func (s Server) handleDeleteEnvironment(w http.ResponseWriter, req *http.Request
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+func (s Server) handleAPIExtendAAEnvironment(w http.ResponseWriter, req *http.Request, parentEnvironmentName, tail string) {
+
+	if tail != "/" {
+		http.Error(w, fmt.Sprintf("Extend Active/Active environment does not accept any extra arguments, got: '%s'", tail), http.StatusNotFound)
+		return
+	}
+	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(w, "Invalid body: %s", err)
+		return
+	}
+	form := req.MultipartForm
+	//exhaustruct:ignore
+	envConfig := api.ArgoCDEnvironmentConfiguration{}
+
+	config, ok := form.Value["config"]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(w, "ArgoCD Configuration is missing in request body.")
+		return
+	}
+	err := jsonpb.UnmarshalString(config[0], &envConfig)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(w, "Invalid body: %s", err)
+		return
+	}
+
+	if signature, ok := form.Value["signature"]; ok {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader([]byte(config[0])), bytes.NewReader([]byte(signature[0])), nil); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = fmt.Fprintf(w, "Invalid signature")
+			return
+		}
+	} else if s.AzureAuth {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(w, "Missing signature in request body")
+		return
+	}
+
+	_, err = s.BatchClient.ProcessBatch(req.Context(),
+		&api.BatchRequest{Actions: []*api.BatchAction{
+			{Action: &api.BatchAction_ExtendAaEnvironment{
+				ExtendAaEnvironment: &api.ExtendAAEnvironmentRequest{
+					EnvironmentName:     parentEnvironmentName,
+					ArgoCdConfiguration: &envConfig,
+				}}},
+		},
+		})
+
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}

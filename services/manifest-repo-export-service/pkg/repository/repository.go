@@ -816,7 +816,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 }
 
 func isAAEnv(config config.EnvironmentConfig) bool {
-	return config.ArgoCdConfigs != nil && len(config.ArgoCdConfigs.ArgoCdConfigurations) > 1
+	return config.ArgoCdConfigs != nil
 }
 
 func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig) error {
