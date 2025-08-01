@@ -23,14 +23,6 @@ PKG_VOLUME?=-v $(ABS_ROOT_DIR)/pkg:/kp/pkg
 compile:
 	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'test -n "$(MAIN_PATH)" || exit 0; cd $(MAIN_PATH) && CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi'
 
-.PHONY: docker
-docker: # compile
-	mkdir -p $(MAIN_PATH)/lib
-	mkdir -p $(MAIN_PATH)/usr
-	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) $(CONTEXT) -t $(IMAGE_NAME)
-
-
-
 .PHONY: unit-test
 unit-test:
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
@@ -47,6 +39,12 @@ bench-test:
 .PHONY: lint
 lint:
 	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false $(SERVICE_DIR)/...'
+
+.PHONY: docker
+docker:
+	mkdir -p $(MAIN_PATH)/lib
+	mkdir -p $(MAIN_PATH)/usr
+	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) $(CONTEXT) -t $(IMAGE_NAME)
 
 .PHONY: release
 release:
