@@ -2160,9 +2160,9 @@ func (c *ExtendAAEnvironment) Transform(
 		return "", err
 	}
 	if env == nil {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Environment with name %q not found", envName))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q not found", envName))
 	} else if !isAAEnv(&env.Config) {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Environment with name %q is not an Active/Active environment", envName))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q is not an Active/Active environment", envName))
 	}
 
 	configs := env.Config.ArgoCdConfigs.ArgoCdConfigurations
@@ -2181,7 +2181,7 @@ func (c *ExtendAAEnvironment) Transform(
 	env.Config.ArgoCdConfigs.ArgoCdConfigurations = configs
 	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, env.Applications)
 	if err != nil {
-		return "", fmt.Errorf("Could not extend Active/Active environment: %q. %w", envName, err)
+		return "", fmt.Errorf("could not extend Active/Active environment: %q. %w", envName, err)
 	}
 	return fmt.Sprintf("Successfully added ArgoCD configuration '%s'", c.Environment), nil
 }
