@@ -792,13 +792,13 @@ func TestServer_Handle(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: &latestFlag,
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
+									Argocd: &api.ArgoCDEnvironmentConfiguration{
 										SyncWindows: nil,
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+										Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 											Server:    "https://example.com:443",
 											Namespace: &starFlag,
 										},
-										AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
+										AccessList:             []*api.ArgoCDEnvironmentConfiguration_AccessEntry{},
 										ApplicationAnnotations: nil,
 										IgnoreDifferences:      nil,
 										SyncOptions:            nil,
