@@ -1238,7 +1238,7 @@ func (s *State) GetApplicationReleaseManifestsFromManifest(application string, v
 }
 
 func (s *State) GetApplicationReleaseFromManifest(application string, version types.ReleaseNumbers) (*Release, error) {
-	base, err := s.checkIfReleaseDirectoryExists(s.Filesystem, application, version)
+	base, err := s.checkWhichVersionDirectoryExists(s.Filesystem, application, version)
 	if err != nil {
 		return nil, wrapFileError(err, base, "could not call stat")
 	}
@@ -1304,7 +1304,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ty
 }
 
 func (s *State) IsUndeployVersionFromManifest(application string, version types.ReleaseNumbers) (bool, error) {
-	base, err := s.checkIfReleaseDirectoryExists(s.Filesystem, application, version)
+	base, err := s.checkWhichVersionDirectoryExists(s.Filesystem, application, version)
 	if err != nil {
 		return false, wrapFileError(err, base, "could not call stat")
 	}

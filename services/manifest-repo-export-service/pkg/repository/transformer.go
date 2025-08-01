@@ -108,7 +108,7 @@ func releasesDirectoryWithVersionNumber(fs billy.Filesystem, application string,
 	return fs.Join(releasesDirectory(fs, application), version)
 }
 
-func (s *State) checkIfReleaseDirectoryExists(fs billy.Filesystem, application string, version types.ReleaseNumbers) (string, error) {
+func (s *State) checkWhichVersionDirectoryExists(fs billy.Filesystem, application string, version types.ReleaseNumbers) (string, error) {
 	revisionedVersion := releasesDirectoryWithVersion(fs, application, version)
 	_, err := s.Filesystem.Stat(revisionedVersion)
 	if err != nil {
@@ -1375,7 +1375,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 	msg := ""
 	for _, oldRelease := range oldVersions {
 		// delete oldRelease:
-		releasesDir, err := state.checkIfReleaseDirectoryExists(fs, c.Application, oldRelease)
+		releasesDir, err := state.checkWhichVersionDirectoryExists(fs, c.Application, oldRelease)
 		if err != nil {
 			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
