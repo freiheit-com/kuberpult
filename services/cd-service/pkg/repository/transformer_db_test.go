@@ -1950,7 +1950,7 @@ func TestExtendAAEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            2,
-				TransformerError: errMatcher{"rpc error: code = FailedPrecondition desc = error: Environment with name \"prod\" not found"},
+				TransformerError: errMatcher{"rpc error: code = FailedPrecondition desc = error: environment with name \"prod\" not found"},
 			},
 		},
 		{
@@ -1973,7 +1973,7 @@ func TestExtendAAEnvironment(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            2,
-				TransformerError: errMatcher{"rpc error: code = FailedPrecondition desc = error: Environment with name \"development\" is not an Active/Active environment"},
+				TransformerError: errMatcher{"rpc error: code = FailedPrecondition desc = error: environment with name \"development\" is not an Active/Active environment"},
 			},
 		},
 	}
