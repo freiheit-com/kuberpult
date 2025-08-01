@@ -88,7 +88,6 @@ func (s Server) handleApiEnvironments(w http.ResponseWriter, req *http.Request, 
 	case "applications":
 		s.handleAPIEnvironmentApplications(w, req, environment, tail)
 	case "":
-		// handle dry run here
 		if tail == "/" && req.Method == http.MethodDelete {
 			s.handleDeleteEnvironment(w, req, environment, tail)
 		} else if tail == "/" && req.Method == http.MethodPost {

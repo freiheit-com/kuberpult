@@ -1959,7 +1959,6 @@ func (c *CreateEnvironment) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	// handle dry-run here
 	envName := types.EnvName(c.Environment)
 	err := CheckUserPermissionsCreateEnvironment(ctx, c.RBACConfig, c.Config)
 	if err != nil {
@@ -2102,7 +2101,6 @@ func (c *DeleteEnvironment) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	// handle dry-run here
 	envName := types.EnvName(c.Environment)
 	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeleteEnvironment, "", c.RBACConfig, false)
 	if err != nil {
