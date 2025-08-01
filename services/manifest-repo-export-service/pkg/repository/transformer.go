@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 	"path"
 	"slices"
+	"strconv"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
@@ -100,6 +101,11 @@ func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvN
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
 func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version types.ReleaseNumbers) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
+}
+
+// releasesDirectoryWithVersion returns applications/<app>/releases/<version>
+func releasesDirectoryWithVersionNumber(fs billy.Filesystem, application string, version string) string {
+	return fs.Join(releasesDirectory(fs, application), version)
 }
 
 // environmentApplicationDirectory returns applications/<app>/releases/<version>/environments/
@@ -1357,9 +1363,13 @@ func (c *CleanupOldApplicationVersions) Transform(
 		releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
 		_, err := fs.Stat(releasesDir)
 		if err != nil {
-			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
+			num := strconv.Itoa(int(*oldRelease.Version)) //Check for old release version
+			releasesDir = releasesDirectoryWithVersionNumber(fs, c.Application, num)
+			_, err = fs.Stat(releasesDir)
+			if err != nil {
+				return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
+			}
 		}
-
 		{
 			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 			dat, err := util.ReadFile(fs, commitIDFile)
