@@ -41,7 +41,8 @@ lint:
 	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false $(SERVICE_DIR)/...'
 
 .PHONY: docker
-docker:
+# Note that the docker target should be standalone - everything necessary to build the docker image must happen in the Dockerfile, not in make.
+docker: # no dependencies here!
 	mkdir -p $(MAIN_PATH)/lib
 	mkdir -p $(MAIN_PATH)/usr
 	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) $(CONTEXT) -t $(IMAGE_NAME)
