@@ -75,7 +75,7 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 		http.Error(w, fmt.Sprintf("Create Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
-	dryrun := req.Query().get("dryrun") == "true"
+	dryrun := req.URL.Query().Get("dryrun") == "true"
 
 	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -144,7 +144,7 @@ func (s Server) handleDeleteEnvironment(w http.ResponseWriter, req *http.Request
 		http.Error(w, fmt.Sprintf("Delete Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
-	dryrun := req.Query().get("dryrun") == "true"
+	dryrun := req.URL.Query().Get("dryrun") == "true"
 
 	if s.AzureAuth {
 		if req.Body == nil {

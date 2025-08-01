@@ -1938,7 +1938,7 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-	DryRun                bool                     `json:dryrun`
+	DryRun                bool                     `json:"dryrun"`
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
