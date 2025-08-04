@@ -28,6 +28,5 @@ RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.
 COPY --chown=kp:kp services/rollout-service services/rollout-service
 
 RUN cd services/rollout-service && CGO_ENABLED=false GOOS=linux go build -o main cmd/server/main.go
-RUN ldd services/rollout-service/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%
 
 CMD /main

@@ -34,7 +34,7 @@ RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.
 
 COPY --chown=kp:kp services/manifest-repo-export-service services/manifest-repo-export-service
 
-RUN cd services/manifest-repo-export-service && CGO_ENABLED=false GOOS=linux go build -o /kp/main cmd/server/main.go
-RUN ldd services/manifest-repo-export-service/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % bin/main/%
+RUN cd services/manifest-repo-export-service && CGO_ENABLED=true GOOS=linux go build -o /kp/main cmd/server/main.go
+RUN ldd services/manifest-repo-export-service/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % /kp/main/%
 
 CMD /kp/main
