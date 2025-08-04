@@ -2063,9 +2063,51 @@ func (c *ExtendAAEnvironment) GetDBEventType() db.EventType {
 
 func (c *ExtendAAEnvironment) Transform(
 	_ context.Context,
-	_ *State,
-	_ TransformerContext,
+	state *State,
+	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	return GetNoOpMessage(c)
-} //This should be a no OP as AA environments only matter for ArgoCD File generation
+	if tCtx.ShouldMinimizeGitData() {
+		//This cannot be a NO-OP, as we need to generate the argocd files after the transformer is executed
+		return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
+	}
+	fs := state.Filesystem
+	envDir := fs.Join("environments", string(c.Environment))
+	if err := fs.MkdirAll(envDir, 0777); err != nil {
+		return "", err
+	}
+
+	configFile := fs.Join(envDir, "config.json")
+
+	data, err := util.ReadFile(fs, configFile)
+	if err != nil {
+		return "", fmt.Errorf("error opening file: %w", err)
+	}
+	var envConfig config.EnvironmentConfig
+
+	err = json.Unmarshal(data, &envConfig)
+	if err != nil {
+		return "", err
+	}
+
+	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
+	err = fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
+	if err != nil {
+		return "", fmt.Errorf("error removing environment config file: %w", err)
+	}
+	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return "", fmt.Errorf("error creating config: %w", err)
+	}
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "  ")
+
+	if err := enc.Encode(envConfig); err != nil {
+		return "", fmt.Errorf("error writing json: %w", err)
+	}
+	err = file.Close()
+	if err != nil {
+		return "", fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+	}
+	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
+}
