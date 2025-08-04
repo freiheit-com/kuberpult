@@ -2125,6 +2125,75 @@ func (c *DeleteEnvironment) Transform(
 	return fmt.Sprintf("Successfully deleted environment '%s'", c.Environment), nil
 }
 
+type ExtendAAEnvironment struct {
+	Authentication        `json:"-"`
+	Environment           types.EnvName                  `json:"env"`
+	ArgoCDConfig          config.EnvironmentConfigArgoCd `json:"config"`
+	TransformerEslVersion db.TransformerID               `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+func (c *ExtendAAEnvironment) GetDBEventType() db.EventType {
+	return db.EvtExtendAAEnvironment
+}
+
+func (c *ExtendAAEnvironment) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *ExtendAAEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *ExtendAAEnvironment) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	envName := types.EnvName(c.Environment)
+	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionCreateEnvironment, "", c.RBACConfig, false)
+	if err != nil {
+		return "", err
+	}
+	env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+	if err != nil {
+		return "", err
+	}
+	if env == nil {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q not found", envName))
+	} else if !isAAEnv(&env.Config) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q is not an Active/Active environment", envName))
+	}
+
+	configs := env.Config.ArgoCdConfigs.ArgoCdConfigurations
+	var found bool
+	for idx, currentConfig := range env.Config.ArgoCdConfigs.ArgoCdConfigurations {
+		if currentConfig.ConcreteEnvName == c.ArgoCDConfig.ConcreteEnvName {
+			env.Config.ArgoCdConfigs.ArgoCdConfigurations[idx] = &c.ArgoCDConfig
+			found = true
+		}
+	}
+	if !found {
+		configs = append(configs, &c.ArgoCDConfig)
+	}
+
+	slices.SortFunc(configs, func(d1 *config.EnvironmentConfigArgoCd, d2 *config.EnvironmentConfigArgoCd) int {
+		return strings.Compare(d1.ConcreteEnvName, d2.ConcreteEnvName)
+	})
+
+	env.Config.ArgoCdConfigs.ArgoCdConfigurations = configs
+
+	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, env.Applications)
+	if err != nil {
+		return "", fmt.Errorf("could not extend Active/Active environment: %q. %w", envName, err)
+	}
+	return fmt.Sprintf("Successfully added ArgoCD configuration '%s'", c.Environment), nil
+}
+
+func isAAEnv(config *config.EnvironmentConfig) bool {
+	return config.ArgoCdConfigs != nil
+}
+
 type QueueApplicationVersion struct {
 	Environment types.EnvName
 	Application string

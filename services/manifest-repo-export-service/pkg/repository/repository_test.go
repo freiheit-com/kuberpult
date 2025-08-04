@@ -568,7 +568,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				},
 			},
 			ExpectedFiles: []string{
-				"argocd/v1alpha1/staging.yaml",
+				"argocd/v1alpha1/common-development-test-1.yaml",
 			},
 		},
 	}
@@ -658,10 +658,10 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				if err != nil {
 					t.Fatalf("could not create release 1 for app test: %v", err)
 				}
-				for _, transformer := range transformers {
+				for i, transformer := range transformers {
 					_, applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
 					if applyErr != nil && applyErr.TransformerError != nil {
-						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+						t.Fatalf("Unexpected error applying transformer[%d]: Error: %v", i, applyErr)
 					}
 				}
 				return nil

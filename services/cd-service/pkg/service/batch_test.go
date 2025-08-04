@@ -857,7 +857,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 							CreateEnvironment: &api.CreateEnvironmentRequest{
 								Environment: "env",
 								Config: &api.EnvironmentConfig{
-									Argocd: &api.EnvironmentConfig_ArgoCD{
+									Argocd: &api.ArgoCDEnvironmentConfiguration{
 										ConcreteEnvName: "placeholder",
 									},
 								},
@@ -890,7 +890,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Latest: conversion.Bool(true),
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
+									Argocd: &api.ArgoCDEnvironmentConfiguration{
 										ConcreteEnvName: "placeholder",
 									},
 								},
@@ -924,7 +924,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 									Upstream: &api.EnvironmentConfig_Upstream{
 										Environment: conversion.FromString("other-env"),
 									},
-									Argocd: &api.EnvironmentConfig_ArgoCD{
+									Argocd: &api.ArgoCDEnvironmentConfiguration{
 										ConcreteEnvName: "placeholder",
 									},
 								},
@@ -957,7 +957,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 							CreateEnvironment: &api.CreateEnvironmentRequest{
 								Environment: "env",
 								Config: &api.EnvironmentConfig{
-									Argocd: &api.EnvironmentConfig_ArgoCD{},
+									Argocd: &api.ArgoCDEnvironmentConfiguration{},
 								},
 							},
 						},
@@ -985,30 +985,30 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 							CreateEnvironment: &api.CreateEnvironmentRequest{
 								Environment: "env",
 								Config: &api.EnvironmentConfig{
-									Argocd: &api.EnvironmentConfig_ArgoCD{
-										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+									Argocd: &api.ArgoCDEnvironmentConfiguration{
+										Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
 											Name:                 "name",
 											Server:               "server",
 											Namespace:            conversion.FromString("namespace"),
 											AppProjectNamespace:  conversion.FromString("app-project-namespace"),
 											ApplicationNamespace: conversion.FromString("app-namespace"),
 										},
-										SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{
-											&api.EnvironmentConfig_ArgoCD_SyncWindows{
+										SyncWindows: []*api.ArgoCDEnvironmentConfiguration_SyncWindows{
+											&api.ArgoCDEnvironmentConfiguration_SyncWindows{
 												Schedule:     "schedule",
 												Duration:     "duration",
 												Kind:         "kind",
 												Applications: []string{"applications"},
 											},
 										},
-										AccessList: []*api.EnvironmentConfig_ArgoCD_AccessEntry{
-											&api.EnvironmentConfig_ArgoCD_AccessEntry{
+										AccessList: []*api.ArgoCDEnvironmentConfiguration_AccessEntry{
+											&api.ArgoCDEnvironmentConfiguration_AccessEntry{
 												Group: "group",
 												Kind:  "kind",
 											},
 										},
 										SyncOptions: []string{"sync-option"},
-										IgnoreDifferences: []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
+										IgnoreDifferences: []*api.ArgoCDEnvironmentConfiguration_IgnoreDifferences{
 											{
 												Group:                 "group",
 												Kind:                  "kind",

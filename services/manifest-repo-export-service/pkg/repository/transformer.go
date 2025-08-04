@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 	"path"
 	"slices"
+	"strconv"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
@@ -100,6 +101,26 @@ func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvN
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
 func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version types.ReleaseNumbers) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
+}
+
+// releasesDirectoryWithVersion returns applications/<app>/releases/<version>
+func releasesDirectoryWithVersionNumber(fs billy.Filesystem, application string, version string) string {
+	return fs.Join(releasesDirectory(fs, application), version)
+}
+
+func (s *State) checkWhichVersionDirectoryExists(fs billy.Filesystem, application string, version types.ReleaseNumbers) (string, error) {
+	revisionedVersion := releasesDirectoryWithVersion(fs, application, version)
+	_, err := s.Filesystem.Stat(revisionedVersion)
+	if err != nil {
+		num := strconv.Itoa(int(*version.Version)) //Check for old release version
+		v := releasesDirectoryWithVersionNumber(fs, application, num)
+		_, err = fs.Stat(v)
+		if err != nil {
+			return "", err
+		}
+		return v, nil
+	}
+	return revisionedVersion, nil
 }
 
 // environmentApplicationDirectory returns applications/<app>/releases/<version>/environments/
@@ -1354,12 +1375,10 @@ func (c *CleanupOldApplicationVersions) Transform(
 	msg := ""
 	for _, oldRelease := range oldVersions {
 		// delete oldRelease:
-		releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
-		_, err := fs.Stat(releasesDir)
+		releasesDir, err := state.checkWhichVersionDirectoryExists(fs, c.Application, oldRelease)
 		if err != nil {
 			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
-
 		{
 			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 			dat, err := util.ReadFile(fs, commitIDFile)
@@ -1914,3 +1933,32 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 
 	return fmt.Sprintf("delete environment %q", d.Environment), nil
 }
+
+type ExtendAAEnvironment struct {
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           types.EnvName                  `json:"env"`
+	ArgoCDConfig          config.EnvironmentConfigArgoCd `json:"config"`
+	TransformerEslVersion db.TransformerID               `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+func (c *ExtendAAEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *ExtendAAEnvironment) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
+}
+
+func (c *ExtendAAEnvironment) GetDBEventType() db.EventType {
+	return db.EvtExtendAAEnvironment
+}
+
+func (c *ExtendAAEnvironment) Transform(
+	_ context.Context,
+	_ *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	return GetNoOpMessage(c)
+} //This should be a no OP as AA environments only matter for ArgoCD File generation

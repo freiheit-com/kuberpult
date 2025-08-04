@@ -7,7 +7,7 @@
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
-STAGE_A_BUILDS="infrastructure/docker/builder"
+STAGE_A_BUILDS="infrastructure/docker/builder infrastructure/docker/ui"
 STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service services/manifest-repo-export-service services/rollout-service services/reposerver-service"
 
 function debug() {
@@ -49,20 +49,20 @@ function createMatrix() {
   fi
   debug "grep for pkg: ${grepOutput}"
 
-  # if we have a change in protobuf, we need to rebuild the builder image:
-  grepOutput=$(echo "${ALL_FILES}" | grep '^pkg/api/v1/api.proto')
+  # if we have a change in go.mod, we need to rebuild the builder image:
+  grepOutput=$(echo "${ALL_FILES}" | grep '^go.mod')
   # shellcheck disable=SC2181
   if [ "$?" -eq 0 ]
   then
-    debug "pkg/api/v1/api.proto was touched, therefore we need to build the builder as well."
+    debug "go.mod was touched, therefore we need to build the builder as well."
     for stageA in $STAGE_A_BUILDS
     do
       ALL_FILES=$(echo -e "${ALL_FILES}\n${stageA}\n")
     done
   else
-    debug "pkg/api/v1/api.proto untouched, no need to build all of stage B"
+    debug "go.mod untouched, no need to build all of stage B"
   fi
-  debug "grep for pkg: ${grepOutput}"
+  debug "grep for go.mod: ${grepOutput}"
 
   stageArray=""
   stageArrayFullBuild=false
