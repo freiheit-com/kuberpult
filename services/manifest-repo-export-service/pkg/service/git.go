@@ -61,7 +61,10 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 	var tags []*api.TagData
 	err := logger.Wrap(ctx, func(ctx context.Context) error {
 		var innerError error
-		tags, innerError = repository.GetTags(ctx, s.DBHandler, s.Config, "./repository_tags")
+		if s.Config.TagsPath == "" {
+			return fmt.Errorf("tagsPath must not be empty")
+		}
+		tags, innerError = repository.GetTags(ctx, s.DBHandler, s.Config, s.Config.TagsPath)
 		if innerError != nil {
 			return fmt.Errorf("unable to get tags from repository: %v", innerError)
 		}

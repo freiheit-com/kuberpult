@@ -362,6 +362,7 @@ message ReleaseTrainRequest {
   string commit_hash = 3;
   TargetType target_type = 4;
   string ci_link = 5;
+  string git_tag = 6;
 }
 
 message ReleaseTrainResponse {
