@@ -2169,36 +2169,7 @@ func TestDeleteAAEnvironmentConfig(t *testing.T) {
 			},
 		},
 		{
-			Name: "Extending an already existing env updates its configuration",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
-					},
-				},
-				&ExtendAAEnvironment{
-					Environment:  "staging",
-					ArgoCDConfig: *testutil.MakeArgoCdConfigDestination("test", "dest-name-to-overwrite", "dest-server-to-overwrite"),
-				},
-				&ExtendAAEnvironment{
-					Environment:  "staging",
-					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
-				},
-			},
-			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
-				"staging": {
-					ArgoCdConfigs: &config.ArgoCDConfigs{
-						CommonEnvPrefix: &commonName,
-						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
-							testutil.MakeDummyArgoCdConfig("test"),
-						},
-					},
-				},
-			},
-		},
-		{
-			Name: "Extending a non-AA environment results in an error",
+			Name: "Deleting some config from a non-AA environment results in an error",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "development",
