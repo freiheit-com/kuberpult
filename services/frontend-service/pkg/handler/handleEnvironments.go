@@ -88,11 +88,12 @@ func (s Server) handleApiEnvironments(w http.ResponseWriter, req *http.Request, 
 	case "applications":
 		s.handleAPIEnvironmentApplications(w, req, environment, tail)
 	case "cluster":
-		if req.Method == http.MethodDelete {
+		switch req.Method {
+		case http.MethodDelete:
 			s.handleAPIDeleteAAEnvironmentConfig(w, req, environment, tail)
-		} else if req.Method == http.MethodPost {
+		case http.MethodPost:
 			s.handleAPIExtendAAEnvironment(w, req, environment, tail)
-		} else {
+		default:
 			http.Error(w, fmt.Sprintf("cluster function does not support http method '%s'", req.Method), http.StatusNotFound)
 		}
 	case "":

@@ -1982,35 +1982,21 @@ func (c *ExtendAAEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-
 	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
-	err = fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
-	if err != nil {
-		return "", fmt.Errorf("error removing environment config file: %w", err)
-	}
-	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return "", fmt.Errorf("error creating config: %w", err)
-	}
-	enc := json.NewEncoder(file)
-	enc.SetIndent("", "  ")
 
-	if err := enc.Encode(envConfig); err != nil {
-		return "", fmt.Errorf("error writing json: %w", err)
-	}
-	err = file.Close()
+	err = writeEnvironmentConfig(fs, configFile, envConfig)
 	if err != nil {
-		return "", fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+		return "", err
 	}
 	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
 }
 
 type DeleteAAEnvironmentConfig struct {
-	Authentication        `json:"-"`
-	TransformerMetadata   `json:"metadata"`
-	Environment           types.EnvName                  `json:"env"`
-	ArgoCDConfig          config.EnvironmentConfigArgoCd `json:"config"`
-	TransformerEslVersion db.TransformerID               `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	Authentication          `json:"-"`
+	TransformerMetadata     `json:"metadata"`
+	Environment             types.EnvName    `json:"env"`
+	ConcreteEnvironmentName types.EnvName    `json:"concreteEnvName"`
+	TransformerEslVersion   db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
 func (c *DeleteAAEnvironmentConfig) GetEslVersion() db.TransformerID {
@@ -2022,14 +2008,70 @@ func (c *DeleteAAEnvironmentConfig) SetEslVersion(eslVersion db.TransformerID) {
 }
 
 func (c *DeleteAAEnvironmentConfig) GetDBEventType() db.EventType {
-	return db.EvtExtendAAEnvironment
+	return db.EvtDeleteAAEnvironmentConfig
 }
 
 func (c *DeleteAAEnvironmentConfig) Transform(
 	_ context.Context,
-	_ *State,
-	_ TransformerContext,
+	state *State,
+	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	return GetNoOpMessage(c) //TODO: Implement removing environment config
+	if tCtx.ShouldMinimizeGitData() {
+		//This cannot be a NO-OP, as we need to generate the argocd files after the transformer is executed
+		return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
+	}
+	fs := state.Filesystem
+	envDir := fs.Join("environments", string(c.Environment))
+	if err := fs.MkdirAll(envDir, 0777); err != nil {
+		return "", err
+	}
+
+	configFile := fs.Join(envDir, "config.json")
+
+	data, err := util.ReadFile(fs, configFile)
+	if err != nil {
+		return "", fmt.Errorf("error opening file: %w", err)
+	}
+	var envConfig config.EnvironmentConfig
+
+	err = json.Unmarshal(data, &envConfig)
+	if err != nil {
+		return "", err
+	}
+
+	for idx, currentConfig := range envConfig.ArgoCdConfigs.ArgoCdConfigurations {
+		if types.EnvName(currentConfig.ConcreteEnvName) == c.ConcreteEnvironmentName {
+			envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations[:idx], envConfig.ArgoCdConfigs.ArgoCdConfigurations[idx+1:]...)
+			break
+		}
+	}
+
+	err = writeEnvironmentConfig(fs, configFile, envConfig)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
+}
+
+func writeEnvironmentConfig(fs billy.Filesystem, configFile string, envConfig config.EnvironmentConfig) error {
+	err := fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
+	if err != nil {
+		return fmt.Errorf("error removing environment config file: %w", err)
+	}
+	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("error creating config: %w", err)
+	}
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "  ")
+
+	if err := enc.Encode(envConfig); err != nil {
+		return fmt.Errorf("error writing json: %w", err)
+	}
+	err = file.Close()
+	if err != nil {
+		return fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+	}
+	return nil
 }
