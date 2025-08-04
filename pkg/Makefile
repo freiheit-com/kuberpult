@@ -72,8 +72,10 @@ clean:
 	rm -f publicapi/$(GO_SERVER_GEN)
 proto: api/v1/api_grpc.pb.go publicapi
 
-build-pr: all
+build-pr:
+	IMAGE_TAG=pr-$(VERSION) BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION) $(MAKE) all
 
-build-main: all
+build-main:
+	IMAGE_TAG=main-$(VERSION) $(MAKE) all
 
 .PHONY: all clean release test
