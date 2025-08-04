@@ -3774,7 +3774,6 @@ func TestExtendAAEnvironmentTransformer(t *testing.T) {
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
 				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
-			if tc.ExpectedFile != nil {
 				for i := range tc.ExpectedFile {
 					expectedFile := tc.ExpectedFile[i]
 					updatedState := repo.State()
