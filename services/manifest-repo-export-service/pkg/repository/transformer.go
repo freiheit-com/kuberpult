@@ -1984,7 +1984,7 @@ func (c *ExtendAAEnvironment) Transform(
 	}
 
 	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
-	err = fs.Remove(configFile)
+	err = fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
 	if err != nil {
 		return "", fmt.Errorf("error removing environment config file: %w", err)
 	}

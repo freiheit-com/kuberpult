@@ -3774,18 +3774,17 @@ func TestExtendAAEnvironmentTransformer(t *testing.T) {
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
 				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
-				for i := range tc.ExpectedFile {
-					expectedFile := tc.ExpectedFile[i]
-					updatedState := repo.State()
-					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
-					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
+			for i := range tc.ExpectedFile {
+				expectedFile := tc.ExpectedFile[i]
+				updatedState := repo.State()
+				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+				actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+				if err != nil {
+					t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+				}
 
-					if !cmp.Equal(expectedFile.fileData, actualFileData) {
-						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
-					}
+				if !cmp.Equal(expectedFile.fileData, actualFileData) {
+					t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
 				}
 			}
 		})
