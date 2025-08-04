@@ -2114,9 +2114,6 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 	tests := []struct {
 		name                 string
 		req                  *http.Request
-		KeyRing              openpgp.KeyRing
-		signature            string
-		AzureAuthEnabled     bool
 		batchResponse        *api.BatchResponse
 		expectedResp         *http.Response
 		expectedBody         string
@@ -2184,8 +2181,6 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 			s := Server{
 				BatchClient:             batchClient,
 				CommitDeploymentsClient: commitInfoClient,
-				KeyRing:                 tt.KeyRing,
-				AzureAuth:               tt.AzureAuthEnabled,
 				Config: config.ServerConfig{
 					RevisionsEnabled: true,
 				},
