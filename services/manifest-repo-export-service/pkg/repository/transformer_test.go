@@ -3667,7 +3667,7 @@ func TestExtendAAEnvironmentTransformer(t *testing.T) {
 		ExpectedFile  []*FilenameAndData
 	}{
 		{
-			Name: "Create two releases with revisions and check their manifests",
+			Name: "Create an environment and extend it with some argo cd configuration",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "production",
