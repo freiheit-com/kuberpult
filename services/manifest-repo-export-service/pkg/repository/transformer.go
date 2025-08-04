@@ -1379,7 +1379,6 @@ func (c *CleanupOldApplicationVersions) Transform(
 		if err != nil {
 			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
-
 		{
 			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 			dat, err := util.ReadFile(fs, commitIDFile)
@@ -1985,11 +1984,10 @@ func (c *ExtendAAEnvironment) Transform(
 	}
 
 	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
-	//err = fs.Remove(configFile)
-	//if err != nil {
-	//	return "", fmt.Errorf("error removing environment config file: %w", err)
-	//}
-	//// O_TRUNC will overwrite the file if it exists.
+	err = fs.Remove(configFile)
+	if err != nil {
+		return "", fmt.Errorf("error removing environment config file: %w", err)
+	}
 	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return "", fmt.Errorf("error creating config: %w", err)
