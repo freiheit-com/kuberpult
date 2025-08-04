@@ -27,5 +27,3 @@ COPY go.mod go.sum ./
 RUN go mod download
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
-
-# Rebuild-Counter: 5
