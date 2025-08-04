@@ -125,6 +125,7 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 	}
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
+	gitTagParam := queryParams.Get("gitTag")
 
 	tf := &api.ReleaseTrainRequest{
 		CommitHash: "",
@@ -132,6 +133,7 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 		Team:       teamParam,
 		TargetType: TargetType,
 		CiLink:     "",
+		GitTag:     gitTagParam,
 	}
 	if req.Body != nil {
 		type releaseTrainBody struct {
