@@ -1863,6 +1863,7 @@ func TestGetGitTags(t *testing.T) {
 		MinimizeExportedData: false,
 		URL:                  "file://" + remoteDir,
 		Path:                 remoteDir,
+		TagsPath:             remoteDir,
 		CommitterEmail:       "kuberpult@freiheit.com",
 		CommitterName:        "kuberpult",
 		Branch:               "master",
