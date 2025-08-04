@@ -215,17 +215,18 @@ Ideally use the same version as in the [package.json](https://github.com/freihei
 
   - install macports from [official site](https://www.macports.org/install.php)
   - install libgit2
-
   ```
-# Get macports repo
+  sudo port install libgit2
+  ```
+## Get macports repo
 git clone https://github.com/macports/macports-ports.git
 cd macports-ports
-# Travel back in time to when libgit2 version was 1.3.0
+## Travel back in time to when libgit2 version was 1.3.0
 git checkout b2b896fb904cfd14d8d6f3063c0b620b52b94f31
-# Install libgit2
+### Install libgit2
 cd devel/libgit2
 sudo port install 
-# Convince package config that we do infact have libgit2 (change to rc file of whichever shell you use)
+### Convince package config that we do infact have libgit2 (change to rc file of whichever shell you use)
 echo "export PKG_CONFIG_PATH=/opt/local/lib/pkgconfig" >> ~/.zshrc
 source ~/.zshrc
   ```
@@ -257,7 +258,7 @@ git init --bare repository_remote
 To run the services: `make kuberpult`
 
 
-## releasing a new version
+# releasing a new version
 
 Releases are half-automated via GitHub actions.
 
