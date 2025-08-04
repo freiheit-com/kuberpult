@@ -26,3 +26,5 @@ WORKDIR /kp
 COPY go.mod go.sum ./
 RUN go mod download
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+
+# Rebuild-Counter: 1
