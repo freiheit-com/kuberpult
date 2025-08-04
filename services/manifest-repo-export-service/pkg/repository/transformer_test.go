@@ -453,10 +453,6 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
 		} else if diff := cmp.Diff(string(data), string(contentRequirement.fileData)); diff != "" {
-			fmt.Println(string(data))
-			fmt.Println("------")
-			fmt.Println(string(contentRequirement.fileData))
-			fmt.Println("------")
 			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s", contentRequirement.path, diff)
 		}
 	}
