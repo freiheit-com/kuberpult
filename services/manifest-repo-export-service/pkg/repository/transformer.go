@@ -1961,7 +1961,7 @@ func (c *ExtendAAEnvironment) Transform(
 	_ *sql.Tx,
 ) (string, error) {
 	if tCtx.ShouldMinimizeGitData() {
-		//This cannot be a NO-OP, as we need toge
+		//This cannot be a NO-OP, as we need to generate the argocd files after the transformer is executed
 		return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
 	}
 	fs := state.Filesystem
