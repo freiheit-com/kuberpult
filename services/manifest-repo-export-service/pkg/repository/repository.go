@@ -622,13 +622,15 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	if applyErr != nil {
 		return nil, applyErr
 	}
-	if err := r.afterTransform(ctx, transaction, *state); err != nil {
-		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
-	}
 
 	result := CombineArray(changes)
 
 	if r.shouldCreateNewCommit(commitMsg) {
+		// afterTransform only makes sense, if there was a change in this commit:
+		if err := r.afterTransform(ctx, transaction, *state); err != nil {
+			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
+		}
+
 		treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 		if insertError != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
@@ -864,7 +866,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 }
 
 func isAAEnv(config config.EnvironmentConfig) bool {
-	return config.ArgoCdConfigs != nil && len(config.ArgoCdConfigs.ArgoCdConfigurations) > 1
+	return config.ArgoCdConfigs != nil
 }
 
 func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig) error {
@@ -1286,8 +1288,7 @@ func (s *State) GetApplicationReleaseManifestsFromManifest(application string, v
 }
 
 func (s *State) GetApplicationReleaseFromManifest(application string, version types.ReleaseNumbers) (*Release, error) {
-	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
-	_, err := s.Filesystem.Stat(base)
+	base, err := s.checkWhichVersionDirectoryExists(s.Filesystem, application, version)
 	if err != nil {
 		return nil, wrapFileError(err, base, "could not call stat")
 	}
@@ -1353,8 +1354,7 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ty
 }
 
 func (s *State) IsUndeployVersionFromManifest(application string, version types.ReleaseNumbers) (bool, error) {
-	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
-	_, err := s.Filesystem.Stat(base)
+	base, err := s.checkWhichVersionDirectoryExists(s.Filesystem, application, version)
 	if err != nil {
 		return false, wrapFileError(err, base, "could not call stat")
 	}

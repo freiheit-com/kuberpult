@@ -30,6 +30,8 @@ type GitTag string
 // EnvName is a type that helps us avoid mixing up envNames from other strings.
 type EnvName string
 
+type AppName string
+
 func EnvNamesToStrings(a []EnvName) []string {
 	var result = make([]string, len(a))
 	for i := range a {

@@ -450,6 +450,14 @@ func (d *BatchServer) processAction(
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
+	case *api.BatchAction_ExtendAaEnvironment:
+		act := action.ExtendAaEnvironment
+		return &repository.ExtendAAEnvironment{
+			Environment:           types.EnvName(act.EnvironmentName),
+			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
+			ArgoCDConfig:          *transformArgoCdToConfig(act.ArgoCdConfiguration),
+			TransformerEslVersion: 0,
+		}, nil, nil
 	}
 
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")

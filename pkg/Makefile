@@ -28,6 +28,7 @@ SKIP_RETAG_MAIN_AS_PR=1
 include $(ROOT_DIR)/infrastructure/make/go/include.mk
 
 PKG_WITHOUT_DOCKER?=0
+PKG_VOLUME=
 
 all: gen lint test
 test: gen unit-test
@@ -36,10 +37,10 @@ test: gen unit-test
 lint: gen
 ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"
-	GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...
+	GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false ./pkg/...
 else
 	@echo "Running in docker"
-	docker run --rm -w /kp/ -v "$(shell pwd)/..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$$" ./pkg/...'
+	docker run --rm -w /kp/ -v "$(shell pwd)/..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false ./pkg/...'
 endif
 
 gen: grpc-api-gen publicapi
@@ -52,7 +53,7 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 	buf generate
 else
 	@echo "Running in docker"
-	docker run -w /kp/pkg --rm -v "./api/v1:/kp/pkg/api/v1" $(BUILDER_IMAGE) sh -c "buf generate"
+	docker run -w /kp/pkg --rm -v ".:/kp/pkg/" $(BUILDER_IMAGE) sh -c "buf generate"
 endif
 
 publicapi: publicapi/$(GO_SERVER_GEN)
@@ -62,7 +63,7 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 	buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml
 else
 	@echo "Running in docker"
-	docker run -w /kp/pkg --rm -v "./publicapi:/kp/pkg/publicapi" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
+	docker run -w /kp/pkg --rm -v ".:/kp/pkg" $(BUILDER_IMAGE) sh -c 'buf generate && go tool oapi-codegen -generate "std-http-server" -o publicapi/$(GO_SERVER_GEN) -package publicapi publicapi/api.yaml'
 endif
 
 release: #no-op
@@ -71,7 +72,11 @@ clean:
 	rm -f publicapi/$(GO_SERVER_GEN)
 proto: api/v1/api_grpc.pb.go publicapi
 
+build-pr: IMAGE_TAG=pr-$(VERSION)
+build-pr: BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
 build-pr: all
+
+build-main: IMAGE_TAG=main-$(VERSION)
 build-main: all
 
 .PHONY: all clean release test

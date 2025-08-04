@@ -441,10 +441,10 @@ func (o *OverviewServiceServer) getOverview(
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
 
-			var argocd api.EnvironmentConfig_ArgoCD
+			var argocd api.ArgoCDEnvironmentConfiguration
 			var argocdConfigs = &api.EnvironmentConfig_ArgoConfigs{
 				CommonEnvPrefix: "",
-				Configs:         make([]*api.EnvironmentConfig_ArgoCD, 0),
+				Configs:         make([]*api.ArgoCDEnvironmentConfiguration, 0),
 			}
 			if config.ArgoCd != nil {
 				argocd = *mapper.TransformArgocd(*config.ArgoCd)
@@ -471,7 +471,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, err
 	} else {
 		for appName, team := range appTeams {
-			result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: appName, Team: team})
+			result.LightweightApps = append(result.LightweightApps, &api.OverviewApplication{Name: string(appName), Team: team})
 		}
 	}
 

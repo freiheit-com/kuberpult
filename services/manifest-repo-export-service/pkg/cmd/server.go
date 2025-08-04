@@ -744,6 +744,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtDeleteEnvironment:
 		//exhaustruct:ignore
 		return &repository.DeleteEnvironment{}, nil
+	case db.EvtExtendAAEnvironment:
+		//exhaustruct:ignore
+		return &repository.ExtendAAEnvironment{}, nil
 	}
 	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }

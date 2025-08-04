@@ -676,7 +676,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
-			team, ok := allTeams[appName]
+			team, ok := allTeams[types.AppName(appName)]
 			if !ok {
 				// If we cannot find the app in all teams, we cannot determine the team of the app.
 				// This indicates an incorrect db state, and we just skip it:
@@ -824,7 +824,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			continue
 		}
 
-		teamName, ok := allTeams[appName]
+		teamName, ok := allTeams[types.AppName(appName)]
 
 		if ok { //IF we find information for team
 			envConfig := c.AllEnvConfigs[c.Env]

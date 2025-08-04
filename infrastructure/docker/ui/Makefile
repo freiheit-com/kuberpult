@@ -14,26 +14,16 @@
 
 # Copyright freiheit.com
 
-ROOT_DIR=..
-CGO_ENABLED=0
-MAIN_PATH=cmd/kuberpult-client
-SERVICE=client
-MIN_COVERAGE=67.1
-CONTEXT?=../
-#SERVICE_DIR=/kp/cli
 
-include ../infrastructure/make/go/include.mk
+# The "ui" image is only used for local development.
+# Nowhere in the CI is it referenced.
+# We do not need to push it necessarily,
+# but we want to build it in the CI if something changed.
 
-test: unit-test
-build: lint test docker
+retag-main:
+	echo "nothing to do"
 
-build-pr: IMAGE_TAG=pr-$(VERSION)
-build-pr: build release
+build-pr:
+	docker build . -t ui:local
 
-build-main: IMAGE_TAG=main-$(VERSION)
-build-main: build release
-
-.PHONY: lint
-lint:
-	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) $(MAKE) -C $(ROOT_DIR)/pkg gen
-	docker run --rm -w /kp/ -v $(shell pwd)/..:/kp/ $(BUILDER_IMAGE) sh -c 'cd cli && GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false ./...'
+build-main: build-pr
