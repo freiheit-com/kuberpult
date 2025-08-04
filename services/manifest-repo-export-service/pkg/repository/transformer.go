@@ -1375,8 +1375,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 	msg := ""
 	for _, oldRelease := range oldVersions {
 		// delete oldRelease:
-		releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
-		_, err := fs.Stat(releasesDir)
+		releasesDir, err := state.checkWhichVersionDirectoryExists(fs, c.Application, oldRelease)
 		if err != nil {
 			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
