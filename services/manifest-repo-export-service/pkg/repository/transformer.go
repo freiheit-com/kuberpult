@@ -1375,10 +1375,12 @@ func (c *CleanupOldApplicationVersions) Transform(
 	msg := ""
 	for _, oldRelease := range oldVersions {
 		// delete oldRelease:
-		releasesDir, err := state.checkWhichVersionDirectoryExists(fs, c.Application, oldRelease)
+		releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
+		_, err := fs.Stat(releasesDir)
 		if err != nil {
 			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
+
 		{
 			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 			dat, err := util.ReadFile(fs, commitIDFile)
@@ -1984,23 +1986,26 @@ func (c *ExtendAAEnvironment) Transform(
 	}
 
 	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
-	err = fs.Remove(configFile)
-	if err != nil {
-		return "", fmt.Errorf("error removing environment config file: %w", err)
-	}
-	file, err := fs.Create(configFile)
+	//err = fs.Remove(configFile)
+	//if err != nil {
+	//	return "", fmt.Errorf("error removing environment config file: %w", err)
+	//}
+	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
 		return "", fmt.Errorf("error creating config: %w", err)
 	}
 	enc := json.NewEncoder(file)
 	enc.SetIndent("", "  ")
-
-	if err := enc.Encode(envConfig); err != nil {
-		return "", fmt.Errorf("error writing json: %w", err)
-	}
-	err = file.Close()
+	// Marshal the data to a JSON byte slice with indentation.
+	jsonData, err := json.MarshalIndent(envConfig, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+		return "", fmt.Errorf("error marshaling json: %w", err)
+	}
+
+	// WriteFile handles creating/overwriting the file and closing it automatically.
+	// This assumes your 'fs' object has a WriteFile method, like the standard 'os' package.
+	if err := util.WriteFile(fs, configFile, jsonData, 0644); err != nil {
+		return "", fmt.Errorf("error writing updated config file: %w", err)
 	}
 	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
 }
