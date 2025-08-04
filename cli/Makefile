@@ -33,7 +33,7 @@ build-pr:
 
 build-main-internal: build release
 build-main:
- 	IMAGE_TAG=main-$(VERSION) $(MAKE) build-main-internal
+	IMAGE_TAG=main-$(VERSION) $(MAKE) build-main-internal
 
 .PHONY: lint
 lint:
