@@ -1209,7 +1209,7 @@ func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction 
 	return manifests, nil
 }
 
-func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
+func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application types.AppName) (string, error) {
 	app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
 	if err != nil {
 		return "", fmt.Errorf("could not get team of app %s: %v", application, err)
@@ -1221,13 +1221,13 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 }
 
 func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx) (map[types.AppName]string, error) {
-	result := make(map[types.AppName]string)
 	apps, err := s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
 	if err != nil {
-		return result, fmt.Errorf("could not get team of all apps: %w", err)
+		return nil, fmt.Errorf("could not get team of all apps: %w", err)
 	}
-	for _, app := range apps {
-		result[types.AppName(app.App)] = app.Metadata.Team
+	result := make(map[types.AppName]string)
+	for _, v := range apps.Sorting {
+		result[v] = apps.Map[v].Metadata.Team
 	}
 	return result, nil
 }

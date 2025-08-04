@@ -106,7 +106,7 @@ func (c *DeployApplicationVersion) Prognosis(
 	}
 	manifestContent = []byte(version.Manifests.Manifests[c.Environment])
 
-	team, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
+	team, err := state.GetApplicationTeamOwner(ctx, transaction, types.AppName(c.Application))
 	if err != nil {
 		return nil, err
 	}

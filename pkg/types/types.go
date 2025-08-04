@@ -30,6 +30,14 @@ type EnvName string
 
 type AppName string
 
+type AppNameByName []AppName
+
+func (a AppNameByName) Len() int           { return len(a) }
+func (a AppNameByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a AppNameByName) Less(i, j int) bool { return a[i] < a[j] }
+
+var _ sort.Interface = (*AppNameByName)(nil) // ensure we implement the sort interface
+
 func EnvNamesToStrings(a []EnvName) []string {
 	var result = make([]string, len(a))
 	for i := range a {

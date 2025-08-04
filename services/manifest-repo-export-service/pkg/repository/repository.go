@@ -870,23 +870,21 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 }
 
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo) error {
-	fs := state.Filesystem
-	if apps, err := state.GetEnvironmentApplications(ctx, transaction, info.ParentEnvironmentName); err != nil {
+	if sortedAppMap, err := state.DBHandler.DBSelectEnvironmentApplicationsWithMetadata(ctx, transaction, info.ParentEnvironmentName); err != nil {
 		return err
 	} else {
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
-		appData := []argocd.AppData{}
-		sort.Strings(apps)
-		for _, appName := range apps {
-			oneAppData, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, appName)
-			if err != nil {
-				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
+		var appData []argocd.AppData
+		for _, appName := range sortedAppMap.Sorting {
+			oneAppData, ok := sortedAppMap.Map[appName]
+			if !ok {
+				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db", appName)
 			}
 			if oneAppData == nil {
 				return fmt.Errorf("skipping app '%s' because it was not found in the apps table", appName)
 			}
-			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, info.ParentEnvironmentName, appName)
+			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, info.ParentEnvironmentName, string(appName))
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -900,7 +898,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 				continue
 			}
 			appData = append(appData, argocd.AppData{
-				AppName:  appName,
+				AppName:  string(appName),
 				TeamName: oneAppData.Metadata.Team,
 			})
 		}
@@ -913,12 +911,13 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		} else {
 			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
 			defer spanWrite.Finish()
+			filesystem := state.Filesystem
 			for apiVersion, content := range manifests {
-				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+				if err := filesystem.MkdirAll(filesystem.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
 				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", info.GetFullyQualifiedName()))
-				if err := util.WriteFile(fs, target, content, 0666); err != nil {
+				target := filesystem.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", info.GetFullyQualifiedName()))
+				if err := util.WriteFile(filesystem, target, content, 0666); err != nil {
 					return err
 				}
 			}
@@ -2041,17 +2040,6 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 	return groupEnvNames, nil
 }
 
-func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]string, error) {
-	envApps, err := s.DBHandler.DBSelectEnvironmentApplications(ctx, transaction, environment)
-	if err != nil {
-		return make([]string, 0), err
-	}
-	if envApps == nil {
-		return make([]string, 0), nil
-	}
-	return envApps, nil
-}
-
 // GetApplicationsFromFile returns apps from the filesystem
 func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
@@ -2245,7 +2233,7 @@ func (s *State) GetApplicationReleaseManifests(application string, version types
 }
 
 func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
-	app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
+	app, err := s.DBHandler.DBSelectApp(ctx, transaction, types.AppName(application))
 	if err != nil {
 		return "", fmt.Errorf("could not get team of app '%s': %v", application, err)
 	}

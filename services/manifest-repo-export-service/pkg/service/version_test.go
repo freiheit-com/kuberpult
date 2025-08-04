@@ -208,7 +208,6 @@ func TestVersion(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			ctx := context.Background()
@@ -435,7 +434,6 @@ func TestGetManifests(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc // TODO SRX-SRRONB: Remove after switching to go v1.22
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
