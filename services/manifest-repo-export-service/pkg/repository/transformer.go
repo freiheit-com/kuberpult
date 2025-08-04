@@ -2043,6 +2043,12 @@ type ExtendAAEnvironment struct {
 	TransformerEslVersion db.TransformerID               `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
+var _ Transformer = &ExtendAAEnvironment{} // ensure we implement the interface
+
+func (c *ExtendAAEnvironment) GetGitTag() types.GitTag {
+	return ""
+}
+
 func (c *ExtendAAEnvironment) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
