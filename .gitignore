@@ -5,6 +5,7 @@ services/cd-service/repository_checked_out
 services/cd-service/repository_remote
 services/cd-service/repository
 services/cd-service/environment_configs.json
+services/manifest-repo-export-service/pkg/service/repository_tags
 database/db.sqlite
 .DS_Store
 .install
