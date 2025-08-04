@@ -2190,6 +2190,72 @@ func (c *ExtendAAEnvironment) Transform(
 	return fmt.Sprintf("Successfully added ArgoCD configuration '%s'", c.Environment), nil
 }
 
+type DeleteAAEnvironmentConfig struct {
+	Authentication          `json:"-"`
+	Environment             types.EnvName    `json:"env"`
+	ConcreteEnvironmentName types.EnvName    `json:"concreteEnvName"`
+	TransformerEslVersion   db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+func (c *DeleteAAEnvironmentConfig) GetDBEventType() db.EventType {
+	return db.EvtExtendAAEnvironment
+}
+
+func (c *DeleteAAEnvironmentConfig) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *DeleteAAEnvironmentConfig) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *DeleteAAEnvironmentConfig) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	envName := types.EnvName(c.Environment)
+	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeleteEnvironment, "", c.RBACConfig, false)
+	if err != nil {
+		return "", err
+	}
+	env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+	if err != nil {
+		return "", err
+	}
+	if env == nil {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q not found", envName))
+	} else if !isAAEnv(&env.Config) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q is not an Active/Active environment", envName))
+	}
+
+	configs := env.Config.ArgoCdConfigs.ArgoCdConfigurations
+	foundIdx := -1
+	for idx, currentConfig := range env.Config.ArgoCdConfigs.ArgoCdConfigurations {
+		if types.EnvName(currentConfig.ConcreteEnvName) == c.ConcreteEnvironmentName {
+			foundIdx = idx
+			break
+		}
+	}
+
+	//We don't error out when we don't find this concrete enviroment config to make this operation idempotent
+	if foundIdx != -1 {
+		configs = append(configs[:foundIdx], configs[foundIdx+1:]...)
+		slices.SortFunc(configs, func(d1 *config.EnvironmentConfigArgoCd, d2 *config.EnvironmentConfigArgoCd) int {
+			return strings.Compare(d1.ConcreteEnvName, d2.ConcreteEnvName)
+		})
+		env.Config.ArgoCdConfigs.ArgoCdConfigurations = configs
+
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, env.Applications)
+
+		if err != nil {
+			return "", fmt.Errorf("could not delete configuration from Active/Active environment: %q. %w", envName, err)
+		}
+	}
+	return fmt.Sprintf("Successfully deleted ArgoCD configuration from '%s'", c.Environment), nil
+}
+
 func isAAEnv(config *config.EnvironmentConfig) bool {
 	return config.ArgoCdConfigs != nil
 }

@@ -457,6 +457,14 @@ func (d *BatchServer) processAction(
 			ArgoCDConfig:          *transformArgoCdToConfig(act.ArgoCdConfiguration),
 			TransformerEslVersion: 0,
 		}, nil, nil
+	case *api.BatchAction_DeleteAaEnvironmentConfig:
+		act := action.DeleteAaEnvironmentConfig
+		return &repository.DeleteAAEnvironmentConfig{
+			Environment:             types.EnvName(act.ParentEnvironmentName),
+			Authentication:          repository.Authentication{RBACConfig: d.RBACConfig},
+			ConcreteEnvironmentName: types.EnvName(act.ConcreteEnvironmentName),
+			TransformerEslVersion:   0,
+		}, nil, nil
 	}
 
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")

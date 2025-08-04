@@ -1978,7 +1978,7 @@ func TestServer_HandleAAEnvironments(t *testing.T) {
 		{
 			name: "create environment but additional path params",
 			req: &http.Request{
-				Method: http.MethodPut,
+				Method: http.MethodPost,
 				URL: &url.URL{
 					Path: "/api/environments/envName/cluster/my-awesome-path",
 				},
@@ -2071,6 +2071,110 @@ func TestServer_HandleAAEnvironments(t *testing.T) {
 				StatusCode: http.StatusUnauthorized,
 			},
 			expectedBody: "Invalid Signature: EOF",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			batchClient := &mockBatchClient{batchResponse: tt.batchResponse}
+			commitInfoClient := &mockCommitDeploymentServiceClient{}
+			s := Server{
+				BatchClient:             batchClient,
+				CommitDeploymentsClient: commitInfoClient,
+				KeyRing:                 tt.KeyRing,
+				AzureAuth:               tt.AzureAuthEnabled,
+				Config: config.ServerConfig{
+					RevisionsEnabled: true,
+				},
+			}
+
+			w := httptest.NewRecorder()
+
+			s.HandleAPI(w, tt.req)
+
+			resp := w.Result()
+
+			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
+				t.Errorf("response mismatch: %s", d)
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("error reading response body: %s", err)
+			}
+			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
+				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tt.expectedBody, d)
+			}
+			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
+				t.Errorf("create batch request mismatch: %s", d)
+			}
+		})
+	}
+}
+
+func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
+	tests := []struct {
+		name                 string
+		req                  *http.Request
+		KeyRing              openpgp.KeyRing
+		signature            string
+		AzureAuthEnabled     bool
+		batchResponse        *api.BatchResponse
+		expectedResp         *http.Response
+		expectedBody         string
+		expectedBatchRequest *api.BatchRequest
+	}{
+		{
+			name: "create environment  - more data version",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				Header: http.Header{
+					"Content-Type": []string{"multipart/form-data"},
+				},
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/test-1",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_DeleteAaEnvironmentConfig{
+							DeleteAaEnvironmentConfig: &api.DeleteAAEnvironmentConfigRequest{
+								ParentEnvironmentName:   "envName",
+								ConcreteEnvironmentName: "test-1",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Wrong Method",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/test-1",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "cluster function does not support http method 'PUT'\n",
+		},
+		{
+			name: "Some extra arguments",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/test-1/this-should-not-be-here",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "Delete Active/Active environment config does not accept any extra arguments, got: '/this-should-not-be-here'\n",
 		},
 	}
 	for _, tt := range tests {

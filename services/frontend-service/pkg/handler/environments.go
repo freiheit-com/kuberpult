@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"fmt"
+	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/gogo/protobuf/jsonpb"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
@@ -231,6 +232,35 @@ func (s Server) handleAPIExtendAAEnvironment(w http.ResponseWriter, req *http.Re
 				ExtendAaEnvironment: &api.ExtendAAEnvironmentRequest{
 					EnvironmentName:     parentEnvironmentName,
 					ArgoCdConfiguration: &envConfig,
+				}}},
+		},
+		})
+
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s Server) handleAPIDeleteAAEnvironmentConfig(w http.ResponseWriter, req *http.Request, parentEnvironmentName, tail string) {
+	concreteEnvironmentName, tail := xpath.Shift(tail)
+	if concreteEnvironmentName == "" {
+		http.Error(w, "missing active active environment name", http.StatusNotFound)
+		return
+	}
+
+	if tail != "/" {
+		http.Error(w, fmt.Sprintf("Delete Active/Active environment config does not accept any extra arguments, got: '%s'", tail), http.StatusNotFound)
+		return
+	}
+
+	_, err := s.BatchClient.ProcessBatch(req.Context(),
+		&api.BatchRequest{Actions: []*api.BatchAction{
+			{Action: &api.BatchAction_DeleteAaEnvironmentConfig{
+				DeleteAaEnvironmentConfig: &api.DeleteAAEnvironmentConfigRequest{
+					ParentEnvironmentName:   parentEnvironmentName,
+					ConcreteEnvironmentName: concreteEnvironmentName,
 				}}},
 		},
 		})
