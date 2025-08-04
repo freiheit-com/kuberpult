@@ -3613,6 +3613,152 @@ func TestReleasesAndDeployments(t *testing.T) {
 	}
 }
 
+func TestExtendAAEnvironmentTransformer(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	var aaEnvName = "aa"
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		ExpectedError error
+		ExpectedFile  []*FilenameAndData
+	}{
+		{
+			Name: "Create two releases with revisions and check their manifests",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &aaEnvName,
+
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{
+									Destination: config.ArgoCdDestination{
+										Name:   "some-destination-1",
+										Server: "some-server",
+									},
+									ConcreteEnvName: "some-concrete-env-name-1",
+								},
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment: "production",
+					ArgoCDConfig: config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Name:   "some-destination-2",
+							Server: "some-server",
+						},
+						ConcreteEnvName: "some-concrete-env-name-2",
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			//    "ArgoCdConfigurations": [
+
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "environments/production/config.json",
+					fileData: []byte(`
+{
+  "argoCdConfigs": {
+    "commonEnvPrefix": "aa",
+    "ArgoCdConfigurations": [
+	  {
+		"destination": {
+          "server": "https://kubernetes.default.svc",
+		  "namespace": "*"
+	    },
+	    "application_annotations": {},
+	    "access_list": [],
+	    "ignore_differences": [],
+	    "concreteEnvName": "some-concrete-env-name-1"
+	  },
+	  {
+	    "destination": {
+		  "server": "https://kubernetes.default.svc",
+		  "namespace": "*"
+	    },
+	    "application_annotations": {},
+	    "access_list": [],
+	    "ignore_differences": [],
+	    "concreteEnvName": "some-concrete-env-name-2"
+	  },
+    ]
+  },
+}
+`),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _, _ := SetupRepositoryTestWithDB(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, tr := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if tc.ExpectedFile != nil {
+				for i := range tc.ExpectedFile {
+					expectedFile := tc.ExpectedFile[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+				}
+			}
+		})
+	}
+}
+
 func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr Transformer, dbHandler *db.DBHandler, t *testing.T, authorEmail string, authorName string) {
 	if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 		concreteTransformer := tr.(*CreateEnvironmentLock)
