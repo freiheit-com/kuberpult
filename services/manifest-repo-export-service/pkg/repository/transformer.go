@@ -1942,7 +1942,8 @@ func (c *ExtendAAEnvironment) Transform(
 	_ *sql.Tx,
 ) (string, error) {
 	if tCtx.ShouldMinimizeGitData() {
-		return GetNoOpMessage(c)
+		//This cannot be a NO-OP, as we need to generate the argo cd files after transformer execution
+		return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
 	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", string(c.Environment))
@@ -1964,8 +1965,11 @@ func (c *ExtendAAEnvironment) Transform(
 	}
 
 	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
-
-	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+	err = fs.Remove(configFile)
+	if err != nil {
+		return "", fmt.Errorf("error removing environment config file: %w", err)
+	}
+	file, err := fs.Create(configFile)
 	if err != nil {
 		return "", fmt.Errorf("error creating config: %w", err)
 	}

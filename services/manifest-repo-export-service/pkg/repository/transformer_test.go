@@ -453,6 +453,10 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
 		} else if diff := cmp.Diff(string(data), string(contentRequirement.fileData)); diff != "" {
+			fmt.Println(string(data))
+			fmt.Println("------")
+			fmt.Println(string(contentRequirement.fileData))
+			fmt.Println("------")
 			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s", contentRequirement.path, diff)
 		}
 	}
@@ -3261,6 +3265,48 @@ spec:
 			expectedMessage: "delete environment \"acceptance\"",
 		},
 		{
+			Name: "create same environment twice updates it",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      envAcceptanceConfig,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      envAcceptance2Config,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+			},
+			expectedData: []*FilenameAndData{
+				{
+					path: "/environments/acceptance/config.json",
+					fileData: []byte(`{
+  "upstream": {
+    "environment": "acceptance2",
+    "latest": true
+  },
+  "argocd": {
+    "destination": {
+      "name": "",
+      "server": ""
+    }
+  }
+}
+`),
+				},
+			},
+			expectedMessage: "create environment \"acceptance\"",
+		},
+		{
 			Name: "delete an environment that does not exist",
 			Transformers: []Transformer{
 				&DeleteEnvironment{
@@ -3666,38 +3712,30 @@ func TestExtendAAEnvironmentTransformer(t *testing.T) {
 					},
 				},
 			},
-			//    "ArgoCdConfigurations": [
-
 			ExpectedFile: []*FilenameAndData{
 				{
 					path: "environments/production/config.json",
-					fileData: []byte(`
-{
-  "argoCdConfigs": {
-    "commonEnvPrefix": "aa",
+					fileData: []byte(
+						`{
+  "argocdConfigs": {
     "ArgoCdConfigurations": [
-	  {
-		"destination": {
-          "server": "https://kubernetes.default.svc",
-		  "namespace": "*"
-	    },
-	    "application_annotations": {},
-	    "access_list": [],
-	    "ignore_differences": [],
-	    "concreteEnvName": "some-concrete-env-name-1"
-	  },
-	  {
-	    "destination": {
-		  "server": "https://kubernetes.default.svc",
-		  "namespace": "*"
-	    },
-	    "application_annotations": {},
-	    "access_list": [],
-	    "ignore_differences": [],
-	    "concreteEnvName": "some-concrete-env-name-2"
-	  },
-    ]
-  },
+      {
+        "destination": {
+          "name": "some-destination-1",
+          "server": "some-server"
+        },
+        "name": "some-concrete-env-name-1"
+      },
+      {
+        "destination": {
+          "name": "some-destination-2",
+          "server": "some-server"
+        },
+        "name": "some-concrete-env-name-2"
+      }
+    ],
+    "CommonEnvPrefix": "aa"
+  }
 }
 `),
 				},
@@ -3750,7 +3788,7 @@ func TestExtendAAEnvironmentTransformer(t *testing.T) {
 						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
 					}
 
-					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+					if !cmp.Equal(expectedFile.fileData, actualFileData) {
 						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
 					}
 				}
