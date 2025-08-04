@@ -87,6 +87,8 @@ func (s Server) handleApiEnvironments(w http.ResponseWriter, req *http.Request, 
 		s.handleApiTeamLocks(w, req, environment, tail)
 	case "applications":
 		s.handleAPIEnvironmentApplications(w, req, environment, tail)
+	case "cluster":
+		s.handleAPIExtendAAEnvironment(w, req, environment, tail)
 	case "":
 		if tail == "/" && req.Method == http.MethodDelete {
 			s.handleDeleteEnvironment(w, req, environment, tail)

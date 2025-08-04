@@ -278,6 +278,7 @@ const (
 	EvtEnvReleaseTrain                  EventType = "EnvReleaseTrain"
 	EvtCleanupOldApplicationVersions    EventType = "CleanupOldApplicationVersions"
 	EvtSkippedServices                  EventType = "SkippedServices"
+	EvtExtendAAEnvironment              EventType = "ExtendAAEnvironment"
 )
 
 // ESL EVENTS

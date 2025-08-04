@@ -14,14 +14,16 @@
 
 # Copyright freiheit.com
 
-MIN_COVERAGE=37.0
-MAKEFLAGS += --no-builtin-rules
-CONTEXT=../..
-# avoid calling docker to run buf:
-PKG_WITHOUT_DOCKER=1
 
-include ../../infrastructure/make/go/include.mk
+# The "ui" image is only used for local development.
+# Nowhere in the CI is it referenced.
+# We do not need to push it necessarily,
+# but we want to build it in the CI if something changed.
 
-gen-api:
-	mkdir -p src/api
-	buf generate --path api --timeout 5m
+retag-main:
+	echo "nothing to do"
+
+build-pr:
+	docker build . -t ui:local
+
+build-main: build-pr
