@@ -2111,3 +2111,38 @@ func (c *ExtendAAEnvironment) Transform(
 	}
 	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
 }
+
+type DeleteAAEnvironmentConfig struct {
+	Authentication          `json:"-"`
+	TransformerMetadata     `json:"metadata"`
+	Environment             types.EnvName    `json:"env"`
+	ConcreteEnvironmentName types.EnvName    `json:"concreteEnvName"`
+	TransformerEslVersion   db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+var _ Transformer = &DeleteAAEnvironmentConfig{} // ensure we implement the interface
+
+func (c *DeleteAAEnvironmentConfig) GetGitTag() types.GitTag {
+	return ""
+}
+
+func (c *DeleteAAEnvironmentConfig) GetDBEventType() db.EventType {
+	return db.EvtDeleteAAEnvironmentConfig
+}
+
+func (c *DeleteAAEnvironmentConfig) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *DeleteAAEnvironmentConfig) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *DeleteAAEnvironmentConfig) Transform(
+	_ context.Context,
+	_ *State,
+	_ TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	return GetNoOpMessage(c)
+}

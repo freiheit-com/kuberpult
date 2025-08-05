@@ -279,6 +279,7 @@ const (
 	EvtCleanupOldApplicationVersions    EventType = "CleanupOldApplicationVersions"
 	EvtSkippedServices                  EventType = "SkippedServices"
 	EvtExtendAAEnvironment              EventType = "ExtendAAEnvironment"
+	EvtDeleteAAEnvironmentConfig        EventType = "EvtDeleteAAEnvironmentConfig"
 )
 
 // ESL EVENTS
