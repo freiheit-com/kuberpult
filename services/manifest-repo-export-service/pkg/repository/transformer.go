@@ -144,6 +144,8 @@ type Transformer interface {
 	GetEslVersion() db.TransformerID
 	SetEslVersion(id db.TransformerID)
 	GetGitTag() types.GitTag
+	SetCreationTimestamp(ts time.Time)
+	GetCreationTimestamp() time.Time
 }
 
 type TransformerContext interface {
@@ -351,6 +353,15 @@ type DeployApplicationVersion struct {
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
 	Author                string                          `json:"author"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time                       `json:"-"`
+}
+
+func (c *DeployApplicationVersion) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeployApplicationVersion) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &DeployApplicationVersion{} // ensure it implements Transformer
@@ -502,6 +513,15 @@ type CreateEnvironmentLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *CreateEnvironmentLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironmentLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &CreateEnvironmentLock{} // ensure it implements Transformer
@@ -596,6 +616,15 @@ type DeleteEnvironmentLock struct {
 	Environment           types.EnvName    `json:"env"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *DeleteEnvironmentLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironmentLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &DeleteEnvironmentLock{} // ensure it implements Transformer
@@ -658,6 +687,15 @@ type CreateEnvironmentApplicationLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *CreateEnvironmentApplicationLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironmentApplicationLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &CreateEnvironmentApplicationLock{} // ensure it implements Transformer
@@ -729,6 +767,15 @@ type DeleteEnvironmentApplicationLock struct {
 	Application           string           `json:"app"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *DeleteEnvironmentApplicationLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironmentApplicationLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &DeleteEnvironmentApplicationLock{} // ensure it implements Transformer
@@ -795,6 +842,15 @@ type CreateApplicationVersion struct {
 	WriteCommitData       bool                     `json:"writeCommitData"`
 	PreviousCommit        string                   `json:"previousCommit"`
 	TransformerEslVersion db.TransformerID         `json:"-"`
+	CreationTimestamp     time.Time                `json:"-"`
+}
+
+func (c *CreateApplicationVersion) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateApplicationVersion) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &CreateApplicationVersion{} // ensure it implements Transformer
@@ -1105,6 +1161,15 @@ type CreateEnvironmentTeamLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *CreateEnvironmentTeamLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironmentTeamLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &CreateEnvironmentTeamLock{} // ensure it implements Transformer
@@ -1204,6 +1269,15 @@ type DeleteEnvironmentTeamLock struct {
 	Team                  string           `json:"team"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *DeleteEnvironmentTeamLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironmentTeamLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &DeleteEnvironmentTeamLock{} // ensure it implements Transformer
@@ -1270,6 +1344,15 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time                `json:"-"`
+}
+
+func (c *CreateEnvironment) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironment) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &CreateEnvironment{} // ensure it implements Transformer
@@ -1391,6 +1474,15 @@ type CleanupOldApplicationVersions struct {
 	Application           string
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *CleanupOldApplicationVersions) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CleanupOldApplicationVersions) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &CleanupOldApplicationVersions{} // ensure it implements Transformer
@@ -1467,6 +1559,15 @@ type ReleaseTrain struct {
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 	TargetType            string           `json:"targetType"`
 	GitTag                types.GitTag     `json:"gitTag"`
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (u *ReleaseTrain) GetCreationTimestamp() time.Time {
+	return u.CreationTimestamp
+}
+
+func (u *ReleaseTrain) SetCreationTimestamp(ts time.Time) {
+	u.CreationTimestamp = ts
 }
 
 var _ Transformer = &ReleaseTrain{} // ensure it implements Transformer
@@ -1584,6 +1685,15 @@ func (u *ReleaseTrain) Transform(
 type MigrationTransformer struct {
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (u *MigrationTransformer) GetCreationTimestamp() time.Time {
+	return u.CreationTimestamp
+}
+
+func (u *MigrationTransformer) SetCreationTimestamp(ts time.Time) {
+	u.CreationTimestamp = ts
 }
 
 var _ Transformer = &MigrationTransformer{} // ensure it implements Transformer
@@ -1613,6 +1723,15 @@ type DeleteEnvFromApp struct {
 	Application           string           `json:"app"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *DeleteEnvFromApp) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvFromApp) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &DeleteEnvFromApp{} // ensure it implements Transformer
@@ -1682,6 +1801,15 @@ type CreateUndeployApplicationVersion struct {
 	Application           string           `json:"app"`
 	WriteCommitData       bool             `json:"writeCommitData"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *CreateUndeployApplicationVersion) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateUndeployApplicationVersion) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &CreateUndeployApplicationVersion{} // ensure it implements Transformer
@@ -1807,6 +1935,15 @@ type UndeployApplication struct {
 	TransformerMetadata   `json:"metadata"`
 	Application           string           `json:"app"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *UndeployApplication) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *UndeployApplication) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &UndeployApplication{} // ensure it implements Transformer
@@ -1925,6 +2062,15 @@ type CreateEnvironmentGroupLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *CreateEnvironmentGroupLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironmentGroupLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &CreateEnvironmentGroupLock{} // ensure it implements Transformer
@@ -1959,6 +2105,15 @@ type DeleteEnvironmentGroupLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *DeleteEnvironmentGroupLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironmentGroupLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &DeleteEnvironmentGroupLock{} // ensure it implements Transformer
@@ -1993,6 +2148,15 @@ type DeleteEnvironment struct {
 	TransformerMetadata   `json:"metadata"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *DeleteEnvironment) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironment) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &DeleteEnvironment{} // ensure it implements Transformer
@@ -2041,6 +2205,15 @@ type ExtendAAEnvironment struct {
 	Environment           types.EnvName                  `json:"env"`
 	ArgoCDConfig          config.EnvironmentConfigArgoCd `json:"config"`
 	TransformerEslVersion db.TransformerID               `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time                      `json:"-"`
+}
+
+func (c *ExtendAAEnvironment) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *ExtendAAEnvironment) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &ExtendAAEnvironment{} // ensure we implement the interface
@@ -2118,6 +2291,15 @@ type DeleteAAEnvironmentConfig struct {
 	Environment             types.EnvName    `json:"env"`
 	ConcreteEnvironmentName types.EnvName    `json:"concreteEnvName"`
 	TransformerEslVersion   db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp       time.Time        `json:"-"`
+}
+
+func (c *DeleteAAEnvironmentConfig) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteAAEnvironmentConfig) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
 }
 
 var _ Transformer = &DeleteAAEnvironmentConfig{} // ensure we implement the interface

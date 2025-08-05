@@ -627,7 +627,7 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 
 	if r.shouldCreateNewCommit(commitMsg) {
 		// afterTransform only makes sense, if there was a change in this commit:
-		if err := r.afterTransform(ctx, transaction, *state); err != nil {
+		if err := r.afterTransform(ctx, transaction, *state, transformer.GetCreationTimestamp()); err != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 		}
 
@@ -846,7 +846,7 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	return nil
 }
 
-func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State) error {
+func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
@@ -856,7 +856,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	}
 	for env, config := range configs {
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
-			err := r.updateArgoCdApps(ctx, transaction, &state, env, config)
+			err := r.updateArgoCdApps(ctx, transaction, &state, env, config, ts)
 			if err != nil {
 				return err
 			}
@@ -869,7 +869,7 @@ func isAAEnv(config config.EnvironmentConfig) bool {
 	return config.ArgoCdConfigs != nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	if !r.config.ArgoCdGenerateFiles {
@@ -877,7 +877,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	}
 	if isAAEnv(cfg) {
 		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
-			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true)
+			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts)
 			if err != nil {
 				return err
 			}
@@ -895,7 +895,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			conf = cfg.ArgoCd
 		}
 
-		err := r.processApp(ctx, transaction, state, env, nil, conf, false)
+		err := r.processApp(ctx, transaction, state, env, nil, conf, false, ts)
 
 		if err != nil {
 			return err
@@ -904,7 +904,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool) error {
+func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool, ts time.Time) error {
 	prefix := ""
 	if commonEnvPrefix != nil {
 		prefix = *commonEnvPrefix
@@ -915,13 +915,13 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 		ParentEnvironmentName: env,
 		IsAAEnv:               isAAEnv,
 	}
-	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo)
+	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo, ts)
 	return err
 }
 
-func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo) error {
+func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time) error {
 	fs := state.Filesystem
-	if apps, err := state.GetEnvironmentApplications(ctx, transaction, info.ParentEnvironmentName); err != nil {
+	if apps, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp); err != nil {
 		return err
 	} else {
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
@@ -929,14 +929,14 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
 		for _, appName := range apps {
-			oneAppData, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, appName)
+			oneAppData, err := state.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, appName, timestamp)
 			if err != nil {
 				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
 			}
 			if oneAppData == nil {
 				return fmt.Errorf("skipping app '%s' because it was not found in the apps table", appName)
 			}
-			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, info.ParentEnvironmentName, appName)
+			version, err := state.GetEnvironmentApplicationVersionAtTimestamp(ctx, transaction, info.ParentEnvironmentName, appName, timestamp)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -1976,6 +1976,18 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	return depl.ReleaseNumbers, nil
 }
 
+func (s *State) GetEnvironmentApplicationVersionAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string, ts time.Time) (types.ReleaseNumbers, error) {
+	depl, err := s.DBHandler.DBSelectLatestDeploymentAtTimestamp(ctx, transaction, application, environment, ts)
+	if err != nil {
+		return types.MakeEmptyReleaseNumbers(), err
+	}
+	if depl == nil || depl.ReleaseNumbers.Version == nil {
+		return types.MakeEmptyReleaseNumbers(), nil
+	}
+
+	return depl.ReleaseNumbers, nil
+}
+
 func (s *State) GetEnvironmentApplicationVersionFromManifest(environment types.EnvName, application string) (types.ReleaseNumbers, error) {
 	return s.readSymlink(environment, application, "version")
 }
@@ -2024,6 +2036,25 @@ func envExists(envConfigs map[types.EnvName]config.EnvironmentConfig, envNameToS
 
 func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[types.EnvName]config.EnvironmentConfig, error) {
 	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
+	}
+	if dbAllEnvs == nil {
+		return nil, nil
+	}
+	envs, err := s.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
+	}
+	ret := make(map[types.EnvName]config.EnvironmentConfig)
+	for _, env := range *envs {
+		ret[env.Name] = env.Config
+	}
+	return ret, nil
+}
+
+func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) (map[types.EnvName]config.EnvironmentConfig, error) {
+	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironmentsAtTimestamp(ctx, transaction, ts)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
 	}
