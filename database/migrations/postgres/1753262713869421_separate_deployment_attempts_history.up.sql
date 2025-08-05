@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS deployment_attempts_history
     envname VARCHAR NOT NULL,
     appname VARCHAR NOT NULL,
     releaseversion INTEGER,
-    revision VARCHAR
+    revision INTEGER
 );
 CREATE INDEX IF NOT EXISTS deployment_attempts_history_env_app ON deployment_attempts_history (envname, appname);
 
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS deployment_attempts_latest
     envname VARCHAR NOT NULL,
     appname VARCHAR NOT NULL,
     releaseversion INTEGER NOT NULL,
-    revision VARCHAR
+    revision INTEGER
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS deployment_attempts_latest_env_app ON deployment_attempts_latest (envname, appname);
