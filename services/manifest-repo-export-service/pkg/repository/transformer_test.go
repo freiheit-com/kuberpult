@@ -463,11 +463,11 @@ func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 	for _, contentRequirement := range required {
 		if _, err := fs.Stat(contentRequirement.path); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				break
+				return nil
 			}
 			return fmt.Errorf("error on Stat for file %s: %v", contentRequirement.path, err)
 		}
-		return fmt.Errorf("file exists '%s'", contentRequirement.path)
+		return fmt.Errorf("file exists '%s'", contentRequirement.path) //nolint:staticcheck
 	}
 	return nil
 }
