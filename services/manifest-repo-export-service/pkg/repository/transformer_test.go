@@ -463,11 +463,11 @@ func verifyMissing(fs billy.Filesystem, required []*FilenameAndData) error {
 	for _, contentRequirement := range required {
 		if _, err := fs.Stat(contentRequirement.path); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				return nil
+				continue
 			}
 			return fmt.Errorf("error on Stat for file %s: %v", contentRequirement.path, err)
 		}
-		return fmt.Errorf("file exists '%s'", contentRequirement.path) //nolint:staticcheck
+		return fmt.Errorf("file exists '%s'", contentRequirement.path)
 	}
 	return nil
 }
@@ -3176,11 +3176,11 @@ func TestDeleteEnvironment(t *testing.T) {
 			},
 			expectedMissing: []*FilenameAndData{
 				{
-					path:     "/environments/acceptance",
+					path:     "environments/acceptance",
 					fileData: []byte(authorEmail),
 				},
 				{
-					path:     "/argocd/v1alpha1/acceptance.yaml",
+					path:     "argocd/v1alpha1/acceptance.yaml",
 					fileData: []byte(authorEmail),
 				},
 			},
@@ -3660,10 +3660,11 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 	const authorEmail = "testAuthorEmail@example.com"
 	var aaEnvName = "aa"
 	tcs := []struct {
-		Name          string
-		Transformers  []Transformer
-		ExpectedError error
-		ExpectedFile  []*FilenameAndData
+		Name            string
+		Transformers    []Transformer
+		ExpectedError   error
+		ExpectedFile    []*FilenameAndData
+		expectedMissing []*FilenameAndData
 	}{
 		{
 			Name: "Create an AA environment with some Argo config and delete it",
@@ -3701,6 +3702,16 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 					},
 				},
 			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/argocd/v1alpha1/production.yaml",
+					fileData: []byte(""),
+				},
+				{
+					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+					fileData: []byte(""),
+				},
+			},
 			ExpectedFile: []*FilenameAndData{
 				{
 					path: "environments/production/config.json",
@@ -3760,6 +3771,20 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 					},
 				},
 			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/argocd/v1alpha1/production.yaml",
+					fileData: []byte(""),
+				},
+				{
+					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+					fileData: []byte(""),
+				},
+				{
+					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+					fileData: []byte(""),
+				},
+			},
 			ExpectedFile: []*FilenameAndData{
 				{
 					path: "environments/production/config.json",
@@ -3817,6 +3842,16 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 						AuthorName:  authorName,
 						AuthorEmail: authorEmail,
 					},
+				},
+			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/argocd/v1alpha1/production.yaml",
+					fileData: []byte(""),
+				},
+				{
+					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+					fileData: []byte(""),
 				},
 			},
 			ExpectedFile: []*FilenameAndData{
@@ -3876,7 +3911,25 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 					},
 				},
 			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/argocd/v1alpha1/production.yaml",
+					fileData: []byte(""),
+				},
+				{
+					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+					fileData: []byte(""),
+				},
+				{
+					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+					fileData: []byte(""),
+				},
+			},
 			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+					fileData: []byte(""),
+				},
 				{
 					path: "environments/production/config.json",
 					fileData: []byte(
@@ -3899,7 +3952,7 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 			},
 		},
 		{
-			Name: "Deleteing a concrete environment that does not exist has no effect",
+			Name: "Deleting a concrete environment that does not exist has no effect",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "production",
@@ -3941,7 +3994,21 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 					},
 				},
 			},
+			expectedMissing: []*FilenameAndData{
+				{
+					path:     "/argocd/v1alpha1/production.yaml",
+					fileData: []byte(""),
+				},
+			},
 			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+					fileData: []byte(""),
+				},
+				{
+					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+					fileData: []byte(""),
+				},
 				{
 					path: "environments/production/config.json",
 					fileData: []byte(
@@ -4006,6 +4073,9 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 			updatedState := repo.State()
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
 				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
+				t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
 			for i := range tc.ExpectedFile {
 				expectedFile := tc.ExpectedFile[i]

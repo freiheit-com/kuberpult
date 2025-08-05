@@ -2027,11 +2027,12 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 
 	err = fs.Remove(argoCdAppFile)
 	if errors.Is(err, os.ErrNotExist) {
+		fmt.Printf("DeleteEnvironment: environment's argocd app file %q does not exist.\n", argoCdAppFile)
 		logger.FromContext(ctx).Sugar().Warnf("DeleteEnvironment: environment's argocd app file %q does not exist.", envDir)
 	} else if err != nil {
 		return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
 	}
-
+	fmt.Printf("delete environment %q, d.Environment\n", d.Environment)
 	return fmt.Sprintf("delete environment %q", d.Environment), nil
 }
 
@@ -2148,16 +2149,13 @@ func (c *DeleteAAEnvironmentConfig) GetEslVersion() db.TransformerID {
 }
 
 func (c *DeleteAAEnvironmentConfig) Transform(
-	_ context.Context,
+	ctx context.Context,
 	state *State,
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() {
-		//This cannot be a NO-OP, as we need to generate the argocd files after the transformer is executed
-		return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
-	}
 	fs := state.Filesystem
+
 	envDir := fs.Join("environments", string(c.Environment))
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
 		return "", err
@@ -2174,6 +2172,19 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 	err = json.Unmarshal(data, &envConfig)
 	if err != nil {
 		return "", err
+	}
+
+	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", *envConfig.ArgoCdConfigs.CommonEnvPrefix+"-"+string(c.Environment)+"-"+string(c.ConcreteEnvironmentName)))
+
+	err = fs.Remove(argoCdAppFile)
+	if errors.Is(err, os.ErrNotExist) {
+		logger.FromContext(ctx).Sugar().Warnf("AA environment argocd app file %q does not exist.", argoCdAppFile)
+	} else if err != nil {
+		return "", fmt.Errorf("error deleting AA environment's argocd app file %q: %w", argoCdAppFile, err)
+	}
+
+	if tCtx.ShouldMinimizeGitData() {
+		return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
 	}
 
 	for idx, currentConfig := range envConfig.ArgoCdConfigs.ArgoCdConfigurations {
