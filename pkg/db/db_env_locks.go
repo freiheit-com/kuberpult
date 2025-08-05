@@ -339,15 +339,15 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 }
 
 // INSERT, UPDATE, DELETES
-func (h *DBHandler) DBWriteEnvLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvLock")
+func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
 	defer span.Finish()
 
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("DBWriteEnvLock: no transaction provided")
+		return fmt.Errorf("DBWriteEnvironmentLock: no transaction provided")
 	}
 	err := h.upsertEnvLockRow(ctx, tx, lockID, environment, metadata)
 	if err != nil {
@@ -386,15 +386,15 @@ func (h *DBHandler) DBSelectEnvLockSet(ctx context.Context, tx *sql.Tx, environm
 	return envLocks, nil
 }
 
-func (h *DBHandler) DBDeleteEnvLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteEnvLock")
+func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
 	defer span.Finish()
 
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("DBDeleteEnvLock: no transaction provided")
+		return fmt.Errorf("DBDeleteEnvironmentLock: no transaction provided")
 	}
 	existingEnvLock, err := h.DBSelectEnvLock(ctx, tx, environment, lockID)
 

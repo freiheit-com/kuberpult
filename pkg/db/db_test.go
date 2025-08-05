@@ -1279,7 +1279,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				envLock, err2 := dbHandler.DBSelectEnvLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
 				}
@@ -1505,7 +1505,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				envLock, err2 := dbHandler.DBSelectEnvLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
 				}
@@ -2291,7 +2291,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				envLock, err2 := dbHandler.DBSelectEnvLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
 				}
@@ -5229,9 +5229,9 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, envLock := range tc.EnvironmentLocks {
-					err := dbHandler.DBWriteEnvironmentLockInternal(ctx, transaction, envLock, envLock.EslVersion-1)
+					err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, envLock.LockID, envLock.Env, envLock.Metadata)
 					if err != nil {
-						return fmt.Errorf("error while writing release, error: %w", err)
+						return fmt.Errorf("error while writing env lock, error: %w", err)
 					}
 				}
 				envLocks, err := dbHandler.DBSelectAllEnvLocksOfAllEnvs(ctx, transaction)

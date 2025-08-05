@@ -1421,7 +1421,7 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 				Deleted: false,
 			}
 			activeLockIds = append(activeLockIds, currentEnv.LockID)
-			err = dbHandler.DBWriteEnvLock(ctx, transaction, currentEnv.LockID, currentEnv.Env, currentEnv.Metadata)
+			err = dbHandler.DBWriteEnvironmentLock(ctx, transaction, currentEnv.LockID, currentEnv.Env, currentEnv.Metadata)
 			if err != nil {
 				return fmt.Errorf("error writing environment locks to DB for environment %s: %w",
 					envName, err)

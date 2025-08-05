@@ -1467,7 +1467,7 @@ func (c *CreateEnvironmentLock) Transform(
 		metadata.SuggestedLifeTime = *c.SuggestedLifeTime
 	}
 
-	errW := state.DBHandler.DBWriteEnvLock(ctx, transaction, c.LockId, envName, metadata)
+	errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, envName, metadata)
 	if errW != nil {
 		return "", errW
 	}
@@ -1513,7 +1513,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
 		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
-	err = state.DBHandler.DBDeleteEnvLock(ctx, transaction, envName, c.LockId)
+	err = state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId)
 	if err != nil {
 		return "", err
 	}
