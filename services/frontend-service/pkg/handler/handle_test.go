@@ -2116,7 +2116,6 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 		req                  *http.Request
 		batchResponse        *api.BatchResponse
 		expectedResp         *http.Response
-		expectedBody         string
 		expectedBatchRequest *api.BatchRequest
 	}{
 		{
@@ -2132,8 +2131,8 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader([]byte(""))),
 			},
-			expectedBody: "",
 			expectedBatchRequest: &api.BatchRequest{
 				Actions: []*api.BatchAction{
 					{
@@ -2157,8 +2156,8 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte("cluster function does not support http method 'PUT'\n"))),
 			},
-			expectedBody: "cluster function does not support http method 'PUT'\n",
 		},
 		{
 			name: "Some extra arguments",
@@ -2170,8 +2169,8 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte("Delete Active/Active environment config does not accept any extra arguments, got: '/this-should-not-be-here'\n"))),
 			},
-			expectedBody: "Delete Active/Active environment config does not accept any extra arguments, got: '/this-should-not-be-here'\n",
 		},
 	}
 	for _, tt := range tests {
@@ -2199,8 +2198,12 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 			if err != nil {
 				t.Errorf("error reading response body: %s", err)
 			}
-			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
-				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tt.expectedBody, d)
+			expectedBody, err := io.ReadAll(tt.expectedResp.Body)
+			if err != nil {
+				t.Errorf("error reading expected body: %s", err)
+			}
+			if d := cmp.Diff(string(expectedBody), string(body)); d != "" {
+				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), string(expectedBody), d)
 			}
 			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create batch request mismatch: %s", d)
