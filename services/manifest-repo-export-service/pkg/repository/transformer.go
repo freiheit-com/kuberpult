@@ -2174,7 +2174,7 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 	if err != nil {
 		return "", fmt.Errorf("error writing environment configuration to manifest repository: %w", err)
 	}
-	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
+	return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
 }
 
 func writeEnvironmentConfigurationToManifestRepo(fs billy.Filesystem, configFile string, envConfig config.EnvironmentConfig) error {
