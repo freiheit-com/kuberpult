@@ -453,6 +453,9 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
 		} else if diff := cmp.Diff(string(data), string(contentRequirement.fileData)); diff != "" {
+			fmt.Println(string(data))
+			fmt.Println("---")
+			fmt.Println(string(contentRequirement.fileData))
 			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s", contentRequirement.path, diff)
 		}
 	}
@@ -3878,8 +3881,19 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
-					fileData: []byte(""),
+					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-production-some-concrete-env-name-2
+spec:
+  description: aa-production-some-concrete-env-name-2
+  destinations:
+  - name: some-destination-2
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
 				},
 				{
 					path: "environments/production/config.json",
@@ -3947,12 +3961,34 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
-					fileData: []byte(""),
+					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-production-some-concrete-env-name-1
+spec:
+  description: aa-production-some-concrete-env-name-1
+  destinations:
+  - name: some-destination-1
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
 				},
 				{
-					path:     "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
-					fileData: []byte(""),
+					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-production-some-concrete-env-name-2
+spec:
+  description: aa-production-some-concrete-env-name-2
+  destinations:
+  - name: some-destination-2
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
 				},
 				{
 					path: "environments/production/config.json",
