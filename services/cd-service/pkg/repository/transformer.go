@@ -2197,6 +2197,8 @@ type DeleteAAEnvironmentConfig struct {
 	TransformerEslVersion   db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
+var _ Transformer = (*DeleteAAEnvironmentConfig)(nil) // ensure we implement the interface
+
 func (c *DeleteAAEnvironmentConfig) GetDBEventType() db.EventType {
 	return db.EvtExtendAAEnvironment
 }
@@ -2250,7 +2252,7 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, env.Applications)
 
 		if err != nil {
-			return "", fmt.Errorf("could not delete configuration from Active/Active environment: %q. %w", envName, err)
+			return "", fmt.Errorf("could not delete configuration from Active/Active environment %q. Error writing environment into database: %w", envName, err)
 		}
 	}
 	return fmt.Sprintf("Successfully deleted ArgoCD configuration from '%s'", c.Environment), nil
