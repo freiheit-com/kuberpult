@@ -1467,34 +1467,9 @@ func (c *CreateEnvironmentLock) Transform(
 		metadata.SuggestedLifeTime = *c.SuggestedLifeTime
 	}
 
-	errW := state.DBHandler.DBWriteEnvironmentLock(ctx, transaction, c.LockId, envName, metadata)
+	errW := state.DBHandler.DBWriteEnvLock(ctx, transaction, c.LockId, envName, metadata)
 	if errW != nil {
 		return "", errW
-	}
-
-	//Add it to all locks
-	allEnvLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envName)
-	if err != nil {
-		return "", err
-	}
-
-	if allEnvLocks == nil {
-		allEnvLocks = &db.AllEnvLocksGo{
-			Version: 1,
-			AllEnvLocksJson: db.AllEnvLocksJson{
-				EnvLocks: []string{},
-			},
-			Created:     *now,
-			Environment: c.Environment,
-		}
-	}
-
-	if !slices.Contains(allEnvLocks.EnvLocks, c.LockId) {
-		allEnvLocks.EnvLocks = append(allEnvLocks.EnvLocks, c.LockId)
-		err := state.DBHandler.DBWriteAllEnvironmentLocks(ctx, transaction, allEnvLocks.Version, envName, allEnvLocks.EnvLocks)
-		if err != nil {
-			return "", err
-		}
 	}
 	GaugeEnvLockMetric(ctx, state, transaction, envName)
 	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
@@ -1538,21 +1513,9 @@ func (c *DeleteEnvironmentLock) Transform(
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
 		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
-	err = s.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId)
+	err = state.DBHandler.DBDeleteEnvLock(ctx, transaction, envName, c.LockId)
 	if err != nil {
 		return "", err
-	}
-	allEnvLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envName)
-	if err != nil {
-		return "", fmt.Errorf("DeleteEnvironmentLock: could not select all env locks '%v': '%w'", envName, err)
-	}
-	var locks []string
-	if allEnvLocks != nil {
-		locks = db.Remove(allEnvLocks.EnvLocks, c.LockId)
-		err = state.DBHandler.DBWriteAllEnvironmentLocks(ctx, transaction, allEnvLocks.Version, envName, locks)
-		if err != nil {
-			return "", fmt.Errorf("DeleteEnvironmentLock: could not write env locks '%v': '%w'", c.Environment, err)
-		}
 	}
 
 	additionalMessageFromDeployment, err := s.ProcessQueueAllApps(ctx, transaction, envName)
@@ -2032,11 +1995,11 @@ func (c *DeleteEnvironment) Transform(
 	}
 
 	/*Check for locks*/
-	envLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envName)
+	envLocks, err := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, envName)
 	if err != nil {
 		return "", err
 	}
-	if envLocks != nil && len(envLocks.EnvLocks) != 0 {
+	if len(envLocks) != 0 {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment locks for this environment exist", c.Environment))
 	}
 

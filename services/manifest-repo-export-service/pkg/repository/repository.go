@@ -627,6 +627,8 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 
 	if r.shouldCreateNewCommit(commitMsg) {
 		// afterTransform only makes sense, if there was a change in this commit:
+
+		//GET THE TIMESTAMP HERE
 		if err := r.afterTransform(ctx, transaction, *state); err != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 		}
