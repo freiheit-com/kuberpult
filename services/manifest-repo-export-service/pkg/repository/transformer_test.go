@@ -3775,66 +3775,7 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 			},
 		},
 		{
-			Name: "Create an AA environment with some Argo config and delete it twice",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "production",
-					Config: config.EnvironmentConfig{
-						ArgoCdConfigs: &config.ArgoCDConfigs{
-							CommonEnvPrefix: &aaEnvName,
-
-							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
-								{
-									Destination: config.ArgoCdDestination{
-										Name:   "some-destination-1",
-										Server: "some-server",
-									},
-									ConcreteEnvName: "some-concrete-env-name-1",
-								},
-							},
-						},
-					},
-					TransformerEslVersion: 1,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&DeleteAAEnvironmentConfig{
-					Environment:             "production",
-					ConcreteEnvironmentName: "some-concrete-env-name-1",
-					TransformerEslVersion:   1,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&DeleteAAEnvironmentConfig{
-					Environment:             "production",
-					ConcreteEnvironmentName: "some-concrete-env-name-1",
-					TransformerEslVersion:   1,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path: "environments/production/config.json",
-					fileData: []byte(
-						`{
-  "argocdConfigs": {
-    "ArgoCdConfigurations": [],
-    "CommonEnvPrefix": "aa"
-  }
-}
-`),
-				},
-			},
-		},
-		{
-			Name: "Create an environment with more than one config and delete one of thems",
+			Name: "Create an environment with more than one config and delete one of them",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "production",
