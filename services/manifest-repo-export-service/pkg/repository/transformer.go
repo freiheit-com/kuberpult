@@ -2100,28 +2100,6 @@ func (c *ExtendAAEnvironment) Transform(
 	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
 }
 
-func writeEnvironmentConfigurationToManifestRepo(fs billy.Filesystem, configFile string, envConfig config.EnvironmentConfig) error {
-	err := fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
-	if err != nil {
-		return fmt.Errorf("error removing environment config file: %w", err)
-	}
-	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return fmt.Errorf("error creating config: %w", err)
-	}
-	enc := json.NewEncoder(file)
-	enc.SetIndent("", "  ")
-
-	if err := enc.Encode(envConfig); err != nil {
-		return fmt.Errorf("error writing json: %w", err)
-	}
-	err = file.Close()
-	if err != nil {
-		return fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
-	}
-	return nil
-}
-
 type DeleteAAEnvironmentConfig struct {
 	Authentication          `json:"-"`
 	TransformerMetadata     `json:"metadata"`
@@ -2201,37 +2179,24 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
 }
 
-type DeleteAAEnvironmentConfig struct {
-	Authentication          `json:"-"`
-	TransformerMetadata     `json:"metadata"`
-	Environment             types.EnvName    `json:"env"`
-	ConcreteEnvironmentName types.EnvName    `json:"concreteEnvName"`
-	TransformerEslVersion   db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-}
+func writeEnvironmentConfigurationToManifestRepo(fs billy.Filesystem, configFile string, envConfig config.EnvironmentConfig) error {
+	err := fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
+	if err != nil {
+		return fmt.Errorf("error removing environment config file: %w", err)
+	}
+	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("error creating config: %w", err)
+	}
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "  ")
 
-var _ Transformer = &DeleteAAEnvironmentConfig{} // ensure we implement the interface
-
-func (c *DeleteAAEnvironmentConfig) GetGitTag() types.GitTag {
-	return ""
-}
-
-func (c *DeleteAAEnvironmentConfig) GetDBEventType() db.EventType {
-	return db.EvtDeleteAAEnvironmentConfig
-}
-
-func (c *DeleteAAEnvironmentConfig) SetEslVersion(id db.TransformerID) {
-	c.TransformerEslVersion = id
-}
-
-func (c *DeleteAAEnvironmentConfig) GetEslVersion() db.TransformerID {
-	return c.TransformerEslVersion
-}
-
-func (c *DeleteAAEnvironmentConfig) Transform(
-	_ context.Context,
-	_ *State,
-	_ TransformerContext,
-	_ *sql.Tx,
-) (string, error) {
-	return GetNoOpMessage(c)
+	if err := enc.Encode(envConfig); err != nil {
+		return fmt.Errorf("error writing json: %w", err)
+	}
+	err = file.Close()
+	if err != nil {
+		return fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+	}
+	return nil
 }
