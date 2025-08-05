@@ -2120,6 +2120,8 @@ type DeleteAAEnvironmentConfig struct {
 	TransformerEslVersion   db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
+var _ Transformer = &DeleteAAEnvironmentConfig{} // ensure we implement the interface
+
 func (c *DeleteAAEnvironmentConfig) GetGitTag() types.GitTag {
 	return ""
 }
