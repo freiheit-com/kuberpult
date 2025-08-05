@@ -2091,25 +2091,34 @@ func (c *ExtendAAEnvironment) Transform(
 	}
 
 	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
-	err = fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
+
+	err = writeEnvironmentConfigurationToManifestRepo(fs, configFile, envConfig)
 	if err != nil {
-		return "", fmt.Errorf("error removing environment config file: %w", err)
+		return "", err
+	}
+	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
+}
+
+func writeEnvironmentConfigurationToManifestRepo(fs billy.Filesystem, configFile string, envConfig config.EnvironmentConfig) error {
+	err := fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
+	if err != nil {
+		return fmt.Errorf("error removing environment config file: %w", err)
 	}
 	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		return "", fmt.Errorf("error creating config: %w", err)
+		return fmt.Errorf("error creating config: %w", err)
 	}
 	enc := json.NewEncoder(file)
 	enc.SetIndent("", "  ")
 
 	if err := enc.Encode(envConfig); err != nil {
-		return "", fmt.Errorf("error writing json: %w", err)
+		return fmt.Errorf("error writing json: %w", err)
 	}
 	err = file.Close()
 	if err != nil {
-		return "", fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+		return fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
 	}
-	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
+	return nil
 }
 
 type DeleteAAEnvironmentConfig struct {
@@ -2166,41 +2175,17 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 	if err != nil {
 		return "", err
 	}
-	configs := envConfig.ArgoCdConfigs.ArgoCdConfigurations
-	foundIdx := -1
+
 	for idx, currentConfig := range envConfig.ArgoCdConfigs.ArgoCdConfigurations {
 		if types.EnvName(currentConfig.ConcreteEnvName) == c.ConcreteEnvironmentName {
-			foundIdx = idx
+			envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations[:idx], envConfig.ArgoCdConfigs.ArgoCdConfigurations[idx+1:]...)
 			break
 		}
 	}
 
-	//We don't error out when we don't find this concrete enviroment config to make this operation idempotent
-	if foundIdx != -1 {
-		configs = append(configs[:foundIdx], configs[foundIdx+1:]...)
-		slices.SortFunc(configs, func(d1 *config.EnvironmentConfigArgoCd, d2 *config.EnvironmentConfigArgoCd) int {
-			return strings.Compare(d1.ConcreteEnvName, d2.ConcreteEnvName)
-		})
-		envConfig.ArgoCdConfigs.ArgoCdConfigurations = configs
-	}
-
-	err = fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
+	err = writeEnvironmentConfigurationToManifestRepo(fs, configFile, envConfig)
 	if err != nil {
-		return "", fmt.Errorf("error removing environment config file: %w", err)
-	}
-	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return "", fmt.Errorf("error creating config: %w", err)
-	}
-	enc := json.NewEncoder(file)
-	enc.SetIndent("", "  ")
-
-	if err := enc.Encode(envConfig); err != nil {
-		return "", fmt.Errorf("error writing json: %w", err)
-	}
-	err = file.Close()
-	if err != nil {
-		return "", fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+		return "", fmt.Errorf("error writing environment configuration to manifest repository: %w", err)
 	}
 	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
 }
