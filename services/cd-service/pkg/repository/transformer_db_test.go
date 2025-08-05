@@ -1497,7 +1497,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
-				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "EslVersion", "Created")); diff != "" {
+				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -1560,7 +1560,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 				if err2 != nil {
 					return fmt.Errorf("error: %v", err2)
 				}
-				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "EslVersion", "Created")); diff != "" {
+				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
