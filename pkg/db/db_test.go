@@ -2360,9 +2360,8 @@ func TestQueueApplicationVersion(t *testing.T) {
 			},
 			ExpectedDeployments: []QueuedDeployment{
 				{
-					EslVersion: 1,
-					Env:        envName,
-					App:        appName,
+					Env: envName,
+					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(0),
@@ -2392,18 +2391,16 @@ func TestQueueApplicationVersion(t *testing.T) {
 			},
 			ExpectedDeployments: []QueuedDeployment{
 				{
-					EslVersion: 2,
-					Env:        envName,
-					App:        appName,
+					Env: envName,
+					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(1),
 					},
 				},
 				{
-					EslVersion: 1,
-					Env:        envName,
-					App:        appName,
+					Env: envName,
+					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(0),
@@ -2464,18 +2461,16 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 			},
 			ExpectedDeployments: []QueuedDeployment{
 				{
-					EslVersion: 2,
-					Env:        envName,
-					App:        appName,
+					Env: envName,
+					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  nil,
 					},
 				},
 				{
-					EslVersion: 1,
-					Env:        envName,
-					App:        appName,
+					Env: envName,
+					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(1),
@@ -2549,9 +2544,8 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 					},
 				},
 				{
-					EslVersion: 2,
-					Env:        "staging",
-					App:        appName,
+					Env: "staging",
+					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(1),
@@ -2568,18 +2562,16 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 			},
 			ExpectedDeployments: []*QueuedDeployment{
 				{
-					EslVersion: 1,
-					Env:        "dev",
-					App:        appName,
+					Env: "dev",
+					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
 				{
-					EslVersion: 2,
-					Env:        "staging",
-					App:        appName,
+					Env: "staging",
+					App: appName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(1),
@@ -2659,9 +2651,8 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 					},
 				},
 				{
-					EslVersion: 2,
-					Env:        envName,
-					App:        "bar",
+					Env: envName,
+					App: "bar",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(1),
@@ -2678,18 +2669,16 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 			},
 			ExpectedDeployments: []*QueuedDeployment{
 				{
-					EslVersion: 1,
-					Env:        envName,
-					App:        "foo",
+					Env: envName,
+					App: "foo",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(0),
 					},
 				},
 				{
-					EslVersion: 2,
-					Env:        envName,
-					App:        "bar",
+					Env: envName,
+					App: "bar",
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
 						Version:  uversion(1),
