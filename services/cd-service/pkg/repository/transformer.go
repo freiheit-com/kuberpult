@@ -2200,7 +2200,7 @@ type DeleteAAEnvironmentConfig struct {
 var _ Transformer = (*DeleteAAEnvironmentConfig)(nil) // ensure we implement the interface
 
 func (c *DeleteAAEnvironmentConfig) GetDBEventType() db.EventType {
-	return db.EvtExtendAAEnvironment
+	return db.EvtDeleteAAEnvironmentConfig
 }
 
 func (c *DeleteAAEnvironmentConfig) SetEslVersion(id db.TransformerID) {
