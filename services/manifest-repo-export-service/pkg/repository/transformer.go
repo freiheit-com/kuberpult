@@ -2133,9 +2133,6 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 	fs := state.Filesystem
 
 	envDir := fs.Join("environments", string(c.Environment))
-	if err := fs.MkdirAll(envDir, 0777); err != nil {
-		return "", err
-	}
 
 	configFile := fs.Join(envDir, "config.json")
 
@@ -2150,8 +2147,10 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 		return "", err
 	}
 
-	argoCdAppFile := getArgoCdAAEnvFileName(fs, types.EnvName(*envConfig.ArgoCdConfigs.CommonEnvPrefix), c.Environment, c.ConcreteEnvironmentName)
-
+	if envConfig.ArgoCdConfigs.CommonEnvPrefix == nil {
+		return "", fmt.Errorf("could not read CommonEnvPrefix for AA environment %q", c.Environment)
+	}
+	argoCdAppFile := getArgoCdAAEnvFileName(fs, types.EnvName(*envConfig.ArgoCdConfigs.CommonEnvPrefix), c.Environment, c.ConcreteEnvironmentName, true)
 	err = fs.Remove(argoCdAppFile)
 	if errors.Is(err, os.ErrNotExist) {
 		logger.FromContext(ctx).Sugar().Warnf("AA environment argocd app file %q does not exist.", argoCdAppFile)
@@ -2175,11 +2174,6 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 		return "", fmt.Errorf("error writing environment configuration to manifest repository: %w", err)
 	}
 	return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
-}
-
-func getArgoCdAAEnvFileName(fs billy.Filesystem, commonEnvPrefix, parentEnvironmentName, concreteEnvironmentName types.EnvName) string {
-	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(commonEnvPrefix)+"-"+string(parentEnvironmentName)+"-"+string(concreteEnvironmentName)))
-	return argoCdAppFile
 }
 
 func writeEnvironmentConfigurationToManifestRepo(fs billy.Filesystem, configFile string, envConfig config.EnvironmentConfig) error {
