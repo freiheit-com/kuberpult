@@ -968,7 +968,6 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 					return err
 				}
 				target := getArgoCdAAEnvFileName(fs, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
-				//target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", info.GetFullyQualifiedName()))
 				if err := util.WriteFile(fs, target, content, 0666); err != nil {
 					return err
 				}
