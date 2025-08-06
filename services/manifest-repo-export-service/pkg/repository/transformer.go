@@ -2178,7 +2178,7 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 }
 
 func writeEnvironmentConfigurationToManifestRepo(fs billy.Filesystem, configFile string, envConfig config.EnvironmentConfig) error {
-	err := fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
+	err := fs.Remove(configFile) // If we do not remove the file, it behaves like an "append" not an "overwrite". Removing the file and recreating it resulted in the correct output in the file.
 	if err != nil {
 		return fmt.Errorf("error removing environment config file: %w", err)
 	}
