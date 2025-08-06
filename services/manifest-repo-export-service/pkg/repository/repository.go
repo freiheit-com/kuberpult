@@ -967,7 +967,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
 				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", info.GetFullyQualifiedName()))
+				target := getArgoCdAAEnvFileName(fs, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
 				if err := util.WriteFile(fs, target, content, 0666); err != nil {
 					return err
 				}
@@ -975,6 +975,13 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		}
 	}
 	return nil
+}
+
+func getArgoCdAAEnvFileName(fs billy.Filesystem, commonEnvPrefix, parentEnvironmentName, concreteEnvironmentName types.EnvName, isAAEnv bool) string {
+	if !isAAEnv {
+		return fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(parentEnvironmentName)))
+	}
+	return fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(commonEnvPrefix)+"-"+string(parentEnvironmentName)+"-"+string(concreteEnvironmentName)))
 }
 
 func (r *repository) State() *State {
