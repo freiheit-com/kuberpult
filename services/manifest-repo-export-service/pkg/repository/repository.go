@@ -981,8 +981,7 @@ func getArgoCdAAEnvFileName(fs billy.Filesystem, commonEnvPrefix, parentEnvironm
 	if !isAAEnv {
 		return fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(parentEnvironmentName)))
 	}
-	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(commonEnvPrefix)+"-"+string(parentEnvironmentName)+"-"+string(concreteEnvironmentName)))
-	return argoCdAppFile
+	return fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(commonEnvPrefix)+"-"+string(parentEnvironmentName)+"-"+string(concreteEnvironmentName)))
 }
 
 func (r *repository) State() *State {
