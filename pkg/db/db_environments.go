@@ -286,7 +286,8 @@ func (h *DBHandler) DBSelectAllEnvironmentsAtTimestamp(ctx context.Context, tran
 	JOIN
 		environments_history AS environments_history
 	ON
-		latest.name=environments_history.name;
+	    latest.latest=environments_history.version
+		AND latest.name=environments_history.name;
 `)
 
 	rows, err := transaction.QueryContext(ctx, selectQuery, ts)

@@ -453,6 +453,9 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
 		} else if diff := cmp.Diff(string(data), string(contentRequirement.fileData)); diff != "" {
+			fmt.Println(string(data))
+			fmt.Println("////////////////")
+			fmt.Println(string(contentRequirement.fileData))
 			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s", contentRequirement.path, diff)
 		}
 	}
@@ -3325,6 +3328,9 @@ spec:
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
 			dbHandler := repo.State().DBHandler
+			for idx, tr := range tc.Transformers {
+				tr.SetCreationTimestamp(createTimestamp(int64(idx)))
+			}
 			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
 				// setup:
 				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
@@ -3822,6 +3828,8 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 		concreteTransformer := tr.(*DeployApplicationVersion)
 		err2 := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 			App:            concreteTransformer.Application,
+			Env:            concreteTransformer.Environment,
+			Created:        concreteTransformer.CreationTimestamp,
 			ReleaseNumbers: types.MakeReleaseNumbers(concreteTransformer.Version, concreteTransformer.Revision),
 			Metadata: db.DeploymentMetadata{
 				DeployedByEmail: authorEmail,
@@ -3844,7 +3852,8 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 				Version:  &concreteTransformer.Version,
 				Revision: concreteTransformer.Revision,
 			},
-			App: concreteTransformer.Application,
+			Created: concreteTransformer.CreationTimestamp,
+			App:     concreteTransformer.Application,
 			Manifests: db.DBReleaseManifests{
 				Manifests: concreteTransformer.Manifests,
 			},

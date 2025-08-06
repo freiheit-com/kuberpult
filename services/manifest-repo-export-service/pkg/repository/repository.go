@@ -626,7 +626,6 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	result := CombineArray(changes)
 
 	if r.shouldCreateNewCommit(commitMsg) {
-		// afterTransform only makes sense, if there was a change in this commit:
 		if err := r.afterTransform(ctx, transaction, *state, transformer.GetCreationTimestamp()); err != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 		}
@@ -927,7 +926,6 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
-		sort.Strings(apps)
 		for _, appName := range apps {
 			oneAppData, err := state.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, appName, timestamp)
 			if err != nil {
@@ -2058,13 +2056,16 @@ func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, t
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
 	}
+	fmt.Println("dbAllEnvs")
+	fmt.Println(dbAllEnvs)
 	if dbAllEnvs == nil || len(dbAllEnvs) == 0 {
 		return nil, nil
 	}
-	envs, err := s.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs)
+	envs, err := s.DBHandler.DBSelectEnvironmentsBatchAtTimestamp(ctx, transaction, dbAllEnvs, ts)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
 	}
+	fmt.Println(envs)
 	ret := make(map[types.EnvName]config.EnvironmentConfig)
 	for _, env := range *envs {
 		ret[env.Name] = env.Config

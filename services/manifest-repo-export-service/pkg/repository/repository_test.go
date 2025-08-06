@@ -382,6 +382,10 @@ func TestGetTags(t *testing.T) {
 	}
 }
 
+func createTimestamp(index int64) time.Time {
+	return time.Unix(32503680000+index, 0) //32503680000 is the year 3000
+}
+
 func TestArgoCDFileGeneration(t *testing.T) {
 	transformers := []Transformer{
 		&CreateEnvironment{
@@ -579,7 +583,9 @@ func TestArgoCDFileGeneration(t *testing.T) {
 			repo := r.(*repository)
 			repo.config.ArgoCdGenerateFiles = tc.shouldGenerateFiles
 			ctx := testutil.MakeTestContext()
-
+			for idx, tr := range tc.TransformerSetup {
+				tr.SetCreationTimestamp(createTimestamp(int64(idx)))
+			}
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{Team: "test"})
 				if err != nil {
@@ -687,7 +693,186 @@ func TestArgoCDFileGeneration(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
 
+func TestArgoCDFileGenerationAcrossTimestamps(t *testing.T) {
+	type Step struct {
+		Transformers        []Transformer
+		ExpectedFiles       []*FilenameAndData
+		ExpectedMissing     []*FilenameAndData
+		shouldGenerateFiles bool
+	}
+	tcs := []struct {
+		Name  string
+		Steps []Step
+	}{
+		{
+			Name: "Create argo files for normal env ",
+			Steps: []Step{
+				{
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+					Transformers: []Transformer{
+						&CreateEnvironment{
+							Environment: "production",
+							Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+								Destination: config.ArgoCdDestination{
+									Server: "development",
+								},
+							}},
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&CreateApplicationVersion{
+							Application: "test",
+							Manifests: map[types.EnvName]string{
+								"production": "manifest",
+							},
+							Version:             1,
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&DeployApplicationVersion{
+							Application:         "test",
+							Environment:         "production",
+							Version:             1,
+							Revision:            0,
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests
+    com.freiheit.kuberpult/aa-parent-environment: production
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: production
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: production-test
+spec:
+  destination:
+    server: development
+  project: production
+  source:
+    path: environments/production/applications/test/manifests
+    repoURL: test
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`),
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			repo.config.ArgoCdGenerateFiles = true
+			ctx := testutil.MakeTestContext()
+			for _, step := range tc.Steps {
+				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					ts, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+					if err != nil {
+						return err
+					}
+					for _, tr := range step.Transformers {
+						tr.SetCreationTimestamp(*ts)
+						prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "authorEmail", "authorName")
+					}
+					return nil
+				})
+			}
+			for _, currentStep := range tc.Steps {
+				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					for i, tr := range currentStep.Transformers {
+						/*
+							The Generated argo files pick up the URL from the config.
+							On unit tests this depends on the temporary directory the test is being run in.
+						*/
+						oldUrl := r.(*repository).config.URL
+						r.(*repository).config.URL = "test"
+						_, applyErr := repo.ApplyTransformer(ctx, transaction, tr)
+						if applyErr != nil {
+							t.Fatalf("Unexpected error applying transformer[%d]: Error: %v", i, applyErr)
+						}
+						r.(*repository).config.URL = oldUrl //Re-instate URL, in case it is needed somewhere else
+
+					}
+					return nil
+				})
+
+				state := repo.State() //update state
+				if err := verifyMissing(state.Filesystem, currentStep.ExpectedMissing); err != nil {
+					t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
+				}
+				if err := verifyContent(state.Filesystem, currentStep.ExpectedFiles); err != nil {
+					t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
+				}
+			}
 		})
 	}
 }
@@ -1815,7 +2000,6 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 			repo, _, _ := SetupRepositoryTestWithDB(t)
 			repo.(*repository).ddMetrics = client
 			dbHandler := repo.State().DBHandler
-
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, 0, tc.SyncedFailedApps, db.SYNC_FAILED)
 				if err != nil {
