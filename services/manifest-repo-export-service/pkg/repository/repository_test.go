@@ -698,6 +698,10 @@ func TestArgoCDFileGeneration(t *testing.T) {
 }
 
 func TestArgoCDFileGenerationAcrossTimestamps(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	var aaEnvName = "aa"
 	type Step struct {
 		Transformers        []Transformer
 		ExpectedFiles       []*FilenameAndData
@@ -709,7 +713,7 @@ func TestArgoCDFileGenerationAcrossTimestamps(t *testing.T) {
 		Steps []Step
 	}{
 		{
-			Name: "Create argo files for normal env ",
+			Name: "Create argo files for normal env",
 			Steps: []Step{
 				{
 					ExpectedFiles: []*FilenameAndData{
@@ -825,6 +829,213 @@ spec:
 				},
 			},
 		},
+		{
+			Name: "Create argo files for AA environment",
+			Steps: []Step{
+				{
+					Transformers: []Transformer{
+						&CreateEnvironment{
+							Environment: "production",
+							Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+								Destination: config.ArgoCdDestination{
+									Server: "development",
+								},
+							}},
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedMissing: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/some-concrete-env-name-2.yaml",
+						},
+						{
+							path: "argocd/v1alpha1/some-concrete-env-name-1.yaml",
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&CreateApplicationVersion{
+							Application: "test",
+							Manifests: map[types.EnvName]string{
+								"production": "manifest",
+							},
+							Version:             1,
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedMissing: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/some-concrete-env-name-2.yaml",
+						},
+						{
+							path: "argocd/v1alpha1/some-concrete-env-name-1.yaml",
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&DeployApplicationVersion{
+							Application:         "test",
+							Environment:         "production",
+							Version:             1,
+							Revision:            0,
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedMissing: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+						},
+						{
+							path: "argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests
+    com.freiheit.kuberpult/aa-parent-environment: production
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: production
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: production-test
+spec:
+  destination:
+    server: development
+  project: production
+  source:
+    path: environments/production/applications/test/manifests
+    repoURL: test
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`),
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&CreateEnvironment{
+							Environment: "aa-test",
+							Config: config.EnvironmentConfig{
+								ArgoCdConfigs: &config.ArgoCDConfigs{
+									CommonEnvPrefix: &aaEnvName,
+
+									ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+										{
+											Destination: config.ArgoCdDestination{
+												Name:   "some-destination-1",
+												Server: "some-server",
+											},
+											ConcreteEnvName: "some-concrete-env-name-1",
+										},
+										{
+											Destination: config.ArgoCdDestination{
+												Name:   "some-destination-2",
+												Server: "some-server",
+											},
+											ConcreteEnvName: "some-concrete-env-name-2",
+										},
+									},
+								},
+							},
+							TransformerEslVersion: 1,
+							TransformerMetadata: TransformerMetadata{
+								AuthorName:  authorName,
+								AuthorEmail: authorEmail,
+							},
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/aa-aa-test-some-concrete-env-name-1.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-aa-test-some-concrete-env-name-1
+spec:
+  description: aa-aa-test-some-concrete-env-name-1
+  destinations:
+  - name: some-destination-1
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
+						},
+						{
+							path: "argocd/v1alpha1/aa-aa-test-some-concrete-env-name-2.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-aa-test-some-concrete-env-name-2
+spec:
+  description: aa-aa-test-some-concrete-env-name-2
+  destinations:
+  - name: some-destination-2
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -846,7 +1057,7 @@ spec:
 					return nil
 				})
 			}
-			for _, currentStep := range tc.Steps {
+			for si, currentStep := range tc.Steps {
 				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					for i, tr := range currentStep.Transformers {
 						/*
@@ -857,7 +1068,7 @@ spec:
 						r.(*repository).config.URL = "test"
 						_, applyErr := repo.ApplyTransformer(ctx, transaction, tr)
 						if applyErr != nil {
-							t.Fatalf("Unexpected error applying transformer[%d]: Error: %v", i, applyErr)
+							t.Fatalf("Unexpected error applying transformer[%d] on step[%d]: Error: %v", i, si, applyErr)
 						}
 						r.(*repository).config.URL = oldUrl //Re-instate URL, in case it is needed somewhere else
 

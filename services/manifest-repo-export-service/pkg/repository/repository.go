@@ -2056,8 +2056,6 @@ func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, t
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
 	}
-	fmt.Println("dbAllEnvs")
-	fmt.Println(dbAllEnvs)
 	if dbAllEnvs == nil || len(dbAllEnvs) == 0 {
 		return nil, nil
 	}
@@ -2065,7 +2063,6 @@ func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, t
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
 	}
-	fmt.Println(envs)
 	ret := make(map[types.EnvName]config.EnvironmentConfig)
 	for _, env := range *envs {
 		ret[env.Name] = env.Config
