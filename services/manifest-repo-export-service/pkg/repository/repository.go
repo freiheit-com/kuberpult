@@ -850,7 +850,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
-	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+	configs, err := state.GetAllEnvironmentConfigsFromDBAtTimestamp(ctx, transaction, ts)
 	if err != nil {
 		return err
 	}
@@ -2058,7 +2058,7 @@ func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, t
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
 	}
-	if dbAllEnvs == nil {
+	if dbAllEnvs == nil || len(dbAllEnvs) == 0 {
 		return nil, nil
 	}
 	envs, err := s.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs)

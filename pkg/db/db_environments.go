@@ -152,6 +152,83 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 	return &envs, nil
 }
 
+func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx *sql.Tx, environmentNames []types.EnvName, ts time.Time) (*[]DBEnvironment, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatchAtTimestamp")
+	defer span.Finish()
+	if len(environmentNames) > WhereInBatchMax {
+		return nil, fmt.Errorf("error: DBSelectEnvironmentsBatchAtTimestamp is not batching queries for now, make sure to not request more than %d environments", WhereInBatchMax)
+	}
+	if len(environmentNames) == 0 {
+		return &[]DBEnvironment{}, nil
+	}
+
+	selectQuery := h.AdaptQuery(`
+	SELECT
+	    environments_history.created,
+		environments_history.name,
+		environments_history.json,
+		environments_history.applications
+	FROM (
+	SELECT
+		MAX(version) AS latest,
+		name
+	FROM
+		environments_history
+	WHERE created <= (?) AND name IN (?` + strings.Repeat(",?", len(environmentNames)-1) + `)
+	GROUP BY
+		name
+	) AS latest
+	JOIN
+		environments_history AS environments_history
+	ON
+		latest.latest=environments_history.version
+		AND latest.name=environments_history.name;
+`)
+
+	span.SetTag("query", selectQuery)
+	args := []any{}
+	args = append(args, ts)
+	for _, env := range environmentNames {
+		args = append(args, env)
+	}
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		args...,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for environments %v, error: %w (query: %s, args: %v)", environmentNames, err, selectQuery, args)
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
+		}
+	}(rows)
+
+	envs := []DBEnvironment{}
+	for rows.Next() {
+		//exhaustruct:ignore
+		row := DBEnvironmentRow{}
+		err := rows.Scan(&row.Created, &row.Name, &row.Config, &row.Applications)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
+		}
+		env, err := EnvironmentFromRow(ctx, &row)
+		if err != nil {
+			return nil, err
+		}
+		envs = append(envs, *env)
+	}
+	return &envs, nil
+}
+
 func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) ([]types.EnvName, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
 	defer span.Finish()
@@ -226,7 +303,7 @@ func (h *DBHandler) DBSelectAllEnvironmentsAtTimestamp(ctx context.Context, tran
 		name
 	) AS latest
 	JOIN
-		deployments_history AS deployments_history
+		environments_history AS environments_history
 	ON
 		latest.name=environments_history.name;
 `)
