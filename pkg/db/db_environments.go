@@ -120,11 +120,13 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 		selectQuery,
 		args...,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for environments %v, error: %w (query: %s, args: %v)", environmentNames, err, selectQuery, args)
 	}
+	return processEnvironmentRows(ctx, rows)
+}
 
+func processEnvironmentRows(ctx context.Context, rows *sql.Rows) (*[]DBEnvironment, error) {
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
@@ -153,10 +155,10 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 }
 
 func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx *sql.Tx, environmentNames []types.EnvName, ts time.Time) (*[]DBEnvironment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatchAtTimestamp")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatchAtTimestamp")
 	defer span.Finish()
 	if len(environmentNames) > WhereInBatchMax {
-		return nil, fmt.Errorf("error: DBSelectEnvironmentsBatchAtTimestamp is not batching queries for now, make sure to not request more than %d environments", WhereInBatchMax)
+		return nil, onErr(fmt.Errorf("error: DBSelectEnvironmentsBatchAtTimestamp is not batching queries for now, make sure to not request more than %d environments", WhereInBatchMax))
 	}
 	if len(environmentNames) == 0 {
 		return &[]DBEnvironment{}, nil
@@ -199,34 +201,13 @@ func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to query for environments %v, error: %w (query: %s, args: %v)", environmentNames, err, selectQuery, args)
+		return nil, onErr(fmt.Errorf("failed to query for environments %v, error: %w (query: %s, args: %v)", environmentNames, err, selectQuery, args))
 	}
-
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
-		}
-	}(rows)
-
-	envs := []DBEnvironment{}
-	for rows.Next() {
-		//exhaustruct:ignore
-		row := DBEnvironmentRow{}
-		err := rows.Scan(&row.Created, &row.Name, &row.Config, &row.Applications)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
-		}
-		env, err := EnvironmentFromRow(ctx, &row)
-		if err != nil {
-			return nil, err
-		}
-		envs = append(envs, *env)
+	result, err := processEnvironmentRows(ctx, rows)
+	if err != nil {
+		return nil, onErr(err)
 	}
-	return &envs, nil
+	return result, nil
 }
 
 func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sql.Tx) ([]types.EnvName, error) {

@@ -126,20 +126,6 @@ func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName
 	return app, nil
 }
 
-func (h *DBHandler) DBSelectExistingAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*DBAppWithMetaData, error) {
-	app, err := h.DBSelectApp(ctx, tx, appName)
-	if err != nil {
-		return nil, err
-	}
-	if app == nil {
-		return nil, nil
-	}
-	if app.StateChange == AppStateChangeDelete {
-		return nil, nil
-	}
-	return app, nil
-}
-
 func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) ([]string, error) {
 	if h == nil {
 		return nil, nil
