@@ -11,15 +11,12 @@ LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
 GIT_NAMESPACE=${GIT_NAMESPACE:-git}
 ARGO_NAMESPACE=${ARGO_NAMESPACE:-default}
 token=${TOKEN:-invalid-i-dont-care}
-VERSION=${1}
-
-echo "VERSION: ${VERSION}"
+VERSION=$(git describe --always --long --tags || echo 0.0.1)
 
 set -eu
 set -o pipefail
 
 cat <<VALUES > vals.yaml
-imagePrefix: "pr-"
 auth:
   api:
     enableDespiteNoAuth: true
@@ -117,5 +114,5 @@ VALUES
 
 make release-tag
 
-helm uninstall kuberpult-local || print kuberpult was not uninstalled
-helm install --values vals.yaml kuberpult-local kuberpult-*.tgz
+helm uninstall kuberpult-local || print kuberpult was not installed
+helm install --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz

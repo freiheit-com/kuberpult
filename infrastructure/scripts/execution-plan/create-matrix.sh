@@ -8,9 +8,7 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
 STAGE_A_BUILDS="infrastructure/docker/builder infrastructure/docker/ui"
-STAGE_A_BUILDS="infrastructure/docker/ui"
 STAGE_B_BUILDS="pkg cli services/cd-service services/frontend-service services/manifest-repo-export-service services/rollout-service services/reposerver-service"
-STAGE_B_BUILDS="cli"
 
 function debug() {
   echo -e debug: "$@" > /dev/stderr

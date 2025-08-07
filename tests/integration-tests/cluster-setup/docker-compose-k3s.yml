@@ -6,10 +6,10 @@ services:
 
   server:
     image: "rancher/k3s:${K3S_VERSION:-latest}"
-    command: server --data-dir /my/custom/data
-#    tmpfs:
-#    - /run
-#    - /var/run
+    command: server
+    tmpfs:
+    - /run
+    - /var/run
     ulimits:
       nproc: 65535
       nofile:
@@ -23,7 +23,6 @@ services:
     - K3S_KUBECONFIG_MODE=666
     volumes:
     - k3s-server:/var/lib/rancher/k3s
-    - /home/su/.k3s-cache:/my/custom/data
     # This is just so that we get the kubeconfig file out
     - ./config:/output
     ports:
@@ -33,10 +32,9 @@ services:
 
   agent:
     image: "rancher/k3s:${K3S_VERSION:-latest}"
-    command: agent --data-dir /my/custom/data
-#    tmpfs:
-#    - /run
-#    - /var/run
+    tmpfs:
+    - /run
+    - /var/run
     ulimits:
       nproc: 65535
       nofile:
@@ -47,7 +45,6 @@ services:
     environment:
     - K3S_URL=https://server:6443
     - K3S_TOKEN=${K3S_TOKEN:?err}
-    volumes:
-      - /home/su/.k3s-cache:/my/custom/data
+
 volumes:
   k3s-server: {}
