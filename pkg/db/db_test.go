@@ -1254,6 +1254,10 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
 					},
+					DeletionMetadata: LockDeletionMetadata{
+						DeletedByUser:  "myself",
+						DeletedByEmail: "myself@example.com",
+					},
 				},
 				{
 					Env:     "dev",
@@ -1299,7 +1303,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					return err
 				}
 
-				actual, err := dbHandler.DBSelectEnvLockHistory(ctx, transaction, tc.Env, tc.LockID, 2)
+				actual, err := dbHandler.DBSelectEnvLockHistory(ctx, transaction, tc.Env, tc.LockID, 10)
 				if err != nil {
 					return err
 				}

@@ -36,11 +36,12 @@ type EnvironmentLock struct {
 }
 
 type EnvLockHistory struct {
-	Created  time.Time
-	LockID   string
-	Env      types.EnvName
-	Metadata LockMetadata
-	Deleted  bool
+	Created          time.Time
+	LockID           string
+	Env              types.EnvName
+	Metadata         LockMetadata
+	Deleted          bool
+	DeletionMetadata LockDeletionMetadata
 }
 
 // SELECTS
@@ -273,7 +274,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 
 	selectQuery := h.AdaptQuery(
 		fmt.Sprintf(
-			"SELECT created, lockID, envName, metadata, deleted" +
+			"SELECT created, lockID, envName, metadata, deleted, deletionMetadata" +
 				" FROM environment_locks_history " +
 				" WHERE envName=? AND lockID=?" +
 				" ORDER BY version DESC " +
@@ -311,10 +312,14 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 				Message:           "",
 				SuggestedLifeTime: "",
 			},
+			DeletionMetadata: LockDeletionMetadata{
+				DeletedByEmail: "",
+				DeletedByUser:  "",
+			},
 		}
 		var metadata string
-
-		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &metadata, &row.Deleted)
+		var deletionMetadata string
+		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &metadata, &row.Deleted, &deletionMetadata)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -328,7 +333,14 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 		if err != nil {
 			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
+		//exhaustruct:ignore
+		var deletionLockMetadataJson = LockDeletionMetadata{}
+		err = json.Unmarshal(([]byte)(deletionMetadata), &deletionLockMetadataJson)
+		if err != nil {
+			return nil, fmt.Errorf("error during json unmarshal of lock deletion. Error: %w. Data: %s", err, row.DeletionMetadata)
+		}
 		row.Metadata = resultJson
+		row.DeletionMetadata = deletionLockMetadataJson
 		envLocks = append(envLocks, row)
 	}
 	err = closeRows(rows)
