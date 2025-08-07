@@ -36,10 +36,10 @@ RUN mv /tmp/main /main
 RUN chmod +x /main
 
 FROM alpine:3.21
-WORKDIR /kp
 RUN adduser --disabled-password --home "/kp" --uid 1000 kp
 COPY --from=compiler /main /main
 COPY --from=compiler /lib /lib
 
 USER kp
+WORKDIR /kp
 CMD ["/main"]

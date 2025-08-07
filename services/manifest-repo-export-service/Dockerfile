@@ -24,9 +24,6 @@ WORKDIR /kp
 COPY --from=builder /kp/go.mod ./go.mod
 COPY --from=builder /kp/go.sum ./go.sum
 
-RUN mkdir -p database/migrations
-COPY database/migrations /migrations
-
 COPY --chown=kp:kp pkg pkg
 RUN cd pkg && buf generate
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
@@ -48,4 +45,10 @@ COPY --from=compiler /main /main
 COPY --from=compiler /lib /lib
 
 USER kp
+WORKDIR /kp
+RUN chown -R kp:kp /kp
+
+RUN mkdir -p database/migrations
+COPY database/migrations /migrations
+
 CMD ["/main"]
