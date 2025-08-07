@@ -2063,7 +2063,7 @@ func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, t
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)
 	}
-	if dbAllEnvs == nil || len(dbAllEnvs) == 0 {
+	if len(dbAllEnvs) == 0 {
 		return nil, nil
 	}
 	envs, err := s.DBHandler.DBSelectEnvironmentsBatchAtTimestamp(ctx, transaction, dbAllEnvs, ts)

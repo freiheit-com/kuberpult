@@ -4235,6 +4235,7 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 			t.Fatal(err2)
 		}
 	}
+
 }
 
 func TestReleaseTrainTransformer(t *testing.T) {
