@@ -680,7 +680,7 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	}
 	t.SetEslVersion(db.TransformerID(esl.EslVersion))
 	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
-
+	t.SetCreationTimestamp(esl.Created)
 	err = repo.Apply(ctx, tx, t)
 	if err != nil {
 		return nil, fmt.Errorf("error while running repo apply: %v", err)
