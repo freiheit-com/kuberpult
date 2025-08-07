@@ -1,7 +1,7 @@
 ARG BUILDER_IMAGE_TAG
 ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder
 FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
-FROM alpine:3.21
+FROM alpine:3.21 AS compiler
 ENV TZ=Europe/Berlin
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
 COPY --from=builder /usr/local/go /usr/local/go
@@ -28,6 +28,18 @@ RUN cd pkg && oapi-codegen -generate "std-http-server" -o publicapi/server-gen.g
 
 COPY --chown=kp:kp services/reposerver-service services/reposerver-service
 
-RUN cd services/reposerver-service && CGO_ENABLED=false GOOS=linux go build -o /kp/main cmd/server/main.go
+RUN mkdir -p /bin
+RUN cd services/reposerver-service && CGO_ENABLED=false GOOS=linux go build -o /tmp/main cmd/server/main.go
 
-CMD /kp/main
+USER root
+RUN mv /tmp/main /main
+RUN chmod +x /main
+
+FROM alpine:3.21
+WORKDIR /kp
+RUN adduser --disabled-password --home "/kp" --uid 1000 kp
+COPY --from=compiler /main /main
+COPY --from=compiler /lib /lib
+
+USER kp
+CMD ["/main"]
