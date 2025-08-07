@@ -20,12 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/freiheit-com/kuberpult/pkg/backoff"
-	"github.com/freiheit-com/kuberpult/pkg/migrations"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"strconv"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/backoff"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"encoding/json"
