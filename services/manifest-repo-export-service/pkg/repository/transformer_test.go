@@ -3801,15 +3801,15 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
 					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: aa-production-some-concrete-env-name-1
+  name: aa-production-some-concrete-env-name-2
 spec:
-  description: aa-production-some-concrete-env-name-1
+  description: aa-production-some-concrete-env-name-2
   destinations:
-  - name: some-destination-1
+  - name: some-destination-2
     server: some-server
   sourceRepos:
   - '*'
