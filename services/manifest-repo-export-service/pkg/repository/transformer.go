@@ -1271,7 +1271,7 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-	DryRun                bool                     `json:"dryrun"`
+	Dryrun                bool                     `json:"dryrun"`
 }
 
 var _ Transformer = &CreateEnvironment{} // ensure it implements Transformer
@@ -1298,7 +1298,7 @@ func (c *CreateEnvironment) Transform(
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() || c.DryRun {
+	if tCtx.ShouldMinimizeGitData() || c.Dryrun {
 		return GetNoOpMessage(c)
 	}
 	fs := state.Filesystem
@@ -1995,7 +1995,7 @@ type DeleteEnvironment struct {
 	TransformerMetadata   `json:"metadata"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-	DryRun                bool             `json:"dryrun"`
+	Dryrun                bool             `json:"dryrun"`
 }
 
 var _ Transformer = &DeleteEnvironment{} // ensure it implements Transformer
@@ -2017,7 +2017,7 @@ func (d *DeleteEnvironment) GetDBEventType() db.EventType {
 }
 
 func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
-	if d.DryRun {
+	if d.Dryrun {
 		return GetNoOpMessage(d)
 	}
 

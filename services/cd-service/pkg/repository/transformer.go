@@ -1938,7 +1938,7 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-	DryRun                bool                     `json:"dryrun"`
+	Dryrun                bool                     `json:"dryrun"`
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
@@ -1977,7 +1977,7 @@ func (c *CreateEnvironment) Transform(
 		environmentApplications = env.Applications
 	}
 
-	if c.DryRun {
+	if c.Dryrun {
 		return fmt.Sprintf("Dry-run to create environment %q successful", c.Environment), nil
 	}
 
@@ -2004,7 +2004,7 @@ type DeleteEnvironment struct {
 	Authentication        `json:"-"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-	DryRun                bool             `json:"dryrun"`
+	Dryrun                bool             `json:"dryrun"`
 }
 
 func (c *DeleteEnvironment) GetDBEventType() db.EventType {
@@ -2112,7 +2112,7 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 
-	if c.DryRun {
+	if c.Dryrun {
 		return fmt.Sprintf("Dry run for deleting environment successful '%s'", c.Environment), nil
 	}
 
