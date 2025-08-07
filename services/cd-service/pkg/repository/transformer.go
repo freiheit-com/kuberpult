@@ -2023,10 +2023,10 @@ func (c *DeleteEnvironment) CheckPreconditions(ctx context.Context,
 		return err
 	}
 
-	envConfigToDelete := allEnvConfigs[envName]
+	envConfigToDelete := allEnvConfigs[c.Environment]
 
 	//Find out if env to delete is last of its group, might be useful next
-	var envToDeleteGroupName = mapper.DeriveGroupName(envConfigToDelete, envName)
+	var envToDeleteGroupName = mapper.DeriveGroupName(envConfigToDelete, c.Environment)
 
 	var allEnvGroups = mapper.MapEnvironmentsToGroups(allEnvConfigs)
 	lastEnvOfGroup := false

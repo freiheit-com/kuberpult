@@ -28,7 +28,7 @@ import (
 	"time"
 )
 
-type EnvLock struct {
+type EnvironmentLock struct {
 	Created  time.Time
 	LockID   string
 	Env      types.EnvName
@@ -44,7 +44,7 @@ type EnvLockHistory struct {
 }
 
 // SELECTS
-func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (map[types.EnvName][]EnvLock, error) {
+func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (map[types.EnvName][]EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvLocksOfAllEnvs")
 	defer span.Finish()
 	if h == nil {
@@ -66,9 +66,9 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 	if err != nil {
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
-	envLocks := make(map[types.EnvName][]EnvLock)
+	envLocks := make(map[types.EnvName][]EnvironmentLock)
 	for rows.Next() {
-		var row = EnvLock{
+		var row = EnvironmentLock{
 			Created: time.Time{},
 			LockID:  "",
 			Env:     "",
@@ -98,10 +98,10 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		if _, ok := envLocks[row.Env]; !ok {
-			envLocks[row.Env] = make([]EnvLock, 0)
+			envLocks[row.Env] = make([]EnvironmentLock, 0)
 		}
 
-		envLocks[row.Env] = append(envLocks[row.Env], EnvLock{
+		envLocks[row.Env] = append(envLocks[row.Env], EnvironmentLock{
 			Created:  row.Created,
 			LockID:   row.LockID,
 			Env:      row.Env,
@@ -116,7 +116,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 	return envLocks, nil
 }
 
-func (h *DBHandler) DBSelectAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (*EnvLock, error) {
+func (h *DBHandler) DBSelectAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (*EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyActiveEnvLock")
 	defer span.Finish()
 
@@ -134,7 +134,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (*
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
 	if rows.Next() {
-		var row = EnvLock{
+		var row = EnvironmentLock{
 			Created: time.Time{},
 			LockID:  "",
 			Env:     "",
@@ -173,7 +173,7 @@ func (h *DBHandler) DBSelectAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (*
 	return nil, nil
 }
 
-func (h *DBHandler) DBSelectEnvLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]EnvLock, error) {
+func (h *DBHandler) DBSelectEnvLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvLocksForEnv")
 	defer span.Finish()
 
@@ -192,7 +192,7 @@ func (h *DBHandler) DBSelectEnvLocksForEnv(ctx context.Context, tx *sql.Tx, envi
 	return h.processEnvLockRows(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectAllActiveEnvLocks(ctx context.Context, tx *sql.Tx, envName string) ([]EnvLock, error) {
+func (h *DBHandler) DBSelectAllActiveEnvLocks(ctx context.Context, tx *sql.Tx, envName string) ([]EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveEnvLocks")
 	defer span.Finish()
 
@@ -211,7 +211,7 @@ func (h *DBHandler) DBSelectAllActiveEnvLocks(ctx context.Context, tx *sql.Tx, e
 	return h.processEnvLockRows(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectEnvLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string) (*EnvLock, error) {
+func (h *DBHandler) DBSelectEnvLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string) (*EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvLock")
 	defer span.Finish()
 
@@ -360,7 +360,7 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 	return nil
 }
 
-func (h *DBHandler) DBSelectEnvLockSet(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockIDs []string) ([]EnvLock, error) {
+func (h *DBHandler) DBSelectEnvLockSet(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockIDs []string) ([]EnvironmentLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvLockSet")
 	defer span.Finish()
 
@@ -374,7 +374,7 @@ func (h *DBHandler) DBSelectEnvLockSet(ctx context.Context, tx *sql.Tx, environm
 		return nil, fmt.Errorf("DBSelectEnvLockSet: no transaction provided")
 	}
 
-	var envLocks []EnvLock
+	var envLocks []EnvironmentLock
 	//Get the latest change to each lock
 	for _, id := range lockIDs {
 		envLock, err := h.DBSelectEnvLock(ctx, tx, environment, id)
@@ -513,7 +513,7 @@ func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sq
 }
 
 // process rows functions
-func (h *DBHandler) processEnvLockRows(ctx context.Context, err error, rows *sql.Rows) ([]EnvLock, error) {
+func (h *DBHandler) processEnvLockRows(ctx context.Context, err error, rows *sql.Rows) ([]EnvironmentLock, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
@@ -523,9 +523,9 @@ func (h *DBHandler) processEnvLockRows(ctx context.Context, err error, rows *sql
 			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
 		}
 	}(rows)
-	envLocks := make([]EnvLock, 0)
+	envLocks := make([]EnvironmentLock, 0)
 	for rows.Next() {
-		var row = EnvLock{
+		var row = EnvironmentLock{
 			Created: time.Time{},
 			LockID:  "",
 			Env:     "",

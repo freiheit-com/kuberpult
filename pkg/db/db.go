@@ -839,25 +839,6 @@ func processSingleCommitEventRow(rows *sql.Rows) (*EventRow, error) {
 	return &row, nil
 }
 
-type EnvironmentLock struct {
-	EslVersion EslVersion
-	Created    time.Time
-	LockID     string
-	Env        types.EnvName
-	Deleted    bool
-	Metadata   LockMetadata
-}
-
-// DBEnvironmentLock Just used to fetch info from DB
-type DBEnvironmentLock struct {
-	EslVersion EslVersion
-	Created    time.Time
-	LockID     string
-	Env        types.EnvName
-	Deleted    bool
-	Metadata   string
-}
-
 type LockMetadata struct {
 	CreatedByName     string
 	CreatedByEmail    string
