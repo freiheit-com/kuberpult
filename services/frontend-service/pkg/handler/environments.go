@@ -19,15 +19,17 @@ package handler
 import (
 	"bytes"
 	"fmt"
+
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/gogo/protobuf/jsonpb"
+
+	"io"
+	"net/http"
+	"strings"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"io"
-	"net/http"
-	"strings"
 )
 
 const (
@@ -57,6 +59,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 				CreateEnvironment: &api.CreateEnvironmentRequest{
 					Environment: environment,
 					Config:      envConfig,
+					Dryrun:      false,
 				}}},
 		},
 		})
@@ -69,11 +72,12 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 }
 
 func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Request, environment, tail string) {
-
 	if tail != "/" {
 		http.Error(w, fmt.Sprintf("Create Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
+	dryrun := req.URL.Query().Get("dryrun") == "true"
+
 	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = fmt.Fprintf(w, "Invalid body: %s", err)
@@ -96,6 +100,7 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 				CreateEnvironment: &api.CreateEnvironmentRequest{
 					Environment: environment,
 					Config:      envConfig,
+					Dryrun:      dryrun,
 				}}},
 		},
 		})
@@ -140,6 +145,8 @@ func (s Server) handleDeleteEnvironment(w http.ResponseWriter, req *http.Request
 		http.Error(w, fmt.Sprintf("Delete Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
+	dryrun := req.URL.Query().Get("dryrun") == "true"
+
 	if s.AzureAuth {
 		if req.Body == nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -175,6 +182,7 @@ func (s Server) handleDeleteEnvironment(w http.ResponseWriter, req *http.Request
 			{Action: &api.BatchAction_DeleteEnvironment{
 				DeleteEnvironment: &api.DeleteEnvironmentRequest{
 					Environment: environment,
+					Dryrun:      dryrun,
 				}}},
 		},
 		})

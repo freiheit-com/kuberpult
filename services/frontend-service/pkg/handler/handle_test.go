@@ -709,6 +709,47 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "Internal: Invalid Signature: EOF",
 		},
 		{
+			name: "create environment -- dryrun",
+			req: &http.Request{
+				Method: http.MethodPost,
+				Header: http.Header{
+					"Content-Type": []string{"multipart/form-data"},
+				},
+				URL: &url.URL{
+					Path:     "/api/environments/stg/",
+					RawQuery: "dryrun=true",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config": []string{exampleConfig},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "stg",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Environment: &exampleEnvironment,
+									},
+									Argocd:           nil,
+									EnvironmentGroup: nil,
+								},
+								Dryrun: true,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "create environment",
 			req: &http.Request{
 				Method: http.MethodPost,
@@ -741,6 +782,7 @@ func TestServer_Handle(t *testing.T) {
 									Argocd:           nil,
 									EnvironmentGroup: nil,
 								},
+								Dryrun: false,
 							},
 						},
 					},
@@ -805,6 +847,7 @@ func TestServer_Handle(t *testing.T) {
 									},
 									EnvironmentGroup: &starFlag,
 								},
+								Dryrun: false,
 							},
 						},
 					},
@@ -870,6 +913,7 @@ func TestServer_Handle(t *testing.T) {
 									Argocd:           nil,
 									EnvironmentGroup: nil,
 								},
+								Dryrun: false,
 							},
 						},
 					},

@@ -22,12 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"path"
 	"slices"
 	"strconv"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
@@ -1344,6 +1345,7 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	Dryrun                bool                     `json:"dryrun"`
 	CreationTimestamp     time.Time                `json:"-"`
 }
 
@@ -1379,7 +1381,7 @@ func (c *CreateEnvironment) Transform(
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() {
+	if tCtx.ShouldMinimizeGitData() || c.Dryrun {
 		return GetNoOpMessage(c)
 	}
 	fs := state.Filesystem
@@ -2148,6 +2150,7 @@ type DeleteEnvironment struct {
 	TransformerMetadata   `json:"metadata"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	Dryrun                bool             `json:"dryrun"`
 	CreationTimestamp     time.Time        `json:"-"`
 }
 
@@ -2178,6 +2181,10 @@ func (d *DeleteEnvironment) GetDBEventType() db.EventType {
 }
 
 func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
+	if d.Dryrun {
+		return GetNoOpMessage(d)
+	}
+
 	fs := state.Filesystem
 	envDir := fs.Join("environments", string(d.Environment))
 	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
