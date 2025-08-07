@@ -1912,7 +1912,10 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		return "", err
 	}
 
-	err = state.DBHandler.DBDeleteTeamLock(ctx, transaction, envName, c.Team, c.LockId)
+	err = state.DBHandler.DBDeleteTeamLock(ctx, transaction, envName, c.Team, c.LockId, db.LockDeletionMetadata{
+		DeletedByUser:  user.Name,
+		DeletedByEmail: user.Email,
+	})
 	if err != nil {
 		return "", err
 	}
