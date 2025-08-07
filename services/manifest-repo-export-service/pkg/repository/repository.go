@@ -1413,10 +1413,9 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 		}
 		for lockId, lock := range ls {
 			currentEnv := db.EnvironmentLock{
-				EslVersion: 0,
-				Env:        envName,
-				LockID:     lockId,
-				Created:    time.Time{}, //Time of insertion in the database
+				Env:     envName,
+				LockID:  lockId,
+				Created: time.Time{}, //Time of insertion in the database
 				Metadata: db.LockMetadata{
 					CreatedByName:     lock.CreatedBy.Name,
 					CreatedByEmail:    lock.CreatedBy.Email,
@@ -1425,7 +1424,6 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 					CreatedAt:         lock.CreatedAt, //Actual creation date
 					SuggestedLifeTime: "",
 				},
-				Deleted: false,
 			}
 			activeLockIds = append(activeLockIds, currentEnv.LockID)
 			err = dbHandler.DBWriteEnvironmentLock(ctx, transaction, currentEnv.LockID, currentEnv.Env, currentEnv.Metadata)
