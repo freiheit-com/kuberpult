@@ -1,7 +1,7 @@
 ARG BUILDER_IMAGE_TAG
 ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder
 FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
-FROM alpine:3.21
+FROM alpine:3.21 AS compiler
 ENV TZ=Europe/Berlin
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
 COPY --from=builder /usr/local/go /usr/local/go
@@ -35,6 +35,11 @@ RUN mv /tmp/main /main
 RUN ldd /main | awk '/=>/ {print $3}' | xargs -r -I '{}' sh -c 'if [ ! -e "/lib/$(basename {})" ]; then cp -v "{}" /lib/; fi'
 RUN chmod +x /main
 
-USER kp
 
+FROM alpine:3.21
+RUN adduser --disabled-password --home "/kp" --uid 1000 kp
+COPY --from=compiler /main /main
+COPY --from=compiler /lib /lib
+
+USER kp
 CMD ["/main"]
