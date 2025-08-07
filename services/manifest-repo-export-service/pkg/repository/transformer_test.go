@@ -453,9 +453,6 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
 		} else if diff := cmp.Diff(string(data), string(contentRequirement.fileData)); diff != "" {
-			fmt.Println(string(data))
-			fmt.Println("////////////////")
-			fmt.Println(string(contentRequirement.fileData))
 			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s", contentRequirement.path, diff)
 		}
 	}
@@ -3328,32 +3325,11 @@ spec:
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
 			dbHandler := repo.State().DBHandler
-			for idx, tr := range tc.Transformers {
-				tr.SetCreationTimestamp(createTimestamp(int64(idx)))
-			}
-			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
-				// setup:
-				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
-				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-				if err2 != nil {
-					t.Fatal(err2)
-				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig, []string{})
-				if err2 != nil {
-					return err2
-				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config, []string{})
-				if err2 != nil {
-					return err2
-				}
-				//populate the database
-				for _, tr := range tc.Transformers {
-					err2 := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
-					if err2 != nil {
-						t.Fatal(err2)
-					}
-				}
 
+			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range tc.Transformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorName, authorEmail)
+				}
 				for _, t := range tc.Transformers {
 					err := repo.Apply(ctx, transaction, t)
 					if err != nil {
