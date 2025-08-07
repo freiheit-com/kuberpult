@@ -1517,6 +1517,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
 		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
+
 	err = state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId, db.LockDeletionMetadata{DeletedByUser: user.Name, DeletedByEmail: user.Email})
 	if err != nil {
 		return "", err

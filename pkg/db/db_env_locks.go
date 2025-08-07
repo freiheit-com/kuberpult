@@ -489,6 +489,7 @@ func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sq
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
+
 	deletionMetadataJsonToInsert, err := json.Marshal(deletionMetadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json deletion data: %w", err)
