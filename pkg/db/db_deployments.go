@@ -94,6 +94,34 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 	return processDeployment(rows)
 }
 
+func (h *DBHandler) DBSelectLatestDeploymentAtTimestamp(ctx context.Context, tx *sql.Tx, appSelector string, envSelector types.EnvName, ts time.Time) (*Deployment, error) {
+
+	selectQuery := h.AdaptQuery(`
+		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
+		FROM deployments_history
+		WHERE appName=? AND envName=? AND created <=?
+		ORDER BY version DESC
+		LIMIT 1;
+	`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appSelector,
+		envSelector,
+		ts,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment for app %s on env %s from DB. Error: %w", appSelector, envSelector, err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+		}
+	}(rows)
+	return processDeployment(rows)
+}
+
 func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Context, tx *sql.Tx, appName string) (map[types.EnvName]Deployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsForApplication")
 	defer span.Finish()
