@@ -108,13 +108,21 @@ integration-test:
 	sudo rm -rf ${DATA_DIR}/*
 	sudo chown -R su:su ${DATA_DIR}
 	sudo chmod -R 700 ${DATA_DIR}
-	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml down
+	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s-B.yml down
 	docker volume rm -f cluster-setup_k3s-server
-	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml up -d
-	while [ ! -s "$(INTEGRATION_TEST_CONFIG_FILE)" ]; do \
-		sleep 1; \
-	done;
-	sed -i -e 's|6443|8443|g' $(INTEGRATION_TEST_CONFIG_FILE)
+	# cleanup done
+
+
+	docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s-B.yml up -d k3s-server --remove-orphans
+	K3S_TOKEN=$$(docker exec k3s-server cat /var/lib/rancher/k3s/server/node-token) docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s-B.yml up -d k3s-agent
+	#echo TOKEN: $$(docker exec k3s-server cat /var/lib/rancher/k3s/server/node-token)
+	#echo "TOKEN: ${K3S_TOKEN}"
+	#docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s-B.yml up -d k3s-agent --remove-orphans
+
+#	while [ ! -s "$(INTEGRATION_TEST_CONFIG_FILE)" ]; do \
+#		sleep 1; \
+#	done;
+#	sed -i -e 's|6443|8443|g' $(INTEGRATION_TEST_CONFIG_FILE)
 	docker build -f tests/integration-tests/Dockerfile . -t $(INTEGRATION_TEST_IMAGE) --build-arg kuberpult_version=$(IMAGE_TAG_KUBERPULT) --build-arg charts_version=$(VERSION)
 	docker run  --network=host -v "./$(INTEGRATION_TEST_CONFIG_FILE):/kp/kubeconfig.yaml" --rm $(INTEGRATION_TEST_IMAGE)
 #	rm -f $(INTEGRATION_TEST_CONFIG_FILE)

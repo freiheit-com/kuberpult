@@ -21,7 +21,7 @@ WORKDIR /kp
 COPY --from=kube_deps /usr/bin/kubectl /usr/bin/kubectl
 COPY --from=kube_deps /usr/bin/helm /usr/bin/helm
 COPY --from=kube_deps /usr/bin/argocd /usr/bin/argocd
-COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
+COPY tests/integration-tests/cluster-setup/docker-compose-k3s-B.yml .
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
