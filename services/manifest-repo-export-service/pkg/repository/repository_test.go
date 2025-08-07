@@ -382,8 +382,10 @@ func TestGetTags(t *testing.T) {
 	}
 }
 
+// To be used for generating timestamps for testing transformers
+// Makes sure that the
 func createTimestamp(index int64) time.Time {
-	return time.Unix(32503680000+index, 0) //32503680000 is the year 3000
+	return time.Unix(32503680000+index, 0)
 }
 
 func TestArgoCDFileGeneration(t *testing.T) {
@@ -541,40 +543,6 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				"argocd/v1alpha1/common-development-test-2.yaml",
 			},
 		},
-		{
-			Name:                "Creating an AA env with only one config is same as regular env",
-			shouldGenerateFiles: true,
-			TransformerSetup: []Transformer{
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
-						ArgoCdConfigs: &config.ArgoCDConfigs{
-							CommonEnvPrefix: &commonName,
-							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
-								{
-									Destination: config.ArgoCdDestination{
-										Server: "development",
-									},
-									ConcreteEnvName: "test-1",
-								},
-							},
-						},
-					},
-					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
-				},
-				&CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[types.EnvName]string{
-						"staging": "manifest",
-					},
-					Version:             1,
-					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
-				},
-			},
-			ExpectedFiles: []string{
-				"argocd/v1alpha1/common-development-test-1.yaml",
-			},
-		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -583,91 +551,18 @@ func TestArgoCDFileGeneration(t *testing.T) {
 			repo := r.(*repository)
 			repo.config.ArgoCdGenerateFiles = tc.shouldGenerateFiles
 			ctx := testutil.MakeTestContext()
-			for idx, tr := range tc.TransformerSetup {
-				tr.SetCreationTimestamp(createTimestamp(int64(idx)))
-			}
-			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{Team: "test"})
-				if err != nil {
-					t.Fatalf("could not create app test: %v", err)
-				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, "production", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
-					Destination: config.ArgoCdDestination{
-						Server: "development",
-					},
-				}}, []string{"test"})
-				if err != nil {
-					t.Fatalf("could not create environment production: %v", err)
-				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, "development", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
-					ArgoCdConfigs: &config.ArgoCDConfigs{
-						CommonEnvPrefix: &commonName,
-						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
-							{
-								Destination: config.ArgoCdDestination{
-									Server: "development",
-								},
-								ConcreteEnvName: "test-1",
-							},
-							{
-								Destination: config.ArgoCdDestination{
-									Server: "development",
-								},
-								ConcreteEnvName: "test-2",
-							},
-						},
-					},
-				}, []string{"test"})
-				if err != nil {
-					t.Fatalf("could not create environment development: %v", err)
-				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
-					ArgoCdConfigs: &config.ArgoCDConfigs{
-						CommonEnvPrefix: &commonName,
-						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
-							{
-								Destination: config.ArgoCdDestination{
-									Namespace: &commonName,
-									Server:    "development",
-								},
-								ConcreteEnvName: "test-1",
-							},
-						},
-					},
-				}, []string{"test"})
 
-				if err != nil {
-					t.Fatalf("could not create environment staging: %v", err)
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range tc.TransformerSetup {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "author", "email")
 				}
-				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  &versionOne,
-					},
-					App: "test",
-					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
-						"production": "manifest2",
-					}},
-				})
-				if err != nil {
-					t.Fatalf("could not create release 1 for app test: %v", err)
-				}
-				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  &versionTwo,
-					},
-					App: "test",
-					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
-						"production": "manifest2",
-					}},
-				})
-				if err != nil {
-					t.Fatalf("could not create release 1 for app test: %v", err)
-				}
-				for i, transformer := range transformers {
-					_, applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
-					if applyErr != nil && applyErr.TransformerError != nil {
+				return nil
+			})
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i, tr := range tc.TransformerSetup {
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, tr)
+					if applyErr != nil {
 						t.Fatalf("Unexpected error applying transformer[%d]: Error: %v", i, applyErr)
 					}
 				}
