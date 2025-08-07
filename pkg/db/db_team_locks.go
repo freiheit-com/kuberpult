@@ -377,7 +377,7 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID stri
 	if err != nil {
 		return err
 	}
-	err = h.insertTeamLockHistoryRow(ctx, tx, lockID, environment, teamName, metadata, false)
+	err = h.insertTeamLockHistoryRow(ctx, tx, lockID, environment, teamName, metadata, false, LockDeletionMetadata{DeletedByUser: "", DeletedByEmail: ""}) // Empty metadata on insertion
 	if err != nil {
 		return err
 	}
