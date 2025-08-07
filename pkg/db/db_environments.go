@@ -246,69 +246,6 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 	return result, nil
 }
 
-func (h *DBHandler) DBSelectAllEnvironmentsAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) ([]types.EnvName, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectAllEnvironments")
-	defer span.Finish()
-
-	if h == nil {
-		return nil, nil
-	}
-	if transaction == nil {
-		return nil, onErr(fmt.Errorf("no transaction provided when selecting all environments from environments table"))
-	}
-
-	selectQuery := h.AdaptQuery(`
-	SELECT
-		environments_history.name
-	FROM (
-	SELECT
-		MAX(version) AS latest,
-		name
-	FROM
-		environments_history
-	WHERE created <= (?)
-	GROUP BY
-		name
-	) AS latest
-	JOIN
-		environments_history AS environments_history
-	ON
-	    latest.latest=environments_history.version
-		AND latest.name=environments_history.name;
-`)
-
-	rows, err := transaction.QueryContext(ctx, selectQuery, ts)
-	if err != nil {
-		return nil, onErr(fmt.Errorf("error while executing query to get all environments, error: %w", err))
-	}
-
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row on environments table, error: %w", err)
-		}
-	}(rows)
-
-	result := []types.EnvName{}
-	for rows.Next() {
-		//exhaustruct:ignore
-		var row types.EnvName
-		err := rows.Scan(&row)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, onErr(fmt.Errorf("error while scanning environments row, error: %w", err))
-		}
-		result = append(result, row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, onErr(fmt.Errorf("error while closing rows, error: %w", err))
-	}
-	return result, nil
-}
-
 func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transaction *sql.Tx, envName types.EnvName) ([]string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplications")
 	defer span.Finish()
