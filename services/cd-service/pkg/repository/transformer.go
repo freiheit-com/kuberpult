@@ -1901,7 +1901,7 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-
+	Dryrun                bool                     `json:"dryrun"`
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
@@ -1939,12 +1939,17 @@ func (c *CreateEnvironment) Transform(
 	if env != nil {
 		environmentApplications = env.Applications
 	}
+
+	if c.Dryrun {
+		return fmt.Sprintf("Dry-run to create environment %q successful", c.Environment), nil
+	}
+
 	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, c.Config, environmentApplications)
 	if err != nil {
 		return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 	}
 
-	//Should be empty on new environments
+	// Should be empty on new environments, but we might be only updating config
 	envApps, err := state.GetEnvironmentApplications(ctx, transaction, envName)
 	if err != nil {
 		return "", fmt.Errorf("unable to read environment, error: %w", err)
@@ -1962,7 +1967,7 @@ type DeleteEnvironment struct {
 	Authentication        `json:"-"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-
+	Dryrun                bool             `json:"dryrun"`
 }
 
 func (c *DeleteEnvironment) GetDBEventType() db.EventType {
@@ -1977,52 +1982,45 @@ func (c *DeleteEnvironment) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (c *DeleteEnvironment) Transform(
-	ctx context.Context,
+func (c *DeleteEnvironment) CheckPreconditions(ctx context.Context,
 	state *State,
 	t TransformerContext,
 	transaction *sql.Tx,
-) (string, error) {
-	envName := types.EnvName(c.Environment)
-	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeleteEnvironment, "", c.RBACConfig, false)
-	if err != nil {
-		return "", err
-	}
-
+) error {
 	allEnvs, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 	if err != nil || allEnvs == nil {
-		return "", fmt.Errorf("error getting all environments %v", err)
+		return fmt.Errorf("error getting all environments %v", err)
 	}
 
 	/*Check for locks*/
-	envLocks, err := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, envName)
+	envLocks, err := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, c.Environment)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if len(envLocks) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment locks for this environment exist", c.Environment))
+		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment locks for this environment exist", c.Environment))
 	}
 
 	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if len(appLocksForEnv) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Application locks for this environment exist", c.Environment))
+		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Application locks for this environment exist", c.Environment))
 	}
 
 	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if len(teamLocksForEnv) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Team locks for this environment exist", c.Environment))
+		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Team locks for this environment exist", c.Environment))
 	}
 
 	/* Check that no environment has the one we are trying to delete as upstream */
 	allEnvConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	envConfigToDelete := allEnvConfigs[envName]
@@ -2040,13 +2038,13 @@ func (c *DeleteEnvironment) Transform(
 
 	for envName, envConfig := range allEnvConfigs {
 		if envConfig.Upstream != nil && envConfig.Upstream.Environment == c.Environment {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName))
+			return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName))
 		}
 
 		//If we are deleting an environment and it is the last one on the group, we are also deleting the group.
 		//If this group is upstream from another env, we need to block it aswell
 		if envConfig.Upstream != nil && envConfig.Upstream.Environment == types.EnvName(envToDeleteGroupName) && lastEnvOfGroup {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. '%s' is part of environment group '%s', "+
+			return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. '%s' is part of environment group '%s', "+
 				"which is upstream from '%s' and deleting '%s' would result in environment group deletion",
 				c.Environment,
 				c.Environment,
@@ -2055,6 +2053,29 @@ func (c *DeleteEnvironment) Transform(
 				c.Environment,
 			))
 		}
+	}
+	return nil
+}
+
+func (c *DeleteEnvironment) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	envName := types.EnvName(c.Environment)
+	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeleteEnvironment, "", c.RBACConfig, false)
+	if err != nil {
+		return "", err
+	}
+
+	err = c.CheckPreconditions(ctx, state, t, transaction)
+	if err != nil {
+		return "", err
+	}
+
+	if c.Dryrun {
+		return fmt.Sprintf("Dry run for deleting environment successful '%s'", c.Environment), nil
 	}
 
 	/*Remove environment from all apps*/
@@ -2163,7 +2184,7 @@ type DeleteAAEnvironmentConfig struct {
 var _ Transformer = (*DeleteAAEnvironmentConfig)(nil) // ensure we implement the interface
 
 func (c *DeleteAAEnvironmentConfig) GetDBEventType() db.EventType {
-	return db.EvtExtendAAEnvironment
+	return db.EvtDeleteAAEnvironmentConfig
 }
 
 func (c *DeleteAAEnvironmentConfig) SetEslVersion(id db.TransformerID) {

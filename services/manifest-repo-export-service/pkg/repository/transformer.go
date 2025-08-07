@@ -22,12 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"path"
 	"slices"
 	"strconv"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
@@ -1270,6 +1271,7 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	Dryrun                bool                     `json:"dryrun"`
 }
 
 var _ Transformer = &CreateEnvironment{} // ensure it implements Transformer
@@ -1296,7 +1298,7 @@ func (c *CreateEnvironment) Transform(
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() {
+	if tCtx.ShouldMinimizeGitData() || c.Dryrun {
 		return GetNoOpMessage(c)
 	}
 	fs := state.Filesystem
@@ -1993,6 +1995,7 @@ type DeleteEnvironment struct {
 	TransformerMetadata   `json:"metadata"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	Dryrun                bool             `json:"dryrun"`
 }
 
 var _ Transformer = &DeleteEnvironment{} // ensure it implements Transformer
@@ -2014,6 +2017,10 @@ func (d *DeleteEnvironment) GetDBEventType() db.EventType {
 }
 
 func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
+	if d.Dryrun {
+		return GetNoOpMessage(d)
+	}
+
 	fs := state.Filesystem
 	envDir := fs.Join("environments", string(d.Environment))
 	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
@@ -2031,7 +2038,6 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 	} else if err != nil {
 		return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
 	}
-
 	return fmt.Sprintf("delete environment %q", d.Environment), nil
 }
 
@@ -2091,23 +2097,10 @@ func (c *ExtendAAEnvironment) Transform(
 	}
 
 	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
-	err = fs.Remove(configFile) // New config was just getting appended to the old configuration . Removing the file and recreating it resulted in the correct output in the file.
-	if err != nil {
-		return "", fmt.Errorf("error removing environment config file: %w", err)
-	}
-	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return "", fmt.Errorf("error creating config: %w", err)
-	}
-	enc := json.NewEncoder(file)
-	enc.SetIndent("", "  ")
 
-	if err := enc.Encode(envConfig); err != nil {
-		return "", fmt.Errorf("error writing json: %w", err)
-	}
-	err = file.Close()
+	err = writeEnvironmentConfigurationToManifestRepo(fs, configFile, envConfig)
 	if err != nil {
-		return "", fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+		return "", err
 	}
 	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
 }
@@ -2139,10 +2132,75 @@ func (c *DeleteAAEnvironmentConfig) GetEslVersion() db.TransformerID {
 }
 
 func (c *DeleteAAEnvironmentConfig) Transform(
-	_ context.Context,
-	_ *State,
-	_ TransformerContext,
+	ctx context.Context,
+	state *State,
+	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	return GetNoOpMessage(c)
+	fs := state.Filesystem
+
+	envDir := fs.Join("environments", string(c.Environment))
+
+	configFile := fs.Join(envDir, "config.json")
+
+	data, err := util.ReadFile(fs, configFile)
+	if err != nil {
+		return "", fmt.Errorf("error opening file: %w", err)
+	}
+	var envConfig config.EnvironmentConfig
+
+	err = json.Unmarshal(data, &envConfig)
+	if err != nil {
+		return "", err
+	}
+
+	if envConfig.ArgoCdConfigs.CommonEnvPrefix == nil {
+		return "", fmt.Errorf("could not read CommonEnvPrefix for AA environment %q", c.Environment)
+	}
+	argoCdAppFile := getArgoCdAAEnvFileName(fs, types.EnvName(*envConfig.ArgoCdConfigs.CommonEnvPrefix), c.Environment, c.ConcreteEnvironmentName, true)
+	err = fs.Remove(argoCdAppFile)
+	if errors.Is(err, os.ErrNotExist) {
+		logger.FromContext(ctx).Sugar().Warnf("AA environment argocd app file %q does not exist.", argoCdAppFile)
+	} else if err != nil {
+		return "", fmt.Errorf("error deleting AA environment's argocd app file %q: %w", argoCdAppFile, err)
+	}
+
+	if tCtx.ShouldMinimizeGitData() {
+		return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
+	}
+
+	for idx, currentConfig := range envConfig.ArgoCdConfigs.ArgoCdConfigurations {
+		if types.EnvName(currentConfig.ConcreteEnvName) == c.ConcreteEnvironmentName {
+			envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations[:idx], envConfig.ArgoCdConfigs.ArgoCdConfigurations[idx+1:]...)
+			break
+		}
+	}
+
+	err = writeEnvironmentConfigurationToManifestRepo(fs, configFile, envConfig)
+	if err != nil {
+		return "", fmt.Errorf("error writing environment configuration to manifest repository: %w", err)
+	}
+	return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
+}
+
+func writeEnvironmentConfigurationToManifestRepo(fs billy.Filesystem, configFile string, envConfig config.EnvironmentConfig) error {
+	err := fs.Remove(configFile) // If we do not remove the file, it behaves like an "append" not an "overwrite". Removing the file and recreating it resulted in the correct output in the file.
+	if err != nil {
+		return fmt.Errorf("error removing environment config file: %w", err)
+	}
+	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("error creating config: %w", err)
+	}
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "  ")
+
+	if err := enc.Encode(envConfig); err != nil {
+		return fmt.Errorf("error writing json: %w", err)
+	}
+	err = file.Close()
+	if err != nil {
+		return fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+	}
+	return nil
 }
