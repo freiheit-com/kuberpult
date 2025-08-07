@@ -1,0 +1,4 @@
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+-- Remove all_env_locks table
+DROP TABLE IF EXISTS all_env_locks;

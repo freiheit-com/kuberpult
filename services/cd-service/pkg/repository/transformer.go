@@ -1471,31 +1471,6 @@ func (c *CreateEnvironmentLock) Transform(
 	if errW != nil {
 		return "", errW
 	}
-
-	//Add it to all locks
-	allEnvLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envName)
-	if err != nil {
-		return "", err
-	}
-
-	if allEnvLocks == nil {
-		allEnvLocks = &db.AllEnvLocksGo{
-			Version: 1,
-			AllEnvLocksJson: db.AllEnvLocksJson{
-				EnvLocks: []string{},
-			},
-			Created:     *now,
-			Environment: c.Environment,
-		}
-	}
-
-	if !slices.Contains(allEnvLocks.EnvLocks, c.LockId) {
-		allEnvLocks.EnvLocks = append(allEnvLocks.EnvLocks, c.LockId)
-		err := state.DBHandler.DBWriteAllEnvironmentLocks(ctx, transaction, allEnvLocks.Version, envName, allEnvLocks.EnvLocks)
-		if err != nil {
-			return "", err
-		}
-	}
 	GaugeEnvLockMetric(ctx, state, transaction, envName)
 	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
 }
@@ -1538,21 +1513,9 @@ func (c *DeleteEnvironmentLock) Transform(
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
 		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
-	err = s.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId)
+	err = state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId)
 	if err != nil {
 		return "", err
-	}
-	allEnvLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envName)
-	if err != nil {
-		return "", fmt.Errorf("DeleteEnvironmentLock: could not select all env locks '%v': '%w'", envName, err)
-	}
-	var locks []string
-	if allEnvLocks != nil {
-		locks = db.Remove(allEnvLocks.EnvLocks, c.LockId)
-		err = state.DBHandler.DBWriteAllEnvironmentLocks(ctx, transaction, allEnvLocks.Version, envName, locks)
-		if err != nil {
-			return "", fmt.Errorf("DeleteEnvironmentLock: could not write env locks '%v': '%w'", c.Environment, err)
-		}
 	}
 
 	additionalMessageFromDeployment, err := s.ProcessQueueAllApps(ctx, transaction, envName)
@@ -1938,7 +1901,7 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-
+	Dryrun                bool                     `json:"dryrun"`
 }
 
 func (c *CreateEnvironment) GetDBEventType() db.EventType {
@@ -1976,12 +1939,17 @@ func (c *CreateEnvironment) Transform(
 	if env != nil {
 		environmentApplications = env.Applications
 	}
+
+	if c.Dryrun {
+		return fmt.Sprintf("Dry-run to create environment %q successful", c.Environment), nil
+	}
+
 	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, c.Config, environmentApplications)
 	if err != nil {
 		return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 	}
 
-	//Should be empty on new environments
+	// Should be empty on new environments, but we might be only updating config
 	envApps, err := state.GetEnvironmentApplications(ctx, transaction, envName)
 	if err != nil {
 		return "", fmt.Errorf("unable to read environment, error: %w", err)
@@ -1999,7 +1967,7 @@ type DeleteEnvironment struct {
 	Authentication        `json:"-"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-
+	Dryrun                bool             `json:"dryrun"`
 }
 
 func (c *DeleteEnvironment) GetDBEventType() db.EventType {
@@ -2014,6 +1982,81 @@ func (c *DeleteEnvironment) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
+func (c *DeleteEnvironment) CheckPreconditions(ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) error {
+	allEnvs, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil || allEnvs == nil {
+		return fmt.Errorf("error getting all environments %v", err)
+	}
+
+	/*Check for locks*/
+	envLocks, err := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, c.Environment)
+	if err != nil {
+		return err
+	}
+	if len(envLocks) != 0 {
+		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment locks for this environment exist", c.Environment))
+	}
+
+	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
+	if err != nil {
+		return err
+	}
+	if len(appLocksForEnv) != 0 {
+		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Application locks for this environment exist", c.Environment))
+	}
+
+	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
+	if err != nil {
+		return err
+	}
+	if len(teamLocksForEnv) != 0 {
+		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Team locks for this environment exist", c.Environment))
+	}
+
+	/* Check that no environment has the one we are trying to delete as upstream */
+	allEnvConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+	if err != nil {
+		return err
+	}
+
+	envConfigToDelete := allEnvConfigs[c.Environment]
+
+	//Find out if env to delete is last of its group, might be useful next
+	var envToDeleteGroupName = mapper.DeriveGroupName(envConfigToDelete, c.Environment)
+
+	var allEnvGroups = mapper.MapEnvironmentsToGroups(allEnvConfigs)
+	lastEnvOfGroup := false
+	for _, currGroup := range allEnvGroups {
+		if currGroup.EnvironmentGroupName == envToDeleteGroupName {
+			lastEnvOfGroup = (len(currGroup.Environments) == 1)
+		}
+	}
+
+	for envName, envConfig := range allEnvConfigs {
+		if envConfig.Upstream != nil && envConfig.Upstream.Environment == c.Environment {
+			return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName))
+		}
+
+		//If we are deleting an environment and it is the last one on the group, we are also deleting the group.
+		//If this group is upstream from another env, we need to block it aswell
+		if envConfig.Upstream != nil && envConfig.Upstream.Environment == types.EnvName(envToDeleteGroupName) && lastEnvOfGroup {
+			return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. '%s' is part of environment group '%s', "+
+				"which is upstream from '%s' and deleting '%s' would result in environment group deletion",
+				c.Environment,
+				c.Environment,
+				envToDeleteGroupName,
+				envName,
+				c.Environment,
+			))
+		}
+	}
+	return nil
+}
+
 func (c *DeleteEnvironment) Transform(
 	ctx context.Context,
 	state *State,
@@ -2026,72 +2069,13 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 
-	allEnvs, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
-	if err != nil || allEnvs == nil {
-		return "", fmt.Errorf("error getting all environments %v", err)
-	}
-
-	/*Check for locks*/
-	envLocks, err := state.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envName)
-	if err != nil {
-		return "", err
-	}
-	if envLocks != nil && len(envLocks.EnvLocks) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment locks for this environment exist", c.Environment))
-	}
-
-	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
-	if err != nil {
-		return "", err
-	}
-	if len(appLocksForEnv) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Application locks for this environment exist", c.Environment))
-	}
-
-	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
-	if err != nil {
-		return "", err
-	}
-	if len(teamLocksForEnv) != 0 {
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Team locks for this environment exist", c.Environment))
-	}
-
-	/* Check that no environment has the one we are trying to delete as upstream */
-	allEnvConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+	err = c.CheckPreconditions(ctx, state, t, transaction)
 	if err != nil {
 		return "", err
 	}
 
-	envConfigToDelete := allEnvConfigs[envName]
-
-	//Find out if env to delete is last of its group, might be useful next
-	var envToDeleteGroupName = mapper.DeriveGroupName(envConfigToDelete, envName)
-
-	var allEnvGroups = mapper.MapEnvironmentsToGroups(allEnvConfigs)
-	lastEnvOfGroup := false
-	for _, currGroup := range allEnvGroups {
-		if currGroup.EnvironmentGroupName == envToDeleteGroupName {
-			lastEnvOfGroup = (len(currGroup.Environments) == 1)
-		}
-	}
-
-	for envName, envConfig := range allEnvConfigs {
-		if envConfig.Upstream != nil && envConfig.Upstream.Environment == c.Environment {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment '%s' is upstream from '%s'", c.Environment, c.Environment, envName))
-		}
-
-		//If we are deleting an environment and it is the last one on the group, we are also deleting the group.
-		//If this group is upstream from another env, we need to block it aswell
-		if envConfig.Upstream != nil && envConfig.Upstream.Environment == types.EnvName(envToDeleteGroupName) && lastEnvOfGroup {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. '%s' is part of environment group '%s', "+
-				"which is upstream from '%s' and deleting '%s' would result in environment group deletion",
-				c.Environment,
-				c.Environment,
-				envToDeleteGroupName,
-				envName,
-				c.Environment,
-			))
-		}
+	if c.Dryrun {
+		return fmt.Sprintf("Dry run for deleting environment successful '%s'", c.Environment), nil
 	}
 
 	/*Remove environment from all apps*/
@@ -2188,6 +2172,74 @@ func (c *ExtendAAEnvironment) Transform(
 		return "", fmt.Errorf("could not extend Active/Active environment: %q. %w", envName, err)
 	}
 	return fmt.Sprintf("Successfully added ArgoCD configuration '%s'", c.Environment), nil
+}
+
+type DeleteAAEnvironmentConfig struct {
+	Authentication          `json:"-"`
+	Environment             types.EnvName    `json:"env"`
+	ConcreteEnvironmentName types.EnvName    `json:"concreteEnvName"`
+	TransformerEslVersion   db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+}
+
+var _ Transformer = (*DeleteAAEnvironmentConfig)(nil) // ensure we implement the interface
+
+func (c *DeleteAAEnvironmentConfig) GetDBEventType() db.EventType {
+	return db.EvtDeleteAAEnvironmentConfig
+}
+
+func (c *DeleteAAEnvironmentConfig) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *DeleteAAEnvironmentConfig) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *DeleteAAEnvironmentConfig) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	envName := types.EnvName(c.Environment)
+	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeleteEnvironment, "", c.RBACConfig, false)
+	if err != nil {
+		return "", err
+	}
+	env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+	if err != nil {
+		return "", err
+	}
+	if env == nil {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q not found", envName))
+	} else if !isAAEnv(&env.Config) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q is not an Active/Active environment", envName))
+	}
+
+	configs := env.Config.ArgoCdConfigs.ArgoCdConfigurations
+	foundIdx := -1
+	for idx, currentConfig := range env.Config.ArgoCdConfigs.ArgoCdConfigurations {
+		if types.EnvName(currentConfig.ConcreteEnvName) == c.ConcreteEnvironmentName {
+			foundIdx = idx
+			break
+		}
+	}
+
+	//We don't error out when we don't find this concrete enviroment config to make this operation idempotent
+	if foundIdx != -1 {
+		configs = append(configs[:foundIdx], configs[foundIdx+1:]...)
+		slices.SortFunc(configs, func(d1 *config.EnvironmentConfigArgoCd, d2 *config.EnvironmentConfigArgoCd) int {
+			return strings.Compare(d1.ConcreteEnvName, d2.ConcreteEnvName)
+		})
+		env.Config.ArgoCdConfigs.ArgoCdConfigurations = configs
+
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, env.Applications)
+
+		if err != nil {
+			return "", fmt.Errorf("could not delete configuration from Active/Active environment %q. Error writing environment into database: %w", envName, err)
+		}
+	}
+	return fmt.Sprintf("Successfully deleted ArgoCD configuration from '%s'", c.Environment), nil
 }
 
 func isAAEnv(config *config.EnvironmentConfig) bool {

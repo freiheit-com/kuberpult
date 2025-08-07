@@ -62,6 +62,7 @@ import (
 type Repository interface {
 	Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
+	PushTag(ctx context.Context, tag types.GitTag) error
 	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
@@ -126,6 +127,8 @@ type repository struct {
 	ddMetrics statsd.ClientInterface
 }
 
+var _ Repository = &repository{} // ensure interface is implemented
+
 type RepositoryConfig struct {
 	// Mandatory Config
 	// the URL used for git checkout, (ssh protocol)
@@ -149,6 +152,7 @@ type RepositoryConfig struct {
 	MinimizeExportedData bool
 
 	DDMetrics statsd.ClientInterface
+	TagsPath  string
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
@@ -377,6 +381,14 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 	}
 }
 
+func PushTagsActionCallback(pushOptions git.PushOptions, r *repository, tagName types.GitTag) PushActionFunc {
+	return func() error {
+		return r.useRemote(func(remote *git.Remote) error {
+			return remote.Push([]string{fmt.Sprintf("refs/tags/%s:refs/tags/%s", tagName, tagName)}, &pushOptions)
+		})
+	}
+}
+
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
 func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sql.Tx) error {
@@ -445,7 +457,7 @@ func (r *repository) GetHeadCommitId() (*git.Oid, error) {
 	branchHead := fmt.Sprintf("refs/heads/%s", r.config.Branch)
 	ref, err := r.repository.References.Lookup(branchHead)
 	if err != nil {
-		return nil, fmt.Errorf("Error fetching reference \"%s\": %v", branchHead, err)
+		return nil, fmt.Errorf("error fetching reference \"%s\": %v", branchHead, err)
 	}
 	return ref.Target(), nil
 }
@@ -614,8 +626,7 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	result := CombineArray(changes)
 
 	if r.shouldCreateNewCommit(commitMsg) {
-		// afterTransform only makes sense, if there was a change in this commit:
-		if err := r.afterTransform(ctx, transaction, *state); err != nil {
+		if err := r.afterTransform(ctx, transaction, *state, transformer.GetCreationTimestamp()); err != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 		}
 
@@ -624,11 +635,7 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 			return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
 		}
 
-		committer := &git.Signature{
-			Name:  r.config.CommitterName,
-			Email: r.config.CommitterEmail,
-			When:  time.Now(),
-		}
+		committer := r.makeGitSignature()
 
 		transformerMetadata := transformer.GetMetadata()
 		if transformerMetadata.AuthorEmail == "" || transformerMetadata.AuthorName == "" {
@@ -681,6 +688,14 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	}
 
 	return result, nil
+}
+
+func (r *repository) makeGitSignature() *git.Signature {
+	return &git.Signature{
+		Name:  r.config.CommitterName,
+		Email: r.config.CommitterEmail,
+		When:  time.Now(),
+	}
 }
 
 func (r *repository) shouldCreateNewCommit(commitMessages []string) bool {
@@ -796,17 +811,51 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 	)
 }
 
-func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State) error {
+func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "PushTag")
+	defer span.Finish()
+
+	currentCommit, err := r.GetHeadCommitId()
+	if err != nil {
+		return err
+	}
+	lookedUpCommit, err := r.repository.LookupCommit(currentCommit)
+	if err != nil {
+		return err
+	}
+
+	sig := r.makeGitSignature()
+	tagMessage := fmt.Sprintf("Kuberpult-generated tag %s", tag)
+	_, err = r.repository.Tags.Create(string(tag), lookedUpCommit, sig, tagMessage)
+	if err != nil {
+		return err
+	}
+	pushOptions := git.PushOptions{
+		PbParallelism: 0,
+		Headers:       nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
+		},
+	}
+	err = r.Push(ctx, PushTagsActionCallback(pushOptions, r, tag))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
 
-	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+	configs, err := state.GetAllEnvironmentConfigsFromDBAtTimestamp(ctx, transaction, ts)
 	if err != nil {
 		return err
 	}
 	for env, config := range configs {
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
-			err := r.updateArgoCdApps(ctx, transaction, &state, env, config)
+			err := r.updateArgoCdApps(ctx, transaction, &state, env, config, ts)
 			if err != nil {
 				return err
 			}
@@ -819,7 +868,7 @@ func isAAEnv(config config.EnvironmentConfig) bool {
 	return config.ArgoCdConfigs != nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	if !r.config.ArgoCdGenerateFiles {
@@ -827,7 +876,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	}
 	if isAAEnv(cfg) {
 		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
-			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true)
+			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts)
 			if err != nil {
 				return err
 			}
@@ -845,7 +894,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			conf = cfg.ArgoCd
 		}
 
-		err := r.processApp(ctx, transaction, state, env, nil, conf, false)
+		err := r.processApp(ctx, transaction, state, env, nil, conf, false, ts)
 
 		if err != nil {
 			return err
@@ -854,7 +903,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool) error {
+func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool, ts time.Time) error {
 	prefix := ""
 	if commonEnvPrefix != nil {
 		prefix = *commonEnvPrefix
@@ -865,28 +914,27 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 		ParentEnvironmentName: env,
 		IsAAEnv:               isAAEnv,
 	}
-	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo)
+	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo, ts)
 	return err
 }
 
-func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo) error {
+func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time) error {
 	fs := state.Filesystem
-	if apps, err := state.GetEnvironmentApplications(ctx, transaction, info.ParentEnvironmentName); err != nil {
+	if apps, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp); err != nil {
 		return err
 	} else {
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
-		sort.Strings(apps)
 		for _, appName := range apps {
-			oneAppData, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, appName)
+			oneAppData, err := state.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, appName, timestamp)
 			if err != nil {
 				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
 			}
 			if oneAppData == nil {
 				return fmt.Errorf("skipping app '%s' because it was not found in the apps table", appName)
 			}
-			version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, info.ParentEnvironmentName, appName)
+			version, err := state.GetEnvironmentApplicationVersionAtTimestamp(ctx, transaction, info.ParentEnvironmentName, appName, timestamp)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -917,7 +965,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
 				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", info.GetFullyQualifiedName()))
+				target := getArgoCdAAEnvFileName(fs, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
 				if err := util.WriteFile(fs, target, content, 0666); err != nil {
 					return err
 				}
@@ -925,6 +973,13 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		}
 	}
 	return nil
+}
+
+func getArgoCdAAEnvFileName(fs billy.Filesystem, commonEnvPrefix, parentEnvironmentName, concreteEnvironmentName types.EnvName, isAAEnv bool) string {
+	if !isAAEnv {
+		return fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(parentEnvironmentName)))
+	}
+	return fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(commonEnvPrefix)+"-"+string(parentEnvironmentName)+"-"+string(concreteEnvironmentName)))
 }
 
 func (r *repository) State() *State {
@@ -1346,18 +1401,15 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 	}
 	for envNameIndex := range envNames {
 		envName := envNames[envNameIndex]
-		var activeLockIds []string
-
 		ls, err := s.GetEnvironmentLocksFromManifest(envName)
 		if err != nil {
 			return err
 		}
 		for lockId, lock := range ls {
 			currentEnv := db.EnvironmentLock{
-				EslVersion: 0,
-				Env:        envName,
-				LockID:     lockId,
-				Created:    time.Time{}, //Time of insertion in the database
+				Env:     envName,
+				LockID:  lockId,
+				Created: time.Time{}, //Time of insertion in the database
 				Metadata: db.LockMetadata{
 					CreatedByName:     lock.CreatedBy.Name,
 					CreatedByEmail:    lock.CreatedBy.Email,
@@ -1366,19 +1418,13 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 					CreatedAt:         lock.CreatedAt, //Actual creation date
 					SuggestedLifeTime: "",
 				},
-				Deleted: false,
 			}
-			activeLockIds = append(activeLockIds, currentEnv.LockID)
-			err = dbHandler.DBWriteEnvironmentLockInternal(ctx, transaction, currentEnv, 0)
+			err = dbHandler.DBWriteEnvironmentLock(ctx, transaction, currentEnv.LockID, currentEnv.Env, currentEnv.Metadata)
 			if err != nil {
 				return fmt.Errorf("error writing environment locks to DB for environment %s: %w",
 					envName, err)
 			}
 		}
-		if len(activeLockIds) == 0 {
-			activeLockIds = []string{}
-		}
-		err = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, envName, activeLockIds)
 		if err != nil {
 			return fmt.Errorf("error writing environment locks ids to DB for environment %s: %w",
 				envName, err)
@@ -1703,15 +1749,12 @@ func (s *State) GetTeamLocksDir(environment types.EnvName, team string) string {
 }
 
 func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[string]Lock, error) {
-	dbLocks, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
+	lockIds, err := s.DBHandler.DBSelectAllEnvLocks(ctx, transaction, environment)
 	if err != nil {
 		return nil, err
 	}
-	var lockIds []string
-	if dbLocks != nil {
-		lockIds = dbLocks.EnvLocks
-	}
-	locks, err := s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
+
+	locks, err := s.DBHandler.DBSelectEnvLockSet(ctx, transaction, environment, lockIds)
 
 	if err != nil {
 		return nil, err
@@ -1926,6 +1969,18 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	return depl.ReleaseNumbers, nil
 }
 
+func (s *State) GetEnvironmentApplicationVersionAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string, ts time.Time) (types.ReleaseNumbers, error) {
+	depl, err := s.DBHandler.DBSelectLatestDeploymentAtTimestamp(ctx, transaction, application, environment, ts)
+	if err != nil {
+		return types.MakeEmptyReleaseNumbers(), err
+	}
+	if depl == nil || depl.ReleaseNumbers.Version == nil {
+		return types.MakeEmptyReleaseNumbers(), nil
+	}
+
+	return depl.ReleaseNumbers, nil
+}
+
 func (s *State) GetEnvironmentApplicationVersionFromManifest(environment types.EnvName, application string) (types.ReleaseNumbers, error) {
 	return s.readSymlink(environment, application, "version")
 }
@@ -1983,6 +2038,18 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 	envs, err := s.DBHandler.DBSelectEnvironmentsBatch(ctx, transaction, dbAllEnvs)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
+	}
+	ret := make(map[types.EnvName]config.EnvironmentConfig)
+	for _, env := range *envs {
+		ret[env.Name] = env.Config
+	}
+	return ret, nil
+}
+
+func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) (map[types.EnvName]config.EnvironmentConfig, error) {
+	envs, err := s.DBHandler.DBSelectAllLatestEnvironmentsAtTimestamp(ctx, transaction, ts)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve environment configurations from the database, error: %w", err)
 	}
 	ret := make(map[types.EnvName]config.EnvironmentConfig)
 	for _, env := range *envs {

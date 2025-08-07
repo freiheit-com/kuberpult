@@ -25,6 +25,8 @@ import (
 	"strings"
 )
 
+type GitTag string
+
 // EnvName is a type that helps us avoid mixing up envNames from other strings.
 type EnvName string
 

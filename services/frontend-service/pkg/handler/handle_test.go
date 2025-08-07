@@ -709,6 +709,47 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "Internal: Invalid Signature: EOF",
 		},
 		{
+			name: "create environment -- dryrun",
+			req: &http.Request{
+				Method: http.MethodPost,
+				Header: http.Header{
+					"Content-Type": []string{"multipart/form-data"},
+				},
+				URL: &url.URL{
+					Path:     "/api/environments/stg/",
+					RawQuery: "dryrun=true",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config": []string{exampleConfig},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "stg",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Environment: &exampleEnvironment,
+									},
+									Argocd:           nil,
+									EnvironmentGroup: nil,
+								},
+								Dryrun: true,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "create environment",
 			req: &http.Request{
 				Method: http.MethodPost,
@@ -741,6 +782,7 @@ func TestServer_Handle(t *testing.T) {
 									Argocd:           nil,
 									EnvironmentGroup: nil,
 								},
+								Dryrun: false,
 							},
 						},
 					},
@@ -805,6 +847,7 @@ func TestServer_Handle(t *testing.T) {
 									},
 									EnvironmentGroup: &starFlag,
 								},
+								Dryrun: false,
 							},
 						},
 					},
@@ -870,6 +913,7 @@ func TestServer_Handle(t *testing.T) {
 									Argocd:           nil,
 									EnvironmentGroup: nil,
 								},
+								Dryrun: false,
 							},
 						},
 					},
@@ -1978,7 +2022,7 @@ func TestServer_HandleAAEnvironments(t *testing.T) {
 		{
 			name: "create environment but additional path params",
 			req: &http.Request{
-				Method: http.MethodPut,
+				Method: http.MethodPost,
 				URL: &url.URL{
 					Path: "/api/environments/envName/cluster/my-awesome-path",
 				},
@@ -2102,6 +2146,108 @@ func TestServer_HandleAAEnvironments(t *testing.T) {
 			}
 			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
 				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tt.expectedBody, d)
+			}
+			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
+				t.Errorf("create batch request mismatch: %s", d)
+			}
+		})
+	}
+}
+
+func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
+	tests := []struct {
+		name                 string
+		req                  *http.Request
+		batchResponse        *api.BatchResponse
+		expectedResp         *http.Response
+		expectedBatchRequest *api.BatchRequest
+	}{
+		{
+			name: "create environment  - more data version",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				Header: http.Header{
+					"Content-Type": []string{"multipart/form-data"},
+				},
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/test-1",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader([]byte(""))),
+			},
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_DeleteAaEnvironmentConfig{
+							DeleteAaEnvironmentConfig: &api.DeleteAAEnvironmentConfigRequest{
+								ParentEnvironmentName:   "envName",
+								ConcreteEnvironmentName: "test-1",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Wrong Method",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/test-1",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte("cluster function does not support http method 'PUT'\n"))),
+			},
+		},
+		{
+			name: "Some extra arguments",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				URL: &url.URL{
+					Path: "/api/environments/envName/cluster/test-1/this-should-not-be-here",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte("Delete Active/Active environment config does not accept any extra arguments, got: '/this-should-not-be-here'\n"))),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			batchClient := &mockBatchClient{batchResponse: tt.batchResponse}
+			commitInfoClient := &mockCommitDeploymentServiceClient{}
+			s := Server{
+				BatchClient:             batchClient,
+				CommitDeploymentsClient: commitInfoClient,
+				Config: config.ServerConfig{
+					RevisionsEnabled: true,
+				},
+			}
+
+			w := httptest.NewRecorder()
+
+			s.HandleAPI(w, tt.req)
+
+			resp := w.Result()
+
+			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
+				t.Errorf("response mismatch: %s", d)
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("error reading response body: %s", err)
+			}
+			expectedBody, err := io.ReadAll(tt.expectedResp.Body)
+			if err != nil {
+				t.Errorf("error reading expected body: %s", err)
+			}
+			if d := cmp.Diff(string(expectedBody), string(body)); d != "" {
+				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), string(expectedBody), d)
 			}
 			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create batch request mismatch: %s", d)

@@ -22,12 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"path"
 	"slices"
 	"strconv"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
@@ -143,6 +144,9 @@ type Transformer interface {
 	GetMetadata() *TransformerMetadata
 	GetEslVersion() db.TransformerID
 	SetEslVersion(id db.TransformerID)
+	GetGitTag() types.GitTag
+	SetCreationTimestamp(ts time.Time)
+	GetCreationTimestamp() time.Time
 }
 
 type TransformerContext interface {
@@ -350,6 +354,21 @@ type DeployApplicationVersion struct {
 	SourceTrain           *DeployApplicationVersionSource `json:"sourceTrain"`
 	Author                string                          `json:"author"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time                       `json:"-"`
+}
+
+func (c *DeployApplicationVersion) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeployApplicationVersion) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &DeployApplicationVersion{} // ensure it implements Transformer
+
+func (c *DeployApplicationVersion) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() db.EventType {
@@ -495,7 +514,21 @@ type CreateEnvironmentLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
 
+func (c *CreateEnvironmentLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironmentLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &CreateEnvironmentLock{} // ensure it implements Transformer
+
+func (c *CreateEnvironmentLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateEnvironmentLock) GetEslVersion() db.TransformerID {
@@ -529,7 +562,7 @@ func (c *CreateEnvironmentLock) Transform(
 		return "", err
 	}
 
-	lock, err := state.DBHandler.DBSelectEnvironmentLock(ctx, transaction, c.Environment, c.LockId)
+	lock, err := state.DBHandler.DBSelectEnvLock(ctx, transaction, c.Environment, c.LockId)
 	if err != nil {
 		return "", err
 	}
@@ -584,7 +617,21 @@ type DeleteEnvironmentLock struct {
 	Environment           types.EnvName    `json:"env"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
 
+func (c *DeleteEnvironmentLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironmentLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &DeleteEnvironmentLock{} // ensure it implements Transformer
+
+func (c *DeleteEnvironmentLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeleteEnvironmentLock) GetEslVersion() db.TransformerID {
@@ -641,7 +688,21 @@ type CreateEnvironmentApplicationLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
 
+func (c *CreateEnvironmentApplicationLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironmentApplicationLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &CreateEnvironmentApplicationLock{} // ensure it implements Transformer
+
+func (c *CreateEnvironmentApplicationLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateEnvironmentApplicationLock) GetEslVersion() db.TransformerID {
@@ -707,7 +768,21 @@ type DeleteEnvironmentApplicationLock struct {
 	Application           string           `json:"app"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
 
+func (c *DeleteEnvironmentApplicationLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironmentApplicationLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &DeleteEnvironmentApplicationLock{} // ensure it implements Transformer
+
+func (c *DeleteEnvironmentApplicationLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeleteEnvironmentApplicationLock) GetDBEventType() db.EventType {
@@ -768,6 +843,21 @@ type CreateApplicationVersion struct {
 	WriteCommitData       bool                     `json:"writeCommitData"`
 	PreviousCommit        string                   `json:"previousCommit"`
 	TransformerEslVersion db.TransformerID         `json:"-"`
+	CreationTimestamp     time.Time                `json:"-"`
+}
+
+func (c *CreateApplicationVersion) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateApplicationVersion) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &CreateApplicationVersion{} // ensure it implements Transformer
+
+func (c *CreateApplicationVersion) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateApplicationVersion) GetEslVersion() db.TransformerID {
@@ -1072,7 +1162,21 @@ type CreateEnvironmentTeamLock struct {
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
 
+func (c *CreateEnvironmentTeamLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironmentTeamLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &CreateEnvironmentTeamLock{} // ensure it implements Transformer
+
+func (c *CreateEnvironmentTeamLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateEnvironmentTeamLock) GetEslVersion() db.TransformerID {
@@ -1166,7 +1270,21 @@ type DeleteEnvironmentTeamLock struct {
 	Team                  string           `json:"team"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
 
+func (c *DeleteEnvironmentTeamLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironmentTeamLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &DeleteEnvironmentTeamLock{} // ensure it implements Transformer
+
+func (c *DeleteEnvironmentTeamLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeleteEnvironmentTeamLock) GetEslVersion() db.TransformerID {
@@ -1227,7 +1345,22 @@ type CreateEnvironment struct {
 	Environment           types.EnvName            `json:"env"`
 	Config                config.EnvironmentConfig `json:"config"`
 	TransformerEslVersion db.TransformerID         `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	Dryrun                bool                     `json:"dryrun"`
+	CreationTimestamp     time.Time                `json:"-"`
+}
 
+func (c *CreateEnvironment) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironment) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &CreateEnvironment{} // ensure it implements Transformer
+
+func (c *CreateEnvironment) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateEnvironment) GetEslVersion() db.TransformerID {
@@ -1248,7 +1381,7 @@ func (c *CreateEnvironment) Transform(
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() {
+	if tCtx.ShouldMinimizeGitData() || c.Dryrun {
 		return GetNoOpMessage(c)
 	}
 	fs := state.Filesystem
@@ -1343,7 +1476,21 @@ type CleanupOldApplicationVersions struct {
 	Application           string
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
 
+func (c *CleanupOldApplicationVersions) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CleanupOldApplicationVersions) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &CleanupOldApplicationVersions{} // ensure it implements Transformer
+
+func (c *CleanupOldApplicationVersions) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CleanupOldApplicationVersions) GetEslVersion() db.TransformerID {
@@ -1413,17 +1560,33 @@ type ReleaseTrain struct {
 	Repo                  Repository       `json:"-"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 	TargetType            string           `json:"targetType"`
+	GitTag                types.GitTag     `json:"gitTag"`
+	CreationTimestamp     time.Time        `json:"-"`
 }
 
-func (c *ReleaseTrain) GetEslVersion() db.TransformerID {
-	return c.TransformerEslVersion
+func (u *ReleaseTrain) GetCreationTimestamp() time.Time {
+	return u.CreationTimestamp
 }
 
-func (c *ReleaseTrain) SetEslVersion(eslVersion db.TransformerID) {
-	c.TransformerEslVersion = eslVersion
+func (u *ReleaseTrain) SetCreationTimestamp(ts time.Time) {
+	u.CreationTimestamp = ts
 }
 
-func (c *ReleaseTrain) GetDBEventType() db.EventType {
+var _ Transformer = &ReleaseTrain{} // ensure it implements Transformer
+
+func (u *ReleaseTrain) GetGitTag() types.GitTag {
+	return types.GitTag(u.GitTag)
+}
+
+func (u *ReleaseTrain) GetEslVersion() db.TransformerID {
+	return u.TransformerEslVersion
+}
+
+func (u *ReleaseTrain) SetEslVersion(eslVersion db.TransformerID) {
+	u.TransformerEslVersion = eslVersion
+}
+
+func (u *ReleaseTrain) GetDBEventType() db.EventType {
 	return db.EvtReleaseTrain
 }
 
@@ -1524,6 +1687,21 @@ func (u *ReleaseTrain) Transform(
 type MigrationTransformer struct {
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (u *MigrationTransformer) GetCreationTimestamp() time.Time {
+	return u.CreationTimestamp
+}
+
+func (u *MigrationTransformer) SetCreationTimestamp(ts time.Time) {
+	u.CreationTimestamp = ts
+}
+
+var _ Transformer = &MigrationTransformer{} // ensure it implements Transformer
+
+func (c *MigrationTransformer) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *MigrationTransformer) GetDBEventType() db.EventType {
@@ -1547,6 +1725,21 @@ type DeleteEnvFromApp struct {
 	Application           string           `json:"app"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *DeleteEnvFromApp) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvFromApp) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &DeleteEnvFromApp{} // ensure it implements Transformer
+
+func (c *DeleteEnvFromApp) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeleteEnvFromApp) GetEslVersion() db.TransformerID {
@@ -1610,6 +1803,21 @@ type CreateUndeployApplicationVersion struct {
 	Application           string           `json:"app"`
 	WriteCommitData       bool             `json:"writeCommitData"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *CreateUndeployApplicationVersion) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateUndeployApplicationVersion) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &CreateUndeployApplicationVersion{} // ensure it implements Transformer
+
+func (c *CreateUndeployApplicationVersion) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateUndeployApplicationVersion) GetEslVersion() db.TransformerID {
@@ -1729,7 +1937,21 @@ type UndeployApplication struct {
 	TransformerMetadata   `json:"metadata"`
 	Application           string           `json:"app"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
 
+func (c *UndeployApplication) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *UndeployApplication) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &UndeployApplication{} // ensure it implements Transformer
+
+func (c *UndeployApplication) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (u *UndeployApplication) GetEslVersion() db.TransformerID {
@@ -1842,6 +2064,21 @@ type CreateEnvironmentGroupLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *CreateEnvironmentGroupLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *CreateEnvironmentGroupLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &CreateEnvironmentGroupLock{} // ensure it implements Transformer
+
+func (c *CreateEnvironmentGroupLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *CreateEnvironmentGroupLock) GetEslVersion() db.TransformerID {
@@ -1870,6 +2107,21 @@ type DeleteEnvironmentGroupLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *DeleteEnvironmentGroupLock) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironmentGroupLock) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &DeleteEnvironmentGroupLock{} // ensure it implements Transformer
+
+func (c *DeleteEnvironmentGroupLock) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *DeleteEnvironmentGroupLock) GetEslVersion() db.TransformerID {
@@ -1898,6 +2150,22 @@ type DeleteEnvironment struct {
 	TransformerMetadata   `json:"metadata"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	Dryrun                bool             `json:"dryrun"`
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *DeleteEnvironment) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteEnvironment) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &DeleteEnvironment{} // ensure it implements Transformer
+
+func (d *DeleteEnvironment) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (d *DeleteEnvironment) GetEslVersion() db.TransformerID {
@@ -1913,6 +2181,10 @@ func (d *DeleteEnvironment) GetDBEventType() db.EventType {
 }
 
 func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t TransformerContext, transaction *sql.Tx) (string, error) {
+	if d.Dryrun {
+		return GetNoOpMessage(d)
+	}
+
 	fs := state.Filesystem
 	envDir := fs.Join("environments", string(d.Environment))
 	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
@@ -1930,7 +2202,6 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 	} else if err != nil {
 		return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
 	}
-
 	return fmt.Sprintf("delete environment %q", d.Environment), nil
 }
 
@@ -1940,6 +2211,21 @@ type ExtendAAEnvironment struct {
 	Environment           types.EnvName                  `json:"env"`
 	ArgoCDConfig          config.EnvironmentConfigArgoCd `json:"config"`
 	TransformerEslVersion db.TransformerID               `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp     time.Time                      `json:"-"`
+}
+
+func (c *ExtendAAEnvironment) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *ExtendAAEnvironment) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &ExtendAAEnvironment{} // ensure we implement the interface
+
+func (c *ExtendAAEnvironment) GetGitTag() types.GitTag {
+	return ""
 }
 
 func (c *ExtendAAEnvironment) GetEslVersion() db.TransformerID {
@@ -1956,9 +2242,147 @@ func (c *ExtendAAEnvironment) GetDBEventType() db.EventType {
 
 func (c *ExtendAAEnvironment) Transform(
 	_ context.Context,
-	_ *State,
-	_ TransformerContext,
+	state *State,
+	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	return GetNoOpMessage(c)
-} //This should be a no OP as AA environments only matter for ArgoCD File generation
+	if tCtx.ShouldMinimizeGitData() {
+		//This cannot be a NO-OP, as we need to generate the argocd files after the transformer is executed
+		return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
+	}
+	fs := state.Filesystem
+	envDir := fs.Join("environments", string(c.Environment))
+	if err := fs.MkdirAll(envDir, 0777); err != nil {
+		return "", err
+	}
+
+	configFile := fs.Join(envDir, "config.json")
+
+	data, err := util.ReadFile(fs, configFile)
+	if err != nil {
+		return "", fmt.Errorf("error opening file: %w", err)
+	}
+	var envConfig config.EnvironmentConfig
+
+	err = json.Unmarshal(data, &envConfig)
+	if err != nil {
+		return "", err
+	}
+
+	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
+
+	err = writeEnvironmentConfigurationToManifestRepo(fs, configFile, envConfig)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
+}
+
+type DeleteAAEnvironmentConfig struct {
+	Authentication          `json:"-"`
+	TransformerMetadata     `json:"metadata"`
+	Environment             types.EnvName    `json:"env"`
+	ConcreteEnvironmentName types.EnvName    `json:"concreteEnvName"`
+	TransformerEslVersion   db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp       time.Time        `json:"-"`
+}
+
+func (c *DeleteAAEnvironmentConfig) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *DeleteAAEnvironmentConfig) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+var _ Transformer = &DeleteAAEnvironmentConfig{} // ensure we implement the interface
+
+func (c *DeleteAAEnvironmentConfig) GetGitTag() types.GitTag {
+	return ""
+}
+
+func (c *DeleteAAEnvironmentConfig) GetDBEventType() db.EventType {
+	return db.EvtDeleteAAEnvironmentConfig
+}
+
+func (c *DeleteAAEnvironmentConfig) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *DeleteAAEnvironmentConfig) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *DeleteAAEnvironmentConfig) Transform(
+	ctx context.Context,
+	state *State,
+	tCtx TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	fs := state.Filesystem
+
+	envDir := fs.Join("environments", string(c.Environment))
+
+	configFile := fs.Join(envDir, "config.json")
+
+	data, err := util.ReadFile(fs, configFile)
+	if err != nil {
+		return "", fmt.Errorf("error opening file: %w", err)
+	}
+	var envConfig config.EnvironmentConfig
+
+	err = json.Unmarshal(data, &envConfig)
+	if err != nil {
+		return "", err
+	}
+
+	if envConfig.ArgoCdConfigs.CommonEnvPrefix == nil {
+		return "", fmt.Errorf("could not read CommonEnvPrefix for AA environment %q", c.Environment)
+	}
+	argoCdAppFile := getArgoCdAAEnvFileName(fs, types.EnvName(*envConfig.ArgoCdConfigs.CommonEnvPrefix), c.Environment, c.ConcreteEnvironmentName, true)
+	err = fs.Remove(argoCdAppFile)
+	if errors.Is(err, os.ErrNotExist) {
+		logger.FromContext(ctx).Sugar().Warnf("AA environment argocd app file %q does not exist.", argoCdAppFile)
+	} else if err != nil {
+		return "", fmt.Errorf("error deleting AA environment's argocd app file %q: %w", argoCdAppFile, err)
+	}
+
+	if tCtx.ShouldMinimizeGitData() {
+		return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
+	}
+
+	for idx, currentConfig := range envConfig.ArgoCdConfigs.ArgoCdConfigurations {
+		if types.EnvName(currentConfig.ConcreteEnvName) == c.ConcreteEnvironmentName {
+			envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations[:idx], envConfig.ArgoCdConfigs.ArgoCdConfigurations[idx+1:]...)
+			break
+		}
+	}
+
+	err = writeEnvironmentConfigurationToManifestRepo(fs, configFile, envConfig)
+	if err != nil {
+		return "", fmt.Errorf("error writing environment configuration to manifest repository: %w", err)
+	}
+	return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
+}
+
+func writeEnvironmentConfigurationToManifestRepo(fs billy.Filesystem, configFile string, envConfig config.EnvironmentConfig) error {
+	err := fs.Remove(configFile) // If we do not remove the file, it behaves like an "append" not an "overwrite". Removing the file and recreating it resulted in the correct output in the file.
+	if err != nil {
+		return fmt.Errorf("error removing environment config file: %w", err)
+	}
+	file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("error creating config: %w", err)
+	}
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "  ")
+
+	if err := enc.Encode(envConfig); err != nil {
+		return fmt.Errorf("error writing json: %w", err)
+	}
+	err = file.Close()
+	if err != nil {
+		return fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
+	}
+	return nil
+}

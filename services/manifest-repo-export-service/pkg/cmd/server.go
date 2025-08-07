@@ -20,11 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/freiheit-com/kuberpult/pkg/backoff"
-	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"strconv"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/backoff"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"encoding/json"
@@ -220,6 +221,11 @@ func Run(ctx context.Context) error {
 	}
 	dbGitTimestampMigrationEnabled := gitTimestampMigrationEnabledString == "true"
 
+	failOnErrorWithGitPushTags, err := valid.ReadEnvVarBool("KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS")
+	if err != nil {
+		return err
+	}
+
 	var dbCfg db.DBConfig
 	if dbOption == "postgreSQL" {
 		dbCfg = db.DBConfig{
@@ -257,6 +263,7 @@ func Run(ctx context.Context) error {
 	cfg := repository.RepositoryConfig{
 		URL:            gitUrl,
 		Path:           "./repository",
+		TagsPath:       "./repository_tags",
 		CommitterEmail: "kuberpult@freiheit.com",
 		CommitterName:  "kuberpult",
 		Credentials: repository.Credentials{
@@ -344,7 +351,7 @@ func Run(ctx context.Context) error {
 				Name:     "processEsls",
 				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 					reporter.ReportReady("Processing Esls")
-					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds)
+					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds, failOnErrorWithGitPushTags)
 				},
 			},
 		},
@@ -402,7 +409,14 @@ func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*se
 	}
 }
 
-func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, eslProcessingIdleTimeSeconds int64) error {
+func processEsls(
+	ctx context.Context,
+	repo repository.Repository,
+	dbHandler *db.DBHandler,
+	ddMetrics statsd.ClientInterface,
+	eslProcessingIdleTimeSeconds int64,
+	failOnErrorWithGitPushTags bool,
+) error {
 	log := logger.FromContext(ctx).Sugar()
 	var sleepDuration = backoff.MakeSimpleBackoff(
 		time.Second*time.Duration(eslProcessingIdleTimeSeconds),
@@ -431,7 +445,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 		}
 		err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 			var err2 error
-			transformer, esl, err2 = handleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
+			transformer, esl, err2 = HandleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
 			return err2
 		})
 		if err != nil {
@@ -470,7 +484,7 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 			if transformer == nil {
 				sleepDuration.Reset()
 				d := sleepDuration.NextBackOff()
-				measurePushes(ddMetrics, log, false)
+				measureGitPushFailures(ddMetrics, log, false)
 				logger.FromContext(ctx).Sugar().Debug("event processing skipped, will try again in %v", d)
 				time.Sleep(d)
 				continue
@@ -485,11 +499,11 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				if err2 != nil {
 					d := sleepDuration.NextBackOff()
 					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v: %v", d, err2)
-					measurePushes(ddMetrics, log, true)
+					measureGitPushFailures(ddMetrics, log, true)
 					time.Sleep(d)
 					return err2
 				} else {
-					measurePushes(ddMetrics, log, false)
+					measureGitPushFailures(ddMetrics, log, false)
 				}
 
 				//Get latest commit. Write esl timestamp and commit hash.
@@ -499,7 +513,15 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 				}
 
 				if oldCommitId.String() != commitId.String() { // We only want to write a transaction timestamp if it resulted in a new commit.
-					return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
+					var result = dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
+					if result != nil {
+						return result
+					}
+					var gitTag = transformer.GetGitTag()
+					if gitTag != "" {
+						return HandleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
+					}
+					return nil
 				}
 				return nil
 			})
@@ -533,7 +555,31 @@ func processEsls(ctx context.Context, repo repository.Repository, dbHandler *db.
 	}
 }
 
-func measurePushes(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, failure bool) {
+func HandleGitTagPush(ctx context.Context, repo repository.Repository, gitTag types.GitTag, ddMetrics statsd.ClientInterface, failOnErrorWithGitTags bool) error {
+	gitTagErr := repo.PushTag(ctx, gitTag)
+	if gitTagErr != nil {
+		measureGitTagPushFailures(ctx, ddMetrics, gitTag)
+	}
+
+	if failOnErrorWithGitTags {
+		return gitTagErr
+	} else {
+		// We just continue as if nothing happened.
+		return nil
+	}
+}
+
+func measureGitTagPushFailures(ctx context.Context, ddMetrics statsd.ClientInterface, gitTag types.GitTag) {
+	if ddMetrics != nil {
+		metricName := "manifest_export_tag_push_failures"
+		err := ddMetrics.Gauge(metricName, 1, []string{"kuberpult_tag_name", string(gitTag)}, 1)
+		if err != nil {
+			logger.FromContext(ctx).Error("datadog_metrics_error", zap.Error(err), zap.String("metricName", metricName))
+		}
+	}
+}
+
+func measureGitPushFailures(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, failure bool) {
 	if ddMetrics != nil {
 		var value float64 = 0
 		if failure {
@@ -545,7 +591,7 @@ func measurePushes(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, fai
 	}
 }
 
-func handleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
+func HandleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
 	log := logger.FromContext(ctx).Sugar()
 	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
@@ -634,7 +680,7 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	}
 	t.SetEslVersion(db.TransformerID(esl.EslVersion))
 	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
-
+	t.SetCreationTimestamp(esl.Created)
 	err = repo.Apply(ctx, tx, t)
 	if err != nil {
 		return nil, fmt.Errorf("error while running repo apply: %v", err)
@@ -701,6 +747,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtExtendAAEnvironment:
 		//exhaustruct:ignore
 		return &repository.ExtendAAEnvironment{}, nil
+	case db.EvtDeleteAAEnvironmentConfig:
+		//exhaustruct:ignore
+		return &repository.DeleteAAEnvironmentConfig{}, nil
 	}
 	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }
