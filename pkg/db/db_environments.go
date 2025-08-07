@@ -154,16 +154,7 @@ func processEnvironmentRows(ctx context.Context, rows *sql.Rows) (*[]DBEnvironme
 	return &envs, nil
 }
 
-func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx *sql.Tx, environmentNames []types.EnvName, ts time.Time) (*[]DBEnvironment, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectEnvironmentsBatchAtTimestamp")
-	defer span.Finish()
-	if len(environmentNames) > WhereInBatchMax {
-		return nil, onErr(fmt.Errorf("error: DBSelectEnvironmentsBatchAtTimestamp is not batching queries for now, make sure to not request more than %d environments", WhereInBatchMax))
-	}
-	if len(environmentNames) == 0 {
-		return &[]DBEnvironment{}, nil
-	}
-
+func (h *DBHandler) DBSelectAllLatestEnvironmentsAtTimestamp(ctx context.Context, tx *sql.Tx, ts time.Time) (*[]DBEnvironment, error) {
 	selectQuery := h.AdaptQuery(`
 	SELECT
 	    environments_history.created,
@@ -176,7 +167,7 @@ func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx
 		name
 	FROM
 		environments_history
-	WHERE created <= (?) AND name IN (?` + strings.Repeat(",?", len(environmentNames)-1) + `)
+	WHERE created <= (?)
 	GROUP BY
 		name
 	) AS latest
@@ -187,12 +178,8 @@ func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx
 		AND latest.name=environments_history.name;
 `)
 
-	span.SetTag("query", selectQuery)
 	args := []any{}
 	args = append(args, ts)
-	for _, env := range environmentNames {
-		args = append(args, env)
-	}
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -201,11 +188,11 @@ func (h *DBHandler) DBSelectEnvironmentsBatchAtTimestamp(ctx context.Context, tx
 	)
 
 	if err != nil {
-		return nil, onErr(fmt.Errorf("failed to query for environments %v, error: %w (query: %s, args: %v)", environmentNames, err, selectQuery, args))
+		return nil, fmt.Errorf("failed to query for environments, error: %w (query: %s, args: %v)", err, selectQuery, args)
 	}
 	result, err := processEnvironmentRows(ctx, rows)
 	if err != nil {
-		return nil, onErr(err)
+		return nil, err
 	}
 	return result, nil
 }

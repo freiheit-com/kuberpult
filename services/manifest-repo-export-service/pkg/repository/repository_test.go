@@ -382,12 +382,6 @@ func TestGetTags(t *testing.T) {
 	}
 }
 
-// To be used for generating timestamps for testing transformers
-// Makes sure that the
-func createTimestamp(index int64) time.Time {
-	return time.Unix(32503680000+index, 0)
-}
-
 func TestArgoCDFileGeneration(t *testing.T) {
 	transformers := []Transformer{
 		&CreateEnvironment{

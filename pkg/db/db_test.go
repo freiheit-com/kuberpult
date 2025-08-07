@@ -3294,7 +3294,6 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 							Applications:      []string{"app1", "app2", "app3"},
 						},
 					},
-					EnvsToQuery: []types.EnvName{"development"},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
@@ -3321,7 +3320,6 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 							Applications:      []string{"app1", "app2", "app3"},
 						},
 					},
-					EnvsToQuery: []types.EnvName{"development", "staging"},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
@@ -3330,6 +3328,11 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 						},
 						{
 							Name:         "staging",
+							Config:       testutil.MakeEnvConfigLatest(nil),
+							Applications: []string{"app1", "app2", "app3"},
+						},
+						{
+							Name:         "production",
 							Config:       testutil.MakeEnvConfigLatest(nil),
 							Applications: []string{"app1", "app2", "app3"},
 						},
@@ -3348,7 +3351,6 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 							Applications:      []string{"app1", "app2", "app3"},
 						},
 					},
-					EnvsToQuery: []types.EnvName{"development"},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
@@ -3365,7 +3367,6 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 							Applications:      []string{"app1", "app2", "app3"},
 						},
 					},
-					EnvsToQuery: []types.EnvName{"development", "staging"},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
@@ -3387,7 +3388,6 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 							Applications:      []string{"app1", "app2", "app3"},
 						},
 					},
-					EnvsToQuery: []types.EnvName{"development", "staging", "production"},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
@@ -3395,12 +3395,12 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 							Applications: []string{"app1", "app2", "app3"},
 						},
 						{
-							Name:         "production",
+							Name:         "staging",
 							Config:       testutil.MakeEnvConfigLatest(nil),
 							Applications: []string{"app1", "app2", "app3"},
 						},
 						{
-							Name:         "staging",
+							Name:         "production",
 							Config:       testutil.MakeEnvConfigLatest(nil),
 							Applications: []string{"app1", "app2", "app3"},
 						},
@@ -3439,10 +3439,9 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 				}
 			}
 			for idx, currStep := range tc.Steps {
-				envsToQuery := currStep.EnvsToQuery
 				expectedEnvs := currStep.ExpectedEnvs
 				environments, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]DBEnvironment, error) {
-					enviroments, err := dbHandler.DBSelectEnvironmentsBatchAtTimestamp(ctx, transaction, envsToQuery, *timestamps[idx])
+					enviroments, err := dbHandler.DBSelectAllLatestEnvironmentsAtTimestamp(ctx, transaction, *timestamps[idx])
 					if err != nil {
 						return nil, fmt.Errorf("error while selecting environment batch, error: %w", err)
 					}
