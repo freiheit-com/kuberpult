@@ -1903,10 +1903,15 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 ) (string, error) {
 	envName := types.EnvName(c.Environment)
 	err := state.checkUserPermissions(ctx, transaction, envName, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig, true)
-
 	if err != nil {
 		return "", err
 	}
+
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	err = state.DBHandler.DBDeleteTeamLock(ctx, transaction, envName, c.Team, c.LockId)
 	if err != nil {
 		return "", err

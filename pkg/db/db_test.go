@@ -2221,7 +2221,10 @@ func TestReadAllActiveTeamLock(t *testing.T) {
 				}
 
 				for _, lockInfo := range tc.DeleteLocks {
-					err := dbHandler.DBDeleteTeamLock(ctx, transaction, lockInfo.Env, lockInfo.TeamName, lockInfo.LockID)
+					err := dbHandler.DBDeleteTeamLock(ctx, transaction, lockInfo.Env, lockInfo.TeamName, lockInfo.LockID, LockDeletionMetadata{
+						DeletedByUser:  lockInfo.AuthorName,
+						DeletedByEmail: lockInfo.AuthorEmail,
+					})
 					if err != nil {
 						return err
 					}
@@ -2849,6 +2852,10 @@ func TestDeleteTeamLock(t *testing.T) {
 						CreatedByEmail: "myself@example.com",
 					},
 					Deleted: true,
+					DeletionMetadata: LockDeletionMetadata{
+						DeletedByUser:  "myself",
+						DeletedByEmail: "myself@example.com",
+					},
 				},
 				{
 					Env:    "dev",
@@ -2889,7 +2896,10 @@ func TestDeleteTeamLock(t *testing.T) {
 					return err
 				}
 
-				errDelete := dbHandler.DBDeleteTeamLock(ctx, transaction, tc.Env, tc.TeamName, tc.LockID)
+				errDelete := dbHandler.DBDeleteTeamLock(ctx, transaction, tc.Env, tc.TeamName, tc.LockID, LockDeletionMetadata{
+					DeletedByUser:  tc.AuthorName,
+					DeletedByEmail: tc.AuthorEmail,
+				})
 				if errDelete != nil {
 					return err
 				}
