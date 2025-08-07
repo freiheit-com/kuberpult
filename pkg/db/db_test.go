@@ -1294,7 +1294,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					return err
 				}
 
-				errDelete := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				errDelete := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, tc.Env, tc.LockID, LockDeletionMetadata{DeletedByUser: tc.AuthorName, DeletedByEmail: tc.AuthorEmail})
 				if errDelete != nil {
 					return err
 				}
@@ -5214,7 +5214,7 @@ func TestDBSelectAllEnvLocks(t *testing.T) {
 					}
 				}
 				for _, envLock := range tc.EnvironmentLocksToDelete {
-					err := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, envLock.Env, envLock.LockID)
+					err := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, envLock.Env, envLock.LockID, LockDeletionMetadata{DeletedByUser: envLock.Metadata.CreatedByName, DeletedByEmail: envLock.Metadata.CreatedByEmail})
 					if err != nil {
 						return fmt.Errorf("error while writing env lock, error: %w", err)
 					}
