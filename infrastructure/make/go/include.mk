@@ -46,6 +46,9 @@ docker: # no dependencies here!
 	mkdir -p $(MAIN_PATH)/lib
 	mkdir -p $(MAIN_PATH)/usr
 	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) $(CONTEXT) -t $(IMAGE_NAME)
+	# The docker history shows us the file size.
+	# For now we just log it, later we could check automatically that the size is below a certain threshold:
+	docker history $(IMAGE_NAME)
 
 .PHONY: release
 release:
