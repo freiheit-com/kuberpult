@@ -444,20 +444,25 @@ func connectToDB(t *testing.T, dbConfig db.DBConfig, ctx context.Context) *db.DB
 	return dbHandler
 }
 
-func callDBForLock(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, environment types.EnvName, lockId string) *db.EnvironmentLock {
-	lock, err := db.WithTransactionT(dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.EnvironmentLock, error) {
-		return dbHandler.DBSelectEnvironmentLock(ctx, transaction, "development", lockId)
+func callDBForLock(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, environment types.EnvName, lockId string) *db.EnvLockHistory {
+	locks, err := db.WithTransactionMultipleEntriesT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]db.EnvLockHistory, error) {
+		return dbHandler.DBSelectEnvLockHistory(ctx, transaction, "development", lockId, 1)
 	})
 	if err != nil {
 		t.Errorf("DBSelectEnvionmentLock failed %s", err)
 	}
+	if len(locks) == 0 {
+		t.Errorf("no locks found")
+
+	}
+	lock := locks[0]
 	if lock.LockID != lockId {
 		t.Errorf("expected LockId %s but got %s", lockId, lock.LockID)
 	}
 	if lock.Env != environment {
 		t.Errorf("expected Environment %s but got %s", environment, lock.Env)
 	}
-	return lock
+	return &lock
 }
 
 func callDBForReleases(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, appName string) []*db.DBReleaseWithMetaData {
