@@ -537,40 +537,6 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				"argocd/v1alpha1/common-development-test-2.yaml",
 			},
 		},
-		{
-			Name:                "Creating an AA env with only one config is same as regular env",
-			shouldGenerateFiles: true,
-			TransformerSetup: []Transformer{
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
-						ArgoCdConfigs: &config.ArgoCDConfigs{
-							CommonEnvPrefix: &commonName,
-							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
-								{
-									Destination: config.ArgoCdDestination{
-										Server: "development",
-									},
-									ConcreteEnvName: "test-1",
-								},
-							},
-						},
-					},
-					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
-				},
-				&CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[types.EnvName]string{
-						"staging": "manifest",
-					},
-					Version:             1,
-					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
-				},
-			},
-			ExpectedFiles: []string{
-				"argocd/v1alpha1/common-development-test-1.yaml",
-			},
-		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -581,87 +547,16 @@ func TestArgoCDFileGeneration(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{Team: "test"})
-				if err != nil {
-					t.Fatalf("could not create app test: %v", err)
+				for _, tr := range tc.TransformerSetup {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "author", "email")
 				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, "production", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
-					Destination: config.ArgoCdDestination{
-						Server: "development",
-					},
-				}}, []string{"test"})
-				if err != nil {
-					t.Fatalf("could not create environment production: %v", err)
-				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, "development", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
-					ArgoCdConfigs: &config.ArgoCDConfigs{
-						CommonEnvPrefix: &commonName,
-						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
-							{
-								Destination: config.ArgoCdDestination{
-									Server: "development",
-								},
-								ConcreteEnvName: "test-1",
-							},
-							{
-								Destination: config.ArgoCdDestination{
-									Server: "development",
-								},
-								ConcreteEnvName: "test-2",
-							},
-						},
-					},
-				}, []string{"test"})
-				if err != nil {
-					t.Fatalf("could not create environment development: %v", err)
-				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true},
-					ArgoCdConfigs: &config.ArgoCDConfigs{
-						CommonEnvPrefix: &commonName,
-						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
-							{
-								Destination: config.ArgoCdDestination{
-									Namespace: &commonName,
-									Server:    "development",
-								},
-								ConcreteEnvName: "test-1",
-							},
-						},
-					},
-				}, []string{"test"})
+				return nil
+			})
 
-				if err != nil {
-					t.Fatalf("could not create environment staging: %v", err)
-				}
-				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  &versionOne,
-					},
-					App: "test",
-					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
-						"production": "manifest2",
-					}},
-				})
-				if err != nil {
-					t.Fatalf("could not create release 1 for app test: %v", err)
-				}
-				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  &versionTwo,
-					},
-					App: "test",
-					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
-						"production": "manifest2",
-					}},
-				})
-				if err != nil {
-					t.Fatalf("could not create release 1 for app test: %v", err)
-				}
-				for i, transformer := range transformers {
-					_, applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
-					if applyErr != nil && applyErr.TransformerError != nil {
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i, tr := range tc.TransformerSetup {
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, tr)
+					if applyErr != nil {
 						t.Fatalf("Unexpected error applying transformer[%d]: Error: %v", i, applyErr)
 					}
 				}
@@ -687,7 +582,397 @@ func TestArgoCDFileGeneration(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
 
+func TestArgoCDFileGenerationAcrossTimestamps(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	var aaEnvName = "aa"
+	type Step struct {
+		Transformers        []Transformer
+		ExpectedFiles       []*FilenameAndData
+		ExpectedMissing     []*FilenameAndData
+		shouldGenerateFiles bool
+	}
+	tcs := []struct {
+		Name  string
+		Steps []Step
+	}{
+		{
+			Name: "Create argo files for normal env",
+			Steps: []Step{
+				{
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+					Transformers: []Transformer{
+						&CreateEnvironment{
+							Environment: "production",
+							Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+								Destination: config.ArgoCdDestination{
+									Server: "development",
+								},
+							}},
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&CreateApplicationVersion{
+							Application: "test",
+							Manifests: map[types.EnvName]string{
+								"production": "manifest",
+							},
+							Version:             1,
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&DeployApplicationVersion{
+							Application:         "test",
+							Environment:         "production",
+							Version:             1,
+							Revision:            0,
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests
+    com.freiheit.kuberpult/aa-parent-environment: production
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: production
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: production-test
+spec:
+  destination:
+    server: development
+  project: production
+  source:
+    path: environments/production/applications/test/manifests
+    repoURL: test
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Create argo files for AA environment",
+			Steps: []Step{
+				{
+					Transformers: []Transformer{
+						&CreateEnvironment{
+							Environment: "production",
+							Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+								Destination: config.ArgoCdDestination{
+									Server: "development",
+								},
+							}},
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedMissing: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/some-concrete-env-name-2.yaml",
+						},
+						{
+							path: "argocd/v1alpha1/some-concrete-env-name-1.yaml",
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&CreateApplicationVersion{
+							Application: "test",
+							Manifests: map[types.EnvName]string{
+								"production": "manifest",
+							},
+							Version:             1,
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedMissing: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/some-concrete-env-name-2.yaml",
+						},
+						{
+							path: "argocd/v1alpha1/some-concrete-env-name-1.yaml",
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&DeployApplicationVersion{
+							Application:         "test",
+							Environment:         "production",
+							Version:             1,
+							Revision:            0,
+							TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
+						},
+					},
+					ExpectedMissing: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+						},
+						{
+							path: "argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/production.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests
+    com.freiheit.kuberpult/aa-parent-environment: production
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: production
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: production-test
+spec:
+  destination:
+    server: development
+  project: production
+  source:
+    path: environments/production/applications/test/manifests
+    repoURL: test
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`),
+						},
+					},
+				},
+				{
+					Transformers: []Transformer{
+						&CreateEnvironment{
+							Environment: "aa-test",
+							Config: config.EnvironmentConfig{
+								ArgoCdConfigs: &config.ArgoCDConfigs{
+									CommonEnvPrefix: &aaEnvName,
+
+									ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+										{
+											Destination: config.ArgoCdDestination{
+												Name:   "some-destination-1",
+												Server: "some-server",
+											},
+											ConcreteEnvName: "some-concrete-env-name-1",
+										},
+										{
+											Destination: config.ArgoCdDestination{
+												Name:   "some-destination-2",
+												Server: "some-server",
+											},
+											ConcreteEnvName: "some-concrete-env-name-2",
+										},
+									},
+								},
+							},
+							TransformerEslVersion: 1,
+							TransformerMetadata: TransformerMetadata{
+								AuthorName:  authorName,
+								AuthorEmail: authorEmail,
+							},
+						},
+					},
+					ExpectedFiles: []*FilenameAndData{
+						{
+							path: "argocd/v1alpha1/aa-aa-test-some-concrete-env-name-1.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-aa-test-some-concrete-env-name-1
+spec:
+  description: aa-aa-test-some-concrete-env-name-1
+  destinations:
+  - name: some-destination-1
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
+						},
+						{
+							path: "argocd/v1alpha1/aa-aa-test-some-concrete-env-name-2.yaml",
+							fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-aa-test-some-concrete-env-name-2
+spec:
+  description: aa-aa-test-some-concrete-env-name-2
+  destinations:
+  - name: some-destination-2
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			repo.config.ArgoCdGenerateFiles = true
+			ctx := testutil.MakeTestContext()
+			for _, step := range tc.Steps {
+				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					ts, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+					if err != nil {
+						return err
+					}
+					for _, tr := range step.Transformers {
+						tr.SetCreationTimestamp(*ts)
+						prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "authorEmail", "authorName")
+					}
+					return nil
+				})
+			}
+			for si, currentStep := range tc.Steps {
+				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					for i, tr := range currentStep.Transformers {
+						/*
+							The Generated argo files pick up the URL from the config.
+							On unit tests this depends on the temporary directory the test is being run in.
+						*/
+						oldUrl := r.(*repository).config.URL
+						r.(*repository).config.URL = "test"
+						_, applyErr := repo.ApplyTransformer(ctx, transaction, tr)
+						if applyErr != nil {
+							t.Fatalf("Unexpected error applying transformer[%d] on step[%d]: Error: %v", i, si, applyErr)
+						}
+						r.(*repository).config.URL = oldUrl //Re-instate URL, in case it is needed somewhere else
+
+					}
+					return nil
+				})
+
+				state := repo.State() //update state
+				if err := verifyMissing(state.Filesystem, currentStep.ExpectedMissing); err != nil {
+					t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
+				}
+				if err := verifyContent(state.Filesystem, currentStep.ExpectedFiles); err != nil {
+					t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
+				}
+			}
 		})
 	}
 }
@@ -1815,7 +2100,6 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 			repo, _, _ := SetupRepositoryTestWithDB(t)
 			repo.(*repository).ddMetrics = client
 			dbHandler := repo.State().DBHandler
-
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteNewSyncEventBulk(ctx, transaction, 0, tc.SyncedFailedApps, db.SYNC_FAILED)
 				if err != nil {
