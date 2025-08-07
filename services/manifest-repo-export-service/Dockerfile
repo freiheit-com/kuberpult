@@ -3,6 +3,29 @@ ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpu
 FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata alpine-sdk go make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    alpine-sdk \
+    go \
+    make \
+    pkgconfig \
+    build-base \
+    git \
+    tar \
+    npm \
+    sqlite \
+    sqlite-dev \
+    bash \
+    cmake \
+    g++ \
+    musl-dev \
+    openssl-dev \
+    python3 \
+    py3-pip \
+    libffi-dev \
+    curl \
+    libssh2-dev
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
 COPY --from=builder /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
@@ -34,7 +57,13 @@ RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.
 
 COPY --chown=kp:kp services/manifest-repo-export-service services/manifest-repo-export-service
 
-RUN cd services/manifest-repo-export-service && CGO_ENABLED=true GOOS=linux go build -o /kp/main cmd/server/main.go
-RUN ldd services/manifest-repo-export-service/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % /kp/main/%
+RUN mkdir -p /bin
+RUN cd services/manifest-repo-export-service && CGO_ENABLED=true GOOS=linux go build -o /tmp/main cmd/server/main.go
 
-CMD /kp/main
+USER root
+RUN mv /tmp/main /main
+RUN ldd /main | awk '/=>/ {print $3}' | xargs -r -I '{}' sh -c 'if [ ! -e "/lib/$(basename {})" ]; then cp -v "{}" /lib/; fi'
+RUN chmod +x /main
+
+USER kp
+CMD ["/main"]
