@@ -33,7 +33,7 @@ EOF
 export GIT_NAMESPACE=git
 export ARGO_NAMESPACE=default
 
-LOCAL_EXECUTION=${LOCAL_EXECUTION:-true}
+LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
 print "LOCAL_EXECUTION: $LOCAL_EXECUTION"
 
 print 'ensuring that the helm chart is build...'
@@ -133,15 +133,17 @@ export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kub
 if "$LOCAL_EXECUTION"
 then
   print 'building services...'
-  make -C ../.. all-services
+#  make -C ../.. prepare-compose # formerly all-services
 else
   print 'not building services...'
 fi
 
 print version...
 VERSION=$(make --no-print-directory -C ../../ version)
+VERSION=v13.26.1-31-gb6eddf99
 print "version is ${VERSION}"
 IMAGE_TAG_KUBERPULT=${IMAGE_TAG_KUBERPULT:-$VERSION}
+IMAGE_TAG_KUBERPULT=pr-${VERSION}
 print "IMAGE_TAG_KUBERPULT is now ${IMAGE_TAG_KUBERPULT}"
 
 cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT}"
@@ -292,7 +294,7 @@ export ARGO_NAMESPACE=${ARGO_NAMESPACE}
 export LOCAL_EXECUTION=${LOCAL_EXECUTION}
 export TOKEN=${token}
 
-./install-kuberpult-helm.sh
+./install-kuberpult-helm.sh ${VERSION}
 
 print 'checking for pods and waiting for portforwarding to be ready...'
 
