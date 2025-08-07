@@ -1776,7 +1776,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return "", fmt.Errorf("Could not obtain user from context: %w", err)
+		return "", fmt.Errorf("could not obtain user from context: %w", err)
 	}
 	queueMessage := ""
 	err = state.DBHandler.DBDeleteApplicationLock(ctx, transaction, envName, c.Application, c.LockId,

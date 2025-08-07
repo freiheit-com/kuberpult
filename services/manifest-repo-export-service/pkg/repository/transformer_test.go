@@ -2301,7 +2301,10 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtDeleteEnvironmentApplicationLock {
 						concreteTransformer := tr.(*DeleteEnvironmentApplicationLock)
-						err2 = dbHandler.DBDeleteApplicationLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.Application, concreteTransformer.LockId)
+						err2 = dbHandler.DBDeleteApplicationLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.Application, concreteTransformer.LockId, db.LockDeletionMetadata{
+							DeletedByEmail: authorEmail,
+							DeletedByUser:  authorName,
+						})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -4214,7 +4217,10 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 	}
 	if tr.GetDBEventType() == db.EvtDeleteEnvironmentApplicationLock {
 		concreteTransformer := tr.(*DeleteEnvironmentApplicationLock)
-		err2 := dbHandler.DBDeleteApplicationLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.Application, concreteTransformer.LockId)
+		err2 := dbHandler.DBDeleteApplicationLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.Application, concreteTransformer.LockId, db.LockDeletionMetadata{
+			DeletedByEmail: authorEmail,
+			DeletedByUser:  authorName,
+		})
 		if err2 != nil {
 			t.Fatal(err2)
 		}
