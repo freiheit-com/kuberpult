@@ -27,6 +27,14 @@ RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.
 
 COPY --chown=kp:kp services/rollout-service services/rollout-service
 
-RUN cd services/rollout-service && CGO_ENABLED=false GOOS=linux go build -o main cmd/server/main.go
+RUN mkdir -p /bin
+RUN cd services/rollout-service && CGO_ENABLED=false GOOS=linux go build -o /tmp/main cmd/server/main.go
 
-CMD /main
+USER root
+RUN mv /tmp/main /main
+RUN ldd /main | awk '/=>/ {print $3}' | xargs -r -I '{}' sh -c 'if [ ! -e "/lib/$(basename {})" ]; then cp -v "{}" /lib/; fi'
+RUN chmod +x /main
+
+USER kp
+
+CMD ["/main"]
