@@ -77,6 +77,7 @@ compose-down:
 	docker compose down
 
 prepare-compose: builder
+	make -C pkg gen
 	IMAGE_TAG=local make -C services/cd-service docker
 	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 	IMAGE_TAG=local make -C services/frontend-service docker
