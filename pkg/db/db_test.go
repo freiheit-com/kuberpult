@@ -1235,7 +1235,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 		AuthorName    string
 		AuthorEmail   string
 		CiLink        string
-		ExpectedLocks []EnvironmentLock
+		ExpectedLocks []EnvLockHistory
 	}{
 		{
 			Name:        "Write and delete",
@@ -1244,12 +1244,11 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 			Message:     "My lock on dev",
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
-			ExpectedLocks: []EnvironmentLock{
+			ExpectedLocks: []EnvLockHistory{
 				{ //Sort DESC
-					Env:        "dev",
-					LockID:     "dev-lock",
-					EslVersion: 2,
-					Deleted:    true,
+					Env:     "dev",
+					LockID:  "dev-lock",
+					Deleted: true,
 					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
@@ -1257,10 +1256,9 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					},
 				},
 				{
-					Env:        "dev",
-					LockID:     "dev-lock",
-					EslVersion: 1,
-					Deleted:    false,
+					Env:     "dev",
+					LockID:  "dev-lock",
+					Deleted: false,
 					Metadata: LockMetadata{
 						Message:        "My lock on dev",
 						CreatedByName:  "myself",
@@ -1279,7 +1277,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				envLock, err2 := dbHandler.DBSelectEnvLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
 				}
@@ -1310,7 +1308,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
 
-				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(EnvironmentLock{}, "Created")); diff != "" {
+				if diff := cmp.Diff(&tc.ExpectedLocks, &actual, cmpopts.IgnoreFields(EnvLockHistory{}, "Created")); diff != "" {
 					t.Fatalf("env locks mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -1472,7 +1470,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 		AuthorName   string
 		AuthorEmail  string
 		CiLink       string
-		ExpectedLock *EnvironmentLock
+		ExpectedLock *EnvLockHistory
 	}{
 		{
 			Name:        "Simple environment lock",
@@ -1482,11 +1480,10 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 			AuthorName:  "myself",
 			AuthorEmail: "myself@example.com",
 			CiLink:      "www.test.com",
-			ExpectedLock: &EnvironmentLock{
-				Env:        "dev",
-				LockID:     "dev-lock",
-				EslVersion: 1,
-				Deleted:    false,
+			ExpectedLock: &EnvLockHistory{
+				Env:     "dev",
+				LockID:  "dev-lock",
+				Deleted: false,
 				Metadata: LockMetadata{
 					Message:        "My lock on dev",
 					CreatedByName:  "myself",
@@ -1505,7 +1502,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				envLock, err2 := dbHandler.DBSelectEnvLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
 				}
@@ -1532,7 +1529,7 @@ func TestReadWriteEnvironmentLock(t *testing.T) {
 					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
 				}
 				target := actual[0]
-				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(EnvironmentLock{}, "Created")); diff != "" {
+				if diff := cmp.Diff(tc.ExpectedLock, &target, cmpopts.IgnoreFields(EnvLockHistory{}, "Created")); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -2291,7 +2288,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				envLock, err2 := dbHandler.DBSelectEnvironmentLock(ctx, transaction, tc.Env, tc.LockID)
+				envLock, err2 := dbHandler.DBSelectEnvLock(ctx, transaction, tc.Env, tc.LockID)
 				if err2 != nil {
 					return err2
 				}
@@ -5323,22 +5320,20 @@ func TestReadReleasesWithoutEnvironments(t *testing.T) {
 	}
 }
 
-func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
-
+func TestDBSelectAllEnvLocks(t *testing.T) {
 	tcs := []struct {
-		Name             string
-		EnvironmentLocks []EnvironmentLock
-		Expected         map[types.EnvName][]EnvironmentLock
+		Name                     string
+		EnvironmentLocksToWrite  []EnvironmentLock
+		EnvironmentLocksToDelete []EnvironmentLock
+		Expected                 map[types.EnvName][]EnvironmentLock
 	}{
 		{
 			Name: "Retrieve All Environment locks",
-			EnvironmentLocks: []EnvironmentLock{
+			EnvironmentLocksToWrite: []EnvironmentLock{
 				{
-					EslVersion: 1,
-					Created:    time.Now(),
-					LockID:     "lockId1",
-					Env:        "development",
-					Deleted:    false,
+					Created: time.Now(),
+					LockID:  "lockId1",
+					Env:     "development",
 					Metadata: LockMetadata{
 						CreatedByName:  "author1",
 						CreatedByEmail: "email1",
@@ -5348,11 +5343,9 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 					},
 				},
 				{
-					EslVersion: 1,
-					Created:    time.Now(),
-					LockID:     "lockId2",
-					Env:        "staging",
-					Deleted:    false,
+					Created: time.Now(),
+					LockID:  "lockId2",
+					Env:     "staging",
 					Metadata: LockMetadata{
 						CreatedByName:  "author2",
 						CreatedByEmail: "email2",
@@ -5365,11 +5358,9 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 			Expected: map[types.EnvName][]EnvironmentLock{
 				"development": {
 					{
-						EslVersion: 1,
-						Created:    time.Now(),
-						LockID:     "lockId1",
-						Env:        "development",
-						Deleted:    false,
+						Created: time.Now(),
+						LockID:  "lockId1",
+						Env:     "development",
 						Metadata: LockMetadata{
 							CreatedByName:  "author1",
 							CreatedByEmail: "email1",
@@ -5381,11 +5372,9 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 				},
 				"staging": {
 					{
-						EslVersion: 1,
-						Created:    time.Now(),
-						LockID:     "lockId2",
-						Env:        "staging",
-						Deleted:    false,
+						Created: time.Now(),
+						LockID:  "lockId2",
+						Env:     "staging",
 						Metadata: LockMetadata{
 							CreatedByName:  "author2",
 							CreatedByEmail: "email2",
@@ -5399,13 +5388,11 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 		},
 		{
 			Name: "Different esl versions and deleted",
-			EnvironmentLocks: []EnvironmentLock{
+			EnvironmentLocksToWrite: []EnvironmentLock{
 				{
-					EslVersion: 1,
-					Created:    time.Now(),
-					LockID:     "lockId1",
-					Env:        "development",
-					Deleted:    false,
+					Created: time.Now(),
+					LockID:  "lockId1",
+					Env:     "development",
 					Metadata: LockMetadata{
 						CreatedByName:  "author1",
 						CreatedByEmail: "email1",
@@ -5415,11 +5402,9 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 					},
 				},
 				{
-					EslVersion: 1,
-					Created:    time.Now(),
-					LockID:     "lockId2",
-					Env:        "staging",
-					Deleted:    false,
+					Created: time.Now(),
+					LockID:  "lockId2",
+					Env:     "staging",
 					Metadata: LockMetadata{
 						CreatedByName:  "author2",
 						CreatedByEmail: "email2",
@@ -5429,25 +5414,9 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 					},
 				},
 				{
-					EslVersion: 2,
-					Created:    time.Now(),
-					LockID:     "lockId1",
-					Env:        "development",
-					Deleted:    false,
-					Metadata: LockMetadata{
-						CreatedByName:  "author3",
-						CreatedByEmail: "email3",
-						Message:        "message3",
-						CiLink:         "cilink3",
-						CreatedAt:      time.Now(),
-					},
-				},
-				{
-					EslVersion: 1,
-					Created:    time.Now(),
-					LockID:     "lockId4",
-					Env:        "development",
-					Deleted:    true,
+					Created: time.Now(),
+					LockID:  "lockId4",
+					Env:     "development",
 					Metadata: LockMetadata{
 						CreatedByName:  "author4",
 						CreatedByEmail: "email4",
@@ -5457,30 +5426,40 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 					},
 				},
 			},
+			EnvironmentLocksToDelete: []EnvironmentLock{
+				{
+					Created: time.Now(),
+					LockID:  "lockId1",
+					Env:     "development",
+					Metadata: LockMetadata{
+						CreatedByName:  "author1",
+						CreatedByEmail: "email1",
+						Message:        "message1",
+						CiLink:         "cilink1",
+						CreatedAt:      time.Now(),
+					},
+				},
+			},
 			Expected: map[types.EnvName][]EnvironmentLock{
 				"development": {
 					{
-						EslVersion: 2,
-						Created:    time.Now(),
-						LockID:     "lockId1",
-						Env:        "development",
-						Deleted:    false,
+						Created: time.Now(),
+						LockID:  "lockId4",
+						Env:     "development",
 						Metadata: LockMetadata{
-							CreatedByName:  "author3",
-							CreatedByEmail: "email3",
-							Message:        "message3",
-							CiLink:         "cilink3",
+							CreatedByName:  "author4",
+							CreatedByEmail: "email4",
+							Message:        "message4",
+							CiLink:         "cilink4",
 							CreatedAt:      time.Now(),
 						},
 					},
 				},
 				"staging": {
 					{
-						EslVersion: 1,
-						Created:    time.Now(),
-						LockID:     "lockId2",
-						Env:        "staging",
-						Deleted:    false,
+						Created: time.Now(),
+						LockID:  "lockId2",
+						Env:     "staging",
 						Metadata: LockMetadata{
 							CreatedByName:  "author2",
 							CreatedByEmail: "email2",
@@ -5502,10 +5481,16 @@ func TestDBSelectAllEnvLocksOfAllApps(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				for _, envLock := range tc.EnvironmentLocks {
-					err := dbHandler.DBWriteEnvironmentLockInternal(ctx, transaction, envLock, envLock.EslVersion-1)
+				for _, envLock := range tc.EnvironmentLocksToWrite {
+					err := dbHandler.DBWriteEnvironmentLock(ctx, transaction, envLock.LockID, envLock.Env, envLock.Metadata)
 					if err != nil {
-						return fmt.Errorf("error while writing release, error: %w", err)
+						return fmt.Errorf("error while writing env lock, error: %w", err)
+					}
+				}
+				for _, envLock := range tc.EnvironmentLocksToDelete {
+					err := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, envLock.Env, envLock.LockID)
+					if err != nil {
+						return fmt.Errorf("error while writing env lock, error: %w", err)
 					}
 				}
 				envLocks, err := dbHandler.DBSelectAllEnvLocksOfAllEnvs(ctx, transaction)
@@ -5533,7 +5518,7 @@ func TestDBSelectAllTeamLocksOfAllEnvs(t *testing.T) {
 		Expected  map[types.EnvName]map[string][]TeamLock
 	}{
 		{
-			Name: "Retrieve All Environment locks",
+			Name: "Retrieve All Team locks",
 			TeamLocks: []TeamLock{
 				{
 					Created: time.Now(),

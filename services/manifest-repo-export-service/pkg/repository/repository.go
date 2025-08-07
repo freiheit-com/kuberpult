@@ -1401,18 +1401,15 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 	}
 	for envNameIndex := range envNames {
 		envName := envNames[envNameIndex]
-		var activeLockIds []string
-
 		ls, err := s.GetEnvironmentLocksFromManifest(envName)
 		if err != nil {
 			return err
 		}
 		for lockId, lock := range ls {
 			currentEnv := db.EnvironmentLock{
-				EslVersion: 0,
-				Env:        envName,
-				LockID:     lockId,
-				Created:    time.Time{}, //Time of insertion in the database
+				Env:     envName,
+				LockID:  lockId,
+				Created: time.Time{}, //Time of insertion in the database
 				Metadata: db.LockMetadata{
 					CreatedByName:     lock.CreatedBy.Name,
 					CreatedByEmail:    lock.CreatedBy.Email,
@@ -1421,19 +1418,13 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 					CreatedAt:         lock.CreatedAt, //Actual creation date
 					SuggestedLifeTime: "",
 				},
-				Deleted: false,
 			}
-			activeLockIds = append(activeLockIds, currentEnv.LockID)
-			err = dbHandler.DBWriteEnvironmentLockInternal(ctx, transaction, currentEnv, 0)
+			err = dbHandler.DBWriteEnvironmentLock(ctx, transaction, currentEnv.LockID, currentEnv.Env, currentEnv.Metadata)
 			if err != nil {
 				return fmt.Errorf("error writing environment locks to DB for environment %s: %w",
 					envName, err)
 			}
 		}
-		if len(activeLockIds) == 0 {
-			activeLockIds = []string{}
-		}
-		err = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, envName, activeLockIds)
 		if err != nil {
 			return fmt.Errorf("error writing environment locks ids to DB for environment %s: %w",
 				envName, err)
@@ -1758,15 +1749,12 @@ func (s *State) GetTeamLocksDir(environment types.EnvName, team string) string {
 }
 
 func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[string]Lock, error) {
-	dbLocks, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
+	lockIds, err := s.DBHandler.DBSelectAllEnvLocks(ctx, transaction, environment)
 	if err != nil {
 		return nil, err
 	}
-	var lockIds []string
-	if dbLocks != nil {
-		lockIds = dbLocks.EnvLocks
-	}
-	locks, err := s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
+
+	locks, err := s.DBHandler.DBSelectEnvLockSet(ctx, transaction, environment, lockIds)
 
 	if err != nil {
 		return nil, err
