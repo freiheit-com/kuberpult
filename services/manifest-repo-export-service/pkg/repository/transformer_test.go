@@ -2599,10 +2599,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 						if err2 != nil {
 							t.Fatal(err2)
 						}
-						err2 = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, types.EnvName(concreteTransformer.Environment), []string{concreteTransformer.LockId})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
 					}
 					var version uint64 = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
@@ -3026,10 +3022,6 @@ func TestUndeployLogic(t *testing.T) {
 							Message:        concreteTransformer.Message,
 							CiLink:         "", //not transported to repo
 						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-						err2 = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, types.EnvName(concreteTransformer.Environment), []string{concreteTransformer.LockId})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
