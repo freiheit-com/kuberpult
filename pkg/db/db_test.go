@@ -3775,6 +3775,85 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 	}
 }
 
+func TestReadWriteAllEnvironmentsAtTimestamp(t *testing.T) {
+	type Step struct {
+		AllEnvsToWrite []types.EnvName
+		ExpectedEntry  []types.EnvName
+	}
+	type TestCase struct {
+		Name  string
+		Steps []Step
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "create entry with one environment entry only",
+			Steps: []Step{
+				{
+					AllEnvsToWrite: []types.EnvName{"development"},
+					ExpectedEntry:  []types.EnvName{"development"},
+				},
+				{
+					AllEnvsToWrite: []types.EnvName{"staging"},
+					ExpectedEntry:  []types.EnvName{"development", "staging"},
+				},
+				{
+					AllEnvsToWrite: []types.EnvName{"production"},
+					ExpectedEntry:  []types.EnvName{"development", "staging", "production"},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			var timesteps []time.Time
+			for _, currStep := range tc.Steps {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					now, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+					if err != nil {
+						return err
+					}
+					timesteps = append(timesteps, *now)
+					for _, envName := range currStep.AllEnvsToWrite {
+						err := dbHandler.DBWriteEnvironment(ctx, transaction, envName, config.EnvironmentConfig{}, []string{})
+						if err != nil {
+							return fmt.Errorf("error while writing environment, error: %w", err)
+						}
+
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			for idx, currStep := range tc.Steps {
+				allEnvsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]types.EnvName, error) {
+					allEnvsEntry, err := dbHandler.DBSelectAllEnvironmentsAtTimestamp(ctx, transaction, timesteps[idx])
+					if err != nil {
+						return nil, fmt.Errorf("error while selecting environment entry, error: %w", err)
+					}
+					return &allEnvsEntry, nil
+				})
+
+				if err != nil {
+					t.Fatalf("error while running the transaction for selecting the target all environment, error: %v", err)
+				}
+				if diff := cmp.Diff(*allEnvsEntry, currStep.ExpectedEntry); diff != "" {
+					t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s", currStep.ExpectedEntry, allEnvsEntry, diff)
+				}
+			}
+
+		})
+	}
+}
+
 func TestReadWriteAllApplications(t *testing.T) {
 	type TestCase struct {
 		Name           string

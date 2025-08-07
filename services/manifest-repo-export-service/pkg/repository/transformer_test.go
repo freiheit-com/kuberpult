@@ -453,9 +453,6 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
 		} else if diff := cmp.Diff(string(data), string(contentRequirement.fileData)); diff != "" {
-			fmt.Println(string(data))
-			fmt.Println("////////////////")
-			fmt.Println(string(contentRequirement.fileData))
 			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s", contentRequirement.path, diff)
 		}
 	}
@@ -3825,15 +3822,15 @@ func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
 					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: aa-production-some-concrete-env-name-2
+  name: aa-production-some-concrete-env-name-1
 spec:
-  description: aa-production-some-concrete-env-name-2
+  description: aa-production-some-concrete-env-name-1
   destinations:
-  - name: some-destination-2
+  - name: some-destination-1
     server: some-server
   sourceRepos:
   - '*'
@@ -4153,6 +4150,11 @@ func TestExtendAAEnvironmentTransformer(t *testing.T) {
 }
 
 func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr Transformer, dbHandler *db.DBHandler, t *testing.T, authorEmail string, authorName string) {
+	now, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr.SetCreationTimestamp(*now)
 	if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 		concreteTransformer := tr.(*CreateEnvironmentLock)
 		err2 := dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
@@ -4184,7 +4186,6 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 		err2 := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 			App:            concreteTransformer.Application,
 			Env:            concreteTransformer.Environment,
-			Created:        concreteTransformer.CreationTimestamp,
 			ReleaseNumbers: types.MakeReleaseNumbers(concreteTransformer.Version, concreteTransformer.Revision),
 			Metadata: db.DeploymentMetadata{
 				DeployedByEmail: authorEmail,
@@ -4207,8 +4208,7 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 				Version:  &concreteTransformer.Version,
 				Revision: concreteTransformer.Revision,
 			},
-			Created: concreteTransformer.CreationTimestamp,
-			App:     concreteTransformer.Application,
+			App: concreteTransformer.Application,
 			Manifests: db.DBReleaseManifests{
 				Manifests: concreteTransformer.Manifests,
 			},
