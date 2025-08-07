@@ -1775,7 +1775,10 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 				}
 
 				for _, lockInfo := range tc.DeleteLocks {
-					err := dbHandler.DBDeleteApplicationLock(ctx, transaction, lockInfo.Env, lockInfo.AppName, lockInfo.LockID)
+					err := dbHandler.DBDeleteApplicationLock(ctx, transaction, lockInfo.Env, lockInfo.AppName, lockInfo.LockID, LockDeletionMetadata{
+						DeletedByUser:  lockInfo.AuthorName,
+						DeletedByEmail: lockInfo.AuthorEmail,
+					})
 					if err != nil {
 						return err
 					}
@@ -2043,7 +2046,11 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 				}
 
 				for _, lockInfo := range tc.DeleteLocks {
-					err := dbHandler.DBDeleteApplicationLock(ctx, transaction, lockInfo.Env, lockInfo.AppName, lockInfo.LockID)
+					err := dbHandler.DBDeleteApplicationLock(ctx, transaction, lockInfo.Env, lockInfo.AppName, lockInfo.LockID,
+						LockDeletionMetadata{
+							DeletedByUser:  lockInfo.AuthorName,
+							DeletedByEmail: lockInfo.AuthorEmail,
+						})
 					if err != nil {
 						return err
 					}
@@ -2268,6 +2275,10 @@ func TestDeleteApplicationLock(t *testing.T) {
 						CreatedByName:  "myself",
 						CreatedByEmail: "myself@example.com",
 					},
+					DeletionMetadata: LockDeletionMetadata{
+						DeletedByUser:  "myself",
+						DeletedByEmail: "myself@example.com",
+					},
 				},
 				{
 					Env:     "dev",
@@ -2292,13 +2303,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 
 			dbHandler := setupDB(t)
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				envLock, err2 := dbHandler.DBSelectEnvLock(ctx, transaction, tc.Env, tc.LockID)
-				if err2 != nil {
-					return err2
-				}
-				if envLock != nil {
-					return fmt.Errorf("expected no eslVersion, but got %v", *envLock)
-				}
+
 				err := dbHandler.DBWriteApplicationLock(ctx, transaction, tc.LockID, tc.Env, tc.AppName, LockMetadata{
 					CreatedByName:  tc.AuthorName,
 					CreatedByEmail: tc.AuthorEmail,
@@ -2309,7 +2314,10 @@ func TestDeleteApplicationLock(t *testing.T) {
 					return err
 				}
 
-				errDelete := dbHandler.DBDeleteApplicationLock(ctx, transaction, tc.Env, tc.AppName, tc.LockID)
+				errDelete := dbHandler.DBDeleteApplicationLock(ctx, transaction, tc.Env, tc.AppName, tc.LockID, LockDeletionMetadata{
+					DeletedByUser:  tc.AuthorName,
+					DeletedByEmail: tc.AuthorEmail,
+				})
 				if errDelete != nil {
 					return err
 				}

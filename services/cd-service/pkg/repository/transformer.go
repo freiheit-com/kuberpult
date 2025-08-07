@@ -1141,8 +1141,15 @@ func (u *UndeployApplication) Transform(
 			if locks == nil {
 				continue
 			}
+			user, err := auth.ReadUserFromContext(ctx)
+			if err != nil {
+				return "", err
+			}
 			for _, currentLockID := range locks {
-				err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, env, u.Application, currentLockID)
+				err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, env, u.Application, currentLockID, db.LockDeletionMetadata{
+					DeletedByUser:  user.Name,
+					DeletedByEmail: user.Email,
+				})
 				if err != nil {
 					return "", err
 				}
@@ -1764,12 +1771,19 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 ) (string, error) {
 	envName := types.EnvName(c.Environment)
 	err := state.checkUserPermissions(ctx, transaction, envName, c.Application, auth.PermissionDeleteLock, "", c.RBACConfig, true)
-
 	if err != nil {
 		return "", err
 	}
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("Could not obtain user from context: %w", err)
+	}
 	queueMessage := ""
-	err = state.DBHandler.DBDeleteApplicationLock(ctx, transaction, envName, c.Application, c.LockId)
+	err = state.DBHandler.DBDeleteApplicationLock(ctx, transaction, envName, c.Application, c.LockId,
+		db.LockDeletionMetadata{
+			DeletedByUser:  user.Name,
+			DeletedByEmail: user.Email,
+		})
 	if err != nil {
 		return "", err
 	}

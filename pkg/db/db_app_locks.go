@@ -38,12 +38,13 @@ type ApplicationLock struct {
 }
 
 type ApplicationLockHistory struct {
-	Created  time.Time
-	LockID   string
-	Env      types.EnvName
-	App      string
-	Metadata LockMetadata
-	Deleted  bool
+	Created          time.Time
+	LockID           string
+	Env              types.EnvName
+	App              string
+	Metadata         LockMetadata
+	Deleted          bool
+	DeletionMetadata LockDeletionMetadata
 }
 
 // SELECTS
@@ -387,7 +388,7 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 	}
 
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockID, envName, appName, metadata, deleted
+		SELECT created, lockID, envName, appName, metadata, deleted, deletionMetadata
 		FROM app_locks_history
 		WHERE envName=? AND lockID=? AND appName=?
 		ORDER BY version DESC
@@ -422,10 +423,14 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 				CreatedAt:         time.Time{},
 				SuggestedLifeTime: "",
 			},
+			DeletionMetadata: LockDeletionMetadata{
+				DeletedByUser:  "",
+				DeletedByEmail: "",
+			},
 		}
 		var metaData string
-
-		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &row.App, &metaData, &row.Deleted)
+		var deletionMetadata string
+		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &row.App, &metaData, &row.Deleted, &deletionMetadata)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -440,6 +445,15 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		row.Metadata = resultJson
+
+		//exhaustruct:ignore
+		var deletionMetadataResultJson = LockDeletionMetadata{}
+		err = json.Unmarshal(([]byte)(deletionMetadata), &deletionMetadataResultJson)
+		if err != nil {
+			return nil, fmt.Errorf("error during json deletion metadata unmarshal. Error: %w. Data: %s", err, row.DeletionMetadata)
+		}
+
+		row.DeletionMetadata = deletionMetadataResultJson
 		appLocks = append(appLocks, row)
 	}
 	err = closeRows(rows)
@@ -464,14 +478,14 @@ func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lock
 	if err != nil {
 		return err
 	}
-	err = h.insertAppLockHistoryRow(ctx, tx, lockID, environment, appName, metadata, false)
+	err = h.insertAppLockHistoryRow(ctx, tx, lockID, environment, appName, metadata, false, LockDeletionMetadata{DeletedByUser: "", DeletedByEmail: ""}) //Empty deletion metadata on insertion
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName, lockID string) error {
+func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName, lockID string, deletionMetadata LockDeletionMetadata) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
 	defer span.Finish()
 
@@ -492,7 +506,7 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 	if err != nil {
 		return err
 	}
-	err = h.insertAppLockHistoryRow(ctx, tx, lockID, environment, appName, targetLock.Metadata, true)
+	err = h.insertAppLockHistoryRow(ctx, tx, lockID, environment, appName, targetLock.Metadata, true, deletionMetadata)
 	if err != nil {
 		return err
 	}
@@ -563,17 +577,22 @@ func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, l
 	return nil
 }
 
-func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, appName string, metadata LockMetadata, deleted bool) error {
+func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, appName string, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppLockHistoryRow")
 	defer span.Finish()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO app_locks_history (created, lockId, envname, appName, metadata, deleted)
-		VALUES (?, ?, ?, ?, ?, ?);
+		INSERT INTO app_locks_history (created, lockId, envname, appName, metadata, deleted, deletionMetadata)
+		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
 	span.SetTag("query", upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
+	deletionMetadataJsonToInsert, err := json.Marshal(deletionMetadata)
+	if err != nil {
+		return fmt.Errorf("could not marshal json deletion metadata: %w", err)
 	}
 
 	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
@@ -588,6 +607,7 @@ func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sq
 		appName,
 		jsonToInsert,
 		deleted,
+		deletionMetadataJsonToInsert,
 	)
 	if err != nil {
 		return fmt.Errorf(
