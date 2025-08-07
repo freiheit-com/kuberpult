@@ -1405,8 +1405,6 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 	}
 	for envNameIndex := range envNames {
 		envName := envNames[envNameIndex]
-		var activeLockIds []string
-
 		ls, err := s.GetEnvironmentLocksFromManifest(envName)
 		if err != nil {
 			return err
@@ -1425,7 +1423,6 @@ func (s *State) WriteCurrentEnvironmentLocks(ctx context.Context, transaction *s
 					SuggestedLifeTime: "",
 				},
 			}
-			activeLockIds = append(activeLockIds, currentEnv.LockID)
 			err = dbHandler.DBWriteEnvironmentLock(ctx, transaction, currentEnv.LockID, currentEnv.Env, currentEnv.Metadata)
 			if err != nil {
 				return fmt.Errorf("error writing environment locks to DB for environment %s: %w",
