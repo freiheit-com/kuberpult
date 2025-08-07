@@ -22,11 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"regexp"
 	"sort"
 	"testing"
 	gotime "time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/lib/pq"
@@ -462,8 +463,8 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				}
 			}
 
-			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
-				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
+			locks, err := db.WithTransactionMultipleEntriesT(repo.State().DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+				return repo.State().DBHandler.DBSelectAllEnvLocks(ctx, transaction, envProduction)
 			})
 			if err != nil {
 				t.Fatalf("unexpected error selecting env locks: %v", err)
@@ -473,10 +474,10 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				t.Fatalf("Expected locks but got none")
 			}
 
-			if diff := cmp.Diff(tc.numberExpectedLocks, len(locks.EnvLocks)); diff != "" {
+			if diff := cmp.Diff(tc.numberExpectedLocks, len(locks)); diff != "" {
 				t.Fatalf("error mismatch on number of expected locks (-want, +got):\n%s", diff)
 			}
-			if diff := cmp.Diff(tc.ExpectedLockIds, locks.EnvLocks); diff != "" {
+			if diff := cmp.Diff(tc.ExpectedLockIds, locks); diff != "" {
 				t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 			}
 		})
@@ -1462,16 +1463,14 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 			},
 			expectedDbContent: []db.QueuedDeployment{
 				{
-					EslVersion: 2,
-					Env:        "production",
-					App:        testAppName,
+					Env: "production",
+					App: testAppName,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Version:  nil,
 						Revision: 0,
 					},
 				},
 				{
-					EslVersion:     1,
 					Env:            "production",
 					App:            testAppName,
 					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
@@ -1539,7 +1538,6 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 			},
 			expectedDbContent: []db.QueuedDeployment{
 				{
-					EslVersion:     1,
 					Env:            envProduction,
 					App:            testAppName,
 					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
@@ -2001,6 +1999,189 @@ func TestExtendAAEnvironment(t *testing.T) {
 				&ExtendAAEnvironment{
 					Environment:  "development",
 					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            2,
+				TransformerError: errMatcher{"rpc error: code = FailedPrecondition desc = error: environment with name \"development\" is not an Active/Active environment"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				result, err2 := state.GetAllEnvironmentConfigs(ctx, transaction)
+				if err2 != nil {
+					return fmt.Errorf("error: %v", err2)
+				}
+				if diff := cmp.Diff(tc.expectedEnvironmentConfig, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err3 != nil {
+				if diff := cmp.Diff(tc.expectedError, err3.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestDeleteAAEnvironmentConfig(t *testing.T) {
+	type TestCase struct {
+		Name                      string
+		Transformers              []Transformer
+		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
+		expectedError             *TransformerBatchApplyError
+	}
+	commonName := "CN"
+	testCases := []TestCase{
+		{
+			Name: "Create empty AA Environment and Delete some Argo Configratuion - should not error out",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "staging",
+					ConcreteEnvironmentName: "this-concrete-environment-name-does-not-exist",
+				},
+			},
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
+				"staging": {
+					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+				},
+			},
+		},
+		{
+			Name: "Extend and delete it",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "staging",
+					ConcreteEnvironmentName: "test",
+				},
+			},
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
+				"staging": {
+					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+				},
+			},
+		},
+		{
+			Name: "Add two env configs and delete one of them",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test-2"),
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "staging",
+					ConcreteEnvironmentName: "test-2",
+				},
+			},
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
+				"staging": {
+					ArgoCdConfigs: &config.ArgoCDConfigs{
+						CommonEnvPrefix: &commonName,
+						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+							testutil.MakeDummyArgoCdConfig("test"),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Extend more than once, delete all configurations, extend again",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test-1"),
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test-2"),
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "staging",
+					ConcreteEnvironmentName: "test-1",
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "staging",
+					ConcreteEnvironmentName: "test-2",
+				},
+				&ExtendAAEnvironment{
+					Environment:  "staging",
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test-3"),
+				},
+			},
+			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
+				"staging": {
+					ArgoCdConfigs: &config.ArgoCDConfigs{
+						CommonEnvPrefix: &commonName,
+						ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+
+							testutil.MakeDummyArgoCdConfig("test-3"),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Deleting some config from a non-AA environment results in an error",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN", "DE", 0),
+					},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "development",
+					ConcreteEnvironmentName: "does-not-matter",
 				},
 			},
 			expectedError: &TransformerBatchApplyError{

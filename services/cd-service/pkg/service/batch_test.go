@@ -168,7 +168,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment: prod,
 					LockId:      "1234",
-					Message:     "EnvLock",
+					Message:     "EnvironmentLock",
 				},
 				&repository.CreateEnvironmentApplicationLock{ // will be deleted by the batch actions
 					Environment:       prod,
@@ -206,7 +206,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				&repository.CreateEnvironmentLock{
 					Environment:       "production",
 					LockId:            "1234",
-					Message:           "EnvLock",
+					Message:           "EnvironmentLock",
 					SuggestedLifeTime: &lifeTime4h,
 				},
 				&repository.CreateEnvironmentApplicationLock{
@@ -386,7 +386,7 @@ func TestBatchServiceFails(t *testing.T) {
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment:    "production",
 					LockId:         "1234",
-					Message:        "EnvLock",
+					Message:        "EnvironmentLock",
 					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true}},
 				},
 			},
@@ -861,6 +861,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 										ConcreteEnvName: "placeholder",
 									},
 								},
+								Dryrun: false,
 							},
 						},
 					},
@@ -894,6 +895,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 										ConcreteEnvName: "placeholder",
 									},
 								},
+								Dryrun: false,
 							},
 						},
 					},
@@ -928,6 +930,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 										ConcreteEnvName: "placeholder",
 									},
 								},
+								Dryrun: false,
 							},
 						},
 					},
@@ -959,6 +962,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 								Config: &api.EnvironmentConfig{
 									Argocd: &api.ArgoCDEnvironmentConfiguration{},
 								},
+								Dryrun: false,
 							},
 						},
 					},
@@ -1021,6 +1025,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 										},
 									},
 								},
+								Dryrun: false,
 							},
 						},
 					},

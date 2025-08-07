@@ -20,12 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/freiheit-com/kuberpult/pkg/backoff"
-	"github.com/freiheit-com/kuberpult/pkg/migrations"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"strconv"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/backoff"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"encoding/json"
@@ -747,6 +747,9 @@ func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.
 	case db.EvtExtendAAEnvironment:
 		//exhaustruct:ignore
 		return &repository.ExtendAAEnvironment{}, nil
+	case db.EvtDeleteAAEnvironmentConfig:
+		//exhaustruct:ignore
+		return &repository.DeleteAAEnvironmentConfig{}, nil
 	}
 	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }

@@ -2599,10 +2599,6 @@ func TestCreateUndeployLogic(t *testing.T) {
 						if err2 != nil {
 							t.Fatal(err2)
 						}
-						err2 = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, types.EnvName(concreteTransformer.Environment), []string{concreteTransformer.LockId})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
 					}
 					var version uint64 = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
@@ -3029,10 +3025,6 @@ func TestUndeployLogic(t *testing.T) {
 						if err2 != nil {
 							t.Fatal(err2)
 						}
-						err2 = dbHandler.DBWriteAllEnvironmentLocks(ctx, transaction, 0, types.EnvName(concreteTransformer.Environment), []string{concreteTransformer.LockId})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
 					}
 					var version uint64 = 2
 					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
@@ -3259,6 +3251,48 @@ spec:
 				},
 			},
 			expectedMessage: "delete environment \"acceptance\"",
+		},
+		{
+			Name: "create same environment twice updates it",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      envAcceptanceConfig,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 1,
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      envAcceptance2Config,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+					TransformerEslVersion: 2,
+				},
+			},
+			expectedData: []*FilenameAndData{
+				{
+					path: "/environments/acceptance/config.json",
+					fileData: []byte(`{
+  "upstream": {
+    "environment": "acceptance2",
+    "latest": true
+  },
+  "argocd": {
+    "destination": {
+      "name": "",
+      "server": ""
+    }
+  }
+}
+`),
+				},
+			},
+			expectedMessage: "create environment \"acceptance\"",
 		},
 		{
 			Name: "delete an environment that does not exist",
@@ -3607,6 +3641,497 @@ func TestReleasesAndDeployments(t *testing.T) {
 					if !cmp.Equal(actualFileData, expectedFile.fileData) {
 						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
 					}
+				}
+			}
+		})
+	}
+}
+
+func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	var aaEnvName = "aa"
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		ExpectedError error
+		ExpectedFile  []*FilenameAndData
+	}{
+		{
+			Name: "Create an AA environment with some Argo config and delete it",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &aaEnvName,
+
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{
+									Destination: config.ArgoCdDestination{
+										Name:   "some-destination-1",
+										Server: "some-server",
+									},
+									ConcreteEnvName: "some-concrete-env-name-1",
+								},
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "production",
+					ConcreteEnvironmentName: "some-concrete-env-name-1",
+					TransformerEslVersion:   1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "environments/production/config.json",
+					fileData: []byte(
+						`{
+  "argocdConfigs": {
+    "ArgoCdConfigurations": [],
+    "CommonEnvPrefix": "aa"
+  }
+}
+`),
+				},
+			},
+		},
+		{
+			Name: "Create an AA environment with some Argo config and delete it twice",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &aaEnvName,
+
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{
+									Destination: config.ArgoCdDestination{
+										Name:   "some-destination-1",
+										Server: "some-server",
+									},
+									ConcreteEnvName: "some-concrete-env-name-1",
+								},
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "production",
+					ConcreteEnvironmentName: "some-concrete-env-name-1",
+					TransformerEslVersion:   1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "production",
+					ConcreteEnvironmentName: "some-concrete-env-name-1",
+					TransformerEslVersion:   1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "environments/production/config.json",
+					fileData: []byte(
+						`{
+  "argocdConfigs": {
+    "ArgoCdConfigurations": [],
+    "CommonEnvPrefix": "aa"
+  }
+}
+`),
+				},
+			},
+		},
+		{
+			Name: "Create an environment with more than one config and delete one of them",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &aaEnvName,
+
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{
+									Destination: config.ArgoCdDestination{
+										Name:   "some-destination-1",
+										Server: "some-server",
+									},
+									ConcreteEnvName: "some-concrete-env-name-1",
+								},
+								{
+									Destination: config.ArgoCdDestination{
+										Name:   "some-destination-2",
+										Server: "some-server",
+									},
+									ConcreteEnvName: "some-concrete-env-name-2",
+								},
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "production",
+					ConcreteEnvironmentName: "some-concrete-env-name-1",
+					TransformerEslVersion:   1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-production-some-concrete-env-name-2
+spec:
+  description: aa-production-some-concrete-env-name-2
+  destinations:
+  - name: some-destination-2
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
+				},
+				{
+					path: "environments/production/config.json",
+					fileData: []byte(
+						`{
+  "argocdConfigs": {
+    "ArgoCdConfigurations": [
+      {
+        "destination": {
+          "name": "some-destination-2",
+          "server": "some-server"
+        },
+        "name": "some-concrete-env-name-2"
+      }
+    ],
+    "CommonEnvPrefix": "aa"
+  }
+}
+`),
+				},
+			},
+		},
+		{
+			Name: "Deleting a concrete environment that does not exist has no effect",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &aaEnvName,
+
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{
+									Destination: config.ArgoCdDestination{
+										Name:   "some-destination-1",
+										Server: "some-server",
+									},
+									ConcreteEnvName: "some-concrete-env-name-1",
+								},
+								{
+									Destination: config.ArgoCdDestination{
+										Name:   "some-destination-2",
+										Server: "some-server",
+									},
+									ConcreteEnvName: "some-concrete-env-name-2",
+								},
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             "production",
+					ConcreteEnvironmentName: "some-concrete-env-name-3",
+					TransformerEslVersion:   1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-1.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-production-some-concrete-env-name-1
+spec:
+  description: aa-production-some-concrete-env-name-1
+  destinations:
+  - name: some-destination-1
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
+				},
+				{
+					path: "/argocd/v1alpha1/aa-production-some-concrete-env-name-2.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-production-some-concrete-env-name-2
+spec:
+  description: aa-production-some-concrete-env-name-2
+  destinations:
+  - name: some-destination-2
+    server: some-server
+  sourceRepos:
+  - '*'
+`),
+				},
+				{
+					path: "environments/production/config.json",
+					fileData: []byte(
+						`{
+  "argocdConfigs": {
+    "ArgoCdConfigurations": [
+      {
+        "destination": {
+          "name": "some-destination-1",
+          "server": "some-server"
+        },
+        "name": "some-concrete-env-name-1"
+      },
+      {
+        "destination": {
+          "name": "some-destination-2",
+          "server": "some-server"
+        },
+        "name": "some-concrete-env-name-2"
+      }
+    ],
+    "CommonEnvPrefix": "aa"
+  }
+}
+`),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _, _ := SetupRepositoryTestWithDB(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, tr := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			for i := range tc.ExpectedFile {
+				expectedFile := tc.ExpectedFile[i]
+				updatedState := repo.State()
+				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+				actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+				if err != nil {
+					t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+				}
+
+				if !cmp.Equal(expectedFile.fileData, actualFileData) {
+					t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+				}
+			}
+		})
+	}
+}
+
+func TestExtendAAEnvironmentTransformer(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	var aaEnvName = "aa"
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		ExpectedError error
+		ExpectedFile  []*FilenameAndData
+	}{
+		{
+			Name: "Create an environment and extend it with some argo cd configuration",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &aaEnvName,
+
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{
+									Destination: config.ArgoCdDestination{
+										Name:   "some-destination-1",
+										Server: "some-server",
+									},
+									ConcreteEnvName: "some-concrete-env-name-1",
+								},
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&ExtendAAEnvironment{
+					Environment: "production",
+					ArgoCDConfig: config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Name:   "some-destination-2",
+							Server: "some-server",
+						},
+						ConcreteEnvName: "some-concrete-env-name-2",
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path: "environments/production/config.json",
+					fileData: []byte(
+						`{
+  "argocdConfigs": {
+    "ArgoCdConfigurations": [
+      {
+        "destination": {
+          "name": "some-destination-1",
+          "server": "some-server"
+        },
+        "name": "some-concrete-env-name-1"
+      },
+      {
+        "destination": {
+          "name": "some-destination-2",
+          "server": "some-server"
+        },
+        "name": "some-concrete-env-name-2"
+      }
+    ],
+    "CommonEnvPrefix": "aa"
+  }
+}
+`),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _, _ := SetupRepositoryTestWithDB(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, tr := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			for i := range tc.ExpectedFile {
+				expectedFile := tc.ExpectedFile[i]
+				updatedState := repo.State()
+				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+				actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+				if err != nil {
+					t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+				}
+
+				if !cmp.Equal(expectedFile.fileData, actualFileData) {
+					t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
 				}
 			}
 		})

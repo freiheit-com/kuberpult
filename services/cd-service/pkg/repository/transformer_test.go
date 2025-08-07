@@ -3342,6 +3342,162 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "able to extend aa environment configuration",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("aa", "prod", 2),
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&ExtendAAEnvironment{
+					Environment:  envProduction,
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateEnvironment,production:production,*,allow": {Role: "developer"},
+					}},
+					}},
+				},
+			},
+		},
+		{
+			Name: "unable to extend aa environment configuration without permission policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("aa", "prod", 2),
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&ExtendAAEnvironment{
+					Environment:  envProduction,
+					ArgoCDConfig: *testutil.MakeDummyArgoCdConfig("test"),
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateEnvironment,development:development,*,allow": {Role: "developer"},
+					}},
+					}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
+				User:        "test tester",
+				Role:        "developer",
+				Action:      "CreateEnvironment",
+				Environment: "production",
+			}),
+		},
+		{
+			Name: "unable to extend aa environment configuration without permission policy for specific environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("aa", "prod", 2),
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&ExtendAAEnvironment{
+					Environment:    envProduction,
+					ArgoCDConfig:   *testutil.MakeDummyArgoCdConfig("test"),
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
+				User:        "test tester",
+				Role:        "developer",
+				Action:      "CreateEnvironment",
+				Environment: "production",
+			}),
+		},
+		{
+			Name: "able to delete aa environment configuration",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("aa", "prod", 2),
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             envProduction,
+					ConcreteEnvironmentName: "aa-prod-2",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteEnvironment,production:production,*,allow": {Role: "developer"},
+					}},
+					}},
+				},
+			},
+		},
+		{
+			Name: "unable to delete aa environment configuration without permission policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("aa", "prod", 2),
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             envProduction,
+					ConcreteEnvironmentName: "aa-prod-2",
+					Authentication:          Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
+				User:        "test tester",
+				Role:        "developer",
+				Action:      "DeleteEnvironment",
+				Environment: "production",
+			}),
+		},
+		{
+			Name: "unable to delete aa environment configuration without permission policy for specific environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCdConfigs: testutil.MakeArgoCDConfigs("aa", "prod", 2),
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&DeleteAAEnvironmentConfig{
+					Environment:             envProduction,
+					ConcreteEnvironmentName: "aa-prod-2",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteEnvironment,development:development,*,allow": {Role: "developer"},
+					}},
+					}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
+				User:        "test tester",
+				Role:        "developer",
+				Action:      "DeleteEnvironment",
+				Environment: "production",
+			}),
+		},
 	}
 
 	for _, tc := range tcs {

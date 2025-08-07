@@ -175,6 +175,7 @@ message BatchAction {
     DeleteEnvironmentTeamLockRequest delete_environment_team_lock = 15;
     DeleteEnvironmentRequest delete_environment = 16;
     ExtendAAEnvironmentRequest extend_aa_environment = 17;
+    DeleteAAEnvironmentConfigRequest delete_aa_environment_config = 18;
   }
 }
 
@@ -660,6 +661,7 @@ message EnvironmentConfig {
 message CreateEnvironmentRequest {
   string environment = 1;
   EnvironmentConfig config = 2;
+  bool dryrun = 3;
 }
 
 message ExtendAAEnvironmentRequest {
@@ -667,8 +669,14 @@ message ExtendAAEnvironmentRequest {
   ArgoCDEnvironmentConfiguration argo_cd_configuration = 2;
 }
 
+message DeleteAAEnvironmentConfigRequest {
+  string parent_environment_name = 1;
+  string concrete_environment_name = 2;
+}
+
 message DeleteEnvironmentRequest {
   string environment = 1;
+  bool dryrun = 2;
 }
 
 message GetEnvironmentConfigRequest {
