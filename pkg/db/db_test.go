@@ -1303,7 +1303,7 @@ func TestDeleteEnvironmentLock(t *testing.T) {
 					return err
 				}
 
-				actual, err := dbHandler.DBSelectEnvLockHistory(ctx, transaction, tc.Env, tc.LockID, 10)
+				actual, err := dbHandler.DBSelectEnvLockHistory(ctx, transaction, tc.Env, tc.LockID, 2)
 				if err != nil {
 					return err
 				}
