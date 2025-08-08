@@ -696,15 +696,12 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	if transaction == nil {
 		return nil, fmt.Errorf("GetEnvironmentLocksFromDB: No transaction provided")
 	}
-	allActiveLockIds, err := s.DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, environment)
+	lockIds, err := s.DBHandler.DBSelectAllEnvLocks(ctx, transaction, environment)
 	if err != nil {
 		return nil, err
 	}
-	var lockIds []string
-	if allActiveLockIds != nil {
-		lockIds = allActiveLockIds.EnvLocks
-	}
-	locks, err := s.DBHandler.DBSelectEnvironmentLockSet(ctx, transaction, environment, lockIds)
+
+	locks, err := s.DBHandler.DBSelectEnvLockSet(ctx, transaction, environment, lockIds)
 
 	if err != nil {
 		return nil, err

@@ -463,8 +463,8 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				}
 			}
 
-			locks, err := db.WithTransactionT(repo.State().DBHandler, ctx, db.DefaultNumRetries, false, func(ctx context.Context, transaction *sql.Tx) (*db.AllEnvLocksGo, error) {
-				return repo.State().DBHandler.DBSelectAllEnvironmentLocks(ctx, transaction, envProduction)
+			locks, err := db.WithTransactionMultipleEntriesT(repo.State().DBHandler, ctx, false, func(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+				return repo.State().DBHandler.DBSelectAllEnvLocks(ctx, transaction, envProduction)
 			})
 			if err != nil {
 				t.Fatalf("unexpected error selecting env locks: %v", err)
@@ -474,10 +474,10 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 				t.Fatalf("Expected locks but got none")
 			}
 
-			if diff := cmp.Diff(tc.numberExpectedLocks, len(locks.EnvLocks)); diff != "" {
+			if diff := cmp.Diff(tc.numberExpectedLocks, len(locks)); diff != "" {
 				t.Fatalf("error mismatch on number of expected locks (-want, +got):\n%s", diff)
 			}
-			if diff := cmp.Diff(tc.ExpectedLockIds, locks.EnvLocks); diff != "" {
+			if diff := cmp.Diff(tc.ExpectedLockIds, locks); diff != "" {
 				t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
 			}
 		})

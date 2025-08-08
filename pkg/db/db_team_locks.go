@@ -37,12 +37,13 @@ type TeamLock struct {
 }
 
 type TeamLockHistory struct {
-	Created  time.Time
-	LockID   string
-	Env      types.EnvName
-	Team     string
-	Metadata LockMetadata
-	Deleted  bool
+	Created          time.Time
+	LockID           string
+	Env              types.EnvName
+	Team             string
+	Metadata         LockMetadata
+	Deleted          bool
+	DeletionMetadata LockDeletionMetadata
 }
 
 // SELECTS
@@ -282,7 +283,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 
 	selectQuery := h.AdaptQuery(
 		fmt.Sprintf(
-			"SELECT created, lockID, envName, teamName, metadata, deleted" +
+			"SELECT created, lockID, envName, teamName, metadata, deleted, deletionMetadata" +
 				" FROM team_locks_history " +
 				" WHERE envName=? AND lockID=? AND teamName=?" +
 				" ORDER BY version DESC " +
@@ -322,10 +323,14 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 				Message:           "",
 				SuggestedLifeTime: "",
 			},
+			DeletionMetadata: LockDeletionMetadata{
+				DeletedByUser:  "",
+				DeletedByEmail: "",
+			},
 		}
 		var metadata string
-
-		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &row.Team, &metadata, &row.Deleted)
+		var deletionMetadata string
+		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &row.Team, &metadata, &row.Deleted, &deletionMetadata)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -340,6 +345,14 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
 		row.Metadata = resultJson
+
+		//exhaustruct:ignore
+		var deletionMetadataJson = LockDeletionMetadata{}
+		err = json.Unmarshal(([]byte)(deletionMetadata), &deletionMetadataJson)
+		if err != nil {
+			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.DeletionMetadata)
+		}
+		row.DeletionMetadata = deletionMetadataJson
 		teamLocks = append(teamLocks, row)
 	}
 	err = closeRows(rows)
@@ -364,7 +377,7 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID stri
 	if err != nil {
 		return err
 	}
-	err = h.insertTeamLockHistoryRow(ctx, tx, lockID, environment, teamName, metadata, false)
+	err = h.insertTeamLockHistoryRow(ctx, tx, lockID, environment, teamName, metadata, false, LockDeletionMetadata{DeletedByUser: "", DeletedByEmail: ""}) // Empty metadata on insertion
 	if err != nil {
 		return err
 	}
@@ -397,7 +410,7 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 	return teamLocks, nil
 }
 
-func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName, lockID string) error {
+func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName, lockID string, metadata LockDeletionMetadata) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteTeamLock")
 	defer span.Finish()
 
@@ -421,7 +434,7 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	if err != nil {
 		return err
 	}
-	err = h.insertTeamLockHistoryRow(ctx, tx, lockID, environment, teamName, existingTeamLock.Metadata, true)
+	err = h.insertTeamLockHistoryRow(ctx, tx, lockID, environment, teamName, existingTeamLock.Metadata, true, metadata)
 	if err != nil {
 		return err
 	}
@@ -492,17 +505,22 @@ func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata, deleted bool) error {
+func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertTeamLockHistoryRow")
 	defer span.Finish()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO team_locks_history (created, lockId, envname, teamName, metadata, deleted)
-		VALUES (?, ?, ?, ?, ?, ?);
+		INSERT INTO team_locks_history (created, lockId, envname, teamName, metadata, deleted, deletionMetadata)
+		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
 	span.SetTag("query", upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
+	deletionMetadataJsonToInsert, err := json.Marshal(deletionMetadata)
+	if err != nil {
+		return fmt.Errorf("could not marshal json deletion metadata: %w", err)
 	}
 
 	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
@@ -517,6 +535,7 @@ func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *s
 		teamName,
 		jsonToInsert,
 		deleted,
+		deletionMetadataJsonToInsert,
 	)
 	if err != nil {
 		return fmt.Errorf(
