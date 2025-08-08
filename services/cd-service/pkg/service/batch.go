@@ -421,6 +421,7 @@ func (d *BatchServer) processAction(
 			Config:                internalEnvironmentConfig,
 			TransformerEslVersion: 0,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
+			Dryrun:                in.Dryrun,
 		}
 		return transformer, nil, nil
 	case *api.BatchAction_CreateEnvironmentGroupLock:
@@ -449,6 +450,7 @@ func (d *BatchServer) processAction(
 			Environment:           types.EnvName(act.Environment),
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
+			Dryrun:                act.Dryrun,
 		}, nil, nil
 	case *api.BatchAction_ExtendAaEnvironment:
 		act := action.ExtendAaEnvironment
