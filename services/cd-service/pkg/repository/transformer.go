@@ -1506,6 +1506,10 @@ func (c *DeleteEnvironmentLock) Transform(
 	if err != nil {
 		return "", err
 	}
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
 	s := State{
 		MinorRegexes:              state.MinorRegexes,
 		MaxNumThreads:             state.MaxNumThreads,
@@ -1513,7 +1517,8 @@ func (c *DeleteEnvironmentLock) Transform(
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
 		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
-	err = state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId)
+
+	err = state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId, db.LockDeletionMetadata{DeletedByUser: user.Name, DeletedByEmail: user.Email})
 	if err != nil {
 		return "", err
 	}

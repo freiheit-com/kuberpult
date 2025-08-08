@@ -848,6 +848,11 @@ type LockMetadata struct {
 	SuggestedLifeTime string
 }
 
+type LockDeletionMetadata struct {
+	DeletedByUser  string
+	DeletedByEmail string
+}
+
 type ReleaseWithManifest struct {
 	Version uint64
 	/**

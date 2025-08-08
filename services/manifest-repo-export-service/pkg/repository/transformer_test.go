@@ -2262,7 +2262,7 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtDeleteEnvironmentLock {
 						concreteTransformer := tr.(*DeleteEnvironmentLock)
-						err2 = dbHandler.DBDeleteEnvironmentLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.LockId)
+						err2 = dbHandler.DBDeleteEnvironmentLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.LockId, db.LockDeletionMetadata{DeletedByUser: authorName, DeletedByEmail: authorEmail})
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -4147,7 +4147,7 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 	}
 	if tr.GetDBEventType() == db.EvtDeleteEnvironmentLock {
 		concreteTransformer := tr.(*DeleteEnvironmentLock)
-		err2 := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.LockId)
+		err2 := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.LockId, db.LockDeletionMetadata{DeletedByUser: authorName, DeletedByEmail: authorEmail})
 		if err2 != nil {
 			t.Fatal(err2)
 		}

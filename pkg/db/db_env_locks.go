@@ -36,11 +36,12 @@ type EnvironmentLock struct {
 }
 
 type EnvLockHistory struct {
-	Created  time.Time
-	LockID   string
-	Env      types.EnvName
-	Metadata LockMetadata
-	Deleted  bool
+	Created          time.Time
+	LockID           string
+	Env              types.EnvName
+	Metadata         LockMetadata
+	Deleted          bool
+	DeletionMetadata LockDeletionMetadata
 }
 
 // SELECTS
@@ -273,7 +274,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 
 	selectQuery := h.AdaptQuery(
 		fmt.Sprintf(
-			"SELECT created, lockID, envName, metadata, deleted" +
+			"SELECT created, lockID, envName, metadata, deleted, deletionMetadata" +
 				" FROM environment_locks_history " +
 				" WHERE envName=? AND lockID=?" +
 				" ORDER BY version DESC " +
@@ -311,10 +312,14 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 				Message:           "",
 				SuggestedLifeTime: "",
 			},
+			DeletionMetadata: LockDeletionMetadata{
+				DeletedByEmail: "",
+				DeletedByUser:  "",
+			},
 		}
 		var metadata string
-
-		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &metadata, &row.Deleted)
+		var deletionMetadata string
+		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &metadata, &row.Deleted, &deletionMetadata)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -328,7 +333,14 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 		if err != nil {
 			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
+		//exhaustruct:ignore
+		var deletionLockMetadataJson = LockDeletionMetadata{}
+		err = json.Unmarshal(([]byte)(deletionMetadata), &deletionLockMetadataJson)
+		if err != nil {
+			return nil, fmt.Errorf("error during json unmarshal of lock deletion. Error: %w. Data: %s", err, row.DeletionMetadata)
+		}
 		row.Metadata = resultJson
+		row.DeletionMetadata = deletionLockMetadataJson
 		envLocks = append(envLocks, row)
 	}
 	err = closeRows(rows)
@@ -353,7 +365,7 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 	if err != nil {
 		return err
 	}
-	err = h.insertEnvLockHistoryRow(ctx, tx, lockID, environment, metadata, false)
+	err = h.insertEnvLockHistoryRow(ctx, tx, lockID, environment, metadata, false, LockDeletionMetadata{DeletedByEmail: "", DeletedByUser: ""}) //empty deletion metadata on insert
 	if err != nil {
 		return err
 	}
@@ -386,7 +398,7 @@ func (h *DBHandler) DBSelectEnvLockSet(ctx context.Context, tx *sql.Tx, environm
 	return envLocks, nil
 }
 
-func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string) error {
+func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string, metadata LockDeletionMetadata) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
 	defer span.Finish()
 
@@ -410,7 +422,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	if err != nil {
 		return err
 	}
-	err = h.insertEnvLockHistoryRow(ctx, tx, lockID, environment, existingEnvLock.Metadata, true)
+	err = h.insertEnvLockHistoryRow(ctx, tx, lockID, environment, existingEnvLock.Metadata, true, metadata)
 	if err != nil {
 		return err
 	}
@@ -477,12 +489,12 @@ func (h *DBHandler) deleteEnvLockRow(ctx context.Context, transaction *sql.Tx, l
 	return nil
 }
 
-func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata, deleted bool) error {
+func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertEnvLockHistoryRow")
 	defer span.Finish()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO environment_locks_history (created, lockId, envname, metadata, deleted)
-		VALUES (?, ?, ?, ?, ?);
+		INSERT INTO environment_locks_history (created, lockId, envname, metadata, deleted, deletionMetadata)
+		VALUES (?, ?, ?, ?, ?, ?);
 	`)
 	span.SetTag("query", upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
@@ -490,6 +502,10 @@ func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sq
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
+	deletionMetadataJsonToInsert, err := json.Marshal(deletionMetadata)
+	if err != nil {
+		return fmt.Errorf("could not marshal json deletion data: %w", err)
+	}
 	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
 		return fmt.Errorf("insertEnvLockHistoryRow unable to get transaction timestamp: %w", err)
@@ -501,6 +517,7 @@ func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sq
 		environment,
 		jsonToInsert,
 		deleted,
+		deletionMetadataJsonToInsert,
 	)
 	if err != nil {
 		return fmt.Errorf(
