@@ -85,9 +85,12 @@ gen-pkg:
 
 test: gen-pkg unit-test
 
-build-pr: IMAGE_TAG=pr-$(VERSION)
-build-pr: BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
-build-pr: gen-pkg lint unit-test bench-test docker release trivy-scan
+build-pr-internal: gen-pkg lint unit-test bench-test docker release trivy-scan
 
-build-main: IMAGE_TAG=main-$(VERSION)
-build-main: gen-pkg lint unit-test bench-test docker release-main trivy-scan
+build-pr:
+	IMAGE_TAG=pr-$(VERSION) BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION) $(MAKE) build-pr-internal
+
+build-main-internal: gen-pkg lint unit-test bench-test docker release-main trivy-scan
+
+build-main:
+	IMAGE_TAG=main-$(VERSION) $(MAKE) build-main-internal
