@@ -41,10 +41,14 @@ lint:
 	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false $(SERVICE_DIR)/...'
 
 .PHONY: docker
-docker: compile
+# Note that the docker target should be standalone - everything necessary to build the docker image must happen in the Dockerfile, not in make.
+docker: # no dependencies here!
 	mkdir -p $(MAIN_PATH)/lib
 	mkdir -p $(MAIN_PATH)/usr
 	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) $(CONTEXT) -t $(IMAGE_NAME)
+	# The docker history shows us the file size.
+	# For now we just log it, later we could check automatically that the size is below a certain threshold:
+	docker history $(IMAGE_NAME)
 
 .PHONY: release
 release:
@@ -81,9 +85,12 @@ gen-pkg:
 
 test: gen-pkg unit-test
 
-build-pr: IMAGE_TAG=pr-$(VERSION)
-build-pr: BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
-build-pr: gen-pkg lint unit-test bench-test docker release trivy-scan
+build-pr-internal: gen-pkg lint unit-test bench-test docker release trivy-scan
 
-build-main: IMAGE_TAG=main-$(VERSION)
-build-main: gen-pkg lint unit-test bench-test docker release-main trivy-scan
+build-pr:
+	IMAGE_TAG=pr-$(VERSION) BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION) $(MAKE) build-pr-internal
+
+build-main-internal: gen-pkg lint unit-test bench-test docker release-main trivy-scan
+
+build-main:
+	IMAGE_TAG=main-$(VERSION) $(MAKE) build-main-internal

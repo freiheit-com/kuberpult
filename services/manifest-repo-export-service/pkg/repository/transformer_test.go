@@ -3328,29 +3328,11 @@ spec:
 			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
 			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
-				// setup:
-				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
-				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-				if err2 != nil {
-					t.Fatal(err2)
-				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig, []string{})
-				if err2 != nil {
-					return err2
-				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config, []string{})
-				if err2 != nil {
-					return err2
-				}
-				//populate the database
-				for _, tr := range tc.Transformers {
-					err2 := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
-					if err2 != nil {
-						t.Fatal(err2)
-					}
-				}
 
+			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range tc.Transformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorName, authorEmail)
+				}
 				for _, t := range tc.Transformers {
 					err := repo.Apply(ctx, transaction, t)
 					if err != nil {
@@ -4150,6 +4132,11 @@ func TestExtendAAEnvironmentTransformer(t *testing.T) {
 }
 
 func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr Transformer, dbHandler *db.DBHandler, t *testing.T, authorEmail string, authorName string) {
+	now, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr.SetCreationTimestamp(*now)
 	if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
 		concreteTransformer := tr.(*CreateEnvironmentLock)
 		err2 := dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
@@ -4180,6 +4167,7 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 		concreteTransformer := tr.(*DeployApplicationVersion)
 		err2 := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 			App:            concreteTransformer.Application,
+			Env:            concreteTransformer.Environment,
 			ReleaseNumbers: types.MakeReleaseNumbers(concreteTransformer.Version, concreteTransformer.Revision),
 			Metadata: db.DeploymentMetadata{
 				DeployedByEmail: authorEmail,
@@ -4261,6 +4249,7 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 			t.Fatal(err2)
 		}
 	}
+
 }
 
 func TestReleaseTrainTransformer(t *testing.T) {

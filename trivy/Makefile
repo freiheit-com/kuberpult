@@ -37,8 +37,8 @@ push-base-image:
 	docker push $(TRIVY_IMAGE_URL)
 
 scan-service-pr: build-base-image
-	docker run --rm -e TRIVY_USERNAME="" -e GOOGLE_APPLICATION_CREDENTIALS="/root/credentials.json" -v "$(GCP_CREDENTIALS_PATH)":/root/credentials.json:ro $(TRIVY_IMAGE_URL) \
-		trivy --db-repository $(TRIVY_DB_REPO)  --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image "$(KUBERPULT_SERVICE_IMAGE)"
+	docker run --rm -e TRIVY_USERNAME="" -e GOOGLE_APPLICATION_CREDENTIALS="/root/credentials.json" -v "$(shell pwd)/trivy-secret.yaml:/trivy-secret.yaml" -v "$(GCP_CREDENTIALS_PATH)":/root/credentials.json:ro $(TRIVY_IMAGE_URL) \
+		sh -c 'test -f /trivy-secret.yaml || (echo "error, cannot find trivy secret config"; exit 1) && trivy --secret-config /trivy-secret.yaml --db-repository $(TRIVY_DB_REPO)  --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image "$(KUBERPULT_SERVICE_IMAGE)"'
 
 scan-service:
 	mkdir -p $(KUBERPULT_REPORT_DIR)
