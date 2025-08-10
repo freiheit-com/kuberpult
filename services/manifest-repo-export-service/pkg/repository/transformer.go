@@ -124,6 +124,10 @@ func (s *State) checkWhichVersionDirectoryExists(fs billy.Filesystem, applicatio
 	return revisionedVersion, nil
 }
 
+func releasesDirectoryWithVersionWithoutRevision(fs billy.Filesystem, application string, version string) string {
+	return fs.Join(releasesDirectory(fs, application), version)
+}
+
 // environmentApplicationDirectory returns applications/<app>/releases/<version>/environments/
 func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application string, version types.ReleaseNumbers) string {
 	return fs.Join(releasesDirectoryWithVersion(fs, application, version), "environments")
