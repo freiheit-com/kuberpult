@@ -627,7 +627,6 @@ func HandleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHa
 }
 
 func calculateProcessDelay(_ context.Context, nextEslToProcess *db.EslEventRow, currentTime time.Time) (float64, error) {
-	/// export to UI
 	if nextEslToProcess == nil {
 		return 0, nil
 	}
