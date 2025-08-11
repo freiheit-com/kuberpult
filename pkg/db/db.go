@@ -498,7 +498,6 @@ func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, esl
 		}
 		return esl, nil
 	} else {
-		//log.Debugf("cutoff found, starting at t>cutoff: %d", *eslVersion)
 		esl, err := h.DBReadEslEventLaterThan(ctx, transaction, *eslVersion)
 		if err != nil {
 			return nil, err
