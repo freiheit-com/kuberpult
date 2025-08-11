@@ -1285,7 +1285,11 @@ func(r *repository) FixCommitsTimestamp(ctx context.Context, state State) (error
 	if err != nil {
 		return fmt.Errorf("failed to create revwalk: %v", err)
 	}
-	branchRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/heads/%s", r.config.Branch))
+	branchName := r.config.Branch
+	if branchName == "" {
+		branchName = "master"
+	}
+	branchRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/heads/%s", branchName))
 	if err != nil {
 		return fmt.Errorf("failed to get branch reference: %v", err)
 	}
