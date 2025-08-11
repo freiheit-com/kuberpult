@@ -43,7 +43,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 
 	"os"
@@ -192,20 +191,6 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		return "", nil, err
 	}
 
-	rows, err := s.DBHandler.DBSelectAllCommitEventsForTransformerID(ctx, transaction, t.GetEslVersion())
-
-	if err != nil {
-		return "", nil, err
-	}
-	if len(rows) != 0 && t.GetEslVersion() != 0 { //Guard against migration transformer
-		for _, r := range rows {
-			err := processCommitEvent(ctx, s, r)
-			if err != nil {
-				return "", nil, err
-			}
-		}
-	}
-
 	commitMsg := ""
 	if len(runner.Stack[0]) > 0 {
 		commitMsg = runner.Stack[0][0]
@@ -215,17 +200,6 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		DeletedRootApps: runner.DeletedRootApps,
 		Commits:         runner.Commits,
 	}, nil
-}
-
-func processCommitEvent(ctx context.Context, s *State, row db.EventRow) error {
-	ev, err := event.UnMarshallEvent(row.EventType, row.EventJson)
-	if err != nil {
-		return err
-	}
-	if err := writeEvent(ctx, row.Uuid, row.CommitHash, s.Filesystem, ev.EventData); err != nil {
-		return err
-	}
-	return nil
 }
 
 type transformerRunner struct {
@@ -488,27 +462,6 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 	return fmt.Sprintf("deployed version %v of %q to %q", types.MakeReleaseNumbers(c.Version, c.Revision), c.Application, c.Environment), nil
-}
-
-func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
-	defer span.Finish()
-	if !valid.SHA1CommitID(sourceCommitId) {
-		logger.FromContext(ctx).Sugar().Warnf(
-			"could not write an event for commit '%s' for uuid '%s' - commit ID is not valid",
-			sourceCommitId,
-			eventId,
-		)
-		return nil
-	}
-	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
-	if err := event.Write(filesystem, eventDir, ev); err != nil {
-		return fmt.Errorf(
-			"could not write an event for commit '%s' for uuid '%s', error: %w",
-			sourceCommitId, eventId, err)
-	}
-	return nil
-
 }
 
 type CreateEnvironmentLock struct {
