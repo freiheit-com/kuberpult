@@ -1316,7 +1316,7 @@ func(r *repository) FixCommitsTimestamp(ctx context.Context, state State) (error
 		return err
 	})
 	if err != nil {
-		logger.FromContext(ctx).Sugar().Errorf("failed during revwalk: %v", err)
+		return fmt.Errorf("failed during revwalk: %v", err)
 	}
 	return nil
 }
