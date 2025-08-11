@@ -40,7 +40,7 @@ WORKDIR /kp/
 ADD Makefile.variables .
 ADD Makefile .
 RUN make -C pkg gen SKIP_BUILDER=1 PKG_WITHOUT_DOCKER=1
-COPY services/frontend-service/cmd/server/bin/main /kp/main
+RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/frontend-service/cmd/server/main.go
 
 FROM scratch
 LABEL org.opencontainers.image.source=https://github.com/freiheit-com/kuberpult
