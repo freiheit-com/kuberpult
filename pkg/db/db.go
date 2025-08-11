@@ -524,8 +524,7 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 		}
 	}(rows)
 	if !rows.Next() {
-		logger.FromContext(ctx).Sugar().Warnf("Expected getting a unprocessed row count.")
-		return 0, nil
+		return 0, onErr(fmt.Errorf("could not get count from event_sourcing_light table from DB. Error: no row returned."))
 	}
 	count := uint64(0)
 	errScan := rows.Scan(&count)
