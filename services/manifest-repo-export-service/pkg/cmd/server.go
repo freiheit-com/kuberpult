@@ -322,6 +322,10 @@ func Run(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("error running migrations for fixing releases timestamp: %w", err)
 		}
+		err = repo.FixCommitsTimestamp(ctx, *repo.State())
+		if err != nil {
+			return fmt.Errorf("error fixing commit timestamps: %w", err)
+		}
 	}
 
 	shutdownCh := make(chan struct{})
