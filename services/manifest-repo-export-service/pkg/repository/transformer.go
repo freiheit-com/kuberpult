@@ -132,10 +132,6 @@ func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application strin
 	return fs.Join(releasesDirectoryWithVersion(fs, application, version), "environments")
 }
 
-func commitEventDir(fs billy.Filesystem, commit, eventId string) string {
-	return fs.Join(commitDirectory(fs, commit), "events", eventId)
-}
-
 func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.Context {
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
