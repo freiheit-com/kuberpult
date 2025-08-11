@@ -523,6 +523,11 @@ func processEsls(
 					}
 					var gitTag = transformer.GetGitTag()
 					if gitTag != "" {
+
+						TODO SU
+						// TODO SU: error handling is broken
+						// we need to probably make this 2 transactions?
+						// Goal: Fail the event if pushing the tag fails
 						return HandleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
 					}
 					return nil
