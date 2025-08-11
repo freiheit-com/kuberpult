@@ -33,7 +33,7 @@ export const GeneralGitSyncStatus: React.FC<GeneralGitSyncStatusProps> = (props)
     const navigate = useNavigate();
     const content = (
         <div>
-            {gitSyncStatus.getDelayEvents()} Events, {gitSyncStatus.getDelaySeconds()} seconds
+            There are {gitSyncStatus.getDelayEvents()} unprocessed events, the earliest was created {gitSyncStatus.getDelaySeconds()} seconds ago.
         </div>
     );
 
