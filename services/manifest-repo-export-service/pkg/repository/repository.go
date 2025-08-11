@@ -1287,13 +1287,13 @@ func(r *repository) FixCommitsTimestamp(ctx context.Context, state State) (error
 	}
 	head, err := r.repository.Head()
 	if err != nil {
-		return fmt.Errorf("Failed to get HEAD: %v", err)
+		return fmt.Errorf("failed to get HEAD: %v", err)
 	}
 
 	// Push HEAD to revwalk
 	err = revwalk.Push(head.Target())
 	if err != nil {
-		return fmt.Errorf("Failed to push HEAD to revwalk: %v", err)
+		return fmt.Errorf("failed to push HEAD to revwalk: %v", err)
 	}
 	dbHandler := state.DBHandler
 	err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
