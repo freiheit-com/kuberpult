@@ -683,6 +683,48 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 		},
 		{
+			Name: "Trigger a deployment via an env release train with environment target",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[types.EnvName]string{
+						"production": "some production manifest 2",
+						"staging":    "some staging manifest 2",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment:     "staging",
+					Application:     "app",
+					Version:         1,
+					WriteCommitData: true,
+				},
+				&envReleaseTrain{
+					Env:             "production",
+					WriteCommitData: true,
+				},
+			},
+		},
+		{
 			Name: "Trigger a deployment via a release train with environment group target without lock",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -1134,7 +1176,613 @@ func TestUndeployErrors(t *testing.T) {
 }
 
 // Tests various error cases in the release train, specifically the error messages returned.
+type MockTransformer struct {
+	ExecuteFunc func(ctx context.Context, t Transformer, tx *sql.Tx) error
+}
+
+func (m *MockTransformer) Execute(ctx context.Context, t Transformer, tx *sql.Tx) error {
+	if m.ExecuteFunc != nil {
+		return m.ExecuteFunc(ctx, t, tx)
+	}
+	return nil
+}
+
+func (m *MockTransformer) AddAppEnv(app string, env types.EnvName, team string) {
+}
+
+func (m *MockTransformer) DeleteEnvFromApp(app string, env types.EnvName) {
+}
+
+func TestRunEnvReleaseTrainBackground(t *testing.T) {
+	type testCase struct {
+		name           string
+		transformerErr error
+		expectError    bool
+	}
+
+	testCases := []testCase{
+		{
+			name:           "successful execution",
+			transformerErr: nil,
+			expectError:    false,
+		},
+		{
+			name:           "transformer execution error",
+			transformerErr: fmt.Errorf("transformer error"),
+			expectError:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := SetupRepositoryTestWithDB(t)
+			state := repo.State()
+
+			mockTransformer := &MockTransformer{
+				ExecuteFunc: func(ctx context.Context, t Transformer, tx *sql.Tx) error {
+					return tc.transformerErr
+				},
+			}
+			version := uint64(1)
+
+			rt := &ReleaseTrain{
+				Target:     "test-target",
+				Team:       "test-team",
+				CommitHash: "test-hash",
+				Repo:       repo,
+			}
+
+			configs := map[types.EnvName]config.EnvironmentConfig{
+				"test-env": makeEnvironmentConfig(nil),
+			}
+			releases := map[string][]types.ReleaseNumbers{
+				"test-app": {{Version: &version, Revision: version}},
+			}
+
+			err := rt.runEnvReleaseTrainBackground(
+				context.Background(),
+				state,
+				mockTransformer,
+				"test-env",
+				nil,
+				configs,
+				releases,
+			)
+
+			if tc.expectError && err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tc.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestConvertLock(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    *api.Lock
+		expected *Lock
+	}{
+		{
+			name: "full lock with all fields",
+			input: &api.Lock{
+				Message: "test lock message",
+				LockId:  "test-lock-id",
+				CreatedBy: &api.Actor{
+					Name:  "Test User",
+					Email: "test@example.com",
+				},
+				CreatedAt:         timestamppb.New(time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)),
+				CiLink:            "https://ci.example.com/build/123",
+				SuggestedLifetime: "1h",
+			},
+			expected: &Lock{
+				Message: "test lock message",
+				LockId:  "test-lock-id",
+				CreatedBy: Actor{
+					Name:  "Test User",
+					Email: "test@example.com",
+				},
+				CreatedAt:         time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				CiLink:            "https://ci.example.com/build/123",
+				SuggestedLifetime: "1h",
+			},
+		},
+		{
+			name: "minimal lock with required fields only",
+			input: &api.Lock{
+				Message: "minimal lock",
+				LockId:  "minimal-id",
+			},
+			expected: &Lock{
+				Message: "minimal lock",
+				LockId:  "minimal-id",
+				CreatedBy: Actor{
+					Name:  "",
+					Email: "",
+				},
+				CreatedAt:         time.Time{},
+				CiLink:            "",
+				SuggestedLifetime: "",
+			},
+		},
+		{
+			name: "lock with nil CreatedBy",
+			input: &api.Lock{
+				Message:   "test message",
+				LockId:    "test-id",
+				CreatedBy: nil,
+				CreatedAt: timestamppb.New(time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)),
+			},
+			expected: &Lock{
+				Message: "test message",
+				LockId:  "test-id",
+				CreatedBy: Actor{
+					Name:  "",
+					Email: "",
+				},
+				CreatedAt:         time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				CiLink:            "",
+				SuggestedLifetime: "",
+			},
+		},
+		{
+			name: "lock with nil CreatedAt",
+			input: &api.Lock{
+				Message: "test message",
+				LockId:  "test-id",
+				CreatedBy: &api.Actor{
+					Name:  "Test User",
+					Email: "test@example.com",
+				},
+				CreatedAt: nil,
+			},
+			expected: &Lock{
+				Message: "test message",
+				LockId:  "test-id",
+				CreatedBy: Actor{
+					Name:  "Test User",
+					Email: "test@example.com",
+				},
+				CreatedAt:         time.Time{},
+				CiLink:            "",
+				SuggestedLifetime: "",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := convertLock(tc.input)
+
+			// Compare fields
+			if result.Message != tc.expected.Message {
+				t.Errorf("Message mismatch: got %v, want %v", result.Message, tc.expected.Message)
+			}
+			if result.LockId != tc.expected.LockId {
+				t.Errorf("LockId mismatch: got %v, want %v", result.LockId, tc.expected.LockId)
+			}
+			if result.CreatedBy.Name != tc.expected.CreatedBy.Name {
+				t.Errorf("CreatedBy.Name mismatch: got %v, want %v", result.CreatedBy.Name, tc.expected.CreatedBy.Name)
+			}
+			if result.CreatedBy.Email != tc.expected.CreatedBy.Email {
+				t.Errorf("CreatedBy.Email mismatch: got %v, want %v", result.CreatedBy.Email, tc.expected.CreatedBy.Email)
+			}
+			if !result.CreatedAt.Equal(tc.expected.CreatedAt) {
+				t.Errorf("CreatedAt mismatch: got %v, want %v", result.CreatedAt, tc.expected.CreatedAt)
+			}
+			if result.CiLink != tc.expected.CiLink {
+				t.Errorf("CiLink mismatch: got %v, want %v", result.CiLink, tc.expected.CiLink)
+			}
+			if result.SuggestedLifetime != tc.expected.SuggestedLifetime {
+				t.Errorf("SuggestedLifetime mismatch: got %v, want %v", result.SuggestedLifetime, tc.expected.SuggestedLifetime)
+			}
+		})
+	}
+}
+
+func TestEnvReleaseTrainGetDBEventType(t *testing.T) {
+	ert := &envReleaseTrain{}
+	if got := ert.GetDBEventType(); got != db.EvtEnvReleaseTrain {
+		t.Errorf("envReleaseTrain.GetDBEventType() = %v, want %v", got, db.EvtEnvReleaseTrain)
+	}
+}
+
+func TestEnvReleaseTrainEslVersion(t *testing.T) {
+	ert := &envReleaseTrain{}
+
+	// Test initial value
+	if got := ert.GetEslVersion(); got != 0 {
+		t.Errorf("Initial TransformerEslVersion = %v, want 0", got)
+	}
+
+	// Test setting and getting a value
+	testID := db.TransformerID(42)
+	ert.SetEslVersion(testID)
+	if got := ert.GetEslVersion(); got != testID {
+		t.Errorf("After SetEslVersion(%v), GetEslVersion() = %v, want %v", testID, got, testID)
+	}
+}
+
+func TestConvertLockMap(t *testing.T) {
+	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	testCases := []struct {
+		name     string
+		input    map[string]*api.Lock
+		expected map[string]Lock
+	}{
+		{
+			name:     "empty map",
+			input:    map[string]*api.Lock{},
+			expected: map[string]Lock{},
+		},
+		{
+			name: "single lock",
+			input: map[string]*api.Lock{
+				"lock1": {
+					Message: "test lock",
+					LockId:  "lock1",
+					CreatedBy: &api.Actor{
+						Name:  "Test User",
+						Email: "test@example.com",
+					},
+					CreatedAt:         timestamppb.New(testTime),
+					CiLink:            "https://ci.example.com/build/123",
+					SuggestedLifetime: "1h",
+				},
+			},
+			expected: map[string]Lock{
+				"lock1": {
+					Message: "test lock",
+					LockId:  "lock1",
+					CreatedBy: Actor{
+						Name:  "Test User",
+						Email: "test@example.com",
+					},
+					CreatedAt:         testTime,
+					CiLink:            "https://ci.example.com/build/123",
+					SuggestedLifetime: "1h",
+				},
+			},
+		},
+		{
+			name: "multiple locks",
+			input: map[string]*api.Lock{
+				"lock1": {
+					Message: "test lock 1",
+					LockId:  "lock1",
+					CreatedBy: &api.Actor{
+						Name:  "User 1",
+						Email: "user1@example.com",
+					},
+					CreatedAt: timestamppb.New(testTime),
+				},
+				"lock2": {
+					Message: "test lock 2",
+					LockId:  "lock2",
+					CreatedBy: &api.Actor{
+						Name:  "User 2",
+						Email: "user2@example.com",
+					},
+					CreatedAt: timestamppb.New(testTime),
+				},
+			},
+			expected: map[string]Lock{
+				"lock1": {
+					Message: "test lock 1",
+					LockId:  "lock1",
+					CreatedBy: Actor{
+						Name:  "User 1",
+						Email: "user1@example.com",
+					},
+					CreatedAt: testTime,
+				},
+				"lock2": {
+					Message: "test lock 2",
+					LockId:  "lock2",
+					CreatedBy: Actor{
+						Name:  "User 2",
+						Email: "user2@example.com",
+					},
+					CreatedAt: testTime,
+				},
+			},
+		},
+		{
+			name: "locks with nil fields",
+			input: map[string]*api.Lock{
+				"lock1": {
+					Message:   "test lock 1",
+					LockId:    "lock1",
+					CreatedBy: nil,
+					CreatedAt: nil,
+				},
+				"lock2": {
+					Message:   "test lock 2",
+					LockId:    "lock2",
+					CreatedBy: &api.Actor{},
+					CreatedAt: timestamppb.New(testTime),
+				},
+			},
+			expected: map[string]Lock{
+				"lock1": {
+					Message: "test lock 1",
+					LockId:  "lock1",
+					CreatedBy: Actor{
+						Name:  "",
+						Email: "",
+					},
+					CreatedAt: time.Time{},
+				},
+				"lock2": {
+					Message: "test lock 2",
+					LockId:  "lock2",
+					CreatedBy: Actor{
+						Name:  "",
+						Email: "",
+					},
+					CreatedAt: testTime,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := convertLockMap(tc.input)
+
+			// Check map length
+			if len(result) != len(tc.expected) {
+				t.Errorf("Map length mismatch: got %d, want %d", len(result), len(tc.expected))
+			}
+
+			// Compare each lock in the maps
+			for key, expectedLock := range tc.expected {
+				resultLock, exists := result[key]
+				if !exists {
+					t.Errorf("Missing key %s in result map", key)
+					continue
+				}
+
+				// Compare lock fields
+				if resultLock.Message != expectedLock.Message {
+					t.Errorf("Message mismatch for key %s: got %v, want %v", key, resultLock.Message, expectedLock.Message)
+				}
+				if resultLock.LockId != expectedLock.LockId {
+					t.Errorf("LockId mismatch for key %s: got %v, want %v", key, resultLock.LockId, expectedLock.LockId)
+				}
+				if resultLock.CreatedBy.Name != expectedLock.CreatedBy.Name {
+					t.Errorf("CreatedBy.Name mismatch for key %s: got %v, want %v", key, resultLock.CreatedBy.Name, expectedLock.CreatedBy.Name)
+				}
+				if resultLock.CreatedBy.Email != expectedLock.CreatedBy.Email {
+					t.Errorf("CreatedBy.Email mismatch for key %s: got %v, want %v", key, resultLock.CreatedBy.Email, expectedLock.CreatedBy.Email)
+				}
+				if !resultLock.CreatedAt.Equal(expectedLock.CreatedAt) {
+					t.Errorf("CreatedAt mismatch for key %s: got %v, want %v", key, resultLock.CreatedAt, expectedLock.CreatedAt)
+				}
+				if resultLock.CiLink != expectedLock.CiLink {
+					t.Errorf("CiLink mismatch for key %s: got %v, want %v", key, resultLock.CiLink, expectedLock.CiLink)
+				}
+				if resultLock.SuggestedLifetime != expectedLock.SuggestedLifetime {
+					t.Errorf("SuggestedLifetime mismatch for key %s: got %v, want %v", key, resultLock.SuggestedLifetime, expectedLock.SuggestedLifetime)
+				}
+			}
+
+			// Check for extra keys in result
+			for key := range result {
+				if _, exists := tc.expected[key]; !exists {
+					t.Errorf("Unexpected key %s in result map", key)
+				}
+			}
+		})
+	}
+}
+
+func TestConvertLockMapToLockList(t *testing.T) {
+	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	testCases := []struct {
+		name     string
+		input    map[string]*api.Lock
+		expected []*api.Lock
+	}{
+		{
+			name:     "empty map",
+			input:    map[string]*api.Lock{},
+			expected: []*api.Lock{},
+		},
+		{
+			name: "single lock",
+			input: map[string]*api.Lock{
+				"lock1": {
+					Message: "test lock",
+					LockId:  "lock1",
+					CreatedBy: &api.Actor{
+						Name:  "Test User",
+						Email: "test@example.com",
+					},
+					CreatedAt:         timestamppb.New(testTime),
+					CiLink:            "https://ci.example.com/build/123",
+					SuggestedLifetime: "1h",
+				},
+			},
+			expected: []*api.Lock{
+				{
+					Message: "test lock",
+					LockId:  "lock1",
+					CreatedBy: &api.Actor{
+						Name:  "Test User",
+						Email: "test@example.com",
+					},
+					CreatedAt:         timestamppb.New(testTime),
+					CiLink:            "https://ci.example.com/build/123",
+					SuggestedLifetime: "1h",
+				},
+			},
+		},
+		{
+			name: "multiple locks",
+			input: map[string]*api.Lock{
+				"lock1": {
+					Message: "test lock 1",
+					LockId:  "lock1",
+					CreatedBy: &api.Actor{
+						Name:  "User 1",
+						Email: "user1@example.com",
+					},
+					CreatedAt: timestamppb.New(testTime),
+				},
+				"lock2": {
+					Message: "test lock 2",
+					LockId:  "lock2",
+					CreatedBy: &api.Actor{
+						Name:  "User 2",
+						Email: "user2@example.com",
+					},
+					CreatedAt: timestamppb.New(testTime),
+				},
+			},
+			expected: []*api.Lock{
+				{
+					Message: "test lock 1",
+					LockId:  "lock1",
+					CreatedBy: &api.Actor{
+						Name:  "User 1",
+						Email: "user1@example.com",
+					},
+					CreatedAt: timestamppb.New(testTime),
+				},
+				{
+					Message: "test lock 2",
+					LockId:  "lock2",
+					CreatedBy: &api.Actor{
+						Name:  "User 2",
+						Email: "user2@example.com",
+					},
+					CreatedAt: timestamppb.New(testTime),
+				},
+			},
+		},
+		{
+			name: "locks with nil fields",
+			input: map[string]*api.Lock{
+				"lock1": {
+					Message:   "test lock 1",
+					LockId:    "lock1",
+					CreatedBy: nil,
+					CreatedAt: nil,
+				},
+				"lock2": {
+					Message:   "test lock 2",
+					LockId:    "lock2",
+					CreatedBy: &api.Actor{},
+					CreatedAt: timestamppb.New(testTime),
+				},
+			},
+			expected: []*api.Lock{
+				{
+					Message:   "test lock 1",
+					LockId:    "lock1",
+					CreatedBy: nil,
+					CreatedAt: nil,
+				},
+				{
+					Message:   "test lock 2",
+					LockId:    "lock2",
+					CreatedBy: &api.Actor{},
+					CreatedAt: timestamppb.New(testTime),
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ConvertLockMapToLockList(tc.input)
+
+			// Check slice length
+			if len(result) != len(tc.expected) {
+				t.Errorf("Slice length mismatch: got %d, want %d", len(result), len(tc.expected))
+				return
+			}
+
+			// Create maps to help with comparison since order is not guaranteed
+			resultMap := make(map[string]*api.Lock)
+			expectedMap := make(map[string]*api.Lock)
+			for _, lock := range result {
+				resultMap[lock.LockId] = lock
+			}
+			for _, lock := range tc.expected {
+				expectedMap[lock.LockId] = lock
+			}
+
+			// Compare each lock
+			for lockId, expectedLock := range expectedMap {
+				resultLock, exists := resultMap[lockId]
+				if !exists {
+					t.Errorf("Missing lock with ID %s in result", lockId)
+					continue
+				}
+
+				// Compare lock fields
+				if resultLock.Message != expectedLock.Message {
+					t.Errorf("Message mismatch for lock %s: got %v, want %v", lockId, resultLock.Message, expectedLock.Message)
+				}
+				if resultLock.LockId != expectedLock.LockId {
+					t.Errorf("LockId mismatch for lock %s: got %v, want %v", lockId, resultLock.LockId, expectedLock.LockId)
+				}
+
+				// Compare CreatedBy if not nil
+				if expectedLock.CreatedBy != nil {
+					if resultLock.CreatedBy == nil {
+						t.Errorf("CreatedBy is nil for lock %s, expected non-nil", lockId)
+					} else {
+						if resultLock.CreatedBy.Name != expectedLock.CreatedBy.Name {
+							t.Errorf("CreatedBy.Name mismatch for lock %s: got %v, want %v", lockId, resultLock.CreatedBy.Name, expectedLock.CreatedBy.Name)
+						}
+						if resultLock.CreatedBy.Email != expectedLock.CreatedBy.Email {
+							t.Errorf("CreatedBy.Email mismatch for lock %s: got %v, want %v", lockId, resultLock.CreatedBy.Email, expectedLock.CreatedBy.Email)
+						}
+					}
+				} else if resultLock.CreatedBy != nil {
+					t.Errorf("CreatedBy is non-nil for lock %s, expected nil", lockId)
+				}
+
+				// Compare CreatedAt if not nil
+				if expectedLock.CreatedAt != nil {
+					if resultLock.CreatedAt == nil {
+						t.Errorf("CreatedAt is nil for lock %s, expected non-nil", lockId)
+					} else if !resultLock.CreatedAt.AsTime().Equal(expectedLock.CreatedAt.AsTime()) {
+						t.Errorf("CreatedAt mismatch for lock %s: got %v, want %v", lockId, resultLock.CreatedAt.AsTime(), expectedLock.CreatedAt.AsTime())
+					}
+				} else if resultLock.CreatedAt != nil {
+					t.Errorf("CreatedAt is non-nil for lock %s, expected nil", lockId)
+				}
+
+				if resultLock.CiLink != expectedLock.CiLink {
+					t.Errorf("CiLink mismatch for lock %s: got %v, want %v", lockId, resultLock.CiLink, expectedLock.CiLink)
+				}
+				if resultLock.SuggestedLifetime != expectedLock.SuggestedLifetime {
+					t.Errorf("SuggestedLifetime mismatch for lock %s: got %v, want %v", lockId, resultLock.SuggestedLifetime, expectedLock.SuggestedLifetime)
+				}
+			}
+
+			// Check for extra locks in result
+			for lockId := range resultMap {
+				if _, exists := expectedMap[lockId]; !exists {
+					t.Errorf("Unexpected lock with ID %s in result", lockId)
+				}
+			}
+		})
+	}
+}
+
 func TestReleaseTrainErrors(t *testing.T) {
+	versionZero := uint64(0)
+	versionOne := uint64(1)
 	tcs := []struct {
 		Name              string
 		Setup             []Transformer
@@ -1387,12 +2035,222 @@ func TestReleaseTrainErrors(t *testing.T) {
 				Target: envAcceptance,
 			},
 		},
+		{
+			Name: "Upstream Env not found",
+			Setup: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance + "-ca",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "dev",
+							Latest:      false,
+						},
+						EnvironmentGroup: conversion.FromString(envAcceptance),
+					},
+				},
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": {
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
+						},
+						Error:                nil,
+						EnvLocks:             nil,
+						AppsPrognoses:        nil,
+						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+					},
+				},
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance,
+			},
+		},
+		{
+			Name: "App already in upstream version",
+			Setup: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance + "-de",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						EnvironmentGroup: conversion.FromString(envAcceptance),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[types.EnvName]string{
+						envAcceptance + "-de": "testmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
+					envAcceptance + "-de": {
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+							"foo": {
+								SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+									SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
+								},
+								Version: types.ReleaseNumbers{
+									Version:  &versionZero,
+									Revision: versionZero,
+								},
+							},
+						},
+						AllLatestDeployments: map[string]types.ReleaseNumbers{
+							"foo": types.ReleaseNumbers{
+								Version:  &versionOne,
+								Revision: versionZero,
+							},
+						},
+					},
+				},
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance + "-de",
+			},
+		},
+		{
+			Name: "App does not exist in Env",
+			Setup: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance + "-ca",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						EnvironmentGroup: conversion.FromString(envAcceptance),
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance + "-de",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance + "-ca",
+						},
+						EnvironmentGroup: conversion.FromString(envAcceptance),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[types.EnvName]string{
+						envAcceptance + "-ca": "testmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance + "-de",
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
+					envAcceptance + "-de": {
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+							"foo": {
+								SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+									SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+								},
+								Version: types.ReleaseNumbers{
+									Version:  &versionZero,
+									Revision: versionZero,
+								},
+							},
+						},
+						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+					},
+				},
+			},
+		},
+		{
+			Name:  "Target not found",
+			Setup: []Transformer{},
+			ReleaseTrain: ReleaseTrain{
+				Target:     "not-found",
+				TargetType: api.ReleaseTrainRequest_ENVIRONMENT.String(),
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: status.Error(codes.InvalidArgument, "error: could not find target of type ENVIRONMENT and name 'not-found'"),
+			},
+			expectedError: &TransformerBatchApplyError{
+				TransformerError: status.Error(codes.InvalidArgument, "error: could not find target of type ENVIRONMENT and name 'not-found'"),
+			},
+		},
+		{
+			Name: "Invalid Ci link",
+			Setup: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance + "-de",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						EnvironmentGroup: conversion.FromString(envAcceptance),
+					},
+				},
+			},
+			ReleaseTrain: ReleaseTrain{
+				CiLink: "Invalid",
+				Target: envAcceptance + "-de",
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-de": {
+						AppsPrognoses:        map[string]ReleaseTrainApplicationPrognosis{},
+						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				TransformerError: status.Error(codes.FailedPrecondition, "error: provided CI Link: Invalid is not valid or does not match any of the allowed domain"),
+			},
+		},
+		{
+			Name: "Could not get app version for commit hash",
+			Setup: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance + "-de",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						EnvironmentGroup: conversion.FromString(envAcceptance),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[types.EnvName]string{
+						envAcceptance + "-de": "testmanifest",
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target:     envAcceptance + "-de",
+				CommitHash: "not-found",
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: status.Error(codes.InvalidArgument, "error: could not get app version for commitHash not-found for acceptance-de: timestamp for the provided commit hash \"not-found\" does not exist"),
+			},
+			expectedError: &TransformerBatchApplyError{
+				TransformerError: status.Error(codes.InvalidArgument, "error: could not get app version for commitHash not-found for acceptance-de: timestamp for the provided commit hash \"not-found\" does not exist"),
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutil.MakeTestContextDexEnabled()
 			r := repo.(*repository)
 
 			err := repo.Apply(ctx, tc.Setup...)
@@ -1406,8 +2264,8 @@ func TestReleaseTrainErrors(t *testing.T) {
 				if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses, protocmp.Transform(), protocmp.IgnoreFields(&api.Lock{}, "created_at")); diff != "" {
 					t.Fatalf("release train prognosis is wrong, wanted the result \n%v\n got\n%v\ndiff:\n%s", tc.expectedPrognosis.EnvironmentPrognoses, prognosis.EnvironmentPrognoses, diff)
 				}
-				if !cmp.Equal(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()) {
-					t.Fatalf("release train prognosis is wrong, wanted the error %v, got %v", tc.expectedPrognosis.Error, prognosis.Error)
+				if diff := cmp.Diff(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("release train prognosis is wrong, wanted the error %v, got %v, diff:\n%s", tc.expectedPrognosis.Error, prognosis.Error, diff)
 				}
 
 				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, []Transformer{&tc.ReleaseTrain}...)
@@ -1426,6 +2284,7 @@ func TestTransformerChanges(t *testing.T) {
 		Name            string
 		Transformers    []Transformer
 		expectedChanges *TransformerResult
+		expectedError   string
 	}{
 		{
 			Name: "Deploy 1 app, another app locked by app lock",
@@ -1632,7 +2491,42 @@ func TestTransformerChanges(t *testing.T) {
 			},
 		},
 		{
-			Name: "deploy",
+			Name: "deploy with lock behavior fail",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigUpstream(envAcceptance, nil),
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[types.EnvName]string{
+						envProduction: envProduction,
+						envAcceptance: envAcceptance,
+					},
+					WriteCommitData: true,
+					Version:         1,
+				},
+				&CreateEnvironmentLock{
+					Environment: envProduction,
+					LockId:      "foo-id",
+					Message:     "foo",
+				},
+				&DeployApplicationVersion{
+					Authentication: Authentication{},
+					Environment:    envProduction,
+					Application:    "foo",
+					Version:        1,
+					LockBehaviour:  api.LockBehavior_FAIL,
+				},
+			},
+			expectedError: "error at index 0 of transformer batch: locked",
+		},
+		{
+			Name: "deploy with invalid version",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
@@ -1655,17 +2549,10 @@ func TestTransformerChanges(t *testing.T) {
 					Authentication: Authentication{},
 					Environment:    envProduction,
 					Application:    "foo",
-					Version:        1,
+					Version:        2,
 				},
 			},
-			expectedChanges: &TransformerResult{
-				ChangedApps: []AppEnv{
-					{
-						App: "foo",
-						Env: envProduction,
-					},
-				},
-			},
+			expectedError: "error at index 0 of transformer batch: could not find version 2 for app foo",
 		},
 	}
 	for _, tc := range tcs {
@@ -1681,8 +2568,22 @@ func TestTransformerChanges(t *testing.T) {
 					_, _, actualChanges, err := repo.ApplyTransformersInternal(ctx, transaction, transformer)
 					// note that we only check the LAST error here:
 					if i == len(tc.Transformers)-1 {
-						if err != nil {
-							t.Fatalf("Expected no error: %v", err)
+						if err != nil && tc.expectedError == "" {
+							t.Fatalf("Expected no error, got: %v", err)
+						}
+						if err == nil && tc.expectedError != "" {
+							t.Fatalf("Expected error: %v, got no error", tc.expectedError)
+						}
+						if err != nil && tc.expectedError != "" {
+							if diff := cmp.Diff(fmt.Sprint(err), tc.expectedError); diff != "" {
+								t.Fatalf("Expected error: %v, got: %v, diff (-want +got) %s", tc.expectedError, err, diff)
+							}
+						}
+						if len(actualChanges) == 0 {
+							if tc.expectedChanges != nil {
+								t.Fatalf("Expected changes: %v, got no changes", tc.expectedChanges)
+							}
+							return nil
 						}
 						// we only diff the changes from the last transformer here:
 						lastChanges := actualChanges[len(actualChanges)-1]
@@ -1692,6 +2593,120 @@ func TestTransformerChanges(t *testing.T) {
 					}
 					return nil
 				})
+			}
+		})
+	}
+}
+
+func TestGetCommitID(t *testing.T) {
+	type testCase struct {
+		name           string
+		transformers   []Transformer
+		app            string
+		version        uint64
+		expectedCommit string
+		expectError    bool
+	}
+
+	testCases := []testCase{
+		{
+			name: "successfully get commit ID",
+			transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "test-app",
+					Version:     1,
+					Manifests: map[types.EnvName]string{
+						"staging": "manifest-content",
+					},
+					WriteCommitData: true,
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Team:            "team-1",
+				},
+			},
+			app:            "test-app",
+			version:        1,
+			expectedCommit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+			expectError:    false,
+		},
+		{
+			name: "non-existent application",
+			transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+			},
+			app:            "non-existent-app",
+			version:        1,
+			expectedCommit: "",
+			expectError:    true,
+		},
+		{
+			name: "non-existent version",
+			transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "test-app",
+					Version:     1,
+					Manifests: map[types.EnvName]string{
+						"staging": "manifest-content",
+					},
+					WriteCommitData: true,
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Team:            "team-1",
+				},
+			},
+			app:            "test-app",
+			version:        999,
+			expectedCommit: "",
+			expectError:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+
+			// Apply all transformers
+			err := repo.Apply(ctx, tc.transformers...)
+			if err != nil {
+				t.Fatalf("error encountered during setup, but none was expected here, error: %v", err)
+			}
+
+			// Test getCommitID
+			var resultCommitID string
+			var resultErr error
+			err = repo.(*repository).DB.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+				state, err := repo.(*repository).StateAt()
+				if err != nil {
+					return fmt.Errorf("failed to get state: %v", err)
+				}
+				resultCommitID, resultErr = getCommitID(ctx, tx, state, tc.version, tc.app)
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Transaction failed: %v", err)
+			}
+
+			if tc.expectError {
+				if resultErr == nil {
+					t.Errorf("Expected error but got none")
+				}
+			} else {
+				if resultErr != nil {
+					t.Fatalf("Unexpected error: %v", resultErr)
+				}
+				if resultCommitID != tc.expectedCommit {
+					t.Errorf("Expected commit ID %q but got %q", tc.expectedCommit, resultCommitID)
+				}
 			}
 		})
 	}
@@ -3594,10 +4609,14 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 }
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
-	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true)
+	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true, false)
 }
 
-func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint, startProcessQueue bool) (Repository, *db.DBHandler) {
+func SetupRepositoryTestWithDBOptionsAndParallelismOneTransaction(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
+	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true, true)
+}
+
+func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint, startProcessQueue bool, parallelismOneTransaction bool) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -3611,7 +4630,8 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	repoCfg := RepositoryConfig{
 		ArgoCdGenerateFiles:       true,
 		MaximumQueueSize:          queueSize,
-		ParallelismOneTransaction: true,
+		ParallelismOneTransaction: parallelismOneTransaction,
+		MaxNumThreads:             1,
 	}
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
@@ -4168,14 +5188,82 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 	versionTwo := uint64(2)
 
 	tcs := []struct {
-		Name                string
-		SetupStages         [][]Transformer
-		CommitHashIndex     uint
-		ReleaseTrain        ReleaseTrain
-		ExpectedDeployments []db.Deployment
+		Name                             string
+		SetupStages                      [][]Transformer
+		CommitHashIndex                  uint
+		ReleaseTrain                     ReleaseTrain
+		ExpectedDeployments              []db.Deployment
+		WithoutParallelismOneTransaction bool
 	}{
 		{
 			Name: "Trigger a deployment with a release train with a commit hash",
+			SetupStages: [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+								Latest:      true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[types.EnvName]string{
+							"production": "some production manifest 2",
+							"staging":    "some staging manifest 2",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         uint64(versionOne),
+						WriteCommitData: true,
+					},
+				},
+			},
+			CommitHashIndex: 0,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+
+						Version: &versionOne,
+					},
+					TransformerID: 5,
+				},
+				{
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
+					TransformerID: 4,
+				},
+			},
+		},
+		{
+			Name:                             "Trigger a deployment with a release train with a commit hash without parallelism one transaction",
+			WithoutParallelismOneTransaction: true,
 			SetupStages: [][]Transformer{
 				{
 					&CreateEnvironment{
@@ -4722,7 +5810,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var err error
-			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
+			repo, dbHandler := SetupRepositoryTestWithDBOptionsAndParallelismOneTransaction(t, false)
 
 			var commitHashes []string
 			for idx, steps := range tc.SetupStages {
