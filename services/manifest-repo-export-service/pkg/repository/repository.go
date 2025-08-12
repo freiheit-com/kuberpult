@@ -69,6 +69,7 @@ type Repository interface {
 	FetchAndReset(ctx context.Context) error
 	PushRepo(ctx context.Context) error
 	GetHeadCommitId() (*git.Oid, error)
+	FixCommitsTimestamp(ctx context.Context, state State) error
 	Notify() *notify.Notify
 }
 
@@ -817,18 +818,18 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 
 	currentCommit, err := r.GetHeadCommitId()
 	if err != nil {
-		return err
+		return fmt.Errorf("getHeadCommit: %w", err)
 	}
 	lookedUpCommit, err := r.repository.LookupCommit(currentCommit)
 	if err != nil {
-		return err
+		return fmt.Errorf("lookupCommit: %w", err)
 	}
 
 	sig := r.makeGitSignature()
 	tagMessage := fmt.Sprintf("Kuberpult-generated tag %s", tag)
 	_, err = r.repository.Tags.Create(string(tag), lookedUpCommit, sig, tagMessage)
 	if err != nil {
-		return err
+		return fmt.Errorf("tag.Create: %w", err)
 	}
 	pushOptions := git.PushOptions{
 		PbParallelism: 0,
@@ -840,7 +841,7 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	}
 	err = r.Push(ctx, PushTagsActionCallback(pushOptions, r, tag))
 	if err != nil {
-		return err
+		return fmt.Errorf("push: %w", err)
 	}
 	return nil
 }
@@ -920,21 +921,16 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time) error {
 	fs := state.Filesystem
-	if apps, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp); err != nil {
+	if _, appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp); err != nil {
 		return err
 	} else {
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
-		for _, appName := range apps {
-			oneAppData, err := state.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, appName, timestamp)
-			if err != nil {
-				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
-			}
-			if oneAppData == nil {
-				return fmt.Errorf("skipping app '%s' because it was not found in the apps table", appName)
-			}
-			version, err := state.GetEnvironmentApplicationVersionAtTimestamp(ctx, transaction, info.ParentEnvironmentName, appName, timestamp)
+		for _, appWithTeam := range appTeams {
+			appName := appWithTeam.AppName
+			teamName := appWithTeam.TeamName
+			version, err := state.GetEnvironmentApplicationVersionAtTimestamp(ctx, transaction, info.ParentEnvironmentName, string(appName), timestamp)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -948,8 +944,8 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 				continue
 			}
 			appData = append(appData, argocd.AppData{
-				AppName:  appName,
-				TeamName: oneAppData.Metadata.Team,
+				AppName:  string(appName),
+				TeamName: teamName,
 			})
 		}
 		spanCollectData.Finish()
@@ -1275,6 +1271,51 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func (r *repository) FixCommitsTimestamp(ctx context.Context, state State) error {
+	revwalk, err := r.repository.Walk()
+	if err != nil {
+		return fmt.Errorf("failed to create revwalk: %v", err)
+	}
+	branchName := r.config.Branch
+	if branchName == "" {
+		branchName = "master"
+	}
+	branchRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/heads/%s", branchName))
+	if err != nil {
+		return fmt.Errorf("failed to get branch reference: %v", err)
+	}
+
+	// Push HEAD to revwalk
+	err = revwalk.Push(branchRef.Target())
+	if err != nil {
+		return fmt.Errorf("failed to push HEAD to revwalk: %v", err)
+	}
+	dbHandler := state.DBHandler
+	err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		err = revwalk.Iterate(func(commit *git.Commit) bool {
+			commit, err := r.repository.LookupCommit(commit.Id())
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Errorf("failed to lookup commit %s: %v", commit.Id().String(), err)
+				return true // continue
+			}
+
+			logger.FromContext(ctx).Sugar().Infof("Commit: %s, Time: %s\n", commit.Id().String(), time.Unix(commit.Committer().When.Unix(), 0))
+			err = dbHandler.DBUpdateCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), commit.Committer().When)
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Errorf("failed to lookup commit %s: %v", commit.Id().String(), err)
+				return true
+			}
+
+			return true
+		})
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("failed during revwalk: %v", err)
 	}
 	return nil
 }

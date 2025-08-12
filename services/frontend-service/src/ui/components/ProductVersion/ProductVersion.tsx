@@ -21,6 +21,7 @@ import {
     refreshTags,
     showSnackbarError,
     TagResponse,
+    TagsWithFilter,
     useEnvironmentGroups,
     useEnvironments,
     useFrontendConfig,
@@ -152,9 +153,7 @@ export const ProductVersion: React.FC = () => {
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
     const [selectedTag, setSelectedTag] = React.useState('');
     const envsList = useEnvironments();
-    const tagsResponse = useTags();
-    const filteredTagData = tagsResponse.response.tagData.filter((elem) => !!elem.commitDate);
-
+    const { tagsResponse, filteredTagData }: TagsWithFilter = useTags();
     const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             setSelectedTag(e.target.value);
@@ -172,10 +171,13 @@ export const ProductVersion: React.FC = () => {
                 return;
             }
             tag = filteredTagData[0].commitId;
-            if (tag === null) return;
+            if (tag === null) {
+                return;
+            }
             setSelectedTag(tag);
             searchParams.set('tag', tag);
             setSearchParams(searchParams);
+            return;
         }
         const env = splitCombinedGroupName(environment);
         useApi
@@ -191,7 +193,7 @@ export const ProductVersion: React.FC = () => {
                 setProductSummaries({ summaries: [], error: e.message });
             });
         setSummaryLoading(false);
-    }, [tagsResponse, filteredTagData, envGroupResponse, environment, searchParams, setSearchParams, authHeader]);
+    }, [authHeader, environment, filteredTagData, searchParams, setSearchParams]);
 
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {

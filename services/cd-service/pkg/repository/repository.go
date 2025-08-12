@@ -1037,7 +1037,7 @@ func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transactio
 }
 
 func (s *State) GetEnvironmentApplicationsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, ts time.Time) ([]string, error) {
-	envApps, err := s.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, environment, ts)
+	envApps, _, err := s.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, environment, ts)
 	if err != nil {
 		return nil, err
 	}

@@ -593,7 +593,7 @@ func TestApplyQueue(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithAllOptions(t, false, 100, true)
+			repo, _ := SetupRepositoryTestWithAllOptions(t, false, 100, true, false)
 			ctx := testutil.MakeTestContext()
 			repoInternal := repo.(*repository)
 			// Block the worker so that we have multiple items in the queue
@@ -945,7 +945,7 @@ func TestLimitTooSmall(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false)
+			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false, false)
 			ctx := testutil.MakeTestContext()
 			var i = 0
 			for range tc.QueueCapacity {
@@ -1002,7 +1002,7 @@ func TestLimitFitsExactly(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false)
+			repo, _ := SetupRepositoryTestWithAllOptions(t, false, tc.QueueCapacity, false, false)
 			ctx := testutil.MakeTestContext()
 			var errChannels = make([]<-chan error, 0)
 			var i = 0

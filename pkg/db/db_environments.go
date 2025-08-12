@@ -295,44 +295,71 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 	return result, nil
 }
 
-func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName types.EnvName, ts time.Time) ([]string, error) {
+type AppWithTeam struct {
+	AppName  types.AppName
+	TeamName string
+}
+
+func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName types.EnvName, ts time.Time) ([]string, []AppWithTeam, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplicationsAtTimestamp")
 	defer span.Finish()
-	queryParams := []any{ts, `["` + envName + `"]`, `["` + envName + `",%`, `%,"` + envName + `"]`, `%,"` + envName + `",%`}
+
 	selectQuery := h.AdaptQuery(`
-	SELECT DISTINCT 
-		releases_history.appname
-	FROM (
+	WITH latest_apps AS (
+			SELECT
+			MAX(version) AS latest,
+			appname,
+		metadata
+		FROM
+			apps_history
+		WHERE created <= ?
+		GROUP BY
+			appname, metadata
+	),
+	
+	latest_releases AS (
 		SELECT
 			MAX(version) AS latest,
 			appname,
 			releaseversion
 		FROM
-			releases_history	
+			releases_history
 		WHERE created <= ?
 		GROUP BY
 			appname, releaseversion
-		) AS latest
+	)
+
+	SELECT latest_apps.appname, latest_apps.metadata
+	FROM latest_apps
 	JOIN
-		releases_history AS releases_history
+		apps_history AS apps_history
 	ON
-		latest.latest=releases_history.version
-		AND latest.appname=releases_history.appname
-		AND latest.releaseversion=releases_history.releaseversion
-	WHERE releases_history.environments = ? 
-		OR releases_history.environments LIKE ?
-		OR releases_history.environments LIKE ? 
-		OR releases_history.environments LIKE ?
-		AND releases_history.deleted=false; `)
+		latest_apps.latest=apps_history.version
+	WHERE latest_apps.appName in (
+		SELECT DISTINCT
+			releases_history.appname
+		FROM latest_releases
+		JOIN
+			releases_history AS releases_history
+		ON
+			latest_releases.latest=releases_history.version
+			AND latest_releases.appname=releases_history.appname
+			AND latest_releases.releaseversion=releases_history.releaseversion
+		WHERE releases_history.environments @> ?
+			AND releases_history.deleted=false
+	); 
+`)
 	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
-		queryParams...,
+		ts,
+		ts,
+		`["`+envName+`"]`,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query the releases_history table %s, error: %w", envName, err)
+		return nil, nil, fmt.Errorf("could not query the releases_history table %s, error: %w", envName, err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -341,24 +368,35 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 		}
 	}(rows)
 
-	result := []string{}
+	var appNames = []string{}
+	var appNamesWithTeam = []AppWithTeam{}
 	for rows.Next() {
 		//exhaustruct:ignore
+		var metaData = &DBAppMetaData{}
 		var row string
-		err := rows.Scan(&row)
+		var metadataRaw string
+		err := rows.Scan(&row, &metadataRaw)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
+				return nil, nil, nil
 			}
-			return nil, fmt.Errorf("error while scanning releases_history row, error: %w", err)
+			return nil, nil, fmt.Errorf("error while scanning releases_history row, error: %w", err)
 		}
-		result = append(result, row)
+		err = json.Unmarshal(([]byte)(metadataRaw), &metaData)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error during json unmarshal of metadata for releases_history. Error: %w. Data: %s", err, metadataRaw)
+		}
+		appNames = append(appNames, row)
+		appNamesWithTeam = append(appNamesWithTeam, AppWithTeam{
+			AppName:  types.AppName(row),
+			TeamName: metaData.Team,
+		})
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("error while closing rows, error: %w", err)
+		return nil, nil, fmt.Errorf("error while closing rows, error: %w", err)
 	}
-	return result, nil
+	return appNames, appNamesWithTeam, nil
 }
 
 // INSERT, UPDATE, DELETE

@@ -39,6 +39,7 @@ import {
     Release,
     RolloutStatus,
     StreamStatusResponse,
+    TagData,
     Warning,
 } from '../../api/api';
 import * as React from 'react';
@@ -387,7 +388,21 @@ const randBase36 = (): string => Math.random().toString(36).substring(7);
 export const randomLockId = (): string => 'ui-v2-' + randBase36();
 
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
-export const useTags = (): TagsResponse => useTag((res) => res);
+export type TagsWithFilter = {
+    tagsResponse: TagsResponse;
+    filteredTagData: TagData[];
+};
+
+export const useTags = (): TagsWithFilter => {
+    const tagsResponseLocal = useTag((res) => res);
+    // Only re-run the filter function if tagsResponse.response.tagData changes
+    const filteredTagData = useMemo(
+        () => tagsResponseLocal.response.tagData.filter((elem) => !!elem.commitDate),
+        [tagsResponseLocal.response.tagData]
+    );
+    // Memoize the entire return object
+    return useMemo(() => ({ tagsResponse: tagsResponseLocal, filteredTagData }), [tagsResponseLocal, filteredTagData]);
+};
 
 export enum SnackbarStatus {
     SUCCESS,

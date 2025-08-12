@@ -14,13 +14,12 @@
 
 # Copyright freiheit.com
 
-MIN_COVERAGE=63.4
-MIN_COVERAGE_TRAIN=80.5
-MIN_COVERAGE_DEPLOY=83.8
+MIN_COVERAGE=66.1
+MIN_COVERAGE_TRAIN=91.4
+MIN_COVERAGE_DEPLOY=87.3
 include ../../infrastructure/make/go/include.mk
 
-test: test-with-coverage
-test-with-coverage: unit-test
+unit-test::
 	# unit-test already has a coverage check, but only for the whole service
 	# here we add coverage checks with higher thresholds, because these are our core processes.
 	# coverage files need to begin with 'mode:set' in the first line, so we add it:
