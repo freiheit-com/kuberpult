@@ -524,7 +524,7 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 		}
 	}(rows)
 	if !rows.Next() {
-		return 0, onErr(fmt.Errorf("could not get count from event_sourcing_light table from DB. Error: no row returned."))
+		return 0, onErr(fmt.Errorf("could not get count from event_sourcing_light table from DB. Error: no row returned"))
 	}
 	count := uint64(0)
 	errScan := rows.Scan(&count)
