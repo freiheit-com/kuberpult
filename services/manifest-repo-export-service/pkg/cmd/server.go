@@ -459,27 +459,7 @@ func processEsls(
 			}
 			log.Errorf("skipping esl event, because it returned an error: %v", err)
 			// after this many tries, we can just skip it:
-			err2 := dbHandler.WithTransactionR(ctx, transactionRetries, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err3 := dbHandler.DBInsertNewFailedESLEvent(ctx, transaction, &db.EslFailedEventRow{
-					EslVersion:            0, // This is overwritten by the DB
-					Created:               esl.Created,
-					EventType:             esl.EventType,
-					EventJson:             esl.EventJson,
-					Reason:                err.Error(),
-					TransformerEslVersion: esl.EslVersion,
-				})
-				if err3 != nil {
-					return err3
-				}
-
-				//If we fail to process the transformer, we say that SYNC has failed
-				err3 = dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
-				if err3 != nil {
-					return err3
-				}
-
-				return db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
-			})
+			err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, esl, err.Error())
 			if err2 != nil {
 				return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
 			}
@@ -523,12 +503,11 @@ func processEsls(
 					}
 					var gitTag = transformer.GetGitTag()
 					if gitTag != "" {
-
-						TODO SU
-						// TODO SU: error handling is broken
-						// we need to probably make this 2 transactions?
-						// Goal: Fail the event if pushing the tag fails
-						return HandleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
+						pushErr := HandleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
+						if pushErr != nil {
+							return handleFailedEvent(ctx, dbHandler, transactionRetries, esl,
+								fmt.Sprintf("error while pushing the git tag '%s': %v", gitTag, pushErr.Error()))
+						}
 					}
 					return nil
 				}
@@ -562,6 +541,31 @@ func processEsls(
 			logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
 		}
 	}
+}
+
+func handleFailedEvent(ctx context.Context, dbHandler *db.DBHandler, transactionRetries uint8, esl *db.EslEventRow, reason string) error {
+	err := dbHandler.WithTransactionR(ctx, transactionRetries, false, func(ctx context.Context, transaction *sql.Tx) error {
+		err2 := dbHandler.DBInsertNewFailedESLEvent(ctx, transaction, &db.EslFailedEventRow{
+			EslVersion:            0, // This is overwritten by the DB
+			Created:               esl.Created,
+			EventType:             esl.EventType,
+			EventJson:             esl.EventJson,
+			Reason:                reason,
+			TransformerEslVersion: esl.EslVersion,
+		})
+		if err2 != nil {
+			return err2
+		}
+
+		//If we fail to process the transformer, we say that SYNC has failed
+		err2 = dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
+		if err2 != nil {
+			return err2
+		}
+
+		return db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
+	})
+	return err
 }
 
 func HandleGitTagPush(ctx context.Context, repo repository.Repository, gitTag types.GitTag, ddMetrics statsd.ClientInterface, failOnErrorWithGitTags bool) error {
