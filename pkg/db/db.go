@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -1888,4 +1889,28 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 		return nil, fmt.Errorf("could not close rows. Error: %w", err)
 	}
 	return timestamp, nil
+}
+
+func (h *DBHandler) GetCurrentDelays(ctx context.Context, transaction *sql.Tx) (float64, uint64) {
+	eslVersion, err := DBReadCutoff(h, ctx, transaction)
+	if err != nil {
+		return math.NaN(), 0
+	}
+	esl, err := h.DBReadEslEvent(ctx, transaction, eslVersion)
+	if err != nil {
+		return math.NaN(), 0
+	}
+	if esl == nil {
+		return 0, 0
+	}
+	if esl.Created.IsZero() {
+		return 0, 0
+	}
+	count, err := h.DBCountEslEventsNewer(ctx, transaction, esl.EslVersion)
+	now := time.Now().UTC()
+	diff := now.Sub(esl.Created).Seconds()
+	if err != nil {
+		return diff, 1
+	}
+	return diff, count
 }

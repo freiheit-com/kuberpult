@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/DataDog/datadog-agent/pkg/trace/log"
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -592,30 +593,25 @@ func measureGitPushFailures(ddMetrics statsd.ClientInterface, log *zap.SugaredLo
 }
 
 func HandleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
-	log := logger.FromContext(ctx).Sugar()
+	if ddMetrics != nil {
+		delaySeconds, delayEvents := dbHandler.GetCurrentDelays(ctx, transaction)
+		if err := ddMetrics.Gauge("process_delay_seconds", delaySeconds, []string{}, 1); err != nil {
+			log.Error("Error in ddMetrics.Gauge for delay seconds: %v", err)
+		}
+		if err := ddMetrics.Gauge("process_delay_events", float64(delayEvents), []string{}, 1); err != nil {
+			log.Error("Error in ddMetrics.Gauge for delay events: %v", err)
+		}
+	}
 	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error in DBReadCutoff %v", err)
 	}
 	if eslVersion == nil {
-		log.Infof("did not find cutoff")
+		logger.FromContext(ctx).Sugar().Infof("did not find cutoff")
 	}
 	esl, err := dbHandler.DBReadEslEvent(ctx, transaction, eslVersion)
 	if err != nil {
 		return nil, esl, fmt.Errorf("error in readEslEvent %v", err)
-	}
-	if ddMetrics != nil {
-		now := time.Now().UTC()
-		processDelay, err := calculateProcessDelay(ctx, esl, now)
-		if err != nil {
-			log.Error("Error in calculateProcessDelay %v", err)
-		}
-		if processDelay < 0 {
-			log.Warn("process delay is negative: esl-time: %v, now: %v, delay: %v", esl.Created, now, processDelay)
-		}
-		if err := ddMetrics.Gauge("process_delay_seconds", processDelay, []string{}, 1); err != nil {
-			log.Error("Error in ddMetrics.Gauge %v", err)
-		}
 	}
 	if esl == nil {
 		// no event found
@@ -623,18 +619,6 @@ func HandleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHa
 	}
 	transformer, err := processEslEvent(ctx, repo, esl, transaction)
 	return transformer, esl, err
-
-}
-
-func calculateProcessDelay(_ context.Context, nextEslToProcess *db.EslEventRow, currentTime time.Time) (float64, error) {
-	if nextEslToProcess == nil {
-		return 0, nil
-	}
-	if nextEslToProcess.Created.IsZero() {
-		return 0, nil
-	}
-	diff := currentTime.Sub(nextEslToProcess.Created).Seconds()
-	return diff, nil
 }
 
 func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.EslEventRow, tx *sql.Tx) (repository.Transformer, error) {

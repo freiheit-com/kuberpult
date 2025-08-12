@@ -21,12 +21,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -249,31 +247,6 @@ func findCommitID(
 	return commitID, nil
 }
 
-func (s *GitServer) GetCurrentDelays(ctx context.Context, transaction *sql.Tx) (float64, uint64) {
-	dbHandler := s.Repository.State().DBHandler
-	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
-	if err != nil {
-		return math.NaN(), 0
-	}
-	esl, err := dbHandler.DBReadEslEvent(ctx, transaction, eslVersion)
-	if err != nil {
-		return math.NaN(), 0
-	}
-	if esl == nil {
-		return 0, 0
-	}
-	if esl.Created.IsZero() {
-		return 0, 0
-	}
-	count, err := dbHandler.DBCountEslEventsNewer(ctx, transaction, esl.EslVersion)
-	now := time.Now().UTC()
-	diff := now.Sub(esl.Created).Seconds()
-	if err != nil {
-		return diff, 1
-	}
-	return diff, count
-}
-
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitSyncStatus")
 	defer span.Finish()
@@ -283,7 +256,7 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 		AppStatuses: make(map[string]*api.EnvSyncStatus),
 	}
 	err := dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
-		delaySecs, delayEvents := s.GetCurrentDelays(ctx, transaction)
+		delaySecs, delayEvents := dbHandler.GetCurrentDelays(ctx, transaction)
 		response.ProcessDelaySeconds = delaySecs
 		response.ProcessDelayEvents = delayEvents
 		unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
