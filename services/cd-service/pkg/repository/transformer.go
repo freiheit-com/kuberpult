@@ -584,7 +584,7 @@ func (c *CreateApplicationVersion) Transform(
 			Revision: c.Revision,
 			Version:  version.Version,
 		},
-		App: c.Application,
+		App: types.AppName(c.Application),
 		Manifests: db.DBReleaseManifests{
 			Manifests: manifestsToKeep,
 		},
@@ -985,7 +985,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			Revision: 0, //Undeploy versions always have revision 0
 			Version:  &v,
 		},
-		App: c.Application,
+		App: types.AppName(c.Application),
 		Manifests: db.DBReleaseManifests{
 			Manifests: envManifests,
 		},

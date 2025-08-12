@@ -52,7 +52,7 @@ type DBReleaseManifests struct {
 type DBReleaseWithMetaData struct {
 	ReleaseNumbers types.ReleaseNumbers
 	Created        time.Time
-	App            string
+	App            types.AppName
 	Manifests      DBReleaseManifests
 	Metadata       DBReleaseMetaData
 	Environments   []types.EnvName

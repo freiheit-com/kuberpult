@@ -26,6 +26,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db_history"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 	"io"
 	"os"
@@ -920,27 +921,26 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 }
 
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time) error {
-	fs := state.Filesystem
 	if _, appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp); err != nil {
 		return err
 	} else {
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
+		dataFoo, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, state.DBHandler, transaction, info.ParentEnvironmentName, timestamp)
+		if err != nil {
+			return err
+		}
 		for _, appWithTeam := range appTeams {
 			appName := appWithTeam.AppName
 			teamName := appWithTeam.TeamName
-			version, err := state.GetEnvironmentApplicationVersionAtTimestamp(ctx, transaction, info.ParentEnvironmentName, string(appName), timestamp)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					// if the app does not exist, we skip it
-					// (It may not exist at all, or just hasn't been deployed to this environment yet)
-					continue
-				}
-				return err
+			deployment, ok := dataFoo[appName]
+			if !ok {
+				// nothing was deployed here at that time, skip:
+				continue
 			}
-			if version.Version == nil || *version.Version == 0 {
-				// if nothing is deployed, ignore it
+			if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
+				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
 				continue
 			}
 			appData = append(appData, argocd.AppData{
@@ -958,11 +958,12 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
 			defer spanWrite.Finish()
 			for apiVersion, content := range manifests {
-				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+				filesystem := state.Filesystem
+				if err := filesystem.MkdirAll(filesystem.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
 				}
-				target := getArgoCdAAEnvFileName(fs, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
-				if err := util.WriteFile(fs, target, content, 0666); err != nil {
+				target := getArgoCdAAEnvFileName(filesystem, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
+				if err := util.WriteFile(filesystem, target, content, 0666); err != nil {
 					return err
 				}
 			}
@@ -1214,7 +1215,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				Version:  &repoRelease.Version,
 				Revision: repoRelease.Revision,
 			},
-			App: app,
+			App: types.AppName(app),
 			Manifests: db.DBReleaseManifests{
 				Manifests: manifestsMap,
 			},

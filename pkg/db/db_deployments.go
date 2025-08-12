@@ -672,7 +672,6 @@ func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, t
 
 }
 
-
 // Internal functions
 
 func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deployment Deployment) error {
