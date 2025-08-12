@@ -518,6 +518,7 @@ func processEsls(
 				err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 					return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
 				})
+				logger.FromContext(ctx).Sugar().Errorf("error updating state for ui: %v", err)
 				err3 := repo.FetchAndReset(ctx)
 				if err3 != nil {
 					d := sleepDuration.NextBackOff()
