@@ -79,3 +79,4 @@ build-main:
 	IMAGE_TAG=main-$(VERSION) $(MAKE) all
 
 .PHONY: all clean release test
+
