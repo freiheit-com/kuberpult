@@ -1358,26 +1358,8 @@ func TestConvertLock(t *testing.T) {
 			result := convertLock(tc.input)
 
 			// Compare fields
-			if result.Message != tc.expected.Message {
-				t.Errorf("Message mismatch: got %v, want %v", result.Message, tc.expected.Message)
-			}
-			if result.LockId != tc.expected.LockId {
-				t.Errorf("LockId mismatch: got %v, want %v", result.LockId, tc.expected.LockId)
-			}
-			if result.CreatedBy.Name != tc.expected.CreatedBy.Name {
-				t.Errorf("CreatedBy.Name mismatch: got %v, want %v", result.CreatedBy.Name, tc.expected.CreatedBy.Name)
-			}
-			if result.CreatedBy.Email != tc.expected.CreatedBy.Email {
-				t.Errorf("CreatedBy.Email mismatch: got %v, want %v", result.CreatedBy.Email, tc.expected.CreatedBy.Email)
-			}
-			if !result.CreatedAt.Equal(tc.expected.CreatedAt) {
-				t.Errorf("CreatedAt mismatch: got %v, want %v", result.CreatedAt, tc.expected.CreatedAt)
-			}
-			if result.CiLink != tc.expected.CiLink {
-				t.Errorf("CiLink mismatch: got %v, want %v", result.CiLink, tc.expected.CiLink)
-			}
-			if result.SuggestedLifetime != tc.expected.SuggestedLifetime {
-				t.Errorf("SuggestedLifetime mismatch: got %v, want %v", result.SuggestedLifetime, tc.expected.SuggestedLifetime)
+			if diff := cmp.Diff(tc.expected, result); diff != "" {
+				t.Errorf("error mismatch between result and expected: (-want, +got):\n %s", diff)
 			}
 		})
 	}
@@ -1534,48 +1516,9 @@ func TestConvertLockMap(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := convertLockMap(tc.input)
 
-			// Check map length
 			if len(result) != len(tc.expected) {
-				t.Errorf("Map length mismatch: got %d, want %d", len(result), len(tc.expected))
-			}
-
-			// Compare each lock in the maps
-			for key, expectedLock := range tc.expected {
-				resultLock, exists := result[key]
-				if !exists {
-					t.Errorf("Missing key %s in result map", key)
-					continue
-				}
-
-				// Compare lock fields
-				if resultLock.Message != expectedLock.Message {
-					t.Errorf("Message mismatch for key %s: got %v, want %v", key, resultLock.Message, expectedLock.Message)
-				}
-				if resultLock.LockId != expectedLock.LockId {
-					t.Errorf("LockId mismatch for key %s: got %v, want %v", key, resultLock.LockId, expectedLock.LockId)
-				}
-				if resultLock.CreatedBy.Name != expectedLock.CreatedBy.Name {
-					t.Errorf("CreatedBy.Name mismatch for key %s: got %v, want %v", key, resultLock.CreatedBy.Name, expectedLock.CreatedBy.Name)
-				}
-				if resultLock.CreatedBy.Email != expectedLock.CreatedBy.Email {
-					t.Errorf("CreatedBy.Email mismatch for key %s: got %v, want %v", key, resultLock.CreatedBy.Email, expectedLock.CreatedBy.Email)
-				}
-				if !resultLock.CreatedAt.Equal(expectedLock.CreatedAt) {
-					t.Errorf("CreatedAt mismatch for key %s: got %v, want %v", key, resultLock.CreatedAt, expectedLock.CreatedAt)
-				}
-				if resultLock.CiLink != expectedLock.CiLink {
-					t.Errorf("CiLink mismatch for key %s: got %v, want %v", key, resultLock.CiLink, expectedLock.CiLink)
-				}
-				if resultLock.SuggestedLifetime != expectedLock.SuggestedLifetime {
-					t.Errorf("SuggestedLifetime mismatch for key %s: got %v, want %v", key, resultLock.SuggestedLifetime, expectedLock.SuggestedLifetime)
-				}
-			}
-
-			// Check for extra keys in result
-			for key := range result {
-				if _, exists := tc.expected[key]; !exists {
-					t.Errorf("Unexpected key %s in result map", key)
-				}
+				t.Errorf("Slice length mismatch: got %d, want %d", len(result), len(tc.expected))
+				return
 			}
 		})
 	}
@@ -1702,79 +1645,10 @@ func TestConvertLockMapToLockList(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := ConvertLockMapToLockList(tc.input)
-
-			// Check slice length
-			if len(result) != len(tc.expected) {
-				t.Errorf("Slice length mismatch: got %d, want %d", len(result), len(tc.expected))
-				return
-			}
-
-			// Create maps to help with comparison since order is not guaranteed
-			resultMap := make(map[string]*api.Lock)
-			expectedMap := make(map[string]*api.Lock)
-			for _, lock := range result {
-				resultMap[lock.LockId] = lock
-			}
-			for _, lock := range tc.expected {
-				expectedMap[lock.LockId] = lock
-			}
-
-			// Compare each lock
-			for lockId, expectedLock := range expectedMap {
-				resultLock, exists := resultMap[lockId]
-				if !exists {
-					t.Errorf("Missing lock with ID %s in result", lockId)
-					continue
-				}
-
-				// Compare lock fields
-				if resultLock.Message != expectedLock.Message {
-					t.Errorf("Message mismatch for lock %s: got %v, want %v", lockId, resultLock.Message, expectedLock.Message)
-				}
-				if resultLock.LockId != expectedLock.LockId {
-					t.Errorf("LockId mismatch for lock %s: got %v, want %v", lockId, resultLock.LockId, expectedLock.LockId)
-				}
-
-				// Compare CreatedBy if not nil
-				if expectedLock.CreatedBy != nil {
-					if resultLock.CreatedBy == nil {
-						t.Errorf("CreatedBy is nil for lock %s, expected non-nil", lockId)
-					} else {
-						if resultLock.CreatedBy.Name != expectedLock.CreatedBy.Name {
-							t.Errorf("CreatedBy.Name mismatch for lock %s: got %v, want %v", lockId, resultLock.CreatedBy.Name, expectedLock.CreatedBy.Name)
-						}
-						if resultLock.CreatedBy.Email != expectedLock.CreatedBy.Email {
-							t.Errorf("CreatedBy.Email mismatch for lock %s: got %v, want %v", lockId, resultLock.CreatedBy.Email, expectedLock.CreatedBy.Email)
-						}
-					}
-				} else if resultLock.CreatedBy != nil {
-					t.Errorf("CreatedBy is non-nil for lock %s, expected nil", lockId)
-				}
-
-				// Compare CreatedAt if not nil
-				if expectedLock.CreatedAt != nil {
-					if resultLock.CreatedAt == nil {
-						t.Errorf("CreatedAt is nil for lock %s, expected non-nil", lockId)
-					} else if !resultLock.CreatedAt.AsTime().Equal(expectedLock.CreatedAt.AsTime()) {
-						t.Errorf("CreatedAt mismatch for lock %s: got %v, want %v", lockId, resultLock.CreatedAt.AsTime(), expectedLock.CreatedAt.AsTime())
-					}
-				} else if resultLock.CreatedAt != nil {
-					t.Errorf("CreatedAt is non-nil for lock %s, expected nil", lockId)
-				}
-
-				if resultLock.CiLink != expectedLock.CiLink {
-					t.Errorf("CiLink mismatch for lock %s: got %v, want %v", lockId, resultLock.CiLink, expectedLock.CiLink)
-				}
-				if resultLock.SuggestedLifetime != expectedLock.SuggestedLifetime {
-					t.Errorf("SuggestedLifetime mismatch for lock %s: got %v, want %v", lockId, resultLock.SuggestedLifetime, expectedLock.SuggestedLifetime)
-				}
-			}
-
-			// Check for extra locks in result
-			for lockId := range resultMap {
-				if _, exists := expectedMap[lockId]; !exists {
-					t.Errorf("Unexpected lock with ID %s in result", lockId)
-				}
+			if diff := cmp.Diff(tc.expected, result, protocmp.Transform(), protocmp.IgnoreFields(&api.Lock{}, "created_at"), cmpopts.SortSlices(func(a, b *api.Lock) bool {
+     			   return a.GetLockId() < b.GetLockId()
+    		})); diff != "" {
+				t.Errorf("error mismatch between result and expected: (-want, +got):\n %s", diff)
 			}
 		})
 	}
