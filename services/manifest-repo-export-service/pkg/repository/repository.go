@@ -69,7 +69,7 @@ type Repository interface {
 	FetchAndReset(ctx context.Context) error
 	PushRepo(ctx context.Context) error
 	GetHeadCommitId() (*git.Oid, error)
-	FixCommitsTimestamp(ctx context.Context, state State) (error)
+	FixCommitsTimestamp(ctx context.Context, state State) error
 	Notify() *notify.Notify
 }
 
@@ -818,18 +818,18 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 
 	currentCommit, err := r.GetHeadCommitId()
 	if err != nil {
-		return err
+		return fmt.Errorf("getHeadCommit: %w", err)
 	}
 	lookedUpCommit, err := r.repository.LookupCommit(currentCommit)
 	if err != nil {
-		return err
+		return fmt.Errorf("lookupCommit: %w", err)
 	}
 
 	sig := r.makeGitSignature()
 	tagMessage := fmt.Sprintf("Kuberpult-generated tag %s", tag)
 	_, err = r.repository.Tags.Create(string(tag), lookedUpCommit, sig, tagMessage)
 	if err != nil {
-		return err
+		return fmt.Errorf("tag.Create: %w", err)
 	}
 	pushOptions := git.PushOptions{
 		PbParallelism: 0,
@@ -841,7 +841,7 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	}
 	err = r.Push(ctx, PushTagsActionCallback(pushOptions, r, tag))
 	if err != nil {
-		return err
+		return fmt.Errorf("push: %w", err)
 	}
 	return nil
 }
@@ -1280,7 +1280,7 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 	return nil
 }
 
-func(r *repository) FixCommitsTimestamp(ctx context.Context, state State) (error) {
+func (r *repository) FixCommitsTimestamp(ctx context.Context, state State) error {
 	revwalk, err := r.repository.Walk()
 	if err != nil {
 		return fmt.Errorf("failed to create revwalk: %v", err)
@@ -1314,9 +1314,9 @@ func(r *repository) FixCommitsTimestamp(ctx context.Context, state State) (error
 				logger.FromContext(ctx).Sugar().Errorf("failed to lookup commit %s: %v", commit.Id().String(), err)
 				return true
 			}
-			
+
 			return true
-			})
+		})
 		return err
 	})
 	if err != nil {
