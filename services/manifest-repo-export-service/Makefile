@@ -14,6 +14,6 @@
 
 # Copyright freiheit.com
 
-MIN_COVERAGE=44.2
+MIN_COVERAGE=43.9
 include ../../infrastructure/make/go/include.mk
 

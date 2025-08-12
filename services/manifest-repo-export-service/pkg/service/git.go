@@ -21,6 +21,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
+	"sort"
+	"strings"
+	"sync"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
@@ -36,10 +41,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"os"
-	"sort"
-	"strings"
-	"sync"
 )
 
 type GitServer struct {
@@ -255,6 +256,9 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 		AppStatuses: make(map[string]*api.EnvSyncStatus),
 	}
 	err := dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
+		delaySecs, delayEvents := dbHandler.GetCurrentDelays(ctx, transaction)
+		response.ProcessDelaySeconds = delaySecs
+		response.ProcessDelayEvents = delayEvents
 		unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
 		if err != nil {
 			return err

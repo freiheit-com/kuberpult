@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -399,12 +400,6 @@ type EslFailedEventRow struct {
 func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (*EslEventRow, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadEslEventInternal")
 	defer span.Finish()
-	if h == nil {
-		return nil, nil
-	}
-	if tx == nil {
-		return nil, onErr(fmt.Errorf("DBReadEslEventInternal: no transaction provided"))
-	}
 	sort := "DESC"
 	if firstRow {
 		sort = "ASC"
@@ -439,10 +434,6 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		}
 	} else {
 		row = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, onErr(err)
 	}
 	return row, nil
 }
@@ -491,6 +482,57 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 		return nil, err
 	}
 	return row, nil
+}
+
+func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *EslVersion) (*EslEventRow, error) {
+	log := logger.FromContext(ctx).Sugar()
+	if eslVersion == nil {
+		log.Warnf("no cutoff found, starting at the beginning of time.")
+		// no read cutoff yet, we have to start from the beginning
+		esl, err := h.DBReadEslEventInternal(ctx, transaction, true)
+		if err != nil {
+			return nil, err
+		}
+		if esl == nil {
+			log.Warnf("no esl events found")
+			return nil, nil
+		}
+		return esl, nil
+	} else {
+		esl, err := h.DBReadEslEventLaterThan(ctx, transaction, *eslVersion)
+		if err != nil {
+			return nil, err
+		}
+		return esl, nil
+	}
+}
+func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (uint64, error) {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBCountEslEventsNewer")
+	defer span.Finish()
+	countQuery := h.AdaptQuery("SELECT COUNT(*) FROM event_sourcing_light WHERE eslVersion > ?;")
+	rows, err := tx.QueryContext(
+		ctx,
+		countQuery,
+		eslVersion,
+	)
+	if err != nil {
+		return 0, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err))
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	if !rows.Next() {
+		return 0, onErr(fmt.Errorf("could not get count from event_sourcing_light table from DB. Error: no row returned"))
+	}
+	count := uint64(0)
+	errScan := rows.Scan(&count)
+	if errScan != nil {
+		return 0, onErr(fmt.Errorf("error scanning event_sourcing_light row from DB. Error: %w", err))
+	}
+	return count, nil
 }
 
 func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
@@ -1873,4 +1915,28 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 		return nil, fmt.Errorf("could not close rows. Error: %w", err)
 	}
 	return timestamp, nil
+}
+
+func (h *DBHandler) GetCurrentDelays(ctx context.Context, transaction *sql.Tx) (float64, uint64) {
+	eslVersion, err := DBReadCutoff(h, ctx, transaction)
+	if err != nil {
+		return math.NaN(), 0
+	}
+	esl, err := h.DBReadEslEvent(ctx, transaction, eslVersion)
+	if err != nil {
+		return math.NaN(), 0
+	}
+	if esl == nil {
+		return 0, 0
+	}
+	if esl.Created.IsZero() {
+		return 0, 0
+	}
+	count, err := h.DBCountEslEventsNewer(ctx, transaction, esl.EslVersion)
+	now := time.Now().UTC()
+	diff := now.Sub(esl.Created).Seconds()
+	if err != nil {
+		return diff, 1
+	}
+	return diff, count
 }
