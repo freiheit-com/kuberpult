@@ -921,21 +921,16 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time) error {
 	fs := state.Filesystem
-	if apps, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp); err != nil {
+	if _, appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp); err != nil {
 		return err
 	} else {
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
-		for _, appName := range apps {
-			oneAppData, err := state.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, appName, timestamp)
-			if err != nil {
-				return fmt.Errorf("updateArgoCdApps: could not select app '%s' in db %v", appName, err)
-			}
-			if oneAppData == nil {
-				return fmt.Errorf("skipping app '%s' because it was not found in the apps table", appName)
-			}
-			version, err := state.GetEnvironmentApplicationVersionAtTimestamp(ctx, transaction, info.ParentEnvironmentName, appName, timestamp)
+		for _, appWithTeam := range appTeams {
+			appName := appWithTeam.AppName
+			teamName := appWithTeam.TeamName
+			version, err := state.GetEnvironmentApplicationVersionAtTimestamp(ctx, transaction, info.ParentEnvironmentName, string(appName), timestamp)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					// if the app does not exist, we skip it
@@ -949,8 +944,8 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 				continue
 			}
 			appData = append(appData, argocd.AppData{
-				AppName:  appName,
-				TeamName: oneAppData.Metadata.Team,
+				AppName:  string(appName),
+				TeamName: teamName,
 			})
 		}
 		spanCollectData.Finish()

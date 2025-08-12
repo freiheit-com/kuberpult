@@ -82,7 +82,6 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
@@ -615,7 +614,6 @@ func TestReadLockPreventedEvents(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
@@ -6036,7 +6034,9 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 		FirstReleases                   []DBReleaseWithMetaData
 		SecondReleases                  []DBReleaseWithMetaData
 		Environments                    []DBEnvironment
+		Teams                           map[types.AppName]string
 		ExpectedEnvironmentApplications map[types.EnvName][]string // this related to the apps BEFORE the 2nd releases
+		ExpectedAppTeams                map[types.EnvName][]AppWithTeam
 	}{
 		{
 			Name: "Environment added afterwards",
@@ -6064,8 +6064,21 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 					Config: config.EnvironmentConfig{},
 				},
 			},
+			Teams: map[types.AppName]string{
+				"app1": "team1",
+				"app2": "team2",
+			},
 			ExpectedEnvironmentApplications: map[types.EnvName][]string{
 				"dev":     {"app1"},
+				"staging": {},
+			},
+			ExpectedAppTeams: map[types.EnvName][]AppWithTeam{
+				"dev": {
+					{
+						AppName:  "app1",
+						TeamName: "team1",
+					},
+				},
 				"staging": {},
 			},
 		},
@@ -6100,21 +6113,46 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 					Config: config.EnvironmentConfig{},
 				},
 			},
+			Teams: map[types.AppName]string{
+				"app1": "team1",
+				"app2": "team2",
+			},
 			ExpectedEnvironmentApplications: map[types.EnvName][]string{
 				"dev":     {"app1"},
 				"staging": {"app1"},
+			},
+			ExpectedAppTeams: map[types.EnvName][]AppWithTeam{
+				"dev": {
+					{
+						AppName:  "app1",
+						TeamName: "team1",
+					},
+				},
+				"staging": {
+					{
+						AppName:  "app1",
+						TeamName: "team1",
+					},
+				},
 			},
 		},
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
 			dbHandler := setupDB(t)
 
 			firstReleaseTime, err := WithTransactionT(dbHandler, ctx, 1, false, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
+				for appName, teamName := range tc.Teams {
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, string(appName), AppStateChangeUpdate, DBAppMetaData{
+						Team: teamName,
+					})
+					if err != nil {
+						return nil, fmt.Errorf("error while writing app: %w", err)
+					}
+				}
 				for _, environment := range tc.Environments {
 					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]string, 0))
 					if err != nil {
@@ -6158,22 +6196,32 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 
 			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for envName, expectedApps := range tc.ExpectedEnvironmentApplications {
-					apps, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
+					apps, _, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
 					if err != nil {
-						return fmt.Errorf("Couldn't retrieve environment %s applications, error: %w", envName, err)
+						return fmt.Errorf("couldn't retrieve environment %s applications, error: %w", envName, err)
 					}
 					if diff := cmp.Diff(expectedApps, apps); diff != "" {
 						return fmt.Errorf("environment applications mismatch for env '%s' (-want, +got):\n%s", envName, diff)
 					}
 				}
+				for envName, expectedAppTeam := range tc.ExpectedAppTeams {
+					_, appTeams, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
+					if err != nil {
+						return fmt.Errorf("couldn't retrieve environment %s applications, error: %w", envName, err)
+					}
+					if diff := cmp.Diff(expectedAppTeam, appTeams); diff != "" {
+						return fmt.Errorf("appteams mismatch for env '%s' (-want, +got):\n%s", envName, diff)
+					}
+				}
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("error with check: %v", err)
+				t.Fatalf("error: %v", err)
 			}
 		})
 	}
 }
+
 func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 	tcs := []struct {
 		Name     string
@@ -6192,7 +6240,6 @@ func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -6262,7 +6309,6 @@ func TestDBSelectCommitIdAppReleaseVersionsMany(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
