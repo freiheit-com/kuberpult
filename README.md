@@ -37,8 +37,10 @@ we don't want features in kuberpult that violate these points:
 
 
 ## API
-Kuberpult has an API that is intended to be used in CI/CD (GitHub Actions, Azure Pipelines, etc.) to release new versions of one (or more) microservices.
-The API can also roll out many services at the same time via "release trains". It also supports rolling out some groups of services.
+Kuberpult has an API that is intended to be used in CI/CD (GitHub Actions,
+Azure Pipelines, etc.) to release new versions of one (or more) microservices.
+The API can also roll out many services at the same time via "release trains".
+It also supports rolling out some groups of services.
 
 # Argo CD
 Kuberpult works best with [Argo CD](https://argo-cd.readthedocs.io/en/stable/) which applies the
