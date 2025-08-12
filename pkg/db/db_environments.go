@@ -298,7 +298,6 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName types.EnvName, ts time.Time) ([]string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplicationsAtTimestamp")
 	defer span.Finish()
-	queryParams := []any{ts, `["` + envName + `"]`, `["` + envName + `",%`, `%,"` + envName + `"]`, `%,"` + envName + `",%`}
 	selectQuery := h.AdaptQuery(`
 	SELECT DISTINCT 
 		releases_history.appname
@@ -319,17 +318,15 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 		latest.latest=releases_history.version
 		AND latest.appname=releases_history.appname
 		AND latest.releaseversion=releases_history.releaseversion
-	WHERE releases_history.environments = ? 
-		OR releases_history.environments LIKE ?
-		OR releases_history.environments LIKE ? 
-		OR releases_history.environments LIKE ?
+	WHERE releases_history.environments @> ? 
 		AND releases_history.deleted=false; `)
 	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
-		queryParams...,
+		ts,
+		`["`+envName+`"]`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not query the releases_history table %s, error: %w", envName, err)
