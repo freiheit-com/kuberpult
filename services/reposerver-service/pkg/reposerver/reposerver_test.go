@@ -192,7 +192,7 @@ func TestGenerateManifest(t *testing.T) {
 				}
 
 				for _, release := range tc.SetupReleases {
-					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, release.App, db.AppStateChangeCreate, db.DBAppMetaData{})
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, string(release.App), db.AppStateChangeCreate, db.DBAppMetaData{})
 					if err != nil {
 						return err
 					}
@@ -203,7 +203,7 @@ func TestGenerateManifest(t *testing.T) {
 					}
 
 					err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-						App: release.App,
+						App: string(release.App),
 						Env: tc.SetupEnv.Name,
 						ReleaseNumbers: types.ReleaseNumbers{
 							Revision: 0,

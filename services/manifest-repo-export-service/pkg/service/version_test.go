@@ -471,7 +471,7 @@ func TestGetManifests(t *testing.T) {
 						Revision: 0,
 					},
 					Created:   gotime.Time{},
-					App:       appName,
+					App:       types.AppName(appName),
 					Manifests: db.DBReleaseManifests{},
 					Metadata:  db.DBReleaseMetaData{},
 				})
@@ -484,7 +484,7 @@ func TestGetManifests(t *testing.T) {
 						Revision: 0,
 					},
 					Created:   gotime.Time{},
-					App:       appName,
+					App:       types.AppName(appName),
 					Manifests: db.DBReleaseManifests{},
 					Metadata:  db.DBReleaseMetaData{},
 				})
@@ -497,7 +497,7 @@ func TestGetManifests(t *testing.T) {
 						Revision: 0,
 					},
 					Created:   gotime.Time{},
-					App:       appName,
+					App:       types.AppName(appName),
 					Manifests: db.DBReleaseManifests{},
 					Metadata:  db.DBReleaseMetaData{},
 				})
@@ -510,7 +510,7 @@ func TestGetManifests(t *testing.T) {
 						Revision: 0,
 					},
 					Created:   gotime.Time{},
-					App:       appNameOther,
+					App:       types.AppName(appNameOther),
 					Manifests: db.DBReleaseManifests{},
 					Metadata:  db.DBReleaseMetaData{},
 				})
@@ -523,7 +523,7 @@ func TestGetManifests(t *testing.T) {
 						Revision: 0,
 					},
 					Created:   gotime.Time{},
-					App:       appNameOther,
+					App:       types.AppName(appNameOther),
 					Manifests: db.DBReleaseManifests{},
 					Metadata:  db.DBReleaseMetaData{},
 				})
@@ -536,7 +536,7 @@ func TestGetManifests(t *testing.T) {
 						Revision: 0,
 					},
 					Created:   gotime.Time{},
-					App:       appNameOther,
+					App:       types.AppName(appNameOther),
 					Manifests: db.DBReleaseManifests{},
 					Metadata:  db.DBReleaseMetaData{},
 				})
