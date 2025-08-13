@@ -48,22 +48,22 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 			App:            appFoo,
-			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", "staging": "manifest2"}},
+			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(2),
 			App:            appFoo,
-			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", "staging": "manifest2"}},
+			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 			App:            appPow,
-			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", "staging": "manifest2"}},
+			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(2),
 			App:            appPow,
-			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", "staging": "manifest2"}},
+			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 	}
 

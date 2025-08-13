@@ -114,13 +114,5 @@ func processAllLatestDeploymentsForEnv(_ context.Context, rows *sql.Rows) (Deplo
 		}
 		result[types.AppName(curr.App)] = curr
 	}
-	err := rows.Close()
-	if err != nil {
-		return nil, fmt.Errorf("deployments: row closing error: %v", err)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("deployments: row has error: %v", err)
-	}
 	return result, nil
 }
