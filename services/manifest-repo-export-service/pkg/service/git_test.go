@@ -66,7 +66,7 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 					Revision: 0,
 				},
 				Created:   time.Time{},
-				App:       app,
+				App:       types.AppName(app),
 				Manifests: db.DBReleaseManifests{},
 				Metadata:  db.DBReleaseMetaData{},
 			})

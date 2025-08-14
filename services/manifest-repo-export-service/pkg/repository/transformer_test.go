@@ -1709,7 +1709,7 @@ func TestLocks(t *testing.T) {
 								Version:  &concreteTransformer.Version,
 								Revision: 0,
 							},
-							App: concreteTransformer.Application,
+							App: types.AppName(concreteTransformer.Application),
 							Manifests: db.DBReleaseManifests{
 								Manifests: concreteTransformer.Manifests,
 							},
@@ -2020,7 +2020,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 								Version:  &concreteTransformer.Version,
 								Revision: 0,
 							},
-							App: concreteTransformer.Application,
+							App: types.AppName(concreteTransformer.Application),
 							Manifests: db.DBReleaseManifests{
 								Manifests: concreteTransformer.Manifests,
 							},
@@ -2446,7 +2446,7 @@ func TestUndeployLogic(t *testing.T) {
 								Version:  &concreteTransformer.Version,
 								Revision: 0,
 							},
-							App: concreteTransformer.Application,
+							App: types.AppName(concreteTransformer.Application),
 							Manifests: db.DBReleaseManifests{
 								Manifests: concreteTransformer.Manifests,
 							},
@@ -2476,7 +2476,7 @@ func TestUndeployLogic(t *testing.T) {
 								Version:  &version,
 								Revision: 0,
 							},
-							App: concreteTransformer.Application,
+							App: types.AppName(concreteTransformer.Application),
 							Manifests: db.DBReleaseManifests{
 								Manifests: map[types.EnvName]string{ //empty manifest
 									"": "",
@@ -3427,7 +3427,6 @@ spec:
 }
 
 func TestExtendAAEnvironmentTransformer(t *testing.T) {
-	const appName = "myapp"
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
 	var aaEnvName = "aa"
@@ -3621,7 +3620,7 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 				Version:  &concreteTransformer.Version,
 				Revision: concreteTransformer.Revision,
 			},
-			App: concreteTransformer.Application,
+			App: types.AppName(concreteTransformer.Application),
 			Manifests: db.DBReleaseManifests{
 				Manifests: concreteTransformer.Manifests,
 			},

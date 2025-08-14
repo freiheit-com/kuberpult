@@ -672,7 +672,6 @@ func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, t
 
 }
 
-
 // Internal functions
 
 func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deployment Deployment) error {
@@ -903,7 +902,7 @@ func processAllLatestDeployments(rows *sql.Rows) (map[string]types.ReleaseNumber
 	return result, nil
 }
 
-func (h *DBHandler) processSingleDeploymentRow(ctx context.Context, rows *sql.Rows) (*Deployment, error) {
+func (h *DBHandler) processSingleDeploymentRow(_ context.Context, rows *sql.Rows) (*Deployment, error) {
 	var row = &DBDeployment{
 		Created:        time.Time{},
 		ReleaseVersion: nil,

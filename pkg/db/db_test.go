@@ -170,7 +170,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 					Version:  &r.Version,
 					Revision: 0,
 				},
-				App: app,
+				App: types.AppName(app),
 				Manifests: DBReleaseManifests{
 					Manifests: r.Manifests,
 				},
@@ -251,7 +251,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 				for i := range tc.expectedReleases {
 					expectedRelease := tc.expectedReleases[i]
 
-					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumbers, true)
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, string(expectedRelease.App), expectedRelease.ReleaseNumbers, true)
 					if err != nil {
 						return err
 					}
@@ -2960,12 +2960,12 @@ func TestDeleteRelease(t *testing.T) {
 					return err2
 				}
 
-				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumbers)
+				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, string(tc.toInsert.App), tc.toInsert.ReleaseNumbers)
 				if errDelete != nil {
 					t.Fatalf("error: %v", errDelete)
 				}
 
-				allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, tc.toInsert.App)
+				allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, string(tc.toInsert.App))
 				if err != nil {
 					return err
 				}
@@ -2973,7 +2973,7 @@ func TestDeleteRelease(t *testing.T) {
 					t.Fatalf("number of team locks mismatch (-want, +got):\n%d", len(allReleases))
 				}
 
-				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumbers, true)
+				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, string(tc.toInsert.App), tc.toInsert.ReleaseNumbers, true)
 				if err != nil {
 					return err
 				}
@@ -4365,10 +4365,10 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 
 			allReleases := map[string][]int64{}
 			for _, release := range tc.Releases {
-				if _, ok := allReleases[release.App]; !ok {
-					allReleases[release.App] = []int64{int64(*release.ReleaseNumbers.Version)}
+				if _, ok := allReleases[string(release.App)]; !ok {
+					allReleases[string(release.App)] = []int64{int64(*release.ReleaseNumbers.Version)}
 				} else {
-					allReleases[release.App] = append(allReleases[release.App], int64(*release.ReleaseNumbers.Version))
+					allReleases[string(release.App)] = append(allReleases[string(release.App)], int64(*release.ReleaseNumbers.Version))
 				}
 			}
 
@@ -6264,7 +6264,7 @@ func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 						Version:  tc.Version.Version,
 						Revision: tc.Version.Revision,
 					},
-					App:       tc.App,
+					App:       types.AppName(tc.App),
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{envName: "manifest1"}},
 					Metadata:  metadata,
 				}
@@ -6334,7 +6334,7 @@ func TestDBSelectCommitIdAppReleaseVersionsMany(t *testing.T) {
 					}
 					release := DBReleaseWithMetaData{
 						ReleaseNumbers: versionByApp[appName],
-						App:            fmt.Sprintf("%s%d", tc.AppPrefix, i),
+						App:            types.AppName(fmt.Sprintf("%s%d", tc.AppPrefix, i)),
 						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{envName: "manifest1"}},
 						Metadata:       metadata,
 					}
