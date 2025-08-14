@@ -2929,17 +2929,22 @@ func TestDeploymentHistory(t *testing.T) {
 						return err
 					}
 				}
-
-				for _, deployment := range tc.Setup {
-					if err := svc.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment); err != nil {
-						return err
-					}
-				}
-
 				return nil
 			})
 			if err != nil {
 				t.Fatal(err)
+			}
+			for _, deployment := range tc.Setup {
+				// run each deployment in a separate transaction, so the order of operations is defined (different timestamps):
+				err = svc.DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					if err := svc.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment); err != nil {
+						return err
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			var expectedLinesWithCreated []string
