@@ -25,3 +25,5 @@ include ../../infrastructure/make/go/include.mk
 gen-api:
 	mkdir -p src/api
 	buf generate --path api --timeout 5m
+
+docker: gen-api

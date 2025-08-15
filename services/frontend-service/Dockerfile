@@ -31,8 +31,6 @@ RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.
 
 # Build js:
 WORKDIR /kp/services/frontend-service/
-RUN mkdir -p src/api
-RUN buf generate --path api --timeout 5m
 RUN pnpm build
 
 # Build go:
