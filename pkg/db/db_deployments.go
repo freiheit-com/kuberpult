@@ -510,7 +510,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT created, envName, appName, releaseVersion, revision FROM deployment_attempts WHERE envName=? AND appName=?;")
+	query := h.AdaptQuery("SELECT created, envName, appName, releaseVersion, revision FROM deployment_attempts_latest WHERE envName=? AND appName=?;")
 	span.SetTag("query", query)
 
 	rows, err := tx.QueryContext(
