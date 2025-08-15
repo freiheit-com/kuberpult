@@ -1484,26 +1484,40 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 			t.Parallel()
 			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
-			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+			errTx := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				err2 := state.DeleteQueuedVersion(ctx, transaction, envProduction, testAppName)
-				if err2 != nil {
-					t.Fatalf("expected no error, got %v", err2)
+				resultLatest, errLatest := state.DBHandler.DBSelectLatestDeploymentAttempt(ctx, transaction, envProduction, testAppName)
+				if errLatest != nil {
+					t.Fatalf("expected no error, got %v", errLatest)
 				}
-				result, err2 := state.DBHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, envProduction, testAppName, 10)
-				if err2 != nil {
-					return fmt.Errorf("error: %v", err2)
+				if resultLatest == nil {
+					t.Fatalf("expected a latest after delete, got: %v", resultLatest)
+				}
+				errDelete := state.DeleteQueuedVersion(ctx, transaction, envProduction, testAppName)
+				if errDelete != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				result, errHistory := state.DBHandler.DBSelectDeploymentAttemptHistory(ctx, transaction, envProduction, testAppName, 10)
+				if errHistory != nil {
+					return fmt.Errorf("error: %v", errHistory)
 				}
 				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
+				resultLatest, errLatest = state.DBHandler.DBSelectLatestDeploymentAttempt(ctx, transaction, envProduction, testAppName)
+				if errLatest != nil {
+					t.Fatalf("expected no error, got %v", errLatest)
+				}
+				if resultLatest != nil {
+					t.Fatalf("expected no latest after delete, got: %v", resultLatest)
+				}
 				return nil
 			})
-			if err3 != nil {
-				t.Fatalf("expected no error, got %v", err3)
+			if errTx != nil {
+				t.Fatalf("expected no error, got %v", errTx)
 			}
 		})
 	}
