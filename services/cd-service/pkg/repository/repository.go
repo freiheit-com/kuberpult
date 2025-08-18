@@ -22,12 +22,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/http"
 	"regexp"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 
@@ -805,23 +806,6 @@ func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, 
 		return result.Metadata.DeployedByEmail, result.Created, nil
 	}
 	return "", time.Time{}, err
-}
-
-func (s *State) GetQueuedVersionFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (*uint64, error) {
-	queuedDeployment, err := s.DBHandler.DBSelectLatestDeploymentAttempt(ctx, transaction, environment, application)
-
-	if err != nil || queuedDeployment == nil {
-		return nil, err
-	}
-
-	var v *uint64
-	if queuedDeployment.ReleaseNumbers.Version != nil {
-		parsedInt := *queuedDeployment.ReleaseNumbers.Version
-		v = &parsedInt
-	} else {
-		v = nil
-	}
-	return v, nil
 }
 
 func (s *State) GetQueuedVersionAllAppsFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[string]*uint64, error) {

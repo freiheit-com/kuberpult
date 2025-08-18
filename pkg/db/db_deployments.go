@@ -506,45 +506,6 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 	return queuedDeployments, nil
 }
 
-func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName string) (*QueuedDeployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttempt")
-	defer span.Finish()
-
-	query := h.AdaptQuery("SELECT created, envName, appName, releaseVersion, revision FROM deployment_attempts_latest WHERE envName=? AND appName=?;")
-	span.SetTag("query", query)
-
-	rows, err := tx.QueryContext(
-		ctx,
-		query,
-		environmentName,
-		appName)
-
-	if err != nil {
-		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w", err)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-	if !rows.Next() {
-		return nil, nil
-	}
-	//exhaustruct:ignore
-	var deployment = QueuedDeployment{}
-	var releaseVersion sql.NullInt64
-
-	err = rows.Scan(&deployment.Created, &deployment.Env, &deployment.App, &releaseVersion, &deployment.ReleaseNumbers.Revision)
-	if err != nil {
-		return nil, fmt.Errorf("error scanning deployment attempts row from DB. Error: %w", err)
-	}
-	conv := uint64(releaseVersion.Int64)
-	deployment.ReleaseNumbers.Version = &conv
-	logger.FromContext(ctx).Sugar().Warnf("RE")
-	return &deployment, nil
-}
-
 func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context, tx *sql.Tx, environmentName types.EnvName) ([]*QueuedDeployment, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttemptOfAllApps")
 	defer span.Finish()
