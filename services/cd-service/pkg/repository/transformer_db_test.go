@@ -1489,12 +1489,25 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}
-				resultLatest, errLatest := state.DBHandler.DBSelectLatestDeploymentAttempt(ctx, transaction, envProduction, testAppName)
+				resultLatest, errLatest := state.DBHandler.DBSelectLatestDeploymentAttemptOfAllApps(ctx, transaction, envProduction)
 				if errLatest != nil {
 					t.Fatalf("expected no error, got %v", errLatest)
 				}
-				if resultLatest == nil {
-					t.Fatalf("expected a latest after delete, got: %v", resultLatest)
+				if len(resultLatest) != 1 {
+					t.Fatalf("expected one latest before delete, got: %v", len(resultLatest))
+				}
+				if resultLatest[0].App != testAppName {
+					t.Fatalf("expected latest attempt before delete, got: %v", resultLatest[0].App)
+				}
+				resultLatest, errLatest = state.DBHandler.DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx, transaction, testAppName)
+				if errLatest != nil {
+					t.Fatalf("expected no error, got %v", errLatest)
+				}
+				if len(resultLatest) != 1 {
+					t.Fatalf("expected one latest before delete, got: %v", len(resultLatest))
+				}
+				if string(resultLatest[0].Env) != envProduction {
+					t.Fatalf("expected latest attempt before delete, got: %v", resultLatest[0].Env)
 				}
 				errDelete := state.DeleteQueuedVersion(ctx, transaction, envProduction, testAppName)
 				if errDelete != nil {
@@ -1507,12 +1520,19 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedDbContent, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
-				resultLatest, errLatest = state.DBHandler.DBSelectLatestDeploymentAttempt(ctx, transaction, envProduction, testAppName)
+				resultLatest, errLatest = state.DBHandler.DBSelectLatestDeploymentAttemptOfAllApps(ctx, transaction, envProduction)
 				if errLatest != nil {
 					t.Fatalf("expected no error, got %v", errLatest)
 				}
-				if resultLatest != nil {
-					t.Fatalf("expected no latest after delete, got: %v", resultLatest)
+				if len(resultLatest) != 0 {
+					t.Fatalf("expected no latest after delete, got: %v", len(resultLatest))
+				}
+				resultLatest, errLatest = state.DBHandler.DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx, transaction, testAppName)
+				if errLatest != nil {
+					t.Fatalf("expected no error, got %v", errLatest)
+				}
+				if len(resultLatest) != 0 {
+					t.Fatalf("expected no latest after delete, got: %v", len(resultLatest))
 				}
 				return nil
 			})

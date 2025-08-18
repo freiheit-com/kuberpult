@@ -144,6 +144,5 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	}
 	conv := uint64(releaseVersion.Int64)
 	deployment.ReleaseNumbers.Version = &conv
-	logger.FromContext(ctx).Sugar().Warnf("RE")
 	return &deployment, nil
 }
