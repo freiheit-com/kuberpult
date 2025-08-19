@@ -205,7 +205,10 @@ $(sed -e "s/^/    /" </kp/kuberpult-keyring.gpg)
 VALUES
 
 # Get helm dependency charts and unzip them
+echo break 1
+helm version
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
+echo break 2
 helm template ./ --values vals.yaml > tmp.tmpl
 helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'

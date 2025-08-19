@@ -23,5 +23,6 @@ PKG_WITHOUT_DOCKER=1
 include ../../infrastructure/make/go/include.mk
 
 gen-api:
+	pnpm i
 	mkdir -p src/api
 	buf generate --path api --timeout 5m

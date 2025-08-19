@@ -18,12 +18,15 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 // simpleHash is a basic hash function for strings
@@ -108,4 +111,38 @@ func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPat
 	}
 
 	return dbConfig, nil
+}
+
+func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName string) (*QueuedDeployment, error) {
+	query := h.AdaptQuery("SELECT created, envName, appName, releaseVersion, revision FROM deployment_attempts_latest WHERE envName=? AND appName=?;")
+
+	rows, err := tx.QueryContext(
+		ctx,
+		query,
+		environmentName,
+		appName)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	if !rows.Next() {
+		return nil, nil
+	}
+	//exhaustruct:ignore
+	var deployment = QueuedDeployment{}
+	var releaseVersion sql.NullInt64
+
+	err = rows.Scan(&deployment.Created, &deployment.Env, &deployment.App, &releaseVersion, &deployment.ReleaseNumbers.Revision)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning deployment attempts row from DB. Error: %w", err)
+	}
+	conv := uint64(releaseVersion.Int64)
+	deployment.ReleaseNumbers.Version = &conv
+	return &deployment, nil
 }
