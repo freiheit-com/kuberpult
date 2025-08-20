@@ -83,3 +83,16 @@ func IssueHttpRequestWithBodyReturn(req http.Request, timeoutSeconds int) ([]byt
 		return body, nil
 	}
 }
+
+func IssueHttpRequestWithBodyReturnAllowNotFound(req http.Request, timeoutSeconds int) ([]byte, bool, error) {
+	statusCode, body, err := doRequest(&req, timeoutSeconds)
+	if err != nil {
+		return nil, false, err
+	} else if statusCode == http.StatusNotFound {
+		return nil, true, nil
+	} else if statusCode != http.StatusCreated && statusCode != http.StatusOK {
+		return nil, false, fmt.Errorf("received response code %d - %s from Kuberpult\nResponse body:\n%s", statusCode, http.StatusText(statusCode), string(body))
+	} else {
+		return body, false, nil
+	}
+}

@@ -19,9 +19,10 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/http"
 	"strconv"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -132,13 +133,13 @@ func (s Server) handleApiApplication(w http.ResponseWriter, req *http.Request, t
 	case "release":
 		s.handleApplicationRelease(w, req, tail, applicationID)
 	default:
-		http.Error(w, fmt.Sprintf("unknown endpoint 'api/application/%s/%s'", applicationID, group), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("unknown endpoint 'api/application/%s/%s/%s' for %v", applicationID, group, tail, req.URL), http.StatusNotFound)
 	}
 }
 
 func (s Server) handleApplicationRelease(w http.ResponseWriter, req *http.Request, tail string, applicationID ApplicationID) {
 	group, tail := xpath.Shift(tail)
-	releaseNum, _ := xpath.Shift(tail)
+	releaseNum, tail := xpath.Shift(tail)
 
 	if releaseNum == "" {
 		http.Error(w, "missing release number", http.StatusNotFound)
@@ -159,7 +160,7 @@ func (s Server) handleApplicationRelease(w http.ResponseWriter, req *http.Reques
 	case "manifests":
 		s.handleApplicationReleaseManifests(w, req, applicationID, version, revision)
 	default:
-		http.Error(w, fmt.Sprintf("unknown endpoint 'api/application/%s/%s/%s'", applicationID, group, releaseNum), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("unknown endpoint 'api/application/%s/release/%s/%s/%s' for %v", applicationID, group, releaseNum, tail, req.URL), http.StatusNotFound)
 	}
 }
 

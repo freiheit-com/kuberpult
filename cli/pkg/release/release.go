@@ -62,7 +62,10 @@ func GetManifests(requestParams kutil.RequestParameters, authParams kutil.Authen
 	if err != nil {
 		return "", fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
-	body, err := cli_utils.IssueHttpRequestWithBodyReturn(*req, requestParams.HttpTimeout)
+	body, notFound, err := cli_utils.IssueHttpRequestWithBodyReturnAllowNotFound(*req, requestParams.HttpTimeout)
+	if notFound {
+		return "", nil
+	}
 	if err != nil || body == nil {
 		return "", fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}

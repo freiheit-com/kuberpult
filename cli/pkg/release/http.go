@@ -169,7 +169,8 @@ func prepareHttpManifestRequest(url string, authParams kutil.AuthenticationParam
 	if err != nil {
 		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)
 	}
-	path := fmt.Sprintf("api/application/%s/release/latest/manifests", parsedArgs.Application)
+
+	path := fmt.Sprintf("api/application/%s/release/manifests/latest", parsedArgs.Application)
 	req, err := http.NewRequest(http.MethodPost, urlStruct.JoinPath(path).String(), form)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
