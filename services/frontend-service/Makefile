@@ -26,3 +26,5 @@ gen-api:
 	pnpm i
 	mkdir -p src/api
 	buf generate --path api --timeout 5m
+
+docker: gen-api
