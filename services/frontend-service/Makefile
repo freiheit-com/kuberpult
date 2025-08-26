@@ -19,7 +19,7 @@ MAKEFLAGS += --no-builtin-rules
 CONTEXT=../..
 # avoid calling docker to run buf:
 PKG_WITHOUT_DOCKER=1
-MAX_DOCKER_SIZE_MB=89
+MAX_DOCKER_SIZE_MB=36
 include ../../infrastructure/make/go/include.mk
 
 gen-api:

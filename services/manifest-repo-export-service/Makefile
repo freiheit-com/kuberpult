@@ -15,6 +15,6 @@
 # Copyright freiheit.com
 
 MIN_COVERAGE=43.9
-MAX_DOCKER_SIZE_MB=66
+MAX_DOCKER_SIZE_MB=31
 include ../../infrastructure/make/go/include.mk
 
