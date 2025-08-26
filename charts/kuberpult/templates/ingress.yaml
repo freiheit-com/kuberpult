@@ -233,3 +233,72 @@ spec:
       secretName: {{ required ".ingress.iap.secretName is required" .Values.ingress.iap.secretName }}
 {{- end }}
 {{- end }}
+---
+{{- if .Values.ingress.experimentalVirtualservice.create }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kuberpult
+spec:
+  hosts:
+    - {{ required ".ingress.domainName is required" .Values.ingress.domainName | quote }}
+  gateways:
+    - {{ .Values.ingress.experimentalVirtualservice.gateway }} 
+  http:
+    - match:
+        - uri:
+            exact: /
+      route:
+        - destination:
+            host: kuberpult-frontend-service
+            port:
+              number: 80
+    - match:
+        - uri:
+            prefix: /release
+        - uri:
+            prefix: /environments
+        - uri:
+            prefix: /environment-groups
+        - uri:
+            prefix: /api/
+        - uri:
+            prefix: /dex
+        - uri:
+            prefix: /callback
+        - uri:
+            prefix: /token
+        - uri:
+            prefix: /login
+        - uri:
+            prefix: /ui/
+        - uri:
+            prefix: /static/js/
+        - uri:
+            prefix: /static/css/
+        - uri:
+            prefix: /favicon.png
+        - uri:
+            prefix: /api.v1.OverviewService/
+        - uri:
+            prefix: /api.v1.BatchService/
+        - uri:
+            prefix: /api.v1.FrontendConfigService/
+        - uri:
+            prefix: /api.v1.RolloutService/
+        - uri:
+            prefix: /api.v1.GitService/
+        - uri:
+            prefix: /api.v1.VersionService/
+        - uri:
+            prefix: /api.v1.EnvironmentService/
+        - uri:
+            prefix: /api.v1.ReleaseTrainPrognosisService/
+        - uri:
+            prefix: /api.v1.EslService/
+      route:
+        - destination:
+            host: kuberpult-frontend-service
+            port:
+              number: 80
+{{- end }}

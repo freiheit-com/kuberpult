@@ -367,6 +367,10 @@ ingress:
   tls:
     host: null
     secretName: kuberpult-tls-secret
+  # This option is still experimental and therefor may have breaking changes:
+  experimentalVirtualservice:
+    create: false
+    gateway: null
 ssh:
   # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
   identity: "some SSH key"  # This value must be the complete OpenSSH private key file content (i.e. starts with "-----BEGIN OPENSSH PRIVATE KEY-----")
