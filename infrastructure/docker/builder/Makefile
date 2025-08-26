@@ -15,7 +15,7 @@
 # Copyright freiheit.com
 
 
-MAX_DOCKER_SIZE_MB=4000
+MAX_DOCKER_SIZE_MB=3200
 include ../../../Makefile.variables
 
 IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
