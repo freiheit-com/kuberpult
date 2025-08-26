@@ -10,6 +10,7 @@ IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):$(IMAGE_TAG)
 MAIN_IMAGE_NAME=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):main
 SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
+MAX_DOCKER_SIZE_MB?=1
 CONTEXT?=../../
 SKIP_TRIVY?=0
 SKIP_RETAG_MAIN_AS_PR?=0
@@ -46,9 +47,7 @@ docker: # no dependencies here!
 	mkdir -p $(MAIN_PATH)/lib
 	mkdir -p $(MAIN_PATH)/usr
 	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) $(CONTEXT) -t $(IMAGE_NAME)
-	# The docker history shows us the file size.
-	# For now we just log it, later we could check automatically that the size is below a certain threshold:
-	docker history $(IMAGE_NAME)
+	$(ROOT_DIR)/infrastructure/scripts/check-docker-size.sh $(IMAGE_NAME) $(MAX_DOCKER_SIZE_MB) $(SERVICE)
 
 .PHONY: release
 release:
