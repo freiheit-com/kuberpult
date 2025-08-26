@@ -367,7 +367,8 @@ ingress:
   tls:
     host: null
     secretName: kuberpult-tls-secret
-  virtualservice:
+  # This option is still experimental and therefor may have breaking changes:
+  experimentalVirtualservice:
     create: false
     gateway: null
 ssh:
