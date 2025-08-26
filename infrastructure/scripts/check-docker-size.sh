@@ -18,26 +18,26 @@ if ! [[ ${SIZE_THRESHOLD_MB} =~ $re ]] ; then
 fi
 
 # skip coverage test if threshold is set to 0.0 or below
-if [ "$(awk "BEGIN { print (SIZE_THRESHOLD_MB < 0.0)? 1 : 0 }")" = 1 ]; then
+if [ "$(awk "BEGIN { print ($SIZE_THRESHOLD_MB < 0.0)? 1 : 0 }")" = 1 ]; then
     echo "Skipping docker size check";
     exit 0;
 fi
 
 ACTUAL_SIZE=$(docker inspect -f '{{ .Size }}' "${DOCKER_IMAGE}")
-ACTUAL_SIZE_MB=$(("${ACTUAL_SIZE}" / 1000 / 1000))
+ACTUAL_SIZE_MB=$(awk -v val="${ACTUAL_SIZE}" 'BEGIN { printf "%.0f\n", val / 1000000 }');
 
-if [ "$(awk "BEGIN { print ($ACTUAL_SIZE_MB > $SIZE_THRESHOLD_MB)? 1 : 0 }")" = 1 ]; then
-    echo "Docker size too high ${ACTUAL_SIZE_MB}MB>${SIZE_THRESHOLD_MB}MB in $PRODUCT_NAME";
+if [ "$(awk "BEGIN { print ($ACTUAL_SIZE_MB > $SIZE_THRESHOLD_MB) ? 1 : 0 }")" = 1 ]; then
+    echo "Docker size too high ${ACTUAL_SIZE_MB}MB>${SIZE_THRESHOLD_MB}MB in $PRODUCT_NAME image ${DOCKER_IMAGE}";
     echo "Running docker history:"
-#    docker history "${DOCKER_IMAGE}"
+    docker history "${DOCKER_IMAGE}"
     exit 1;
 else
     if [ "$(awk "BEGIN { print ($ACTUAL_SIZE_MB < $SIZE_THRESHOLD_MB - $DISCREPANCY_MB)? 1 : 0 }")" = 1 ]; then
         echo "The current docker image size ${ACTUAL_SIZE_MB}MB is more than ${DISCREPANCY_MB}MB smaller than the threshold of ${SIZE_THRESHOLD_MB}MB. Please adjust the threshold of ${PRODUCT_NAME} accordingly!"
         echo "Running docker history:"
-#        docker history "${DOCKER_IMAGE}"
+        docker history "${DOCKER_IMAGE}"
         exit 1;
     fi
 
-    echo "Docker image is sufficiently small: ${ACTUAL_SIZE_MB}MB<=${SIZE_THRESHOLD_MB}MB in $PRODUCT_NAME";
+    echo "Docker image is sufficiently small: ${ACTUAL_SIZE_MB}MB<=${SIZE_THRESHOLD_MB}MB in $PRODUCT_NAME image ${DOCKER_IMAGE}";
 fi

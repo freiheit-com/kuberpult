@@ -15,7 +15,7 @@
 # Copyright freiheit.com
 
 
-MAX_DOCKER_SIZE_MB=6
+MAX_DOCKER_SIZE_MB=4000
 include ../../../Makefile.variables
 
 IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
@@ -26,6 +26,7 @@ IMAGENAME_UNVERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:
 
 build:
 	docker build -t $(IMAGENAME) -f Dockerfile ../../../
+	../../../infrastructure/scripts/check-docker-size.sh $(IMAGENAME) $(MAX_DOCKER_SIZE_MB) "builder"
 
 build-pr: build publish
 	echo "Building on pull request"
