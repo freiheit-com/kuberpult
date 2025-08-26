@@ -234,7 +234,7 @@ spec:
 {{- end }}
 {{- end }}
 ---
-{{- if .Values.ingress.virtualservice.create }}
+{{- if .Values.ingress.experimentalVirtualservice.create }}
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
@@ -243,7 +243,7 @@ spec:
   hosts:
     - {{ required ".ingress.domainName is required" .Values.ingress.domainName | quote }}
   gateways:
-    - {{ .Values.ingress.virtualservice.gateway }} 
+    - {{ .Values.ingress.experimentalVirtualservice.gateway }} 
   http:
     - match:
         - uri:
