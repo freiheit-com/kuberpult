@@ -7,7 +7,6 @@ GO_TEST_ARGS?=
 SKIP_LINT_ERRORS?=false
 SERVICE?=$(notdir $(shell pwd))
 IMAGE_NAME?=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):$(IMAGE_TAG)
-#IMAGE_NAME_WITHOUT_TAG?=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE)
 MAIN_IMAGE_NAME=$(DOCKER_REGISTRY_URI)/kuberpult-$(SERVICE):main
 SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
