@@ -1,0 +1,7 @@
+# frontend services needs this:
+!Makefile
+!Makefile.variables
+# but generally we do not need Makefiles:
+services/*/Makefile
+
+services/frontend-service/node_modules
