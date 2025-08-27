@@ -24,6 +24,9 @@ if [ "$(awk "BEGIN { print ($SIZE_THRESHOLD_MB < 0.0)? 1 : 0 }")" = 1 ]; then
     exit 0;
 fi
 
+echo all image sizes:
+docker images
+
 ACTUAL_SIZE=$(docker save "${DOCKER_IMAGE}" | gzip -c | wc -c)
 ACTUAL_SIZE_MB=$(awk -v val="${ACTUAL_SIZE}" 'BEGIN { printf "%.0f\n", val / 1000000 }');
 
