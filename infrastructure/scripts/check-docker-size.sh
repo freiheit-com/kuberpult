@@ -2,14 +2,14 @@
 set -euo pipefail
 
 if (( $# < 3 )); then
-    echo "usage: $0 <docker-image-without-tag> <SIZE_THRESHOLD_MB> <PRODUCT_NAME>" >&2
+    echo "usage: $0 <docker-image> <SIZE_THRESHOLD_MB> <PRODUCT_NAME>" >&2
     exit 2
 fi
 
 DOCKER_IMAGE=$1
 SIZE_THRESHOLD_MB=$2
 PRODUCT_NAME=$3
-# Measure the docker image size is rather unprecise, so we allow a discrepancy in percent:
+# Measure the docker image size is rather unprecise, so we allow a discrepancy in percent (both above and below):
 DISCREPANCY_PERCENT=10
 
 # fail if the threshold is not a number with 1-2 digits before the point and up to 5 after the point:
