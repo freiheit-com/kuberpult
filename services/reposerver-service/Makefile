@@ -17,5 +17,5 @@
 # NOTE: this will be replaced with the etf-golang makefile
 
 MIN_COVERAGE=31.6
-MAX_DOCKER_SIZE_MB=130
+MAX_DOCKER_SIZE_MB=104
 include ../../infrastructure/make/go/include.mk

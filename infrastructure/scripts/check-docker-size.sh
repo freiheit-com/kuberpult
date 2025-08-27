@@ -33,8 +33,6 @@ if [ "$(awk "BEGIN { print ($ACTUAL_SIZE_MB > $THRESHOLD_PLUS_BUFFER_MB) ? 1 : 0
     echo "Image too large: Your docker image has ${ACTUAL_SIZE_MB}MB. The configured threshold is ${SIZE_THRESHOLD_MB}MB. Even with the ${DISCREPANCY_PERCENT}% discrepancy buffer, that is ${THRESHOLD_PLUS_BUFFER_MB}MB.";
     exit 1;
 else
-    echo "actual: ${ACTUAL_SIZE_MB}"
-    echo "threshold-: ${THRESHOLD_MINUS_BUFFER_MB}"
     if [ "$(awk "BEGIN { print ($ACTUAL_SIZE_MB < $THRESHOLD_MINUS_BUFFER_MB)? 1 : 0 }")" = 1 ]; then
         echo "Image too small: Your docker image has ${ACTUAL_SIZE_MB}MB. The configured threshold is ${SIZE_THRESHOLD_MB}MB. Even with the ${DISCREPANCY_PERCENT}% discrepancy buffer, that is ${THRESHOLD_MINUS_BUFFER_MB}MB.";
         exit 1;

@@ -17,7 +17,7 @@
 MIN_COVERAGE=66.1
 MIN_COVERAGE_TRAIN=91.4
 MIN_COVERAGE_DEPLOY=87.3
-MAX_DOCKER_SIZE_MB=48
+MAX_DOCKER_SIZE_MB=108
 include ../../infrastructure/make/go/include.mk
 
 unit-test::
