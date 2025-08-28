@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"io"
 	"net/http"
 	"strings"
@@ -118,6 +119,7 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 	}
 	w.Write(json) //nolint:errcheck
 }
+
 func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.Request, target string, TargetType api.ReleaseTrainRequest_TargetType) {
 	if req.Method != http.MethodPut {
 		http.Error(w, fmt.Sprintf("releasetrain only accepts method PUT, got: '%s'", req.Method), http.StatusMethodNotAllowed)
@@ -126,9 +128,46 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
 	gitTagParam := queryParams.Get("gitTag")
+	sourceGitTagParam := queryParams.Get("sourceGitTag")
+
+	commitHash := ""
+	if sourceGitTagParam != "" {
+		if s.ManifestRepoGitClient == nil {
+			http.Error(w, "the sourceGitTag query parameter requires the manifest-repo-export to be enabled", http.StatusNotImplemented)
+			return
+		}
+
+		gitTagsResponse, err := s.ManifestRepoGitClient.GetGitTags(req.Context(), &api.GetGitTagsRequest{})
+		if err != nil {
+			http.Error(w, fmt.Sprintf("manifest-repo-export returned: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if gitTagsResponse == nil || gitTagsResponse.TagData == nil {
+			http.Error(w, "manifest-repo-export returned no tags", http.StatusNotFound)
+			return
+		}
+
+		var allTags = []string{}
+		for key, value := range gitTagsResponse.TagData {
+			if value != nil {
+				allTags = append(allTags, fmt.Sprintf("%s:%s", value.Tag, value.CommitId))
+				if IsTagEqual(value.Tag, sourceGitTagParam) {
+					commitHash = value.CommitId // tag found, but we just need to the commitID
+				}
+			} else {
+				logger.FromContext(req.Context()).Sugar().Warnf("invalid tag response [%d]", key)
+			}
+		}
+		if commitHash == "" {
+			http.Error(w,
+				fmt.Sprintf("manifest-repo-export returned %d tags (%v), but not the requested tag %s", len(gitTagsResponse.TagData), allTags, sourceGitTagParam),
+				http.StatusNotFound)
+			return
+		}
+	}
 
 	tf := &api.ReleaseTrainRequest{
-		CommitHash: "",
+		CommitHash: commitHash,
 		Target:     target,
 		Team:       teamParam,
 		TargetType: TargetType,
@@ -171,6 +210,14 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 	w.Write(json) //nolint:errcheck
 }
 
+// IsTagEqual compares too tags, ignoring the "refs/tags/" prefix
+func IsTagEqual(a string, b string) bool {
+	formatTag := func(x string) string {
+		return fmt.Sprintf("refs/tags/%s", x)
+	}
+	return a == b || a == formatTag(b) || formatTag(a) == b
+}
+
 func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Request, target string) {
 	if req.Method != http.MethodGet {
 		http.Error(w, fmt.Sprintf("releasetrain prognosis only accepts method GET, got: '%s'", req.Method), http.StatusMethodNotAllowed)
@@ -210,7 +257,7 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 	}
 }
 
-func (s Server) handleApiEnvironmentReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
+func (s Server) handleApiEnvironmentReleaseTrain(w http.ResponseWriter, req *http.Request, target string, tail string) {
 	switch tail {
 	case "/":
 		s.handleAPIReleaseTrainExecution(w, req, target, api.ReleaseTrainRequest_ENVIRONMENT)
