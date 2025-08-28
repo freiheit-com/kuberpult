@@ -100,7 +100,7 @@ spec:
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
         - name: KUBERPULT_VERSIONSERVER
-{{- if (eq .Values.manifestRepoExport.enabled "true") }}
+{{- if .Values.manifestRepoExport.enabled }}
           value: kuberpult-manifest-repo-export-service:8443
 {{- else }}
           value: ""
