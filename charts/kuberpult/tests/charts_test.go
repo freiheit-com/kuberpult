@@ -701,40 +701,6 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
-		{
-			Name: "Test reposerver enabled",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-reposerver:
-  enabled: true
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_REPOSERVER_ENABLED",
-					Value: "true",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test reposerver disabled",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-`,
-			ExpectedEnvs: []core.EnvVar{},
-			ExpectedMissing: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_REPOSERVER_ENABLED",
-					Value: "",
-				},
-			},
-		},
 	}
 
 	for _, tc := range tcs {
