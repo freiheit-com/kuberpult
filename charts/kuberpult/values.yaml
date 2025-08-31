@@ -96,7 +96,6 @@ cd:
   allowedDomains: ""
   cacheTtlHours: 24
   maxNumberOfThreads: 3
-  experimentalParallelismOneTransaction: false
 
   # The lockType option is EXPERIMENTAL and may be removed or changed without a breaking change.
   # By default, (lockType: "go") the cd-service uses in-memory go-locks to make sure that
@@ -117,7 +116,7 @@ cd:
 # Disabling the queue is as of now an experimental feature.
 # With the queue, the cd-service processes only one request at a time, which is very much required when using git.
 # With the database, this is not required anymore.
-    disableQueue: false
+    disableQueue: true
   # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
   resources:

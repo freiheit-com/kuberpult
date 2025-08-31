@@ -88,7 +88,6 @@ type Config struct {
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
 
-	ExperimentalParallelismOneTransaction bool `default:"false" split_words:"true"` // KUBERPULT_EXPERIMENTAL_PARALLELISM_ONE_TRANSACTION
 
 	DbOption             string `default:"NO_DB" split_words:"true"`
 	DbLocation           string `default:"/kp/database" split_words:"true"`
@@ -303,7 +302,6 @@ func RunServer() {
 			URL:                       c.GitUrl,
 			MinorRegexes:              minorRegexes,
 			MaxNumThreads:             c.MaxNumberOfThreads,
-			ParallelismOneTransaction: c.ExperimentalParallelismOneTransaction,
 			Branch:                    c.GitBranch,
 			ReleaseVersionsLimit:      c.ReleaseVersionsLimit,
 			StorageBackend:            c.storageBackend(),
@@ -316,7 +314,6 @@ func RunServer() {
 			ArgoCdGenerateFiles:       c.ArgoCdGenerateFiles,
 			DBHandler:                 dbHandler,
 
-			DisableQueue: c.DisableQueue,
 		}
 
 		repo, repoQueue, err := repository.New2(ctx, cfg)

@@ -190,7 +190,6 @@ type RepositoryConfig struct {
 	MaximumCommitsPerPush     uint
 	MaximumQueueSize          uint
 	MaxNumThreads             uint
-	ParallelismOneTransaction bool
 	// Extend maximum AppName length
 	AllowLongAppNames bool
 
@@ -662,7 +661,6 @@ func (r *repository) StateAt() (*State, error) {
 		MinorRegexes:              r.config.MinorRegexes,
 		MaxNumThreads:             int(r.config.MaxNumThreads),
 		DBHandler:                 r.DB,
-		ParallelismOneTransaction: r.config.ParallelismOneTransaction,
 	}, nil
 }
 
@@ -674,7 +672,6 @@ type State struct {
 	ReleaseVersionsLimit      uint
 	MinorRegexes              []*regexp.Regexp
 	MaxNumThreads             int
-	ParallelismOneTransaction bool
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
 }

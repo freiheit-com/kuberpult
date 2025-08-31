@@ -273,32 +273,22 @@ func (c *ReleaseTrain) Transform(
 	if state.MaxNumThreads > 0 {
 		releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
 	}
-	if state.ParallelismOneTransaction {
-		span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
-		defer span.Finish()
-		s, err2 := c.runWithNewGoRoutines(
-			envNames,
-			targetGroupName,
-			state.MaxNumThreads,
-			ctx,
-			configs,
-			allLatestReleases,
-			state,
-			transformerContext,
-			transaction)
-		if err2 != nil {
-			return s, onErr(err2)
-		} else {
-			span.Finish()
-		}
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
+	defer span.Finish()
+	s, err2 := c.runWithNewGoRoutines(
+		envNames,
+		targetGroupName,
+		state.MaxNumThreads,
+		ctx,
+		configs,
+		allLatestReleases,
+		state,
+		transformerContext,
+		transaction)
+	if err2 != nil {
+		return s, onErr(err2)
 	} else {
-		for _, envName := range envNames {
-			trainGroup := conversion.FromString(targetGroupName)
-			envNameLocal := envName
-			releaseTrainErrGroup.Go(func() error {
-				return c.runEnvReleaseTrainBackground(ctx, state, transformerContext, envNameLocal, trainGroup, configs, allLatestReleases)
-			})
-		}
+		span.Finish()
 	}
 	err = releaseTrainErrGroup.Wait()
 	if err != nil {

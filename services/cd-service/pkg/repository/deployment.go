@@ -279,7 +279,6 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		MaxNumThreads:             state.MaxNumThreads,
 		DBHandler:                 state.DBHandler,
 		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
-		ParallelismOneTransaction: state.ParallelismOneTransaction,
 	}
 	err = s.DeleteQueuedVersionIfExists(ctx, transaction, envName, c.Application)
 	if err != nil {

@@ -4483,14 +4483,10 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 }
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
-	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true, false)
+	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true)
 }
 
-func SetupRepositoryTestWithDBOptionsAndParallelismOneTransaction(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
-	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true, true)
-}
-
-func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint, startProcessQueue bool, parallelismOneTransaction bool) (Repository, *db.DBHandler) {
+func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint, startProcessQueue bool) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -4504,7 +4500,6 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	repoCfg := RepositoryConfig{
 		ArgoCdGenerateFiles:       true,
 		MaximumQueueSize:          queueSize,
-		ParallelismOneTransaction: parallelismOneTransaction,
 		MaxNumThreads:             1,
 	}
 
@@ -5067,7 +5062,6 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 		CommitHashIndex                  uint
 		ReleaseTrain                     ReleaseTrain
 		ExpectedDeployments              []db.Deployment
-		WithoutParallelismOneTransaction bool
 	}{
 		{
 			Name: "Trigger a deployment with a release train with a commit hash",
@@ -5137,7 +5131,6 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 		},
 		{
 			Name:                             "Trigger a deployment with a release train with a commit hash without parallelism one transaction",
-			WithoutParallelismOneTransaction: true,
 			SetupStages: [][]Transformer{
 				{
 					&CreateEnvironment{
@@ -5684,7 +5677,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var err error
-			repo, dbHandler := SetupRepositoryTestWithDBOptionsAndParallelismOneTransaction(t, false)
+			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
 
 			var commitHashes []string
 			for idx, steps := range tc.SetupStages {
