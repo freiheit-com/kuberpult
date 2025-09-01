@@ -935,13 +935,12 @@ func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t Tra
 	span.SetTag("app", appName)
 	defer span.Finish()
 
-	version := uint64(0)
 	d, err := state.DBHandler.DBSelectLatestDeployment(ctx, tx, string(appName), srcEnvName)
-	if err != nil {
+	if err != nil || d == nil {
 		logger.FromContext(ctx).Sugar().Warnf("Could not find skipped Deployment %s on %s.", appName, srcEnvName)
 		return
 	}
-	version = uint64(*d.ReleaseNumbers.Version)
+	version := uint64(*d.ReleaseNumbers.Version)
 	q := QueueApplicationVersion{
 		Environment: destEnvName,
 		Application: string(appName),
