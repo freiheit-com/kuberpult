@@ -832,6 +832,13 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	if err != nil {
 		return fmt.Errorf("tag.Create: %w", err)
 	}
+	var pushSuccess = true
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
+		PushUpdateReferenceCallback: defaultPushUpdate(r.config.Branch, &pushSuccess),
+	}
 	pushOptions := git.PushOptions{
 		PbParallelism: 0,
 		Headers:       nil,
@@ -839,10 +846,14 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 			Type: git.ProxyTypeNone,
 			Url:  "",
 		},
+		RemoteCallbacks: RemoteCallbacks,
 	}
 	err = r.Push(ctx, PushTagsActionCallback(pushOptions, r, tag))
 	if err != nil {
 		return fmt.Errorf("push: %w", err)
+	}
+	if !pushSuccess {
+		return fmt.Errorf("push ran with success=false")
 	}
 	return nil
 }
