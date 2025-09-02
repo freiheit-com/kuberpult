@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/types"
