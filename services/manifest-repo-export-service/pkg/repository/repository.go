@@ -371,6 +371,16 @@ func defaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCall
 	}
 }
 
+// tagPushUpdate is the same as defaultPushUpdate, but expects a tag reference
+func tagPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallback {
+	return func(refName string, status string) error {
+		var expectedRefName = fmt.Sprintf("refs/tags/%s", branch)
+		// if we were successful the status is empty and the ref contains our branch:
+		*success = refName == expectedRefName && status == ""
+		return nil
+	}
+}
+
 type PushActionFunc func() error
 type PushActionCallbackFunc func(git.PushOptions, *repository) PushActionFunc
 
