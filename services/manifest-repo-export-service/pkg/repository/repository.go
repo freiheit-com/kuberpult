@@ -362,7 +362,7 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 
 // It returns always nil
 // success is set to true if the push was successful
-func defaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallback {
+func commitPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallback {
 	return func(refName string, status string) error {
 		var expectedRefName = fmt.Sprintf("refs/heads/%s", branch)
 		// if we were successful the status is empty and the ref contains our branch:
@@ -371,7 +371,7 @@ func defaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCall
 	}
 }
 
-// tagPushUpdate is the same as defaultPushUpdate, but expects a tag reference
+// tagPushUpdate is the same as commitPushUpdate, but expects a tag reference
 func tagPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallback {
 	return func(refName string, status string) error {
 		var expectedRefName = fmt.Sprintf("refs/tags/%s", branch)
@@ -432,7 +432,7 @@ func (r *repository) PushRepo(ctx context.Context) error {
 	RemoteCallbacks := git.RemoteCallbacks{
 		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
 		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
-		PushUpdateReferenceCallback: defaultPushUpdate(r.config.Branch, &pushSuccess),
+		PushUpdateReferenceCallback: commitPushUpdate(r.config.Branch, &pushSuccess),
 	}
 	pushOptions := git.PushOptions{
 		PbParallelism: 0,
@@ -847,7 +847,7 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	RemoteCallbacks := git.RemoteCallbacks{
 		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
 		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
-		PushUpdateReferenceCallback: defaultPushUpdate(r.config.Branch, &pushSuccess),
+		PushUpdateReferenceCallback: tagPushUpdate(r.config.Branch, &pushSuccess),
 	}
 	pushOptions := git.PushOptions{
 		PbParallelism: 0,
