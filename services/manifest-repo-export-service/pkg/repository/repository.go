@@ -371,12 +371,24 @@ func commitPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallb
 	}
 }
 
+// TagPushResult is there just for logging purposes
+type TagPushResult struct {
+	Success         bool   // true if the RefName is what we expect
+	ActualRefName   string // the actual RefName as supplied by the callback
+	ExpectedRefName string // the actual RefName as supplied by the callback
+	Status          string // the actual status as supplied by the callback
+}
+
 // tagPushUpdate is the same as commitPushUpdate, but expects a tag reference
-func tagPushUpdate(ctx context.Context, branch string, success *bool) git.PushUpdateReferenceCallback {
-	return func(refName string, status string) error {
-		var expectedRefName = fmt.Sprintf("refs/tags/%s", branch)
-		// if we were successful the status is empty and the ref contains our branch:
-		*success = refName == expectedRefName && status == ""
+func tagPushUpdate(_ context.Context, gitTag types.GitTag, result *TagPushResult) git.PushUpdateReferenceCallback {
+	return func(actualRefName string, status string) error {
+		var expectedRefName = fmt.Sprintf("refs/tags/%s", gitTag)
+		// here we store interesting data for logging:
+		result.ActualRefName = actualRefName
+		result.ExpectedRefName = expectedRefName
+		result.Status = status
+		// if we were successful the status is empty and the ref contains our gitTag:
+		result.Success = actualRefName == expectedRefName && status == ""
 		return nil
 	}
 }
@@ -842,12 +854,12 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	if err != nil {
 		return fmt.Errorf("tag.Create: %w", err)
 	}
-	var pushSuccess = true
+	var pushResult = TagPushResult{}
 	//exhaustruct:ignore
 	RemoteCallbacks := git.RemoteCallbacks{
 		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
 		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
-		PushUpdateReferenceCallback: tagPushUpdate(ctx, r.config.Branch, &pushSuccess),
+		PushUpdateReferenceCallback: tagPushUpdate(ctx, tag, &pushResult),
 	}
 	pushOptions := git.PushOptions{
 		PbParallelism: 0,
@@ -862,8 +874,8 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	if err != nil {
 		return fmt.Errorf("push: %w", err)
 	}
-	if !pushSuccess {
-		return fmt.Errorf("push ran with success=false")
+	if !pushResult.Success {
+		return fmt.Errorf("push ran with success='%v' Status='%s', actualRefName='%s', expectedRefName='%s'", pushResult.Success, pushResult.Status, pushResult.ActualRefName, pushResult.ExpectedRefName)
 	}
 	return nil
 }
