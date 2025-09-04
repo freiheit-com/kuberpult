@@ -1625,7 +1625,7 @@ func (u *ReleaseTrain) Transform(
 		return GetNoOpMessage(u)
 	}
 
-	commitMessage := fmt.Sprintf("Release Train to environment/environment group '%s':\n", targetGroupName)
+	commitMessage := fmt.Sprintf("Release Train to %s environment/environment group '%s':\n", u.CommitHash, targetGroupName)
 	for _, skipped := range skippedDeployments {
 		eventData, err := event.UnMarshallEvent("lock-prevented-deployment", skipped.EventJson)
 		if err != nil {
