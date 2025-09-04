@@ -1528,7 +1528,7 @@ func (u *ReleaseTrain) SetCreationTimestamp(ts time.Time) {
 var _ Transformer = &ReleaseTrain{} // ensure it implements Transformer
 
 func (u *ReleaseTrain) GetGitTag() types.GitTag {
-	return types.GitTag(u.GitTag)
+	return u.GitTag
 }
 
 func (u *ReleaseTrain) GetEslVersion() db.TransformerID {

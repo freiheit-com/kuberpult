@@ -158,7 +158,7 @@ func TestPushUpdate(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var success = false
-			actualError := defaultPushUpdate(tc.InputBranch, &success)(tc.InputRefName, tc.InputStatus)
+			actualError := commitPushUpdate(tc.InputBranch, &success)(tc.InputRefName, tc.InputStatus)
 			if success != tc.ExpectedSuccess {
 				t.Fatalf("expected sucess=%t but got %t", tc.ExpectedSuccess, success)
 			}
