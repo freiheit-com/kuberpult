@@ -476,13 +476,11 @@ func processEsls(
 			}
 			log.Infof("event processed successfully, now writing to cutoff and pushing...")
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-				logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: starting %s", "write cutoff")
 				err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 				if err2 != nil {
 					return err2
 				}
 				err2 = repo.PushRepo(ctx)
-				logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: push repo done with err=%v", err)
 				if err2 != nil {
 					d := sleepDuration.NextBackOff()
 					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v: %v", d, err2)
@@ -492,19 +490,16 @@ func processEsls(
 				} else {
 					measureGitPushFailures(ddMetrics, log, false)
 				}
-				logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: gettin commit id %s", "...")
 
 				//Get latest commit. Write esl timestamp and commit hash.
 				commitId, err := repo.GetHeadCommitId()
 				if err != nil {
-					logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: could not get commit: %v", err)
 					return err
 				}
 
 				if oldCommitId.String() != commitId.String() { // We only want to write a transaction timestamp if it resulted in a new commit.
 					var err3 = dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
 					if err3 != nil {
-						logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: writing commit timestamp %w", err3)
 						return err3
 					}
 					var gitTag = transformer.GetGitTag()
@@ -514,12 +509,10 @@ func processEsls(
 							return handleFailedEvent(ctx, dbHandler, transactionRetries, esl,
 								fmt.Sprintf("error while pushing the git tag '%s': %v", gitTag, pushErr.Error()))
 						}
-					} else {
-						logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: git tag empty: '%s'", gitTag)
 					}
 					return nil
 				} else {
-					logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: commit id is the same, skipping tag")
+					logger.FromContext(ctx).Warn("no commit was created, tagging skipped", zap.String("gitTag", string(transformer.GetGitTag())))
 				}
 				return nil
 			})

@@ -375,10 +375,8 @@ func commitPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallb
 func tagPushUpdate(ctx context.Context, branch string, success *bool) git.PushUpdateReferenceCallback {
 	return func(refName string, status string) error {
 		var expectedRefName = fmt.Sprintf("refs/tags/%s", branch)
-		logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: refName='%s', status='%s', branch='%s', expectedRefName='%s'", refName, status, branch, expectedRefName)
 		// if we were successful the status is empty and the ref contains our branch:
 		*success = refName == expectedRefName && status == ""
-		logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: success='%v'", success)
 		return nil
 	}
 }
@@ -395,10 +393,9 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 	}
 }
 
-func PushTagsActionCallback(ctx context.Context, pushOptions git.PushOptions, r *repository, tagName types.GitTag) PushActionFunc {
+func PushTagsActionCallback(_ context.Context, pushOptions git.PushOptions, r *repository, tagName types.GitTag) PushActionFunc {
 	return func() error {
 		return r.useRemote(func(remote *git.Remote) error {
-			logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: tagName: %s", tagName)
 			return remote.Push([]string{fmt.Sprintf("refs/tags/%s:refs/tags/%s", tagName, tagName)}, &pushOptions)
 		})
 	}
