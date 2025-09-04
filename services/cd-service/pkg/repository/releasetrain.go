@@ -411,29 +411,6 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	return "", nil
 }
 
-func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName types.EnvName, trainGroup *string, configs map[types.EnvName]config.EnvironmentConfig, releases map[string][]types.ReleaseNumbers) error {
-	spanOne, ctx, onErr := tracing.StartSpanFromContext(ctx, "runEnvReleaseTrainBackground")
-	spanOne.SetTag("kuberpultEnvironment", envName)
-	defer spanOne.Finish()
-
-	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
-		err := t.Execute(ctx, &envReleaseTrain{
-			Parent:                c,
-			Env:                   envName,
-			AllEnvConfigs:         configs,
-			WriteCommitData:       c.WriteCommitData,
-			TrainGroup:            trainGroup,
-			TransformerEslVersion: c.TransformerEslVersion,
-			CiLink:                c.CiLink,
-
-			AllLatestReleasesCache:       releases,
-			AllLatestReleaseEnvironments: nil,
-		}, transaction2)
-		return err
-	})
-	return onErr(err)
-}
-
 func (c *envReleaseTrain) runEnvPrognosisBackground(
 	ctx context.Context,
 	state *State,

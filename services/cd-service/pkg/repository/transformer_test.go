@@ -1193,72 +1193,6 @@ func (m *MockTransformer) AddAppEnv(app string, env types.EnvName, team string) 
 func (m *MockTransformer) DeleteEnvFromApp(app string, env types.EnvName) {
 }
 
-func TestRunEnvReleaseTrainBackground(t *testing.T) {
-	type testCase struct {
-		name           string
-		transformerErr error
-		expectError    bool
-	}
-
-	testCases := []testCase{
-		{
-			name:           "successful execution",
-			transformerErr: nil,
-			expectError:    false,
-		},
-		{
-			name:           "transformer execution error",
-			transformerErr: fmt.Errorf("transformer error"),
-			expectError:    true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			repo := SetupRepositoryTestWithDB(t)
-			state := repo.State()
-
-			mockTransformer := &MockTransformer{
-				ExecuteFunc: func(ctx context.Context, t Transformer, tx *sql.Tx) error {
-					return tc.transformerErr
-				},
-			}
-			version := uint64(1)
-
-			rt := &ReleaseTrain{
-				Target:     "test-target",
-				Team:       "test-team",
-				CommitHash: "test-hash",
-				Repo:       repo,
-			}
-
-			configs := map[types.EnvName]config.EnvironmentConfig{
-				"test-env": makeEnvironmentConfig(nil),
-			}
-			releases := map[string][]types.ReleaseNumbers{
-				"test-app": {{Version: &version, Revision: version}},
-			}
-
-			err := rt.runEnvReleaseTrainBackground(
-				context.Background(),
-				state,
-				mockTransformer,
-				"test-env",
-				nil,
-				configs,
-				releases,
-			)
-
-			if tc.expectError && err == nil {
-				t.Error("expected error but got nil")
-			}
-			if !tc.expectError && err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-	}
-}
-
 func TestConvertLock(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -1646,8 +1580,8 @@ func TestConvertLockMapToLockList(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := ConvertLockMapToLockList(tc.input)
 			if diff := cmp.Diff(tc.expected, result, protocmp.Transform(), protocmp.IgnoreFields(&api.Lock{}, "created_at"), cmpopts.SortSlices(func(a, b *api.Lock) bool {
-     			   return a.GetLockId() < b.GetLockId()
-    		})); diff != "" {
+				return a.GetLockId() < b.GetLockId()
+			})); diff != "" {
 				t.Errorf("error mismatch between result and expected: (-want, +got):\n %s", diff)
 			}
 		})
@@ -4498,9 +4432,9 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	}
 
 	repoCfg := RepositoryConfig{
-		ArgoCdGenerateFiles:       true,
-		MaximumQueueSize:          queueSize,
-		MaxNumThreads:             1,
+		ArgoCdGenerateFiles: true,
+		MaximumQueueSize:    queueSize,
+		MaxNumThreads:       1,
 	}
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
@@ -5057,11 +4991,11 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 	versionTwo := uint64(2)
 
 	tcs := []struct {
-		Name                             string
-		SetupStages                      [][]Transformer
-		CommitHashIndex                  uint
-		ReleaseTrain                     ReleaseTrain
-		ExpectedDeployments              []db.Deployment
+		Name                string
+		SetupStages         [][]Transformer
+		CommitHashIndex     uint
+		ReleaseTrain        ReleaseTrain
+		ExpectedDeployments []db.Deployment
 	}{
 		{
 			Name: "Trigger a deployment with a release train with a commit hash",
@@ -5130,7 +5064,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 		},
 		{
-			Name:                             "Trigger a deployment with a release train with a commit hash without parallelism one transaction",
+			Name: "Trigger a deployment with a release train with a commit hash without parallelism one transaction",
 			SetupStages: [][]Transformer{
 				{
 					&CreateEnvironment{

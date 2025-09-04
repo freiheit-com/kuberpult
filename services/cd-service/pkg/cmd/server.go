@@ -88,7 +88,6 @@ type Config struct {
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
 
-
 	DbOption             string `default:"NO_DB" split_words:"true"`
 	DbLocation           string `default:"/kp/database" split_words:"true"`
 	DbCloudSqlInstance   string `default:"" split_words:"true"`
@@ -298,22 +297,21 @@ func RunServer() {
 		}
 
 		cfg := repository.RepositoryConfig{
-			WebhookResolver:           nil,
-			URL:                       c.GitUrl,
-			MinorRegexes:              minorRegexes,
-			MaxNumThreads:             c.MaxNumberOfThreads,
-			Branch:                    c.GitBranch,
-			ReleaseVersionsLimit:      c.ReleaseVersionsLimit,
-			StorageBackend:            c.storageBackend(),
-			NetworkTimeout:            c.GitNetworkTimeout,
-			DogstatsdEvents:           c.EnableMetrics,
-			WriteCommitData:           c.GitWriteCommitData,
-			MaximumCommitsPerPush:     c.GitMaximumCommitsPerPush,
-			MaximumQueueSize:          c.MaximumQueueSize,
-			AllowLongAppNames:         c.AllowLongAppNames,
-			ArgoCdGenerateFiles:       c.ArgoCdGenerateFiles,
-			DBHandler:                 dbHandler,
-
+			WebhookResolver:       nil,
+			URL:                   c.GitUrl,
+			MinorRegexes:          minorRegexes,
+			MaxNumThreads:         c.MaxNumberOfThreads,
+			Branch:                c.GitBranch,
+			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
+			StorageBackend:        c.storageBackend(),
+			NetworkTimeout:        c.GitNetworkTimeout,
+			DogstatsdEvents:       c.EnableMetrics,
+			WriteCommitData:       c.GitWriteCommitData,
+			MaximumCommitsPerPush: c.GitMaximumCommitsPerPush,
+			MaximumQueueSize:      c.MaximumQueueSize,
+			AllowLongAppNames:     c.AllowLongAppNames,
+			ArgoCdGenerateFiles:   c.ArgoCdGenerateFiles,
+			DBHandler:             dbHandler,
 		}
 
 		repo, repoQueue, err := repository.New2(ctx, cfg)

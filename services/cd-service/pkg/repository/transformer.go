@@ -1518,10 +1518,10 @@ func (c *DeleteEnvironmentLock) Transform(
 		return "", err
 	}
 	s := State{
-		MinorRegexes:              state.MinorRegexes,
-		MaxNumThreads:             state.MaxNumThreads,
-		DBHandler:                 state.DBHandler,
-		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
+		MinorRegexes:         state.MinorRegexes,
+		MaxNumThreads:        state.MaxNumThreads,
+		DBHandler:            state.DBHandler,
+		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
 	}
 
 	err = state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId, db.LockDeletionMetadata{DeletedByUser: user.Name, DeletedByEmail: user.Email})

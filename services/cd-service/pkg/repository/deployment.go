@@ -275,10 +275,10 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	}
 	t.AddAppEnv(c.Application, envName, prognosisData.TeamName)
 	s := State{
-		MinorRegexes:              state.MinorRegexes,
-		MaxNumThreads:             state.MaxNumThreads,
-		DBHandler:                 state.DBHandler,
-		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
+		MinorRegexes:         state.MinorRegexes,
+		MaxNumThreads:        state.MaxNumThreads,
+		DBHandler:            state.DBHandler,
+		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
 	}
 	err = s.DeleteQueuedVersionIfExists(ctx, transaction, envName, c.Application)
 	if err != nil {
