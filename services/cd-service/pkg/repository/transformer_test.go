@@ -1588,6 +1588,138 @@ func TestConvertLockMapToLockList(t *testing.T) {
 	}
 }
 
+func TestReleaseTrainDeployAttempts(t *testing.T) {
+	environmentSetup := []Transformer{
+		&CreateEnvironment{
+			Environment: "development-1",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "",
+					Latest:      true,
+				},
+				EnvironmentGroup: conversion.FromString("development"),
+			},
+		},
+		&CreateEnvironment{
+			Environment: "staging-1",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "development-1",
+					Latest:      false,
+				},
+				EnvironmentGroup: conversion.FromString("staging"),
+			},
+		},
+	}
+	type TestCase struct {
+		Name                         string
+		Setup                        []Transformer
+		ReleaseTrain                 ReleaseTrain
+		ExpectedQueuedApp            types.AppName
+		ExpectedQueuedReleaseNumbers types.ReleaseNumbers
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "some application is skipped",
+			Setup: []Transformer{
+				&CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[types.EnvName]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+					Version: 1,
+				},
+				&CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[types.EnvName]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+					Version: 2,
+				},
+				&DeployApplicationVersion{
+					Environment: "development-1",
+					Application: "potato-app",
+					Version:     2,
+				},
+				&DeployApplicationVersion{
+					Environment: "staging-1",
+					Application: "potato-app",
+					Version:     1,
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "staging-1",
+					Application: "potato-app",
+					LockId:      "staging-1-potato-app-lock",
+				},
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: "staging-1",
+			},
+			ExpectedQueuedApp: "potato-app",
+			ExpectedQueuedReleaseNumbers: types.ReleaseNumbers{
+				Version:  uversion(2),
+				Revision: 0,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutil.MakeTestContext()
+
+			err := repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, environmentSetup...)
+				if err2 != nil {
+					return err2
+				}
+				_, _, _, err2 = repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Setup...)
+				if err2 != nil {
+					return err2
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Failed test setup: %v", err)
+			}
+			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, []Transformer{&tc.ReleaseTrain}...)
+				if err2 != nil {
+					return err2
+				}
+				allQueued, err3 := repo.State().DBHandler.DBSelectLatestDeploymentAttemptOfAllApps(ctx, transaction, types.EnvName(tc.ReleaseTrain.Target))
+				if err3 != nil {
+					return err3
+				}
+				if len(allQueued) != 1 {
+					return fmt.Errorf("Expected a queued app")
+				}
+				queued := allQueued[0]
+				if queued.App != string(tc.ExpectedQueuedApp) {
+					return fmt.Errorf("Did not get expected app. expected: %s, got: %s", tc.ExpectedQueuedApp, queued.App)
+				}
+				if queued.Env != types.EnvName(tc.ReleaseTrain.Target) {
+					return fmt.Errorf("Did not get expected env. expected: %s, got: %s", tc.ReleaseTrain.Target, queued.Env)
+				}
+				if *queued.ReleaseNumbers.Version != *tc.ExpectedQueuedReleaseNumbers.Version {
+					return fmt.Errorf("Did not get expected queued version. expected: %v, got: %v", *tc.ExpectedQueuedReleaseNumbers.Version, *queued.ReleaseNumbers.Version)
+				}
+				if queued.ReleaseNumbers.Revision != tc.ExpectedQueuedReleaseNumbers.Revision {
+					return fmt.Errorf("Did not get expected queued revision. expected: %v, got: %v", tc.ExpectedQueuedReleaseNumbers.Revision, queued.ReleaseNumbers.Revision)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Failed test: %v", err)
+			}
+		})
+	}
+}
+
 func TestReleaseTrainErrors(t *testing.T) {
 	versionZero := uint64(0)
 	versionOne := uint64(1)
