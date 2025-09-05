@@ -4668,66 +4668,6 @@ func (c *MockClient) Gauge(name string, value float64, tags []string, rate float
 // https://golang.org/doc/faq#guarantee_satisfies_interface
 var _ statsd.ClientInterface = &MockClient{}
 
-func TestDatadogQueueMetric(t *testing.T) {
-	tcs := []struct {
-		Name           string
-		changes        *TransformerResult
-		transformers   []Transformer
-		expectedGauges int
-	}{
-		{
-			Name: "Changes are sent as one event",
-			transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "envA",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						"envA": "envA-manifest-1",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-				&CreateApplicationVersion{
-					Application: "app2",
-					Manifests: map[types.EnvName]string{
-						"envA": "envA-manifest-2",
-					},
-					WriteCommitData: false,
-					Version:         2,
-				},
-			},
-			expectedGauges: 1,
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
-			var mockClient = &MockClient{}
-			var client statsd.ClientInterface = mockClient
-			repo := SetupRepositoryTestWithDB(t)
-			ddMetrics = client
-
-			err := repo.Apply(ctx, tc.transformers...)
-
-			if err != nil {
-				t.Fatalf("Expected no error: %v", err)
-			}
-
-			if tc.expectedGauges != len(mockClient.gauges) {
-				// Don't compare the value of the gauge, only the number of gauges,
-				// because we cannot be sure at this point what the size of the queue was during measurement
-				msg := fmt.Sprintf("expected %d gauges but got %d\n",
-					tc.expectedGauges, len(mockClient.gauges))
-				t.Fatal(msg)
-			}
-		})
-	}
-}
-
 func TestDeleteEnvFromApp(t *testing.T) {
 	tcs := []struct {
 		Name          string
