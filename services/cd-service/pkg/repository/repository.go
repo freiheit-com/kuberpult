@@ -198,7 +198,6 @@ type RepositoryConfig struct {
 
 	DBHandler *db.DBHandler
 
-	DisableQueue bool
 }
 
 // Opens a repository. The repository is initialized and updated in the background.
@@ -586,31 +585,21 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 }
 
 func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
-	if r.config.DisableQueue {
-		changes, err := db.WithTransactionT(r.DB, ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
-			subChanges, applyErr := r.ApplyTransformers(ctx, transaction, transformers...)
-			if applyErr != nil {
-				return nil, applyErr
-			}
-			return subChanges, nil
-		})
+	changes, err := db.WithTransactionT(r.DB, ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
+		subChanges, applyErr := r.ApplyTransformers(ctx, transaction, transformers...)
+		if applyErr != nil {
+			return nil, applyErr
+		}
+		return subChanges, nil
+	})
 
-		if err != nil {
-			return err
-		}
-		r.notify.Notify()
-		r.notifyChangedApps(changes)
-		r.notify.NotifyGitSyncStatus()
-		return nil
-	} else {
-		eCh := r.applyDeferred(ctx, transformers...)
-		select {
-		case err := <-eCh:
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+	if err != nil {
+		return err
 	}
+	r.notify.Notify()
+	r.notifyChangedApps(changes)
+	r.notify.NotifyGitSyncStatus()
+	return nil
 }
 
 func MeasureGitSyncStatus(unsyncedApps, syncFailedApps int) error {

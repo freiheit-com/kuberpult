@@ -108,7 +108,6 @@ type Config struct {
 	AllowedDomains        []string `split_words:"true"`
 	CacheTtlHours         uint     `default:"24" split_words:"true"`
 
-	DisableQueue bool `required:"true" split_words:"true"`
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
 	MigrationServer       string `required:"false" split_words:"true"`
