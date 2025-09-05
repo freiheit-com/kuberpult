@@ -890,10 +890,33 @@ func (c *envReleaseTrain) Transform(
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Transform")
 	span.SetTag("env", c.Env)
 	defer span.Finish()
-
 	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache)
 
 	return c.applyPrognosis(ctx, state, t, transaction, prognosis, span)
+}
+
+func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t TransformerContext, appName types.AppName, srcEnvName types.EnvName, destEnvName types.EnvName) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RecordQueuedAppVersion")
+	span.SetTag("srcEnv", srcEnvName)
+	span.SetTag("destEnv", destEnvName)
+	span.SetTag("app", appName)
+	defer span.Finish()
+
+	d, err := state.DBHandler.DBSelectLatestDeployment(ctx, tx, string(appName), srcEnvName)
+	if err != nil || d == nil {
+		logger.FromContext(ctx).Sugar().Warnf("Could not find skipped Deployment %s on %s.", appName, srcEnvName)
+		return
+	}
+	version := uint64(*d.ReleaseNumbers.Version)
+	q := QueueApplicationVersion{
+		Environment: destEnvName,
+		Application: string(appName),
+		Version:     version,
+	}
+	_, err = q.Transform(ctx, state, t, tx)
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("Could not record skipped Deployment %s on %s.", appName, destEnvName)
+	}
 }
 
 func (c *envReleaseTrain) applyPrognosis(
@@ -966,6 +989,7 @@ func (c *envReleaseTrain) applyPrognosis(
 		appPrognosis := prognosis.AppsPrognoses[appName]
 		if appPrognosis.SkipCause != nil {
 			skipped = append(skipped, renderApplicationSkipCause(&appPrognosis, appName))
+			RecordQueuedAppVersion(ctx, state, transaction, t, types.AppName(appName), envConfig.Upstream.Environment, c.Env)
 			continue
 		}
 		d := &DeployApplicationVersion{
