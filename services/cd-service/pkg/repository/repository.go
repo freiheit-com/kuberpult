@@ -628,10 +628,6 @@ func (r *repository) notifyChangedApps(changes *TransformerResult) {
 	}
 }
 
-func (r *repository) applyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {
-	return r.queue.add(ctx, transformers)
-}
-
 func (r *repository) GetQueue() queue {
 	return r.queue
 }
