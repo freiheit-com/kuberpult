@@ -676,7 +676,6 @@ func setupRepositoryTestWithAllOptions(t *testing.T, withBackgroundJob bool) (re
 	repoCfg := repository.RepositoryConfig{
 		URL:                 remoteDir,
 		ArgoCdGenerateFiles: true,
-		DisableQueue:        true,
 	}
 	if dbConfig != nil {
 

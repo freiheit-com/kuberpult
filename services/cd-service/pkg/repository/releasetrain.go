@@ -273,32 +273,22 @@ func (c *ReleaseTrain) Transform(
 	if state.MaxNumThreads > 0 {
 		releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
 	}
-	if state.ParallelismOneTransaction {
-		span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
-		defer span.Finish()
-		s, err2 := c.runWithNewGoRoutines(
-			envNames,
-			targetGroupName,
-			state.MaxNumThreads,
-			ctx,
-			configs,
-			allLatestReleases,
-			state,
-			transformerContext,
-			transaction)
-		if err2 != nil {
-			return s, onErr(err2)
-		} else {
-			span.Finish()
-		}
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
+	defer span.Finish()
+	s, err2 := c.runWithNewGoRoutines(
+		envNames,
+		targetGroupName,
+		state.MaxNumThreads,
+		ctx,
+		configs,
+		allLatestReleases,
+		state,
+		transformerContext,
+		transaction)
+	if err2 != nil {
+		return s, onErr(err2)
 	} else {
-		for _, envName := range envNames {
-			trainGroup := conversion.FromString(targetGroupName)
-			envNameLocal := envName
-			releaseTrainErrGroup.Go(func() error {
-				return c.runEnvReleaseTrainBackground(ctx, state, transformerContext, envNameLocal, trainGroup, configs, allLatestReleases)
-			})
-		}
+		span.Finish()
 	}
 	err = releaseTrainErrGroup.Wait()
 	if err != nil {
@@ -419,29 +409,6 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	}
 
 	return "", nil
-}
-
-func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName types.EnvName, trainGroup *string, configs map[types.EnvName]config.EnvironmentConfig, releases map[string][]types.ReleaseNumbers) error {
-	spanOne, ctx, onErr := tracing.StartSpanFromContext(ctx, "runEnvReleaseTrainBackground")
-	spanOne.SetTag("kuberpultEnvironment", envName)
-	defer spanOne.Finish()
-
-	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
-		err := t.Execute(ctx, &envReleaseTrain{
-			Parent:                c,
-			Env:                   envName,
-			AllEnvConfigs:         configs,
-			WriteCommitData:       c.WriteCommitData,
-			TrainGroup:            trainGroup,
-			TransformerEslVersion: c.TransformerEslVersion,
-			CiLink:                c.CiLink,
-
-			AllLatestReleasesCache:       releases,
-			AllLatestReleaseEnvironments: nil,
-		}, transaction2)
-		return err
-	})
-	return onErr(err)
 }
 
 func (c *envReleaseTrain) runEnvPrognosisBackground(
