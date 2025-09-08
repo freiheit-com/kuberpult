@@ -88,8 +88,6 @@ type Config struct {
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
 
-	ExperimentalParallelismOneTransaction bool `default:"false" split_words:"true"` // KUBERPULT_EXPERIMENTAL_PARALLELISM_ONE_TRANSACTION
-
 	DbOption             string `default:"NO_DB" split_words:"true"`
 	DbLocation           string `default:"/kp/database" split_words:"true"`
 	DbCloudSqlInstance   string `default:"" split_words:"true"`
@@ -110,7 +108,6 @@ type Config struct {
 	AllowedDomains        []string `split_words:"true"`
 	CacheTtlHours         uint     `default:"24" split_words:"true"`
 
-	DisableQueue bool `required:"true" split_words:"true"`
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
 	MigrationServer       string `required:"false" split_words:"true"`
@@ -299,24 +296,21 @@ func RunServer() {
 		}
 
 		cfg := repository.RepositoryConfig{
-			WebhookResolver:           nil,
-			URL:                       c.GitUrl,
-			MinorRegexes:              minorRegexes,
-			MaxNumThreads:             c.MaxNumberOfThreads,
-			ParallelismOneTransaction: c.ExperimentalParallelismOneTransaction,
-			Branch:                    c.GitBranch,
-			ReleaseVersionsLimit:      c.ReleaseVersionsLimit,
-			StorageBackend:            c.storageBackend(),
-			NetworkTimeout:            c.GitNetworkTimeout,
-			DogstatsdEvents:           c.EnableMetrics,
-			WriteCommitData:           c.GitWriteCommitData,
-			MaximumCommitsPerPush:     c.GitMaximumCommitsPerPush,
-			MaximumQueueSize:          c.MaximumQueueSize,
-			AllowLongAppNames:         c.AllowLongAppNames,
-			ArgoCdGenerateFiles:       c.ArgoCdGenerateFiles,
-			DBHandler:                 dbHandler,
-
-			DisableQueue: c.DisableQueue,
+			WebhookResolver:       nil,
+			URL:                   c.GitUrl,
+			MinorRegexes:          minorRegexes,
+			MaxNumThreads:         c.MaxNumberOfThreads,
+			Branch:                c.GitBranch,
+			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
+			StorageBackend:        c.storageBackend(),
+			NetworkTimeout:        c.GitNetworkTimeout,
+			DogstatsdEvents:       c.EnableMetrics,
+			WriteCommitData:       c.GitWriteCommitData,
+			MaximumCommitsPerPush: c.GitMaximumCommitsPerPush,
+			MaximumQueueSize:      c.MaximumQueueSize,
+			AllowLongAppNames:     c.AllowLongAppNames,
+			ArgoCdGenerateFiles:   c.ArgoCdGenerateFiles,
+			DBHandler:             dbHandler,
 		}
 
 		repo, repoQueue, err := repository.New2(ctx, cfg)

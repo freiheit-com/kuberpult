@@ -1193,72 +1193,6 @@ func (m *MockTransformer) AddAppEnv(app string, env types.EnvName, team string) 
 func (m *MockTransformer) DeleteEnvFromApp(app string, env types.EnvName) {
 }
 
-func TestRunEnvReleaseTrainBackground(t *testing.T) {
-	type testCase struct {
-		name           string
-		transformerErr error
-		expectError    bool
-	}
-
-	testCases := []testCase{
-		{
-			name:           "successful execution",
-			transformerErr: nil,
-			expectError:    false,
-		},
-		{
-			name:           "transformer execution error",
-			transformerErr: fmt.Errorf("transformer error"),
-			expectError:    true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			repo := SetupRepositoryTestWithDB(t)
-			state := repo.State()
-
-			mockTransformer := &MockTransformer{
-				ExecuteFunc: func(ctx context.Context, t Transformer, tx *sql.Tx) error {
-					return tc.transformerErr
-				},
-			}
-			version := uint64(1)
-
-			rt := &ReleaseTrain{
-				Target:     "test-target",
-				Team:       "test-team",
-				CommitHash: "test-hash",
-				Repo:       repo,
-			}
-
-			configs := map[types.EnvName]config.EnvironmentConfig{
-				"test-env": makeEnvironmentConfig(nil),
-			}
-			releases := map[string][]types.ReleaseNumbers{
-				"test-app": {{Version: &version, Revision: version}},
-			}
-
-			err := rt.runEnvReleaseTrainBackground(
-				context.Background(),
-				state,
-				mockTransformer,
-				"test-env",
-				nil,
-				configs,
-				releases,
-			)
-
-			if tc.expectError && err == nil {
-				t.Error("expected error but got nil")
-			}
-			if !tc.expectError && err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-	}
-}
-
 func TestConvertLock(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -4615,14 +4549,10 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 }
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
-	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true, false)
+	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true)
 }
 
-func SetupRepositoryTestWithDBOptionsAndParallelismOneTransaction(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
-	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true, true)
-}
-
-func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint, startProcessQueue bool, parallelismOneTransaction bool) (Repository, *db.DBHandler) {
+func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint, startProcessQueue bool) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -4634,10 +4564,9 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	}
 
 	repoCfg := RepositoryConfig{
-		ArgoCdGenerateFiles:       true,
-		MaximumQueueSize:          queueSize,
-		ParallelismOneTransaction: parallelismOneTransaction,
-		MaxNumThreads:             1,
+		ArgoCdGenerateFiles: true,
+		MaximumQueueSize:    queueSize,
+		MaxNumThreads:       1,
 	}
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)
@@ -4738,66 +4667,6 @@ func (c *MockClient) Gauge(name string, value float64, tags []string, rate float
 // Verify that MockClient implements the ClientInterface.
 // https://golang.org/doc/faq#guarantee_satisfies_interface
 var _ statsd.ClientInterface = &MockClient{}
-
-func TestDatadogQueueMetric(t *testing.T) {
-	tcs := []struct {
-		Name           string
-		changes        *TransformerResult
-		transformers   []Transformer
-		expectedGauges int
-	}{
-		{
-			Name: "Changes are sent as one event",
-			transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "envA",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						"envA": "envA-manifest-1",
-					},
-					WriteCommitData: false,
-					Version:         1,
-				},
-				&CreateApplicationVersion{
-					Application: "app2",
-					Manifests: map[types.EnvName]string{
-						"envA": "envA-manifest-2",
-					},
-					WriteCommitData: false,
-					Version:         2,
-				},
-			},
-			expectedGauges: 1,
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time2.WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
-			var mockClient = &MockClient{}
-			var client statsd.ClientInterface = mockClient
-			repo := SetupRepositoryTestWithDB(t)
-			ddMetrics = client
-
-			err := repo.Apply(ctx, tc.transformers...)
-
-			if err != nil {
-				t.Fatalf("Expected no error: %v", err)
-			}
-
-			if tc.expectedGauges != len(mockClient.gauges) {
-				// Don't compare the value of the gauge, only the number of gauges,
-				// because we cannot be sure at this point what the size of the queue was during measurement
-				msg := fmt.Sprintf("expected %d gauges but got %d\n",
-					tc.expectedGauges, len(mockClient.gauges))
-				t.Fatal(msg)
-			}
-		})
-	}
-}
 
 func TestDeleteEnvFromApp(t *testing.T) {
 	tcs := []struct {
@@ -5194,12 +5063,11 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 	versionTwo := uint64(2)
 
 	tcs := []struct {
-		Name                             string
-		SetupStages                      [][]Transformer
-		CommitHashIndex                  uint
-		ReleaseTrain                     ReleaseTrain
-		ExpectedDeployments              []db.Deployment
-		WithoutParallelismOneTransaction bool
+		Name                string
+		SetupStages         [][]Transformer
+		CommitHashIndex     uint
+		ReleaseTrain        ReleaseTrain
+		ExpectedDeployments []db.Deployment
 	}{
 		{
 			Name: "Trigger a deployment with a release train with a commit hash",
@@ -5268,8 +5136,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 		},
 		{
-			Name:                             "Trigger a deployment with a release train with a commit hash without parallelism one transaction",
-			WithoutParallelismOneTransaction: true,
+			Name: "Trigger a deployment with a release train with a commit hash without parallelism one transaction",
 			SetupStages: [][]Transformer{
 				{
 					&CreateEnvironment{
@@ -5816,7 +5683,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var err error
-			repo, dbHandler := SetupRepositoryTestWithDBOptionsAndParallelismOneTransaction(t, false)
+			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
 
 			var commitHashes []string
 			for idx, steps := range tc.SetupStages {
