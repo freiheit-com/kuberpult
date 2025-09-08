@@ -637,7 +637,9 @@ func (c *CreateApplicationVersion) Transform(
 			return "", err
 		}
 		t.AddAppEnv(c.Application, env, teamOwner)
-		if ((hasUpstream && config.Upstream.Latest && isLatest) || slices.Contains(c.DeployToDownstreamEnvironments, env)) && !c.IsPrepublish {
+        envIsConfiguredLatest:=hasUpstream && config.Upstream.Latest && isLatest
+        downstreamDeploymentRequested := slices.Contains(c.DeployToDownstreamEnvironments, env)
+		if (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
