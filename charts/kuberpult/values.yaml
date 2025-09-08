@@ -142,7 +142,7 @@ db:
   dbOption: "postgreSQL"
 # k8sServiceAccountName is required.
 # k8sServiceAccountName is the name of the kubernetes service account.
-  k8sServiceAccountName: "k8sServiceAccountName"
+  k8sServiceAccountName: "kp-k8s-service-account"
 # cloudSqlProxyEnabled enables the cloudsql proxy.
   cloudSqlProxyEnabled: false
   dbConnectionName: "connectioname"
