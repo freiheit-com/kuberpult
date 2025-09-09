@@ -96,7 +96,6 @@ cd:
   allowedDomains: ""
   cacheTtlHours: 24
   maxNumberOfThreads: 3
-  experimentalParallelismOneTransaction: false
 
   # The lockType option is EXPERIMENTAL and may be removed or changed without a breaking change.
   # By default, (lockType: "go") the cd-service uses in-memory go-locks to make sure that
@@ -114,10 +113,6 @@ cd:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
     queueSize: 5
-# Disabling the queue is as of now an experimental feature.
-# With the queue, the cd-service processes only one request at a time, which is very much required when using git.
-# With the database, this is not required anymore.
-    disableQueue: false
   # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
   resources:
@@ -147,7 +142,7 @@ db:
   dbOption: "postgreSQL"
 # k8sServiceAccountName is required.
 # k8sServiceAccountName is the name of the kubernetes service account.
-  k8sServiceAccountName: "k8sServiceAccountName"
+  k8sServiceAccountName: "kp-k8s-service-account"
 # cloudSqlProxyEnabled enables the cloudsql proxy.
   cloudSqlProxyEnabled: false
   dbConnectionName: "connectioname"
@@ -255,7 +250,6 @@ frontend:
     timeout: 2m
   # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
-  # The enableRevisions option is EXPERIMENTAL and may be removed or changed without a breaking change.
   # When enabled, the /release endpoint to accept a revision (i.e. 1.0, 1.1, 2.0...), instead of only integers (1,2,3...).
   enableRevisions: false
 rollout:

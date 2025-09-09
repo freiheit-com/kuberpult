@@ -498,9 +498,9 @@ func processEsls(
 				}
 
 				if oldCommitId.String() != commitId.String() { // We only want to write a transaction timestamp if it resulted in a new commit.
-					var result = dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
-					if result != nil {
-						return result
+					var err3 = dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
+					if err3 != nil {
+						return err3
 					}
 					var gitTag = transformer.GetGitTag()
 					if gitTag != "" {
@@ -511,6 +511,8 @@ func processEsls(
 						}
 					}
 					return nil
+				} else {
+					logger.FromContext(ctx).Warn("no commit was created, tagging skipped", zap.String("gitTag", string(transformer.GetGitTag())))
 				}
 				return nil
 			})

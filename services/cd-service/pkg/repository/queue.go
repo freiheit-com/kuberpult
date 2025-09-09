@@ -27,7 +27,6 @@ This queue does not improve the latency, because each request still waits for th
 
 import (
 	"context"
-	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
@@ -48,27 +47,6 @@ func (t *transformerBatch) finish(err error) {
 	case t.result <- err:
 		close(t.result)
 	default:
-	}
-}
-
-func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan error {
-	resultChannel := make(chan error, 1)
-	e := transformerBatch{
-		ctx:          ctx,
-		transformers: transformers,
-		result:       resultChannel,
-	}
-
-	defer q.GaugeQueueSize(ctx)
-
-	select {
-	case q.transformerBatches <- e:
-		return resultChannel
-	default:
-		//Channel is full, we don't want to put anything else there.
-		ErrQueueFull = fmt.Errorf("queue is full. Queue Capacity: %d", cap(q.transformerBatches))
-		e.finish(ErrQueueFull)
-		return resultChannel
 	}
 }
 

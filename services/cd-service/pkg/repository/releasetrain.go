@@ -273,32 +273,22 @@ func (c *ReleaseTrain) Transform(
 	if state.MaxNumThreads > 0 {
 		releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
 	}
-	if state.ParallelismOneTransaction {
-		span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
-		defer span.Finish()
-		s, err2 := c.runWithNewGoRoutines(
-			envNames,
-			targetGroupName,
-			state.MaxNumThreads,
-			ctx,
-			configs,
-			allLatestReleases,
-			state,
-			transformerContext,
-			transaction)
-		if err2 != nil {
-			return s, onErr(err2)
-		} else {
-			span.Finish()
-		}
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
+	defer span.Finish()
+	s, err2 := c.runWithNewGoRoutines(
+		envNames,
+		targetGroupName,
+		state.MaxNumThreads,
+		ctx,
+		configs,
+		allLatestReleases,
+		state,
+		transformerContext,
+		transaction)
+	if err2 != nil {
+		return s, onErr(err2)
 	} else {
-		for _, envName := range envNames {
-			trainGroup := conversion.FromString(targetGroupName)
-			envNameLocal := envName
-			releaseTrainErrGroup.Go(func() error {
-				return c.runEnvReleaseTrainBackground(ctx, state, transformerContext, envNameLocal, trainGroup, configs, allLatestReleases)
-			})
-		}
+		span.Finish()
 	}
 	err = releaseTrainErrGroup.Wait()
 	if err != nil {
@@ -419,29 +409,6 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	}
 
 	return "", nil
-}
-
-func (c *ReleaseTrain) runEnvReleaseTrainBackground(ctx context.Context, state *State, t TransformerContext, envName types.EnvName, trainGroup *string, configs map[types.EnvName]config.EnvironmentConfig, releases map[string][]types.ReleaseNumbers) error {
-	spanOne, ctx, onErr := tracing.StartSpanFromContext(ctx, "runEnvReleaseTrainBackground")
-	spanOne.SetTag("kuberpultEnvironment", envName)
-	defer spanOne.Finish()
-
-	err := state.DBHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction2 *sql.Tx) error {
-		err := t.Execute(ctx, &envReleaseTrain{
-			Parent:                c,
-			Env:                   envName,
-			AllEnvConfigs:         configs,
-			WriteCommitData:       c.WriteCommitData,
-			TrainGroup:            trainGroup,
-			TransformerEslVersion: c.TransformerEslVersion,
-			CiLink:                c.CiLink,
-
-			AllLatestReleasesCache:       releases,
-			AllLatestReleaseEnvironments: nil,
-		}, transaction2)
-		return err
-	})
-	return onErr(err)
 }
 
 func (c *envReleaseTrain) runEnvPrognosisBackground(
@@ -923,10 +890,33 @@ func (c *envReleaseTrain) Transform(
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Transform")
 	span.SetTag("env", c.Env)
 	defer span.Finish()
-
 	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache)
 
 	return c.applyPrognosis(ctx, state, t, transaction, prognosis, span)
+}
+
+func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t TransformerContext, appName types.AppName, srcEnvName types.EnvName, destEnvName types.EnvName) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RecordQueuedAppVersion")
+	span.SetTag("srcEnv", srcEnvName)
+	span.SetTag("destEnv", destEnvName)
+	span.SetTag("app", appName)
+	defer span.Finish()
+
+	d, err := state.DBHandler.DBSelectLatestDeployment(ctx, tx, string(appName), srcEnvName)
+	if err != nil || d == nil {
+		logger.FromContext(ctx).Sugar().Warnf("Could not find skipped Deployment %s on %s.", appName, srcEnvName)
+		return
+	}
+	version := uint64(*d.ReleaseNumbers.Version)
+	q := QueueApplicationVersion{
+		Environment: destEnvName,
+		Application: string(appName),
+		Version:     version,
+	}
+	_, err = q.Transform(ctx, state, t, tx)
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("Could not record skipped Deployment %s on %s.", appName, destEnvName)
+	}
 }
 
 func (c *envReleaseTrain) applyPrognosis(
@@ -999,6 +989,7 @@ func (c *envReleaseTrain) applyPrognosis(
 		appPrognosis := prognosis.AppsPrognoses[appName]
 		if appPrognosis.SkipCause != nil {
 			skipped = append(skipped, renderApplicationSkipCause(&appPrognosis, appName))
+			RecordQueuedAppVersion(ctx, state, transaction, t, types.AppName(appName), envConfig.Upstream.Environment, c.Env)
 			continue
 		}
 		d := &DeployApplicationVersion{

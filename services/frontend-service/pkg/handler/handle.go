@@ -40,10 +40,12 @@ type Server struct {
 	VersionClient               api.VersionServiceClient
 	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
 	CommitDeploymentsClient     api.CommitDeploymentServiceClient
-	Config                      config.ServerConfig
-	KeyRing                     openpgp.KeyRing
-	AzureAuth                   bool
-	User                        auth.User
+	ManifestRepoGitClient       api.GitServiceClient
+	//
+	Config    config.ServerConfig
+	KeyRing   openpgp.KeyRing
+	AzureAuth bool
+	User      auth.User
 }
 
 func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
