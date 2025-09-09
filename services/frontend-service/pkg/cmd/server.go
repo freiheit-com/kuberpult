@@ -270,10 +270,16 @@ func runServer(ctx context.Context) error {
 	if err != nil {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
-	exportCon, err := grpc.NewClient(c.ManifestExportServer, grpcClientOpts...)
-	if err != nil {
-		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
+
+	var manifestRepoGitClient api.GitServiceClient = nil
+	if c.ManifestExportServer != "" {
+		exportCon, err := grpc.NewClient(c.ManifestExportServer, grpcClientOpts...)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
+		}
+		manifestRepoGitClient = api.NewGitServiceClient(exportCon)
 	}
+
 	var rolloutClient api.RolloutServiceClient = nil
 	if c.RolloutServer != "" {
 		rolloutCon, err := grpc.NewClient(c.RolloutServer, grpcClientOpts...)
@@ -296,7 +302,7 @@ func runServer(ctx context.Context) error {
 		RolloutServiceClient:           rolloutClient,
 		GitClient:                      api.NewGitServiceClient(cdCon),
 		VersionClient:                  api.NewVersionServiceClient(cdCon),
-		ManifestExportServiceGitClient: api.NewGitServiceClient(exportCon),
+		ManifestExportServiceGitClient: manifestRepoGitClient,
 		EnvironmentServiceClient:       api.NewEnvironmentServiceClient(cdCon),
 		ReleaseTrainPrognosisClient:    releaseTrainPrognosisClient,
 		EslServiceClient:               api.NewEslServiceClient(cdCon),
@@ -345,10 +351,12 @@ func runServer(ctx context.Context) error {
 		VersionClient:               api.NewVersionServiceClient(cdCon),
 		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
 		CommitDeploymentsClient:     commitDeploymentsClient,
-		Config:                      c,
-		KeyRing:                     pgpKeyRing,
-		AzureAuth:                   c.AzureEnableAuth,
-		User:                        defaultUser,
+		ManifestRepoGitClient:       manifestRepoGitClient,
+
+		Config:    c,
+		KeyRing:   pgpKeyRing,
+		AzureAuth: c.AzureEnableAuth,
+		User:      defaultUser,
 	}
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
@@ -701,6 +709,9 @@ func (p *GrpcProxy) GetAllEnvTeamLocks(
 func (p *GrpcProxy) GetGitTags(
 	ctx context.Context,
 	in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
+	if p.ManifestExportServiceGitClient == nil {
+		return nil, status.Error(codes.Unimplemented, "GetGitTags requires the manifest-repo-export to be enabled")
+	}
 	return p.ManifestExportServiceGitClient.GetGitTags(ctx, in)
 }
 
@@ -713,6 +724,9 @@ func (p *GrpcProxy) GetProductSummary(
 func (p *GrpcProxy) GetCommitInfo(
 	ctx context.Context,
 	in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
+	if p.ManifestExportServiceGitClient == nil {
+		return nil, status.Error(codes.Unimplemented, "GetCommitInfo requires the manifest-repo-export to be enabled")
+	}
 	return p.ManifestExportServiceGitClient.GetCommitInfo(ctx, in)
 }
 
@@ -725,12 +739,18 @@ func (p *GrpcProxy) GetEnvironmentConfig(
 func (p *GrpcProxy) GetGitSyncStatus(
 	ctx context.Context,
 	in *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
+	if p.ManifestExportServiceGitClient == nil {
+		return nil, status.Error(codes.Unimplemented, "GetGitSyncStatus requires the manifest-repo-export to be enabled")
+	}
 	return p.ManifestExportServiceGitClient.GetGitSyncStatus(ctx, in)
 }
 
 func (p *GrpcProxy) RetryFailedEvent(
 	ctx context.Context,
 	in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
+	if p.ManifestExportServiceGitClient == nil {
+		return nil, status.Error(codes.Unimplemented, "RetryFailedEvent requires the manifest-repo-export to be enabled")
+	}
 	return p.ManifestExportServiceGitClient.RetryFailedEvent(ctx, in)
 }
 
@@ -867,7 +887,7 @@ func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.Releas
 }
 
 func (p *GrpcProxy) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
-	if p.RolloutServiceClient != nil {
+	if p.ManifestExportServiceGitClient != nil {
 		return nil, status.Error(codes.Unimplemented, "rollout service is enabled.")
 	}
 	return p.ManifestExportServiceGitClient.SkipEslEvent(ctx, in)

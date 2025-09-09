@@ -637,7 +637,9 @@ func (c *CreateApplicationVersion) Transform(
 			return "", err
 		}
 		t.AddAppEnv(c.Application, env, teamOwner)
-		if ((hasUpstream && config.Upstream.Latest) || slices.Contains(c.DeployToDownstreamEnvironments, env)) && isLatest && !c.IsPrepublish {
+        envIsConfiguredLatest:=hasUpstream && config.Upstream.Latest && isLatest
+        downstreamDeploymentRequested := slices.Contains(c.DeployToDownstreamEnvironments, env)
+		if (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
@@ -1518,11 +1520,10 @@ func (c *DeleteEnvironmentLock) Transform(
 		return "", err
 	}
 	s := State{
-		MinorRegexes:              state.MinorRegexes,
-		MaxNumThreads:             state.MaxNumThreads,
-		DBHandler:                 state.DBHandler,
-		ReleaseVersionsLimit:      state.ReleaseVersionsLimit,
-		ParallelismOneTransaction: state.ParallelismOneTransaction,
+		MinorRegexes:         state.MinorRegexes,
+		MaxNumThreads:        state.MaxNumThreads,
+		DBHandler:            state.DBHandler,
+		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
 	}
 
 	err = state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, c.LockId, db.LockDeletionMetadata{DeletedByUser: user.Name, DeletedByEmail: user.Email})
