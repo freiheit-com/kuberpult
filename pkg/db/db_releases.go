@@ -419,7 +419,7 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(releaseVersion, appname, revision)
-		DO UPDATE SET created = excluded.created, manifests = excluded.manifests, metadata = excluded.metadata, environments = excluded.environments;
+		DO UPDATE SET manifests = excluded.manifests, metadata = excluded.metadata, environments = excluded.environments;
 	`)
 	span.SetTag("query", upsertQuery)
 	metadataJson, err := json.Marshal(release.Metadata)
