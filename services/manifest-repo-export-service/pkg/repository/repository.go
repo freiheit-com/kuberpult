@@ -22,12 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db_history"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 	"io"
 	"os"
 	"path/filepath"
@@ -36,6 +30,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db_history"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 
 	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -57,6 +58,7 @@ import (
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v34"
+	"golang.org/x/sync/errgroup"
 )
 
 // A Repository provides a multiple reader / single writer access to a git repository.
@@ -889,23 +891,15 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 		return err
 	}
 
-	errors := make(chan error, 20)
+	errors, ctx := errgroup.WithContext(ctx)
 	for env, config := range configs {
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
-			go func() {
-				errors <- r.updateArgoCdApps(ctx, transaction, &state, env, config, ts)
-			}()
-		} else {
-			errors <- nil
+			errors.Go(func() error {
+				return r.updateArgoCdApps(ctx, transaction, &state, env, config, ts)
+			})
 		}
 	}
-	for _, _ = range configs {
-		err := <-errors
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return errors.Wait()
 }
 
 func isAAEnv(config config.EnvironmentConfig) bool {
