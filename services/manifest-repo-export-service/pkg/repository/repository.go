@@ -895,7 +895,9 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	for env, config := range configs {
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
 			errors.Go(func() error {
-				return r.updateArgoCdApps(ctx, transaction, &state, env, config, ts)
+				return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
+					return r.updateArgoCdApps(ctx, tx, &state, env, config, ts)
+				})
 			})
 		}
 	}
