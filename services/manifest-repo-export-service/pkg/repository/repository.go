@@ -960,14 +960,14 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
-		dataFoo, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, state.DBHandler, transaction, info.ParentEnvironmentName, timestamp)
+		deploymentsPerApp, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, state.DBHandler, transaction, info.ParentEnvironmentName, timestamp)
 		if err != nil {
 			return err
 		}
 		for _, appWithTeam := range appTeams {
 			appName := appWithTeam.AppName
 			teamName := appWithTeam.TeamName
-			deployment, ok := dataFoo[appName]
+			deployment, ok := deploymentsPerApp[appName]
 			if !ok {
 				// nothing was deployed here at that time, skip:
 				continue
