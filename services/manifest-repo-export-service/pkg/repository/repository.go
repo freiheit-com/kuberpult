@@ -888,12 +888,21 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	if err != nil {
 		return err
 	}
+
+	errors := make(chan error, 20)
 	for env, config := range configs {
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
-			err := r.updateArgoCdApps(ctx, transaction, &state, env, config, ts)
-			if err != nil {
-				return err
-			}
+			go func() {
+				errors <- r.updateArgoCdApps(ctx, transaction, &state, env, config, ts)
+			}()
+		} else {
+			errors <- nil
+		}
+	}
+	for _, _ = range configs {
+		err := <-errors
+		if err != nil {
+			return err
 		}
 	}
 	return nil
