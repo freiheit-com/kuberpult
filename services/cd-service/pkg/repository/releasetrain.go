@@ -903,7 +903,7 @@ func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t Tra
 	defer span.Finish()
 
 	d, err := state.DBHandler.DBSelectLatestDeployment(ctx, tx, string(appName), srcEnvName)
-	if err != nil || d == nil {
+	if err != nil || d == nil || d.ReleaseNumbers.Version == nil {
 		logger.FromContext(ctx).Sugar().Warnf("Could not find skipped Deployment %s on %s.", appName, srcEnvName)
 		return
 	}
