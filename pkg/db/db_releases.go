@@ -116,7 +116,7 @@ func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, 
 }
 
 func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion types.ReleaseNumbers, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
@@ -127,28 +127,9 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	span.SetTag("query", selectQuery)
 	span.SetTag("app", app)
 	span.SetTag("releaseVersion", releaseVersion)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		app,
-		*releaseVersion.Version,
-		releaseVersion.Revision,
-	)
-	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
-}
-
-func (h *DBHandler) DBSelectReleaseByReleaseNumbers(ctx context.Context, tx *sql.Tx, app string, releaseVersion types.ReleaseNumbers, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectReleaseByReleaseNumbers")
-	defer span.Finish()
-	selectQuery := h.AdaptQuery(`
-		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
-		FROM releases  
-		WHERE appName=? AND releaseVersion=?  AND revision= ?
-		LIMIT 1;
-	`)
-	span.SetTag("app", app)
-	span.SetTag("releaseVersion", releaseVersion)
-	span.SetTag("query", selectQuery)
+	if releaseVersion.Version == nil {
+		return nil, nil
+	}
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,

@@ -573,10 +573,14 @@ func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentEvent")
 	defer span.Finish()
 
+	version := uint64(0)
+	if releaseVersion.Version != nil {
+		version = *releaseVersion.Version
+	}
 	metadata := event.Metadata{
 		Uuid:           uuid,
 		EventType:      string(event.EventTypeNewRelease),
-		ReleaseVersion: *releaseVersion.Version,
+		ReleaseVersion: version,
 	}
 	jsonToInsert, err := json.Marshal(event.DBEventGo{
 		EventData:     newReleaseEvent,
