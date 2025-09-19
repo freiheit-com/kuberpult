@@ -815,7 +815,7 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 	if c.Version == 0 {
 		return types.MakeEmptyReleaseNumbers(), fmt.Errorf("version is required when using the database")
 	} else {
-		metaData, err := state.DBHandler.DBSelectReleaseByReleaseNumbers(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
+		metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 		if err != nil {
 			return types.MakeEmptyReleaseNumbers(), fmt.Errorf("could not calculate version, error: %v", err)
 		}
