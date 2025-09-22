@@ -22,10 +22,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"time"
 )
 
 type TeamLock struct {
@@ -59,8 +60,9 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 	}
 
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockID, envName, teamName, metadata
-		FROM team_locks;`)
+		SELECT created, lockId, envName, teamName, metadata
+		FROM team_locks
+		ORDER BY lockId;`)
 	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
@@ -213,9 +215,10 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 	}
 
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockid, envName, teamName, metadata
+		SELECT created, lockId, envName, teamName, metadata
 		FROM team_locks
-		WHERE team_locks.teamName = (?);`)
+		WHERE team_locks.teamName = (?)
+		ORDER BY lockId;`)
 	rows, err := tx.QueryContext(ctx, selectQuery, teamName)
 	return h.processTeamLockRows(ctx, err, rows)
 }
