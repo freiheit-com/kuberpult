@@ -22,10 +22,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"time"
 )
 
 type EnvironmentLock struct {
@@ -56,8 +57,9 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 	}
 
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockID, envName, metadata
-		FROM environment_locks;`)
+		SELECT created, lockId, envName, metadata
+		FROM environment_locks
+		ORDER BY lockId;`)
 	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
@@ -205,9 +207,10 @@ func (h *DBHandler) DBSelectAllActiveEnvLocks(ctx context.Context, tx *sql.Tx, e
 	}
 
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockid, envName, metadata
+		SELECT created, lockId, envName, metadata
 		FROM environment_locks
-		WHERE envName = (?);`)
+		WHERE envName = (?)
+		ORDER BY lockId;`)
 	rows, err := tx.QueryContext(ctx, selectQuery, envName)
 	return h.processEnvLockRows(ctx, err, rows)
 }
