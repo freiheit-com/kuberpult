@@ -1430,16 +1430,15 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	log := logger.FromContext(ctx).Sugar()
 
-	arbitraryAllEnvsRow, err := h.DBSelectAnyEnvironment(ctx, transaction)
+	hasEnv, err := h.DBHasAnyEnvironment(ctx, transaction)
 
 	if err != nil {
 		return true, err
 	}
-	if arbitraryAllEnvsRow != nil {
-		log.Infof("custom migration for environments already ran because row (%v) was found, skipping custom migration", arbitraryAllEnvsRow)
-		return false, nil
+	if hasEnv {
+		log.Infof("custom migration for environments already ran because row was found, skipping custom migration")
 	}
-	return true, nil
+	return !hasEnv, nil
 }
 
 func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Context) error {
