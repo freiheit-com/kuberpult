@@ -337,8 +337,8 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 	return results, nil
 }
 
-func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*ApplicationLock, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
+func (h *DBHandler) DBHasAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (bool, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyActiceAppLock")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, appName, metadata
@@ -352,14 +352,16 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 		ctx,
 		selectQuery,
 	)
-	result, err := h.processAppLockRows(ctx, err, rows)
 	if err != nil {
-		return nil, err
+		return false, fmt.Errorf("error querying for any app lock")
 	}
-	if len(result) == 0 {
-		return nil, nil
-	}
-	return &result[0], nil
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("app locks: row could not be closed: %v", err)
+		}
+	}(rows)
+	return rows.Next(), nil
 }
 
 func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]ApplicationLock, error) {

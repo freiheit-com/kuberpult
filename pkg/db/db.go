@@ -1181,16 +1181,14 @@ func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, writeAllAppL
 }
 
 func (h *DBHandler) needsAppLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allAppLocksDb, err := h.DBSelectAnyActiveAppLock(ctx, transaction)
+	hasAppLock, err := h.DBHasAnyActiveAppLock(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
-	if allAppLocksDb != nil {
-		l.Infof("There are already application locks in the DB - skipping migrations")
-		return false, nil
+	if hasAppLock {
+		logger.FromContext(ctx).Sugar().Infof("There are already application locks in the DB - skipping migrations")
 	}
-	return true, nil
+	return !hasAppLock, nil
 }
 
 func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, writeAllTeamLocksFun WriteAllTeamLocksFun) error {
