@@ -26,7 +26,6 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -85,12 +84,7 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployment for app %s on env %s from DB. Error: %w", appSelector, envSelector, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectLatestDeployment")
 	return processDeployment(rows)
 }
 
@@ -113,12 +107,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAtTimestamp(ctx context.Context, tx 
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployment for app %s on env %s from DB. Error: %w", appSelector, envSelector, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectLatestDeploymentAtTimestamp")
 	return processDeployment(rows)
 }
 
@@ -141,12 +130,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployment of app %s from DB. Error: %w", appName, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectAllLatestDeploymentsForApplication")
 	return processAllLatestDeploymentsForApp(rows)
 }
 
@@ -171,12 +155,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Contex
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployment for env %s from DB. Error: %w", envName, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectAllLatestDeploymentsOnEnvironment")
 	return processAllLatestDeployments(rows)
 }
 
@@ -202,12 +181,7 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployment for app %s on env %s for version %v from DB. Error: %w", appSelector, envSelector, releaseVersion, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectSpecificDeployment")
 	return processDeployment(rows)
 }
 
@@ -234,12 +208,7 @@ func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *s
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployment for app %s on env %s for version %v from DB. Error: %w", appSelector, envSelector, releaseVersion, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectSpecificDeploymentHistory")
 	return processDeployment(rows)
 }
 
@@ -266,12 +235,7 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployment history of app %s in env %s from DB. Error: %w", appSelector, envSelector, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectDeploymentHistory")
 
 	result := make([]Deployment, 0)
 
@@ -281,10 +245,6 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 			return nil, err
 		}
 		result = append(result, *row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }
@@ -334,12 +294,7 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployments by transformer id from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectDeploymentsByTransformerID")
 	deployments := make([]Deployment, 0)
 	for rows.Next() {
 		row, err := h.processSingleDeploymentRow(ctx, rows)
@@ -347,10 +302,6 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 			return nil, err
 		}
 		deployments = append(deployments, *row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return deployments, nil
 }
@@ -373,12 +324,7 @@ func (h *DBHandler) DBHasAnyDeployment(ctx context.Context, tx *sql.Tx) (bool, e
 	if err != nil {
 		return false, fmt.Errorf("could not select any deployments from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBHasAnyDeployment")
 	return rows.Next(), nil
 }
 
@@ -462,13 +408,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "DBSelectDeploymentAttemptHistory")
 	queuedDeployments := make([]QueuedDeployment, 0)
 	for rows.Next() {
 		//exhaustruct:ignore
@@ -895,12 +835,7 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployments table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "deployment")
 	deployments := make(map[types.EnvName]types.ReleaseNumbers)
 	for rows.Next() {
 		var rowVersion types.ReleaseNumbers
@@ -922,15 +857,10 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 }
 
 func (h *DBHandler) processDeploymentAttemptsRows(ctx context.Context, rows *sql.Rows, err error) ([]*QueuedDeployment, error) {
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
 	if err != nil {
 		return nil, fmt.Errorf("error in executing query: %w", err)
 	}
+	defer closeRowsAndLog(rows, ctx, "deployment attempts")
 	result := []*QueuedDeployment{}
 	for rows.Next() {
 		//exhaustruct:ignore
