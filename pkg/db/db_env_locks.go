@@ -59,7 +59,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, metadata
 		FROM environment_locks
-		ORDER BY lockId;`)
+		ORDER BY lockId, envName;`)
 	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
