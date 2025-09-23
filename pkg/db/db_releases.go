@@ -185,7 +185,7 @@ func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, t
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, releaseVersion, environments, revision
 		FROM releases
-		ORDER BY releaseversion DESC, revision DESC;
+		ORDER BY releaseversion DESC, revision DESC, appName DESC;
 	`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
