@@ -1153,15 +1153,14 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, writeAllEnvL
 
 func (h *DBHandler) needsEnvLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
-	allEnvLocksDb, err := h.DBSelectAnyActiveEnvLock(ctx, transaction)
+	hasEnvLock, err := h.DBHasAnyActiveEnvLock(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
-	if allEnvLocksDb != nil {
+	if hasEnvLock {
 		l.Infof("There are already environment locks in the DB - skipping migrations")
-		return false, nil
 	}
-	return true, nil
+	return !hasEnvLock, nil
 }
 
 func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, writeAllAppLocksFun WriteAllAppLocksFun) error {

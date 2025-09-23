@@ -119,8 +119,8 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 	return envLocks, nil
 }
 
-func (h *DBHandler) DBSelectAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (*EnvironmentLock, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyActiveEnvLock")
+func (h *DBHandler) DBHasAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (bool, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyActiveEnvLock")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(`
@@ -134,46 +134,15 @@ func (h *DBHandler) DBSelectAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (*
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
+		return false, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
-	if rows.Next() {
-		var row = EnvironmentLock{
-			Created: time.Time{},
-			LockID:  "",
-			Env:     "",
-			Metadata: LockMetadata{
-				CreatedByName:     "",
-				CreatedByEmail:    "",
-				Message:           "",
-				CiLink:            "",
-				CreatedAt:         time.Time{},
-				SuggestedLifeTime: "",
-			},
-		}
-		var metadata string
-
-		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &metadata)
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("error scanning environment locks row from DB. Error: %w", err)
+			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
 		}
-
-		//exhaustruct:ignore
-		var resultJson = LockMetadata{}
-		err = json.Unmarshal(([]byte)(metadata), &resultJson)
-		if err != nil {
-			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
-		}
-		row.Metadata = resultJson
-		return &row, nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
+	}(rows)
+	return rows.Next(), nil
 }
 
 func (h *DBHandler) DBSelectEnvLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]EnvironmentLock, error) {
