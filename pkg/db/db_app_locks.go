@@ -372,7 +372,7 @@ func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, e
 		SELECT created, lockId, envName, appName, metadata 
 		FROM app_locks
 		WHERE envname = (?)
-		ORDER BY lockId;`)
+		ORDER BY appName, lockId;`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
