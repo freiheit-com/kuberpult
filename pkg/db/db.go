@@ -1215,16 +1215,14 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, writeAllTea
 }
 
 func (h *DBHandler) needsTeamLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allTeamLocksDb, err := h.DBSelectAnyActiveTeamLock(ctx, transaction)
+	hasTeamLock, err := h.DBHasAnyActiveTeamLock(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
-	if allTeamLocksDb != nil {
-		l.Infof("There are already team locks in the DB - skipping migrations")
-		return false, nil
+	if hasTeamLock {
+		logger.FromContext(ctx).Sugar().Infof("There are already team locks in the DB - skipping migrations")
 	}
-	return true, nil
+	return !hasTeamLock, nil
 }
 
 func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, writeAllEvents WriteAllEventsFun) error {

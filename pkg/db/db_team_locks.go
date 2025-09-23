@@ -126,7 +126,7 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 	return teamLocks, nil
 }
 
-func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (*TeamLock, error) {
+func (h *DBHandler) DBHasAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (bool, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyActiveTeamLock")
 	defer span.Finish()
 
@@ -141,47 +141,15 @@ func (h *DBHandler) DBSelectAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not read team lock from DB. Error: %w", err)
+		return false, fmt.Errorf("could not read team lock from DB. Error: %w", err)
 	}
-	if rows.Next() {
-		var row = TeamLock{
-			Created: time.Time{},
-			LockID:  "",
-			Env:     "",
-			Team:    "",
-			Metadata: LockMetadata{
-				CreatedByName:     "",
-				CreatedByEmail:    "",
-				Message:           "",
-				CiLink:            "",
-				CreatedAt:         time.Time{},
-				SuggestedLifeTime: "",
-			},
-		}
-		var metadata string
-
-		err := rows.Scan(&row.Created, &row.LockID, &row.Env, &row.Team, &metadata)
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("error scanning team locks row from DB. Error: %w", err)
+			logger.FromContext(ctx).Sugar().Warnf("release: row could not be closed: %v", err)
 		}
-
-		//exhaustruct:ignore
-		var resultJson = LockMetadata{}
-		err = json.Unmarshal(([]byte)(metadata), &resultJson)
-		if err != nil {
-			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
-		}
-		row.Metadata = resultJson
-		return &row, nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
+	}(rows)
+	return rows.Next(), nil
 }
 
 func (h *DBHandler) DBSelectTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]TeamLock, error) {
