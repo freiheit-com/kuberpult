@@ -186,7 +186,7 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 		SELECT created, lockId, envName, teamName, metadata
 		FROM team_locks
 		WHERE team_locks.teamName = (?)
-		ORDER BY lockId;`)
+		ORDER BY lockId, envName;`)
 	rows, err := tx.QueryContext(ctx, selectQuery, teamName)
 	return h.processTeamLockRows(ctx, err, rows)
 }
