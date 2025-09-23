@@ -1112,15 +1112,14 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 
 func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
-	allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
+	hasDeployment, err := h.DBHasAnyDeployment(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
-	if allAppsDb != nil {
+	if hasDeployment {
 		l.Warnf("There are already deployments in the DB - skipping migrations")
-		return false, nil
 	}
-	return true, nil
+	return !hasDeployment, nil
 }
 
 type EventRow struct {

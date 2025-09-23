@@ -355,8 +355,8 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 	return deployments, nil
 }
 
-func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBDeployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyDeployment")
+func (h *DBHandler) DBHasAnyDeployment(ctx context.Context, tx *sql.Tx) (bool, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyDeployment")
 	defer span.Finish()
 
 	selectQuery := h.AdaptQuery(`
@@ -371,7 +371,7 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 		selectQuery,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not select any deployments from DB. Error: %w", err)
+		return false, fmt.Errorf("could not select any deployments from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -379,29 +379,7 @@ func (h *DBHandler) DBSelectAnyDeployment(ctx context.Context, tx *sql.Tx) (*DBD
 			logger.FromContext(ctx).Sugar().Warnf("deployments row could not be closed: %v", err)
 		}
 	}(rows)
-	//exhaustruct:ignore
-	var row = &DBDeployment{}
-	if rows.Next() {
-		var releaseVersion sql.NullInt64
-		err := rows.Scan(&row.Created, &releaseVersion, &row.App, &row.Env, &row.Revision)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
-		}
-		if releaseVersion.Valid {
-			conv := uint64(releaseVersion.Int64)
-			row.ReleaseVersion = &conv
-		}
-	} else {
-		row = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return row, nil
+	return rows.Next(), nil
 }
 
 func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (map[types.EnvName]types.ReleaseNumbers, error) {
