@@ -22,10 +22,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -230,12 +230,7 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "apps")
 	//exhaustruct:ignore
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
@@ -268,12 +263,7 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "apps")
 	result := make(map[types.AppName]*DBAppWithMetaData)
 	for rows.Next() {
 		//exhaustruct:ignore
@@ -305,12 +295,7 @@ func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err 
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "apps")
 	var result = make([]string, 0)
 	for rows.Next() {
 		//exhaustruct:ignore
