@@ -1042,17 +1042,14 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 }
 
 func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allReleasesDb, err := h.DBSelectAnyRelease(ctx, transaction, true)
+	hasRelease, err := h.DBHasAnyRelease(ctx, transaction, true)
 	if err != nil {
 		return true, err
 	}
-	if allReleasesDb != nil {
-		l.Warnf("There are already deployments in the DB - skipping migrations")
-		return false, nil
+	if hasRelease {
+		logger.FromContext(ctx).Sugar().Warnf("There are already deployments in the DB - skipping migrations")
 	}
-	return true, nil
-
+	return !hasRelease, nil
 }
 
 func (h *DBHandler) RunCustomMigrationReleasesTimestamp(ctx context.Context, getAllAppsFun GetAllAppsFun, fixReleasesTimestampFun FixReleasesTimestampFun) error {
