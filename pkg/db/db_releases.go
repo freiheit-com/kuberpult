@@ -89,7 +89,7 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases
 		WHERE (environments is NULL OR environments = '[]'::jsonb) AND COALESCE(manifests, '') != ''
-		ORDER BY releaseVersion, revision DESC
+		ORDER BY releaseVersion, revision DESC, appName
 		LIMIT 100;
 	`)
 	span.SetTag("query", selectQuery)
