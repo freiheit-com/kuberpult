@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"os/exec"
@@ -79,9 +78,6 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
-	fmt.Printf("SU DEBUG: F: file root: %s\n", dir)
-	logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: G: file root: %s\n", dir)
-
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
 	err = cmd.Start()
 	if err != nil {
@@ -2757,54 +2753,51 @@ spec:
 	}
 
 	for _, tc := range tcs {
-		for i := 0; i < 100; i++ {
-			name := fmt.Sprintf("%s-%d", tc.Name, i)
-			t.Run(name, func(t *testing.T) {
-				//t.Parallel()
-				repo, _ := setupRepositoryTestWithPath(t)
-				ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
-				dbHandler := repo.State().DBHandler
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, _ := setupRepositoryTestWithPath(t)
+			ctx := AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
-				err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
-					for _, tr := range tc.Transformers {
-						prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorName, authorEmail)
-					}
-					for _, t := range tc.Transformers {
-						err := repo.Apply(ctx, transaction, t)
-						if err != nil {
-							return err
-						}
-						// just for testing, we push each transformer change separately.
-						// if you need to debug this test, you can git clone the repo
-						// and we will only see anything if we push.
-						err = repo.PushRepo(ctx)
-						if err != nil {
-							return err
-						}
-					}
+			dbHandler := repo.State().DBHandler
 
-					actualMsg := repo.State().Commit.Message()
-					if diff := cmp.Diff(tc.expectedMessage, actualMsg); diff != "" {
-						t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
-					}
-
-					return nil
-				})
-
-				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range tc.Transformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorName, authorEmail)
 				}
-				updatedState := repo.State()
+				for _, t := range tc.Transformers {
+					err := repo.Apply(ctx, transaction, t)
+					if err != nil {
+						return err
+					}
+					// just for testing, we push each transformer change separately.
+					// if you need to debug this test, you can git clone the repo
+					// and we will only see anything if we push.
+					err = repo.PushRepo(ctx)
+					if err != nil {
+						return err
+					}
+				}
 
-				if err := verifyContent(updatedState.Filesystem, tc.expectedData); err != nil {
-					t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+				actualMsg := repo.State().Commit.Message()
+				if diff := cmp.Diff(tc.expectedMessage, actualMsg); diff != "" {
+					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
 				}
-				if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
-					t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
-				}
+
+				return nil
 			})
-		}
+
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+
+			if err := verifyContent(updatedState.Filesystem, tc.expectedData); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
+				t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
 	}
 }
 

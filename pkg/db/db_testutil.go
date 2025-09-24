@@ -84,15 +84,15 @@ func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPat
 
 	var newDbName = fmt.Sprintf("unittest_%s", simpleHash(rawNewDbName))
 	logger.FromContext(ctx).Sugar().Infof("Test '%s' will use database '%s'", rawNewDbName, newDbName)
-	//deleteDBQuery := fmt.Sprintf("DROP DATABASE IF EXISTS %s;", newDbName)
-	//_, err = dbHandler.DB.ExecContext(
-	//	ctx,
-	//	deleteDBQuery,
-	//)
-	//if err != nil {
-	//	// this could mean that the database is in use
-	//	return nil, fmt.Errorf("failed to cleanup database %s: %w", newDbName, err)
-	//}
+	deleteDBQuery := fmt.Sprintf("DROP DATABASE IF EXISTS %s;", newDbName)
+	_, err = dbHandler.DB.ExecContext(
+		ctx,
+		deleteDBQuery,
+	)
+	if err != nil {
+		// this could mean that the database is in use
+		return nil, fmt.Errorf("failed to cleanup database %s: %w", newDbName, err)
+	}
 	createDBQuery := fmt.Sprintf("CREATE DATABASE %s;", newDbName)
 	_, err = dbHandler.DB.ExecContext(
 		ctx,
