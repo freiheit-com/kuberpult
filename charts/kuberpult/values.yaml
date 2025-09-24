@@ -253,6 +253,7 @@ frontend:
   # When enabled, the /release endpoint to accept a revision (i.e. 1.0, 1.1, 2.0...), instead of only integers (1,2,3...).
   enableRevisions: false
 rollout:
+  # The rollout service is deprecated. Use the manifest-export-service instead.
   enabled: false
   service:
     annotations: {}
@@ -301,6 +302,7 @@ rollout:
     kuberpultEventsMetricsEnabled: false
 # Standalone reposerver service for interacting with argocd
 reposerver:
+  # The reposerver is deprecated. Use the manifest-export-service instead.
   enabled: false
   replicas: 1
   service:
