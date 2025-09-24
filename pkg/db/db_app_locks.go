@@ -71,7 +71,7 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 	if err != nil {
 		return nil, fmt.Errorf("could not query application locks table from DB. Error: %w", err)
 	}
-	defer closeRowsAndLog(rows, ctx, "DBSelectAppLock") 
+	defer closeRowsAndLog(rows, ctx, "DBSelectAppLock")
 
 	if rows.Next() {
 		var row = ApplicationLockHistory{
