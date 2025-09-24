@@ -997,6 +997,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 			defer spanWrite.Finish()
 			for apiVersion, content := range manifests {
 				filesystem := state.Filesystem
+				logger.FromContext(ctx).Sugar().Warnf("SU DEBUG: E: file root: %s\n", filesystem.Root())
 				if err := filesystem.MkdirAll(filesystem.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
 				}

@@ -943,7 +943,7 @@ func TestGetCommitInfo(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
+		//tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 

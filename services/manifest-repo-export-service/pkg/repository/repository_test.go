@@ -197,7 +197,7 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+		//tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _, _ := SetupRepositoryTestWithDB(t)
@@ -927,7 +927,7 @@ spec:
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+		//tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
