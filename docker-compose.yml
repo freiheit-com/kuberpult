@@ -50,7 +50,7 @@ services:
       - KUBERPULT_DB_MAX_OPEN_CONNECTIONS=10
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=5
       - KUBERPULT_ALLOWED_DOMAINS=localhost
-      - KUBERPULT_MIGRATION_SERVER=manifest-repo-export-service:8446
+      - KUBERPULT_MIGRATION_SERVER=manifest-repo-export-service:8443
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=4
       - KUBERPULT_MIGRATION_SERVER_SECURE=false
       - KUBERPULT_VERSION=v0.1.2
@@ -63,7 +63,7 @@ services:
       - DD_ENV=example-local-jul11-b
     ports:
       - "8080:8080"
-      - "8445:8443"
+      - "8443:8443"
     volumes:
       - ./services/cd-service:/kp/kuberpult
     stop_grace_period: 0.5s
@@ -110,7 +110,7 @@ services:
       - ./services/cd-service:/kp/kuberpult
     ports:
       - "8090:8080"
-      - "8446:8443"
+      - "8444:8443"
     stop_grace_period: 0.5s
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz"]
@@ -139,8 +139,6 @@ services:
       - KUBERPULT_MANIFEST_REPO_URL=https://github.com/freiheit-com/fdc-standard-setup-dev-env-manifest/tree/{branch}/{dir}
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_API_ENABLE_DESPITE_NO_AUTH=true
-      - KUBERPULT_AZURE_ENABLE_AUTH=false
-      - KUBERPULT_PGP_KEY_RING_PATH=/kp/kuberpult/pgpRing-local-public.pgp
       - KUBERPULT_BATCH_CLIENT_TIMEOUT=2m
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=8
