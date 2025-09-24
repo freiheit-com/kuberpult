@@ -62,7 +62,7 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, teamName, metadata
 		FROM team_locks
-		ORDER BY lockId, envName, teamName;`)
+		ORDER BY lockId;`)
 	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
