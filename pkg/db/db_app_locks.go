@@ -71,12 +71,7 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 	if err != nil {
 		return nil, fmt.Errorf("could not query application locks table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectAppLock")
 
 	if rows.Next() {
 		var row = ApplicationLockHistory{
@@ -116,10 +111,6 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 		return &row, nil
 	}
 
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
 	return nil, nil // no rows, but also no error
 }
 
@@ -139,19 +130,8 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 		WHERE appName = (?)
 		ORDER BY lockId;`)
 
-	var rows *sql.Rows
-	defer func(rows *sql.Rows) {
-		if rows == nil {
-			return
-		}
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-	//Get the latest change to each lock
-	var err error
-	rows, err = tx.QueryContext(ctx, selectQuery, appName)
+	rows, err := tx.QueryContext(ctx, selectQuery, appName)
+	defer closeRowsAndLog(rows, ctx, "DBSelectAllActiveAppLocksForApp")
 	return h.processAppLockRows(ctx, err, rows)
 }
 
@@ -174,27 +154,20 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, t
 		WHERE app_locks.appName IN (?` + strings.Repeat(",?", len(appNames)-1) + `)
 		ORDER BY lockId;`)
 
-	var rows *sql.Rows
-	defer func(rows *sql.Rows) {
-		if rows == nil {
-			return
-		}
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
 	//Get the latest change to each lock
-	var err error
 	args := []any{}
 	for _, app := range appNames {
 		args = append(args, app)
 	}
-	rows, err = tx.QueryContext(
+	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
 		args...,
 	)
+	if err != nil {
+		return nil, err
+	}
+	defer closeRowsAndLog(rows, ctx, "DBSelectAllActiveAppLocksForSliceApps")
 	return h.processAppLockRows(ctx, err, rows)
 }
 
@@ -305,12 +278,7 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 	if err != nil {
 		return nil, fmt.Errorf("could not query all app locks table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBSelectAllAppLocks")
 	var results []string
 	for rows.Next() {
 		var lockId string
@@ -329,10 +297,6 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 		if err != nil {
 			return nil, err
 		}
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return results, nil
 }
@@ -355,12 +319,7 @@ func (h *DBHandler) DBHasAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (bool
 	if err != nil {
 		return false, fmt.Errorf("error querying for any app lock")
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("app locks: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBHasAnyActiceAppLock")
 	return rows.Next(), nil
 }
 
@@ -414,6 +373,7 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 	if err != nil {
 		return nil, fmt.Errorf("could not read application lock from DB. Error: %w", err)
 	}
+	defer closeRowsAndLog(rows, ctx, "DBSelectAppLockHistory")
 	appLocks := make([]ApplicationLockHistory, 0)
 	for rows.Next() {
 		var row = ApplicationLockHistory{
@@ -462,10 +422,6 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 
 		row.DeletionMetadata = deletionMetadataResultJson
 		appLocks = append(appLocks, row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return appLocks, nil
 }
@@ -633,14 +589,7 @@ func (h *DBHandler) processAppLockRows(ctx context.Context, err error, rows *sql
 	if err != nil {
 		return nil, fmt.Errorf("could not query application locks table from DB. Error: %w", err)
 	}
-
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "app locks")
 	for rows.Next() {
 		var row = ApplicationLock{
 			Created: time.Time{},

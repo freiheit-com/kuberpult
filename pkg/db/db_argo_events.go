@@ -21,10 +21,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"time"
 )
 
 type ArgoEvent struct {
@@ -81,12 +81,7 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName str
 	if err != nil {
 		return nil, onErr(fmt.Errorf("error reading argo cd events . Error: %w", err))
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(row)
+	defer closeRowsAndLog(row, ctx, "DBReadArgoEvent")
 
 	var toReturn *ArgoEvent
 	if row.Next() {
@@ -106,11 +101,6 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName str
 		toReturn = &event
 	} else {
 		toReturn = nil
-	}
-
-	err = closeRows(row)
-	if err != nil {
-		return nil, onErr(err)
 	}
 	return toReturn, nil
 }

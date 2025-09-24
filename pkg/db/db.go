@@ -256,6 +256,13 @@ func closeRows(rows *sql.Rows) error {
 	return nil
 }
 
+func closeRowsAndLog(rows *sql.Rows, ctx context.Context, prefix string) {
+	err := rows.Close()
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("%s: rows could not be closed: %v", prefix, err)
+	}
+}
+
 type EventType string
 
 const (
@@ -412,12 +419,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	if err != nil {
 		return nil, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err))
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBReadEslEventInternal")
 	var row = &EslEventRow{
 		EslVersion: 0,
 		Created:    time.Unix(0, 0),
@@ -454,12 +456,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 	if err != nil {
 		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error for event_sourcing_light: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBReadEslEventLaterThan")
 	var row = &EslEventRow{
 		EslVersion: 0,
 		Created:    time.Unix(0, 0),
@@ -476,10 +473,6 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 			}
 			return nil, fmt.Errorf("event_sourcing_light: Error scanning row from DB. Error: %w", err)
 		}
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return row, nil
 }
@@ -518,12 +511,7 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 	if err != nil {
 		return 0, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err))
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBCountEslEventsNewer")
 	if !rows.Next() {
 		return 0, onErr(fmt.Errorf("could not get count from event_sourcing_light table from DB. Error: no row returned"))
 	}
@@ -706,13 +694,7 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 	if err != nil {
 		return nil, fmt.Errorf("error querying commit_events. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "commit_events")
 	var result []event.DBEventGo
 	for rows.Next() {
 		//exhaustruct:ignore
@@ -746,13 +728,7 @@ func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, 
 	if err != nil {
 		return nil, fmt.Errorf("error querying commit_events. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "commit_events")
 	//exhaustruct:ignore
 	var row = &EventRow{}
 	if rows.Next() {
@@ -838,13 +814,7 @@ func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([
 	if err != nil {
 		return nil, fmt.Errorf("error querying commit_events. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("commit_events row could not be closed: %v", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "commit_events")
 	var result []EventRow
 
 	for rows.Next() {
@@ -854,10 +824,6 @@ func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([
 		}
 
 		result = append(result, *row)
-	}
-	err = rows.Close()
-	if err != nil {
-		return nil, fmt.Errorf("commit_events: row closing error: %v", err)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -1578,7 +1544,7 @@ func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslE
 }
 
 func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, pageSize, pageNumber int) ([]*EslFailedEventRow, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadlastFailedEslEvents")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadLastFailedEslEvents")
 	defer span.Finish()
 	if h == nil {
 		return nil, nil
@@ -1594,13 +1560,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 		return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 	}
 
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "DBReadLastFailedEslEvents")
 	failedEsls := make([]*EslFailedEventRow, 0)
 
 	for rows.Next() {
@@ -1618,11 +1578,6 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 		}
 		failedEsls = append(failedEsls, row)
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, fmt.Errorf("could not close rows. Error: %w", err)
-	}
-
 	return failedEsls, nil
 }
 
@@ -1645,12 +1600,7 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 		return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 	}
 
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBReadEslFailedEventFromTransformerId")
 
 	var row *EslFailedEventRow
 
@@ -1668,11 +1618,6 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 		}
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, fmt.Errorf("could not close rows. Error: %w", err)
-	}
-
 	return row, nil
 }
 
@@ -1693,13 +1638,7 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 		return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w", err))
 	}
 
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "DBReadLastEslEvents")
 	failedEsls := make([]*EslEventRow, 0)
 
 	for rows.Next() {
@@ -1715,11 +1654,6 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 		}
 		failedEsls = append(failedEsls, row)
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, onErr(fmt.Errorf("could not close rows. Error: %w", err))
-	}
-
 	return failedEsls, nil
 }
 
@@ -1779,12 +1713,7 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 	if err != nil {
 		return nil, fmt.Errorf("DBReadTransactionTimestamp error executing query: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBReadTransactionTimestamp")
 	var now time.Time
 
 	if rows.Next() {
@@ -1794,10 +1723,6 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 		}
 
 		now = now.UTC()
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, fmt.Errorf("could not close rows. Error: %w", err)
 	}
 	return &now, nil
 }
@@ -1858,7 +1783,7 @@ func (h *DBHandler) DBUpdateCommitTransactionTimestamp(ctx context.Context, tx *
 }
 
 func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string) (*time.Time, error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
+	span, _ := tracer.StartSpanFromContext(ctx, "DBReadCommitHashTransaction")
 	defer span.Finish()
 
 	if h == nil {
@@ -1883,12 +1808,7 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 	if err != nil {
 		return nil, fmt.Errorf("DBReadCommitHashTransactionTimestamp error executing query: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "DBReadCommitHashTransaction")
 
 	var timestamp *time.Time
 
@@ -1903,10 +1823,6 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 		*timestamp = timestamp.UTC()
 	} else {
 		timestamp = nil
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, fmt.Errorf("could not close rows. Error: %w", err)
 	}
 	return timestamp, nil
 }
