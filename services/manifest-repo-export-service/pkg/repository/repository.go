@@ -29,10 +29,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db_history"
@@ -892,11 +894,12 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	}
 
 	errors, ctx := errgroup.WithContext(ctx)
+	fsMutex := sync.Mutex{}
 	for env, config := range configs {
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
 			errors.Go(func() error {
 				return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
-					return r.updateArgoCdApps(ctx, tx, &state, env, config, ts)
+					return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, &fsMutex)
 				})
 			})
 		}
@@ -908,7 +911,7 @@ func isAAEnv(config config.EnvironmentConfig) bool {
 	return config.ArgoCdConfigs != nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time, fsMutex *sync.Mutex) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer span.Finish()
 	if !r.config.ArgoCdGenerateFiles {
@@ -916,7 +919,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	}
 	if isAAEnv(cfg) {
 		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
-			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts)
+			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts, fsMutex)
 			if err != nil {
 				return err
 			}
@@ -934,7 +937,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			conf = cfg.ArgoCd
 		}
 
-		err := r.processApp(ctx, transaction, state, env, nil, conf, false, ts)
+		err := r.processApp(ctx, transaction, state, env, nil, conf, false, ts, fsMutex)
 
 		if err != nil {
 			return err
@@ -943,7 +946,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool, ts time.Time) error {
+func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool, ts time.Time, fsMutex *sync.Mutex) error {
 	prefix := ""
 	if commonEnvPrefix != nil {
 		prefix = *commonEnvPrefix
@@ -954,57 +957,68 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 		ParentEnvironmentName: env,
 		IsAAEnv:               isAAEnv,
 	}
-	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo, ts)
+	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo, ts, fsMutex)
 	return err
 }
 
-func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time) error {
-	if _, appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp); err != nil {
+func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time, fsMutex *sync.Mutex) error {
+	_, appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp)
+	if err != nil {
 		return err
-	} else {
-		spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
-		defer spanCollectData.Finish()
-		appData := []argocd.AppData{}
-		deploymentsPerApp, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, state.DBHandler, transaction, info.ParentEnvironmentName, timestamp)
-		if err != nil {
-			return err
+	}
+	spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
+	defer spanCollectData.Finish()
+	appData := []argocd.AppData{}
+	deploymentsPerApp, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, state.DBHandler, transaction, info.ParentEnvironmentName, timestamp)
+	if err != nil {
+		return err
+	}
+	for _, appWithTeam := range appTeams {
+		appName := appWithTeam.AppName
+		teamName := appWithTeam.TeamName
+		deployment, ok := deploymentsPerApp[appName]
+		if !ok {
+			// nothing was deployed here at that time, skip:
+			continue
 		}
-		for _, appWithTeam := range appTeams {
-			appName := appWithTeam.AppName
-			teamName := appWithTeam.TeamName
-			deployment, ok := deploymentsPerApp[appName]
-			if !ok {
-				// nothing was deployed here at that time, skip:
-				continue
-			}
-			if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
-				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
-				continue
-			}
-			appData = append(appData, argocd.AppData{
-				AppName:  string(appName),
-				TeamName: teamName,
-			})
+		if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
+			// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
+			continue
 		}
-		spanCollectData.Finish()
+		appData = append(appData, argocd.AppData{
+			AppName:  string(appName),
+			TeamName: teamName,
+		})
+	}
+	spanCollectData.Finish()
 
-		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-		defer spanRenderAndWrite.Finish()
-		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, info, appData); err != nil {
-			return err
-		} else {
-			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
-			defer spanWrite.Finish()
-			for apiVersion, content := range manifests {
-				filesystem := state.Filesystem
-				if err := filesystem.MkdirAll(filesystem.Join("argocd", string(apiVersion)), 0777); err != nil {
-					return err
-				}
-				target := getArgoCdAAEnvFileName(filesystem, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
-				if err := util.WriteFile(filesystem, target, content, 0666); err != nil {
-					return err
-				}
-			}
+	spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+	defer spanRenderAndWrite.Finish()
+	manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, info, appData)
+	if err != nil {
+		return err
+	}
+	return writeArgoCdManifestsSynced(ctx, state.Filesystem, info, manifests, fsMutex)
+}
+
+func writeArgoCdManifestsSynced(ctx context.Context, fs billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte, fsMutex *sync.Mutex) error {
+	span, _, _ := tracing.StartSpanFromContext(ctx, "writeArgoCdManifestsSynced") // We have a separate span here to see how long we wait for the mutex
+	defer span.Finish()
+	fsMutex.Lock()
+	defer fsMutex.Unlock()
+	return writeArgoCdManifests(ctx, fs, info, manifests)
+}
+
+func writeArgoCdManifests(ctx context.Context, fs billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte) error {
+	span, _, onErr := tracing.StartSpanFromContext(ctx, "writeArgoCdManifests")
+	defer span.Finish()
+	for apiVersion, content := range manifests {
+		if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+			return onErr(err)
+		}
+		target := getArgoCdAAEnvFileName(fs, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
+		if err := util.WriteFile(fs, target, content, 0666); err != nil {
+			return onErr(err)
 		}
 	}
 	return nil
