@@ -1042,17 +1042,14 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 }
 
 func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allReleasesDb, err := h.DBSelectAnyRelease(ctx, transaction, true)
+	hasRelease, err := h.DBHasAnyRelease(ctx, transaction, true)
 	if err != nil {
 		return true, err
 	}
-	if allReleasesDb != nil {
-		l.Warnf("There are already deployments in the DB - skipping migrations")
-		return false, nil
+	if hasRelease {
+		logger.FromContext(ctx).Sugar().Warnf("There are already deployments in the DB - skipping migrations")
 	}
-	return true, nil
-
+	return !hasRelease, nil
 }
 
 func (h *DBHandler) RunCustomMigrationReleasesTimestamp(ctx context.Context, getAllAppsFun GetAllAppsFun, fixReleasesTimestampFun FixReleasesTimestampFun) error {
@@ -1112,15 +1109,14 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 
 func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
-	allAppsDb, err := h.DBSelectAnyDeployment(ctx, transaction)
+	hasDeployment, err := h.DBHasAnyDeployment(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
-	if allAppsDb != nil {
+	if hasDeployment {
 		l.Warnf("There are already deployments in the DB - skipping migrations")
-		return false, nil
 	}
-	return true, nil
+	return !hasDeployment, nil
 }
 
 type EventRow struct {
@@ -1154,15 +1150,14 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, writeAllEnvL
 
 func (h *DBHandler) needsEnvLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	l := logger.FromContext(ctx).Sugar()
-	allEnvLocksDb, err := h.DBSelectAnyActiveEnvLock(ctx, transaction)
+	hasEnvLock, err := h.DBHasAnyActiveEnvLock(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
-	if allEnvLocksDb != nil {
+	if hasEnvLock {
 		l.Infof("There are already environment locks in the DB - skipping migrations")
-		return false, nil
 	}
-	return true, nil
+	return !hasEnvLock, nil
 }
 
 func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, writeAllAppLocksFun WriteAllAppLocksFun) error {
@@ -1186,16 +1181,14 @@ func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, writeAllAppL
 }
 
 func (h *DBHandler) needsAppLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allAppLocksDb, err := h.DBSelectAnyActiveAppLock(ctx, transaction)
+	hasAppLock, err := h.DBHasAnyActiveAppLock(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
-	if allAppLocksDb != nil {
-		l.Infof("There are already application locks in the DB - skipping migrations")
-		return false, nil
+	if hasAppLock {
+		logger.FromContext(ctx).Sugar().Infof("There are already application locks in the DB - skipping migrations")
 	}
-	return true, nil
+	return !hasAppLock, nil
 }
 
 func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, writeAllTeamLocksFun WriteAllTeamLocksFun) error {
@@ -1220,16 +1213,14 @@ func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, writeAllTea
 }
 
 func (h *DBHandler) needsTeamLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-	allTeamLocksDb, err := h.DBSelectAnyActiveTeamLock(ctx, transaction)
+	hasTeamLock, err := h.DBHasAnyActiveTeamLock(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
-	if allTeamLocksDb != nil {
-		l.Infof("There are already team locks in the DB - skipping migrations")
-		return false, nil
+	if hasTeamLock {
+		logger.FromContext(ctx).Sugar().Infof("There are already team locks in the DB - skipping migrations")
 	}
-	return true, nil
+	return !hasTeamLock, nil
 }
 
 func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, writeAllEvents WriteAllEventsFun) error {
@@ -1432,16 +1423,15 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	log := logger.FromContext(ctx).Sugar()
 
-	arbitraryAllEnvsRow, err := h.DBSelectAnyEnvironment(ctx, transaction)
+	hasEnv, err := h.DBHasAnyEnvironment(ctx, transaction)
 
 	if err != nil {
 		return true, err
 	}
-	if arbitraryAllEnvsRow != nil {
-		log.Infof("custom migration for environments already ran because row (%v) was found, skipping custom migration", arbitraryAllEnvsRow)
-		return false, nil
+	if hasEnv {
+		log.Infof("custom migration for environments already ran because row was found, skipping custom migration")
 	}
-	return true, nil
+	return !hasEnv, nil
 }
 
 func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Context) error {

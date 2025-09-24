@@ -60,8 +60,8 @@ type DBReleaseWithMetaData struct {
 
 // SELECTS
 
-func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyRelease")
+func (h *DBHandler) DBHasAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepublishes bool) (bool, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyRelease")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, releaseVersion, environments, revision
@@ -70,7 +70,16 @@ func (h *DBHandler) DBSelectAnyRelease(ctx context.Context, tx *sql.Tx, ignorePr
 	`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(ctx, selectQuery)
-	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, false)
+	if err != nil {
+		return false, fmt.Errorf("could not query releases, error: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("release: row could not be closed: %v", err)
+		}
+	}(rows)
+	return rows.Next(), nil
 }
 
 func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx *sql.Tx) ([]*DBReleaseWithMetaData, error) {
@@ -80,6 +89,7 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases
 		WHERE (environments is NULL OR environments = '[]'::jsonb) AND COALESCE(manifests, '') != ''
+		ORDER BY releaseVersion, revision DESC, appName
 		LIMIT 100;
 	`)
 	span.SetTag("query", selectQuery)
@@ -97,6 +107,7 @@ func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, releaseVersion, environments, revision FROM releases
 		WHERE appname=? AND releaseversion IN (?` + repeatedQuestionMarks + `)
+		ORDER BY releaseVersion, revision DESC
 		LIMIT ?
 	`)
 	span.SetTag("query", selectQuery)
@@ -173,7 +184,8 @@ func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, t
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, releaseVersion, environments, revision
-		FROM releases;
+		FROM releases
+		ORDER BY releaseversion DESC, revision DESC, appName DESC;
 	`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
@@ -191,7 +203,7 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases
 		WHERE appname=?
-		ORDER BY releaseversion DESC;
+		ORDER BY releaseversion DESC, revision DESC;
 	`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
@@ -210,7 +222,7 @@ func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, 
 		SELECT created, appName, metadata, releaseVersion, environments, revision
 		FROM releases
 		WHERE appName=?
-		ORDER BY releaseVersion DESC
+		ORDER BY releaseVersion DESC, revision DESC
 		LIMIT 1;
 	`)
 	span.SetTag("query", selectQuery)
@@ -231,7 +243,7 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 			SELECT releaseVersion, revision
 			FROM releases
 			WHERE appName=?
-			ORDER BY releaseVersion , revision DESC;
+			ORDER BY releaseVersion, revision DESC, appName DESC;
 		`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(

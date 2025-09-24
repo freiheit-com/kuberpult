@@ -22,11 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -48,8 +49,8 @@ type DBEnvironmentRow struct {
 }
 
 // SELECTS
-func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DBEnvironment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyEnvironment")
+func (h *DBHandler) DBHasAnyEnvironment(ctx context.Context, tx *sql.Tx) (bool, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyEnvironment")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, name, json, applications
@@ -62,11 +63,16 @@ func (h *DBHandler) DBSelectAnyEnvironment(ctx context.Context, tx *sql.Tx) (*DB
 		ctx,
 		selectQuery,
 	)
-
 	if err != nil {
-		return nil, fmt.Errorf("could not query the environments table for any environment, error: %w", err)
+		return false, fmt.Errorf("could not query the environments table for any environment, error: %w", err)
 	}
-	return h.processEnvironmentRow(ctx, rows)
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
+		}
+	}(rows)
+	return rows.Next(), nil
 }
 
 func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName) (*DBEnvironment, error) {

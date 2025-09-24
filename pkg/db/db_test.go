@@ -812,12 +812,12 @@ func TestReadWriteDeployment(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				deployment, err2 := dbHandler.DBSelectAnyDeployment(ctx, transaction)
+				hasDeployment, err2 := dbHandler.DBHasAnyDeployment(ctx, transaction)
 				if err2 != nil {
 					return err2
 				}
-				if deployment != nil {
-					return fmt.Errorf("expected no eslVersion, but got %v", *deployment)
+				if hasDeployment {
+					return fmt.Errorf("expected no eslVersion, but found one")
 				}
 
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)

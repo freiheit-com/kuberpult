@@ -22,11 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"strings"
-	"time"
 )
 
 type ApplicationLock struct {
@@ -135,7 +136,8 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, appname, metadata
 		FROM app_locks
-		WHERE appName = (?);`)
+		WHERE appName = (?)
+		ORDER BY lockId;`)
 
 	var rows *sql.Rows
 	defer func(rows *sql.Rows) {
@@ -169,7 +171,8 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, t
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, appname, metadata
 		FROM app_locks
-		WHERE app_locks.appName IN (?` + strings.Repeat(",?", len(appNames)-1) + `);`)
+		WHERE app_locks.appName IN (?` + strings.Repeat(",?", len(appNames)-1) + `)
+		ORDER BY lockId;`)
 
 	var rows *sql.Rows
 	defer func(rows *sql.Rows) {
@@ -334,13 +337,14 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 	return results, nil
 }
 
-func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*ApplicationLock, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
+func (h *DBHandler) DBHasAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (bool, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyActiceAppLock")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockID, envName, appName, metadata
+		SELECT created, lockId, envName, appName, metadata
 		FROM app_locks
-		LIMIT 1;
+		LIMIT 1
+		ORDER BY lockId;
 	`)
 
 	span.SetTag("query", selectQuery)
@@ -348,14 +352,16 @@ func (h *DBHandler) DBSelectAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (*
 		ctx,
 		selectQuery,
 	)
-	result, err := h.processAppLockRows(ctx, err, rows)
 	if err != nil {
-		return nil, err
+		return false, fmt.Errorf("error querying for any app lock")
 	}
-	if len(result) == 0 {
-		return nil, nil
-	}
-	return &result[0], nil
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("app locks: row could not be closed: %v", err)
+		}
+	}(rows)
+	return rows.Next(), nil
 }
 
 func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]ApplicationLock, error) {
@@ -365,7 +371,8 @@ func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, e
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, appName, metadata 
 		FROM app_locks
-		WHERE envname = (?)`)
+		WHERE envname = (?)
+		ORDER BY appName, lockId;`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
