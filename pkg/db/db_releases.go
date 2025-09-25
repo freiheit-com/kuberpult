@@ -73,12 +73,7 @@ func (h *DBHandler) DBHasAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepu
 	if err != nil {
 		return false, fmt.Errorf("could not query releases, error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("release: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "releases")
 	return rows.Next(), nil
 }
 
@@ -579,12 +574,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "releases")
 	//exhaustruct:ignore
 	var result []*DBReleaseWithMetaData
 
@@ -659,12 +649,7 @@ func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "releases")
 	//exhaustruct:ignore
 	var result = make(map[string]map[string][]types.EnvName)
 	for rows.Next() {
@@ -702,12 +687,7 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "releases")
 	result := []types.ReleaseNumbers{}
 	for rows.Next() {
 		curr := types.MakeEmptyReleaseNumbers()
@@ -731,12 +711,7 @@ func (h *DBHandler) processAppReleaseNumbersRows(ctx context.Context, err error,
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "releases")
 	var result []types.ReleaseNumbers
 	for rows.Next() {
 		//exhaustruct:ignore
@@ -761,12 +736,7 @@ func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err e
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "releases")
 
 	var result = make(map[string][]types.ReleaseNumbers)
 	for rows.Next() {
@@ -825,12 +795,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(releasesRows)
+	defer closeRowsAndLog(releasesRows, ctx, "releases")
 
 	for releasesRows.Next() {
 		var releaseVersion uint64
@@ -914,12 +879,7 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 	if err != nil {
 		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(metadataRows)
+	defer closeRowsAndLog(metadataRows, ctx, "releases")
 	for metadataRows.Next() {
 		var appName string
 		var metadataStr string

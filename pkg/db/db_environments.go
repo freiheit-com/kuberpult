@@ -66,12 +66,7 @@ func (h *DBHandler) DBHasAnyEnvironment(ctx context.Context, tx *sql.Tx) (bool, 
 	if err != nil {
 		return false, fmt.Errorf("could not query the environments table for any environment, error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "environments");
 	return rows.Next(), nil
 }
 
@@ -133,13 +128,7 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 }
 
 func processEnvironmentRows(ctx context.Context, rows *sql.Rows) (*[]DBEnvironment, error) {
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "environments");
 	envs := []DBEnvironment{}
 	for rows.Next() {
 		//exhaustruct:ignore
@@ -225,13 +214,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 		return nil, onErr(fmt.Errorf("error while executing query to get all environments, error: %w", err))
 	}
 
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row on environments table, error: %w", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "environments");
 	result := []types.EnvName{}
 	for rows.Next() {
 		//exhaustruct:ignore
@@ -244,10 +227,6 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 			return nil, onErr(fmt.Errorf("error while scanning environments row, error: %w", err))
 		}
 		result = append(result, row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, onErr(fmt.Errorf("error while closing rows, error: %w", err))
 	}
 	return result, nil
 }
@@ -274,12 +253,7 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 		return nil, fmt.Errorf("error while executing query to get all environments, error: %w", err)
 	}
 
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row on releases table, error: %w", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "releases");
 
 	result := []string{}
 	for rows.Next() {
@@ -367,12 +341,7 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not query the releases_history table %s, error: %w", envName, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row on releases_history table, error: %w", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "releases history");
 
 	var appNames = []string{}
 	var appNamesWithTeam = []AppWithTeam{}
@@ -698,13 +667,7 @@ func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx,
 // process rows
 func (h *DBHandler) processEnvironmentRow(ctx context.Context, rows *sql.Rows) (*DBEnvironment, error) {
 
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "environments");
 	if rows.Next() {
 		//exhaustruct:ignore
 		row := DBEnvironmentRow{}
