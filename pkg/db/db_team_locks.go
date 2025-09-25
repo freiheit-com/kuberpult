@@ -143,12 +143,7 @@ func (h *DBHandler) DBHasAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (boo
 	if err != nil {
 		return false, fmt.Errorf("could not read team lock from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("release: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "team locks")
 	return rows.Next(), nil
 }
 
@@ -272,12 +267,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 	if err != nil {
 		return nil, fmt.Errorf("could not read team lock from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("team locks: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "team locks")
 	teamLocks := make([]TeamLockHistory, 0)
 	for rows.Next() {
 		var row = TeamLockHistory{
@@ -524,12 +514,7 @@ func (h *DBHandler) processTeamLockRows(ctx context.Context, err error, rows *sq
 	if err != nil {
 		return nil, fmt.Errorf("could not read team lock from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "team locks")
 	teamLocks := make([]TeamLock, 0)
 	for rows.Next() {
 		var row = TeamLock{
@@ -580,12 +565,7 @@ func (h *DBHandler) processAllTeamLocksRows(ctx context.Context, err error, rows
 	if err != nil {
 		return nil, fmt.Errorf("could not query all_team_locks table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "team locks")
 	//exhaustruct:ignore
 	var result = make([]string, 0)
 	for rows.Next() {
