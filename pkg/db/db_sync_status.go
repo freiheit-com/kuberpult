@@ -120,7 +120,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	if err != nil {
 		return nil, onErr(fmt.Errorf("could not get current eslVersion. Error: %w", err))
 	}
-	defer closeRowsAndLog(rows, ctx. "sync status")
+	defer closeRowsAndLog(rows, ctx, "sync status")
 	allCombinations := make([]EnvApp, 0)
 	var currApp string
 	var currEnv types.EnvName
@@ -159,7 +159,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 	if err != nil {
 		return nil, onErr(fmt.Errorf("could not get current eslVersion. Error: %w", err))
 	}
-	defer closeRowsAndLog(rows, ctx. "sync status")
+	defer closeRowsAndLog(rows, ctx, "sync status")
 	allCombinations := make([]EnvApp, 0)
 	var currApp string
 	var currEnv types.EnvName
@@ -369,8 +369,7 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 		return -1, fmt.Errorf("could not get count of git sync status. Error: %w", err)
 	}
 
-	}(rows)
-	defer closeRowsAndLog(rows, ctx. "sync status")
+	defer closeRowsAndLog(rows, ctx, "sync status")
 
 	var count int
 	if rows.Next() {

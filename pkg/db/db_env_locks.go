@@ -534,7 +534,6 @@ func (h *DBHandler) processAllEnvLocksRows(ctx context.Context, err error, rows 
 		return nil, fmt.Errorf("could not query all environment locks table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "env locks")
-	envLocks := make([]EnvironmentLock, 0)
 	//exhaustruct:ignore
 	var result = make([]string, 0)
 	for rows.Next() {
