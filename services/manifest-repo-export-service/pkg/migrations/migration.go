@@ -21,9 +21,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 )
@@ -49,7 +49,13 @@ LIMIT 1;`)
 	if err != nil {
 		return nil, onErr(fmt.Errorf("could not query cutoff table from DB. Error: %w", err))
 	}
-	defer closeRowsAndLog(rows, ctx, "migration cutoff")
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("migration_cutoff: row closing error: %v", err)
+		}
+	}(rows)
+
 	if !rows.Next() {
 		return nil, nil
 	}
