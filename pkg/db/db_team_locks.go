@@ -72,6 +72,7 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 	if err != nil {
 		return nil, fmt.Errorf("could not read team lock from DB. Error: %w", err)
 	}
+	defer closeRowsAndLog(rows, ctx, "team locks")
 	teamLocks := make(map[types.EnvName]map[string][]TeamLock)
 	for rows.Next() {
 		var row = TeamLock{
@@ -118,11 +119,6 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 			Metadata: resultJson,
 		})
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-
 	return teamLocks, nil
 }
 

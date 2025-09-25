@@ -191,7 +191,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
 		}
-	}(rows)
+	}(rows) // FIXME: rows is always nil here
 	//Get the latest change to each lock
 	for _, id := range lockIDs {
 		var err error
