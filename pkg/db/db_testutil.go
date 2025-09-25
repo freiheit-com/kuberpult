@@ -125,12 +125,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	if err != nil {
 		return nil, fmt.Errorf("could not query deployment attempts table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "deployment attempts")
 	if !rows.Next() {
 		return nil, nil
 	}

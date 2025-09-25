@@ -120,12 +120,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	if err != nil {
 		return nil, onErr(fmt.Errorf("could not get current eslVersion. Error: %w", err))
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "sync status")
 	allCombinations := make([]EnvApp, 0)
 	var currApp string
 	var currEnv types.EnvName
@@ -141,10 +136,6 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 			AppName: currApp,
 			EnvName: currEnv,
 		})
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, onErr(err)
 	}
 	return allCombinations, nil
 }
@@ -168,12 +159,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 	if err != nil {
 		return nil, onErr(fmt.Errorf("could not get current eslVersion. Error: %w", err))
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "sync status")
 	allCombinations := make([]EnvApp, 0)
 	var currApp string
 	var currEnv types.EnvName
@@ -189,10 +175,6 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 			AppName: currApp,
 			EnvName: currEnv,
 		})
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, onErr(err)
 	}
 	return allCombinations, nil
 }
@@ -295,12 +277,7 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 		return nil, fmt.Errorf("could not get git sync status for apps. Error: %w", err)
 	}
 
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "sync status")
 
 	var syncData []GitSyncData
 	for rows.Next() {
@@ -314,10 +291,6 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 			return nil, fmt.Errorf("error table scanning git_sync_status. Error: %w", err)
 		}
 		syncData = append(syncData, curr)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return syncData, nil
 }
@@ -396,12 +369,7 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 		return -1, fmt.Errorf("could not get count of git sync status. Error: %w", err)
 	}
 
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "sync status")
 
 	var count int
 	if rows.Next() {
@@ -412,10 +380,6 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 			}
 			return -1, fmt.Errorf("error scanning git sync status. Could not retrive number of apps with status %q. Error: %w", status, err)
 		}
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return -1, err
 	}
 	return count, nil
 }

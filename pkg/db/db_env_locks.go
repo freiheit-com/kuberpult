@@ -69,6 +69,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 	if err != nil {
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
+	defer closeRowsAndLog(rows, ctx, "env locks")
 	envLocks := make(map[types.EnvName][]EnvironmentLock)
 	for rows.Next() {
 		var row = EnvironmentLock{
@@ -111,11 +112,6 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 			Metadata: resultJson,
 		})
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-
 	return envLocks, nil
 }
 
@@ -136,12 +132,7 @@ func (h *DBHandler) DBHasAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (bool
 	if err != nil {
 		return false, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "env locks")
 	return rows.Next(), nil
 }
 
@@ -263,12 +254,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 	if err != nil {
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "env locks")
 	envLocks := make([]EnvLockHistory, 0)
 	for rows.Next() {
 		var row = EnvLockHistory{
@@ -314,10 +300,6 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 		row.Metadata = resultJson
 		row.DeletionMetadata = deletionLockMetadataJson
 		envLocks = append(envLocks, row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return envLocks, nil
 }
@@ -506,12 +488,7 @@ func (h *DBHandler) processEnvLockRows(ctx context.Context, err error, rows *sql
 	if err != nil {
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "env locks")
 	envLocks := make([]EnvironmentLock, 0)
 	for rows.Next() {
 		var row = EnvironmentLock{
@@ -546,11 +523,6 @@ func (h *DBHandler) processEnvLockRows(ctx context.Context, err error, rows *sql
 		row.Metadata = resultJson
 		envLocks = append(envLocks, row)
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-
 	return envLocks, nil
 }
 
@@ -561,12 +533,7 @@ func (h *DBHandler) processAllEnvLocksRows(ctx context.Context, err error, rows 
 	if err != nil {
 		return nil, fmt.Errorf("could not query all environment locks table from DB. Error: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "env locks")
 	//exhaustruct:ignore
 	var result = make([]string, 0)
 	for rows.Next() {
@@ -580,10 +547,6 @@ func (h *DBHandler) processAllEnvLocksRows(ctx context.Context, err error, rows 
 		}
 
 		result = append(result, lockId)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }

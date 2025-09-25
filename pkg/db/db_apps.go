@@ -251,10 +251,6 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	} else {
 		row = nil
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
 	return row, nil
 }
 
@@ -284,10 +280,6 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 		row.Metadata = metaData
 		result[types.AppName(row.App)] = row
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
 	return result, nil
 }
 
@@ -308,10 +300,6 @@ func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err 
 			return nil, fmt.Errorf("error scanning apps row from DB. Error: %w", err)
 		}
 		result = append(result, appname)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }

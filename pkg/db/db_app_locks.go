@@ -104,10 +104,6 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 		if err != nil {
 			return nil, fmt.Errorf("error during json unmarshal. Error: %w. Data: %s", err, row.Metadata)
 		}
-		err = closeRows(rows)
-		if err != nil {
-			return nil, err
-		}
 		return &row, nil
 	}
 
@@ -195,7 +191,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
 		}
-	}(rows)
+	}(rows) // FIXME: rows is always nil here
 	//Get the latest change to each lock
 	for _, id := range lockIDs {
 		var err error
@@ -293,10 +289,6 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 			results = make([]string, 0)
 		}
 		results = append(results, lockId)
-		err = closeRows(rows)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return results, nil
 }
@@ -620,11 +612,6 @@ func (h *DBHandler) processAppLockRows(ctx context.Context, err error, rows *sql
 		}
 
 		appLocks = append(appLocks, row)
-	}
-
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return appLocks, nil
 }

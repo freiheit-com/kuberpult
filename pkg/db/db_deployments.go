@@ -849,10 +849,6 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 		}
 		deployments[rowEnv] = rowVersion
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
 	return deployments, nil
 }
 
