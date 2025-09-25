@@ -638,10 +638,6 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		}
 		result = append(result, row)
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
 	return result, nil
 }
 
@@ -676,10 +672,6 @@ func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error
 		}
 		result[appName][fmt.Sprintf("%d.%d", releaseVersion, revision)] = environments
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
 	return result, nil
 }
 
@@ -699,10 +691,6 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 			return nil, fmt.Errorf("error scanning releases row from DB. Error: %w", err)
 		}
 		result = append(result, curr)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }
@@ -724,10 +712,6 @@ func (h *DBHandler) processAppReleaseNumbersRows(ctx context.Context, err error,
 			return nil, fmt.Errorf("error scanning releases row from DB. Error: %w", err)
 		}
 		result = append(result, row)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }
@@ -755,11 +739,6 @@ func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err e
 			result[appName] = []types.ReleaseNumbers{}
 		}
 		result[appName] = append(result[appName], types.MakeReleaseNumbers(releaseVersion, revision))
-	}
-
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }
@@ -823,10 +802,6 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 			return nil, fmt.Errorf("error during json unmarshal of metadata for releases. Error: %w. Data: %s", err, metadataStr)
 		}
 		releases[ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion, Revision: revision}] = metaData.SourceCommitId
-	}
-	err = closeRows(releasesRows)
-	if err != nil {
-		return nil, err
 	}
 	return releases, nil
 }

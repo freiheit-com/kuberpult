@@ -69,6 +69,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 	if err != nil {
 		return nil, fmt.Errorf("could not read environment lock from DB. Error: %w", err)
 	}
+	defer closeRowsAndLog(rows, ctx, "env locks")
 	envLocks := make(map[types.EnvName][]EnvironmentLock)
 	for rows.Next() {
 		var row = EnvironmentLock{
@@ -111,11 +112,6 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 			Metadata: resultJson,
 		})
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-
 	return envLocks, nil
 }
 

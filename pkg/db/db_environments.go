@@ -268,10 +268,6 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 		}
 		result = append(result, row)
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, fmt.Errorf("error while closing rows, error: %w", err)
-	}
 	return result, nil
 }
 
@@ -366,10 +362,6 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 			AppName:  types.AppName(row),
 			TeamName: metaData.Team,
 		})
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error while closing rows, error: %w", err)
 	}
 	return appNames, appNamesWithTeam, nil
 }

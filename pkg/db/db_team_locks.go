@@ -316,10 +316,6 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 		row.DeletionMetadata = deletionMetadataJson
 		teamLocks = append(teamLocks, row)
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
 	return teamLocks, nil
 }
 
@@ -550,11 +546,6 @@ func (h *DBHandler) processTeamLockRows(ctx context.Context, err error, rows *sq
 		row.Metadata = resultJson
 		teamLocks = append(teamLocks, row)
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-
 	return teamLocks, nil
 }
 
@@ -579,10 +570,6 @@ func (h *DBHandler) processAllTeamLocksRows(ctx context.Context, err error, rows
 		}
 
 		result = append(result, lockId)
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }
