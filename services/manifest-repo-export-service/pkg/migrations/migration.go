@@ -49,13 +49,7 @@ LIMIT 1;`)
 	if err != nil {
 		return nil, onErr(fmt.Errorf("could not query cutoff table from DB. Error: %w", err))
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("migration_cutoff: row closing error: %v", err)
-		}
-	}(rows)
-
+	defer closeRowsAndLog(rows, ctx, "migration cutoff")
 	if !rows.Next() {
 		return nil, nil
 	}

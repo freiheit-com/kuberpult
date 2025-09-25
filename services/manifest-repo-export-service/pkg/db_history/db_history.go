@@ -68,12 +68,7 @@ func DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx context.Context, h *db.DBHan
 	if err != nil {
 		return nil, fmt.Errorf("could not select historic deployment on env %s from DB: %w", envSelector, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
-		}
-	}(rows)
+	defer closeRowsAndLog(rows, ctx, "deployment history")
 	return processAllLatestDeploymentsForEnv(ctx, rows)
 }
 
