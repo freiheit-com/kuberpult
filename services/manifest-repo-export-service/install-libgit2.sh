@@ -13,6 +13,8 @@ apk del git
 
 mkdir build
 cd build
+
+# USE_REGEX=builtin stops libgit from using pcre:
 cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=ON -DUSE_SSH=ON -DUSE_REGEX=builtin
 cmake --build . --target install
 
