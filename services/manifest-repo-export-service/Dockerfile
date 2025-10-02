@@ -3,7 +3,7 @@ ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpu
 FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
 FROM alpine:3.22 AS compiler
 RUN echo DEBUG1 && apk info pcre2
-RUN apk add --no-cache ca-certificates tzdata alpine-sdk go make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
+RUN apk add --no-cache ca-certificates tzdata go make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
 RUN echo DEBUG2 && apk info pcre2
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
 COPY --from=builder /usr/local/go /usr/local/go
