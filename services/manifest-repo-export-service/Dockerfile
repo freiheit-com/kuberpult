@@ -52,3 +52,4 @@ RUN mkdir -p database/migrations
 COPY database/migrations /migrations
 
 CMD ["/main"]
+
