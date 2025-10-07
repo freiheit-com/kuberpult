@@ -253,6 +253,8 @@ frontend:
   # When enabled, the /release endpoint to accept a revision (i.e. 1.0, 1.1, 2.0...), instead of only integers (1,2,3...).
   enableRevisions: false
 rollout:
+  # Note that the rollout service is not the recommended way to set up kuberpult.
+  # We recommend to set rollout.enabled=false, reposerver.enabled=false, and manifestRepoExport.enabled=true
   enabled: false
   service:
     annotations: {}
@@ -301,6 +303,8 @@ rollout:
     kuberpultEventsMetricsEnabled: false
 # Standalone reposerver service for interacting with argocd
 reposerver:
+  # Note that the reposerver is not the recommended way to set up kuberpult.
+  # We recommend to set rollout.enabled=false, reposerver.enabled=false, and manifestRepoExport.enabled=true
   enabled: false
   replicas: 1
   service:
