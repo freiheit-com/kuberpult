@@ -1,8 +1,8 @@
 ARG BUILDER_IMAGE_TAG
 ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder
 FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
-FROM alpine:3.22 AS compiler
-RUN apk add --no-cache ca-certificates tzdata alpine-sdk go make pkgconfig build-base git tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
+FROM alpine:3.22.1 AS compiler
+RUN apk add --no-cache ca-certificates tzdata go make pkgconfig build-base tar npm sqlite sqlite-dev bash cmake g++ musl-dev openssl-dev python3 py3-pip libffi-dev curl libssh2-dev
 COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
 COPY --from=builder /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
@@ -39,7 +39,7 @@ RUN mv /tmp/main /main
 RUN ldd /main | awk '/=>/ {print $3}' | xargs -r -I '{}' sh -c 'if [ ! -e "/lib/$(basename {})" ]; then cp -v "{}" /lib/; fi'
 RUN chmod +x /main
 
-FROM alpine:3.21
+FROM alpine:3.22.1
 RUN adduser --disabled-password --home "/kp" --uid 1000 kp
 COPY --from=compiler /main /main
 COPY --from=compiler /lib /lib
