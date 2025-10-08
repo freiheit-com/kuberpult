@@ -17,7 +17,6 @@ Copyright freiheit.com*/
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
 
@@ -33,15 +32,32 @@ type ObjectMeta struct {
 
 // This file is a subset of https://github.com/argoproj/argo-cd/blob/v1.8.7/pkg/apis/application/v1alpha1/types.go
 // Importing the argocd project directly would drag in a huge number of dependencies.
-var ApplicationTypeMeta metav1.TypeMeta = metav1.TypeMeta{
+type TypeMeta struct {
+	// Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	Kind string `json:"kind,omitempty" protobuf:"bytes,1,opt,name=kind"`
+
+	// APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	// +optional
+	APIVersion string `json:"apiVersion,omitempty" protobuf:"bytes,2,opt,name=apiVersion"`
+}
+
+var ApplicationTypeMeta = TypeMeta{
 	APIVersion: "argoproj.io/v1alpha1",
 	Kind:       "Application",
 }
 
 type Application struct {
-	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      `json:"metadata"`
-	Spec            ApplicationSpec `json:"spec"`
+	TypeMeta   `json:",inline"`
+	ObjectMeta `json:"metadata"`
+	Spec       ApplicationSpec `json:"spec"`
 }
 
 type ApplicationSpec struct {
@@ -93,15 +109,15 @@ type SyncPolicyAutomated struct {
 	AllowEmpty bool `json:"allowEmpty,omitempty" protobuf:"bytes,3,opt,name=allowEmpty"`
 }
 
-var AppProjectTypeMeta metav1.TypeMeta = metav1.TypeMeta{
+var AppProjectTypeMeta = TypeMeta{
 	APIVersion: "argoproj.io/v1alpha1",
 	Kind:       "AppProject",
 }
 
 type AppProject struct {
-	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      `json:"metadata" protobuf:"bytes,1,opt,name=metadata"`
-	Spec            AppProjectSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
+	TypeMeta   `json:",inline"`
+	ObjectMeta `json:"metadata" protobuf:"bytes,1,opt,name=metadata"`
+	Spec       AppProjectSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
 }
 
 // AccessEntry can be used for blacklists and whitelists, see https://argo-cd.readthedocs.io/en/stable/user-guide/projects/#configuring-global-projects-v18
