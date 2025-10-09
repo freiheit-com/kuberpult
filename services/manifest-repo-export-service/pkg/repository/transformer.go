@@ -1711,7 +1711,7 @@ func (c *DeleteEnvFromApp) Transform(
 	ctx context.Context,
 	state *State,
 	tCtx TransformerContext,
-	_ *sql.Tx,
+	transaction *sql.Tx,
 ) (string, error) {
 	envName := types.EnvName(c.Environment)
 	fs := state.Filesystem
@@ -1736,7 +1736,7 @@ func (c *DeleteEnvFromApp) Transform(
 		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory"))
 	} else if entries == nil {
 		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
-		msg := fmt.Sprintf("Attempted to remove environment '%v' from application '%v' but it did not exist", c.Environment, c.Application)
+		msg := thisSprintf("environment does not exist.")
 		logger.FromContext(ctx).Warn(msg)
 		return msg, nil
 	}
@@ -1747,10 +1747,24 @@ func (c *DeleteEnvFromApp) Transform(
 	}
 
 	if err := fs.Remove(envAppDir); err != nil {
-		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app."))
+		return "", wrapFileError(err, envAppDir, thisSprintf("cannot delete app."))
 	}
 
 	tCtx.DeleteEnvFromApp(c.Application, types.EnvName(c.Environment))
+
+	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+	if err != nil {
+		return "", thisErrorf("could not get environment configs: %w", err)
+	}
+
+	if deployed, err := isApplicationDeployedAnywhere(fs, c.Application, &configs); err == nil {
+		if !deployed {
+			removeApplication(fs, c.Application)
+			removeApplicationFromEnvs(fs, c.Application, &configs)
+		}
+	} else {
+		return "", thisErrorf("error checking if we are removing the last env: %v", err)
+	}
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", c.Environment, c.Application), nil
 }
 
@@ -1963,6 +1977,21 @@ func removeApplicationFromEnvs(fs billy.Filesystem, application string, configs 
 	return result, nil
 }
 
+func isApplicationDeployedAnywhere(fs billy.Filesystem, application string, configs *map[types.EnvName]config.EnvironmentConfig) (bool, err) {
+	for env := range *configs {
+		envAppDir := environmentApplicationDirectory(fs, env, application)
+		versionDir := fs.Join(envAppDir, "version")
+		if _, err := fs.Stat(versionDir); err != nil {
+			if !errors.Is(err, os.ErrNotExist) { // only errors other that "not exist" are unexpected => propagate
+				return false, err
+			}
+		} else {
+			return true, nil // found one
+		}
+	}
+	return false, nil // found none and didnt see any other errors
+}
+
 func (u *UndeployApplication) Transform(
 	ctx context.Context,
 	state *State,
@@ -2008,7 +2037,7 @@ func (u *UndeployApplication) Transform(
 					logger.FromContext(ctx).Sugar().Warnf("Maximize git data is enabled but could not find undeploy file %q for application %q on environment %q.", undeployFile, u.Application, env)
 				}
 			} else {
-				return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release on '%v' is not un-deployed: '%v'. Error: %w", u.Application, env, undeployFile, err)
+				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %v", err)
 			}
 		}
 
