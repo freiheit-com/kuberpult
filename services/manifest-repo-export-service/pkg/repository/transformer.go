@@ -1720,36 +1720,34 @@ func (c *DeleteEnvFromApp) Transform(
 		return fmt.Sprintf("DeleteEnvFromApp app '%s' on env '%s': %s", c.Application, c.Environment, fmt.Sprintf(format, a...))
 	}
 
-	if c.Application == "" {
-		return "", fmt.Errorf("DeleteEnvFromApp app '%s' on env '%s': Need to provide the application", c.Application, c.Environment)
+	thisErrorf := func(format string, a ...any) error {
+		return fmt.Errorf("DeleteEnvFromApp app '%s' on env '%s': %s", c.Application, c.Environment, fmt.Sprintf(format, a...))
 	}
 
+	if c.Application == "" {
+		return "", thisErrorf("Need to provide the application")
+	}
 	if c.Environment == "" {
-		return "", fmt.Errorf("DeleteEnvFromApp app '%s' on env '%s': Need to provide the environment", c.Application, c.Environment)
+		return "", thisErrorf("Need to provide the environment")
 	}
 
 	envAppDir := environmentApplicationDirectory(fs, envName, c.Application)
-	entries, err := fs.ReadDir(envAppDir)
-	msg := fmt.Sprintf("Attempted to remove environment '%v' from application '%v' but it did not exist", c.Environment, c.Application)
-	if err != nil {
+	if entries, err := fs.ReadDir(envAppDir); err != nil {
 		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory"))
-	}
-
-	if entries == nil {
+	} else if entries == nil {
 		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
+		msg := fmt.Sprintf("Attempted to remove environment '%v' from application '%v' but it did not exist", c.Environment, c.Application)
 		logger.FromContext(ctx).Warn(msg)
 		return msg, nil
 	}
 
 	appLocksDir := fs.Join(envAppDir, "locks")
-	err = fs.Remove(appLocksDir)
-	if err != nil {
-		return "", fmt.Errorf("DeleteEnvFromApp: cannot delete app locks '%v'", appLocksDir)
+	if err := fs.Remove(appLocksDir); err != nil {
+		return "", thisErrorf("cannot delete app locks '%v'", appLocksDir)
 	}
 
-	err = fs.Remove(envAppDir)
-	if err != nil {
-		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'"))
+	if err := fs.Remove(envAppDir); err != nil {
+		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app."))
 	}
 
 	tCtx.DeleteEnvFromApp(c.Application, types.EnvName(c.Environment))
