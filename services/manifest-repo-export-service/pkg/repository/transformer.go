@@ -1741,6 +1741,12 @@ func (c *DeleteEnvFromApp) Transform(
 		return msg, nil
 	}
 
+	appLocksDir := fs.Join(envAppDir, "locks")
+	err = fs.Remove(appLocksDir)
+	if err != nil {
+		return "", fmt.Errorf("DeleteEnvFromApp: cannot delete app locks '%v'", appLocksDir)
+	}
+
 	err = fs.Remove(envAppDir)
 	if err != nil {
 		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'"))
@@ -1918,6 +1924,49 @@ func (u *UndeployApplication) SetEslVersion(id db.TransformerID) {
 	u.TransformerEslVersion = id
 }
 
+func removeApplication(fs billy.Filesystem, application string) error {
+	appDir := applicationDirectory(fs, application)
+	releasesDir := fs.Join(appDir, "releases")
+	files, err := fs.ReadDir(releasesDir)
+	if err != nil {
+		return fmt.Errorf("could not read the releases directory %s %w", releasesDir, err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			releaseDir := fs.Join(releasesDir, file.Name())
+			commitIDFile := fs.Join(releaseDir, "source_commit_id")
+			var commitID string
+			dat, err := util.ReadFile(fs, commitIDFile)
+			if err != nil {
+				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
+				continue
+			}
+			commitID = string(dat)
+			if valid.SHA1CommitID(commitID) {
+				if err := removeCommit(fs, commitID, application); err != nil {
+					return fmt.Errorf("could not remove the commit: %w", err)
+				}
+			}
+		}
+	}
+	if err = fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return wrapFileError(err, appDir, "could not remove application directory")
+	}
+	return nil
+}
+
+func removeApplicationFromEnvs(fs billy.Filesystem, application string, configs *map[types.EnvName]config.EnvironmentConfig) ([]types.EnvName, error) {
+	result := make([]types.EnvName, 0)
+	for env := range *configs {
+		appDir := environmentApplicationDirectory(fs, env, application)
+		result := append(result, env)
+		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return result, fmt.Errorf("unexpected error application '%v' environment '%v': '%w'", application, env, err)
+		}
+	}
+	return result, nil
+}
+
 func (u *UndeployApplication) Transform(
 	ctx context.Context,
 	state *State,
@@ -1926,8 +1975,6 @@ func (u *UndeployApplication) Transform(
 ) (string, error) {
 	//All verifications were already done by the cd-service. This transformer should just blindly delete the affected files
 	fs := state.Filesystem
-
-	appDir := applicationDirectory(fs, u.Application)
 	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction) // we use ALL envs, to be sure
 	if err != nil {
 		return "", fmt.Errorf("could not get environment configs: %w", err)
@@ -1970,45 +2017,21 @@ func (u *UndeployApplication) Transform(
 		}
 
 	}
-	// remove application
-	releasesDir := fs.Join(appDir, "releases")
-	files, err := fs.ReadDir(releasesDir)
-	if err != nil {
-		return "", fmt.Errorf("could not read the releases directory %s %w", releasesDir, err)
-	}
-	for _, file := range files {
-		if file.IsDir() {
-			releaseDir := fs.Join(releasesDir, file.Name())
-			commitIDFile := fs.Join(releaseDir, "source_commit_id")
-			var commitID string
-			dat, err := util.ReadFile(fs, commitIDFile)
-			if err != nil {
-				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
-				continue
-			}
-			commitID = string(dat)
-			if valid.SHA1CommitID(commitID) {
-				if err := removeCommit(fs, commitID, u.Application); err != nil {
-					return "", fmt.Errorf("could not remove the commit: %w", err)
-				}
-			}
-		}
+
+	if err := removeApplication(fs, u.Application); err != nil {
+		return "", err
 	}
 
-	if err = fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", wrapFileError(err, appDir, "UndeployApplication: could not remove application directory")
+	teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, u.Application)
+	if err != nil {
+		return "", fmt.Errorf("could not find team for app %s: %w", u.Application, err)
 	}
-	for env := range configs {
-		appDir := environmentApplicationDirectory(fs, env, u.Application)
-		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, u.Application)
-		if err != nil {
-			return "", fmt.Errorf("could not find team for app %s: %w", u.Application, err)
+	if envs, err := removeApplicationFromEnvs(fs, u.Application, &configs); err == nil {
+		for _, env := range envs {
+			t.AddAppEnv(u.Application, env, teamOwner)
 		}
-		t.AddAppEnv(u.Application, env, teamOwner)
-		// remove environment application
-		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
-		}
+	} else {
+		return "", err
 	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
