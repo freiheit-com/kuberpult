@@ -1746,8 +1746,17 @@ func (c *DeleteEnvFromApp) Transform(
 		return "", thisErrorf("cannot delete app locks '%v'", appLocksDir)
 	}
 
+<<<<<<< HEAD
 	if err := fs.Remove(envAppDir); err != nil {
 		return "", wrapFileError(err, envAppDir, thisSprintf("cannot delete app."))
+||||||| parent of 349e657a (refactor DeleteEnvFromApp)
+	err = fs.Remove(envAppDir)
+	if err != nil {
+		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'"))
+=======
+	if err := fs.Remove(envAppDir); err != nil {
+		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app."))
+>>>>>>> 349e657a (refactor DeleteEnvFromApp)
 	}
 
 	tCtx.DeleteEnvFromApp(c.Application, types.EnvName(c.Environment))
