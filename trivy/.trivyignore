@@ -1,3 +1,8 @@
 # This affects only the javascript ui, we do not use that code
 # See https://github.com/argoproj/argo-cd/commit/a5b4041a79c54bc7b3d090805d070bcdb9a9e4d1
 CVE-2025-47933
+# these affect only auth to argocd itself, which we are not hosting in
+# kuberpult (we use argo components to talk to argo, not being talked to as argo)
+CVE-2025-59531
+CVE-2025-59537
+CVE-2025-59538
