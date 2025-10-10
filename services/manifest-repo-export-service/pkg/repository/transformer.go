@@ -1757,12 +1757,10 @@ func (c *DeleteEnvFromApp) Transform(
 		return "", thisErrorf("could not get environment configs: %w", err)
 	}
 
-	if deployed, err := isApplicationDeployedAnywhere(fs, c.Application, &configs); err == nil {
-		if !deployed {
-			if err := removeApplication(fs, c.Application); err != nil {
-				return "", thisErrorf("error removing application: %v", err)
-			}
-			if _, err := removeApplicationFromEnvs(fs, c.Application, &configs); err != nil { // this should be a noop anyways ...
+	if onEnvsAnywhere, err := isApplicationOnEnvsAnywhere(fs, c.Application, &configs); err == nil {
+		if !onEnvsAnywhere { // was this the last env to delete from
+			// make sure all envs are consistently clean
+			if _, err := removeApplicationFromEnvs(fs, c.Application, &configs); err != nil {
 				return "", thisErrorf("error removing application: %v", err)
 			}
 		}
@@ -1981,11 +1979,10 @@ func removeApplicationFromEnvs(fs billy.Filesystem, application string, configs 
 	return result, nil
 }
 
-func isApplicationDeployedAnywhere(fs billy.Filesystem, application string, configs *map[types.EnvName]config.EnvironmentConfig) (bool, error) {
+func isApplicationOnEnvsAnywhere(fs billy.Filesystem, application string, configs *map[types.EnvName]config.EnvironmentConfig) (bool, error) {
 	for env := range *configs {
 		envAppDir := environmentApplicationDirectory(fs, env, application)
-		versionDir := fs.Join(envAppDir, "version")
-		if _, err := fs.Stat(versionDir); err != nil {
+		if _, err := fs.Stat(envAppDir); err != nil {
 			if !errors.Is(err, os.ErrNotExist) { // only errors other that "not exist" are unexpected => propagate
 				return false, err
 			}
