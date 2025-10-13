@@ -1752,21 +1752,6 @@ func (c *DeleteEnvFromApp) Transform(
 
 	tCtx.DeleteEnvFromApp(c.Application, types.EnvName(c.Environment))
 
-	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
-	if err != nil {
-		return "", thisErrorf("could not get environment configs: %w", err)
-	}
-
-	if onEnvsAnywhere, err := isApplicationOnEnvsAnywhere(fs, c.Application, &configs); err == nil {
-		if !onEnvsAnywhere { // was this the last env to delete from
-			// make sure all envs are consistently clean
-			if _, err := removeApplicationFromEnvs(fs, c.Application, &configs); err != nil {
-				return "", thisErrorf("error removing application: %v", err)
-			}
-		}
-	} else {
-		return "", thisErrorf("error checking if we are removing the last env: %v", err)
-	}
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", c.Environment, c.Application), nil
 }
 
@@ -1977,20 +1962,6 @@ func removeApplicationFromEnvs(fs billy.Filesystem, application string, configs 
 		}
 	}
 	return result, nil
-}
-
-func isApplicationOnEnvsAnywhere(fs billy.Filesystem, application string, configs *map[types.EnvName]config.EnvironmentConfig) (bool, error) {
-	for env := range *configs {
-		envAppDir := environmentApplicationDirectory(fs, env, application)
-		if _, err := fs.Stat(envAppDir); err != nil {
-			if !errors.Is(err, os.ErrNotExist) { // only errors other that "not exist" are unexpected => propagate
-				return false, err
-			}
-		} else {
-			return true, nil // found one
-		}
-	}
-	return false, nil // found none and didnt see any other errors
 }
 
 func (u *UndeployApplication) Transform(
