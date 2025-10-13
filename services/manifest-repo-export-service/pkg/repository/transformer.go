@@ -1937,7 +1937,11 @@ func removeApplication(fs billy.Filesystem, application string) error {
 			content, err := util.ReadFile(fs, commitIDFile)
 			if err != nil {
 				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
-				continue
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				} else {
+					return err
+				}
 			}
 			if commitID := string(content); valid.SHA1CommitID(commitID) {
 				if err := removeCommit(fs, commitID, application); err != nil {
