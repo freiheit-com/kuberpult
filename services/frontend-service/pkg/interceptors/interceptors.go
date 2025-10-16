@@ -194,15 +194,19 @@ func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseU
 	case []interface{}:
 		for _, group := range val {
 			groupName := strings.Trim(group.(string), "\"")
+			logger.FromContext(context.Background()).Sugar().Warnf("Creating role string for %s", groupName)
 			roles = CreateRoleString(groupName, roles, DexRbacPolicy)
 		}
 	case []string:
+		logger.FromContext(context.Background()).Sugar().Warnf("Creating role string for %s", strings.Join(val, ","))
 		roles = CreateRoleString(strings.Join(val, ","), roles, DexRbacPolicy)
 	case string:
+		logger.FromContext(context.Background()).Sugar().Warnf("Creating role string for %s", val)
 		roles = CreateRoleString(val, roles, DexRbacPolicy)
 	}
 
 	if claims["email"].(string) != "" {
+		logger.FromContext(context.Background()).Sugar().Warnf("Creating role string for %s", claims["email"].(string))
 		roles = CreateRoleString(claims["email"].(string), roles, DexRbacPolicy)
 	} else if claims["groups"] == nil {
 		return nil, fmt.Errorf("unable to parse token with expected fields for DEX login")
