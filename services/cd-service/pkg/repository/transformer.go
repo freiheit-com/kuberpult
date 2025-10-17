@@ -637,8 +637,8 @@ func (c *CreateApplicationVersion) Transform(
 			return "", err
 		}
 		t.AddAppEnv(c.Application, env, teamOwner)
-        envIsConfiguredLatest:=hasUpstream && config.Upstream.Latest && isLatest
-        downstreamDeploymentRequested := slices.Contains(c.DeployToDownstreamEnvironments, env)
+		envIsConfiguredLatest := hasUpstream && config.Upstream.Latest && isLatest
+		downstreamDeploymentRequested := slices.Contains(c.DeployToDownstreamEnvironments, env)
 		if (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
@@ -2020,31 +2020,6 @@ func (c *DeleteEnvironment) CheckPreconditions(ctx context.Context,
 		return fmt.Errorf("error getting all environments %v", err)
 	}
 
-	/*Check for locks*/
-	envLocks, err := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, c.Environment)
-	if err != nil {
-		return err
-	}
-	if len(envLocks) != 0 {
-		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Environment locks for this environment exist", c.Environment))
-	}
-
-	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
-	if err != nil {
-		return err
-	}
-	if len(appLocksForEnv) != 0 {
-		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Application locks for this environment exist", c.Environment))
-	}
-
-	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
-	if err != nil {
-		return err
-	}
-	if len(teamLocksForEnv) != 0 {
-		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not delete environment '%s'. Team locks for this environment exist", c.Environment))
-	}
-
 	/* Check that no environment has the one we are trying to delete as upstream */
 	allEnvConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
@@ -2097,9 +2072,62 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	err = c.CheckPreconditions(ctx, state, t, transaction)
 	if err != nil {
 		return "", err
+	}
+
+	// Check and delete env locks and delete if any exists
+	envLocks, err := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+	if len(envLocks) != 0 {
+		for _, envLockId := range envLocks {
+			err := state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, envLockId, db.LockDeletionMetadata{DeletedByUser: user.Name, DeletedByEmail: user.Email})
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
+	// Check and delete app locks and delete if any exists
+	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+	if len(appLocksForEnv) != 0 {
+		for _, appLock := range appLocksForEnv {
+			err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, envName, appLock.App, appLock.LockID, db.LockDeletionMetadata{
+				DeletedByUser:  user.Name,
+				DeletedByEmail: user.Email,
+			})
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
+	// Check and delete team locks and delete if any exists
+	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+	if len(teamLocksForEnv) != 0 {
+		for _, teamLock := range teamLocksForEnv {
+			err := state.DBHandler.DBDeleteTeamLock(ctx, transaction, envName, teamLock.Team, teamLock.LockID, db.LockDeletionMetadata{
+				DeletedByUser:  user.Name,
+				DeletedByEmail: user.Email,
+			})
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 
 	if c.Dryrun {

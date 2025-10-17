@@ -6,12 +6,14 @@ Kuberpult offers an API endpoint for environment creation. This endpoint is expe
 * **Environment Name**
   * The name of the environment you are trying to create.
 * **Configuration Data**:
-  * You need to provide some configuration specifications to your environment. The provided data must be in JSON format. [This doc](../users/3_environment.md) goes into detail regarding the information that must be contained within your configuration file. You can find an example file [here](../infrastructure/scripts/create-testdata/testdata_template/environments/staging/config.json).
+  * You need to provide some configuration specifications to your environment. The provided data must be in JSON format. [This doc](../users/3_environment.md) goes into detail regarding the information that must be contained within your configuration file. You can find an example file [here](../infrastructure/scripts/create-testdata/testdata_template/environments/staging/config.json). Note that it only accepts ArgoCD configurations as `argo_configs` but not for `argocd`.
+* **Dry Run**:
+  * This is for the validation purpose of the request data, and is optional
 
 ```shell
 curl -f -X POST -H "Authorization: Bearer $IAPToken" \
                 -H "multipart/form-data" --form-string "config=$DATA" \
-                $KUBERPULT_API_URL/environments/$ENVIRONMENT_NAME
+                $KUBERPULT_API_URL/api/environments/$ENVIRONMENT_NAME
 ```
 
 **Example:**
@@ -22,7 +24,7 @@ For local development, the IAPToken can be omitted.
 ```shell
 DATA=$(cat config.json)
 curl -f -X POST -H "multipart/form-data" --form-string "config=$DATA" \
-                http://localhost:8081/environments/staging
+                http://localhost:8081/api/environments/staging
 ```
 
 **IMPORTANT**

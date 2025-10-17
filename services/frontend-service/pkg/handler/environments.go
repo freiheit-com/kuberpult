@@ -79,19 +79,16 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 	dryrun := req.URL.Query().Get("dryrun") == "true"
 
 	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprintf(w, "Invalid body: %s", err)
+		http.Error(w, fmt.Sprintf("Invalid body with multipart form: %s", err), http.StatusBadRequest)
 		return
 	}
 	envConfig, errCode, message := s.validateCreateEnvironmentRequest(req)
 	if envConfig == nil {
-		w.WriteHeader(errCode)
-		fmt.Fprint(w, message) //nolint:errcheck
+		http.Error(w, fmt.Sprintf("Invalid environment: %s", message), errCode)
 		return
 	}
 	if envConfig.Argocd != nil { //ArgoCd field is not supported in API version of create Environment
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("ArgoCd field is not supported")) //nolint:errcheck
+		http.Error(w, fmt.Sprintf("ArgoCd field is not supported"), http.StatusBadRequest)
 		return
 	}
 	_, err := s.BatchClient.ProcessBatch(req.Context(),

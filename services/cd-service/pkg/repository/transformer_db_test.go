@@ -3563,6 +3563,7 @@ func TestDeleteEnvironment(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		Transformers  []Transformer
+		EnvsToDelete  []string
 		expectedError *TransformerBatchApplyError
 	}{
 		{
@@ -3576,13 +3577,11 @@ func TestDeleteEnvironment(t *testing.T) {
 						EnvironmentGroup: conversion.FromString("mygroup"),
 					},
 				},
-				&DeleteEnvironment{
-					Environment: "this-env-does-not-exist",
-				},
 			},
+			EnvsToDelete: []string{"this-env-does-not-exist"},
 			expectedError: &TransformerBatchApplyError{
-				Index:            1,
-				TransformerError: errMatcher{"error at index 1 of transformer batch: could not delete environment with name 'this-env-does-not-exist' from DB"},
+				Index:            0,
+				TransformerError: errMatcher{"error at index 0 of transformer batch: could not delete environment with name 'this-env-does-not-exist' from DB"},
 			},
 		},
 		{
@@ -3596,10 +3595,8 @@ func TestDeleteEnvironment(t *testing.T) {
 						EnvironmentGroup: conversion.FromString("mygroup"),
 					},
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - App in env",
@@ -3620,10 +3617,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - App in env & has a deployment",
@@ -3649,10 +3644,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					Application: testAppName,
 					Version:     1,
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - Attempt to delete with env lock",
@@ -3684,14 +3677,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					Message:     "This lock is for prod",
 					CiLink:      "",
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment locks for this environment exist"},
-			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - Attempt to delete with app lock",
@@ -3724,14 +3711,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					Message:     "This lock is for prod",
 					CiLink:      "",
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Application locks for this environment exist"},
-			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - Attempt to delete with team lock",
@@ -3765,14 +3746,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					Message:     "This lock is for prod",
 					CiLink:      "",
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Team locks for this environment exist"},
-			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Env to delete is upstream",
@@ -3810,13 +3785,11 @@ func TestDeleteEnvironment(t *testing.T) {
 					Application: testAppName,
 					Version:     1,
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
+			EnvsToDelete: []string{envProduction},
 			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
+				Index:            0,
+				TransformerError: errMatcher{"error at index 0 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
 			},
 		},
 		{
@@ -3863,16 +3836,11 @@ func TestDeleteEnvironment(t *testing.T) {
 					Application: testAppName,
 					Version:     1,
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
-				&DeleteEnvironment{
-					Environment: "production-2",
-				},
 			},
+			EnvsToDelete: []string{envProduction, "production-2"},
 			expectedError: &TransformerBatchApplyError{
-				Index:            6,
-				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion"},
+				Index:            0,
+				TransformerError: errMatcher{"error at index 0 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion"},
 			},
 		},
 	}
@@ -3884,14 +3852,34 @@ func TestDeleteEnvironment(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, state, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
 					return err
 				}
+
+				for _, env := range tc.EnvsToDelete {
+					envName := types.EnvName(env)
+
+					// Perform DeleteEnvironment transforming
+					transformer := []Transformer{&DeleteEnvironment{Environment: envName}}
+					_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, transformer...)
+					if err != nil {
+						return err
+					}
+
+					foundEnv, err1 := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+					if err1 != nil {
+						return err1
+					}
+					if foundEnv != nil {
+						t.Fatalf("Expect environment to be deleted but still exists:\n%s", foundEnv.Name)
+					}
+				}
+
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got):\n%+v", err)
 			}
 			if err != nil {
 				applyErr := UnwrapUntilTransformerBatchApplyError(err)
