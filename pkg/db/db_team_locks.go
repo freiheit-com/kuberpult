@@ -220,6 +220,26 @@ func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	return &result[0], nil
 }
 
+func (h *DBHandler) DBSelectAllTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]string, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocksForEnv")
+	defer span.Finish()
+	if h == nil {
+		return nil, nil
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("DBSelectAllTeamLocksForEnv: no transaction provided")
+	}
+	selectQuery := h.AdaptQuery(`
+		SELECT lockid 
+		FROM team_locks 
+		WHERE envname = ? 
+		ORDER BY lockid;`)
+	span.SetTag("query", selectQuery)
+
+	rows, err := tx.QueryContext(ctx, selectQuery, environment)
+	return h.processAllTeamLocksRows(ctx, err, rows)
+}
+
 func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName string) ([]string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocks")
 	defer span.Finish()

@@ -3875,12 +3875,29 @@ func TestDeleteEnvironment(t *testing.T) {
 						t.Fatalf("Expect environment to be deleted but still exists:\n%s", foundEnv.Name)
 					}
 
-					foundLocks, err1 := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, envName)
+					// Check for related locks
+					foundEnvLocks, err1 := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, envName)
 					if err1 != nil {
 						return err1
 					}
-					if len(foundLocks) != 0 {
-						t.Fatalf("Expect related locks of the environment to be deleted but %d locks still exists:\n%s", len(foundLocks), foundEnv.Name)
+					if len(foundEnvLocks) != 0 {
+						t.Fatalf("Expect all EnvLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundEnvLocks), foundEnv.Name)
+					}
+
+					foundAppLocks, err1 := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, envName)
+					if err1 != nil {
+						return err1
+					}
+					if len(foundAppLocks) != 0 {
+						t.Fatalf("Expect all AppLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundAppLocks), foundEnv.Name)
+					}
+
+					foundTeamLocks, err1 := state.DBHandler.DBSelectAllTeamLocksForEnv(ctx, transaction, envName)
+					if err1 != nil {
+						return err1
+					}
+					if len(foundTeamLocks) != 0 {
+						t.Fatalf("Expect all TeamLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundTeamLocks), foundEnv.Name)
 					}
 				}
 
