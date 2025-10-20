@@ -1,9 +1,10 @@
 ARG BUILDER_IMAGE_TAG
 ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder
+
 FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
-RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
-RUN npm install -g pnpm@8.5.1
+
 ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
+
 # frontend-service:
 ADD services/frontend-service/package.json /kp/services/frontend-service/
 ADD services/frontend-service/pnpm-lock.yaml /kp/services/frontend-service/
@@ -13,6 +14,7 @@ ADD services/frontend-service/.prettierrc /kp/services/frontend-service/
 ADD services/frontend-service/.nvmrc /kp/services/frontend-service/
 ADD services/frontend-service/.npmrc /kp/services/frontend-service/
 ADD services/frontend-service/.eslintrc /kp/services/frontend-service/
+
 RUN cd /kp/services/frontend-service && pnpm i
 ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
 ADD services/frontend-service/pkg /kp/services/frontend-service/pkg
@@ -25,8 +27,8 @@ ADD infrastructure /kp/infrastructure
 # global pkg:
 COPY --chown=kp:kp pkg pkg
 COPY go.sum go.mod /kp/
-RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 RUN cd pkg && buf generate
+RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
 
 # Build js:
@@ -44,7 +46,9 @@ RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/fron
 
 FROM scratch
 LABEL org.opencontainers.image.source=https://github.com/freiheit-com/kuberpult
+
 ENV TZ=Europe/Berlin
+
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /kp/main /main

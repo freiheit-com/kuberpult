@@ -24,6 +24,6 @@ retag-main:
 	echo "nothing to do"
 
 build-pr:
-	docker build . -t ui:local
+	docker build . --build-arg UID=$(USER_UID) -t ui:local
 
 build-main: build-pr

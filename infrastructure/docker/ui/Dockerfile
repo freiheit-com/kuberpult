@@ -9,6 +9,7 @@ COPY buf_sha256.txt .
 
 RUN apk --update add --no-cache curl make nodejs npm
 RUN npm install -g pnpm@8.5.1
+
 RUN echo "OS=$(uname) ARCH=$(uname -m)" > /tmp/os2.txt
 RUN OS=$(uname) ARCH=$(uname -m) && \
     curl -sSL \
@@ -26,4 +27,5 @@ RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
 RUN chown -R kp:kp /kp
 
 USER kp
+
 CMD [ "sh","-c","cd /kp && pnpm i && pnpm start" ]

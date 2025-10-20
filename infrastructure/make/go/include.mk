@@ -46,7 +46,7 @@ lint:
 docker: # no dependencies here!
 	mkdir -p $(MAIN_PATH)/lib
 	mkdir -p $(MAIN_PATH)/usr
-	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) $(CONTEXT) -t $(IMAGE_NAME)
+	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) --build-arg UID=$(USER_UID) $(CONTEXT) -t $(IMAGE_NAME)
 	$(ROOT_DIR)/infrastructure/scripts/check-docker-size.sh $(IMAGE_NAME) $(MAX_DOCKER_SIZE_MB) $(SERVICE)
 
 .PHONY: release
