@@ -88,7 +88,7 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 		return
 	}
 	if envConfig.Argocd != nil { //ArgoCd field is not supported in API version of create Environment
-		http.Error(w, fmt.Sprintf("ArgoCd field is not supported"), http.StatusBadRequest)
+		http.Error(w, fmt.Sprint("ArgoCd field is not supported"), http.StatusBadRequest)
 		return
 	}
 	_, err := s.BatchClient.ProcessBatch(req.Context(),
