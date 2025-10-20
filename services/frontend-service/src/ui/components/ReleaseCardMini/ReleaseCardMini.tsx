@@ -18,7 +18,7 @@ import React from 'react';
 import { useOpenReleaseDialog, useReleaseOrLog } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { undeployTooltipExplanation } from '../ReleaseDialog/ReleaseDialog';
-import { FormattedDate } from '../FormattedDate/FormattedDate';
+import { FormattedExactDate } from '../FormattedDate/FormattedDate';
 import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
 
 export type ReleaseCardMiniProps = {
@@ -60,7 +60,13 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
                 </div>
                 <div className="release__details-msg">
                     {sourceAuthor + ' | '}
-                    {!!createdAt && <FormattedDate createdAt={createdAt} className="release__metadata-mini" />}
+                    {!!createdAt && (
+                        <FormattedExactDate
+                            createdAt={createdAt}
+                            className="release__metadata-mini"
+                            prefixText="Deployed on"
+                        />
+                    )}
                 </div>
             </div>
         </div>
