@@ -2087,12 +2087,10 @@ func (c *DeleteEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	if len(envLocks) != 0 {
-		for _, envLockId := range envLocks {
-			err := state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, envLockId, db.LockDeletionMetadata{DeletedByUser: user.Name, DeletedByEmail: user.Email})
-			if err != nil {
-				return "", err
-			}
+	for _, envLockId := range envLocks {
+		err := state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, envLockId, db.LockDeletionMetadata{DeletedByUser: user.Name, DeletedByEmail: user.Email})
+		if err != nil {
+			return "", err
 		}
 	}
 
@@ -2101,15 +2099,13 @@ func (c *DeleteEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	if len(appLocksForEnv) != 0 {
-		for _, appLock := range appLocksForEnv {
-			err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, envName, appLock.App, appLock.LockID, db.LockDeletionMetadata{
-				DeletedByUser:  user.Name,
-				DeletedByEmail: user.Email,
-			})
-			if err != nil {
-				return "", err
-			}
+	for _, appLock := range appLocksForEnv {
+		err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, envName, appLock.App, appLock.LockID, db.LockDeletionMetadata{
+			DeletedByUser:  user.Name,
+			DeletedByEmail: user.Email,
+		})
+		if err != nil {
+			return "", err
 		}
 	}
 
@@ -2118,15 +2114,13 @@ func (c *DeleteEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	if len(teamLocksForEnv) != 0 {
-		for _, teamLock := range teamLocksForEnv {
-			err := state.DBHandler.DBDeleteTeamLock(ctx, transaction, envName, teamLock.Team, teamLock.LockID, db.LockDeletionMetadata{
-				DeletedByUser:  user.Name,
-				DeletedByEmail: user.Email,
-			})
-			if err != nil {
-				return "", err
-			}
+	for _, teamLock := range teamLocksForEnv {
+		err := state.DBHandler.DBDeleteTeamLock(ctx, transaction, envName, teamLock.Team, teamLock.LockID, db.LockDeletionMetadata{
+			DeletedByUser:  user.Name,
+			DeletedByEmail: user.Email,
+		})
+		if err != nil {
+			return "", err
 		}
 	}
 

@@ -3546,7 +3546,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				applyErr := UnwrapUntilTransformerBatchApplyError(err)
@@ -3874,12 +3874,20 @@ func TestDeleteEnvironment(t *testing.T) {
 					if foundEnv != nil {
 						t.Fatalf("Expect environment to be deleted but still exists:\n%s", foundEnv.Name)
 					}
+
+					foundLocks, err1 := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, envName)
+					if err1 != nil {
+						return err1
+					}
+					if len(foundLocks) != 0 {
+						t.Fatalf("Expect related locks of the environment to be deleted but %d locks still exists:\n%s", len(foundLocks), foundEnv.Name)
+					}
 				}
 
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did not expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				applyErr := UnwrapUntilTransformerBatchApplyError(err)
@@ -3985,7 +3993,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			err = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
@@ -3995,7 +4003,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
@@ -4085,7 +4093,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
@@ -4321,7 +4329,7 @@ func TestAllowedCILinksState(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
@@ -4455,7 +4463,7 @@ func TestUndeployDBState(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
@@ -5257,7 +5265,7 @@ func TestChangedApps(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Did no expect error but got:\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 		})
 	}
