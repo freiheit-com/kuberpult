@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import classNames from 'classnames';
 import { Release } from '../../../api/api';
-import { useAppDetailsForApp, useDisplayApplicationLocks } from '../../utils/store';
+import { useAppDetailsForApp, useDisplayApplicationLocks, useFrontendConfig } from '../../utils/store';
 import { ReleaseCardMini } from '../ReleaseCardMini/ReleaseCardMini';
 import './Releases.scss';
 import { ApplicationLockChip } from '../ApplicationLockDisplay/ApplicationLockDisplay';
@@ -23,11 +23,6 @@ import { ApplicationLockChip } from '../ApplicationLockDisplay/ApplicationLockDi
 export type ReleasesProps = {
     className?: string;
     app: string;
-};
-
-const dateFormat = (date: Date): string => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 };
 
 const getReleasesForAppGroupByDate = (releases: Array<Release> | undefined): [Release, ...Release[]][] => {
@@ -54,6 +49,7 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
     const releases = useAppDetailsForApp(app).details?.application?.releases;
     const displayAppLocks = useDisplayApplicationLocks(app);
     const rel = getReleasesForAppGroupByDate(releases);
+    const { configs } = useFrontendConfig((c) => c);
     return (
         <div className={classNames('timeline', className)}>
             <h1 className={classNames('app_name', className)}>{'Current Application Locks | ' + app}</h1>
@@ -74,18 +70,19 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
                 ))}
             </div>
             <h1 className={classNames('app_name', className)}>{'Releases | ' + app}</h1>
-            {rel.map((release) => (
-                <div key={release[0].version} className={classNames('container right', className)}>
-                    <div className={classNames('release_date', className)}>
-                        {release[0].createdAt ? dateFormat(release[0].createdAt) : ''}
-                    </div>
-                    {release.map((rele) => (
+            {rel.map((release) =>
+                release.map((rele) => (
+                    <div key={rele.version} className={classNames('container right', className)}>
+                        <div className={classNames('release_date', className)}>
+                            {rele.version}
+                            {configs.revisionsEnabled && `.${rele.revision}`}
+                        </div>
                         <div key={rele.version} className={classNames('content', className)}>
                             <ReleaseCardMini app={app} version={rele.version} revision={rele.revision} />
                         </div>
-                    ))}
-                </div>
-            ))}
+                    </div>
+                ))
+            )}
         </div>
     );
 };

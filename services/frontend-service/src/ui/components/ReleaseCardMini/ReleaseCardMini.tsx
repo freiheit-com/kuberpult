@@ -60,7 +60,14 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
                 </div>
                 <div className="release__details-msg">
                     {sourceAuthor + ' | '}
-                    {!!createdAt && <FormattedDate createdAt={createdAt} className="release__metadata-mini" />}
+                    {!!createdAt && (
+                        <FormattedDate
+                            createdAt={createdAt}
+                            className="release__metadata-mini"
+                            switched={true}
+                            prefixText="Deployed on"
+                        />
+                    )}
                 </div>
             </div>
         </div>
