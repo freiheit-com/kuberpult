@@ -820,13 +820,9 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 			return types.MakeEmptyReleaseNumbers(), fmt.Errorf("could not calculate version, error: %v", err)
 		}
 		if metaData == nil {
-			logger.FromContext(ctx).Sugar().Infof("could not calculate version, no metadata on app %s with version %v.%v", c.Application, c.Version, c.Revision)
+			// this is the usual success case
 			return types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, nil
 		}
-		logger.FromContext(ctx).Sugar().Warnf("release exists already %v: %v", metaData.ReleaseNumbers, metaData)
-
-		existingRelease := metaData.ReleaseNumbers
-		logger.FromContext(ctx).Sugar().Warnf("comparing release %v.%v: %v", c.Version, c.Revision, existingRelease)
 		// check if version differs, if it's the same, that's ok
 		return types.MakeEmptyReleaseNumbers(), c.sameAsExistingDB(ctx, transaction, state, metaData)
 	}
