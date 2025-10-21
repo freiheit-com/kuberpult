@@ -76,39 +76,38 @@ const getRelativeDate = (current: Date, target: Date | undefined): string => {
 
 const dateTimeFormat = (date: Date): string => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    const datePart = `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+    const timePart = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+    const offset = -date.getTimezoneOffset() / 60;
+    const gmt = `GMT${offset >= 0 ? '+' : ''}${offset}`;
+    return `${datePart} ${timePart} ${gmt}`;
 };
 
-export const FormattedDate: React.FC<{ createdAt: Date; className?: string }> = ({ createdAt, className }) => {
+export const FormattedDate: React.FC<{
+    createdAt: Date;
+    className?: string;
+    switched?: boolean;
+    prefixText?: string;
+}> = ({ createdAt, className, switched, prefixText }) => {
     const [relativeDate, setRelativeDate] = React.useState(getRelativeDate(new Date(), createdAt));
     useEffect(() => {
         const handle = setInterval(() => setRelativeDate(getRelativeDate(new Date(), createdAt)), 20000);
         return () => clearInterval(handle);
     }, [createdAt]);
 
-    return (
-        <span className={className} title={createdAt.toString()}>
-            <i>{relativeDate}</i>
-        </span>
-    );
-};
-
-export const FormattedExactDate: React.FC<{ createdAt: Date; className?: string; prefixText?: string }> = ({
-    createdAt,
-    className,
-    prefixText,
-}) => {
-    const [relativeDate, setRelativeDate] = React.useState(getRelativeDate(new Date(), createdAt));
-    useEffect(() => {
-        const handle = setInterval(() => setRelativeDate(getRelativeDate(new Date(), createdAt)), 20000);
-        return () => clearInterval(handle);
-    }, [createdAt]);
-
-    return (
-        <span className={className} title={relativeDate}>
-            <i>
-                {prefixText} {dateTimeFormat(createdAt)}
-            </i>
-        </span>
-    );
+    if (switched) {
+        return (
+            <span className={className} title={relativeDate}>
+                <i>
+                    {prefixText} {dateTimeFormat(createdAt)}
+                </i>
+            </span>
+        );
+    } else {
+        return (
+            <span className={className} title={dateTimeFormat(createdAt)}>
+                <i>{relativeDate}</i>
+            </span>
+        );
+    }
 };
