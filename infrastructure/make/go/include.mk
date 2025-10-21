@@ -20,6 +20,8 @@ ABS_ROOT_DIR=$(shell git rev-parse --show-toplevel)
 MIGRATION_VOLUME="$(ABS_ROOT_DIR)/database/migrations:/kp/database/migrations"
 PKG_VOLUME?=-v $(ABS_ROOT_DIR)/pkg:/kp/pkg
 
+export USER_UID := $(shell id -u)
+
 .PHONY: compile
 compile:
 	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'test -n "$(MAIN_PATH)" || exit 0; cd $(MAIN_PATH) && CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi'
