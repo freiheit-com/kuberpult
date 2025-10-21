@@ -7,9 +7,16 @@ RUN apk add --no-cache  \
         ca-certificates tar tzdata curl bash git \
         gcc g++ pkgconfig make cmake \
         go \
+        python3 py3-pip \
+        musl-dev libffi-dev openssl-dev libssh2-dev \
+        sqlite sqlite-dev \
         nodejs npm
 
 RUN npm install -g pnpm@8.9.2
+
+COPY ./services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgit2.sh
+COPY ./services/manifest-repo-export-service/gitconfig /etc/gitconfig
+RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
 
 ARG GO_CI_LINT_VERSION="v2.2.1"
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin $GO_CI_LINT_VERSION

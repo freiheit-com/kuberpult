@@ -78,10 +78,10 @@ compose-down:
 
 prepare-compose: builder
 	make -C pkg gen
-	IMAGE_TAG=local USER_UID=$(USER_UID) make -C services/cd-service docker
-	IMAGE_TAG=local USER_UID=$(USER_UID) make -C services/manifest-repo-export-service docker
+	IMAGE_TAG=local make -C services/cd-service docker
+	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 	IMAGE_TAG=local make -C services/frontend-service docker gen-api
-	USER_UID=$(USER_UID) make -C infrastructure/docker/ui build-pr
+	make -C infrastructure/docker/ui build-pr
 
 kuberpult: prepare-compose compose-down
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
