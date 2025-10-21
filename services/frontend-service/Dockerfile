@@ -55,6 +55,5 @@ COPY --from=builder /kp/main /main
 COPY --from=builder /kp/services/frontend-service/build /build
 COPY --from=builder /kp/go.mod /go.mod
 COPY --from=builder /kp/go.sum /go.sum
-COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
 
 CMD ["/main"]
