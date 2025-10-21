@@ -13,7 +13,6 @@ RUN npm install -g pnpm@8.9.2
 
 ARG GO_CI_LINT_VERSION="v2.2.1"
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin $GO_CI_LINT_VERSION
-#RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$GO_CI_LINT_VERSION
 
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 
@@ -26,7 +25,6 @@ RUN chmod +x /usr/local/bin/helm
 
 WORKDIR /kp
 
-# Installing Go dependencies should be the only Go-code related step done on the builder image
 COPY go.mod go.sum ./
 #RUN go mod download
 

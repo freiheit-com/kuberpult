@@ -13,7 +13,7 @@
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 # Copyright freiheit.com
-
+export USER_UID := $(shell id -u)
 
 # The "ui" image is only used for local development.
 # Nowhere in the CI is it referenced.
