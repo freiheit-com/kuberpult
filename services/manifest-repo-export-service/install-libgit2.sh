@@ -8,10 +8,6 @@ git clone https://github.com/libgit2/libgit2.git
 cd libgit2
 git checkout v1.5.0
 
-# git comes with "pcre2" which currently has a vulnerability, so we remove it again
-# git cannot be removed, as it is needed for the tests execution
-#apk del git
-
 mkdir build
 cd build
 

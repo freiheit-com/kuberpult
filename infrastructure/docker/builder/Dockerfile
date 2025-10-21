@@ -33,5 +33,4 @@ RUN chmod +x /usr/local/bin/helm
 WORKDIR /kp
 
 COPY go.mod go.sum ./
-#RUN go mod download
 
