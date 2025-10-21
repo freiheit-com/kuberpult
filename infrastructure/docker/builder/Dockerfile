@@ -7,7 +7,14 @@ RUN apk add --no-cache  \
         ca-certificates tar tzdata curl bash git \
         gcc g++ pkgconfig make cmake \
         go \
+        python3 py3-pip \
+        musl-dev libffi-dev openssl-dev libssh2-dev \
+        sqlite sqlite-dev \
         nodejs npm
+
+COPY services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgit2.sh
+COPY services/manifest-repo-export-service/gitconfig /etc/gitconfig
+RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
 
 RUN npm install -g pnpm@8.9.2
 
