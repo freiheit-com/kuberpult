@@ -14,7 +14,7 @@ curl -f -X DELETE -H "Authorization: Bearer $IAPToken" $KUBERPULT_API_URL/api/en
 
 **Example:**
 
-Below you can find the example for the curl request for removing the environment `staging` on the Kuberpult API hosted at `localhost:8081`. For local development, the IAPToken can be omitted.
+Below you can find the example for the curl request for removing the environment `staging` on the Kuberpult API hosted at `localhost:8081`. For local development, the IAPToken is not used.
 
 ```shell
 curl -f -X DELETE http://localhost:8081/api/environments/staging

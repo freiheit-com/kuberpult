@@ -2110,7 +2110,7 @@ func (c *DeleteEnvironment) Transform(
 	}
 
 	// Check and delete team locks and delete if any exists
-	teamLocksForEnv, err := state.DBHandler.DBSelectTeamLocksForEnv(ctx, transaction, c.Environment)
+	teamLocksForEnv, err := state.DBHandler.DBSelectAllTeamLocksForEnv(ctx, transaction, c.Environment)
 	if err != nil {
 		return "", err
 	}

@@ -3852,7 +3852,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
 					return err
 				}
@@ -3866,8 +3866,15 @@ func TestDeleteEnvironment(t *testing.T) {
 					if err != nil {
 						return err
 					}
+				}
 
-					foundEnv, err1 := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+				return nil
+			})
+
+			err1 := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, env := range tc.EnvsToDelete {
+					envName := types.EnvName(env)
+					foundEnv, err1 := r.State().DBHandler.DBSelectEnvironment(ctx, transaction, envName)
 					if err1 != nil {
 						return err1
 					}
@@ -3876,7 +3883,7 @@ func TestDeleteEnvironment(t *testing.T) {
 					}
 
 					// Check for related locks
-					foundEnvLocks, err1 := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, envName)
+					foundEnvLocks, err1 := r.State().DBHandler.DBSelectAllEnvLocks(ctx, transaction, envName)
 					if err1 != nil {
 						return err1
 					}
@@ -3884,7 +3891,7 @@ func TestDeleteEnvironment(t *testing.T) {
 						t.Fatalf("Expect all EnvLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundEnvLocks), foundEnv.Name)
 					}
 
-					foundAppLocks, err1 := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, envName)
+					foundAppLocks, err1 := r.State().DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, envName)
 					if err1 != nil {
 						return err1
 					}
@@ -3892,7 +3899,7 @@ func TestDeleteEnvironment(t *testing.T) {
 						t.Fatalf("Expect all AppLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundAppLocks), foundEnv.Name)
 					}
 
-					foundTeamLocks, err1 := state.DBHandler.DBSelectAllTeamLocksForEnv(ctx, transaction, envName)
+					foundTeamLocks, err1 := r.State().DBHandler.DBSelectAllTeamLocksForEnv(ctx, transaction, envName)
 					if err1 != nil {
 						return err1
 					}
@@ -3900,12 +3907,13 @@ func TestDeleteEnvironment(t *testing.T) {
 						t.Fatalf("Expect all TeamLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundTeamLocks), foundEnv.Name)
 					}
 				}
-
 				return nil
 			})
-			if tc.expectedError == nil && err != nil {
+
+			if tc.expectedError == nil && (err != nil || err1 != nil) {
 				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
+
 			if err != nil {
 				applyErr := UnwrapUntilTransformerBatchApplyError(err)
 				if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
