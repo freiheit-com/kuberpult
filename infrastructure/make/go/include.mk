@@ -20,6 +20,8 @@ ABS_ROOT_DIR=$(shell git rev-parse --show-toplevel)
 MIGRATION_VOLUME="$(ABS_ROOT_DIR)/database/migrations:/kp/database/migrations"
 PKG_VOLUME?=-v $(ABS_ROOT_DIR)/pkg:/kp/pkg
 
+export USER_UID := $(shell id -u)
+
 .PHONY: compile
 compile:
 	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'test -n "$(MAIN_PATH)" || exit 0; cd $(MAIN_PATH) && CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi'
@@ -46,7 +48,7 @@ lint:
 docker: # no dependencies here!
 	mkdir -p $(MAIN_PATH)/lib
 	mkdir -p $(MAIN_PATH)/usr
-	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) $(CONTEXT) -t $(IMAGE_NAME)
+	test -n "$(MAIN_PATH)" || exit 0; docker build -f Dockerfile --build-arg BUILDER_IMAGE_TAG=$(IMAGE_TAG) --build-arg UID=$(USER_UID) $(CONTEXT) -t $(IMAGE_NAME)
 	$(ROOT_DIR)/infrastructure/scripts/check-docker-size.sh $(IMAGE_NAME) $(MAX_DOCKER_SIZE_MB) $(SERVICE)
 
 .PHONY: release
