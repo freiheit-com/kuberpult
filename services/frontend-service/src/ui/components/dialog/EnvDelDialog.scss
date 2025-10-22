@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 
-.closable-dialog-container-open {
+.env-del-dialog-container-open {
     &::before {
         // this is to make everything behind the dialog grey and not clickable:
         content: '';
@@ -29,7 +29,7 @@ Copyright freiheit.com*/
     }
 }
 
-.closable-dialog-open {
+.env-del-dialog-open {
     max-height: 80vh;
     display: grid;
     grid-template-rows: auto 1fr auto;
@@ -51,16 +51,16 @@ Copyright freiheit.com*/
         rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
         rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
 
-    .closable-dialog-header {
+    .env-del-dialog-header {
         @extend .headline1;
         padding: 2rem 2rem 1rem 2rem;
     }
-    .closable-dialog-content {
+    .env-del-dialog-content {
         font-weight: 500;
         overflow: auto;
         padding: 1rem 2rem 1rem 2rem;
     }
-    .closable-dialog-footer {
+    .env-del-dialog-footer {
         display: flex;
         justify-content: flex-end;
         gap: 1rem;

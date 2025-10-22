@@ -42,7 +42,7 @@ import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { Button } from '../button';
 import { useSearchParams } from 'react-router-dom';
 import { Tooltip } from '../tooltip/tooltip';
-import { ClosableDialog } from '../dialog/CloseableDialog';
+import { EnvDelDialog } from '../dialog/EnvDelDialog';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -503,13 +503,13 @@ export const ReadyServiceLane: React.FC<{
     const teamLocks = Object.values(appDetails?.teamLocks ? appDetails.teamLocks : []);
     //  const children = <div>foo</div>;
     const dialog = (
-        <ClosableDialog
+        <EnvDelDialog
             open={showEnvSelectionDialog}
             onClose={confirmEnvAppDelete}
             headerLabel="Header"
             confirmLabel="Confirm"
             classNames=""
-            children={<button>click me</button>}
+            envs={new Array<string>('foo', 'bar')}
         />
     );
 

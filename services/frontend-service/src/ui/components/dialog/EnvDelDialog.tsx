@@ -18,10 +18,10 @@ import React from 'react';
 import { Button } from '../button';
 import { PlainDialog } from './ConfirmationDialog';
 
-export type ClosableDialogProps = {
+export type EnvDelDialogProps = {
     onClose: () => void;
     open: boolean;
-    children: JSX.Element;
+    envs: Array<string>;
     headerLabel: string;
     confirmLabel: string;
     classNames: string;
@@ -31,7 +31,7 @@ export type ClosableDialogProps = {
 /**
  * A dialog that is used to confirm a selection.
  */
-export const ClosableDialog: React.FC<ClosableDialogProps> = (props) => (
+export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => (
     <PlainDialog
         open={props.open}
         onClose={props.onClose}
@@ -40,11 +40,15 @@ export const ClosableDialog: React.FC<ClosableDialogProps> = (props) => (
         center={true}
         testIdRootRefParent={props.testIdRootRefParent}>
         <>
-            <div className={'closeable-dialog-header'}>{props.headerLabel}</div>
+            <div className={'env-del-dialog-header'}>{props.headerLabel}</div>
             <hr />
-            <div className={'closable-dialog-content'}>{props.children}</div>
+            <div className={'env-del-dialog-content'}>
+                {props.envs.map((env: string) => (
+                    <div>{env}</div>
+                ))}
+            </div>
             <hr />
-            <div className={'closeable-dialog-footer'}>
+            <div className={'env-del-dialog-footer'}>
                 <div className={'item'} key={'button-menu-confirm'}>
                     <Button
                         className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
