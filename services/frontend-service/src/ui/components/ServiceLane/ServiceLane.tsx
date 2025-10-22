@@ -21,7 +21,7 @@ import {
     getAppDetails,
     ReleaseNumbers,
     showSnackbarError,
-    showSnackbarWarn,
+    //showSnackbarWarn,
     updateAppDetails,
     useAppDetailsForApp,
     useCurrentlyExistsAtGroup,
@@ -36,13 +36,13 @@ import { useCallback, useState } from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
-import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
 import { AuthHeader, useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { SmallSpinner } from '../Spinner/Spinner';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { Button } from '../button';
 import { useSearchParams } from 'react-router-dom';
 import { Tooltip } from '../tooltip/tooltip';
+import { ClosableDialog } from '../dialog/CloseableDialog';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -458,28 +458,12 @@ export const ReadyServiceLane: React.FC<{
 
     const [showEnvSelectionDialog, setShowEnvSelectionDialog] = useState(false);
 
-    const handleClose = useCallback(() => {
+    //const handleClose = useCallback(() => {
+    //    setShowEnvSelectionDialog(false);
+    //}, []);
+    const confirmEnvAppDelete = useCallback(() => {
         setShowEnvSelectionDialog(false);
-    }, []);
-    const confirmEnvAppDelete = useCallback(
-        (selectedEnvs: string[]) => {
-            if (selectedEnvs.length === envs.length) {
-                showSnackbarWarn("If you want to delete all environments, use 'prepare undeploy'");
-                setShowEnvSelectionDialog(false);
-                return;
-            }
-            selectedEnvs.forEach((env) => {
-                addAction({
-                    action: {
-                        $case: 'deleteEnvFromApp',
-                        deleteEnvFromApp: { application: application.name, environment: env },
-                    },
-                });
-            });
-            setShowEnvSelectionDialog(false);
-        },
-        [application.name, envs]
-    );
+    }, [application.name, envs]);
     const onReload = useCallback(() => {
         const details = updateAppDetails.get();
         details[application.name] = {
@@ -517,13 +501,15 @@ export const ReadyServiceLane: React.FC<{
     const dotsMenu = <DotsMenu buttons={buttons} />;
     const appLocks = Object.values(appDetails?.appLocks ? appDetails.appLocks : []);
     const teamLocks = Object.values(appDetails?.teamLocks ? appDetails.teamLocks : []);
+    //  const children = <div>foo</div>;
     const dialog = (
-        <EnvSelectionDialog
-            environments={envs.map((e) => e.name)}
+        <ClosableDialog
             open={showEnvSelectionDialog}
-            onSubmit={confirmEnvAppDelete}
-            onCancel={handleClose}
-            envSelectionDialog={true}
+            onClose={confirmEnvAppDelete}
+            headerLabel="Header"
+            confirmLabel="Confirm"
+            classNames=""
+            children={<button>click me</button>}
         />
     );
 
