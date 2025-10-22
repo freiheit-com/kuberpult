@@ -152,7 +152,7 @@ func (h *DBHandler) DBHasAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (boo
 	return rows.Next(), nil
 }
 
-func (h *DBHandler) DBSelectTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]TeamLock, error) {
+func (h *DBHandler) DBSelectAllTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]TeamLock, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLocksForEnv")
 	defer span.Finish()
 
