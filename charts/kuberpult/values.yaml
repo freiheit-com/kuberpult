@@ -149,7 +149,8 @@ db:
   dbName: "databaseName"
   dbUser: "username"
   dbPassword: "password"
-  # SSL mode to be used by the database
+  # SSL mode to be used by the database.
+  # For all possible values see https://jdbc.postgresql.org/documentation/ssl/
   sslMode: verify-full
   requests:
     cpu: "100m"
