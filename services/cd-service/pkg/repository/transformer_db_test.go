@@ -3581,7 +3581,7 @@ func TestDeleteEnvironment(t *testing.T) {
 			EnvsToDelete: []string{"this-env-does-not-exist"},
 			expectedError: &TransformerBatchApplyError{
 				Index:            0,
-				TransformerError: errMatcher{"error at index 0 of transformer batch: could not delete environment with name 'this-env-does-not-exist' from DB"},
+				TransformerError: errMatcher{"error at index 0 of transformer batch: rpc error: code = FailedPrecondition desc = error: environment with name 'this-env-does-not-exist' not found"},
 			},
 		},
 		{
