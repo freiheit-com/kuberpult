@@ -1220,39 +1220,39 @@ func (u *DeleteEnvFromApp) Transform(
 	if err != nil {
 		return "", err
 	}
-	//releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, u.Application, true)
-	//if err != nil {
-	//	return "", err
-	//}
+	releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, u.Application, true)
+	if err != nil {
+		return "", err
+	}
 
-	//now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-	//if err != nil {
-	//	return "", fmt.Errorf("could not get transaction timestamp")
-	//}
-	//for _, dbReleaseWithMetadata := range releases {
-	//	newManifests := make(map[types.EnvName]string)
-	//	for e, manifest := range dbReleaseWithMetadata.Manifests.Manifests {
-	//		if e != envName {
-	//			newManifests[e] = manifest
-	//		}
-	//	}
-	//
-	//	newRelease := db.DBReleaseWithMetaData{
-	//		ReleaseNumbers: types.ReleaseNumbers{
-	//			Revision: dbReleaseWithMetadata.ReleaseNumbers.Revision,
-	//			Version:  dbReleaseWithMetadata.ReleaseNumbers.Version,
-	//		},
-	//		App:          dbReleaseWithMetadata.App,
-	//		Created:      *now,
-	//		Manifests:    db.DBReleaseManifests{Manifests: newManifests},
-	//		Metadata:     dbReleaseWithMetadata.Metadata,
-	//		Environments: []types.EnvName{},
-	//	}
-	//	err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
-	//	if err != nil {
-	//		return "", err
-	//	}
-	//}
+	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("could not get transaction timestamp")
+	}
+	for _, dbReleaseWithMetadata := range releases {
+		newManifests := make(map[types.EnvName]string)
+		for e, manifest := range dbReleaseWithMetadata.Manifests.Manifests {
+			if e != envName {
+				newManifests[e] = manifest
+			}
+		}
+
+		newRelease := db.DBReleaseWithMetaData{
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: dbReleaseWithMetadata.ReleaseNumbers.Revision,
+				Version:  dbReleaseWithMetadata.ReleaseNumbers.Version,
+			},
+			App:          dbReleaseWithMetadata.App,
+			Created:      *now,
+			Manifests:    db.DBReleaseManifests{Manifests: newManifests},
+			Metadata:     dbReleaseWithMetadata.Metadata,
+			Environments: []types.EnvName{},
+		}
+		err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
+		if err != nil {
+			return "", err
+		}
+	}
 
 	err = state.DBHandler.DBRemoveAppFromEnvironment(ctx, transaction, envName, u.Application)
 	if err != nil {
