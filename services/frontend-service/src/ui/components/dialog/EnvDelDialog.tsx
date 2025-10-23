@@ -14,9 +14,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '../button';
 import { PlainDialog } from './ConfirmationDialog';
+import { Checkbox } from '../dropdown/checkbox';
 
 export type EnvDelDialogProps = {
     onClose: () => void;
@@ -26,39 +27,72 @@ export type EnvDelDialogProps = {
     confirmLabel: string;
     classNames: string;
     testIdRootRefParent?: string;
+    //selectedEnvs: string[];
+    //setSelectedEnvs: React.Dispatch<React.SetStateAction<string[]>>;
 };
 
 /**
  * A dialog that is used to confirm a selection.
  */
-export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => (
-    <PlainDialog
-        open={props.open}
-        onClose={props.onClose}
-        classNames={props.classNames}
-        disableBackground={true}
-        center={true}
-        testIdRootRefParent={props.testIdRootRefParent}>
-        <>
-            <div className={'env-del-dialog-header'}>{props.headerLabel}</div>
-            <hr />
-            <div className={'env-del-dialog-content'}>
-                {props.envs.map((env: string) => (
-                    <div>{env}</div>
-                ))}
-            </div>
-            <hr />
-            <div className={'env-del-dialog-footer'}>
-                <div className={'item'} key={'button-menu-confirm'}>
-                    <Button
-                        className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
-                        testId="test-confirm-button-confirm"
-                        label={props.confirmLabel}
-                        onClick={props.onClose}
-                        highlightEffect={false}
-                    />
+export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
+    const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
+    //const { selectedEnvs, setSelectedEnvs } = props;
+    const addEnv = React.useCallback(
+        (env: string) => {
+            const newEnv = env;
+            const indexOf = selectedEnvs.indexOf(newEnv);
+            if (indexOf >= 0) {
+                const copy = selectedEnvs.concat();
+                copy.splice(indexOf, 1);
+                setSelectedEnvs(copy);
+            } else {
+                setSelectedEnvs([newEnv]);
+            }
+        },
+        [selectedEnvs, setSelectedEnvs]
+    );
+    return (
+        <PlainDialog
+            open={props.open}
+            onClose={props.onClose}
+            classNames={props.classNames}
+            disableBackground={true}
+            center={true}
+            testIdRootRefParent={props.testIdRootRefParent}
+            //selectedEnvs={selectedEnvs}
+        >
+            <>
+                <div className={'env-del-dialog-header'}>{props.headerLabel}</div>
+                <hr />
+                <div className={'env-del-dialog-content'}>
+                    {props.envs.map((env: string) => {
+                        const enabled = selectedEnvs.includes(env);
+                        return (
+                            <div key={env}>
+                                <Checkbox
+                                    enabled={enabled}
+                                    id={String(env)}
+                                    label={env}
+                                    classes={'env-' + env}
+                                    onClick={addEnv}
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
-            </div>
-        </>
-    </PlainDialog>
-);
+                <hr />
+                <div className={'env-del-dialog-footer'}>
+                    <div className={'item'} key={'button-menu-confirm'}>
+                        <Button
+                            className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
+                            testId="test-confirm-button-confirm"
+                            label={props.confirmLabel}
+                            onClick={props.onClose}
+                            highlightEffect={false}
+                        />
+                    </div>
+                </div>
+            </>
+        </PlainDialog>
+    );
+};
