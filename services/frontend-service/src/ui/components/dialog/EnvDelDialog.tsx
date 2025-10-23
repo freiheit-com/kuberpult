@@ -27,8 +27,6 @@ export type EnvDelDialogProps = {
     confirmLabel: string;
     classNames: string;
     testIdRootRefParent?: string;
-    //selectedEnvs: string[];
-    //setSelectedEnvs: React.Dispatch<React.SetStateAction<string[]>>;
 };
 
 /**
@@ -46,7 +44,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                 copy.splice(indexOf, 1);
                 setSelectedEnvs(copy);
             } else {
-                setSelectedEnvs([newEnv]);
+                setSelectedEnvs(selectedEnvs.concat([newEnv]));
             }
         },
         [selectedEnvs, setSelectedEnvs]
@@ -59,7 +57,6 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
             disableBackground={true}
             center={true}
             testIdRootRefParent={props.testIdRootRefParent}
-            //selectedEnvs={selectedEnvs}
         >
             <>
                 <div className={'env-del-dialog-header'}>{props.headerLabel}</div>
