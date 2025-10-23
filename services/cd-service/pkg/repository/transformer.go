@@ -2073,6 +2073,14 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 
+	env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+	if err != nil {
+		return "", err
+	}
+	if env == nil {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name '%s' not found", envName))
+	}
+
 	err = c.CheckPreconditions(ctx, state, t, transaction)
 	if err != nil {
 		return "", err
