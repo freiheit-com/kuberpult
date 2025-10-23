@@ -65,7 +65,7 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
                             createdAt={createdAt}
                             className="release__metadata-mini"
                             switched={true}
-                            prefixText="Deployed on"
+                            prefixText="Release created on"
                         />
                     )}
                 </div>
