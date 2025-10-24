@@ -18,6 +18,8 @@ import React, { useState } from 'react';
 import { Button } from '../button';
 import { PlainDialog } from './ConfirmationDialog';
 import { Checkbox } from '../dropdown/checkbox';
+import { addAction, deleteAction } from '../../utils/store';
+import { BatchAction } from '../../../api/api';
 
 export type EnvDelDialogProps = {
     onClose: () => void;
@@ -34,17 +36,30 @@ export type EnvDelDialogProps = {
  */
 export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
     const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
-    //const { selectedEnvs, setSelectedEnvs } = props;
     const toggleEnv = React.useCallback(
         (env: string) => {
             const newEnv = env;
+            const action: BatchAction = {
+                action: {
+                    $case: 'createEnvironmentLock',
+                    createEnvironmentLock: {
+                        environment: newEnv,
+                        lockId: '',
+                        message: '',
+                        ciLink: '',
+                        suggestedLifeTime: '',
+                    },
+                },
+            };
             const indexOf = selectedEnvs.indexOf(newEnv);
             if (indexOf >= 0) {
                 const copy = selectedEnvs.concat();
                 copy.splice(indexOf, 1);
                 setSelectedEnvs(copy);
+                deleteAction(action);
             } else {
                 setSelectedEnvs(selectedEnvs.concat([newEnv]));
+                addAction(action);
             }
         },
         [selectedEnvs, setSelectedEnvs]
@@ -56,8 +71,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
             classNames={props.classNames}
             disableBackground={true}
             center={true}
-            testIdRootRefParent={props.testIdRootRefParent}
-        >
+            testIdRootRefParent={props.testIdRootRefParent}>
             <>
                 <div className={'env-del-dialog-header'}>{props.headerLabel}</div>
                 <hr />
