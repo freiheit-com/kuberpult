@@ -134,9 +134,14 @@ type CommitIdProps = {
     app: string;
     env: Environment;
     otherRelease?: Release;
+    hasEnv: boolean;
 };
 
-const DeployedVersion: React.FC<CommitIdProps> = ({ deployment, app, env, otherRelease }): ReactElement => {
+const DeployedVersion: React.FC<CommitIdProps> = ({ deployment, app, env, otherRelease, hasEnv }): ReactElement => {
+    if (!hasEnv) {
+        return <span>This release has no manifest for "{env.name}" and cannot be deployed</span>;
+    }
+
     if (!deployment || !otherRelease) {
         return (
             <span>
@@ -144,6 +149,7 @@ const DeployedVersion: React.FC<CommitIdProps> = ({ deployment, app, env, otherR
             </span>
         );
     }
+
     const firstLine = otherRelease.sourceMessage.split('\n')[0];
     return (
         <span>
@@ -192,6 +198,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const otherRelease = useReleaseOptional(app, env);
     const appDetails = useAppDetailsForApp(app);
     const deployment = appDetails.details?.deployments[env.name];
+    const hasEnv = release.environments.indexOf(env.name) >= 0;
 
     const getDeploymentMetadata = (): [JSX.Element, JSX.Element] => {
         let deployedByContent = '';
@@ -342,6 +349,9 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         if (release.isPrepublish) {
             return false;
         }
+        if (!hasEnv) {
+            return false;
+        }
         if (!otherRelease) {
             return true;
         }
@@ -429,18 +439,28 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             '. ' +
                             (release.undeployVersion ? undeployTooltipExplanation : '')
                         }>
-                        <DeployedVersion app={app} env={env} deployment={deployment} otherRelease={otherRelease} />
+                        <DeployedVersion
+                            app={app}
+                            env={env}
+                            deployment={deployment}
+                            otherRelease={otherRelease}
+                            hasEnv={hasEnv}
+                        />
                     </div>
                     {queueInfo}
-                    <div className={classNames('env-card-data')}>
-                        {getDeploymentMetadata().flatMap((metadata, i) => (
-                            <div key={i}>
-                                {metadata}
-                                &nbsp;
+                    {hasEnv && (
+                        <>
+                            <div className={classNames('env-card-data')}>
+                                {getDeploymentMetadata().flatMap((metadata, i) => (
+                                    <div key={i}>
+                                        {metadata}
+                                        &nbsp;
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                    <div className={classNames('env-card-data')}>{getReleaseDiffContent()}</div>
+                            <div className={classNames('env-card-data')}>{getReleaseDiffContent()}</div>
+                        </>
+                    )}
                 </div>
                 <div className="content-right">
                     <div className="env-card-buttons">

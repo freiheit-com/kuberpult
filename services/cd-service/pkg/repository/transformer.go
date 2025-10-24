@@ -1215,11 +1215,12 @@ func (u *DeleteEnvFromApp) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(u.Environment)
+	envName := u.Environment
 	err := state.checkUserPermissions(ctx, transaction, envName, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig, true)
 	if err != nil {
 		return "", err
 	}
+
 	releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, u.Application, true)
 	if err != nil {
 		return "", err
@@ -1229,7 +1230,21 @@ func (u *DeleteEnvFromApp) Transform(
 	if err != nil {
 		return "", fmt.Errorf("could not get transaction timestamp")
 	}
-	for _, dbReleaseWithMetadata := range releases {
+
+	// Only update the recent releases (counting from the oldest the release having a deployment)
+	// Should iterate from the oldest to the latest releases
+	isRecentRelease := false
+	for i := len(releases) - 1; i >= 0; i-- {
+		dbReleaseWithMetadata := releases[i]
+
+		if !isRecentRelease && len(dbReleaseWithMetadata.Environments) > 0 {
+			isRecentRelease = true
+		}
+
+		if !isRecentRelease {
+			continue
+		}
+
 		newManifests := make(map[types.EnvName]string)
 		for e, manifest := range dbReleaseWithMetadata.Manifests.Manifests {
 			if e != envName {
