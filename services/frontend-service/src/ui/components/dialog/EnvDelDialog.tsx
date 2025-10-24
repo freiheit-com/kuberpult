@@ -92,10 +92,6 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                     })}
                 </div>
                 <hr />
-                <div className={'env-del-dialog-content'}>
-                    The app is deleted already from the following environments: foo-staging.
-                </div>
-                <hr />
                 <div className={'env-del-dialog-footer'}>
                     <div className={'item'} key={'button-remove-all'}>
                         <Button
@@ -115,12 +111,16 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                     </div>
                 </div>
                 <hr />
+                <div className={'env-del-dialog-content'}>
+                    The app is deleted already from the following environments: foo-staging.
+                </div>
+                <hr />
                 <div className={'env-del-dialog-footer'}>
                     <div className={'item'} key={'button-menu-confirm'}>
                         <Button
                             className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
                             testId="test-confirm-button-confirm"
-                            label={props.confirmLabel}
+                            label="Finish"
                             onClick={props.onClose}
                             highlightEffect={false}
                         />
