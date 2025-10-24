@@ -73,7 +73,9 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
             center={true}
             testIdRootRefParent={props.testIdRootRefParent}>
             <>
-                <div className={'env-del-dialog-header'}>{props.headerLabel}</div>
+                <div className={'env-del-dialog-header'}>
+                    Select the environments to remove for this app:
+                </div>
                 <hr />
                 <div className={'env-del-dialog-content'}>
                     {props.envs.map((env: string) => {
@@ -90,6 +92,29 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                             </div>
                         );
                     })}
+                </div>
+                <hr />
+                <div className={'env-del-dialog-content'}>
+                    The app is deleted already from the following environments: foo-staging.
+                </div>
+                <hr />
+                <div className={'env-del-dialog-footer'}>
+                    <div className={'item'} key={'button-remove-all'}>
+                        <Button
+                            className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
+                            testId="test-confirm-button-remove-all"
+                            label="Remove app from all remaining environments"
+                            onClick={props.onClose}
+                            highlightEffect={false}
+                        />
+                        <Button
+                            className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
+                            testId="test-confirm-button-remove-none"
+                            label="Remove app from no additional environments"
+                            onClick={props.onClose}
+                            highlightEffect={false}
+                        />
+                    </div>
                 </div>
                 <hr />
                 <div className={'env-del-dialog-footer'}>
