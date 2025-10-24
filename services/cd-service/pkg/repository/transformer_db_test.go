@@ -3080,9 +3080,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					App:            "app",
 					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 					Manifests: db.DBReleaseManifests{
-						Manifests: map[types.EnvName]string{},
+						Manifests: map[types.EnvName]string{
+							"staging": "doesn't matter",
+						},
 					},
-					Environments: []types.EnvName{},
+					Environments: []types.EnvName{"staging"},
 				},
 			},
 			expectedAllEnvs: []types.EnvName{},
@@ -3130,10 +3132,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
-							"dev": "doesn't matter",
+							"staging": "doesn't matter",
+							"dev":     "doesn't matter",
 						},
 					},
-					Environments: []types.EnvName{"dev"},
+					Environments: []types.EnvName{"dev", "staging"},
 				},
 			},
 			expectedAllEnvs: []types.EnvName{"dev"},
@@ -3191,10 +3194,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
-							"dev": "doesn't matter",
+							"staging": "doesn't matter",
+							"dev":     "doesn't matter",
 						},
 					},
-					Environments: []types.EnvName{"dev"},
+					Environments: []types.EnvName{"dev", "staging"},
 				},
 				"app2": {
 					App: "app2",
@@ -3204,10 +3208,11 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					},
 					Manifests: db.DBReleaseManifests{
 						Manifests: map[types.EnvName]string{
-							"dev": "doesn't matter",
+							"staging": "doesn't matter",
+							"dev":     "doesn't matter",
 						},
 					},
-					Environments: []types.EnvName{"dev"},
+					Environments: []types.EnvName{"dev", "staging"},
 				},
 			},
 			expectedAllEnvs: []types.EnvName{"dev"},
