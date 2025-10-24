@@ -35,7 +35,7 @@ export type EnvDelDialogProps = {
 export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
     const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
     //const { selectedEnvs, setSelectedEnvs } = props;
-    const addEnv = React.useCallback(
+    const toggleEnv = React.useCallback(
         (env: string) => {
             const newEnv = env;
             const indexOf = selectedEnvs.indexOf(newEnv);
@@ -71,7 +71,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                                     id={String(env)}
                                     label={env}
                                     classes={'env-' + env}
-                                    onClick={addEnv}
+                                    onClick={toggleEnv}
                                 />
                             </div>
                         );
