@@ -1,6 +1,7 @@
 name: Release kuberpult with semantic versioning
 on:
-  workflow_dispatch:
+  workflow_dispatch: # In order to trigger manually
+  workflow_call:
 
 jobs:
   release:
