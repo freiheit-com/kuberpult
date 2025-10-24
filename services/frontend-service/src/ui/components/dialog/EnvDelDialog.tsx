@@ -41,13 +41,10 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
             const newEnv = env;
             const action: BatchAction = {
                 action: {
-                    $case: 'createEnvironmentLock',
-                    createEnvironmentLock: {
+                    $case: 'deleteEnvFromApp',
+                    deleteEnvFromApp: {
                         environment: newEnv,
-                        lockId: '',
-                        message: '',
-                        ciLink: '',
-                        suggestedLifeTime: '',
+                        application: 'echo',
                     },
                 },
             };
@@ -101,6 +98,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                             onClick={props.onClose}
                             highlightEffect={false}
                         />
+                        &nbsp;
                         <Button
                             className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
                             testId="test-confirm-button-remove-none"
