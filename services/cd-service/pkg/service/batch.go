@@ -26,6 +26,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -480,9 +481,11 @@ func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (*api.BatchResponse, error) {
+	parentSpan, parentSpanExisted := tracer.SpanFromContext(ctx)
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "ProcessBatch")
 	defer span.Finish()
 	span.SetTag("BatchActions", len(in.GetActions()))
+
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
 		return nil, onErr(grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err)))
@@ -511,6 +514,20 @@ func (d *BatchServer) ProcessBatch(
 		transformers = append(transformers, transformer)
 		results = append(results, result)
 	}
+
+	// Add information about the transformer types for the root-level span of ProcessBatch
+	if len(transformers) > 0 {
+		var transformerTag string
+		if len(transformers) == 1 {
+			transformerTag = string(transformers[0].GetDBEventType())
+		} else {
+			transformerTag = "multi"
+		}
+		if parentSpanExisted {
+			parentSpan.SetTag("transformers", transformerTag)
+		}
+	}
+
 	if requiresIsolation {
 		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
 		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-Lock")
