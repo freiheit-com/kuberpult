@@ -24,15 +24,13 @@ import { BatchAction } from '../../../api/api';
 export type EnvDelDialogProps = {
     onClose: () => void;
     open: boolean;
+    app: string;
     envs: Array<string>;
-    headerLabel: string;
-    confirmLabel: string;
-    classNames: string;
     testIdRootRefParent?: string;
 };
 
 /**
- * A dialog that is used to confirm a selection.
+ * A dialog to remove apps from environments.
  */
 export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
     const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
@@ -65,12 +63,12 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
         <PlainDialog
             open={props.open}
             onClose={props.onClose}
-            classNames={props.classNames}
+            classNames="env-del-dialog"
             disableBackground={true}
             center={true}
             testIdRootRefParent={props.testIdRootRefParent}>
             <>
-                <div className={'env-del-dialog-header'}>Select the environments to remove for this app:</div>
+                <div className={'env-del-dialog-header'}>Select the environments to remove for '{props.app}'':</div>
                 <hr />
                 <div className={'env-del-dialog-content'}>
                     {props.envs.map((env: string) => {
@@ -107,10 +105,6 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                             highlightEffect={false}
                         />
                     </div>
-                </div>
-                <hr />
-                <div className={'env-del-dialog-content'}>
-                    The app is deleted already from the following environments: foo-staging.
                 </div>
                 <hr />
                 <div className={'env-del-dialog-footer'}>

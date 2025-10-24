@@ -457,11 +457,7 @@ export const ReadyServiceLane: React.FC<{
     );
 
     const [showEnvSelectionDialog, setShowEnvSelectionDialog] = useState(false);
-
-    //const handleClose = useCallback(() => {
-    //    setShowEnvSelectionDialog(false);
-    //}, []);
-    const confirmEnvAppDelete = useCallback(() => {
+    const finishEnvAppDelete = useCallback(() => {
         setShowEnvSelectionDialog(false);
     }, [application.name, envs]);
     const onReload = useCallback(() => {
@@ -501,14 +497,12 @@ export const ReadyServiceLane: React.FC<{
     const dotsMenu = <DotsMenu buttons={buttons} />;
     const appLocks = Object.values(appDetails?.appLocks ? appDetails.appLocks : []);
     const teamLocks = Object.values(appDetails?.teamLocks ? appDetails.teamLocks : []);
-    //  const children = <div>foo</div>;
+    const app = appDetails?.application ? appDetails?.application?.name : '';
     const dialog = (
         <EnvDelDialog
             open={showEnvSelectionDialog}
-            onClose={confirmEnvAppDelete}
-            headerLabel="Header"
-            confirmLabel="Confirm"
-            classNames=""
+            onClose={finishEnvAppDelete}
+            app={app}
             envs={new Array<string>('foo', 'bar')}
         />
     );
