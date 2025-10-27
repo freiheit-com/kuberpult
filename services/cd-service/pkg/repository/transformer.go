@@ -1231,18 +1231,16 @@ func (u *DeleteEnvFromApp) Transform(
 		return "", fmt.Errorf("could not get transaction timestamp")
 	}
 
-	// Only update the recent releases (counting from the oldest the release having a deployment)
-	// Should iterate from the oldest to the latest releases
-	isRecentRelease := false
-	for i := len(releases) - 1; i >= 0; i-- {
-		dbReleaseWithMetadata := releases[i]
+	// Find the "oldest" one among the latest deployments on all environments
+	oldestDeployment, err := state.DBHandler.DBSelectOldestDeploymentForApplication(ctx, transaction, u.Application)
+	if err != nil {
+		return "", err
+	}
 
-		if !isRecentRelease && len(dbReleaseWithMetadata.Environments) > 0 {
-			isRecentRelease = true
-		}
-
-		if !isRecentRelease {
-			continue
+	// Only update the recent releases (counting from the oldest release having a deployment)
+	for _, dbReleaseWithMetadata := range releases {
+		if oldestDeployment != nil && !types.GreaterOrEqual(dbReleaseWithMetadata.ReleaseNumbers, oldestDeployment.ReleaseNumbers) {
+			break
 		}
 
 		newManifests := make(map[types.EnvName]string)

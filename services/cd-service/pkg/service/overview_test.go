@@ -912,7 +912,6 @@ func TestGetApplicationDetails(t *testing.T) {
 							SourceAuthor:   "example <example@example.com>",
 							SourceMessage:  "changed something (#678)",
 							PrNumber:       "678",
-							IsMinor:        true,
 							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
 							Environments:   []string{string(env), string(thirdEnv)},
 						},
@@ -924,7 +923,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							PrNumber:       "678",
 							IsMinor:        true,
 							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							Environments:   []string{string(env), string(thirdEnv)},
+							Environments:   []string{string(env)},
 						},
 						{
 							Version:        1,
@@ -933,7 +932,7 @@ func TestGetApplicationDetails(t *testing.T) {
 							SourceMessage:  "changed something (#678)",
 							PrNumber:       "678",
 							CreatedAt:      &timestamppb.Timestamp{Seconds: 1, Nanos: 1},
-							Environments:   []string{string(env), string(thirdEnv)},
+							Environments:   []string{string(env)},
 						},
 					},
 					Team: "team-123",
@@ -943,14 +942,6 @@ func TestGetApplicationDetails(t *testing.T) {
 				Deployments: map[string]*api.Deployment{
 					string(env): {
 						Version:         3,
-						QueuedVersion:   0,
-						UndeployVersion: false,
-						DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-							DeployAuthor: "test tester",
-						},
-					},
-					string(thirdEnv): {
-						Version:         1,
 						QueuedVersion:   0,
 						UndeployVersion: false,
 						DeploymentMetaData: &api.Deployment_DeploymentMetaData{
