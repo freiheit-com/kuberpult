@@ -298,7 +298,7 @@ type ESLMetadata struct {
 }
 
 // DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking arbitrary data as input
-func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}, metadata ESLMetadata) error {
+func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}, metadata ESLMetadata) (err error) {
 	if h == nil {
 		return nil
 	}
@@ -306,7 +306,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 
 	dataMap, err := convertObjectToMap(data)
 
@@ -342,7 +342,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 	return nil
 }
 
-func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eventType EventType, data string) error {
+func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eventType EventType, data string) (err error) {
 	if h == nil {
 		return nil
 	}
@@ -350,7 +350,7 @@ func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eve
 		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
 
@@ -404,9 +404,9 @@ type EslFailedEventRow struct {
 }
 
 // DBReadEslEventInternal returns either the first or the last row of the esl table
-func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (*EslEventRow, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadEslEventInternal")
-	defer span.Finish()
+func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (_ *EslEventRow, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslEventInternal")
+	defer span.Finish(tracer.WithError(err))
 	sort := "DESC"
 	if firstRow {
 		sort = "ASC"
@@ -417,7 +417,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		selectQuery,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err))
+		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBReadEslEventInternal")
 	var row = &EslEventRow{
@@ -432,7 +432,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, onErr(fmt.Errorf("error scanning event_sourcing_light row from DB. Error: %w", err))
+			return nil, fmt.Errorf("error scanning event_sourcing_light row from DB. Error: %w", err)
 		}
 	} else {
 		row = nil
@@ -441,9 +441,9 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 }
 
 // DBReadEslEventLaterThan returns the first row of the esl table that has an eslVersion > the given eslVersion
-func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (*EslEventRow, error) {
+func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (_ *EslEventRow, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslEventLaterThan")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 
 	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json FROM event_sourcing_light WHERE eslVersion > (?) ORDER BY eslVersion %s LIMIT 1;", sort))
@@ -1581,9 +1581,9 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 	return failedEsls, nil
 }
 
-func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *sql.Tx, eslVersion uint64) (*EslFailedEventRow, error) {
+func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *sql.Tx, eslVersion uint64) (_ *EslFailedEventRow, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslFailedEventFromTransformerId")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil, nil
 	}

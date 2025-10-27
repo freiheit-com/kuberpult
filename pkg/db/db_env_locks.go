@@ -323,9 +323,9 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 }
 
 // INSERT, UPDATE, DELETES
-func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata) error {
+func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 
 	if h == nil {
 		return nil
@@ -333,7 +333,7 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 	if tx == nil {
 		return fmt.Errorf("DBWriteEnvironmentLock: no transaction provided")
 	}
-	err := h.upsertEnvLockRow(ctx, tx, lockID, environment, metadata)
+	err = h.upsertEnvLockRow(ctx, tx, lockID, environment, metadata)
 	if err != nil {
 		return err
 	}

@@ -29,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
@@ -350,11 +349,11 @@ type transformerRunner struct {
 	DeletedRootApps []RootApp
 }
 
-func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, fmt.Sprintf("Transformer_%s", t.GetDBEventType()))
-	defer span.Finish()
-	_, err := t.Transform(ctx, r.State, r, transaction)
-	return onErr(err)
+func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, fmt.Sprintf("Transformer_%s", t.GetDBEventType()))
+	defer span.Finish(tracer.WithError(err))
+	_, err = t.Transform(ctx, r.State, r, transaction)
+	return err
 }
 
 func (r *transformerRunner) AddAppEnv(app string, env types.EnvName, team string) {
