@@ -34,9 +34,9 @@ type ArgoEvent struct {
 	Discarded bool
 }
 
-func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*ArgoEvent) error {
+func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*ArgoEvent) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpsertArgoEvents")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil
 	}
@@ -61,9 +61,9 @@ func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*
 	return err
 }
 
-func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (*ArgoEvent, error) {
+func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (_ *ArgoEvent, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadArgoEvent")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil, nil
 	}

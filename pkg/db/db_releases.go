@@ -77,9 +77,9 @@ func (h *DBHandler) DBHasAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepu
 	return rows.Next(), nil
 }
 
-func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx *sql.Tx) ([]*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx *sql.Tx) (_ []*DBReleaseWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesWithoutEnvironments")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases
@@ -92,9 +92,9 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 	return h.processReleaseRows(ctx, err, rows, true, true)
 }
 
-func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByVersions")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if len(releaseVersions) == 0 {
 		return []*DBReleaseWithMetaData{}, nil
 	}
@@ -166,9 +166,9 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 
 type AppVersionEnvironments map[string]map[string][]types.EnvName // first key is the appName
 
-func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, tx *sql.Tx) (AppVersionEnvironments, error) {
+func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, tx *sql.Tx) (_ AppVersionEnvironments, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, releaseVersion, environments, revision
 		FROM releases
@@ -183,9 +183,9 @@ func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, t
 	return h.processReleaseEnvironmentRows(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppLatestEslVersion")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases
@@ -219,9 +219,9 @@ func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, 
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, false)
 }
 
-func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) ([]types.ReleaseNumbers, error) {
+func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (_ []types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	selectQuery := h.AdaptQuery(`
 			SELECT releaseVersion, revision
 			FROM releases
@@ -237,9 +237,9 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 	return h.processAppReleaseVersionsRows(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectAllReleaseNumbersOfApp(ctx context.Context, tx *sql.Tx, app string) ([]types.ReleaseNumbers, error) {
+func (h *DBHandler) DBSelectAllReleaseNumbersOfApp(ctx context.Context, tx *sql.Tx, app string) (_ []types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	selectQuery := h.AdaptQuery(`
 		SELECT releaseVersion, revision
 		FROM releases
@@ -259,9 +259,9 @@ func (h *DBHandler) DBSelectAllReleaseNumbersOfApp(ctx context.Context, tx *sql.
 	return data, nil
 }
 
-func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByVersionsAndRevision")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if len(releaseVersions) == 0 {
 		return []*DBReleaseWithMetaData{}, nil
 	}
@@ -288,9 +288,9 @@ func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, t
 	return data, nil
 }
 
-func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (map[string][]types.ReleaseNumbers, error) {
+func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (_ map[string][]types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfAllApps")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, releaseVersion, revision
 		FROM releases
@@ -306,10 +306,10 @@ func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx
 
 // INSERT, UPDATE, DELETES
 
-func (h *DBHandler) DBUpdateOrCreateRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
+func (h *DBHandler) DBUpdateOrCreateRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateOrCreateRelease")
-	defer span.Finish()
-	err := h.upsertReleaseRow(ctx, transaction, release)
+	defer span.Finish(tracer.WithError(err))
+	err = h.upsertReleaseRow(ctx, transaction, release)
 	if err != nil {
 		return err
 	}
@@ -320,9 +320,9 @@ func (h *DBHandler) DBUpdateOrCreateRelease(ctx context.Context, transaction *sq
 	return nil
 }
 
-func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete types.ReleaseNumbers) error {
+func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete types.ReleaseNumbers) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteFromReleases")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 
 	targetRelease, err := h.DBSelectReleaseByVersion(ctx, transaction, application, releaseToDelete, true)
 	if err != nil {
@@ -342,9 +342,9 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 	return nil
 }
 
-func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, application string) error {
+func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, application string) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBClearReleases")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 
 	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
 	if err != nil {
@@ -366,14 +366,14 @@ func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, ap
 
 // actual changes in tables
 
-func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
+func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteReleaseRow")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM releases WHERE appname=? AND releaseversion=?
 	`)
 	span.SetTag("query", deleteQuery)
-	_, err := transaction.Exec(
+	_, err = transaction.Exec(
 		deleteQuery,
 		release.App,
 		*release.ReleaseNumbers.Version,
@@ -388,9 +388,9 @@ func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	return nil
 }
 
-func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) error {
+func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertReleaseRow")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -442,9 +442,9 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	return nil
 }
 
-func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, deleted bool) error {
+func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, deleted bool) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO releases_history (created, releaseVersion, appName, manifests, metadata, deleted, environments, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?);
@@ -495,15 +495,15 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 	return nil
 }
 
-func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion types.ReleaseNumbers, createAt time.Time) error {
+func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion types.ReleaseNumbers, createAt time.Time) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrationUpdateReleasesTimestamp")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	historyUpdateQuery := h.AdaptQuery(`
 		UPDATE releases_history SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
 	`)
 	span.SetTag("query", historyUpdateQuery)
 
-	_, err := transaction.ExecContext(
+	_, err = transaction.ExecContext(
 		ctx,
 		historyUpdateQuery,
 		createAt,
@@ -783,9 +783,9 @@ type ReleaseKey struct {
 	Revision       uint64
 }
 
-func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transaction *sql.Tx, startDate, endDate time.Time) (map[ReleaseKey]string, error) {
+func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transaction *sql.Tx, startDate, endDate time.Time) (_ map[ReleaseKey]string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectCommitHashesTimeWindow")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil, nil
 	}
@@ -849,16 +849,16 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 	return releases, nil
 }
 
-func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, transaction *sql.Tx, versionByApp map[string]types.ReleaseNumbers) (map[string]string, error) {
+func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, transaction *sql.Tx, versionByApp map[string]types.ReleaseNumbers) (_ map[string]string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectCommitIdAppReleaseVersions")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	result := make(map[string]string)
 	if len(versionByApp) < 1 {
 		return result, nil
 	}
 	queryID := rand.IntN(1 << 31) // this function should be called no more than once per transaction, but just to be save ...
 	tableQuery := h.AdaptQuery(`CREATE TEMP TABLE IF NOT EXISTS temp_query_app_releaseversions(queryId INTEGER, appName VARCHAR NOT NULL, releaseVersion INTEGER, revision INTEGER);`)
-	_, err := transaction.Exec(tableQuery)
+	_, err = transaction.Exec(tableQuery)
 	if err != nil {
 		return nil, fmt.Errorf("could not create query app releases table. Error: %w", err)
 	}

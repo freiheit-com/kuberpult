@@ -46,9 +46,9 @@ type GitSyncData struct {
 	SyncStatus
 }
 
-func (h *DBHandler) DBWriteNewSyncEvent(ctx context.Context, tx *sql.Tx, syncData *GitSyncData) error {
+func (h *DBHandler) DBWriteNewSyncEvent(ctx context.Context, tx *sql.Tx, syncData *GitSyncData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteNewSyncEvent")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil
 	}
@@ -76,9 +76,9 @@ func (h *DBHandler) DBWriteNewSyncEvent(ctx context.Context, tx *sql.Tx, syncDat
 	return nil
 }
 
-func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id TransformerID, envApps []EnvApp, status SyncStatus) error {
+func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id TransformerID, envApps []EnvApp, status SyncStatus) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteNewSyncEventBulk")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil
 	}
@@ -102,9 +102,9 @@ type EnvApp struct {
 	EnvName types.EnvName
 }
 
-func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *sql.Tx, id TransformerID) ([]EnvApp, error) {
+func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *sql.Tx, id TransformerID) (_ []EnvApp, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadUnsyncedAppsForTransfomerID")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil, nil
 	}
@@ -151,9 +151,9 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	return allCombinations, nil
 }
 
-func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx, id TransformerID) ([]EnvApp, error) {
+func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx, id TransformerID) (_ []EnvApp, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadAllAppsForTransfomerID")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil, nil
 	}
@@ -199,9 +199,9 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 	return allCombinations, nil
 }
 
-func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id TransformerID, status SyncStatus) error {
+func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id TransformerID, status SyncStatus) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBBulkUpdateUnsyncedApps")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil
 	}
@@ -225,9 +225,9 @@ func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id
 	return h.executeBulkInsert(ctx, tx, allCombs, *now, id, status, BULK_INSERT_BATCH_SIZE)
 }
 
-func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, newId, oldId TransformerID, status SyncStatus) error {
+func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, newId, oldId TransformerID, status SyncStatus) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBBulkUpdateAllApps")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil
 	}
@@ -251,9 +251,9 @@ func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, newId, 
 	return h.executeBulkInsert(ctx, tx, allCombs, *now, newId, status, BULK_INSERT_BATCH_SIZE)
 }
 
-func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, newId, oldId TransformerID) error {
+func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, newId, oldId TransformerID) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBBulkUpdateAllDeployments")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil
 	}
@@ -262,16 +262,16 @@ func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, 
 	}
 
 	query := h.AdaptQuery("UPDATE deployments SET transformereslversion = ? WHERE transformereslversion= ?;")
-	_, err := tx.ExecContext(ctx, query, newId, oldId)
+	_, err = tx.ExecContext(ctx, query, newId, oldId)
 	if err != nil {
 		return fmt.Errorf("could not update deployments from %q to %q. Error: %w", oldId, newId, err)
 	}
 	return nil
 }
 
-func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) ([]GitSyncData, error) {
+func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) (_ []GitSyncData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil, nil
 	}
@@ -324,9 +324,9 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 	return syncData, nil
 }
 
-func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (*GitSyncData, error) {
+func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (_ *GitSyncData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return nil, nil
 	}
@@ -353,7 +353,7 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 }
 
 // These queries can get long. Because of this, we insert these values in batches
-func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApps []EnvApp, now time.Time, id TransformerID, status SyncStatus, batchSize int) error {
+func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApps []EnvApp, now time.Time, id TransformerID, status SyncStatus, batchSize int) (err error) {
 	//queryTemplate := "INSERT INTO git_sync_status (created, transformerid, envName, appName, status) VALUES ;"
 	queryTemplate := `INSERT INTO git_sync_status (created, transformerid, envName, appName, status)
 	VALUES ('%s', %d, '%s', '%s', %d)
@@ -377,9 +377,9 @@ func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApp
 	return nil
 }
 
-func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) (int, error) {
+func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) (_ int, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBCountAppsWithStatus")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	if h == nil {
 		return -1, nil
 	}
