@@ -202,7 +202,29 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
 }
 
-func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
+func (h *DBHandler) DBSelectLatestReleasesSinceVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion types.ReleaseNumbers, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesAfterVersionAndRevision")
+	defer span.Finish(tracer.WithError(err))
+	selectQuery := h.AdaptQuery(`
+		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
+		FROM releases
+		WHERE appname = ? AND (releaseVersion > ? OR (releaseVersion = ? AND revision >= ?))
+		ORDER BY releaseversion DESC, revision DESC;
+	`)
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		app,
+		releaseVersion.Version,
+		releaseVersion.Version,
+		releaseVersion.Revision,
+	)
+
+	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, true)
+}
+
+func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) (_ *DBReleaseWithMetaData, err error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, releaseVersion, environments, revision
 		FROM releases

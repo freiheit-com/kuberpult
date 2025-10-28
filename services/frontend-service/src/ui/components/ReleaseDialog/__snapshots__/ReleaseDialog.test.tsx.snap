@@ -251,28 +251,10 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                         title="Shows the version that is currently deployed on prod. "
                       >
                         <span>
-                          "
-                          test1
-                          " has no version deployed on "
+                          This release cannot be deployed to "
                           prod
-                          "
+                          ", because it has no manifest on this environment
                         </span>
-                      </div>
-                      <div
-                        class="env-card-data"
-                      >
-                        <div>
-                          <div />
-                           
-                        </div>
-                        <div>
-                           
-                        </div>
-                      </div>
-                      <div
-                        class="env-card-data"
-                      >
-                        <div />
                       </div>
                     </div>
                     <div
@@ -303,6 +285,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                             <button
                               aria-label="Deploy and Lock"
                               class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              disabled=""
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -583,28 +566,10 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                         title="Shows the version that is currently deployed on prod. "
                       >
                         <span>
-                          "
-                          test1
-                          " has no version deployed on "
+                          This release cannot be deployed to "
                           prod
-                          "
+                          ", because it has no manifest on this environment
                         </span>
-                      </div>
-                      <div
-                        class="env-card-data"
-                      >
-                        <div>
-                          <div />
-                           
-                        </div>
-                        <div>
-                           
-                        </div>
-                      </div>
-                      <div
-                        class="env-card-data"
-                      >
-                        <div />
                       </div>
                     </div>
                     <div
@@ -635,6 +600,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                             <button
                               aria-label="Deploy and Lock"
                               class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              disabled=""
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -915,43 +881,10 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         title="Shows the version that is currently deployed on prod. "
                       >
                         <span>
-                          <span
-                            class="release-version__display-version"
-                            title="cafe"
-                          >
-                            2
-                          </span>
-                          the other commit message 2
+                          This release cannot be deployed to "
+                          prod
+                          ", because it has no manifest on this environment
                         </span>
-                      </div>
-                      <div
-                        class="env-card-data"
-                      >
-                        <div>
-                          <a
-                            class="deployment-ci-link"
-                            href="/www.somewebsite.com"
-                            id="deployment-ci-link-prod-test1"
-                            rel="noopener noreferrer"
-                            target="_blank"
-                          >
-                            Deployed by somebody 
-                          </a>
-                           
-                        </div>
-                        <div>
-                          <div>
-                            some formatted date
-                          </div>
-                           
-                        </div>
-                      </div>
-                      <div
-                        class="env-card-data"
-                      >
-                        <div>
-                          same version
-                        </div>
                       </div>
                     </div>
                     <div
@@ -1109,13 +1042,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         title="Shows the version that is currently deployed on dev. "
                       >
                         <span>
-                          <span
-                            class="release-version__display-version"
-                            title="cafe"
-                          >
-                            3
-                          </span>
-                          the other commit message 3
+                          This release cannot be deployed to "
+                          dev
+                          ", because it has no manifest on this environment
                         </span>
                       </div>
                       <div
@@ -1125,40 +1054,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         Version 
                         666
                          was not deployed, because of a lock.
-                      </div>
-                      <div
-                        class="env-card-data"
-                      >
-                        <div>
-                          <a
-                            class="deployment-ci-link"
-                            href="/www.somewebsite.com"
-                            id="deployment-ci-link-dev-test1"
-                            rel="noopener noreferrer"
-                            target="_blank"
-                          >
-                            Deployed by somebody 
-                          </a>
-                           
-                        </div>
-                        <div>
-                          <div>
-                            some formatted date
-                          </div>
-                           
-                        </div>
-                      </div>
-                      <div
-                        class="env-card-data"
-                      >
-                        <div>
-                          <span
-                            class="env-card-release-diff-negative"
-                          >
-                            1
-                          </span>
-                           versions behind
-                        </div>
                       </div>
                     </div>
                     <div
@@ -1189,6 +1084,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                             <button
                               aria-label="Update and Lock"
                               class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
+                              disabled=""
                             >
                               <div
                                 class="mdc-button__ripple"

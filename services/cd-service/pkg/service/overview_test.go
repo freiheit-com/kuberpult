@@ -20,11 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"sort"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"

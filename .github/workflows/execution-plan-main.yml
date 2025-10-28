@@ -19,7 +19,12 @@ jobs:
     with:
       trigger: main
     secrets: inherit
-  
+
+  release:
+    needs: [ integration-tests ]
+    uses: ./.github/workflows/release.yml
+    secrets: inherit
+
   trivy-scan:
     needs: [execution-plan]
     uses: ./.github/workflows/trivy-scan.yml
