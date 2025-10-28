@@ -272,13 +272,11 @@ func (c *ReleaseTrain) Transform(
 	if state.MaxNumThreads > 0 {
 		releaseTrainErrGroup.SetLimit(state.MaxNumThreads)
 	}
-	span1, ctx1 := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Parallel")
-	defer span1.Finish()
 	s, err2 := c.runWithNewGoRoutines(
 		envNames,
 		targetGroupName,
 		state.MaxNumThreads,
-		ctx1,
+		ctx,
 		configs,
 		allLatestReleases,
 		state,
@@ -286,8 +284,6 @@ func (c *ReleaseTrain) Transform(
 		transaction)
 	if err2 != nil {
 		return s, err2
-	} else {
-		span1.Finish()
 	}
 	err = releaseTrainErrGroup.Wait()
 	if err != nil {
@@ -376,19 +372,19 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 				return nil
 			})
 		}
-		spanSpawnAll.Finish()
 
 		err := group.Wait()
 		if err != nil {
 			logger.FromContext(parentCtx).Sugar().Error("waitgroup.error", zap.Error(err))
 		}
 		close(prognosisResultChannel)
+		spanSpawnAll.Finish(tracer.WithError(err))
 	}()
 
 	spanApplyAll, ctxApplyAll := tracer.StartSpanFromContext(parentCtx, "ApplyAllPrognoses")
 	expectedNumPrognoses := len(envNames)
 	spanApplyAll.SetTag("numPrognoses", expectedNumPrognoses)
-	defer spanApplyAll.Finish()
+	defer spanApplyAll.Finish(tracer.WithError(err))
 
 	var i = 0
 	for result := range prognosisResultChannel {
@@ -403,7 +399,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 			return "", fmt.Errorf("prognosis could not be applied for env '%s': %w", result.train.Env, err)
 		}
 		i++
-		spanOne.Finish()
+		spanOne.Finish(tracer.WithError(err))
 	}
 
 	return "", nil
