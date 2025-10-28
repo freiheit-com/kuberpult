@@ -1229,14 +1229,14 @@ func (u *DeleteEnvFromApp) Transform(
 	// Find the "oldest" one among the current deployments on all environments
 	oldestDeployment, err := state.DBHandler.DBSelectOldestDeploymentForApplication(ctx, transaction, u.Application)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("select oldest deployment: %w", err)
 	}
 
 	if oldestDeployment != nil {
 		// Only select the recent releases for manifests updating (counting from the oldest release having a deployment)
 		releases, err := state.DBHandler.DBSelectLatestReleasesSinceVersion(ctx, transaction, u.Application, oldestDeployment.ReleaseNumbers, true)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("select latest releases: %v of app %s: %w", oldestDeployment.ReleaseNumbers, u.Application, err)
 		}
 
 		for _, dbReleaseWithMetadata := range releases {
@@ -1260,7 +1260,7 @@ func (u *DeleteEnvFromApp) Transform(
 			}
 			err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("update release: %w", err)
 			}
 		}
 	}
