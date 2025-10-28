@@ -26,7 +26,6 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -488,7 +487,7 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 	})
 }
 func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion uint64, env types.EnvName, createdAt time.Time, revision uint64) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBMigrationUpdateDeploymentsTimestamp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrationUpdateDeploymentsTimestamp")
 	defer span.Finish()
 	historyUpdateQuery := h.AdaptQuery(`
 		UPDATE deployments_history SET created=? WHERE appname=? AND releaseversion=? AND envname=? AND revision=?;
@@ -504,12 +503,12 @@ func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, t
 		revision,
 	)
 	if err != nil {
-		return onErr(fmt.Errorf(
+		return fmt.Errorf(
 			"could not update deployments_history timestamp for app '%s' and env '%s' and version '%v' into DB. Error: %w",
 			application,
 			env,
 			releaseversion,
-			err))
+			err)
 	}
 
 	deploymentsUpdateQuery := h.AdaptQuery(`
@@ -526,11 +525,11 @@ func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, t
 		revision,
 	)
 	if err != nil {
-		return onErr(fmt.Errorf(
+		return fmt.Errorf(
 			"could not update releases timestamp for app '%s' and version '%v' into DB. Error: %w",
 			application,
 			releaseversion,
-			err))
+			err)
 	}
 	return nil
 

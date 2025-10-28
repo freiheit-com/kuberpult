@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/lib/pq"
 
@@ -496,7 +495,7 @@ func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, esl
 	}
 }
 func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (uint64, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBCountEslEventsNewer")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBCountEslEventsNewer")
 	defer span.Finish()
 	countQuery := h.AdaptQuery("SELECT COUNT(*) FROM event_sourcing_light WHERE eslVersion > ?;")
 	rows, err := tx.QueryContext(
@@ -505,16 +504,16 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 		eslVersion,
 	)
 	if err != nil {
-		return 0, onErr(fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err))
+		return 0, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBCountEslEventsNewer")
 	if !rows.Next() {
-		return 0, onErr(fmt.Errorf("could not get count from event_sourcing_light table from DB. Error: no row returned"))
+		return 0, fmt.Errorf("could not get count from event_sourcing_light table from DB. Error: no row returned")
 	}
 	count := uint64(0)
 	errScan := rows.Scan(&count)
 	if errScan != nil {
-		return 0, onErr(fmt.Errorf("error scanning event_sourcing_light row from DB. Error: %w", err))
+		return 0, fmt.Errorf("error scanning event_sourcing_light row from DB. Error: %w", err)
 	}
 	return count, nil
 }
@@ -1517,13 +1516,13 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table
 }
 
 func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBDeleteFailedEslEvent")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteFailedEslEvent")
 	defer span.Finish()
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
-		return onErr(fmt.Errorf("DBDeleteFailedEslEvent: no transaction provided"))
+		return fmt.Errorf("DBDeleteFailedEslEvent: no transaction provided")
 	}
 
 	deleteQuery := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE transformereslversion=?;")
@@ -1534,7 +1533,7 @@ func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslE
 		eslEvent.TransformerEslVersion)
 
 	if err != nil {
-		return onErr(fmt.Errorf("could not delete failed esl event from DB. Error: %w", err))
+		return fmt.Errorf("could not delete failed esl event from DB. Error: %w", err)
 	}
 	return nil
 }
@@ -1618,20 +1617,20 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 }
 
 func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit int) ([]*EslEventRow, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadLastEslEvents")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadLastEslEvents")
 	defer span.Finish()
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, onErr(fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided"))
+		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
 	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light ORDER BY eslVersion DESC LIMIT ?;")
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w", err))
+		return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 	}
 
 	defer closeRowsAndLog(rows, ctx, "DBReadLastEslEvents")
@@ -1646,7 +1645,7 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 		}
 		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
 		if err != nil {
-			return nil, onErr(fmt.Errorf("could not read failed events from DB. Error: %w", err))
+			return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 		}
 		failedEsls = append(failedEsls, row)
 	}
@@ -1654,28 +1653,28 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 }
 
 func (h *DBHandler) DBInsertNewFailedESLEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBInsertNewFailedESLEvent")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertNewFailedESLEvent")
 	defer span.Finish()
 	err := h.DBWriteFailedEslEvent(ctx, tx, "event_sourcing_light_failed", eslEvent)
 	if err != nil {
-		return onErr(err)
+		return err
 	}
 	err = h.DBWriteFailedEslEvent(ctx, tx, "event_sourcing_light_failed_history", eslEvent)
 	if err != nil {
-		return onErr(err)
+		return err
 	}
 	return nil
 }
 
 func (h *DBHandler) DBSkipFailedEslEvent(ctx context.Context, tx *sql.Tx, transformerEslVersion TransformerID) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSkipFailedEslEvent")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSkipFailedEslEvent")
 	defer span.Finish()
 
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
-		return onErr(fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided"))
+		return fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
 	query := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE transformerEslVersion = ?;")
@@ -1684,10 +1683,10 @@ func (h *DBHandler) DBSkipFailedEslEvent(ctx context.Context, tx *sql.Tx, transf
 	result, err := tx.ExecContext(ctx, query, transformerEslVersion)
 
 	if result == nil {
-		return onErr(grpc.FailedPrecondition(ctx, fmt.Errorf("could not find failed esl event where transformer esl version is %d", transformerEslVersion)))
+		return grpc.FailedPrecondition(ctx, fmt.Errorf("could not find failed esl event where transformer esl version is %d", transformerEslVersion))
 	}
 	if err != nil {
-		return onErr(fmt.Errorf("could not write to cutoff table from DB. Error: %w", err))
+		return fmt.Errorf("could not write to cutoff table from DB. Error: %w", err)
 	}
 	return nil
 }

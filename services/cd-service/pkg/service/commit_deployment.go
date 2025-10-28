@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
+
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -124,7 +124,7 @@ func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, 
 }
 
 func getCommitEventByCommitId(ctx context.Context, db *db.DBHandler, transaction *sql.Tx, commitId string) ([]byte, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "getCommitEventByCommitId")
+	span, ctx := tracer.StartSpanFromContext(ctx, "getCommitEventByCommitId")
 	defer span.Finish()
 	query := db.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
 
@@ -133,9 +133,9 @@ func getCommitEventByCommitId(ctx context.Context, db *db.DBHandler, transaction
 	err := row.Scan(&jsonCommitEventsMetadata)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, onErr(fmt.Errorf("commit \"%s\" could not be found", commitId))
+			return nil, fmt.Errorf("commit \"%s\" could not be found", commitId)
 		}
-		return nil, onErr(err)
+		return nil, err
 	}
 	return jsonCommitEventsMetadata, nil
 }

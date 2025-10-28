@@ -30,8 +30,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 )
 
 type DBReleaseMetaData struct {
@@ -240,7 +238,7 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 }
 
 func (h *DBHandler) DBSelectAllReleaseNumbersOfApp(ctx context.Context, tx *sql.Tx, app string) ([]types.ReleaseNumbers, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
 	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT releaseVersion, revision
@@ -256,13 +254,13 @@ func (h *DBHandler) DBSelectAllReleaseNumbersOfApp(ctx context.Context, tx *sql.
 	)
 	data, err := h.processAppReleaseNumbersRows(ctx, err, rows)
 	if err != nil {
-		return nil, onErr(err)
+		return nil, err
 	}
 	return data, nil
 }
 
 func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrepublishes bool) ([]*DBReleaseWithMetaData, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectReleasesByVersionsAndRevision")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByVersionsAndRevision")
 	defer span.Finish()
 	if len(releaseVersions) == 0 {
 		return []*DBReleaseWithMetaData{}, nil
@@ -285,7 +283,7 @@ func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, t
 	)
 	data, err := h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
 	if err != nil {
-		return nil, onErr(err)
+		return nil, err
 	}
 	return data, nil
 }
@@ -498,7 +496,7 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 }
 
 func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion types.ReleaseNumbers, createAt time.Time) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBMigrationUpdateReleasesTimestamp")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrationUpdateReleasesTimestamp")
 	defer span.Finish()
 	historyUpdateQuery := h.AdaptQuery(`
 		UPDATE releases_history SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
@@ -514,14 +512,14 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 		releaseversion.Revision,
 	)
 	if err != nil {
-		return onErr(fmt.Errorf(
+		return fmt.Errorf(
 			"could not update releases_history timestamp for app '%s' and version '%v' into DB. Error: %w",
 			application,
 			releaseversion,
-			err))
+			err)
 	}
 
-	span2, ctx, onErr2 := tracing.StartSpanFromContext(ctx, "DBUpdateReleaseTimestamp")
+	span2, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateReleaseTimestamp")
 	defer span2.Finish()
 	releasesUpdateQuery := h.AdaptQuery(`
 		UPDATE releases SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
@@ -537,11 +535,11 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 		releaseversion.Revision,
 	)
 	if err != nil {
-		return onErr2(onErr(fmt.Errorf(
+		return fmt.Errorf(
 			"could not update releases timestamp for app '%s' and version '%v' into DB. Error: %w",
 			application,
 			releaseversion,
-			err)))
+			err)
 	}
 	return nil
 
