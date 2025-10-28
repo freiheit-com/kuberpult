@@ -34,6 +34,7 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db_history"
@@ -1001,7 +1002,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 }
 
 func writeArgoCdManifestsSynced(ctx context.Context, fs billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte, fsMutex *sync.Mutex) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "writeArgoCdManifestsSynced") // We have a separate span here to see how long we wait for the mutex
+	span, _, _ := tracing.StartSpanFromContext(ctx, "writeArgoCdManifestsSynced") // We have a separate span here to see how long we wait for the mutex
 	defer span.Finish()
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
@@ -1009,15 +1010,15 @@ func writeArgoCdManifestsSynced(ctx context.Context, fs billy.Filesystem, info *
 }
 
 func writeArgoCdManifests(ctx context.Context, fs billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte) error {
-	span, _ := tracer.StartSpanFromContext(ctx, "writeArgoCdManifests")
+	span, _, onErr := tracing.StartSpanFromContext(ctx, "writeArgoCdManifests")
 	defer span.Finish()
 	for apiVersion, content := range manifests {
 		if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
-			return err
+			return onErr(err)
 		}
 		target := getArgoCdAAEnvFileName(fs, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
 		if err := util.WriteFile(fs, target, content, 0666); err != nil {
-			return err
+			return onErr(err)
 		}
 	}
 	return nil

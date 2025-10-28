@@ -20,15 +20,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
 	"sync"
 
 	"sort"
@@ -247,7 +245,7 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 }
 
 func (s *GitServer) ReadSyncStatuses(ctx context.Context) (*api.GetGitSyncStatusResponse, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "ReadSyncStatuses")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "ReadSyncStatuses")
 	defer span.Finish()
 
 	dbHandler := s.Config.DBHandler
@@ -269,7 +267,7 @@ func (s *GitServer) ReadSyncStatuses(ctx context.Context) (*api.GetGitSyncStatus
 		return nil
 	})
 
-	return response, err
+	return response, onErr(err)
 }
 
 func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
@@ -317,7 +315,7 @@ func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 
 func (s *GitServer) StreamGitSyncStatus(_ *api.GetGitSyncStatusRequest,
 	stream api.GitService_StreamGitSyncStatusServer) error {
-	span, ctx := tracer.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
+	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
 	defer span.Finish()
 	ch, unsubscribe := s.subscribeGitSyncStatus()
 	defer unsubscribe()
@@ -329,11 +327,11 @@ func (s *GitServer) StreamGitSyncStatus(_ *api.GetGitSyncStatusRequest,
 		case <-ch:
 			response, err := s.ReadSyncStatuses(ctx)
 			if err != nil {
-				return err
+				return onErr(err)
 			}
 			if err := stream.Send(response); err != nil {
 				logger.FromContext(ctx).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
-				return err
+				return onErr(err)
 			}
 		case <-done:
 			return nil

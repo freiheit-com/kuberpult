@@ -31,6 +31,7 @@ import (
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
@@ -40,7 +41,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type GitServer struct {
@@ -248,7 +248,7 @@ func findCommitID(
 }
 
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "GetGitSyncStatus")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitSyncStatus")
 	defer span.Finish()
 
 	dbHandler := s.Repository.State().DBHandler
@@ -271,7 +271,7 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 		response.AppStatuses = toApiStatuses(append(unsyncedStatuses, syncFailedStatuses...))
 		return nil
 	})
-	return response, err
+	return response, onErr(err)
 }
 
 func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
@@ -320,7 +320,7 @@ func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 
 func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 	stream api.GitService_StreamGitSyncStatusServer) error {
-	span, ctx := tracer.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
+	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
 	defer span.Finish()
 	ch, unsubscribe := s.subscribeGitSyncStatus()
 	defer unsubscribe()
@@ -332,11 +332,11 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 		case <-ch:
 			response, err := s.GetGitSyncStatus(ctx, in)
 			if err != nil {
-				return err
+				return onErr(err)
 			}
 			if err := stream.Send(response); err != nil {
 				logger.FromContext(ctx).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
-				return err
+				return onErr(err)
 			}
 		case <-done:
 			return nil
@@ -345,7 +345,7 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 }
 
 func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RetryFailedEvent")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "RetryFailedEvent")
 	defer span.Finish()
 	dbHandler := s.Repository.State().DBHandler
 	response := &api.RetryFailedEventResponse{}
@@ -385,11 +385,11 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 		return nil
 	})
 	s.Repository.Notify().Notify() //Notify sync statuses have changed
-	return response, err
+	return response, onErr(err)
 }
 
 func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "SkipEslEvent")
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "SkipEslEvent")
 	defer span.Finish()
 
 	dbHandler := s.Repository.State().DBHandler
@@ -404,5 +404,5 @@ func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventReques
 		}
 		return dbHandler.DBSkipFailedEslEvent(ctx, transaction, db.TransformerID(in.EventEslVersion))
 	})
-	return &api.SkipEslEventResponse{}, err
+	return &api.SkipEslEventResponse{}, onErr(err)
 }
