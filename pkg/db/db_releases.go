@@ -520,13 +520,15 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 	}
 
 	span2, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateReleaseTimestamp")
-	defer span2.Finish()
+
+	var err2 error
+	defer span2.Finish(tracer.WithError(err2))
 	releasesUpdateQuery := h.AdaptQuery(`
 		UPDATE releases SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
 	`)
-	span.SetTag("query", releasesUpdateQuery)
+	span2.SetTag("query", releasesUpdateQuery)
 
-	_, err = transaction.ExecContext(
+	_, err2 = transaction.ExecContext(
 		ctx,
 		releasesUpdateQuery,
 		createAt,
@@ -534,12 +536,12 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 		*releaseversion.Version,
 		releaseversion.Revision,
 	)
-	if err != nil {
+	if err2 != nil {
 		return fmt.Errorf(
 			"could not update releases timestamp for app '%s' and version '%v' into DB. Error: %w",
 			application,
 			releaseversion,
-			err)
+			err2)
 	}
 	return nil
 
