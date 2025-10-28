@@ -288,7 +288,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 0,
-            data_length: 3,
+            data_length: 1,
             teamName: '',
         },
         {
@@ -394,7 +394,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 0,
-            data_length: 3,
+            data_length: 1,
             teamName: '',
         },
         {
@@ -584,7 +584,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 1,
-            data_length: 7,
+            data_length: 3,
             teamName: 'test me team',
         },
         {
@@ -888,7 +888,7 @@ describe('Release Dialog CI Links', () => {
                                     displayVersion: '2',
                                     isMinor: false,
                                     isPrepublish: false,
-                                    environments: [],
+                                    environments: ['dev'],
                                     ciLink: 'www.somewebsite.com',
                                     revision: 0,
                                 },

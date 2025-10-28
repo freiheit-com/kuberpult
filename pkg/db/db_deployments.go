@@ -134,6 +134,26 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	return processAllLatestDeploymentsForApp(rows)
 }
 
+func (h *DBHandler) DBSelectOldestDeploymentForApplication(ctx context.Context, tx *sql.Tx, appName string) (*Deployment, error) {
+	selectQuery := h.AdaptQuery(`
+		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
+		FROM deployments
+		WHERE deployments.appname = (?) AND deployments.releaseVersion IS NOT NULL
+		ORDER BY releaseVersion ASC, revision ASC
+		LIMIT 1;
+	`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		appName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment of app %s from DB. Error: %w", appName, err)
+	}
+	defer closeRowsAndLog(rows, ctx, "DBSelectOldestDeploymentForApplication")
+	return processDeployment(rows)
+}
+
 func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName types.EnvName) (map[string]types.ReleaseNumbers, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsOnEnvironment")
 	defer span.Finish()
