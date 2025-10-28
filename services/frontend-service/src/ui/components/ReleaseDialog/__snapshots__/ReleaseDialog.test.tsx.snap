@@ -251,9 +251,9 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                         title="Shows the version that is currently deployed on prod. "
                       >
                         <span>
-                          This release has no manifest for "
+                          This release cannot be deployed to "
                           prod
-                          " and cannot be deployed
+                          ", because it has no manifest on this environment
                         </span>
                       </div>
                     </div>
@@ -566,9 +566,9 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                         title="Shows the version that is currently deployed on prod. "
                       >
                         <span>
-                          This release has no manifest for "
+                          This release cannot be deployed to "
                           prod
-                          " and cannot be deployed
+                          ", because it has no manifest on this environment
                         </span>
                       </div>
                     </div>
@@ -881,9 +881,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         title="Shows the version that is currently deployed on prod. "
                       >
                         <span>
-                          This release has no manifest for "
+                          This release cannot be deployed to "
                           prod
-                          " and cannot be deployed
+                          ", because it has no manifest on this environment
                         </span>
                       </div>
                     </div>
@@ -1042,9 +1042,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         title="Shows the version that is currently deployed on dev. "
                       >
                         <span>
-                          This release has no manifest for "
+                          This release cannot be deployed to "
                           dev
-                          " and cannot be deployed
+                          ", because it has no manifest on this environment
                         </span>
                       </div>
                       <div
