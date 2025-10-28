@@ -51,15 +51,12 @@ type ApplicationLockHistory struct {
 // SELECTS
 
 func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName string, lockID string) (*ApplicationLockHistory, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppLock")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, appName, metadata, deleted
 		FROM app_locks_history
 		WHERE envName=? AND appName=? AND lockID=?
 		ORDER BY version DESC
 		LIMIT 1;`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -302,8 +299,6 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 }
 
 func (h *DBHandler) DBHasAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (bool, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyActiceAppLock")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, appName, metadata
 		FROM app_locks
@@ -311,7 +306,6 @@ func (h *DBHandler) DBHasAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (bool
 		ORDER BY lockId;
 	`)
 
-	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,

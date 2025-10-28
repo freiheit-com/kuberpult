@@ -120,14 +120,10 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 }
 
 func (h *DBHandler) DBHasAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (bool, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyActiveEnvLock")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, metadata 
 		FROM environment_locks 
 		LIMIT 1;`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -185,16 +181,12 @@ func (h *DBHandler) DBSelectAllActiveEnvLocks(ctx context.Context, tx *sql.Tx, e
 }
 
 func (h *DBHandler) DBSelectEnvLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string) (*EnvironmentLock, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvLock")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, metadata
 		FROM environment_locks_history
 		WHERE envName=? AND lockID=?
 		ORDER BY created DESC
 		LIMIT 1;`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,

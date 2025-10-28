@@ -58,15 +58,12 @@ type DBAppWithMetaData struct {
 // SELECTS
 
 func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectApp")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT appName, stateChange, metadata
 		FROM apps
 		WHERE appName=? 
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -92,8 +89,6 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (ma
 }
 
 func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*DBAppWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppAtTimestamp")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT appName, stateChange, metadata
 		FROM apps_history
@@ -101,7 +96,6 @@ func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appN
 		ORDER BY version DESC 
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,

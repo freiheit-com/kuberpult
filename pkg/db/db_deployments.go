@@ -65,16 +65,12 @@ type QueuedDeployment struct {
 // SELECT
 
 func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector types.EnvName) (*Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeployment")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments
 		WHERE appName=? AND envName=?
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -160,9 +156,6 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Contex
 }
 
 func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeployment")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments
@@ -170,7 +163,6 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 		LIMIT 1;
 	`)
 
-	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -186,9 +178,6 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 }
 
 func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectSpecificDeploymentHistory")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments_history
@@ -197,7 +186,6 @@ func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *s
 		LIMIT 1;
 	`)
 
-	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -250,15 +238,11 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 }
 
 func (h *DBHandler) DBSelectDeploymentHistoryCount(ctx context.Context, tx *sql.Tx, envSelector string, startDate time.Time, endDate time.Time) (uint64, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectDeploymentHistoryCount")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT COUNT(*) FROM deployments_history
 		WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?);
 	`)
 
-	span.SetTag("query", selectQuery)
 	var result uint64
 	err := tx.QueryRowContext(
 		ctx,
@@ -269,7 +253,7 @@ func (h *DBHandler) DBSelectDeploymentHistoryCount(ctx context.Context, tx *sql.
 	).Scan(&result)
 
 	if err != nil {
-		return 0, onErr(err)
+		return 0, err
 	}
 
 	return result, nil
@@ -307,15 +291,11 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 }
 
 func (h *DBHandler) DBHasAnyDeployment(ctx context.Context, tx *sql.Tx) (bool, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyDeployment")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, revision
 		FROM deployments
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,

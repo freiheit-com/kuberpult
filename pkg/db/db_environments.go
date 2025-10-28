@@ -50,14 +50,11 @@ type DBEnvironmentRow struct {
 
 // SELECTS
 func (h *DBHandler) DBHasAnyEnvironment(ctx context.Context, tx *sql.Tx) (bool, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyEnvironment")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, name, json, applications
 		FROM environments
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -76,16 +73,12 @@ func (h *DBHandler) DBHasAnyEnvironment(ctx context.Context, tx *sql.Tx) (bool, 
 }
 
 func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName) (_ *DBEnvironment, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironment")
-	defer span.Finish(tracer.WithError(err))
 	selectQuery := h.AdaptQuery(`
 		SELECT created, name, json, applications
 		FROM environments
 		WHERE name=?
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
-	span.SetTag("name", environmentName)
 
 	rows, err := tx.QueryContext(
 		ctx,

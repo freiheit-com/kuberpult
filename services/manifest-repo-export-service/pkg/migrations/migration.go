@@ -29,9 +29,6 @@ import (
 )
 
 func DBReadCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, transaction *sql.Tx, requestedVersion *api.KuberpultVersion) (*api.KuberpultVersion, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadCustomMigrationCutoff")
-	defer span.Finish()
-
 	requestedVersionString := migrations2.FormatKuberpultVersion(requestedVersion)
 
 	selectQuery := h.AdaptQuery(`
@@ -39,15 +36,13 @@ SELECT kuberpult_version
 FROM custom_migration_cutoff
 WHERE kuberpult_version=?
 LIMIT 1;`)
-	span.SetTag("query", selectQuery)
-	span.SetTag("requestedVersion", requestedVersionString)
 	rows, err := transaction.QueryContext(
 		ctx,
 		selectQuery,
 		requestedVersionString,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("could not query cutoff table from DB. Error: %w", err))
+		return nil, fmt.Errorf("could not query cutoff table from DB. Error: %w", err)
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()

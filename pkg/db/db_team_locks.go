@@ -127,14 +127,10 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 }
 
 func (h *DBHandler) DBHasAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (bool, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyActiveTeamLock")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, teamName, metadata 
 		FROM team_locks 
 		LIMIT 1;`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -192,16 +188,12 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 }
 
 func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName, lockID string) (*TeamLock, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLock")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, teamName, metadata
 		FROM team_locks_history
 		WHERE envName=? AND teamName=? AND lockID=?
 		ORDER BY version DESC
 		LIMIT 1;`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,

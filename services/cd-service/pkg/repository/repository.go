@@ -409,7 +409,11 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch) {
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (_ []string, _ *State, _ []*TransformerResult, applyErr *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
-	defer span.Finish(tracer.WithError(applyErr))
+	if applyErr != nil {
+		defer span.Finish(tracer.WithError(applyErr.TransformerError))
+	} else {
+		defer span.Finish(tracer.WithError(nil))
+	}
 
 	if state, err := r.StateAt(); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
@@ -573,7 +577,11 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 
 func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (_ *TransformerResult, applyErr *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformers")
-	defer span.Finish(tracer.WithError(applyErr))
+	if applyErr != nil {
+		defer span.Finish(tracer.WithError(applyErr.TransformerError))
+	} else {
+		defer span.Finish(tracer.WithError(nil))
+	}
 
 	_, _, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
 	if applyErr != nil {

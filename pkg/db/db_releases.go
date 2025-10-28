@@ -61,14 +61,11 @@ type DBReleaseWithMetaData struct {
 // SELECTS
 
 func (h *DBHandler) DBHasAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepublishes bool) (bool, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasAnyRelease")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, releaseVersion, environments, revision
 		FROM releases 
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(ctx, selectQuery)
 	if err != nil {
 		return false, fmt.Errorf("could not query releases, error: %w", err)
@@ -127,17 +124,12 @@ func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, 
 }
 
 func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion types.ReleaseNumbers, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBSelectReleaseByVersion")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases  
 		WHERE appName=? AND releaseVersion=? AND revision=?
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
-	span.SetTag("app", app)
-	span.SetTag("releaseVersion", releaseVersion)
 	if releaseVersion.Version == nil {
 		return nil, nil
 	}
@@ -150,14 +142,12 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 	)
 	data, err := h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
 	if err != nil {
-		return nil, onErr(err)
+		return nil, err
 	}
 	return data, nil
 }
 
 func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app string, releaseVersion types.ReleaseNumbers, ignorePrepublishes bool, ts time.Time) (*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleaseByVersionAtTimestamp")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases_history
@@ -165,7 +155,6 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 		ORDER BY version DESC
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -216,8 +205,6 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 }
 
 func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) (*DBReleaseWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestReleaseOfApp")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, releaseVersion, environments, revision
 		FROM releases
@@ -225,8 +212,6 @@ func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, 
 		ORDER BY releaseVersion DESC, revision DESC
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
-	span.SetTag("appName", app)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
