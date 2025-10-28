@@ -155,9 +155,9 @@ func (c *ReleaseTrain) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 	configs map[types.EnvName]config.EnvironmentConfig,
-) ReleaseTrainPrognosis {
+) (rtp ReleaseTrainPrognosis) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(rtp.Error))
 	span.SetTag("targetEnv", c.Target)
 	span.SetTag("targetType", c.TargetType)
 	span.SetTag("team", c.Team)
@@ -234,9 +234,9 @@ func (c *ReleaseTrain) Transform(
 	state *State,
 	transformerContext TransformerContext,
 	transaction *sql.Tx,
-) (string, error) {
+) (_ string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	//Prognosis can be a costly operation. Abort straight away if ci link is not valid
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
@@ -310,7 +310,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (
-	string, error,
+	_ string, err error,
 ) {
 	type ChannelData struct {
 		prognosis *ReleaseTrainEnvironmentPrognosis
@@ -319,12 +319,11 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	}
 	spanManifests, ctxManifests := tracer.StartSpanFromContext(parentCtx, "Load Manifests")
 	var allReleasesEnvironments db.AppVersionEnvironments
-	var err error
 	allReleasesEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctxManifests, transaction)
 	if err != nil {
 		return "", err
 	}
-	spanManifests.Finish()
+	spanManifests.Finish(tracer.WithError(err))
 
 	var prognosisResultChannel = make(chan *ChannelData, maxThreads)
 	go func() {
@@ -339,10 +338,10 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 			envNameLocal := types.EnvName(envName)
 			// we want to schedule all go routines,
 			// but still have the limit set, so "group.Go" would block
-			group.Go(func() error {
+			group.Go(func() (err2 error) {
 				span, ctx := tracer.StartSpanFromContext(ctxRoutines, "EnvReleaseTrain Transform")
 				span.SetTag("kuberpultEnvironment", envName)
-				defer span.Finish()
+				defer span.Finish(tracer.WithError(err2))
 
 				train := &envReleaseTrain{
 					Parent:                c,
@@ -357,13 +356,13 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 					AllLatestReleaseEnvironments: allReleasesEnvironments,
 				}
 
-				prognosis, err := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
+				prognosis, err2 := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
 
 				spanCh, _ := tracer.StartSpanFromContext(ctx, "WriteToChannel")
-				defer spanCh.Finish()
-				if err != nil {
+				defer spanCh.Finish(tracer.WithError(err2))
+				if err2 != nil {
 					prognosisResultChannel <- &ChannelData{
-						error:     err,
+						error:     err2,
 						prognosis: prognosis,
 						train:     train,
 					}
@@ -453,9 +452,13 @@ func (c *envReleaseTrain) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) *ReleaseTrainEnvironmentPrognosis {
+func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) (rtep *ReleaseTrainEnvironmentPrognosis) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
-	defer span.Finish()
+	if rtep != nil {
+		defer span.Finish(tracer.WithError(rtep.Error))
+	} else {
+		defer span.Finish(tracer.WithError(nil))
+	}
 	span.SetTag("env", c.Env)
 
 	envName := c.Env
@@ -885,10 +888,10 @@ func (c *envReleaseTrain) Transform(
 	state *State,
 	t TransformerContext,
 	transaction *sql.Tx,
-) (string, error) {
+) (_ string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Transform")
 	span.SetTag("env", c.Env)
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache)
 
 	return c.applyPrognosis(ctx, state, t, transaction, prognosis, span)
@@ -899,7 +902,9 @@ func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t Tra
 	span.SetTag("srcEnv", srcEnvName)
 	span.SetTag("destEnv", destEnvName)
 	span.SetTag("app", appName)
-	defer span.Finish()
+
+	var err error
+	defer span.Finish(tracer.WithError(err))
 
 	d, err := state.DBHandler.DBSelectLatestDeployment(ctx, tx, string(appName), srcEnvName)
 	if err != nil || d == nil || d.ReleaseNumbers.Version == nil {
