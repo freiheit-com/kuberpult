@@ -320,6 +320,7 @@ func RunServer() {
 			&service.Service{
 				Repository: repo,
 			}
+		grpcMsgSizeBytes := c.GrpcMaxRecvMsgSize * megaBytes
 
 		if dbHandler.ShouldUseOtherTables() && c.CheckCustomMigrations {
 			//Check for migrations -> for pulling
@@ -342,7 +343,7 @@ func RunServer() {
 			}
 			grpcClientOpts := []grpc.DialOption{
 				grpc.WithTransportCredentials(cred),
-				grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(c.GrpcMaxRecvMsgSize * megaBytes)),
+				grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(grpcMsgSizeBytes)),
 			}
 
 			rolloutCon, err := grpc.NewClient(c.MigrationServer, grpcClientOpts...)
@@ -400,6 +401,7 @@ func RunServer() {
 				Opts: []grpc.ServerOption{
 					grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
+					grpc.MaxRecvMsgSize(grpcMsgSizeBytes),
 				},
 				Register: func(srv *grpc.Server) {
 					api.RegisterBatchServiceServer(srv, &service.BatchServer{
