@@ -448,13 +448,10 @@ func (c *envReleaseTrain) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) (rtep *ReleaseTrainEnvironmentPrognosis) {
+func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) *ReleaseTrainEnvironmentPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
-	if rtep != nil {
-		defer span.Finish(tracer.WithError(rtep.Error))
-	} else {
-		defer span.Finish(tracer.WithError(nil))
-	}
+	var err error
+	defer span.Finish(tracer.WithError(err))
 	span.SetTag("env", c.Env)
 
 	envName := c.Env
@@ -472,7 +469,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 	}
 
-	err := state.checkUserPermissionsFromConfig(
+	err = state.checkUserPermissionsFromConfig(
 		ctx,
 		transaction,
 		envName,
