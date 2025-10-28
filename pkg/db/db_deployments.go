@@ -134,9 +134,9 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	return processAllLatestDeploymentsForApp(rows)
 }
 
-func (h *DBHandler) DBSelectOldestDeploymentForApplication(ctx context.Context, tx *sql.Tx, appName string) (*Deployment, error) {
+func (h *DBHandler) DBSelectOldestDeploymentForApplication(ctx context.Context, tx *sql.Tx, appName string) (_ *Deployment, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectOldestDeploymentForApplication")
-	defer span.Finish()
+	defer span.Finish(tracer.WithError(err))
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision

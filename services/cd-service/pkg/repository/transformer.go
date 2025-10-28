@@ -1221,49 +1221,47 @@ func (u *DeleteEnvFromApp) Transform(
 		return "", err
 	}
 
-	releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, u.Application, true)
-	if err != nil {
-		return "", err
-	}
-
 	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
 		return "", fmt.Errorf("could not get transaction timestamp")
 	}
 
-	// Find the "oldest" one among the latest deployments on all environments
+	// Find the "oldest" one among the current deployments on all environments
 	oldestDeployment, err := state.DBHandler.DBSelectOldestDeploymentForApplication(ctx, transaction, u.Application)
 	if err != nil {
 		return "", err
 	}
 
-	// Only update the recent releases (counting from the oldest release having a deployment)
-	for _, dbReleaseWithMetadata := range releases {
-		if oldestDeployment != nil && !types.GreaterOrEqual(dbReleaseWithMetadata.ReleaseNumbers, oldestDeployment.ReleaseNumbers) {
-			break
-		}
-
-		newManifests := make(map[types.EnvName]string)
-		for e, manifest := range dbReleaseWithMetadata.Manifests.Manifests {
-			if e != envName {
-				newManifests[e] = manifest
-			}
-		}
-
-		newRelease := db.DBReleaseWithMetaData{
-			ReleaseNumbers: types.ReleaseNumbers{
-				Revision: dbReleaseWithMetadata.ReleaseNumbers.Revision,
-				Version:  dbReleaseWithMetadata.ReleaseNumbers.Version,
-			},
-			App:          dbReleaseWithMetadata.App,
-			Created:      *now,
-			Manifests:    db.DBReleaseManifests{Manifests: newManifests},
-			Metadata:     dbReleaseWithMetadata.Metadata,
-			Environments: []types.EnvName{},
-		}
-		err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
+	if oldestDeployment != nil {
+		// Only select the recent releases for manifests updating (counting from the oldest release having a deployment)
+		releases, err := state.DBHandler.DBSelectLatestReleasesSinceVersion(ctx, transaction, u.Application, oldestDeployment.ReleaseNumbers, true)
 		if err != nil {
 			return "", err
+		}
+
+		for _, dbReleaseWithMetadata := range releases {
+			newManifests := make(map[types.EnvName]string)
+			for e, manifest := range dbReleaseWithMetadata.Manifests.Manifests {
+				if e != envName {
+					newManifests[e] = manifest
+				}
+			}
+
+			newRelease := db.DBReleaseWithMetaData{
+				ReleaseNumbers: types.ReleaseNumbers{
+					Revision: dbReleaseWithMetadata.ReleaseNumbers.Revision,
+					Version:  dbReleaseWithMetadata.ReleaseNumbers.Version,
+				},
+				App:          dbReleaseWithMetadata.App,
+				Created:      *now,
+				Manifests:    db.DBReleaseManifests{Manifests: newManifests},
+				Metadata:     dbReleaseWithMetadata.Metadata,
+				Environments: []types.EnvName{},
+			}
+			err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 

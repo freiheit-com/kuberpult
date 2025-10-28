@@ -139,7 +139,9 @@ type CommitIdProps = {
 
 const DeployedVersion: React.FC<CommitIdProps> = ({ deployment, app, env, otherRelease, hasEnv }): ReactElement => {
     if (!hasEnv) {
-        return <span>This release has no manifest for "{env.name}" and cannot be deployed</span>;
+        return (
+            <span>This release cannot be deployed to "{env.name}", because it has no manifest on this environment</span>
+        );
     }
 
     if (!deployment || !otherRelease) {
