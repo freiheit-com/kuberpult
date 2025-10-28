@@ -2561,7 +2561,10 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 		&CreateEnvironment{
 			Environment: "env",
 			Config: config.EnvironmentConfig{
-				Upstream:         nil,
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "",
+					Latest:      true,
+				},
 				ArgoCd:           nil,
 				EnvironmentGroup: conversion.FromString("mygroup"),
 			},
@@ -2719,6 +2722,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					"env2": "testenvmanifest2",
 				},
 				10: {
+					"env":  "testenvmanifest",
 					"env2": "testenvmanifest2",
 				},
 			},
@@ -2819,6 +2823,13 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					return fmt.Errorf("error retrieving release: %v", err2)
 				}
 
+				for _, rel := range releases {
+					_, ok := tc.ExpectedManifestsByEachRelease[*rel.ReleaseNumbers.Version]
+					if !ok {
+						return fmt.Errorf("release with version %v is not expected but existed", *rel.ReleaseNumbers.Version)
+					}
+				}
+
 				for releaseNumber, expectedManifests := range tc.ExpectedManifestsByEachRelease {
 					var release *db.DBReleaseWithMetaData
 					for _, rel := range releases {
@@ -2830,8 +2841,17 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					if release == nil {
 						return fmt.Errorf("expect release with version %v but not exist", releaseNumber)
 					}
+
+					// verify if all expected manifests exist in actual results
 					for env, manifest := range expectedManifests {
 						if diff := cmp.Diff(manifest, release.Manifests.Manifests[env]); diff != "" {
+							return fmt.Errorf("error mismatch Manifests - want, +got:\n%s", diff)
+						}
+					}
+
+					// verify if all actual manifests are expected
+					for env, manifest := range release.Manifests.Manifests {
+						if diff := cmp.Diff(manifest, expectedManifests[env]); diff != "" {
 							return fmt.Errorf("error mismatch Manifests - want, +got:\n%s", diff)
 						}
 					}
