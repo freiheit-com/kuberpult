@@ -743,6 +743,9 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 	if err != nil {
 		return false, err
 	}
+	if previousRelease == nil {
+		return false, fmt.Errorf("previous release (%d) not exists in the release table", previousVersion)
+	}
 	return compareManifests(ctx, c.Manifests, previousRelease.Manifests.Manifests, minorRegexes), nil
 }
 

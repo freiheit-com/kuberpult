@@ -409,9 +409,12 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch) {
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (_ []string, _ *State, _ []*TransformerResult, applyErr *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
-	var err error
 	defer func() {
-		span.Finish(tracer.WithError(err))
+		if applyErr != nil {
+			span.Finish(tracer.WithError(applyErr.TransformerError))
+		} else {
+			span.Finish(tracer.WithError(nil))
+		}
 	}()
 
 	if state, err := r.StateAt(); err != nil {
