@@ -19,14 +19,15 @@ package service
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 
@@ -436,7 +437,7 @@ func TestGetProductDB(t *testing.T) {
 				ArgoCdGenerateFiles: true,
 				DBHandler:           repo.State().DBHandler,
 			}
-			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
+			sv := &ProductSummaryServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
 			ctx := testutil.MakeTestContext()
 
 			var commitHashes []string
@@ -570,7 +571,7 @@ func TestGetProductDBFailureCases(t *testing.T) {
 				ArgoCdGenerateFiles: true,
 				DBHandler:           repo.State().DBHandler,
 			}
-			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
+			sv := &ProductSummaryServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
 			for _, transformer := range tc.Setup {
 				err := repo.Apply(testutil.MakeTestContext(), transformer)
 				if err != nil {
