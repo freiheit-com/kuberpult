@@ -482,7 +482,9 @@ func (d *BatchServer) ProcessBatch(
 ) (_ *api.BatchResponse, err error) {
 	parentSpan, parentSpanExisted := tracer.SpanFromContext(ctx)
 	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessBatch")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	span.SetTag("BatchActions", len(in.GetActions()))
 

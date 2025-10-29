@@ -149,7 +149,9 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 		return nil
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateDatadogMetrics")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	span.SetTag("even", even)
 
 	if state.DBHandler == nil {
@@ -184,7 +186,9 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 
 func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, now time.Time) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "UpdateChangedAppMetrics")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if changes != nil && ddMetrics != nil {
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]
@@ -220,7 +224,9 @@ func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, no
 
 func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, now time.Time, even bool) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateLockMetrics")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	envConfigs, _, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
 	if err != nil {
@@ -351,7 +357,9 @@ type transformerRunner struct {
 
 func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, fmt.Sprintf("Transformer_%s", t.GetDBEventType()))
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	_, err = t.Transform(ctx, r.State, r, transaction)
 	return err
 }

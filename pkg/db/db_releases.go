@@ -79,7 +79,9 @@ func (h *DBHandler) DBHasAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepu
 
 func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx *sql.Tx) (_ []*DBReleaseWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesWithoutEnvironments")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases
@@ -94,7 +96,9 @@ func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx 
 
 func (h *DBHandler) DBSelectReleasesByVersions(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByVersions")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if len(releaseVersions) == 0 {
 		return []*DBReleaseWithMetaData{}, nil
 	}
@@ -168,7 +172,9 @@ type AppVersionEnvironments map[string]map[string][]types.EnvName // first key i
 
 func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, tx *sql.Tx) (_ AppVersionEnvironments, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, releaseVersion, environments, revision
 		FROM releases
@@ -185,7 +191,9 @@ func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, t
 
 func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, tx *sql.Tx, app string, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByAppLatestEslVersion")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases
@@ -204,7 +212,9 @@ func (h *DBHandler) DBSelectReleasesByAppLatestEslVersion(ctx context.Context, t
 
 func (h *DBHandler) DBSelectLatestReleasesSinceVersion(ctx context.Context, tx *sql.Tx, app string, releaseVersion types.ReleaseNumbers, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesAfterVersionAndRevision")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
 		FROM releases
@@ -243,7 +253,9 @@ func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, 
 
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app string) (_ []types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	selectQuery := h.AdaptQuery(`
 			SELECT releaseVersion, revision
 			FROM releases
@@ -261,7 +273,9 @@ func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, ap
 
 func (h *DBHandler) DBSelectAllReleaseNumbersOfApp(ctx context.Context, tx *sql.Tx, app string) (_ []types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	selectQuery := h.AdaptQuery(`
 		SELECT releaseVersion, revision
 		FROM releases
@@ -283,7 +297,9 @@ func (h *DBHandler) DBSelectAllReleaseNumbersOfApp(ctx context.Context, tx *sql.
 
 func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, tx *sql.Tx, app string, releaseVersions []uint64, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectReleasesByVersionsAndRevision")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if len(releaseVersions) == 0 {
 		return []*DBReleaseWithMetaData{}, nil
 	}
@@ -312,7 +328,9 @@ func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, t
 
 func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (_ map[string][]types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfAllApps")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, releaseVersion, revision
 		FROM releases
@@ -330,7 +348,9 @@ func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx
 
 func (h *DBHandler) DBUpdateOrCreateRelease(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateOrCreateRelease")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	err = h.upsertReleaseRow(ctx, transaction, release)
 	if err != nil {
 		return err
@@ -344,7 +364,9 @@ func (h *DBHandler) DBUpdateOrCreateRelease(ctx context.Context, transaction *sq
 
 func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.Tx, application string, releaseToDelete types.ReleaseNumbers) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteFromReleases")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	targetRelease, err := h.DBSelectReleaseByVersion(ctx, transaction, application, releaseToDelete, true)
 	if err != nil {
@@ -366,7 +388,9 @@ func (h *DBHandler) DBDeleteFromReleases(ctx context.Context, transaction *sql.T
 
 func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, application string) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBClearReleases")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	allReleases, err := h.DBSelectAllReleasesOfApp(ctx, transaction, application)
 	if err != nil {
@@ -390,7 +414,9 @@ func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, ap
 
 func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteReleaseRow")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM releases WHERE appname=? AND releaseversion=?
 	`)
@@ -412,7 +438,9 @@ func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, r
 
 func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertReleaseRow")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -466,7 +494,9 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 
 func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, deleted bool) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO releases_history (created, releaseVersion, appName, manifests, metadata, deleted, environments, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?);
@@ -519,7 +549,9 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 
 func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion types.ReleaseNumbers, createAt time.Time) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrationUpdateReleasesTimestamp")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	historyUpdateQuery := h.AdaptQuery(`
 		UPDATE releases_history SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
 	`)
@@ -544,7 +576,9 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 	span2, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateReleaseTimestamp")
 
 	var err2 error
-	defer span2.Finish(tracer.WithError(err2))
+	defer func() {
+		span2.Finish(tracer.WithError(err2))
+	}()
 	releasesUpdateQuery := h.AdaptQuery(`
 		UPDATE releases SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
 	`)
@@ -809,7 +843,9 @@ type ReleaseKey struct {
 
 func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transaction *sql.Tx, startDate, endDate time.Time) (_ map[ReleaseKey]string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectCommitHashesTimeWindow")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -875,7 +911,9 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 
 func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, transaction *sql.Tx, versionByApp map[string]types.ReleaseNumbers) (_ map[string]string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectCommitIdAppReleaseVersions")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	result := make(map[string]string)
 	if len(versionByApp) < 1 {
 		return result, nil

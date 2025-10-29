@@ -305,7 +305,9 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	dataMap, err := convertObjectToMap(data)
 
@@ -349,7 +351,9 @@ func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eve
 		return fmt.Errorf("DBWriteEslEventInternal: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
 
@@ -405,7 +409,9 @@ type EslFailedEventRow struct {
 // DBReadEslEventInternal returns either the first or the last row of the esl table
 func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firstRow bool) (_ *EslEventRow, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslEventInternal")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	sort := "DESC"
 	if firstRow {
 		sort = "ASC"
@@ -496,7 +502,9 @@ func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, esl
 }
 func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (_ uint64, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBCountEslEventsNewer")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	countQuery := h.AdaptQuery("SELECT COUNT(*) FROM event_sourcing_light WHERE eslVersion > ?;")
 	rows, err := tx.QueryContext(
 		ctx,
@@ -520,7 +528,9 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 
 func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "WriteEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	span.SetTag("eventType", eventType)
 	span.SetTag("commitHash", sourceCommitHash)
 
@@ -554,7 +564,9 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 
 func (h *DBHandler) DBWriteNewReleaseEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, releaseVersion types.ReleaseNumbers, uuid, sourceCommitHash string, newReleaseEvent *event.NewRelease) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	version := uint64(0)
 	if releaseVersion.Version != nil {
@@ -641,7 +653,9 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 		return nil, fmt.Errorf("DBSelectAnyEvent: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events ORDER BY timestamp DESC LIMIT 1;")
 	span.SetTag("query", query)
@@ -657,7 +671,9 @@ func (h *DBHandler) DBContainsMigrationCommitEvent(ctx context.Context, transact
 		return false, fmt.Errorf("DBContainsMigrationCommitEvent: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBContainsMigrationCommitEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 1;")
 	span.SetTag("query", query)
@@ -680,7 +696,9 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 		return nil, fmt.Errorf("DBSelectAllCommitEventsForTransformer: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllCommitEventsForTransformer")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE eventType = (?) AND transformereslVersion = (?) ORDER BY timestamp DESC LIMIT ?;")
 	span.SetTag("query", query)
@@ -756,7 +774,9 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	// NOTE: We add one so we know if there is more to load
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp ASC LIMIT (?) OFFSET (?);")
@@ -774,7 +794,9 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	query := h.AdaptQuery(`
 		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
@@ -796,7 +818,9 @@ func (h *DBHandler) DBSelectAllLockPreventedEventsForTransformerID(ctx context.C
 		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE transformereslVersion = (?) AND eventtype = (?) ORDER BY timestamp DESC LIMIT 100;")
 	span.SetTag("query", query)
@@ -917,7 +941,9 @@ func (h *DBHandler) RunCustomMigrations(
 	writeAllEventsFun WriteAllEventsFun,
 ) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	err = h.RunCustomMigrationsEventSourcingLight(ctx)
 	if err != nil {
 		return err
@@ -974,7 +1000,9 @@ func NewNullInt(s *int64) sql.NullInt64 {
 
 func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, writeAllReleasesFun WriteAllReleasesFun) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
@@ -1015,7 +1043,9 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 
 func (h *DBHandler) RunCustomMigrationReleasesTimestamp(ctx context.Context, getAllAppsFun GetAllAppsFun, fixReleasesTimestampFun FixReleasesTimestampFun) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleases")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	var allAppsMap map[string]string
 
 	err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1048,7 +1078,9 @@ func (h *DBHandler) RunCustomMigrationReleasesTimestamp(ctx context.Context, get
 
 func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDeploymentsFun WriteAllDeploymentsFun) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationDeployments")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		needsMigrating, err := h.needsDeploymentsMigrations(ctx, transaction)
@@ -1090,7 +1122,9 @@ type EventRow struct {
 
 func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, writeAllEnvLocksFun WriteAllEnvLocksFun) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvLocks")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		needsMigrating, err := h.needsEnvLocksMigrations(ctx, transaction)
@@ -1122,7 +1156,9 @@ func (h *DBHandler) needsEnvLocksMigrations(ctx context.Context, transaction *sq
 
 func (h *DBHandler) RunCustomMigrationAppLocks(ctx context.Context, writeAllAppLocksFun WriteAllAppLocksFun) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAppLocks")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		needsMigrating, err := h.needsAppLocksMigrations(ctx, transaction)
@@ -1153,7 +1189,9 @@ func (h *DBHandler) needsAppLocksMigrations(ctx context.Context, transaction *sq
 
 func (h *DBHandler) RunCustomMigrationTeamLocks(ctx context.Context, writeAllTeamLocksFun WriteAllTeamLocksFun) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationTeamLocks")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		needsMigrating, err := h.needsTeamLocksMigrations(ctx, transaction)
@@ -1225,7 +1263,9 @@ func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction
 func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) error {
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) (err error) {
 		span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationsEventSourcingLight")
-		defer span.Finish(tracer.WithError(err))
+		defer func() {
+			span.Finish(tracer.WithError(err))
+		}()
 
 		needsMigrating, err := h.NeedsEventSourcingLightMigrations(ctx, transaction)
 		if err != nil {
@@ -1263,7 +1303,9 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 	}
 
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteMigrationsTransformer")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	dataMap := make(map[string]interface{})
 	metadata := ESLMetadata{AuthorName: "Migration", AuthorEmail: "Migration"}
@@ -1298,7 +1340,9 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 
 func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllAppsFun GetAllAppsFun) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunAllCustomMigrationsForApps")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		needMigrating, err := h.needsAppsMigrations(ctx, transaction)
@@ -1335,7 +1379,9 @@ func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx
 // runCustomMigrationApps : Runs custom migrations for provided apps.
 func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql.Tx, appsMap *map[string]string) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "runCustomMigrationApps")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	for app, team := range *appsMap {
 		err := h.DBInsertOrUpdateApplication(ctx, transaction, app, AppStateChangeMigrate, DBAppMetaData{Team: team})
@@ -1348,7 +1394,9 @@ func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql
 
 func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEnvironmentsFun GetAllEnvironmentsFun) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironments")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		needsMigrating, err := h.needsEnvironmentsMigrations(ctx, transaction)
@@ -1396,7 +1444,9 @@ func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction
 
 func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Context) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironmentApplications")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		allEnvironments, err := h.DBSelectAllEnvironments(ctx, transaction)
@@ -1453,7 +1503,9 @@ func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (m
 
 func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationReleaseEnvironments")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	for {
 		shouldContinueMigration := true
 		err := h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1486,7 +1538,9 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) (
 
 func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table string, eslEvent *EslFailedEventRow) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteFailedEslEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil
 	}
@@ -1516,7 +1570,9 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table
 
 func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteFailedEslEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil
 	}
@@ -1539,7 +1595,9 @@ func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslE
 
 func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, pageSize, pageNumber int) (_ []*EslFailedEventRow, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadLastFailedEslEvents")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -1577,7 +1635,9 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 
 func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *sql.Tx, eslVersion uint64) (_ *EslFailedEventRow, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslFailedEventFromTransformerId")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -1617,7 +1677,9 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 
 func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit int) (_ []*EslEventRow, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadLastEslEvents")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -1653,7 +1715,9 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 
 func (h *DBHandler) DBInsertNewFailedESLEvent(ctx context.Context, tx *sql.Tx, eslEvent *EslFailedEventRow) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertNewFailedESLEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	err = h.DBWriteFailedEslEvent(ctx, tx, "event_sourcing_light_failed", eslEvent)
 	if err != nil {
 		return err
@@ -1667,7 +1731,9 @@ func (h *DBHandler) DBInsertNewFailedESLEvent(ctx context.Context, tx *sql.Tx, e
 
 func (h *DBHandler) DBSkipFailedEslEvent(ctx context.Context, tx *sql.Tx, transformerEslVersion TransformerID) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSkipFailedEslEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil
@@ -1723,7 +1789,9 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 
 func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string, timestamp time.Time) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil
@@ -1752,7 +1820,9 @@ func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *s
 
 func (h *DBHandler) DBUpdateCommitTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string, timestamp time.Time) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateCommitTransactionTimestamp")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil
@@ -1778,7 +1848,9 @@ func (h *DBHandler) DBUpdateCommitTransactionTimestamp(ctx context.Context, tx *
 
 func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string) (_ *time.Time, err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBReadCommitHashTransaction")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil, nil

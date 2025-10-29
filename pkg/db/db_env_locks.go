@@ -48,7 +48,9 @@ type EnvLockHistory struct {
 // SELECTS
 func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (_ map[types.EnvName][]EnvironmentLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvLocksOfAllEnvs")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -143,7 +145,9 @@ func (h *DBHandler) DBHasAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (bool
 
 func (h *DBHandler) DBSelectEnvLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) (_ []EnvironmentLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvLocksForEnv")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, metadata
@@ -162,7 +166,9 @@ func (h *DBHandler) DBSelectEnvLocksForEnv(ctx context.Context, tx *sql.Tx, envi
 
 func (h *DBHandler) DBSelectAllActiveEnvLocks(ctx context.Context, tx *sql.Tx, envName string) (_ []EnvironmentLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveEnvLocks")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil, nil
@@ -206,7 +212,9 @@ func (h *DBHandler) DBSelectEnvLock(ctx context.Context, tx *sql.Tx, environment
 
 func (h *DBHandler) DBSelectAllEnvLocks(ctx context.Context, tx *sql.Tx, environment types.EnvName) (_ []string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvLocks")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -227,7 +235,9 @@ func (h *DBHandler) DBSelectAllEnvLocks(ctx context.Context, tx *sql.Tx, environ
 // DBSelectEnvLockHistory returns the last N events associated with some lock on some environment for some environment. Currently only used in testing.
 func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, lockID string, limit int) (_ []EnvLockHistory, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvLockHistory")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil, nil
@@ -317,7 +327,9 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 // INSERT, UPDATE, DELETES
 func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEnvironmentLock")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil
@@ -338,7 +350,9 @@ func (h *DBHandler) DBWriteEnvironmentLock(ctx context.Context, tx *sql.Tx, lock
 
 func (h *DBHandler) DBSelectEnvLockSet(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockIDs []string) (_ []EnvironmentLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvLockSet")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if len(lockIDs) == 0 {
 		return nil, nil
@@ -364,7 +378,9 @@ func (h *DBHandler) DBSelectEnvLockSet(ctx context.Context, tx *sql.Tx, environm
 
 func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string, metadata LockDeletionMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteEnvironmentLock")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil
@@ -397,7 +413,9 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 
 func (h *DBHandler) upsertEnvLockRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertEnvLockRow")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO environment_locks (created, lockId, envname, metadata)
 		VALUES (?, ?, ?, ?)
@@ -433,7 +451,9 @@ func (h *DBHandler) upsertEnvLockRow(ctx context.Context, transaction *sql.Tx, l
 
 func (h *DBHandler) deleteEnvLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteEnvLockRow")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM environment_locks
 		WHERE lockId=? AND envname=?;`)
@@ -455,7 +475,9 @@ func (h *DBHandler) deleteEnvLockRow(ctx context.Context, transaction *sql.Tx, l
 
 func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertEnvLockHistoryRow")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO environment_locks_history (created, lockId, envname, metadata, deleted, deletionMetadata)
 		VALUES (?, ?, ?, ?, ?, ?);
@@ -548,7 +570,9 @@ func (h *DBHandler) processEnvLockRows(ctx context.Context, err error, rows *sql
 
 func (h *DBHandler) processAllEnvLocksRows(ctx context.Context, err error, rows *sql.Rows) ([]string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "processAllEnvLocksRows")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if err != nil {
 		return nil, fmt.Errorf("could not query all environment locks table from DB. Error: %w", err)

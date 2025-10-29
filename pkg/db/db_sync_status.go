@@ -48,7 +48,9 @@ type GitSyncData struct {
 
 func (h *DBHandler) DBWriteNewSyncEvent(ctx context.Context, tx *sql.Tx, syncData *GitSyncData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteNewSyncEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil
 	}
@@ -78,7 +80,9 @@ func (h *DBHandler) DBWriteNewSyncEvent(ctx context.Context, tx *sql.Tx, syncDat
 
 func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id TransformerID, envApps []EnvApp, status SyncStatus) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteNewSyncEventBulk")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil
 	}
@@ -104,7 +108,9 @@ type EnvApp struct {
 
 func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *sql.Tx, id TransformerID) (_ []EnvApp, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadUnsyncedAppsForTransfomerID")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -153,7 +159,9 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 
 func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx, id TransformerID) (_ []EnvApp, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadAllAppsForTransfomerID")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -201,7 +209,9 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 
 func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id TransformerID, status SyncStatus) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBBulkUpdateUnsyncedApps")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil
 	}
@@ -227,7 +237,9 @@ func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id
 
 func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, newId, oldId TransformerID, status SyncStatus) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBBulkUpdateAllApps")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil
 	}
@@ -253,7 +265,9 @@ func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, newId, 
 
 func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, newId, oldId TransformerID) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBBulkUpdateAllDeployments")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil
 	}
@@ -271,7 +285,9 @@ func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, 
 
 func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) (_ []GitSyncData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -326,7 +342,9 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 
 func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (_ *GitSyncData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -379,7 +397,9 @@ func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApp
 
 func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) (_ int, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBCountAppsWithStatus")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return -1, nil
 	}

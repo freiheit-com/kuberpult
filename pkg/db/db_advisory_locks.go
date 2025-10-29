@@ -39,7 +39,9 @@ const (
 
 func (h *DBHandler) WithAdvisoryLock(ctx context.Context, isShared bool, lockId AdvisoryLockId, f DBFunctionNoTx) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "WithAdvisoryLock")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	err = h.DBAcquireAdvisoryLock(ctx, isShared, lockId)
 	if err != nil {
@@ -66,7 +68,9 @@ func (h *DBHandler) WithAdvisoryLock(ctx context.Context, isShared bool, lockId 
 // DBAcquireAdvisoryLock waits until the advisory lock is available
 func (h *DBHandler) DBAcquireAdvisoryLock(ctx context.Context, isShared bool, lockID AdvisoryLockId) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBAcquireAdvisoryLock")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	span.SetTag("lockId", lockID)
 	if h == nil {
 		return fmt.Errorf("DBAcquireAdvisoryLock: no db handler provided")
