@@ -18,6 +18,8 @@ package notify
 
 import (
 	"sync"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 type Notify struct {
@@ -58,7 +60,7 @@ func (n *Notify) Notify() {
 	}
 }
 
-type ChangedAppNames []string
+type ChangedAppNames []types.AppName
 
 func (n *Notify) SubscribeChangesApps() (<-chan ChangedAppNames, Unsubscribe) {
 	ch := make(chan ChangedAppNames, 1)

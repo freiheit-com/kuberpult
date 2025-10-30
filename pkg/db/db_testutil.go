@@ -113,7 +113,7 @@ func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPat
 	return dbConfig, nil
 }
 
-func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName string) (*QueuedDeployment, error) {
+func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName types.AppName) (*QueuedDeployment, error) {
 	query := h.AdaptQuery("SELECT created, envName, appName, releaseVersion, revision FROM deployment_attempts_latest WHERE envName=? AND appName=?;")
 
 	rows, err := tx.QueryContext(

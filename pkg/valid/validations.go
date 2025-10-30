@@ -18,12 +18,13 @@ package valid
 
 import (
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/mail"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 const (
@@ -62,8 +63,8 @@ func EnvironmentName(env types.EnvName) bool {
 func GroupName(env string) bool {
 	return len(env) < 21 && groupNameRx.MatchString(env)
 }
-func ApplicationName(name string) bool {
-	return len(name) <= MaxAppNameLen && applicationNameRx.MatchString(name)
+func ApplicationName(name types.AppName) bool {
+	return len(name) <= MaxAppNameLen && applicationNameRx.MatchString(string(name))
 }
 
 func TeamName(name string) bool {

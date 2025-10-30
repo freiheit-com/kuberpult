@@ -42,7 +42,7 @@ const (
 
 type DBApp struct {
 	EslVersion EslVersion
-	App        string
+	App        types.AppName
 }
 
 type DBAppMetaData struct {
@@ -50,14 +50,14 @@ type DBAppMetaData struct {
 }
 
 type DBAppWithMetaData struct {
-	App         string
+	App         types.AppName
 	Metadata    DBAppMetaData
 	StateChange AppStateChange
 }
 
 // SELECTS
 
-func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
+func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (*DBAppWithMetaData, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT appName, stateChange, metadata
 		FROM apps
@@ -90,7 +90,7 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (_ 
 	return h.processAppsRows(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*DBAppWithMetaData, error) {
+func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName types.AppName, ts time.Time) (*DBAppWithMetaData, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT appName, stateChange, metadata
 		FROM apps_history
@@ -108,7 +108,7 @@ func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appN
 	return h.processAppsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
+func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (*DBAppWithMetaData, error) {
 	app, err := h.DBSelectApp(ctx, tx, appName)
 	if err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName
 	return app, nil
 }
 
-func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) (_ []string, err error) {
+func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) (_ []types.AppName, err error) {
 	if h == nil {
 		return nil, nil
 	}
@@ -145,7 +145,7 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 }
 
 // INSERT, UPDATE, DELETE
-func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
+func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertOrUpdateApplication")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -162,7 +162,7 @@ func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction
 }
 
 // actual changes in tables
-func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
+func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertAppsRow")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -196,7 +196,7 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 	return nil
 }
 
-func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
+func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppsHistoryRow")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -286,7 +286,7 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 			return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
 		}
 		row.Metadata = metaData
-		result[types.AppName(row.App)] = row
+		result[row.App] = row
 	}
 	err = closeRows(rows)
 	if err != nil {
@@ -295,15 +295,15 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 	return result, nil
 }
 
-func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err error) ([]string, error) {
+func (h *DBHandler) processAllAppsRows(ctx context.Context, rows *sql.Rows, err error) ([]types.AppName, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "apps")
-	var result = make([]string, 0)
+	var result = make([]types.AppName, 0)
 	for rows.Next() {
 		//exhaustruct:ignore
-		var appname string
+		var appname types.AppName
 		err := rows.Scan(&appname)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

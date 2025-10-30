@@ -104,9 +104,9 @@ func GetCreateReleaseTooOld() *CreateReleaseError {
 	}
 }
 
-func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32) *CreateReleaseError {
+func GetCreateReleaseAppNameTooLong(appName types.AppName, regExp string, maxLen uint32) *CreateReleaseError {
 	response := api.CreateReleaseResponseAppNameTooLong{
-		AppName: appName,
+		AppName: string(appName),
 		RegExp:  regExp,
 		MaxLen:  maxLen,
 	}

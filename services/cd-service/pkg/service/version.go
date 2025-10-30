@@ -19,11 +19,12 @@ package service
 import (
 	"context"
 	"database/sql"
+	"os"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"os"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -61,7 +62,7 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 		)
 
 		if req.Release == "latest" {
-			release, err = state.GetLastRelease(ctx, transaction, req.Application)
+			release, err = state.GetLastRelease(ctx, transaction, types.AppName(req.Application))
 			if err != nil {
 				return nil, wrapError("application", err)
 			}
@@ -78,11 +79,11 @@ func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetMan
 				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected number, 'Major.Minor' or 'latest")
 			}
 		}
-		repoRelease, err := state.GetApplicationRelease(ctx, transaction, req.Application, release)
+		repoRelease, err := state.GetApplicationRelease(ctx, transaction, types.AppName(req.Application), release)
 		if err != nil {
 			return nil, wrapError("release", err)
 		}
-		manifests, err := state.GetApplicationReleaseManifests(ctx, transaction, req.Application, release)
+		manifests, err := state.GetApplicationReleaseManifests(ctx, transaction, types.AppName(req.Application), release)
 		if err != nil {
 			return nil, wrapError("manifests", err)
 		}

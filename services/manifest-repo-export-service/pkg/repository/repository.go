@@ -1313,12 +1313,12 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 		}
 		for env := range envs {
 			logger.FromContext(ctx).Info(fmt.Sprintf("updating timestamp for %s, %s, %s", app, env, releaseVersion))
-			_, createdAt, err := s.GetDeploymentMetaData(types.EnvName(env), app)
+			_, createdAt, err := s.GetDeploymentMetaData(env, app)
 			if err != nil {
 				return fmt.Errorf("error getting deployment metadata: %v", err)
 			}
 			if !createdAt.IsZero() {
-				err = dbHandler.DBMigrationUpdateDeploymentsTimestamp(ctx, transaction, app, repoRelease.Version, types.EnvName(env), createdAt, repoRelease.Revision)
+				err = dbHandler.DBMigrationUpdateDeploymentsTimestamp(ctx, transaction, app, repoRelease.Version, env, createdAt, repoRelease.Revision)
 				if err != nil {
 					return fmt.Errorf("error writing Deployment to DB for app %s and env %s: %v", app, env, err)
 				}
@@ -2190,7 +2190,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		if env.Upstream == nil || env.Upstream.Environment == "" {
 			continue
 		}
-		upstreamEnv := types.EnvName(env.Upstream.Environment)
+		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
 			logger.Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
 		}
