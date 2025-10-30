@@ -426,7 +426,7 @@ func RunServer() {
 						DBHandler:        dbHandler,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
-					api.RegisterProductSummaryServiceServer(srv, &service.ProductSummaryServer{Config: cfg, OverviewService: overviewSrv})
+					api.RegisterProductSummaryServiceServer(srv, &service.ProductSummaryServer{State: repo.State()})
 					api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 					api.RegisterEnvironmentServiceServer(srv, &service.EnvironmentServiceServer{Repository: repo})
 					api.RegisterReleaseTrainPrognosisServiceServer(srv, &service.ReleaseTrainPrognosisServer{

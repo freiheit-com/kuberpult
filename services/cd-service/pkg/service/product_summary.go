@@ -31,8 +31,7 @@ import (
 )
 
 type ProductSummaryServer struct {
-	Config          repository.RepositoryConfig
-	OverviewService *OverviewServiceServer
+	State *repository.State
 }
 
 func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
@@ -48,8 +47,8 @@ func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.Ge
 		return nil, fmt.Errorf("must have a commit to get the product summary for")
 	}
 	var summaryFromEnv []api.ProductSummary
-	dbHandler := s.Config.DBHandler
-	state := s.OverviewService.Repository.State()
+	state := s.State
+	dbHandler := state.DBHandler
 	response, err := db.WithTransactionT[api.GetProductSummaryResponse](dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetProductSummaryResponse, error) {
 		//Translate a manifest repo commit hash into a DB transaction timestamp.
 		ts, err := dbHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, in.ManifestRepoCommitHash)
