@@ -147,7 +147,7 @@ func (c *DeployApplicationVersion) Prognosis(
 
 	var existingVersion *uint64 = nil
 	if existingDeployment != nil && existingDeployment.ReleaseNumbers.Version != nil {
-		var tmp2 = (uint64)(*existingDeployment.ReleaseNumbers.Version)
+		var tmp2 = *existingDeployment.ReleaseNumbers.Version
 		existingVersion = &tmp2
 	}
 	var oldReleaseCommitId = ""

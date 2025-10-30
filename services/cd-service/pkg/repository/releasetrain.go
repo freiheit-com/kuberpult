@@ -98,7 +98,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 	if upstreamLatest {
 		// For "upstreamlatest" we cannot get the source environment, because it's not a real environment
 		// but since we only care about the names of the apps, we can just get the apps for the target env.
-		apps, err = state.GetEnvironmentApplications(ctx, transaction, types.EnvName(targetEnv))
+		apps, err = state.GetEnvironmentApplications(ctx, transaction, targetEnv)
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
 		}
@@ -333,7 +333,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 		}
 		for _, envName := range envNames {
 			trainGroup := conversion.FromString(targetGroupName)
-			envNameLocal := types.EnvName(envName)
+			envNameLocal := envName
 			// we want to schedule all go routines,
 			// but still have the limit set, so "group.Go" would block
 			group.Go(func() (goErr error) {
@@ -496,7 +496,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	}
 
 	upstreamLatest := envConfig.Upstream.Latest
-	upstreamEnvName := types.EnvName(envConfig.Upstream.Environment)
+	upstreamEnvName := envConfig.Upstream.Environment
 	if !upstreamLatest && upstreamEnvName == "" {
 		return &ReleaseTrainEnvironmentPrognosis{
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -918,7 +918,7 @@ func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t Tra
 		logger.FromContext(ctx).Sugar().Warnf("Could not find skipped Deployment %s on %s.", appName, srcEnvName)
 		return
 	}
-	version := uint64(*d.ReleaseNumbers.Version)
+	version := *d.ReleaseNumbers.Version
 	q := QueueApplicationVersion{
 		Environment: destEnvName,
 		Application: string(appName),

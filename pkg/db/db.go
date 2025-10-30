@@ -1491,7 +1491,7 @@ func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (m
 		envSet := make(map[types.EnvName]struct{})
 		for _, envs := range versionEnvs {
 			for _, env := range envs {
-				envSet[types.EnvName(env)] = struct{}{}
+				envSet[env] = struct{}{}
 			}
 		}
 		for env := range envSet {

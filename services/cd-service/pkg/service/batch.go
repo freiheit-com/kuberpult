@@ -171,7 +171,7 @@ func ValidateEnvironment(
 		for _, currentConfig := range configs { //Each sub-environment must be valid
 			var currentFullEnvironmentName types.EnvName
 			if commonEnvPrefix == nil || *commonEnvPrefix == "" || len(configs) == 1 { //only 1 config provided, we dont care about prefixes or concrete env names
-				currentFullEnvironmentName = types.EnvName(environmentName)
+				currentFullEnvironmentName = environmentName
 			} else {
 				currentFullEnvironmentName = types.EnvName(*commonEnvPrefix + "-" + string(environmentName) + "-" + currentConfig.ConcreteEnvName)
 			}

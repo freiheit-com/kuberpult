@@ -872,7 +872,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		if env.Upstream == nil || env.Upstream.Environment == "" {
 			continue
 		}
-		upstreamEnv := types.EnvName(env.Upstream.Environment)
+		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
 			logger.Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
 		}
@@ -955,7 +955,7 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 	}
 	ret := make(map[types.EnvName]config.EnvironmentConfig)
 	for _, env := range *envs {
-		ret[types.EnvName(env.Name)] = env.Config
+		ret[env.Name] = env.Config
 	}
 	return ret, nil
 }

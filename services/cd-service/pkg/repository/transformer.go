@@ -557,7 +557,7 @@ func (c *CreateApplicationVersion) Transform(
 	var allEnvsOfThisApp []types.EnvName = nil
 
 	for env := range c.Manifests {
-		allEnvsOfThisApp = append(allEnvsOfThisApp, types.EnvName(env))
+		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
 	}
 	slices.Sort(allEnvsOfThisApp)
 
@@ -889,7 +889,7 @@ func (c *CreateApplicationVersion) sameAsExistingDB(ctx context.Context, transac
 		return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, fmt.Sprintf("manifest missing for app %s", c.Application))
 	}
 	for env, man := range c.Manifests {
-		existingManStr := metaData.Manifests.Manifests[types.EnvName(env)]
+		existingManStr := metaData.Manifests.Manifests[env]
 		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
 		}
@@ -917,10 +917,10 @@ func canonicalizeYaml(unformatted string) string {
 }
 
 func createUnifiedDiff(existingValue string, requestValue string, prefix string) string {
-	existingValueStr := string(existingValue)
+	existingValueStr := existingValue
 	existingFilename := fmt.Sprintf("%sexisting", prefix)
 	requestFilename := fmt.Sprintf("%srequest", prefix)
-	edits := myers.ComputeEdits(diffspan.URIFromPath(existingFilename), existingValueStr, string(requestValue))
+	edits := myers.ComputeEdits(diffspan.URIFromPath(existingFilename), existingValueStr, requestValue)
 	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
@@ -987,7 +987,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			envs = append(envs, env)
 		}
 	}
-	v := uint64(*lastRelease.Version + 1)
+	v := *lastRelease.Version + 1
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
 			Revision: 0, //Undeploy versions always have revision 0
@@ -1459,7 +1459,7 @@ func (c *CreateEnvironmentLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionCreateLock, "", c.RBACConfig, false)
 	if err != nil {
 		return "", err
@@ -1527,7 +1527,7 @@ func (c *DeleteEnvironmentLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeleteLock, "", c.RBACConfig, false)
 	if err != nil {
 		return "", err
@@ -1701,7 +1701,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
 	err := state.checkUserPermissions(ctx, transaction, envName, c.Application, auth.PermissionCreateLock, "", c.RBACConfig, true)
 	if err != nil {
@@ -1787,7 +1787,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	_ TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	err := state.checkUserPermissions(ctx, transaction, envName, c.Application, auth.PermissionDeleteLock, "", c.RBACConfig, true)
 	if err != nil {
 		return "", err
@@ -1849,7 +1849,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
 	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionCreateLock, c.Team, c.RBACConfig, true)
 
@@ -1919,7 +1919,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	err := state.checkUserPermissions(ctx, transaction, envName, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig, true)
 	if err != nil {
 		return "", err
@@ -1967,7 +1967,7 @@ func (c *CreateEnvironment) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	err := CheckUserPermissionsCreateEnvironment(ctx, c.RBACConfig, c.Config)
 	if err != nil {
 		return "", err
@@ -2083,7 +2083,7 @@ func (c *DeleteEnvironment) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeleteEnvironment, "", c.RBACConfig, false)
 	if err != nil {
 		return "", err
@@ -2209,7 +2209,7 @@ func (c *ExtendAAEnvironment) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionCreateEnvironment, "", c.RBACConfig, false)
 	if err != nil {
 		return "", err
@@ -2276,7 +2276,7 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	err := state.checkUserPermissions(ctx, transaction, envName, "*", auth.PermissionDeleteEnvironment, "", c.RBACConfig, false)
 	if err != nil {
 		return "", err
@@ -2333,7 +2333,7 @@ func (c *QueueApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, types.EnvName(c.Environment), c.Application, types.MakeReleaseNumberVersion(c.Version))
+	err := state.DBHandler.DBWriteDeploymentAttempt(ctx, transaction, c.Environment, c.Application, types.MakeReleaseNumberVersion(c.Version))
 	if err != nil {
 		return "", err
 	}

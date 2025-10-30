@@ -459,7 +459,7 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 
 	envs := make([]types.EnvName, 0)
 	for env := range release.Manifests.Manifests {
-		envs = append(envs, types.EnvName(env))
+		envs = append(envs, env)
 	}
 	release.Environments = envs
 	slices.Sort(release.Environments)
@@ -513,7 +513,7 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 
 	envs := make([]types.EnvName, 0)
 	for env := range release.Manifests.Manifests {
-		envs = append(envs, types.EnvName(env))
+		envs = append(envs, env)
 	}
 	release.Environments = envs
 	slices.Sort(release.Environments)
