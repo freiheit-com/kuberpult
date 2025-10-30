@@ -158,6 +158,9 @@ func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in
 		if err != nil {
 			return err
 		}
+		if release == nil {
+			return fmt.Errorf("no release found for app %s with version %v, despite having a deployment", in.Application, deployment.ReleaseNumbers)
+		}
 		deploymentCommitInfo.Author = release.Metadata.SourceAuthor
 		deploymentCommitInfo.CommitMessage = release.Metadata.SourceMessage
 		deploymentCommitInfo.CommitId = release.Metadata.SourceCommitId
