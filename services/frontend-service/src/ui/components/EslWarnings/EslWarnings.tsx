@@ -32,7 +32,7 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
     const api = useApi;
     const onClickRetry = useCallback(() => {
         if (authReady) {
-            api.gitService()
+            api.manifestExportGitService()
                 .RetryFailedEvent({ eslversion: eslVersion }, authHeader)
                 .then(() => removeFromFailedEsls(eslVersion))
                 .then(() => {
@@ -64,7 +64,7 @@ export const SkipButton: React.FC<RetryButtonProps> = ({ eslVersion }) => {
     const api = useApi;
     const onClickSkip = useCallback(() => {
         if (authReady) {
-            api.gitService()
+            api.manifestExportGitService()
                 .SkipEslEvent({ eventEslVersion: eslVersion }, authHeader)
                 .then(() => removeFromFailedEsls(eslVersion))
                 .then(() => {

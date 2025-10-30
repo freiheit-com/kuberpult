@@ -21,15 +21,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/migrations"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
@@ -107,7 +108,6 @@ type Config struct {
 	AllowedDomains        []string `split_words:"true"`
 	CacheTtlHours         uint     `default:"24" split_words:"true"`
 
-
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
 	MigrationServer       string `required:"false" split_words:"true"`
 	MigrationServerSecure bool   `required:"true" split_words:"true"`
@@ -115,7 +115,6 @@ type Config struct {
 
 	Version  string `required:"true" split_words:"true"`
 	LockType string `required:"true" split_words:"true"`
-
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -427,7 +426,7 @@ func RunServer() {
 						DBHandler:        dbHandler,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
-					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv, PageSize: 10})
+					api.RegisterProductSummaryServiceServer(srv, &service.ProductSummaryServer{State: repo.State()})
 					api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 					api.RegisterEnvironmentServiceServer(srv, &service.EnvironmentServiceServer{Repository: repo})
 					api.RegisterReleaseTrainPrognosisServiceServer(srv, &service.ReleaseTrainPrognosisServer{

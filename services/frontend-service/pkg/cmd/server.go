@@ -271,13 +271,13 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
 
-	var manifestRepoGitClient api.GitServiceClient = nil
+	var manifestRepoGitClient api.ManifestExportGitServiceClient = nil
 	if c.ManifestExportServer != "" {
 		exportCon, err := grpc.NewClient(c.ManifestExportServer, grpcClientOpts...)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
 		}
-		manifestRepoGitClient = api.NewGitServiceClient(exportCon)
+		manifestRepoGitClient = api.NewManifestExportGitServiceClient(exportCon)
 	}
 
 	var rolloutClient api.RolloutServiceClient = nil
@@ -297,20 +297,21 @@ func runServer(ctx context.Context) error {
 	releaseTrainPrognosisClient := api.NewReleaseTrainPrognosisServiceClient(cdCon)
 	commitDeploymentsClient := api.NewCommitDeploymentServiceClient(cdCon)
 	gproxy := &GrpcProxy{
-		OverviewClient:                 api.NewOverviewServiceClient(cdCon),
-		BatchClient:                    batchClient,
-		RolloutServiceClient:           rolloutClient,
-		GitClient:                      api.NewGitServiceClient(cdCon),
-		VersionClient:                  api.NewVersionServiceClient(cdCon),
-		ManifestExportServiceGitClient: manifestRepoGitClient,
-		EnvironmentServiceClient:       api.NewEnvironmentServiceClient(cdCon),
-		ReleaseTrainPrognosisClient:    releaseTrainPrognosisClient,
-		EslServiceClient:               api.NewEslServiceClient(cdCon),
+		OverviewClient:              api.NewOverviewServiceClient(cdCon),
+		BatchClient:                 batchClient,
+		RolloutServiceClient:        rolloutClient,
+		ProductSummaryClient:        api.NewProductSummaryServiceClient(cdCon),
+		VersionClient:               api.NewVersionServiceClient(cdCon),
+		ManifestExportGitClient:     manifestRepoGitClient,
+		EnvironmentServiceClient:    api.NewEnvironmentServiceClient(cdCon),
+		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+		EslServiceClient:            api.NewEslServiceClient(cdCon),
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
 	api.RegisterRolloutServiceServer(gsrv, gproxy)
-	api.RegisterGitServiceServer(gsrv, gproxy)
+	api.RegisterProductSummaryServiceServer(gsrv, gproxy)
+	api.RegisterManifestExportGitServiceServer(gsrv, gproxy)
 	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
 	api.RegisterReleaseTrainPrognosisServiceServer(gsrv, gproxy)
 	api.RegisterEslServiceServer(gsrv, gproxy)
@@ -651,15 +652,15 @@ func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL,
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
-	OverviewClient                 api.OverviewServiceClient
-	BatchClient                    api.BatchServiceClient
-	RolloutServiceClient           api.RolloutServiceClient
-	GitClient                      api.GitServiceClient
-	ManifestExportServiceGitClient api.GitServiceClient
-	VersionClient                  api.VersionServiceClient
-	EnvironmentServiceClient       api.EnvironmentServiceClient
-	ReleaseTrainPrognosisClient    api.ReleaseTrainPrognosisServiceClient
-	EslServiceClient               api.EslServiceClient
+	OverviewClient              api.OverviewServiceClient
+	BatchClient                 api.BatchServiceClient
+	RolloutServiceClient        api.RolloutServiceClient
+	ProductSummaryClient        api.ProductSummaryServiceClient
+	ManifestExportGitClient     api.ManifestExportGitServiceClient
+	VersionClient               api.VersionServiceClient
+	EnvironmentServiceClient    api.EnvironmentServiceClient
+	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
+	EslServiceClient            api.EslServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -709,25 +710,25 @@ func (p *GrpcProxy) GetAllEnvTeamLocks(
 func (p *GrpcProxy) GetGitTags(
 	ctx context.Context,
 	in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	if p.ManifestExportServiceGitClient == nil {
+	if p.ManifestExportGitClient == nil {
 		return nil, status.Error(codes.Unimplemented, "GetGitTags requires the manifest-repo-export to be enabled")
 	}
-	return p.ManifestExportServiceGitClient.GetGitTags(ctx, in)
+	return p.ManifestExportGitClient.GetGitTags(ctx, in)
 }
 
 func (p *GrpcProxy) GetProductSummary(
 	ctx context.Context,
 	in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
-	return p.GitClient.GetProductSummary(ctx, in)
+	return p.ProductSummaryClient.GetProductSummary(ctx, in)
 }
 
 func (p *GrpcProxy) GetCommitInfo(
 	ctx context.Context,
 	in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
-	if p.ManifestExportServiceGitClient == nil {
+	if p.ManifestExportGitClient == nil {
 		return nil, status.Error(codes.Unimplemented, "GetCommitInfo requires the manifest-repo-export to be enabled")
 	}
-	return p.ManifestExportServiceGitClient.GetCommitInfo(ctx, in)
+	return p.ManifestExportGitClient.GetCommitInfo(ctx, in)
 }
 
 func (p *GrpcProxy) GetEnvironmentConfig(
@@ -739,25 +740,25 @@ func (p *GrpcProxy) GetEnvironmentConfig(
 func (p *GrpcProxy) GetGitSyncStatus(
 	ctx context.Context,
 	in *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
-	if p.ManifestExportServiceGitClient == nil {
+	if p.ManifestExportGitClient == nil {
 		return nil, status.Error(codes.Unimplemented, "GetGitSyncStatus requires the manifest-repo-export to be enabled")
 	}
-	return p.ManifestExportServiceGitClient.GetGitSyncStatus(ctx, in)
+	return p.ManifestExportGitClient.GetGitSyncStatus(ctx, in)
 }
 
 func (p *GrpcProxy) RetryFailedEvent(
 	ctx context.Context,
 	in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
-	if p.ManifestExportServiceGitClient == nil {
+	if p.ManifestExportGitClient == nil {
 		return nil, status.Error(codes.Unimplemented, "RetryFailedEvent requires the manifest-repo-export to be enabled")
 	}
-	return p.ManifestExportServiceGitClient.RetryFailedEvent(ctx, in)
+	return p.ManifestExportGitClient.RetryFailedEvent(ctx, in)
 }
 
 func (p *GrpcProxy) StreamGitSyncStatus(
 	in *api.GetGitSyncStatusRequest,
-	stream api.GitService_StreamGitSyncStatusServer) error {
-	if p.ManifestExportServiceGitClient == nil || p.GitClient == nil {
+	stream api.ManifestExportGitService_StreamGitSyncStatusServer) error {
+	if p.ManifestExportGitClient == nil {
 		return status.Error(codes.Unimplemented, "git client not configured")
 	} else if p.RolloutServiceClient != nil {
 		return status.Error(codes.Unimplemented, "rollout service enabled. git sync status is not supported.")
@@ -765,8 +766,7 @@ func (p *GrpcProxy) StreamGitSyncStatus(
 
 	c := make(chan *api.GetGitSyncStatusResponse, 10)
 	errCh := make(chan error, 2)
-	go p.listenGitSyncStatus(in, stream, c, errCh, p.ManifestExportServiceGitClient)
-	go p.listenGitSyncStatus(in, stream, c, errCh, p.GitClient)
+	go p.listenGitSyncStatus(in, stream, c, errCh, p.ManifestExportGitClient)
 	for {
 		select {
 		case item := <-c:
@@ -781,7 +781,7 @@ func (p *GrpcProxy) StreamGitSyncStatus(
 
 }
 
-func (p *GrpcProxy) listenGitSyncStatus(in *api.GetGitSyncStatusRequest, stream api.GitService_StreamGitSyncStatusServer, c chan *api.GetGitSyncStatusResponse, errCh chan error, gitClient api.GitServiceClient) {
+func (p *GrpcProxy) listenGitSyncStatus(in *api.GetGitSyncStatusRequest, stream api.ManifestExportGitService_StreamGitSyncStatusServer, c chan *api.GetGitSyncStatusResponse, errCh chan error, gitClient api.ManifestExportGitServiceClient) {
 	if resp, err := gitClient.StreamGitSyncStatus(stream.Context(), in); err != nil {
 		errCh <- err
 	} else {
@@ -887,10 +887,10 @@ func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.Releas
 }
 
 func (p *GrpcProxy) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
-	if p.ManifestExportServiceGitClient != nil {
+	if p.ManifestExportGitClient != nil {
 		return nil, status.Error(codes.Unimplemented, "rollout service is enabled.")
 	}
-	return p.ManifestExportServiceGitClient.SkipEslEvent(ctx, in)
+	return p.ManifestExportGitClient.SkipEslEvent(ctx, in)
 }
 
 func (p *GrpcProxy) GetManifests(ctx context.Context, in *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {

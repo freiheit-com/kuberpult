@@ -181,7 +181,7 @@ export const ProductVersion: React.FC = () => {
         }
         const env = splitCombinedGroupName(environment);
         useApi
-            .gitService()
+            .productSummaryService()
             .GetProductSummary(
                 { manifestRepoCommitHash: tag, environment: env[0], environmentGroup: env[1] },
                 authHeader

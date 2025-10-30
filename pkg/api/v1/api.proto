@@ -7,15 +7,18 @@ import "google/protobuf/timestamp.proto";
 package api.v1;
 
 
-service GitService {
-  rpc GetGitTags (GetGitTagsRequest) returns (GetGitTagsResponse) {}
-  // By "Product" we mean the entire collection of apps
-  rpc GetProductSummary(GetProductSummaryRequest) returns(GetProductSummaryResponse) {}
+service ManifestExportGitService {
+  rpc GetGitTags(GetGitTagsRequest) returns (GetGitTagsResponse) {}
   rpc GetCommitInfo(GetCommitInfoRequest) returns(GetCommitInfoResponse) {}
   rpc GetGitSyncStatus(GetGitSyncStatusRequest) returns(GetGitSyncStatusResponse) {}
   rpc StreamGitSyncStatus(GetGitSyncStatusRequest) returns(stream GetGitSyncStatusResponse) {}
   rpc RetryFailedEvent(RetryFailedEventRequest) returns(RetryFailedEventResponse) {}
   rpc SkipEslEvent(SkipEslEventRequest) returns (SkipEslEventResponse) {}
+}
+
+service ProductSummaryService {
+  // By "Product" we mean the entire collection of apps
+  rpc GetProductSummary(GetProductSummaryRequest) returns(GetProductSummaryResponse) {}
 }
 
 message GetGitTagsRequest {

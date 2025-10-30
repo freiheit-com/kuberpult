@@ -54,10 +54,6 @@ type GitServer struct {
 	DBHandler                   *db.DBHandler
 }
 
-func (s *GitServer) GetProductSummary(_ context.Context, _ *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
-}
-
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	var tags []*api.TagData
 	err := logger.Wrap(ctx, func(ctx context.Context) error {
@@ -319,7 +315,7 @@ func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 }
 
 func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
-	stream api.GitService_StreamGitSyncStatusServer) error {
+	stream api.ManifestExportGitService_StreamGitSyncStatusServer) error {
 	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
 	defer span.Finish()
 	ch, unsubscribe := s.subscribeGitSyncStatus()
