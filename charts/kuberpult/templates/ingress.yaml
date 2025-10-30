@@ -294,7 +294,9 @@ spec:
         - uri:
             prefix: /api.v1.RolloutService/
         - uri:
-            prefix: /api.v1.GitService/
+            prefix: /api.v1.ManifestExportGitService/
+        - uri:
+            prefix: /api.v1.ProductSummaryService/
         - uri:
             prefix: /api.v1.VersionService/
         - uri:
