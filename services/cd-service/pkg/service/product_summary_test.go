@@ -428,16 +428,11 @@ func TestGetProductDB(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			shutdown := make(chan struct{}, 1)
 			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			config := rp.RepositoryConfig{
-				ArgoCdGenerateFiles: true,
-				DBHandler:           repo.State().DBHandler,
-			}
-			sv := &ProductSummaryServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
+			sv := &ProductSummaryServer{State: repo.State()}
 			ctx := testutil.MakeTestContext()
 
 			var commitHashes []string
@@ -562,16 +557,11 @@ func TestGetProductDBFailureCases(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			shutdown := make(chan struct{}, 1)
 			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			config := rp.RepositoryConfig{
-				ArgoCdGenerateFiles: true,
-				DBHandler:           repo.State().DBHandler,
-			}
-			sv := &ProductSummaryServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}, Config: config}
+			sv := &ProductSummaryServer{State: repo.State()}
 			for _, transformer := range tc.Setup {
 				err := repo.Apply(testutil.MakeTestContext(), transformer)
 				if err != nil {
