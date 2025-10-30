@@ -197,7 +197,6 @@ type RepositoryConfig struct {
 	MinorRegexes        []*regexp.Regexp
 
 	DBHandler *db.DBHandler
-
 }
 
 // Opens a repository. The repository is initialized and updated in the background.
@@ -408,9 +407,15 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch) {
 	r.notifyChangedApps(changes)
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (_ []string, _ *State, _ []*TransformerResult, applyErr *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
-	defer span.Finish()
+	defer func() {
+		if applyErr != nil {
+			span.Finish(tracer.WithError(applyErr.TransformerError))
+		} else {
+			span.Finish()
+		}
+	}()
 
 	if state, err := r.StateAt(); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
@@ -572,10 +577,15 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 	return r
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (_ *TransformerResult, applyErr *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformers")
-	defer span.Finish()
-
+	defer func() {
+		if applyErr != nil {
+			span.Finish(tracer.WithError(applyErr.TransformerError))
+		} else {
+			span.Finish()
+		}
+	}()
 	_, _, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)
 	if applyErr != nil {
 		return nil, applyErr
