@@ -574,7 +574,7 @@ func (c *CreateApplicationVersion) Transform(
 		return "", errDownstream
 	}
 
-	isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
+	isMinor, err := c.updateSurroundingReleasesIsMinorFlag(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
 	if err != nil {
 		return "", err
 	}
@@ -697,7 +697,13 @@ func validateDownstreamEnvs(downstreamEnvs []types.EnvName, sortedEnvs []types.E
 	return nil
 }
 
-func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version types.ReleaseNumbers, minorRegexes []*regexp.Regexp) (bool, error) {
+// Updates the previous and next release (if they exist) with the "isMinor" flag
+// The "isMinor" flag only makes sense in comparison to other releases.
+func (c *CreateApplicationVersion) updateSurroundingReleasesIsMinorFlag(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version types.ReleaseNumbers, minorRegexes []*regexp.Regexp) (bool, error) {
+	if c.IsPrepublish {
+		// releases with prepublish=true do not have manifests, so there are no updates to be done
+		return true, nil
+	}
 	releaseVersions, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
 	if err != nil {
 		return false, err
