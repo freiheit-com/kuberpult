@@ -181,7 +181,7 @@ spec:
             name: kuberpult-frontend-service
             port:
               name: http
-      - pathType: { { required ".ingress.pathType is required" .Values.ingress.pathType } }
+      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.ProductSummaryService/
         backend:
           service:
