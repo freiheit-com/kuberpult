@@ -24,8 +24,8 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -479,17 +479,22 @@ var isolatedTransformerNames = []db.EventType{db.EvtUndeployApplication, db.EvtD
 func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
-) (*api.BatchResponse, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "ProcessBatch")
-	defer span.Finish()
+) (_ *api.BatchResponse, err error) {
+	parentSpan, parentSpanExisted := tracer.SpanFromContext(ctx)
+	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessBatch")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
 	span.SetTag("BatchActions", len(in.GetActions()))
+
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return nil, onErr(grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err)))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err))
 	}
 	ctx = auth.WriteUserToContext(ctx, *user)
 	if len(in.GetActions()) > maxBatchActions {
-		return nil, onErr(status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions)))
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
 	}
 
 	results := make([]*api.BatchResult, 0, len(in.GetActions()))
@@ -499,7 +504,7 @@ func (d *BatchServer) ProcessBatch(
 		transformer, result, err := d.processAction(batchAction)
 		if err != nil {
 			// Validation error
-			return nil, onErr(err)
+			return nil, err
 		}
 
 		transformerTypeName := transformer.GetDBEventType()
@@ -511,9 +516,21 @@ func (d *BatchServer) ProcessBatch(
 		transformers = append(transformers, transformer)
 		results = append(results, result)
 	}
+
+	// Add information about the transformer types for the root-level span of ProcessBatch
+	if len(transformers) > 0 && parentSpanExisted {
+		var transformerTag string
+		if len(transformers) == 1 {
+			transformerTag = string(transformers[0].GetDBEventType())
+		} else {
+			transformerTag = "multi"
+		}
+		parentSpan.SetTag("transformers", transformerTag)
+	}
+
 	if requiresIsolation {
 		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
-		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-Lock")
+		isolationSpan, _ := tracer.StartSpanFromContext(ctx, "Wait-Lock")
 		if d.Config.LockType == LockTypeGo {
 			// This solution (go locks) is not scalable and doesn't work when we have multiple cd-service pods
 			isolatedTransformersLock.Lock()
@@ -522,7 +539,7 @@ func (d *BatchServer) ProcessBatch(
 		isolationSpan.Finish()
 	} else {
 		// we also use a read lock, so that destructive and non-destructive transformers cannot run in parallel:
-		isolationSpan, _, _ := tracing.StartSpanFromContext(ctx, "Wait-RLock")
+		isolationSpan, _ := tracer.StartSpanFromContext(ctx, "Wait-RLock")
 		if d.Config.LockType == LockTypeGo {
 			isolatedTransformersLock.RLock()
 			defer isolatedTransformersLock.RUnlock()
@@ -549,9 +566,9 @@ func (d *BatchServer) ProcessBatch(
 		var applyErr = repository.UnwrapUntilTransformerBatchApplyError(err)
 		if applyErr != nil {
 			resp, handledErr := d.handleError(applyErr, err)
-			return resp, onErr(handledErr)
+			return resp, handledErr
 		}
-		return nil, onErr(err)
+		return nil, err
 	}
 	return &api.BatchResponse{Results: results}, nil
 }

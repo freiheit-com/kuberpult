@@ -29,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
@@ -145,12 +144,14 @@ func GaugeDeploymentMetric(_ context.Context, env types.EnvName, app string, tim
 	return nil
 }
 
-func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time, even bool) error {
+func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State, repo Repository, changes *TransformerResult, now time.Time, even bool) (err error) {
 	if ddMetrics == nil {
 		return nil
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateDatadogMetrics")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	span.SetTag("even", even)
 
 	if state.DBHandler == nil {
@@ -183,9 +184,11 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	return nil
 }
 
-func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, now time.Time) error {
+func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, now time.Time) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "UpdateChangedAppMetrics")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if changes != nil && ddMetrics != nil {
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]
@@ -219,9 +222,11 @@ func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, no
 	return nil
 }
 
-func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, now time.Time, even bool) error {
+func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, now time.Time, even bool) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpdateLockMetrics")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	envConfigs, _, err := state.GetEnvironmentConfigsSorted(ctx, transaction)
 	if err != nil {
@@ -350,11 +355,13 @@ type transformerRunner struct {
 	DeletedRootApps []RootApp
 }
 
-func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, fmt.Sprintf("Transformer_%s", t.GetDBEventType()))
-	defer span.Finish()
-	_, err := t.Transform(ctx, r.State, r, transaction)
-	return onErr(err)
+func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, fmt.Sprintf("Transformer_%s", t.GetDBEventType()))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	_, err = t.Transform(ctx, r.State, r, transaction)
+	return err
 }
 
 func (r *transformerRunner) AddAppEnv(app string, env types.EnvName, team string) {
@@ -735,6 +742,9 @@ func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transact
 	previousRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, previousVersion, true)
 	if err != nil {
 		return false, err
+	}
+	if previousRelease == nil {
+		return false, fmt.Errorf("previous release (%d) not exists in the release table", previousVersion)
 	}
 	return compareManifests(ctx, c.Manifests, previousRelease.Manifests.Manifests, minorRegexes), nil
 }

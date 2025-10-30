@@ -49,9 +49,11 @@ type TeamLockHistory struct {
 
 // SELECTS
 
-func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (map[types.EnvName]map[string][]TeamLock, error) {
+func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (_ map[types.EnvName]map[string][]TeamLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocksOfAllEnvs")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -127,14 +129,10 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 }
 
 func (h *DBHandler) DBHasAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (bool, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyActiveTeamLock")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, teamName, metadata 
 		FROM team_locks 
 		LIMIT 1;`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -152,9 +150,11 @@ func (h *DBHandler) DBHasAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (boo
 	return rows.Next(), nil
 }
 
-func (h *DBHandler) DBSelectAllTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) ([]TeamLock, error) {
+func (h *DBHandler) DBSelectAllTeamLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) (_ []TeamLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLocksForEnv")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, teamname, metadata
@@ -171,9 +171,11 @@ func (h *DBHandler) DBSelectAllTeamLocksForEnv(ctx context.Context, tx *sql.Tx, 
 	return h.processTeamLockRows(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *sql.Tx, teamName string) ([]TeamLock, error) {
+func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *sql.Tx, teamName string) (_ []TeamLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveTeamLocksForApp")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil, nil
@@ -192,16 +194,12 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 }
 
 func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName, lockID string) (*TeamLock, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLock")
-	defer span.Finish()
-
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, teamName, metadata
 		FROM team_locks_history
 		WHERE envName=? AND teamName=? AND lockID=?
 		ORDER BY version DESC
 		LIMIT 1;`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -220,9 +218,11 @@ func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	return &result[0], nil
 }
 
-func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName string) ([]string, error) {
+func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName string) (_ []string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllTeamLocks")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
@@ -241,9 +241,11 @@ func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, enviro
 }
 
 // DBSelectTeamLockHistory returns the last N events associated with some lock on some environment for some team. Currently only used in testing.
-func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, teamName string, lockID string, limit int) ([]TeamLockHistory, error) {
+func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, teamName string, lockID string, limit int) (_ []TeamLockHistory, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockHistory")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil, nil
@@ -334,9 +336,11 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 }
 
 // INSERT, UPDATE, DELETES
-func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata) error {
+func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteTeamLock")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil
@@ -344,7 +348,7 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID stri
 	if tx == nil {
 		return fmt.Errorf("DBWriteTeamLock: no transaction provided")
 	}
-	err := h.upsertTeamLockRow(ctx, tx, lockID, environment, teamName, metadata)
+	err = h.upsertTeamLockRow(ctx, tx, lockID, environment, teamName, metadata)
 	if err != nil {
 		return err
 	}
@@ -355,9 +359,11 @@ func (h *DBHandler) DBWriteTeamLock(ctx context.Context, tx *sql.Tx, lockID stri
 	return nil
 }
 
-func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName string, lockIDs []string) ([]TeamLock, error) {
+func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName string, lockIDs []string) (_ []TeamLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectTeamLockSet")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if len(lockIDs) == 0 {
 		return nil, nil
@@ -381,9 +387,11 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 	return teamLocks, nil
 }
 
-func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName, lockID string, metadata LockDeletionMetadata) error {
+func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName, lockID string, metadata LockDeletionMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteTeamLock")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if h == nil {
 		return nil
@@ -414,9 +422,11 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 
 // actual changes in tables
 
-func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata) error {
+func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertTeamLockRow")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO team_locks (created, lockId, envname, teamName, metadata)
 		VALUES (?, ?, ?, ?, ?)
@@ -452,14 +462,16 @@ func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName, teamName string) error {
+func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName, teamName string) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteTeamLockRow")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM team_locks
 		WHERE teamname=? AND lockId=? AND envname=?;`)
 	span.SetTag("query", deleteQuery)
-	_, err := transaction.Exec(
+	_, err = transaction.Exec(
 		deleteQuery,
 		teamName,
 		lockId,
@@ -476,9 +488,11 @@ func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) error {
+func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertTeamLockHistoryRow")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO team_locks_history (created, lockId, envname, teamName, metadata, deleted, deletionMetadata)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
@@ -575,7 +589,9 @@ func (h *DBHandler) processTeamLockRows(ctx context.Context, err error, rows *sq
 
 func (h *DBHandler) processAllTeamLocksRows(ctx context.Context, err error, rows *sql.Rows) ([]string, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "processAllTeamLocksRow")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	if err != nil {
 		return nil, fmt.Errorf("could not query all_team_locks table from DB. Error: %w", err)

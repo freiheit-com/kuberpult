@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type ArgoEvent struct {
@@ -34,14 +34,16 @@ type ArgoEvent struct {
 	Discarded bool
 }
 
-func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*ArgoEvent) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "UpsertArgoEvents")
-	defer span.Finish()
+func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*ArgoEvent) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "UpsertArgoEvents")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil
 	}
 	if tx == nil {
-		return onErr(fmt.Errorf("UpsertArgoEvents: no transaction provided"))
+		return fmt.Errorf("UpsertArgoEvents: no transaction provided")
 	}
 	queryTemplate := `INSERT INTO argo_cd_events (created, app, env, json, discarded)
 	VALUES ('%s', '%s', '%s', '%s', %t)
@@ -61,14 +63,16 @@ func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*
 	return err
 }
 
-func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (*ArgoEvent, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "DBReadArgoEvent")
-	defer span.Finish()
+func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (_ *ArgoEvent, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadArgoEvent")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	if h == nil {
 		return nil, nil
 	}
 	if tx == nil {
-		return nil, onErr(fmt.Errorf("DBReadArgoEvent: no transaction provided"))
+		return nil, fmt.Errorf("DBReadArgoEvent: no transaction provided")
 	}
 
 	selectQuery := h.AdaptQuery("SELECT app, env, json, discarded FROM argo_cd_events WHERE app = ? AND env = ? LIMIT 1;")
@@ -79,7 +83,7 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName str
 		envName,
 	)
 	if err != nil {
-		return nil, onErr(fmt.Errorf("error reading argo cd events . Error: %w", err))
+		return nil, fmt.Errorf("error reading argo cd events . Error: %w", err)
 	}
 	defer closeRowsAndLog(row, ctx, "DBReadArgoEvent")
 
@@ -96,7 +100,7 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName str
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, onErr(fmt.Errorf("error table for next argo_cd_events. Error: %w", err))
+			return nil, fmt.Errorf("error table for next argo_cd_events. Error: %w", err)
 		}
 		toReturn = &event
 	} else {

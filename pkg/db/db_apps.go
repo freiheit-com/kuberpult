@@ -58,15 +58,12 @@ type DBAppWithMetaData struct {
 // SELECTS
 
 func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string) (*DBAppWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectApp")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT appName, stateChange, metadata
 		FROM apps
 		WHERE appName=? 
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -76,9 +73,11 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName string)
 	return h.processAppsRow(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (map[types.AppName]*DBAppWithMetaData, error) {
+func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (_ map[types.AppName]*DBAppWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, stateChange, metadata
 		FROM apps
@@ -92,8 +91,6 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (ma
 }
 
 func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (*DBAppWithMetaData, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppAtTimestamp")
-	defer span.Finish()
 	selectQuery := h.AdaptQuery(`
 		SELECT appName, stateChange, metadata
 		FROM apps_history
@@ -101,7 +98,6 @@ func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appN
 		ORDER BY version DESC 
 		LIMIT 1;
 	`)
-	span.SetTag("query", selectQuery)
 
 	rows, err := tx.QueryContext(
 		ctx,
@@ -126,7 +122,7 @@ func (h *DBHandler) DBSelectExistingApp(ctx context.Context, tx *sql.Tx, appName
 	return app, nil
 }
 
-func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) (_ []string, err error) {
 	if h == nil {
 		return nil, nil
 	}
@@ -134,7 +130,9 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
 	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	query := h.AdaptQuery(`
 		SELECT appname
 		FROM apps
@@ -147,10 +145,12 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 }
 
 // INSERT, UPDATE, DELETE
-func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
+func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertOrUpdateApplication")
-	defer span.Finish()
-	err := h.upsertAppsRow(ctx, transaction, appName, stateChange, metaData)
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	err = h.upsertAppsRow(ctx, transaction, appName, stateChange, metaData)
 	if err != nil {
 		return err
 	}
@@ -162,9 +162,11 @@ func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction
 }
 
 // actual changes in tables
-func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
+func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertAppsRow")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO apps (created, appName, stateChange, metadata)
 		VALUES (?, ?, ?, ?)
@@ -194,9 +196,11 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 	return nil
 }
 
-func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) error {
+func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.Tx, appName string, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppsHistoryRow")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO apps_history (created, appName, stateChange, metadata)
 		VALUES (?, ?, ?, ?);
