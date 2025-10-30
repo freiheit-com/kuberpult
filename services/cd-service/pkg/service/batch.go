@@ -518,16 +518,14 @@ func (d *BatchServer) ProcessBatch(
 	}
 
 	// Add information about the transformer types for the root-level span of ProcessBatch
-	if len(transformers) > 0 {
+	if len(transformers) > 0 && parentSpanExisted {
 		var transformerTag string
 		if len(transformers) == 1 {
 			transformerTag = string(transformers[0].GetDBEventType())
 		} else {
 			transformerTag = "multi"
 		}
-		if parentSpanExisted {
-			parentSpan.SetTag("transformers", transformerTag)
-		}
+		parentSpan.SetTag("transformers", transformerTag)
 	}
 
 	if requiresIsolation {

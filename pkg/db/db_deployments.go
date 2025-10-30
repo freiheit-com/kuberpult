@@ -885,9 +885,9 @@ func (h *DBHandler) processAllDeploymentRow(ctx context.Context, err error, rows
 	return deployments, nil
 }
 
-func (h *DBHandler) processDeploymentAttemptsRows(ctx context.Context, rows *sql.Rows, err1 error) (_ []*QueuedDeployment, err error) {
-	if err1 != nil {
-		return nil, fmt.Errorf("error in executing query: %w", err1)
+func (h *DBHandler) processDeploymentAttemptsRows(ctx context.Context, rows *sql.Rows, err error) ([]*QueuedDeployment, error) {
+	if err != nil {
+		return nil, fmt.Errorf("error in executing query: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "deployment attempts")
 	result := []*QueuedDeployment{}

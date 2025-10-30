@@ -155,11 +155,9 @@ func (c *ReleaseTrain) Prognosis(
 	state *State,
 	transaction *sql.Tx,
 	configs map[types.EnvName]config.EnvironmentConfig,
-) (rtp ReleaseTrainPrognosis) {
+) ReleaseTrainPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ReleaseTrain Prognosis")
-	defer func() {
-		span.Finish(tracer.WithError(rtp.Error))
-	}()
+	defer span.Finish()
 	span.SetTag("targetEnv", c.Target)
 	span.SetTag("targetType", c.TargetType)
 	span.SetTag("team", c.Team)
@@ -320,10 +318,10 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	spanManifests, ctxManifests := tracer.StartSpanFromContext(parentCtx, "Load Manifests")
 	var allReleasesEnvironments db.AppVersionEnvironments
 	allReleasesEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctxManifests, transaction)
+	spanManifests.Finish(tracer.WithError(err))
 	if err != nil {
 		return "", err
 	}
-	spanManifests.Finish(tracer.WithError(err))
 
 	var prognosisResultChannel = make(chan *ChannelData, maxThreads)
 	go func() {
@@ -338,11 +336,11 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 			envNameLocal := types.EnvName(envName)
 			// we want to schedule all go routines,
 			// but still have the limit set, so "group.Go" would block
-			group.Go(func() (err2 error) {
+			group.Go(func() (goErr error) {
 				span, ctx := tracer.StartSpanFromContext(ctxRoutines, "EnvReleaseTrain Transform")
 				span.SetTag("kuberpultEnvironment", envName)
 				defer func() {
-					span.Finish(tracer.WithError(err2))
+					span.Finish(tracer.WithError(goErr))
 				}()
 
 				train := &envReleaseTrain{
@@ -358,15 +356,15 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 					AllLatestReleaseEnvironments: allReleasesEnvironments,
 				}
 
-				prognosis, err2 := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
+				prognosis, prognosisErr := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
 
 				spanCh, _ := tracer.StartSpanFromContext(ctx, "WriteToChannel")
 				defer func() {
-					spanCh.Finish(tracer.WithError(err2))
+					spanCh.Finish(tracer.WithError(prognosisErr))
 				}()
-				if err2 != nil {
+				if prognosisErr != nil {
 					prognosisResultChannel <- &ChannelData{
-						error:     err2,
+						error:     prognosisErr,
 						prognosis: prognosis,
 						train:     train,
 					}

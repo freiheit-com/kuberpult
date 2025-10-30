@@ -44,7 +44,7 @@ type TeamLockHistory struct {
 	Team             string
 	Metadata         LockMetadata
 	Deleted          bool
-	DeletionMetadata LockDeletionMetadata ``
+	DeletionMetadata LockDeletionMetadata
 }
 
 // SELECTS

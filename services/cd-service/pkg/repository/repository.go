@@ -413,7 +413,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 		if applyErr != nil {
 			span.Finish(tracer.WithError(applyErr.TransformerError))
 		} else {
-			span.Finish(tracer.WithError(nil))
+			span.Finish()
 		}
 	}()
 
@@ -583,7 +583,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transaction *sql.Tx,
 		if applyErr != nil {
 			span.Finish(tracer.WithError(applyErr.TransformerError))
 		} else {
-			span.Finish(tracer.WithError(nil))
+			span.Finish()
 		}
 	}()
 	_, _, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformers...)

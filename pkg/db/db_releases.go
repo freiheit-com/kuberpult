@@ -552,6 +552,24 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
+
+	err = h.DBUpdateReleaseHistory(ctx, transaction, application, releaseversion, createAt)
+	if err != nil {
+		return fmt.Errorf(
+			"could not update releases_history timestamp for app '%s' and version '%v' into DB. Error: %w",
+			application,
+			releaseversion,
+			err)
+	}
+	return h.DBUpdateRelease(ctx, transaction, application, releaseversion, createAt)
+}
+
+func (h *DBHandler) DBUpdateReleaseHistory(ctx context.Context, transaction *sql.Tx, application string, releaseversion types.ReleaseNumbers, createAt time.Time) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateReleaseHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
 	historyUpdateQuery := h.AdaptQuery(`
 		UPDATE releases_history SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
 	`)
@@ -565,26 +583,21 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 		*releaseversion.Version,
 		releaseversion.Revision,
 	)
-	if err != nil {
-		return fmt.Errorf(
-			"could not update releases_history timestamp for app '%s' and version '%v' into DB. Error: %w",
-			application,
-			releaseversion,
-			err)
-	}
+	return err
+}
 
-	span2, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateReleaseTimestamp")
-
-	var err2 error
+func (h *DBHandler) DBUpdateRelease(ctx context.Context, transaction *sql.Tx, application string, releaseversion types.ReleaseNumbers, createAt time.Time) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBUpdateRelease")
 	defer func() {
-		span2.Finish(tracer.WithError(err2))
+		span.Finish(tracer.WithError(err))
 	}()
+
 	releasesUpdateQuery := h.AdaptQuery(`
 		UPDATE releases SET created=? WHERE appname=? AND releaseversion=? AND revision=?;
 	`)
-	span2.SetTag("query", releasesUpdateQuery)
+	span.SetTag("query", releasesUpdateQuery)
 
-	_, err2 = transaction.ExecContext(
+	_, err = transaction.ExecContext(
 		ctx,
 		releasesUpdateQuery,
 		createAt,
@@ -592,15 +605,14 @@ func (h *DBHandler) DBMigrationUpdateReleasesTimestamp(ctx context.Context, tran
 		*releaseversion.Version,
 		releaseversion.Revision,
 	)
-	if err2 != nil {
+	if err != nil {
 		return fmt.Errorf(
 			"could not update releases timestamp for app '%s' and version '%v' into DB. Error: %w",
 			application,
 			releaseversion,
-			err2)
+			err)
 	}
 	return nil
-
 }
 
 // process rows functions
