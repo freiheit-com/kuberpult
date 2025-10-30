@@ -102,7 +102,7 @@ func (h *DBHandler) DBWriteNewSyncEventBulk(ctx context.Context, tx *sql.Tx, id 
 }
 
 type EnvApp struct {
-	AppName string
+	AppName types.AppName
 	EnvName types.EnvName
 }
 
@@ -135,7 +135,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 		}
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
-	var currApp string
+	var currApp types.AppName
 	var currEnv types.EnvName
 	for rows.Next() {
 		err := rows.Scan(&currApp, &currEnv)
@@ -185,7 +185,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 		}
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
-	var currApp string
+	var currApp types.AppName
 	var currEnv types.EnvName
 	for rows.Next() {
 		err := rows.Scan(&currApp, &currEnv)
@@ -340,7 +340,7 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 	return syncData, nil
 }
 
-func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName string, envName types.EnvName) (_ *GitSyncData, err error) {
+func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appName types.AppName, envName types.EnvName) (_ *GitSyncData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
 	defer func() {
 		span.Finish(tracer.WithError(err))

@@ -73,7 +73,7 @@ func (s *State) GetEnvironmentLocksCount(ctx context.Context, transaction *sql.T
 	return float64(len(locks)), nil
 }
 
-func (s *State) GetEnvironmentApplicationLocksCount(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (float64, error) {
+func (s *State) GetEnvironmentApplicationLocksCount(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) (float64, error) {
 	locks, err := s.GetEnvironmentApplicationLocks(ctx, transaction, environment, application)
 	if err != nil {
 		return -1, err
@@ -120,9 +120,9 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env 
 		}
 	}
 }
-func GaugeEnvAppLockMetric(ctx context.Context, appEnvLocksCount int, env types.EnvName, app string) {
+func GaugeEnvAppLockMetric(ctx context.Context, appEnvLocksCount int, env types.EnvName, app types.AppName) {
 	if ddMetrics != nil {
-		err := ddMetrics.Gauge("application_lock_count", float64(appEnvLocksCount), []string{"kuberpult_environment:" + string(env), "kuberpult_application:" + app}, 1)
+		err := ddMetrics.Gauge("application_lock_count", float64(appEnvLocksCount), []string{"kuberpult_environment:" + string(env), "kuberpult_application:" + string(app)}, 1)
 		if err != nil {
 			logger.FromContext(ctx).
 				Sugar().
@@ -131,13 +131,13 @@ func GaugeEnvAppLockMetric(ctx context.Context, appEnvLocksCount int, env types.
 	}
 }
 
-func GaugeDeploymentMetric(_ context.Context, env types.EnvName, app string, timeInMinutes float64) error {
+func GaugeDeploymentMetric(_ context.Context, env types.EnvName, app types.AppName, timeInMinutes float64) error {
 	if ddMetrics != nil {
 		// store the time since the last deployment in minutes:
 		err := ddMetrics.Gauge(
 			"lastDeployed",
 			timeInMinutes,
-			[]string{metrics.EventTagApplication + ":" + app, metrics.EventTagEnvironment + ":" + string(env)},
+			[]string{metrics.EventTagApplication + ":" + string(app), metrics.EventTagEnvironment + ":" + string(env)},
 			1)
 		return err
 	}
@@ -208,7 +208,7 @@ func UpdateChangedAppMetrics(ctx context.Context, changes *TransformerResult, no
 				Text:           fmt.Sprintf("Kuberpult has deployed %s to %s%s", oneChange.App, oneChange.Env, teamMessage),
 				Timestamp:      now,
 				Tags: []string{
-					"kuberpult.application:" + oneChange.App,
+					"kuberpult.application:" + string(oneChange.App),
 					"kuberpult.environment:" + string(oneChange.Env),
 					"kuberpult.team:" + oneChange.Team,
 				},
@@ -253,7 +253,7 @@ func UpdateLockMetrics(ctx context.Context, transaction *sql.Tx, state *State, n
 			return err
 		}
 
-		appLockMap := map[string]int{} //appName -> num of app locks
+		appLockMap := map[types.AppName]int{} //appName -> num of app locks
 		//Collect number of appLocks
 		for _, currentLock := range allAppLocks {
 			appCounter = appCounter + 1
@@ -324,8 +324,8 @@ type Transformer interface {
 
 type TransformerContext interface {
 	Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error
-	AddAppEnv(app string, env types.EnvName, team string)
-	DeleteEnvFromApp(app string, env types.EnvName)
+	AddAppEnv(app types.AppName, env types.EnvName, team string)
+	DeleteEnvFromApp(app types.AppName, env types.EnvName)
 }
 
 func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx) (string, *TransformerResult, error) {
@@ -364,7 +364,7 @@ func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transact
 	return err
 }
 
-func (r *transformerRunner) AddAppEnv(app string, env types.EnvName, team string) {
+func (r *transformerRunner) AddAppEnv(app types.AppName, env types.EnvName, team string) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
 		App:  app,
 		Env:  env,
@@ -372,7 +372,7 @@ func (r *transformerRunner) AddAppEnv(app string, env types.EnvName, team string
 	})
 }
 
-func (r *transformerRunner) DeleteEnvFromApp(app string, env types.EnvName) {
+func (r *transformerRunner) DeleteEnvFromApp(app types.AppName, env types.EnvName) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
 		Team: "",
 		App:  app,
@@ -386,7 +386,7 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env types.EnvName) {
 type CreateApplicationVersion struct {
 	Authentication                 `json:"-"`
 	Version                        uint64                   `json:"version"`
-	Application                    string                   `json:"app"`
+	Application                    types.AppName            `json:"app"`
 	Manifests                      map[types.EnvName]string `json:"manifests"`
 	SourceCommitId                 string                   `json:"sourceCommitId"`
 	SourceAuthor                   string                   `json:"sourceCommitAuthor"`
@@ -421,7 +421,7 @@ var (
 	ctxMarkerGenerateUuidKey = &ctxMarkerGenerateUuid{}
 )
 
-func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, application string) (types.ReleaseNumbers, error) {
+func (s *State) GetLastRelease(ctx context.Context, transaction *sql.Tx, application types.AppName) (types.ReleaseNumbers, error) {
 	releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 	if err != nil {
 		return types.MakeEmptyReleaseNumbers(), fmt.Errorf("could not get releases of app %s: %v", application, err)
@@ -469,7 +469,7 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 	if allApps == nil {
-		allApps = []string{}
+		allApps = []types.AppName{}
 	}
 
 	if !slices.Contains(allApps, c.Application) {
@@ -797,7 +797,7 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, releaseVersion types.ReleaseNumbers, transformerEslVersion db.TransformerID, sourceCommitId string, sourceMessage string, app string, eventId string, environments []types.EnvName, previousCommitId string, state *State) error {
+func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, releaseVersion types.ReleaseNumbers, transformerEslVersion db.TransformerID, sourceCommitId string, sourceMessage string, app types.AppName, eventId string, environments []types.EnvName, previousCommitId string, state *State) error {
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
@@ -917,14 +917,14 @@ func canonicalizeYaml(unformatted string) string {
 }
 
 func createUnifiedDiff(existingValue string, requestValue string, prefix string) string {
-	existingValueStr := existingValue
+	existingValueStr := string(existingValue)
 	existingFilename := fmt.Sprintf("%sexisting", prefix)
 	requestFilename := fmt.Sprintf("%srequest", prefix)
-	edits := myers.ComputeEdits(diffspan.URIFromPath(existingFilename), existingValueStr, requestValue)
+	edits := myers.ComputeEdits(diffspan.URIFromPath(existingFilename), existingValueStr, string(requestValue))
 	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
-func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application string, version types.ReleaseNumbers) (bool, error) {
+func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, application types.AppName, version types.ReleaseNumbers) (bool, error) {
 	rels, err := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 	if err != nil {
 		return false, err
@@ -940,7 +940,7 @@ func isLatestVersion(ctx context.Context, transaction *sql.Tx, state *State, app
 
 type CreateUndeployApplicationVersion struct {
 	Authentication        `json:"-"`
-	Application           string           `json:"app"`
+	Application           types.AppName    `json:"app"`
 	WriteCommitData       bool             `json:"writeCommitData"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -987,7 +987,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			envs = append(envs, env)
 		}
 	}
-	v := *lastRelease.Version + 1
+	v := uint64(*lastRelease.Version + 1)
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
 			Revision: 0, //Undeploy versions always have revision 0
@@ -1066,7 +1066,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 
 type UndeployApplication struct {
 	Authentication        `json:"-"`
-	Application           string           `json:"app"`
+	Application           types.AppName    `json:"app"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
 }
@@ -1201,7 +1201,7 @@ func (u *UndeployApplication) Transform(
 
 type DeleteEnvFromApp struct {
 	Authentication        `json:"-"`
-	Application           string           `json:"app"`
+	Application           types.AppName    `json:"app"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -1284,7 +1284,7 @@ func (u *DeleteEnvFromApp) Transform(
 }
 
 type CleanupOldApplicationVersions struct {
-	Application           string
+	Application           types.AppName
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 }
 
@@ -1301,7 +1301,7 @@ func (c *CleanupOldApplicationVersions) GetEslVersion() db.TransformerID {
 }
 
 // Finds old releases for an application
-func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name string) ([]types.ReleaseNumbers, error) {
+func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name types.AppName) ([]types.ReleaseNumbers, error) {
 	// 1) get release in each env:
 	versions, err := state.GetAllApplicationReleases(ctx, transaction, name)
 	if err != nil {
@@ -1393,7 +1393,7 @@ func (c *CreateEnvironmentLock) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction *sql.Tx, env types.EnvName, application, action, team string, RBACConfig auth.RBACConfig, checkTeam bool, config *config.EnvironmentConfig) error {
+func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction *sql.Tx, env types.EnvName, application types.AppName, action, team string, RBACConfig auth.RBACConfig, checkTeam bool, config *config.EnvironmentConfig) error {
 	if !RBACConfig.DexEnabled {
 		return nil
 	}
@@ -1427,7 +1427,7 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 	return err
 }
 
-func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env types.EnvName, application, action, team string, RBACConfig auth.RBACConfig, checkTeam bool) error {
+func (s *State) checkUserPermissions(ctx context.Context, transaction *sql.Tx, env types.EnvName, application types.AppName, action, team string, RBACConfig auth.RBACConfig, checkTeam bool) error {
 	cfg, err := s.GetEnvironmentConfigFromDB(ctx, transaction, env)
 	if err != nil {
 		return err
@@ -1673,7 +1673,7 @@ func (c *DeleteEnvironmentGroupLock) Transform(
 type CreateEnvironmentApplicationLock struct {
 	Authentication        `json:"-"`
 	Environment           types.EnvName    `json:"env"`
-	Application           string           `json:"app"`
+	Application           types.AppName    `json:"app"`
 	LockId                string           `json:"lockId"`
 	Message               string           `json:"message"`
 	CiLink                string           `json:"ciLink"`
@@ -1763,7 +1763,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 type DeleteEnvironmentApplicationLock struct {
 	Authentication        `json:"-"`
 	Environment           types.EnvName    `json:"env"`
-	Application           string           `json:"app"`
+	Application           types.AppName    `json:"app"`
 	LockId                string           `json:"lockId"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 
@@ -1980,7 +1980,7 @@ func (c *CreateEnvironment) Transform(
 
 	// write to environments table
 	// We don't use environment applications column anymore, but for backward compatibility we keep it updated
-	environmentApplications := make([]string, 0)
+	environmentApplications := make([]types.AppName, 0)
 	if env != nil {
 		environmentApplications = env.Applications
 	}
@@ -2323,7 +2323,7 @@ func isAAEnv(config *config.EnvironmentConfig) bool {
 
 type QueueApplicationVersion struct {
 	Environment types.EnvName
-	Application string
+	Application types.AppName
 	Version     uint64
 }
 
@@ -2341,7 +2341,7 @@ func (c *QueueApplicationVersion) Transform(
 }
 
 type Overview struct {
-	App     string
+	App     types.AppName
 	Version types.ReleaseNumbers
 }
 

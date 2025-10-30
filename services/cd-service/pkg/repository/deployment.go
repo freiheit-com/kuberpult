@@ -48,7 +48,7 @@ func (c *DeployApplicationVersion) Transform(
 type DeployApplicationVersion struct {
 	Authentication        `json:"-"`
 	Environment           types.EnvName                   `json:"env"`
-	Application           string                          `json:"app"`
+	Application           types.AppName                   `json:"app"`
 	Version               uint64                          `json:"version"`
 	Revision              uint64                          `json:"revision"`
 	LockBehaviour         api.LockBehavior                `json:"lockBehaviour"`
@@ -345,7 +345,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	}
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
-func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release uint64, app string) (string, error) {
+func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release uint64, app types.AppName) (string, error) {
 	tmpList, err := state.DBHandler.DBSelectReleasesByVersions(ctx, transaction, app, []uint64{release}, false)
 	if err != nil {
 		return "", err
@@ -363,11 +363,11 @@ func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release
 	return tmp.Metadata.SourceCommitId, nil
 }
 
-func createDeploymentEvent(application string, environment types.EnvName, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
+func createDeploymentEvent(application types.AppName, environment types.EnvName, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
 	ev := event.Deployment{
 		SourceTrainEnvironmentGroup: nil,
 		SourceTrainUpstream:         nil,
-		Application:                 application,
+		Application:                 string(application),
 		Environment:                 string(environment),
 	}
 	if sourceTrain != nil {
@@ -379,9 +379,9 @@ func createDeploymentEvent(application string, environment types.EnvName, source
 	return &ev
 }
 
-func createReplacedByEvent(application string, environment types.EnvName, commitId string) *event.ReplacedBy {
+func createReplacedByEvent(application types.AppName, environment types.EnvName, commitId string) *event.ReplacedBy {
 	ev := event.ReplacedBy{
-		Application:       application,
+		Application:       string(application),
 		Environment:       string(environment),
 		CommitIDtoReplace: commitId,
 	}

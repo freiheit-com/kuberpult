@@ -136,7 +136,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 		}
 		return result, nil
 	}
-	var writeAllReleases = /*writeAllReleases*/ func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error {
+	var writeAllReleases = /*writeAllReleases*/ func(ctx context.Context, transaction *sql.Tx, app types.AppName, dbHandler *DBHandler) error {
 		releases := AllReleases{
 			1: ReleaseWithManifest{
 				Version:         666,
@@ -3814,7 +3814,7 @@ func TestReadWriteAllApplications(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, appname := range tc.AllAppsToWrite {
-					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appname, AppStateChangeCreate, DBAppMetaData{})
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(appname), AppStateChangeCreate, DBAppMetaData{})
 					if err != nil {
 						return err
 					}
@@ -6146,7 +6146,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 
 			firstReleaseTime, err := WithTransactionT(dbHandler, ctx, 1, false, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
 				for appName, teamName := range tc.Teams {
-					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, string(appName), AppStateChangeUpdate, DBAppMetaData{
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, AppStateChangeUpdate, DBAppMetaData{
 						Team: teamName,
 					})
 					if err != nil {

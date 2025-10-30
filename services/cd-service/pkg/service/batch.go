@@ -97,7 +97,7 @@ func ValidateEnvironmentLock(
 func ValidateEnvironmentApplicationLock(
 	actionType string, // "create" | "delete"
 	env types.EnvName,
-	app string,
+	app types.AppName,
 	id string,
 ) error {
 	if !valid.EnvironmentName(env) {
@@ -124,7 +124,7 @@ func ValidateEnvironmentTeamLock(
 
 func ValidateDeployment(
 	env types.EnvName,
-	app string,
+	app types.AppName,
 ) error {
 	if !valid.EnvironmentName(env) {
 		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot deploy environment application lock: invalid environment: '%s'", env))
@@ -136,7 +136,7 @@ func ValidateDeployment(
 }
 
 func ValidateApplication(
-	app string,
+	app types.AppName,
 ) error {
 	if !valid.ApplicationName(app) {
 		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create undeploy version: invalid application: '%s'", app))
@@ -224,12 +224,12 @@ func (d *BatchServer) processAction(
 		}, nil, nil
 	case *api.BatchAction_CreateEnvironmentApplicationLock:
 		act := action.CreateEnvironmentApplicationLock
-		if err := ValidateEnvironmentApplicationLock("create", types.EnvName(act.Environment), act.Application, act.LockId); err != nil {
+		if err := ValidateEnvironmentApplicationLock("create", types.EnvName(act.Environment), types.AppName(act.Application), act.LockId); err != nil {
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentApplicationLock{
 			Environment:           types.EnvName(act.Environment),
-			Application:           act.Application,
+			Application:           types.AppName(act.Application),
 			LockId:                act.LockId,
 			Message:               act.Message,
 			CiLink:                act.CiLink,
@@ -240,12 +240,12 @@ func (d *BatchServer) processAction(
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentApplicationLock:
 		act := action.DeleteEnvironmentApplicationLock
-		if err := ValidateEnvironmentApplicationLock("delete", types.EnvName(act.Environment), act.Application, act.LockId); err != nil {
+		if err := ValidateEnvironmentApplicationLock("delete", types.EnvName(act.Environment), types.AppName(act.Application), act.LockId); err != nil {
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentApplicationLock{
 			Environment:           types.EnvName(act.Environment),
-			Application:           act.Application,
+			Application:           types.AppName(act.Application),
 			LockId:                act.LockId,
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
@@ -280,28 +280,28 @@ func (d *BatchServer) processAction(
 		}, nil, nil
 	case *api.BatchAction_PrepareUndeploy:
 		act := action.PrepareUndeploy
-		if err := ValidateApplication(act.Application); err != nil {
+		if err := ValidateApplication(types.AppName(act.Application)); err != nil {
 			return nil, nil, err
 		}
 		return &repository.CreateUndeployApplicationVersion{
-			Application:           act.Application,
+			Application:           types.AppName(act.Application),
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			WriteCommitData:       d.Config.WriteCommitData,
 			TransformerEslVersion: 0,
 		}, nil, nil
 	case *api.BatchAction_Undeploy:
 		act := action.Undeploy
-		if err := ValidateApplication(act.Application); err != nil {
+		if err := ValidateApplication(types.AppName(act.Application)); err != nil {
 			return nil, nil, err
 		}
 		return &repository.UndeployApplication{
-			Application:           act.Application,
+			Application:           types.AppName(act.Application),
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
 	case *api.BatchAction_Deploy:
 		act := action.Deploy
-		if err := ValidateDeployment(types.EnvName(act.Environment), act.Application); err != nil {
+		if err := ValidateDeployment(types.EnvName(act.Environment), types.AppName(act.Application)); err != nil {
 			return nil, nil, err
 		}
 		b := act.LockBehavior
@@ -313,7 +313,7 @@ func (d *BatchServer) processAction(
 		return &repository.DeployApplicationVersion{
 			SourceTrain:           nil,
 			Environment:           types.EnvName(act.Environment),
-			Application:           act.Application,
+			Application:           types.AppName(act.Application),
 			Version:               act.Version,
 			LockBehaviour:         b,
 			WriteCommitData:       d.Config.WriteCommitData,
@@ -328,7 +328,7 @@ func (d *BatchServer) processAction(
 		act := action.DeleteEnvFromApp
 		return &repository.DeleteEnvFromApp{
 			Environment:           types.EnvName(act.Environment),
-			Application:           act.Application,
+			Application:           types.AppName(act.Application),
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
@@ -366,7 +366,7 @@ func (d *BatchServer) processAction(
 		}
 		return &repository.CreateApplicationVersion{
 				Version:                        in.Version,
-				Application:                    in.Application,
+				Application:                    types.AppName(in.Application),
 				Manifests:                      types.StringMapToEnvMap(in.Manifests),
 				SourceCommitId:                 in.SourceCommitId,
 				SourceAuthor:                   in.SourceAuthor,

@@ -1187,10 +1187,10 @@ func (m *MockTransformer) Execute(ctx context.Context, t Transformer, tx *sql.Tx
 	return nil
 }
 
-func (m *MockTransformer) AddAppEnv(app string, env types.EnvName, team string) {
+func (m *MockTransformer) AddAppEnv(app types.AppName, env types.EnvName, team string) {
 }
 
-func (m *MockTransformer) DeleteEnvFromApp(app string, env types.EnvName) {
+func (m *MockTransformer) DeleteEnvFromApp(app types.AppName, env types.EnvName) {
 }
 
 func TestConvertLock(t *testing.T) {

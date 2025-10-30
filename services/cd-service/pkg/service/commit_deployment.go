@@ -40,7 +40,7 @@ type CommitDeploymentServer struct {
 func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in *api.GetCommitDeploymentInfoRequest) (*api.GetCommitDeploymentInfoResponse, error) {
 	commitDeploymentStatus := make(map[string]*api.AppCommitDeploymentStatus, 0)
 	allEnvironments := make([]types.EnvName, 0)
-	applicationReleases := make(map[string]map[types.EnvName]uint64, 0)
+	applicationReleases := make(map[types.AppName]map[types.EnvName]uint64, 0)
 	var jsonCommitEventsMetadata []byte
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetCommitDeploymentInfo")
 	defer span.Finish()
@@ -81,7 +81,7 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 		if err != nil {
 			return nil, fmt.Errorf("could not get commit deployment info for app %s: %v", app, err)
 		}
-		commitDeploymentStatus[app] = commitDeploymentStatusForApp
+		commitDeploymentStatus[string(app)] = commitDeploymentStatusForApp
 	}
 
 	return &api.GetCommitDeploymentInfoResponse{
@@ -89,7 +89,7 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 	}, nil
 }
 
-func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, applicationReleases map[string]map[types.EnvName]uint64) error {
+func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, applicationReleases map[types.AppName]map[types.EnvName]uint64) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "getDeploymentsWithReleaseVersion")
 	defer span.Finish()
 	allApplicationReleasesQuery := `
@@ -104,7 +104,7 @@ func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, 
 	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
-		var appName string
+		var appName types.AppName
 		var envName types.EnvName
 		var appRelease uint64
 		err = rows.Scan(&appName, &envName, &appRelease)
@@ -147,7 +147,7 @@ func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in
 		CommitMessage: "",
 	}
 	err := s.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-		deployment, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, in.Application, types.EnvName(in.Environment))
+		deployment, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, types.AppName(in.Application), types.EnvName(in.Environment))
 		if err != nil {
 			return err
 		}
@@ -169,7 +169,7 @@ func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in
 	return deploymentCommitInfo, nil
 }
 
-func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app string, environments []types.EnvName, environmentReleases map[types.EnvName]uint64) (*api.AppCommitDeploymentStatus, error) {
+func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app types.AppName, environments []types.EnvName, environmentReleases map[types.EnvName]uint64) (*api.AppCommitDeploymentStatus, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "getCommitDeploymentInfoForApp")
 	defer span.Finish()
 	span.SetTag("app", app)

@@ -185,7 +185,7 @@ func TestCheckUserTeamPermissions(t *testing.T) {
 		user        *User
 		env         string
 		envGroup    string
-		application string
+		application types.AppName
 		action      string
 		team        string
 		WantError   error
@@ -258,7 +258,7 @@ func TestCheckUserPermissions(t *testing.T) {
 		user        *User
 		env         types.EnvName
 		envGroup    string
-		application string
+		application types.AppName
 		action      string
 		team        string
 		WantError   error
@@ -419,7 +419,7 @@ func TestCheckUserPermissionsWildcards(t *testing.T) {
 		user        *User
 		env         types.EnvName
 		envGroup    string
-		application string
+		application types.AppName
 		action      string
 		policies    []map[string]Permission
 		WantError   error
