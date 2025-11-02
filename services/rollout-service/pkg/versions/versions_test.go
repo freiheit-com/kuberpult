@@ -972,7 +972,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 		if err != nil {
 			return err
 		}
-		err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []string{})
+		err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []types.AppName{})
 		if err != nil {
 			return err
 		}

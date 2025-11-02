@@ -274,8 +274,8 @@ func (s *GitServer) ReadSyncStatuses(ctx context.Context) (*api.GetGitSyncStatus
 func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 	toFill := make(map[string]*api.EnvSyncStatus)
 	for _, currStatus := range statuses {
-		if _, exists := toFill[currStatus.AppName]; !exists {
-			toFill[currStatus.AppName] = &api.EnvSyncStatus{
+		if _, exists := toFill[string(currStatus.AppName)]; !exists {
+			toFill[string(currStatus.AppName)] = &api.EnvSyncStatus{
 				EnvStatus: make(map[string]api.GitSyncStatus),
 			}
 		}
@@ -289,7 +289,7 @@ func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNKNOWN
 		}
 
-		toFill[currStatus.AppName].EnvStatus[string(currStatus.EnvName)] = statusToWrite
+		toFill[string(currStatus.AppName)].EnvStatus[string(currStatus.EnvName)] = statusToWrite
 	}
 	return toFill
 }

@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,20 +13,22 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright freiheit.com*/
+Copyright freiheit.com
+*/
 package db_history
 
 import (
 	"context"
 	"database/sql"
+	"testing"
+	"time"
+
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"testing"
-	"time"
 )
 
 func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
@@ -91,7 +94,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 				dev: {
 					appFoo: {
 						Created:        time.Time{},
-						App:            string(appFoo),
+						App:            appFoo,
 						Env:            dev,
 						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 						Metadata:       db.DeploymentMetadata{},
@@ -118,7 +121,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 				dev: {
 					appFoo: {
 						Created:        time.Time{},
-						App:            string(appFoo),
+						App:            appFoo,
 						Env:            dev,
 						ReleaseNumbers: types.MakeReleaseNumbers(0, 0),
 						Metadata:       db.DeploymentMetadata{},
@@ -150,7 +153,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 				dev: {
 					appFoo: {
 						Created:        time.Time{},
-						App:            string(appFoo),
+						App:            appFoo,
 						Env:            dev,
 						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 						Metadata:       db.DeploymentMetadata{},
@@ -177,17 +180,17 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 				dev: {
 					appFoo: {
 						Created:        time.Time{},
-						App:            string(appFoo),
+						App:            appFoo,
 						Env:            dev,
 						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 						Metadata:       db.DeploymentMetadata{},
 						TransformerID:  0,
 					},
 				},
-				stg:{
+				stg: {
 					appPow: {
 						Created:        time.Time{},
-						App:            string(appPow),
+						App:            appPow,
 						Env:            stg,
 						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 						Metadata:       db.DeploymentMetadata{},
@@ -207,7 +210,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				// GIVEN:
 				for _, environment := range Environments {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]string, 0))
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]types.AppName, 0))
 					if err != nil {
 						t.Fatalf("error while writing environment, error: %v", err)
 					}
@@ -228,7 +231,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 				err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 						Created:        time.Time{},
-						App:            string(toBeDeployed.App),
+						App:            toBeDeployed.App,
 						Env:            toBeDeployed.Env,
 						ReleaseNumbers: toBeDeployed.ReleaseNumbers,
 						Metadata:       db.DeploymentMetadata{},

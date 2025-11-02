@@ -83,7 +83,7 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectLatestDeploymentAtTimestamp(ctx context.Context, tx *sql.Tx, appSelector string, envSelector types.EnvName, ts time.Time) (*Deployment, error) {
+func (h *DBHandler) DBSelectLatestDeploymentAtTimestamp(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector types.EnvName, ts time.Time) (*Deployment, error) {
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
@@ -178,7 +178,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Contex
 	return processAllLatestDeployments(rows)
 }
 
-func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
+func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector string, releaseVersion uint64) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments
@@ -200,7 +200,7 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
+func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector string, releaseVersion uint64) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments_history
@@ -223,7 +223,7 @@ func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *s
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, limit int) (_ []Deployment, err error) {
+func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector string, limit int) (_ []Deployment, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistory")
 	defer func() {
 		span.Finish(tracer.WithError(err))

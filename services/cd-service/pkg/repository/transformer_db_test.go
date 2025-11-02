@@ -44,8 +44,8 @@ import (
 )
 
 var (
-	testAppName     = "test"
-	nextTestAppName = "test2"
+	testAppName     types.AppName = "test"
+	nextTestAppName types.AppName = "test2"
 )
 
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
@@ -924,7 +924,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 }
 
 func TestMinorFlag(t *testing.T) {
-	appName := "app"
+	var appName types.AppName = "app"
 	tcs := []struct {
 		Name           string
 		Transformers   []Transformer
@@ -2556,7 +2556,7 @@ func TestEvents(t *testing.T) {
 }
 
 func TestDeleteEnvFromAppWithDB(t *testing.T) {
-	appName := "app"
+	var appName types.AppName = "app"
 	setupTransformers := []Transformer{
 		&CreateEnvironment{
 			Environment: "env",
@@ -2884,7 +2884,7 @@ func TestReleaseTrain(t *testing.T) {
 		Transformers         []Transformer
 		ExpectedVersion      types.ReleaseNumbers
 		TargetEnv            types.EnvName
-		TargetApp            string
+		TargetApp            types.AppName
 	}{
 		{
 			Name:            "Release train",
@@ -3024,7 +3024,7 @@ func TestReleaseTrain(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					WriteCommitData:       true,
 					Version:               1,
 					TransformerEslVersion: 0,
@@ -3044,7 +3044,7 @@ func TestReleaseTrain(t *testing.T) {
 					WriteCommitData:       true,
 					Version:               2,
 					TransformerEslVersion: 0,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 				},
 				&DeployApplicationVersion{
 					Environment:           envAcceptance,
@@ -3060,7 +3060,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&ReleaseTrain{
 					Target:                envProduction,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					TransformerEslVersion: 0,
 				},
 			},
@@ -3096,7 +3096,7 @@ func TestReleaseTrain(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					WriteCommitData:       true,
 					Version:               1,
 					Revision:              0,
@@ -3119,7 +3119,7 @@ func TestReleaseTrain(t *testing.T) {
 					Version:               1,
 					Revision:              1,
 					TransformerEslVersion: 0,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 				},
 				&DeployApplicationVersion{
 					Environment:           envAcceptance,
@@ -3137,7 +3137,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&ReleaseTrain{
 					Target:                envProduction,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					TransformerEslVersion: 0,
 				},
 			},
@@ -3195,7 +3195,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 	type TestCase struct {
 		Name                  string
 		Transformers          []Transformer
-		expectedLatestRelease map[string]db.DBReleaseWithMetaData
+		expectedLatestRelease map[types.AppName]db.DBReleaseWithMetaData
 		expectedAllEnvs       []types.EnvName
 	}
 
@@ -3224,7 +3224,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environment: "staging",
 				},
 			},
-			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+			expectedLatestRelease: map[types.AppName]db.DBReleaseWithMetaData{
 				"app": {
 					App:            "app",
 					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
@@ -3270,7 +3270,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environment: "staging",
 				},
 			},
-			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+			expectedLatestRelease: map[types.AppName]db.DBReleaseWithMetaData{
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
@@ -3331,7 +3331,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environment: "staging",
 				},
 			},
-			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+			expectedLatestRelease: map[types.AppName]db.DBReleaseWithMetaData{
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
@@ -3515,7 +3515,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -3544,7 +3544,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -3569,7 +3569,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -3631,7 +3631,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -4811,7 +4811,7 @@ func TestTimestampConsistency(t *testing.T) {
 			Name:            "Release train",
 			ExpectedVersion: 2,
 			TargetEnv:       envProduction,
-			TargetApp:       testAppName,
+			TargetApp:       string(testAppName),
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envProduction,

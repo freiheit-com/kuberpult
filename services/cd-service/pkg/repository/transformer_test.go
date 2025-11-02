@@ -1794,7 +1794,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
 						Error:         nil,
-						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						AppsPrognoses: map[types.AppName]ReleaseTrainApplicationPrognosis{},
 						EnvLocks: map[string]*api.Lock{
 							"IdA": {
 								Message:   "mA",
@@ -1806,14 +1806,14 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
 						Error:         nil,
-						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						AppsPrognoses: map[types.AppName]ReleaseTrainApplicationPrognosis{},
 						EnvLocks: map[string]*api.Lock{
 							"IdB": {
 								Message:   "mB",
@@ -1825,7 +1825,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 					},
 				},
 			},
@@ -1860,7 +1860,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:                nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -1868,7 +1868,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:                nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 					},
 				},
 			},
@@ -1909,7 +1909,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:                nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 						EnvLocks:             nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
@@ -1918,7 +1918,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						},
 						Error:                nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 						EnvLocks:             nil,
 					},
 				},
@@ -1958,7 +1958,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Error:                nil,
 						EnvLocks:             nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 					},
 					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
@@ -1967,7 +1967,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Error:                nil,
 						EnvLocks:             nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 					},
 				},
 			},
@@ -1999,7 +1999,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 						Error:                nil,
 						EnvLocks:             nil,
 						AppsPrognoses:        nil,
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 					},
 				},
 			},
@@ -2032,7 +2032,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 				Error: nil,
 				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
 					envAcceptance + "-de": {
-						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+						AppsPrognoses: map[types.AppName]ReleaseTrainApplicationPrognosis{
 							"foo": {
 								SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 									SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
@@ -2043,7 +2043,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
-						AllLatestDeployments: map[string]types.ReleaseNumbers{
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{
 							"foo": types.ReleaseNumbers{
 								Version:  &versionOne,
 								Revision: versionZero,
@@ -2093,7 +2093,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 				Error: nil,
 				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
 					envAcceptance + "-de": {
-						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+						AppsPrognoses: map[types.AppName]ReleaseTrainApplicationPrognosis{
 							"foo": {
 								SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 									SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
@@ -2104,7 +2104,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 								},
 							},
 						},
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 					},
 				},
 			},
@@ -2144,8 +2144,8 @@ func TestReleaseTrainErrors(t *testing.T) {
 				Error: nil,
 				EnvironmentPrognoses: map[types.EnvName]ReleaseTrainEnvironmentPrognosis{
 					"acceptance-de": {
-						AppsPrognoses:        map[string]ReleaseTrainApplicationPrognosis{},
-						AllLatestDeployments: map[string]types.ReleaseNumbers{},
+						AppsPrognoses:        map[types.AppName]ReleaseTrainApplicationPrognosis{},
+						AllLatestDeployments: map[types.AppName]types.ReleaseNumbers{},
 					},
 				},
 			},

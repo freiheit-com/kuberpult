@@ -25,7 +25,6 @@ import (
 	"os/exec"
 	"path"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -130,8 +129,8 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 
 }
 
 func TestCustomMigrationReleases(t *testing.T) {
-	var getAllApps = /*GetAllAppsFun*/ func() (map[string]string, error) {
-		result := map[string]string{
+	var getAllApps = /*GetAllAppsFun*/ func() (map[types.AppName]string, error) {
+		result := map[types.AppName]string{
 			"app1": "team1",
 		}
 		return result, nil
@@ -251,7 +250,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 				for i := range tc.expectedReleases {
 					expectedRelease := tc.expectedReleases[i]
 
-					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, string(expectedRelease.App), expectedRelease.ReleaseNumbers, true)
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumbers, true)
 					if err != nil {
 						return err
 					}
@@ -289,8 +288,8 @@ func TestCustomMigrationsApps(t *testing.T) {
 				},
 			},
 			expectedAllApps: []string{appName},
-			allAppsFunc: func() (map[string]string, error) {
-				result := map[string]string{
+			allAppsFunc: func() (map[types.AppName]string, error) {
+				result := map[types.AppName]string{
 					appName: teamName,
 				}
 				return result, nil
@@ -300,8 +299,8 @@ func TestCustomMigrationsApps(t *testing.T) {
 			Name:            "No apps still populate all_apps table",
 			expectedApps:    []*DBAppWithMetaData{},
 			expectedAllApps: []string{},
-			allAppsFunc: func() (map[string]string, error) {
-				result := map[string]string{}
+			allAppsFunc: func() (map[types.AppName]string, error) {
+				result := map[types.AppName]string{}
 				return result, nil
 			},
 		},
@@ -766,7 +765,7 @@ func uversion(v int) *uint64 {
 func TestReadWriteDeployment(t *testing.T) {
 	tcs := []struct {
 		Name               string
-		App                string
+		App                types.AppName
 		Env                types.EnvName
 		VersionToDeploy    *uint64
 		ExpectedDeployment *Deployment
@@ -858,7 +857,7 @@ func TestReadWriteDeployment(t *testing.T) {
 func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 	tcs := []struct {
 		Name                string
-		AppName             string
+		AppName             types.AppName
 		SetupDeployments    []*Deployment
 		ExpectedDeployments map[types.EnvName]Deployment
 	}{
@@ -1330,7 +1329,7 @@ func TestAllDeployments(t *testing.T) {
 	}
 	tcs := []struct {
 		Name     string
-		AppName  string
+		AppName  types.AppName
 		data     []data
 		expected map[types.EnvName]types.ReleaseNumbers
 	}{
@@ -1549,7 +1548,7 @@ func TestReadWriteApplicationLock(t *testing.T) {
 		Env          types.EnvName
 		LockID       string
 		Message      string
-		AppName      string
+		AppName      types.AppName
 		AuthorName   string
 		AuthorEmail  string
 		CiLink       string
@@ -1631,7 +1630,7 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 		Env         types.EnvName
 		LockID      string
 		Message     string
-		AppName     string
+		AppName     types.AppName
 		AuthorName  string
 		AuthorEmail string
 		CiLink      string
@@ -1639,7 +1638,7 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 
 	tcs := []struct {
 		Name                string
-		AppName             string
+		AppName             types.AppName
 		SetupLocks          []testLockInfo
 		DeleteLocks         []testLockInfo
 		ExpectedActiveLocks []ApplicationLock
@@ -1805,7 +1804,7 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 		Env         types.EnvName
 		LockID      string
 		Message     string
-		AppName     string
+		AppName     types.AppName
 		AuthorName  string
 		AuthorEmail string
 		CiLink      string
@@ -1813,14 +1812,14 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 
 	tcs := []struct {
 		Name                string
-		AppNames            []string
+		AppNames            []types.AppName
 		SetupLocks          []testLockInfo
 		DeleteLocks         []testLockInfo
 		ExpectedActiveLocks []ApplicationLock
 	}{
 		{
 			Name: "Read one lock from one app",
-			AppNames: []string{
+			AppNames: []types.AppName{
 				"my-app",
 			},
 			SetupLocks: []testLockInfo{
@@ -1851,7 +1850,7 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 		},
 		{
 			Name: "Read two locks  from two apps",
-			AppNames: []string{
+			AppNames: []types.AppName{
 				"my-app", "my-app-2",
 			},
 			SetupLocks: []testLockInfo{
@@ -1902,7 +1901,7 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 		},
 		{
 			Name: "Don't read deleted lock",
-			AppNames: []string{
+			AppNames: []types.AppName{
 				"my-app",
 			},
 			SetupLocks: []testLockInfo{
@@ -1931,7 +1930,7 @@ func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 		},
 		{
 			Name: "Only read not deleted locks",
-			AppNames: []string{
+			AppNames: []types.AppName{
 				"my-app", "my-app-2",
 			},
 			SetupLocks: []testLockInfo{
@@ -2251,7 +2250,7 @@ func TestDeleteApplicationLock(t *testing.T) {
 		Env           types.EnvName
 		LockID        string
 		Message       string
-		AppName       string
+		AppName       types.AppName
 		AuthorName    string
 		AuthorEmail   string
 		ExpectedLocks []ApplicationLockHistory
@@ -2457,7 +2456,7 @@ func TestQueueApplicationVersionDelete(t *testing.T) {
 	tcs := []struct {
 		Name                string
 		Env                 types.EnvName
-		AppName             string
+		AppName             types.AppName
 		ReleaseNumbers      *types.ReleaseNumbers
 		ExpectedDeployments []QueuedDeployment
 	}{
@@ -2531,7 +2530,7 @@ func TestAllQueuedApplicationVersionsOfApp(t *testing.T) {
 		Name                string
 		Deployments         []QueuedDeployment
 		ExpectedDeployments []*QueuedDeployment
-		App                 string
+		App                 types.AppName
 	}{
 		{
 			Name: "Read all queued versions on environment",
@@ -2719,11 +2718,11 @@ func TestAllQueuedApplicationVersionsOnEnvironment(t *testing.T) {
 				}
 
 				slices.SortFunc(queuedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
-					return strings.Compare(d1.App, d2.App)
+					return strings.Compare(string(d1.App), string(d2.App))
 				})
 
 				slices.SortFunc(tc.ExpectedDeployments, func(d1 *QueuedDeployment, d2 *QueuedDeployment) int {
-					return strings.Compare(d1.App, d2.App)
+					return strings.Compare(string(d1.App), string(d2.App))
 				})
 
 				if diff := cmp.Diff(tc.ExpectedDeployments, queuedDeployments, cmpopts.IgnoreFields(QueuedDeployment{}, "Created")); diff != "" {
@@ -2960,12 +2959,12 @@ func TestDeleteRelease(t *testing.T) {
 					return err2
 				}
 
-				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, string(tc.toInsert.App), tc.toInsert.ReleaseNumbers)
+				errDelete := dbHandler.DBDeleteFromReleases(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumbers)
 				if errDelete != nil {
 					t.Fatalf("error: %v", errDelete)
 				}
 
-				allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, string(tc.toInsert.App))
+				allReleases, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, tc.toInsert.App)
 				if err != nil {
 					return err
 				}
@@ -2973,7 +2972,7 @@ func TestDeleteRelease(t *testing.T) {
 					t.Fatalf("number of team locks mismatch (-want, +got):\n%d", len(allReleases))
 				}
 
-				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, string(tc.toInsert.App), tc.toInsert.ReleaseNumbers, true)
+				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumbers, true)
 				if err != nil {
 					return err
 				}
@@ -2994,7 +2993,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 	type EnvAndConfig struct {
 		EnvironmentName   types.EnvName
 		EnvironmentConfig config.EnvironmentConfig
-		Applications      []string
+		Applications      []types.AppName
 	}
 	type TestCase struct {
 		Name          string
@@ -3010,14 +3009,14 @@ func TestReadWriteEnvironment(t *testing.T) {
 				{
 					EnvironmentName:   "development",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-					Applications:      []string{"app1", "app2", "app3"},
+					Applications:      []types.AppName{"app1", "app2", "app3"},
 				},
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
 				Name:         "development",
 				Config:       testutil.MakeEnvConfigLatest(nil),
-				Applications: []string{"app1", "app2", "app3"},
+				Applications: []types.AppName{"app1", "app2", "app3"},
 			},
 		},
 		{
@@ -3026,14 +3025,14 @@ func TestReadWriteEnvironment(t *testing.T) {
 				{
 					EnvironmentName:   "development",
 					EnvironmentConfig: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")), // "elaborate config" being the env group
-					Applications:      []string{"app1"},
+					Applications:      []types.AppName{"app1"},
 				},
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
 				Name:         "development",
 				Config:       testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
-				Applications: []string{"app1"},
+				Applications: []types.AppName{"app1"},
 			},
 		},
 		{
@@ -3115,14 +3114,14 @@ func TestReadWriteEnvironment(t *testing.T) {
 				{
 					EnvironmentName:   "development",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-					Applications:      []string{"zapp", "app1", "capp"},
+					Applications:      []types.AppName{"zapp", "app1", "capp"},
 				},
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
 				Name:         "development",
 				Config:       testutil.MakeEnvConfigLatest(nil),
-				Applications: []string{"app1", "capp", "zapp"},
+				Applications: []types.AppName{"app1", "capp", "zapp"},
 			},
 		},
 	}
@@ -3167,7 +3166,7 @@ func TestReadEnvironmentBatch(t *testing.T) {
 	type EnvAndConfig struct {
 		EnvironmentName   types.EnvName
 		EnvironmentConfig config.EnvironmentConfig
-		Applications      []string
+		Applications      []types.AppName
 	}
 	type TestCase struct {
 		Name         string
@@ -3183,17 +3182,17 @@ func TestReadEnvironmentBatch(t *testing.T) {
 				{
 					EnvironmentName:   "development",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-					Applications:      []string{"app1", "app2", "app3"},
+					Applications:      []types.AppName{"app1", "app2", "app3"},
 				},
 				{
 					EnvironmentName:   "staging",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-					Applications:      []string{"app1", "app2", "app3"},
+					Applications:      []types.AppName{"app1", "app2", "app3"},
 				},
 				{
 					EnvironmentName:   "production",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-					Applications:      []string{"app1", "app2", "app3"},
+					Applications:      []types.AppName{"app1", "app2", "app3"},
 				},
 			},
 			EnvsToQuery: []types.EnvName{"development", "staging"},
@@ -3201,12 +3200,12 @@ func TestReadEnvironmentBatch(t *testing.T) {
 				{
 					Name:         "development",
 					Config:       testutil.MakeEnvConfigLatest(nil),
-					Applications: []string{"app1", "app2", "app3"},
+					Applications: []types.AppName{"app1", "app2", "app3"},
 				},
 				{
 					Name:         "staging",
 					Config:       testutil.MakeEnvConfigLatest(nil),
-					Applications: []string{"app1", "app2", "app3"},
+					Applications: []types.AppName{"app1", "app2", "app3"},
 				},
 			},
 		},
@@ -3216,17 +3215,17 @@ func TestReadEnvironmentBatch(t *testing.T) {
 				{
 					EnvironmentName:   "development",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-					Applications:      []string{"app1", "app2", "app3"},
+					Applications:      []types.AppName{"app1", "app2", "app3"},
 				},
 				{
 					EnvironmentName:   "staging",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-					Applications:      []string{"app1", "app2", "app3"},
+					Applications:      []types.AppName{"app1", "app2", "app3"},
 				},
 				{
 					EnvironmentName:   "development",
 					EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-					Applications:      []string{"app1", "app2"},
+					Applications:      []types.AppName{"app1", "app2"},
 				},
 			},
 			EnvsToQuery: []types.EnvName{"development", "staging"},
@@ -3234,12 +3233,12 @@ func TestReadEnvironmentBatch(t *testing.T) {
 				{
 					Name:         "development",
 					Config:       testutil.MakeEnvConfigLatest(nil),
-					Applications: []string{"app1", "app2"},
+					Applications: []types.AppName{"app1", "app2"},
 				},
 				{
 					Name:         "staging",
 					Config:       testutil.MakeEnvConfigLatest(nil),
-					Applications: []string{"app1", "app2", "app3"},
+					Applications: []types.AppName{"app1", "app2", "app3"},
 				},
 			},
 		},
@@ -3285,7 +3284,7 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 	type EnvAndConfig struct {
 		EnvironmentName   types.EnvName
 		EnvironmentConfig config.EnvironmentConfig
-		Applications      []string
+		Applications      []types.AppName
 	}
 
 	type Step struct {
@@ -3308,14 +3307,14 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 						{
 							EnvironmentName:   "development",
 							EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-							Applications:      []string{"app1", "app2", "app3"},
+							Applications:      []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3"},
+							Applications: []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 				},
@@ -3324,34 +3323,34 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 						{
 							EnvironmentName:   "development",
 							EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-							Applications:      []string{"app1", "app2", "app3", "app4", "app5"},
+							Applications:      []types.AppName{"app1", "app2", "app3", "app4", "app5"},
 						},
 						{
 							EnvironmentName:   "staging",
 							EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-							Applications:      []string{"app1", "app2", "app3"},
+							Applications:      []types.AppName{"app1", "app2", "app3"},
 						},
 						{
 							EnvironmentName:   "production",
 							EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-							Applications:      []string{"app1", "app2", "app3"},
+							Applications:      []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3", "app4", "app5"},
+							Applications: []types.AppName{"app1", "app2", "app3", "app4", "app5"},
 						},
 						{
 							Name:         "staging",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3"},
+							Applications: []types.AppName{"app1", "app2", "app3"},
 						},
 						{
 							Name:         "production",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3"},
+							Applications: []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 				},
@@ -3365,14 +3364,14 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 						{
 							EnvironmentName:   "development",
 							EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-							Applications:      []string{"app1", "app2", "app3"},
+							Applications:      []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3"},
+							Applications: []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 				},
@@ -3381,19 +3380,19 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 						{
 							EnvironmentName:   "staging",
 							EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-							Applications:      []string{"app1", "app2", "app3"},
+							Applications:      []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3"},
+							Applications: []types.AppName{"app1", "app2", "app3"},
 						},
 						{
 							Name:         "staging",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3"},
+							Applications: []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 				},
@@ -3402,24 +3401,24 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 						{
 							EnvironmentName:   "production",
 							EnvironmentConfig: testutil.MakeEnvConfigLatest(nil),
-							Applications:      []string{"app1", "app2", "app3"},
+							Applications:      []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
 							Name:         "development",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3"},
+							Applications: []types.AppName{"app1", "app2", "app3"},
 						},
 						{
 							Name:         "staging",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3"},
+							Applications: []types.AppName{"app1", "app2", "app3"},
 						},
 						{
 							Name:         "production",
 							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []string{"app1", "app2", "app3"},
+							Applications: []types.AppName{"app1", "app2", "app3"},
 						},
 					},
 				},
@@ -3762,7 +3761,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 
 			for _, envName := range tc.AllEnvsToWrite {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, envName, config.EnvironmentConfig{}, []string{})
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envName, config.EnvironmentConfig{}, []types.AppName{})
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
@@ -3825,7 +3824,7 @@ func TestReadWriteAllApplications(t *testing.T) {
 				t.Fatalf("error while running the transaction for writing all applications %v to the database, error: %v", tc.AllAppsToWrite, err)
 			}
 
-			allAppsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]string, error) {
+			allAppsEntry, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]types.AppName, error) {
 				allAppsEntry, err := dbHandler.DBSelectAllApplications(ctx, transaction)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting application entry, error: %w", err)
@@ -3849,7 +3848,7 @@ func TestReadReleasesByApp(t *testing.T) {
 		Name                 string
 		Releases             []DBReleaseWithMetaData
 		RetrievePrepublishes bool
-		AppName              string
+		AppName              types.AppName
 		Expected             []*DBReleaseWithMetaData
 		ExpectedErr          error
 	}{
@@ -4155,7 +4154,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 		Name                 string
 		Releases             []DBReleaseWithMetaData
 		RetrievePrepublishes bool
-		AppName              string
+		AppName              types.AppName
 		Versions             []uint64
 		Expected             []*DBReleaseWithMetaData
 	}{
@@ -4772,7 +4771,7 @@ func TestBulkInsertFunction(t *testing.T) {
 				for n < tc.ExpectedNumberOfApps {
 					appName := "app-" + strconv.Itoa(n)
 					envName := types.EnvName("env-" + strconv.Itoa(n))
-					envApps = append(envApps, EnvApp{AppName: appName, EnvName: envName})
+					envApps = append(envApps, EnvApp{AppName: types.AppName(appName), EnvName: envName})
 					n += 1
 				}
 				err := dbHandler.executeBulkInsert(ctx, transaction, envApps, time.Now(), TransformerID(0), UNSYNCED, tc.BatchSize)
@@ -5104,9 +5103,10 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				for env := range envsAppsFromReleases {
-					sort.Strings(envsAppsFromReleases[env])
-				}
+				//for env := range envsAppsFromReleases {
+				//	// TODO: fix types.AppName
+				//	sort.Strings(envsAppsFromReleases[env])
+				//}
 				if diff := cmp.Diff(tc.ExpectedEnvsApps, envsAppsFromReleases); diff != "" {
 					t.Errorf("response mismatch (-want, +got):\n%s", diff)
 				}
@@ -5999,7 +5999,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, environment := range tc.Environments {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]string, 0))
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]types.AppName, 0))
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
@@ -6154,7 +6154,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 					}
 				}
 				for _, environment := range tc.Environments {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]string, 0))
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]types.AppName, 0))
 					if err != nil {
 						return nil, fmt.Errorf("error while writing environment, error: %w", err)
 					}
@@ -6225,7 +6225,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 	tcs := []struct {
 		Name     string
-		App      string
+		App      types.AppName
 		Version  types.ReleaseNumbers
 		CommitId string
 		Repeats  uint
@@ -6251,7 +6251,7 @@ func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 					transaction,
 					envName,
 					config.EnvironmentConfig{},
-					make([]string, 0),
+					make([]types.AppName, 0),
 				)
 				if err != nil {
 					return fmt.Errorf("error while writing environment, error: %w", err)
@@ -6273,7 +6273,7 @@ func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 					return fmt.Errorf("error while writing release, error: %w", err)
 				}
 				for i := tc.Repeats; i > 0; i-- {
-					versionByApp := make(map[string]types.ReleaseNumbers)
+					versionByApp := make(map[types.AppName]types.ReleaseNumbers)
 					versionByApp[tc.App] = tc.Version
 					commitIdByApp, err := dbHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, versionByApp)
 					if err != nil {
@@ -6320,14 +6320,14 @@ func TestDBSelectCommitIdAppReleaseVersionsMany(t *testing.T) {
 					transaction,
 					envName,
 					config.EnvironmentConfig{},
-					make([]string, 0),
+					make([]types.AppName, 0),
 				)
 				if err != nil {
 					return fmt.Errorf("error while writing environment, error: %w", err)
 				}
-				versionByApp := make(map[string]types.ReleaseNumbers)
+				versionByApp := make(map[types.AppName]types.ReleaseNumbers)
 				for i := tc.Apps; i > 0; i-- {
-					appName := fmt.Sprintf("%s%d", tc.AppPrefix, i)
+					appName := types.AppName(fmt.Sprintf("%s%d", tc.AppPrefix, i))
 					versionByApp[appName] = types.MakeReleaseNumberVersion(uint64(i + 20000))
 					metadata := DBReleaseMetaData{
 						SourceCommitId: fmt.Sprintf("%d", i),
@@ -6352,7 +6352,7 @@ func TestDBSelectCommitIdAppReleaseVersionsMany(t *testing.T) {
 					return fmt.Errorf("commit id map len mismatches len of commitByApp. expected: %v, got: %v", len(versionByApp), len(commitIdByApp))
 				}
 				for i := tc.Apps; i > 0; i-- {
-					appName := fmt.Sprintf("%s%d", tc.AppPrefix, i)
+					appName := types.AppName(fmt.Sprintf("%s%d", tc.AppPrefix, i))
 					if commitIdByApp[appName] != fmt.Sprintf("%d", i) {
 						return fmt.Errorf("Did not find expected commit id. expected: %v, got: %v", fmt.Sprintf("%d", i), commitIdByApp[appName])
 					}

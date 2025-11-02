@@ -40,7 +40,7 @@ const (
 const BULK_INSERT_BATCH_SIZE = 500
 
 type GitSyncData struct {
-	AppName       string
+	AppName       types.AppName
 	EnvName       types.EnvName
 	TransformerID EslVersion
 	SyncStatus

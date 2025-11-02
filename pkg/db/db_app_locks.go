@@ -42,7 +42,7 @@ type ApplicationLockHistory struct {
 	Created          time.Time
 	LockID           string
 	Env              types.EnvName
-	App              string
+	App              types.AppName
 	Metadata         LockMetadata
 	Deleted          bool
 	DeletionMetadata LockDeletionMetadata
