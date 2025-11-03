@@ -36,7 +36,6 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
     const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
     const toggleEnv = React.useCallback(
         (env: string) => {
-            const newEnv = env;
             const action: BatchAction = {
                 action: {
                     $case: 'deleteEnvFromApp',
