@@ -42,7 +42,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                     $case: 'deleteEnvFromApp',
                     deleteEnvFromApp: {
                         environment: newEnv,
-                        application: 'echo',
+                        application: props.app,
                     },
                 },
             };
@@ -66,7 +66,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                     $case: 'deleteEnvFromApp',
                     deleteEnvFromApp: {
                         environment: env,
-                        application: 'echo',
+                        application: props.app,
                     },
                 },
             };
@@ -74,11 +74,26 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
         });
         setSelectedEnvs([]);
     }, [selectedEnvs, setSelectedEnvs]);
+    const addAllEnvs = React.useCallback(() => {
+        props.envs.forEach((env) => {
+            const action: BatchAction = {
+                action: {
+                    $case: 'deleteEnvFromApp',
+                    deleteEnvFromApp: {
+                        environment: env,
+                        application: props.app,
+                    },
+                },
+            };
+            addAction(action);
+        });
+        setSelectedEnvs(props.envs);
+    }, [props.envs, setSelectedEnvs]);
     return (
         <PlainDialog
             open={props.open}
             onClose={props.onClose}
-            classNames="env-del-dialog"
+            classNames="env-del-dialog-open"
             disableBackground={true}
             center={true}
             testIdRootRefParent={props.testIdRootRefParent}>
@@ -108,7 +123,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                             className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
                             testId="test-confirm-button-remove-all"
                             label="Remove app from all remaining environments"
-                            onClick={props.onClose}
+                            onClick={addAllEnvs}
                             highlightEffect={false}
                         />
                         &nbsp;

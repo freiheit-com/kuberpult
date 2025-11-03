@@ -14,6 +14,15 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
+.env-del-dialog-container {
+    display: flex;
+}
+
+.env-del-dialog-container {
+    display: flex;
+    position: relative;
+}
+
 
 .env-del-dialog-container-open {
     &::before {
