@@ -368,11 +368,11 @@ func (c *DeployApplicationVersion) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, types.MakeReleaseNumbers(c.Version, c.Revision))
-	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, types.AppName(c.Application), types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 	if err != nil {
 		return "", err
 	}
@@ -418,9 +418,9 @@ func (c *DeployApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	tCtx.AddAppEnv(c.Application, types.EnvName(c.Environment), teamOwner)
+	tCtx.AddAppEnv(c.Application, c.Environment, teamOwner)
 
-	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, c.Application, envName)
+	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, types.AppName(c.Application), envName)
 	if err != nil {
 		return "", fmt.Errorf("error while retrieving deployment: %v", err)
 	}
@@ -605,7 +605,7 @@ func (c *DeleteEnvironmentLock) Transform(
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	if tCtx.ShouldMinimizeGitData() {
 		return GetNoOpMessage(c)
 	}
@@ -679,7 +679,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	if tCtx.ShouldMinimizeGitData() {
 		return GetNoOpMessage(c)
 	}
-	env := types.EnvName(c.Environment)
+	env := c.Environment
 	fs := state.Filesystem
 	envDir := fs.Join("environments", string(c.Environment))
 	if _, err := fs.Stat(envDir); err != nil {
@@ -691,7 +691,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 		return "", err
 	}
 
-	lock, err := state.DBHandler.DBSelectAppLock(ctx, transaction, env, c.Application, c.LockId)
+	lock, err := state.DBHandler.DBSelectAppLock(ctx, transaction, env, types.AppName(c.Application), c.LockId)
 
 	if err != nil {
 		return "", err
@@ -1087,7 +1087,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	indexToKeep := positionOfOldestVersion - 1
 	majorsCount := 0
 	for ; indexToKeep >= 0; indexToKeep-- {
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: versions[indexToKeep].Version, Revision: versions[indexToKeep].Revision}, false)
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, types.AppName(appName), types.ReleaseNumbers{Version: versions[indexToKeep].Version, Revision: versions[indexToKeep].Revision}, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1150,7 +1150,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	tCtx TransformerContext,
 	tx *sql.Tx,
 ) (string, error) {
-	env := types.EnvName(c.Environment)
+	env := c.Environment
 	if tCtx.ShouldMinimizeGitData() {
 		return GetNoOpMessage(c)
 	}
@@ -1261,7 +1261,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	if tCtx.ShouldMinimizeGitData() {
 		return GetNoOpMessage(c)
 	}
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 
 	if !valid.EnvironmentName(envName) {
 		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
@@ -1605,7 +1605,7 @@ func (u *ReleaseTrain) Transform(
 			Authentication:      u.Authentication,
 			TransformerMetadata: u.TransformerMetadata,
 			Environment:         currentDeployment.Env,
-			Application:         currentDeployment.App,
+			Application:         string(currentDeployment.App),
 			Version:             *currentDeployment.ReleaseNumbers.Version,
 			LockBehaviour:       api.LockBehavior_RECORD,
 			WriteCommitData:     u.WriteCommitData,
@@ -1713,7 +1713,7 @@ func (c *DeleteEnvFromApp) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	fs := state.Filesystem
 
 	thisSprintf := func(format string, a ...any) string {
@@ -1751,7 +1751,6 @@ func (c *DeleteEnvFromApp) Transform(
 	}
 
 	tCtx.DeleteEnvFromApp(c.Application, types.EnvName(c.Environment))
-
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", c.Environment, c.Application), nil
 }
 
@@ -1797,7 +1796,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	fs := state.Filesystem
-	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, c.Application, false)
+	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, types.AppName(c.Application), false)
 	if err != nil {
 		return "", fmt.Errorf("could not get last relase for app '%v': %v", c.Application, err)
 	}

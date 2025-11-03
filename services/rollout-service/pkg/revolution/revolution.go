@@ -24,10 +24,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
@@ -225,7 +226,7 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 			return nil
 		}
 		h := hmac.New(sha256.New, s.token)
-		h.Write([]byte(body))
+		h.Write(body)
 		sha := "sha256=" + hex.EncodeToString(h.Sum(nil))
 		r, err := http.NewRequest(http.MethodPost, s.url, bytes.NewReader(body))
 		if err != nil {

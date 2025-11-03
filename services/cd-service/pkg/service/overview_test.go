@@ -20,11 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"sort"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -716,11 +717,11 @@ func TestGetApplicationDetails(t *testing.T) {
 	var secondEnv types.EnvName = "development2"
 	var stagingGroup types.EnvName = "stagingGroup"
 	var thirdEnv types.EnvName = "staging"
-	var appName = "test-app"
+	var appName types.AppName = "test-app"
 	tcs := []struct {
 		Name             string
 		Setup            []repository.Transformer
-		AppName          string
+		AppName          types.AppName
 		ExpectedResponse *api.GetAppDetailsResponse
 	}{
 		{
@@ -728,7 +729,7 @@ func TestGetApplicationDetails(t *testing.T) {
 			AppName: appName,
 			ExpectedResponse: &api.GetAppDetailsResponse{
 				Application: &api.Application{
-					Name: appName,
+					Name: string(appName),
 					Releases: []*api.Release{
 						{
 							Version:        1,
@@ -839,7 +840,7 @@ func TestGetApplicationDetails(t *testing.T) {
 			AppName: appName,
 			ExpectedResponse: &api.GetAppDetailsResponse{
 				Application: &api.Application{
-					Name:     appName,
+					Name:     string(appName),
 					Releases: []*api.Release{},
 					Team:     "team-123",
 				},
@@ -903,7 +904,7 @@ func TestGetApplicationDetails(t *testing.T) {
 			AppName: appName,
 			ExpectedResponse: &api.GetAppDetailsResponse{
 				Application: &api.Application{
-					Name: appName,
+					Name: string(appName),
 					Releases: []*api.Release{
 						{
 							Version:        3,
@@ -1037,7 +1038,7 @@ func TestGetApplicationDetails(t *testing.T) {
 			AppName: appName,
 			ExpectedResponse: &api.GetAppDetailsResponse{
 				Application: &api.Application{
-					Name: appName,
+					Name: string(appName),
 					Releases: []*api.Release{
 						{
 							Version:        2,
@@ -1206,7 +1207,7 @@ func TestGetApplicationDetails(t *testing.T) {
 			AppName: appName,
 			ExpectedResponse: &api.GetAppDetailsResponse{
 				Application: &api.Application{
-					Name: appName,
+					Name: string(appName),
 					Releases: []*api.Release{
 						{
 							Version:        2,
@@ -1401,7 +1402,7 @@ func TestGetApplicationDetails(t *testing.T) {
 				Name:  "overview tester",
 			})
 
-			resp, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: appName})
+			resp, err := svc.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: string(appName)})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1444,12 +1445,12 @@ func TestGetAllAppLocks(t *testing.T) {
 	var dev types.EnvName = "dev"
 	var env types.EnvName = "development"
 	var secondEnv types.EnvName = "development2"
-	var appName = "test-app"
-	var anotherAppName = "another-app-name"
+	var appName types.AppName = "test-app"
+	var anotherAppName types.AppName = "another-app-name"
 	tcs := []struct {
 		Name             string
 		Setup            []repository.Transformer
-		AppName          string
+		AppName          types.AppName
 		ExpectedResponse *api.GetAllAppLocksResponse
 	}{
 		{
@@ -1459,7 +1460,7 @@ func TestGetAllAppLocks(t *testing.T) {
 				AllAppLocks: map[string]*api.AllAppLocks{
 					string(env): {
 						AppLocks: map[string]*api.Locks{
-							appName: {
+							string(appName): {
 								Locks: []*api.Lock{
 									{
 										LockId:  "my-app-lock",
@@ -1475,7 +1476,7 @@ func TestGetAllAppLocks(t *testing.T) {
 					},
 					string(secondEnv): {
 						AppLocks: map[string]*api.Locks{
-							appName: {
+							string(appName): {
 								Locks: []*api.Lock{
 									{
 										LockId:  "my-app-lock",
@@ -1596,7 +1597,7 @@ func TestGetAllAppLocks(t *testing.T) {
 				AllAppLocks: map[string]*api.AllAppLocks{
 					string(secondEnv): {
 						AppLocks: map[string]*api.Locks{
-							appName: {
+							string(appName): {
 								Locks: []*api.Lock{
 									{
 										LockId:  "my-app-lock",
@@ -1612,7 +1613,7 @@ func TestGetAllAppLocks(t *testing.T) {
 					},
 					string(env): {
 						AppLocks: map[string]*api.Locks{
-							appName: {
+							string(appName): {
 								Locks: []*api.Lock{
 									{
 										LockId:  "A-my-app-lock",
@@ -1632,7 +1633,7 @@ func TestGetAllAppLocks(t *testing.T) {
 									},
 								},
 							},
-							anotherAppName: {
+							string(anotherAppName): {
 								Locks: []*api.Lock{
 									{
 										LockId:  "my-app-lock",
@@ -1920,7 +1921,7 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 func TestDeriveUndeploySummary(t *testing.T) {
 	var tcs = []struct {
 		Name           string
-		AppName        string
+		AppName        types.AppName
 		Deployments    map[string]*api.Deployment
 		ExpectedResult api.UndeploySummary
 	}{

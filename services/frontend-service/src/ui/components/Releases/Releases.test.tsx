@@ -444,7 +444,7 @@ describe('Release Dialog', () => {
                 </MemoryRouter>
             );
 
-            expect(document.querySelectorAll('.release_date')).toHaveLength(testcase.dates);
+            expect(document.querySelectorAll('.release_version')).toHaveLength(testcase.releases.length);
             expect(document.querySelectorAll('.content')).toHaveLength(testcase.releases.length);
             expect(document.querySelectorAll('.application-lock-chip')).toHaveLength(testcase.expectedAppLocksLength);
         });

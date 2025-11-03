@@ -126,7 +126,6 @@ func (s Server) handleApiApplication(w http.ResponseWriter, req *http.Request, t
 		http.Error(w, "missing application ID", http.StatusNotFound)
 		return
 	}
-	applicationID = ApplicationID(applicationID)
 
 	group, tail := xpath.Shift(tail)
 	switch group {
@@ -166,7 +165,7 @@ func (s Server) handleApplicationRelease(w http.ResponseWriter, req *http.Reques
 
 func (s Server) handleApplicationReleaseManifests(w http.ResponseWriter, req *http.Request, applicationID ApplicationID, version string, revision string) {
 	resp, err := s.VersionClient.GetManifests(req.Context(), &api.GetManifestsRequest{
-		Application: string(applicationID),
+		Application: applicationID,
 		Release:     version,
 		Revision:    revision,
 	})

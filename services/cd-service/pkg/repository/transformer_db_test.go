@@ -44,8 +44,8 @@ import (
 )
 
 var (
-	testAppName     = "test"
-	nextTestAppName = "test2"
+	testAppName     types.AppName = "test"
+	nextTestAppName types.AppName = "test2"
 )
 
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
@@ -648,7 +648,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 }
 
 func TestCreateApplicationVersionDBRevisions(t *testing.T) {
-	const appName = "app1"
+	var appName types.AppName = "app1"
 	tcs := []struct {
 		Name               string
 		Transformers       []Transformer
@@ -762,7 +762,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				if err4 != nil {
 					return fmt.Errorf("error retrieving environment: %w", err)
 				}
-				if diff := cmp.Diff([]string{appName}, environment.Applications); diff != "" {
+				if diff := cmp.Diff([]types.AppName{appName}, environment.Applications); diff != "" {
 					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -775,7 +775,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 }
 
 func TestCreateApplicationVersionDB(t *testing.T) {
-	const appName = "app1"
+	const appName types.AppName = "app1"
 	tcs := []struct {
 		Name               string
 		Transformers       []Transformer
@@ -911,7 +911,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				if err4 != nil {
 					return fmt.Errorf("error retrieving environment: %w", err)
 				}
-				if diff := cmp.Diff([]string{appName}, environment.Applications); diff != "" {
+				if diff := cmp.Diff([]types.AppName{appName}, environment.Applications); diff != "" {
 					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -924,7 +924,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 }
 
 func TestMinorFlag(t *testing.T) {
-	appName := "app"
+	var appName types.AppName = "app"
 	tcs := []struct {
 		Name           string
 		Transformers   []Transformer
@@ -1607,7 +1607,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 }
 
 func TestCleanupOldVersionDB(t *testing.T) {
-	const appName = "app1"
+	const appName types.AppName = "app1"
 	tcs := []struct {
 		Name                   string
 		ReleaseVersionLimit    uint
@@ -1748,7 +1748,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 		Name                      string
 		Transformers              []Transformer
 		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
-		expectedStagingEnvApps    []string
+		expectedStagingEnvApps    []types.AppName
 	}
 
 	testCases := []TestCase{
@@ -1763,7 +1763,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigLatest(nil),
 			},
-			expectedStagingEnvApps: []string{},
+			expectedStagingEnvApps: []types.AppName{},
 		},
 		{
 			Name: "create a single environment twice",
@@ -1787,7 +1787,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigUpstream("development", nil),
 			},
-			expectedStagingEnvApps: []string{"testapp"},
+			expectedStagingEnvApps: []types.AppName{"testapp"},
 		},
 		{
 			Name: "create multiple environments",
@@ -1805,7 +1805,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				"development": testutil.MakeEnvConfigLatest(nil),
 				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},
-			expectedStagingEnvApps: []string{},
+			expectedStagingEnvApps: []types.AppName{},
 		},
 		{
 			Name: "create environment with argo cd configs",
@@ -1831,7 +1831,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN-STG", "PT", 100),
 				},
 			},
-			expectedStagingEnvApps: []string{},
+			expectedStagingEnvApps: []types.AppName{},
 		},
 	}
 
@@ -2556,12 +2556,15 @@ func TestEvents(t *testing.T) {
 }
 
 func TestDeleteEnvFromAppWithDB(t *testing.T) {
-	appName := "app"
+	var appName types.AppName = "app"
 	setupTransformers := []Transformer{
 		&CreateEnvironment{
 			Environment: "env",
 			Config: config.EnvironmentConfig{
-				Upstream:         nil,
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "",
+					Latest:      true,
+				},
 				ArgoCd:           nil,
 				EnvironmentGroup: conversion.FromString("mygroup"),
 			},
@@ -2590,11 +2593,44 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				EnvironmentGroup: conversion.FromString("mygroup"),
 			},
 		},
+		&CreateEnvironment{
+			Environment: "dev",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "",
+					Latest:      true,
+				},
+				ArgoCd:           nil,
+				EnvironmentGroup: conversion.FromString("mygroup"),
+			},
+		},
+		&CreateEnvironment{
+			Environment: "dev2",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "",
+					Latest:      true,
+				},
+				ArgoCd:           nil,
+				EnvironmentGroup: conversion.FromString("mygroup"),
+			},
+		},
+		&CreateEnvironment{
+			Environment: "staging",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "dev2",
+					Latest:      false,
+				},
+				ArgoCd:           nil,
+				EnvironmentGroup: conversion.FromString("mygroup"),
+			},
+		},
 	}
 	tcs := []struct {
-		Name              string
-		Transforms        []Transformer
-		ExpectedManifests map[types.EnvName]string
+		Name                           string
+		Transforms                     []Transformer
+		ExpectedManifestsByEachRelease map[uint64]map[types.EnvName]string
 	}{
 		{
 			Name: "Simple Delete Env From App",
@@ -2616,8 +2652,10 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					Environment: "env",
 				},
 			},
-			ExpectedManifests: map[types.EnvName]string{
-				"env2": "testenvmanifest2",
+			ExpectedManifestsByEachRelease: map[uint64]map[types.EnvName]string{
+				10: {
+					"env2": "testenvmanifest2",
+				},
 			},
 		},
 		{
@@ -2640,9 +2678,11 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					Environment: "env3",
 				},
 			},
-			ExpectedManifests: map[types.EnvName]string{
-				"env":  "testenvmanifest",
-				"env2": "testenvmanifest2",
+			ExpectedManifestsByEachRelease: map[uint64]map[types.EnvName]string{
+				10: {
+					"env":  "testenvmanifest",
+					"env2": "testenvmanifest2",
+				},
 			},
 		},
 		{
@@ -2677,8 +2717,89 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					Environment: "env",
 				},
 			},
-			ExpectedManifests: map[types.EnvName]string{
-				"env2": "testenvmanifest2",
+			ExpectedManifestsByEachRelease: map[uint64]map[types.EnvName]string{
+				11: {
+					"env2": "testenvmanifest2",
+				},
+				10: {
+					"env":  "testenvmanifest",
+					"env2": "testenvmanifest2",
+				},
+			},
+		},
+		{
+			Name: "Multiple Manifests with Deployment in between",
+			Transforms: []Transformer{
+				&CreateApplicationVersion{
+					Version:     1,
+					Application: appName,
+					Manifests: map[types.EnvName]string{
+						"dev2":    "testmanifestdev2",
+						"staging": "testmanifeststaging",
+					},
+					SourceCommitId: "0000000000000000000000000000000000000000",
+					SourceAuthor:   "testmail@example.com",
+					SourceMessage:  "test",
+					DisplayVersion: "1",
+				},
+				&CreateApplicationVersion{
+					Version:     2,
+					Application: appName,
+					Manifests: map[types.EnvName]string{
+						"dev2":    "testmanifestdev2",
+						"staging": "testmanifeststaging",
+					},
+					SourceCommitId: "0000000000000000000000000000000000000000",
+					SourceAuthor:   "testmail@example.com",
+					SourceMessage:  "test",
+					DisplayVersion: "2",
+				},
+				&CreateApplicationVersion{
+					Version:     3,
+					Application: appName,
+					Manifests: map[types.EnvName]string{
+						"dev":     "testmanifestdev",
+						"dev2":    "testmanifestdev2",
+						"staging": "testmanifeststaging",
+					},
+					SourceCommitId: "0000000000000000000000000000000000000000",
+					SourceAuthor:   "testmail@example.com",
+					SourceMessage:  "test",
+					DisplayVersion: "3",
+				},
+				&CreateApplicationVersion{
+					Version:     4,
+					Application: appName,
+					Manifests: map[types.EnvName]string{
+						"dev":     "testmanifestdev",
+						"staging": "testmanifeststaging",
+					},
+					SourceCommitId: "0000000000000000000000000000000000000000",
+					SourceAuthor:   "testmail@example.com",
+					SourceMessage:  "test",
+					DisplayVersion: "4",
+				},
+				&DeleteEnvFromApp{
+					Application: appName,
+					Environment: "staging",
+				},
+			},
+			ExpectedManifestsByEachRelease: map[uint64]map[types.EnvName]string{
+				4: {
+					"dev": "testmanifestdev",
+				},
+				3: {
+					"dev":  "testmanifestdev",
+					"dev2": "testmanifestdev2",
+				},
+				2: {
+					"dev2":    "testmanifestdev2",
+					"staging": "testmanifeststaging",
+				},
+				1: {
+					"dev2":    "testmanifestdev2",
+					"staging": "testmanifeststaging",
+				},
 			},
 		},
 	}
@@ -2701,13 +2822,41 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				if err2 != nil {
 					return fmt.Errorf("error retrieving release: %v", err2)
 				}
-				for _, release := range releases {
-					for env, manifest := range tc.ExpectedManifests {
+
+				for _, rel := range releases {
+					_, ok := tc.ExpectedManifestsByEachRelease[*rel.ReleaseNumbers.Version]
+					if !ok {
+						return fmt.Errorf("release with version %v is not expected but existed", *rel.ReleaseNumbers.Version)
+					}
+				}
+
+				for releaseNumber, expectedManifests := range tc.ExpectedManifestsByEachRelease {
+					var release *db.DBReleaseWithMetaData
+					for _, rel := range releases {
+						if *rel.ReleaseNumbers.Version == releaseNumber {
+							release = rel
+							break
+						}
+					}
+					if release == nil {
+						return fmt.Errorf("expect release with version %v but not exist", releaseNumber)
+					}
+
+					// verify if all expected manifests exist in actual results
+					for env, manifest := range expectedManifests {
 						if diff := cmp.Diff(manifest, release.Manifests.Manifests[env]); diff != "" {
 							return fmt.Errorf("error mismatch Manifests - want, +got:\n%s", diff)
 						}
 					}
+
+					// verify if all actual manifests are expected
+					for env, manifest := range release.Manifests.Manifests {
+						if diff := cmp.Diff(manifest, expectedManifests[env]); diff != "" {
+							return fmt.Errorf("error mismatch Manifests - want, +got:\n%s", diff)
+						}
+					}
 				}
+
 				environment, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, types.EnvName(tc.Transforms[len(tc.Transforms)-1].(*DeleteEnvFromApp).Environment))
 				if err2 != nil {
 					return err2
@@ -2715,7 +2864,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				if environment != nil {
 					for _, envApp := range environment.Applications {
 						if envApp == appName {
-							return fmt.Errorf("Expected app %s to be deleted from environment %s", appName, environment.Name)
+							return fmt.Errorf("expected app %s to be deleted from environment %s", appName, environment.Name)
 						}
 					}
 				}
@@ -2735,7 +2884,7 @@ func TestReleaseTrain(t *testing.T) {
 		Transformers         []Transformer
 		ExpectedVersion      types.ReleaseNumbers
 		TargetEnv            types.EnvName
-		TargetApp            string
+		TargetApp            types.AppName
 	}{
 		{
 			Name:            "Release train",
@@ -2875,7 +3024,7 @@ func TestReleaseTrain(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					WriteCommitData:       true,
 					Version:               1,
 					TransformerEslVersion: 0,
@@ -2895,7 +3044,7 @@ func TestReleaseTrain(t *testing.T) {
 					WriteCommitData:       true,
 					Version:               2,
 					TransformerEslVersion: 0,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 				},
 				&DeployApplicationVersion{
 					Environment:           envAcceptance,
@@ -2911,7 +3060,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&ReleaseTrain{
 					Target:                envProduction,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					TransformerEslVersion: 0,
 				},
 			},
@@ -2947,7 +3096,7 @@ func TestReleaseTrain(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					WriteCommitData:       true,
 					Version:               1,
 					Revision:              0,
@@ -2970,7 +3119,7 @@ func TestReleaseTrain(t *testing.T) {
 					Version:               1,
 					Revision:              1,
 					TransformerEslVersion: 0,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 				},
 				&DeployApplicationVersion{
 					Environment:           envAcceptance,
@@ -2988,7 +3137,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&ReleaseTrain{
 					Target:                envProduction,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					TransformerEslVersion: 0,
 				},
 			},
@@ -3046,7 +3195,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 	type TestCase struct {
 		Name                  string
 		Transformers          []Transformer
-		expectedLatestRelease map[string]db.DBReleaseWithMetaData
+		expectedLatestRelease map[types.AppName]db.DBReleaseWithMetaData
 		expectedAllEnvs       []types.EnvName
 	}
 
@@ -3075,7 +3224,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environment: "staging",
 				},
 			},
-			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+			expectedLatestRelease: map[types.AppName]db.DBReleaseWithMetaData{
 				"app": {
 					App:            "app",
 					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
@@ -3121,7 +3270,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environment: "staging",
 				},
 			},
-			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+			expectedLatestRelease: map[types.AppName]db.DBReleaseWithMetaData{
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
@@ -3182,7 +3331,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environment: "staging",
 				},
 			},
-			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+			expectedLatestRelease: map[types.AppName]db.DBReleaseWithMetaData{
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
@@ -3366,7 +3515,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -3395,7 +3544,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -3420,7 +3569,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -3482,7 +3631,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -3546,7 +3695,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				applyErr := UnwrapUntilTransformerBatchApplyError(err)
@@ -3563,6 +3712,7 @@ func TestDeleteEnvironment(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		Transformers  []Transformer
+		EnvsToDelete  []string
 		expectedError *TransformerBatchApplyError
 	}{
 		{
@@ -3576,13 +3726,11 @@ func TestDeleteEnvironment(t *testing.T) {
 						EnvironmentGroup: conversion.FromString("mygroup"),
 					},
 				},
-				&DeleteEnvironment{
-					Environment: "this-env-does-not-exist",
-				},
 			},
+			EnvsToDelete: []string{"this-env-does-not-exist"},
 			expectedError: &TransformerBatchApplyError{
-				Index:            1,
-				TransformerError: errMatcher{"error at index 1 of transformer batch: could not delete environment with name 'this-env-does-not-exist' from DB"},
+				Index:            0,
+				TransformerError: errMatcher{"error at index 0 of transformer batch: rpc error: code = FailedPrecondition desc = error: environment with name 'this-env-does-not-exist' not found"},
 			},
 		},
 		{
@@ -3596,10 +3744,8 @@ func TestDeleteEnvironment(t *testing.T) {
 						EnvironmentGroup: conversion.FromString("mygroup"),
 					},
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - App in env",
@@ -3620,10 +3766,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - App in env & has a deployment",
@@ -3649,10 +3793,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					Application: testAppName,
 					Version:     1,
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - Attempt to delete with env lock",
@@ -3684,14 +3826,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					Message:     "This lock is for prod",
 					CiLink:      "",
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment locks for this environment exist"},
-			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - Attempt to delete with app lock",
@@ -3724,14 +3860,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					Message:     "This lock is for prod",
 					CiLink:      "",
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Application locks for this environment exist"},
-			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Delete Env - Attempt to delete with team lock",
@@ -3765,14 +3895,8 @@ func TestDeleteEnvironment(t *testing.T) {
 					Message:     "This lock is for prod",
 					CiLink:      "",
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Team locks for this environment exist"},
-			},
+			EnvsToDelete: []string{envProduction},
 		},
 		{
 			Name: "Env to delete is upstream",
@@ -3810,13 +3934,11 @@ func TestDeleteEnvironment(t *testing.T) {
 					Application: testAppName,
 					Version:     1,
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
 			},
+			EnvsToDelete: []string{envProduction},
 			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"error at index 4 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
+				Index:            0,
+				TransformerError: errMatcher{"error at index 0 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production'. Environment 'production' is upstream from 'acceptance'"},
 			},
 		},
 		{
@@ -3863,16 +3985,11 @@ func TestDeleteEnvironment(t *testing.T) {
 					Application: testAppName,
 					Version:     1,
 				},
-				&DeleteEnvironment{
-					Environment: envProduction,
-				},
-				&DeleteEnvironment{
-					Environment: "production-2",
-				},
 			},
+			EnvsToDelete: []string{envProduction, "production-2"},
 			expectedError: &TransformerBatchApplyError{
-				Index:            6,
-				TransformerError: errMatcher{"error at index 6 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion"},
+				Index:            0,
+				TransformerError: errMatcher{"error at index 0 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion"},
 			},
 		},
 	}
@@ -3888,11 +4005,64 @@ func TestDeleteEnvironment(t *testing.T) {
 				if err != nil {
 					return err
 				}
+
+				for _, env := range tc.EnvsToDelete {
+					envName := types.EnvName(env)
+
+					// Perform DeleteEnvironment transforming
+					transformer := []Transformer{&DeleteEnvironment{Environment: envName}}
+					_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, transformer...)
+					if err != nil {
+						return err
+					}
+				}
+
 				return nil
 			})
-			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+
+			err1 := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, env := range tc.EnvsToDelete {
+					envName := types.EnvName(env)
+					foundEnv, err1 := r.State().DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+					if err1 != nil {
+						return err1
+					}
+					if foundEnv != nil {
+						t.Fatalf("Expect environment to be deleted but still exists:\n%s", foundEnv.Name)
+					}
+
+					// Check for related locks
+					foundEnvLocks, err1 := r.State().DBHandler.DBSelectAllEnvLocks(ctx, transaction, envName)
+					if err1 != nil {
+						return err1
+					}
+					if len(foundEnvLocks) != 0 {
+						t.Fatalf("Expect all EnvLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundEnvLocks), foundEnv.Name)
+					}
+
+					foundAppLocks, err1 := r.State().DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, envName)
+					if err1 != nil {
+						return err1
+					}
+					if len(foundAppLocks) != 0 {
+						t.Fatalf("Expect all AppLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundAppLocks), foundEnv.Name)
+					}
+
+					foundTeamLocks, err1 := r.State().DBHandler.DBSelectAllTeamLocksForEnv(ctx, transaction, envName)
+					if err1 != nil {
+						return err1
+					}
+					if len(foundTeamLocks) != 0 {
+						t.Fatalf("Expect all TeamLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundTeamLocks), foundEnv.Name)
+					}
+				}
+				return nil
+			})
+
+			if tc.expectedError == nil && (err != nil || err1 != nil) {
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
+
 			if err != nil {
 				applyErr := UnwrapUntilTransformerBatchApplyError(err)
 				if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
@@ -3997,7 +4167,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			err = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
@@ -4007,7 +4177,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
@@ -4019,7 +4189,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 }
 
 func TestCreateUndeployDBState(t *testing.T) {
-	const appName = "my-app"
+	const appName types.AppName = "my-app"
 	tcs := []struct {
 		Name                   string
 		TargetApp              string
@@ -4097,7 +4267,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
@@ -4109,7 +4279,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 }
 
 func TestAllowedCILinksState(t *testing.T) {
-	const appName = "my-app"
+	const appName types.AppName = "my-app"
 
 	tcs := []struct {
 		Name                string
@@ -4333,7 +4503,7 @@ func TestAllowedCILinksState(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
@@ -4345,7 +4515,7 @@ func TestAllowedCILinksState(t *testing.T) {
 }
 
 func TestUndeployDBState(t *testing.T) {
-	const appName = "my-app"
+	const appName types.AppName = "my-app"
 
 	tcs := []struct {
 		Name                string
@@ -4467,7 +4637,7 @@ func TestUndeployDBState(t *testing.T) {
 				return nil
 			})
 			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did no expect error but got):\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			if err != nil {
 				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
@@ -4484,7 +4654,7 @@ func uversion(v int) *uint64 {
 }
 
 func TestTransaction(t *testing.T) {
-	const appName = "app1"
+	const appName types.AppName = "app1"
 	tcs := []struct {
 		Name               string
 		Transformers       []Transformer
@@ -4641,7 +4811,7 @@ func TestTimestampConsistency(t *testing.T) {
 			Name:            "Release train",
 			ExpectedVersion: 2,
 			TargetEnv:       envProduction,
-			TargetApp:       testAppName,
+			TargetApp:       string(testAppName),
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envProduction,
@@ -5269,7 +5439,7 @@ func TestChangedApps(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				t.Fatalf("Did no expect error but got:\n%+v", err)
+				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 		})
 	}

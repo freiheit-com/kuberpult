@@ -20,10 +20,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"strconv"
 	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
@@ -96,11 +97,11 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			revision, application, environment, err)
 	}
 	return db.WithTransactionT[VersionInfo](&v.db, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
-		deployment, err := v.db.DBSelectSpecificDeploymentHistory(ctx, tx, application, environment, releaseVersion)
+		deployment, err := v.db.DBSelectSpecificDeploymentHistory(ctx, tx, types.AppName(application), environment, releaseVersion)
 		if err != nil || deployment == nil {
 			return nil, onErr(fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, application, err))
 		}
-		release, err := v.db.DBSelectReleaseByVersion(ctx, tx, application, types.ReleaseNumbers{Version: &releaseVersion, Revision: 0}, true)
+		release, err := v.db.DBSelectReleaseByVersion(ctx, tx, types.AppName(application), types.ReleaseNumbers{Version: &releaseVersion, Revision: 0}, true)
 		if err != nil {
 			return nil, onErr(fmt.Errorf("could not get release of app %s: %v", application, err))
 		}

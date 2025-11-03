@@ -188,7 +188,7 @@ export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
 export const refreshTags = (authHeader: AuthHeader): void => {
     const api = useApi;
-    api.gitService()
+    api.manifestExportGitService()
         .GetGitTags({}, authHeader)
         .then((result: GetGitTagsResponse) => {
             updateTag.set({ response: result, tagsReady: TagResponse.READY });
@@ -257,7 +257,7 @@ export const getAppDetails = (appName: string, authHeader: AuthHeader): void => 
 
 export const getCommitInfo = (commitHash: string, pageNumber: number, authHeader: AuthHeader): void => {
     useApi
-        .gitService()
+        .manifestExportGitService()
         .GetCommitInfo({ commitHash: commitHash, pageNumber: pageNumber }, authHeader)
         .then((result: GetCommitInfoResponse) => {
             const requestResult: GetCommitInfoResponse = structuredClone(result);

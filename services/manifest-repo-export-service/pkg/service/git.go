@@ -54,10 +54,6 @@ type GitServer struct {
 	DBHandler                   *db.DBHandler
 }
 
-func (s *GitServer) GetProductSummary(_ context.Context, _ *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
-}
-
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	var tags []*api.TagData
 	err := logger.Wrap(ctx, func(ctx context.Context) error {
@@ -277,8 +273,8 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 	toFill := make(map[string]*api.EnvSyncStatus)
 	for _, currStatus := range statuses {
-		if _, exists := toFill[currStatus.AppName]; !exists {
-			toFill[currStatus.AppName] = &api.EnvSyncStatus{
+		if _, exists := toFill[string(currStatus.AppName)]; !exists {
+			toFill[string(currStatus.AppName)] = &api.EnvSyncStatus{
 				EnvStatus: make(map[string]api.GitSyncStatus),
 			}
 		}
@@ -292,7 +288,7 @@ func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNKNOWN
 		}
 
-		toFill[currStatus.AppName].EnvStatus[string(currStatus.EnvName)] = statusToWrite
+		toFill[string(currStatus.AppName)].EnvStatus[string(currStatus.EnvName)] = statusToWrite
 	}
 	return toFill
 }
@@ -319,7 +315,7 @@ func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 }
 
 func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
-	stream api.GitService_StreamGitSyncStatusServer) error {
+	stream api.ManifestExportGitService_StreamGitSyncStatusServer) error {
 	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
 	defer span.Finish()
 	ch, unsubscribe := s.subscribeGitSyncStatus()

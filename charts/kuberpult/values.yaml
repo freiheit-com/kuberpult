@@ -113,7 +113,7 @@ cd:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
     queueSize: 5
-  # The maximum message size in megabytes the client can receive.
+  # The maximum message size in megabytes the client can receive or send:
   grpcMaxRecvMsgSize: 4
   resources:
     limits:
@@ -149,7 +149,8 @@ db:
   dbName: "databaseName"
   dbUser: "username"
   dbPassword: "password"
-  # SSL mode to be used by the database
+  # SSL mode to be used by the database.
+  # For all possible values see https://jdbc.postgresql.org/documentation/ssl/
   sslMode: verify-full
   requests:
     cpu: "100m"

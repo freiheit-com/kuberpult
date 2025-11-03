@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -36,11 +37,13 @@ const (
 	LockIsolateTransformers AdvisoryLockId = 666
 )
 
-func (h *DBHandler) WithAdvisoryLock(ctx context.Context, isShared bool, lockId AdvisoryLockId, f DBFunctionNoTx) error {
+func (h *DBHandler) WithAdvisoryLock(ctx context.Context, isShared bool, lockId AdvisoryLockId, f DBFunctionNoTx) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "WithAdvisoryLock")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
-	err := h.DBAcquireAdvisoryLock(ctx, isShared, lockId)
+	err = h.DBAcquireAdvisoryLock(ctx, isShared, lockId)
 	if err != nil {
 		return err
 	}
@@ -63,15 +66,17 @@ func (h *DBHandler) WithAdvisoryLock(ctx context.Context, isShared bool, lockId 
 }
 
 // DBAcquireAdvisoryLock waits until the advisory lock is available
-func (h *DBHandler) DBAcquireAdvisoryLock(ctx context.Context, isShared bool, lockID AdvisoryLockId) error {
+func (h *DBHandler) DBAcquireAdvisoryLock(ctx context.Context, isShared bool, lockID AdvisoryLockId) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBAcquireAdvisoryLock")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	span.SetTag("lockId", lockID)
 	if h == nil {
 		return fmt.Errorf("DBAcquireAdvisoryLock: no db handler provided")
 	}
 
-	err := h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+	err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		var selectQuery string
 		if isShared {
 			selectQuery = h.AdaptQuery("SELECT pg_advisory_xact_lock_shared(?)")
