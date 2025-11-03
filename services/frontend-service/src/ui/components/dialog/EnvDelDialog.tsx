@@ -93,7 +93,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
         <PlainDialog
             open={props.open}
             onClose={props.onClose}
-            classNames="env-del-dialog-open"
+            classNames="env-del-dialog"
             disableBackground={true}
             center={true}
             testIdRootRefParent={props.testIdRootRefParent}>
