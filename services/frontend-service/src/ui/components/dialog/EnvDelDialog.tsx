@@ -141,7 +141,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                         <Button
                             className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
                             testId="test-confirm-button-confirm"
-                            label="Finish"
+                            label="Close"
                             onClick={props.onClose}
                             highlightEffect={false}
                         />
