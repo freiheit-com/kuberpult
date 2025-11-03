@@ -59,6 +59,21 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
         },
         [selectedEnvs, setSelectedEnvs]
     );
+    const removeAllEnvs = React.useCallback(() => {
+        selectedEnvs.forEach((env) => {
+            const action: BatchAction = {
+                action: {
+                    $case: 'deleteEnvFromApp',
+                    deleteEnvFromApp: {
+                        environment: env,
+                        application: 'echo',
+                    },
+                },
+            };
+            deleteAction(action);
+        });
+        setSelectedEnvs([]);
+    }, [selectedEnvs, setSelectedEnvs]);
     return (
         <PlainDialog
             open={props.open}
@@ -101,7 +116,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                             className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
                             testId="test-confirm-button-remove-none"
                             label="Remove app from no additional environments"
-                            onClick={props.onClose}
+                            onClick={removeAllEnvs}
                             highlightEffect={false}
                         />
                     </div>
