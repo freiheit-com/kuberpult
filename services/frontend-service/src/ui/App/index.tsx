@@ -97,7 +97,7 @@ export const App: React.FC = () => {
     React.useEffect(() => {
         if (authReady) {
             const subscription = api
-                .gitService()
+                .manifestExportGitService()
                 .StreamGitSyncStatus({}, authHeader)
                 .pipe(retryWhen(retryStrategy(1)))
                 .subscribe(

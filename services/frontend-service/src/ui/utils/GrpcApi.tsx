@@ -25,7 +25,9 @@ export interface Api {
     // rollout service
     rolloutService(): api.RolloutService;
     // tags service
-    gitService(): api.GitService;
+    manifestExportGitService(): api.ManifestExportGitService;
+    // product summary service
+    productSummaryService(): api.ProductSummaryService;
     // environment service
     environmentService(): api.EnvironmentService;
     // version service
@@ -37,7 +39,8 @@ class GrpcApi implements Api {
     _batchService: api.BatchService;
     _configService: api.FrontendConfigService;
     _rolloutService: api.RolloutService;
-    _gitService: api.GitService;
+    _manifestExportGitService: api.ManifestExportGitService;
+    _productSummaryService: api.ProductSummaryService;
     _environmentService: api.EnvironmentService;
     _releaseTrainPrognosisService: api.ReleaseTrainPrognosisService;
     _eslService: api.EslService;
@@ -49,7 +52,8 @@ class GrpcApi implements Api {
         this._batchService = new api.BatchServiceClientImpl(gcli);
         this._configService = new api.FrontendConfigServiceClientImpl(gcli);
         this._rolloutService = new api.RolloutServiceClientImpl(gcli);
-        this._gitService = new api.GitServiceClientImpl(gcli);
+        this._manifestExportGitService = new api.ManifestExportGitServiceClientImpl(gcli);
+        this._productSummaryService = new api.ProductSummaryServiceClientImpl(gcli);
         this._environmentService = new api.EnvironmentServiceClientImpl(gcli);
         this._releaseTrainPrognosisService = new api.ReleaseTrainPrognosisServiceClientImpl(gcli);
         this._eslService = new api.EslServiceClientImpl(gcli);
@@ -67,8 +71,11 @@ class GrpcApi implements Api {
     rolloutService(): api.RolloutService {
         return this._rolloutService;
     }
-    gitService(): api.GitService {
-        return this._gitService;
+    manifestExportGitService(): api.ManifestExportGitService {
+        return this._manifestExportGitService;
+    }
+    productSummaryService(): api.ProductSummaryService {
+        return this._productSummaryService;
     }
     environmentService(): api.EnvironmentService {
         return this._environmentService;

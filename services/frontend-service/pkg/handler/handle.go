@@ -20,11 +20,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -40,7 +41,7 @@ type Server struct {
 	VersionClient               api.VersionServiceClient
 	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
 	CommitDeploymentsClient     api.CommitDeploymentServiceClient
-	ManifestRepoGitClient       api.GitServiceClient
+	ManifestRepoGitClient       api.ManifestExportGitServiceClient
 	//
 	Config    config.ServerConfig
 	KeyRing   openpgp.KeyRing
