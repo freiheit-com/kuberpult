@@ -1267,7 +1267,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app t
 				Version:  &repoRelease.Version,
 				Revision: repoRelease.Revision,
 			},
-			App: types.AppName(app),
+			App: app,
 			Manifests: db.DBReleaseManifests{
 				Manifests: manifestsMap,
 			},
