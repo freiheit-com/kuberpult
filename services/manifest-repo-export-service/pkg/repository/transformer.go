@@ -2013,7 +2013,7 @@ func (u *UndeployApplication) Transform(
 					logger.FromContext(ctx).Sugar().Warnf("Maximize git data is enabled but could not find undeploy file %q for application %q on environment %q.", undeployFile, u.Application, env)
 				}
 			} else {
-				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %v", err)
+				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %w", err)
 			}
 		}
 
