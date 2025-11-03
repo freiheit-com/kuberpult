@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"fmt"
@@ -90,7 +91,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 
 		// Releases
 		result.Name = appName
-		retrievedReleasesOfApp, err := o.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+		retrievedReleasesOfApp, err := o.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, types.AppName(appName))
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
 		}
@@ -103,7 +104,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			uintRels[idx] = *r.Version
 		}
 		//Does not get the manifest and gets all releases at the same time
-		releases, err := o.DBHandler.DBSelectReleasesByVersionsAndRevision(ctx, transaction, appName, uintRels, false)
+		releases, err := o.DBHandler.DBSelectReleasesByVersionsAndRevision(ctx, transaction, types.AppName(appName), uintRels, false)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +127,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			result.Releases = append(result.Releases, tmp.ToProto())
 		}
 
-		appTeamName, err := o.Repository.State().GetApplicationTeamOwner(ctx, transaction, appName)
+		appTeamName, err := o.Repository.State().GetApplicationTeamOwner(ctx, transaction, types.AppName(appName))
 		if err != nil {
 			return nil, fmt.Errorf("app team not found: %s", appName)
 		}
@@ -157,7 +158,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
 
 		// App Locks
-		appLocks, err := o.DBHandler.DBSelectAllActiveAppLocksForApp(ctx, transaction, appName)
+		appLocks, err := o.DBHandler.DBSelectAllActiveAppLocksForApp(ctx, transaction, types.AppName(appName))
 		if err != nil {
 			return nil, fmt.Errorf("could not find application locks for app %s: %w", appName, err)
 		}
@@ -203,12 +204,12 @@ func (o *OverviewServiceServer) GetAppDetails(
 		}
 
 		// Deployments
-		deployments, err := o.DBHandler.DBSelectAllLatestDeploymentsForApplication(ctx, transaction, appName)
+		deployments, err := o.DBHandler.DBSelectAllLatestDeploymentsForApplication(ctx, transaction, types.AppName(appName))
 		if err != nil {
 			return nil, fmt.Errorf("could not obtain deployments for app %s: %w", appName, err)
 		}
 
-		queuedDeployments, err := o.DBHandler.DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx, transaction, appName)
+		queuedDeployments, err := o.DBHandler.DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx, transaction, types.AppName(appName))
 		if err != nil {
 			return nil, err
 		}
@@ -253,7 +254,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			}
 			response.Deployments[string(envName)] = deployment
 		}
-		result.UndeploySummary = deriveUndeploySummary(appName, response.Deployments)
+		result.UndeploySummary = deriveUndeploySummary(types.AppName(appName), response.Deployments)
 		result.Warnings = CalculateWarnings(deployments, appLocks, envGroups)
 		return result, nil
 	})
@@ -311,11 +312,11 @@ func (o *OverviewServiceServer) GetAllAppLocks(ctx context.Context,
 				response.AllAppLocks[e] = &api.AllAppLocks{AppLocks: make(map[string]*api.Locks)}
 
 			}
-			if _, ok := response.AllAppLocks[e].AppLocks[currentLock.App]; !ok {
-				response.AllAppLocks[e].AppLocks[currentLock.App] = &api.Locks{Locks: make([]*api.Lock, 0)}
+			if _, ok := response.AllAppLocks[e].AppLocks[string(currentLock.App)]; !ok {
+				response.AllAppLocks[e].AppLocks[string(currentLock.App)] = &api.Locks{Locks: make([]*api.Lock, 0)}
 			}
 
-			response.AllAppLocks[e].AppLocks[currentLock.App].Locks = append(response.AllAppLocks[e].AppLocks[currentLock.App].Locks, &api.Lock{
+			response.AllAppLocks[e].AppLocks[string(currentLock.App)].Locks = append(response.AllAppLocks[e].AppLocks[string(currentLock.App)].Locks, &api.Lock{
 				LockId:    currentLock.LockID,
 				Message:   currentLock.Metadata.Message,
 				CreatedAt: timestamppb.New(currentLock.Metadata.CreatedAt),
@@ -549,7 +550,7 @@ func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
 				ChangedApps: make([]*api.GetAppDetailsResponse, len(changedAppsNames)),
 			}
 			for idx, appName := range changedAppsNames {
-				response, err := o.GetAppDetails(stream.Context(), &api.GetAppDetailsRequest{AppName: appName})
+				response, err := o.GetAppDetails(stream.Context(), &api.GetAppDetailsRequest{AppName: string(appName)})
 				if err != nil {
 					return err
 				}
@@ -614,8 +615,8 @@ func (o *OverviewServiceServer) subscribeChangedApps() (<-chan notify.ChangedApp
 	return o.notify.SubscribeChangesApps()
 }
 
-func (o *OverviewServiceServer) getAllAppNames(ctx context.Context) ([]string, error) {
-	return db.WithTransactionMultipleEntriesT(o.DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+func (o *OverviewServiceServer) getAllAppNames(ctx context.Context) ([]types.AppName, error) {
+	return db.WithTransactionMultipleEntriesT(o.DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]types.AppName, error) {
 		return o.Repository.State().GetApplications(ctx, transaction)
 	})
 }
@@ -634,7 +635,7 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	o.notify.Notify()
 }
 
-func deriveUndeploySummary(appName string, deployments map[string]*api.Deployment) api.UndeploySummary {
+func deriveUndeploySummary(appName types.AppName, deployments map[string]*api.Deployment) api.UndeploySummary {
 	var allNormal = true
 	var allUndeploy = true
 	for _, currentDeployment := range deployments {
@@ -754,14 +755,14 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 			return err
 		}
 
-		previousReleaseVersions := make(map[string]uint64)
+		previousReleaseVersions := make(map[types.AppName]uint64)
 		defer func() { _ = deploymentRows.Close() }()
 		//Get all relevant deployments and store its information
 		for i := uint64(2); deploymentRows.Next(); i++ {
 			var created time.Time
 			var releaseVersion uint64
 			var revision uint64
-			var appName string
+			var appName types.AppName
 			var envName string
 
 			err := deploymentRows.Scan(&created, &releaseVersion, &appName, &envName, &revision)

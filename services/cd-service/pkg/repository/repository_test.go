@@ -21,12 +21,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 
@@ -684,7 +685,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 			return err
 		}
 
-		err = dbHandler.DBWriteEnvironment(ctx, transaction, "development", config.EnvironmentConfig{}, []string{"foo"})
+		err = dbHandler.DBWriteEnvironment(ctx, transaction, "development", config.EnvironmentConfig{}, []types.AppName{"foo"})
 		if err != nil {
 			return err
 		}

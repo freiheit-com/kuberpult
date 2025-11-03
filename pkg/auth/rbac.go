@@ -20,9 +20,10 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
@@ -114,7 +115,7 @@ func (c *policyConfig) validateEnvs(envs, action string) error {
 	return nil
 }
 
-func (c *policyConfig) validateApplication(app string) error {
+func (c *policyConfig) validateApplication(app types.AppName) error {
 	if app == "*" {
 		return nil
 	}
@@ -182,7 +183,7 @@ func ValidateRbacPermission(line string) (p Permission, err error) {
 	}
 	// Validate the application names
 	application := c[4]
-	err = cfg.validateApplication(application)
+	err = cfg.validateApplication(types.AppName(application))
 	if err != nil {
 		return p, err
 	}
@@ -380,7 +381,7 @@ func (e TeamPermissionError) GRPCStatus() *status.Status {
 }
 
 // Checks user permissions on the RBAC policy.
-func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, team, envGroup, application, action string) error {
+func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, team string, envGroup string, application types.AppName, action string) error {
 	// If the action is environment independent, the env format is <ENVIRONMENT_GROUP>:*
 	if isEnvironmentIndependent(action) {
 		env = "*"
@@ -388,7 +389,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
 	for _, pEnvGroup := range []string{envGroup, "*"} {
 		for _, pEnv := range []types.EnvName{env, "*"} {
-			for _, pApplication := range []string{application, "*"} {
+			for _, pApplication := range []types.AppName{application, "*"} {
 				// Check if the permission exists on the policy.
 				if rbacConfig.Policy == nil {
 					return errors.New("the desired action can not be performed because Dex is enabled without any RBAC policies")

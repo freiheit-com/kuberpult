@@ -81,7 +81,7 @@ func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.Ge
 						CommitId:       "",
 						DisplayVersion: "",
 						Team:           "",
-						App:            currentApp,
+						App:            string(currentApp),
 						Version:        strconv.FormatInt(int64(*version.Version), 10),
 						Revision:       strconv.FormatInt(int64(version.Revision), 10),
 						Environment:    *in.Environment,
@@ -133,7 +133,7 @@ func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.Ge
 									CommitId:       "",
 									DisplayVersion: "",
 									Team:           "",
-									App:            currentApp,
+									App:            string(currentApp),
 									Version:        strconv.FormatInt(int64(*version.Version), 10),
 									Revision:       strconv.FormatInt(int64(version.Revision), 10),
 									Environment:    string(envName),
@@ -166,11 +166,11 @@ func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.Ge
 			if err != nil {
 				return nil, fmt.Errorf("could not parse version to integer %s: %v", row.Revision, err)
 			}
-			release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, row.App, types.MakeReleaseNumbers(v, r), false, *ts)
+			release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, types.AppName(row.App), types.MakeReleaseNumbers(v, r), false, *ts)
 			if err != nil {
 				return nil, fmt.Errorf("error getting release for version")
 			}
-			team, err := state.GetApplicationTeamOwnerAtTimestamp(ctx, transaction, row.App, *ts)
+			team, err := state.GetApplicationTeamOwnerAtTimestamp(ctx, transaction, types.AppName(row.App), *ts)
 			if err != nil {
 				return nil, fmt.Errorf("could not find app %s: %v", row.App, err)
 			}

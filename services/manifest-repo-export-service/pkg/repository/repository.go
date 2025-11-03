@@ -1084,16 +1084,16 @@ type State struct {
 	DBHandler *db.DBHandler
 }
 
-func (s *State) GetAppsAndTeams() (map[string]string, error) {
+func (s *State) GetAppsAndTeams() (map[types.AppName]string, error) {
 	result, err := s.GetApplicationsFromFile()
 	if err != nil {
 		return nil, fmt.Errorf("could not get apps from file: %v", err)
 	}
-	var teamByAppName = map[string]string{} // key: app, value: team
+	var teamByAppName = map[types.AppName]string{} // key: app, value: team
 	for i := range result {
-		app := result[i]
+		app := types.AppName(result[i])
 
-		team, err := s.GetTeamNameFromManifest(app)
+		team, err := s.GetTeamNameFromManifest(string(app))
 		if err != nil {
 			// some apps do not have teams, that's not an error
 			teamByAppName[app] = ""
@@ -1193,7 +1193,7 @@ func (s *State) WriteCurrentlyDeployed(ctx context.Context, transaction *sql.Tx,
 
 			deployment := db.Deployment{
 				Created:        time.Time{},
-				App:            appName,
+				App:            types.AppName(appName),
 				Env:            envName,
 				ReleaseNumbers: version,
 				TransformerID:  0,
@@ -1228,18 +1228,18 @@ func (s *State) Releases(application string) ([]uint64, error) {
 	}
 }
 
-func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app string, dbHandler *db.DBHandler) error {
-	releases, err := s.GetAllApplicationReleasesFromManifest(app)
+func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app types.AppName, dbHandler *db.DBHandler) error {
+	releases, err := s.GetAllApplicationReleasesFromManifest(string(app))
 	if err != nil {
 		return fmt.Errorf("cannot get releases of app %s: %v", app, err)
 	}
 	for i := range releases {
 		releaseVersion := releases[i]
-		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
+		repoRelease, err := s.GetApplicationReleaseFromManifest(string(app), releaseVersion)
 		if err != nil {
 			return fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 		}
-		manifests, err := s.GetApplicationReleaseManifestsFromManifest(app, releaseVersion)
+		manifests, err := s.GetApplicationReleaseManifestsFromManifest(string(app), releaseVersion)
 		if err != nil {
 			return fmt.Errorf("cannot get manifest for app %s and release %v: %v", app, releaseVersion, err)
 		}
@@ -1267,7 +1267,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 				Version:  &repoRelease.Version,
 				Revision: repoRelease.Revision,
 			},
-			App: types.AppName(app),
+			App: app,
 			Manifests: db.DBReleaseManifests{
 				Manifests: manifestsMap,
 			},
@@ -1291,14 +1291,14 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app s
 	return nil
 }
 
-func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, app string, dbHandler *db.DBHandler) error {
-	releases, err := s.GetAllApplicationReleasesFromManifest(app)
+func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, app types.AppName, dbHandler *db.DBHandler) error {
+	releases, err := s.GetAllApplicationReleasesFromManifest(string(app))
 	if err != nil {
 		return fmt.Errorf("cannot get releases of app %s: %v", app, err)
 	}
 	for i := range releases {
 		releaseVersion := releases[i]
-		repoRelease, err := s.GetApplicationReleaseFromManifest(app, releaseVersion)
+		repoRelease, err := s.GetApplicationReleaseFromManifest(string(app), releaseVersion)
 		if err != nil {
 			return fmt.Errorf("cannot get app release of app %s and release %v: %v", app, releaseVersion, err)
 		}
@@ -1313,12 +1313,12 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 		}
 		for env := range envs {
 			logger.FromContext(ctx).Info(fmt.Sprintf("updating timestamp for %s, %s, %s", app, env, releaseVersion))
-			_, createdAt, err := s.GetDeploymentMetaData(types.EnvName(env), app)
+			_, createdAt, err := s.GetDeploymentMetaData(env, string(app))
 			if err != nil {
 				return fmt.Errorf("error getting deployment metadata: %v", err)
 			}
 			if !createdAt.IsZero() {
-				err = dbHandler.DBMigrationUpdateDeploymentsTimestamp(ctx, transaction, app, repoRelease.Version, types.EnvName(env), createdAt, repoRelease.Revision)
+				err = dbHandler.DBMigrationUpdateDeploymentsTimestamp(ctx, transaction, app, repoRelease.Version, env, createdAt, repoRelease.Revision)
 				if err != nil {
 					return fmt.Errorf("error writing Deployment to DB for app %s and env %s: %v", app, env, err)
 				}
@@ -1656,7 +1656,7 @@ func (s *State) WriteCurrentApplicationLocks(ctx context.Context, transaction *s
 						CreatedAt:         lock.CreatedAt,
 						SuggestedLifeTime: "",
 					},
-					App: currentApp,
+					App: types.AppName(currentApp),
 				}
 				err = dbHandler.DBWriteApplicationLock(ctx, transaction, currentAppLock.LockID, currentAppLock.Env, currentAppLock.App, currentAppLock.Metadata)
 				if err != nil {
@@ -1831,7 +1831,7 @@ func (s *State) WriteAllQueuedAppVersions(ctx context.Context, transaction *sql.
 				return err
 			}
 
-			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, currentApp, version)
+			err = dbHandler.DBWriteDeploymentAttempt(ctx, transaction, envName, types.AppName(currentApp), version)
 			if err != nil {
 				return fmt.Errorf("error writing existing queued application version '%v' to DB for app '%s' on environment '%s': %w",
 					version, currentApp, envName, err)
@@ -1921,11 +1921,11 @@ func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transa
 	if transaction == nil {
 		return nil, fmt.Errorf("GetEnvironmentApplicationLocksFromDB: No transaction provided")
 	}
-	lockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, application)
+	lockIds, err := s.DBHandler.DBSelectAllAppLocks(ctx, transaction, environment, types.AppName(application))
 	if err != nil {
 		return nil, err
 	}
-	locks, err := s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, application, lockIds)
+	locks, err := s.DBHandler.DBSelectAppLockSet(ctx, transaction, environment, types.AppName(application), lockIds)
 
 	if err != nil {
 		return nil, err
@@ -2077,7 +2077,7 @@ func (s *State) DeleteQueuedVersionIfExists(environment types.EnvName, applicati
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (types.ReleaseNumbers, error) {
-	depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
+	depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, types.AppName(application), environment)
 	if err != nil {
 		return types.MakeEmptyReleaseNumbers(), err
 	}
@@ -2089,7 +2089,7 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 }
 
 func (s *State) GetEnvironmentApplicationVersionAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string, ts time.Time) (types.ReleaseNumbers, error) {
-	depl, err := s.DBHandler.DBSelectLatestDeploymentAtTimestamp(ctx, transaction, application, environment, ts)
+	depl, err := s.DBHandler.DBSelectLatestDeploymentAtTimestamp(ctx, transaction, types.AppName(application), environment, ts)
 	if err != nil {
 		return types.MakeEmptyReleaseNumbers(), err
 	}
@@ -2190,7 +2190,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		if env.Upstream == nil || env.Upstream.Environment == "" {
 			continue
 		}
-		upstreamEnv := types.EnvName(env.Upstream.Environment)
+		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
 			logger.Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
 		}
@@ -2227,13 +2227,13 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 	return groupEnvNames, nil
 }
 
-func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]string, error) {
+func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]types.AppName, error) {
 	envApps, err := s.DBHandler.DBSelectEnvironmentApplications(ctx, transaction, environment)
 	if err != nil {
-		return make([]string, 0), err
+		return make([]types.AppName, 0), err
 	}
 	if envApps == nil {
-		return make([]string, 0), nil
+		return make([]types.AppName, 0), nil
 	}
 	return envApps, nil
 }
@@ -2431,7 +2431,7 @@ func (s *State) GetApplicationReleaseManifests(application string, version types
 }
 
 func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
-	app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
+	app, err := s.DBHandler.DBSelectApp(ctx, transaction, types.AppName(application))
 	if err != nil {
 		return "", fmt.Errorf("could not get team of app '%s': %v", application, err)
 	}

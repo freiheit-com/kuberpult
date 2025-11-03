@@ -20,8 +20,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
@@ -80,7 +81,7 @@ func TestGetManifests(t *testing.T) {
 			},
 		}
 	}
-	fixtureRelease := func(application string, release uint64) *repository.CreateApplicationVersion {
+	fixtureRelease := func(application types.AppName, release uint64) *repository.CreateApplicationVersion {
 		return &repository.CreateApplicationVersion{
 			Application: application,
 			Version:     release,

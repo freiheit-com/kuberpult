@@ -425,7 +425,7 @@ func TestEnvironmentLock(t *testing.T) {
 			}
 
 			deployment = callDBForDeployments(t, dbHandler, ctx, appName)
-			if deployment.App != appName || deployment.Env != "development" {
+			if deployment.App != types.AppName(appName) || deployment.Env != "development" {
 				t.Fatalf("expected one deployment")
 			}
 		})
@@ -467,7 +467,7 @@ func callDBForLock(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, e
 
 func callDBForReleases(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, appName string) []*db.DBReleaseWithMetaData {
 	release, err := db.WithTransactionMultipleEntriesT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*db.DBReleaseWithMetaData, error) {
-		return dbHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, appName, true)
+		return dbHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, types.AppName(appName), true)
 	})
 	if err != nil {
 		t.Fatalf("DBSelectReleasesByApp failed %s", err)
@@ -477,7 +477,7 @@ func callDBForReleases(t *testing.T, dbHandler *db.DBHandler, ctx context.Contex
 
 func callDBForDeployments(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, appName string) *db.Deployment {
 	deployment, err := db.WithTransactionT(dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.Deployment, error) {
-		return dbHandler.DBSelectLatestDeployment(ctx, transaction, appName, "development")
+		return dbHandler.DBSelectLatestDeployment(ctx, transaction, types.AppName(appName), "development")
 	})
 	if err != nil {
 		t.Fatalf("DBSelectLatestDeployment failed %s", err)

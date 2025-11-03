@@ -917,13 +917,13 @@ type AllCommitEvents map[string][]event.DBEventGo               // CommitId -> u
 
 type WriteAllEnvLocksFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 type WriteAllTeamLocksFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
-type WriteAllReleasesFun = func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error
+type WriteAllReleasesFun = func(ctx context.Context, transaction *sql.Tx, app types.AppName, dbHandler *DBHandler) error
 type WriteAllQueuedVersionsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
 type WriteAllEventsFun = func(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler) error
-type FixReleasesTimestampFun = func(ctx context.Context, transaction *sql.Tx, app string, dbHandler *DBHandler) error
+type FixReleasesTimestampFun = func(ctx context.Context, transaction *sql.Tx, app types.AppName, dbHandler *DBHandler) error
 
 // GetAllAppsFun returns a map where the Key is an app name, and the value is a team name of that app
-type GetAllAppsFun = func() (map[string]string, error)
+type GetAllAppsFun = func() (map[types.AppName]string, error)
 
 // return value is a map from environment name to environment config
 type GetAllEnvironmentsFun = func(ctx context.Context) (map[types.EnvName]config.EnvironmentConfig, error)
@@ -1046,7 +1046,7 @@ func (h *DBHandler) RunCustomMigrationReleasesTimestamp(ctx context.Context, get
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	var allAppsMap map[string]string
+	var allAppsMap map[types.AppName]string
 
 	err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 		allAppsMap, err = getAllAppsFun()
@@ -1377,7 +1377,7 @@ func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx
 }
 
 // runCustomMigrationApps : Runs custom migrations for provided apps.
-func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql.Tx, appsMap *map[string]string) (err error) {
+func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql.Tx, appsMap *map[types.AppName]string) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "runCustomMigrationApps")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -1417,7 +1417,7 @@ func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEn
 		}
 		for envName, config := range allEnvironments {
 			if allEnvsApps[envName] == nil {
-				allEnvsApps[envName] = make([]string, 0)
+				allEnvsApps[envName] = make([]types.AppName, 0)
 			}
 			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allEnvsApps[envName])
 			if err != nil {
@@ -1453,7 +1453,7 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 		if err != nil {
 			return fmt.Errorf("could not get environments, error: %w", err)
 		}
-		var allEnvsApps map[types.EnvName][]string
+		var allEnvsApps map[types.EnvName][]types.AppName
 		for _, envName := range allEnvironments {
 			env, err := h.DBSelectEnvironment(ctx, transaction, envName)
 			if err != nil {
@@ -1469,7 +1469,7 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 					}
 				}
 				if allEnvsApps[envName] == nil {
-					allEnvsApps[envName] = make([]string, 0)
+					allEnvsApps[envName] = make([]types.AppName, 0)
 				}
 				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allEnvsApps[envName])
 				if err != nil {
@@ -1481,8 +1481,8 @@ func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Contex
 	})
 }
 
-func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[types.EnvName][]string, error) {
-	envsApps := make(map[types.EnvName][]string)
+func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[types.EnvName][]types.AppName, error) {
+	envsApps := make(map[types.EnvName][]types.AppName)
 	releases, err := h.DBSelectAllEnvironmentsForAllReleases(ctx, tx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get all environments for all releases, error: %w", err)
@@ -1491,7 +1491,7 @@ func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (m
 		envSet := make(map[types.EnvName]struct{})
 		for _, envs := range versionEnvs {
 			for _, env := range envs {
-				envSet[types.EnvName(env)] = struct{}{}
+				envSet[env] = struct{}{}
 			}
 		}
 		for env := range envSet {

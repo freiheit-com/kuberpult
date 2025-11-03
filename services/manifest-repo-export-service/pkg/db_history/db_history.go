@@ -22,8 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
 
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
@@ -112,7 +113,7 @@ func processAllLatestDeploymentsForEnv(_ context.Context, rows *sql.Rows) (Deplo
 			conv := uint64(releaseVersion.Int64)
 			curr.ReleaseNumbers.Version = &conv
 		}
-		result[types.AppName(curr.App)] = curr
+		result[curr.App] = curr
 	}
 	return result, nil
 }

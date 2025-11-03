@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -814,7 +815,7 @@ func TestArgoEvents(t *testing.T) {
 			}, &versions.VersionInfo{Version: uint64(tc.ExpectedDBEvent.deployedVersion)}, false)
 			dbCtx := testutil.MakeTestContext()
 			result, err := db.WithTransactionT(dbHandler, dbCtx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.ArgoEvent, error) {
-				r, err := dbHandler.DBReadArgoEvent(dbCtx, transaction, tc.ExpectedDBEvent.AppName, tc.ExpectedDBEvent.EnvName)
+				r, err := dbHandler.DBReadArgoEvent(dbCtx, transaction, types.AppName(tc.ExpectedDBEvent.AppName), tc.ExpectedDBEvent.EnvName)
 				return r, err
 			})
 			if err != nil {
@@ -866,7 +867,7 @@ func SetupDB(t *testing.T) *db.DBHandler {
 			return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
 		}
 
-		err1 = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []string{})
+		err1 = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []types.AppName{})
 		if err1 != nil {
 			return err1
 		}

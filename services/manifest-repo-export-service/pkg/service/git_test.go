@@ -51,10 +51,10 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 	if err != nil {
 		return err
 	}
-	fixtureAppications := []string{"app", "app-1", "app-2", "app-3"}
+	fixtureAppications := []types.AppName{"app", "app-1", "app-2", "app-3"}
 	eslVersion := 0
 	for _, app := range fixtureAppications {
-		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
+		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(app), db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
 		if err != nil {
 			return err
 		}
@@ -1038,7 +1038,7 @@ func TestGetSyncData(t *testing.T) {
 	const envName = "test-env-name"
 	const anotherEnvName = "yet-another-env-name"
 	type TestSyncData struct {
-		AppName string
+		AppName types.AppName
 		EnvName types.EnvName
 		status  db.SyncStatus
 	}
