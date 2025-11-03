@@ -1137,7 +1137,6 @@ func (u *UndeployApplication) Transform(
 		}
 		if deployment != nil && deployment.ReleaseNumbers.Version != nil && !isUndeploy {
 
-			return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
 
 		}
 		locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
