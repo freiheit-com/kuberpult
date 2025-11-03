@@ -21,10 +21,10 @@ import {
     getAppDetails,
     ReleaseNumbers,
     showSnackbarError,
-    //showSnackbarWarn,
     updateAppDetails,
     useAppDetailsForApp,
     useCurrentlyExistsAtGroup,
+    useEnvironments,
     useMinorsForApp,
     useNavigateWithSearchParams,
 } from '../../utils/store';
@@ -503,7 +503,7 @@ export const ReadyServiceLane: React.FC<{
             open={showEnvSelectionDialog}
             onClose={finishEnvAppDelete}
             app={app}
-            envs={new Array<string>('foo', 'bar')}
+            envs={useEnvironments().map((e) => e.name)}
         />
     );
 

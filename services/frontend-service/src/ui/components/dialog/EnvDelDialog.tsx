@@ -97,7 +97,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
             center={true}
             testIdRootRefParent={props.testIdRootRefParent}>
             <>
-                <div className={'env-del-dialog-header'}>Select the environments to remove for '{props.app}'':</div>
+                <div className={'env-del-dialog-header'}>Select the environments to remove for '{props.app}':</div>
                 <hr />
                 <div className={'env-del-dialog-content'}>
                     {props.envs.map((env: string) => {
