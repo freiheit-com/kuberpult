@@ -453,13 +453,13 @@ func TestGetManifests(t *testing.T) {
 						return err
 					}
 				}
-				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(appName), db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {
 					return err
 				}
-				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appNameOther, db.AppStateChangeCreate, db.DBAppMetaData{
+				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(appNameOther), db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
 				})
 				if err != nil {

@@ -32,7 +32,7 @@ import (
 type DBDeployment struct {
 	Created        time.Time
 	ReleaseVersion *uint64
-	App            string
+	App            types.AppName
 	Env            string
 	TransformerID  TransformerID
 	Revision       uint64
@@ -47,7 +47,7 @@ type DeploymentMetadata struct {
 
 type Deployment struct {
 	Created        time.Time
-	App            string
+	App            types.AppName
 	Env            types.EnvName
 	ReleaseNumbers types.ReleaseNumbers
 	Metadata       DeploymentMetadata
@@ -57,13 +57,13 @@ type Deployment struct {
 type QueuedDeployment struct {
 	Created        time.Time
 	Env            types.EnvName
-	App            string
+	App            types.AppName
 	ReleaseNumbers types.ReleaseNumbers
 }
 
 // SELECT
 
-func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector types.EnvName) (*Deployment, error) {
+func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector types.EnvName) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments
@@ -83,7 +83,7 @@ func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, ap
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectLatestDeploymentAtTimestamp(ctx context.Context, tx *sql.Tx, appSelector string, envSelector types.EnvName, ts time.Time) (*Deployment, error) {
+func (h *DBHandler) DBSelectLatestDeploymentAtTimestamp(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector types.EnvName, ts time.Time) (*Deployment, error) {
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
@@ -106,7 +106,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAtTimestamp(ctx context.Context, tx 
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Context, tx *sql.Tx, appName string) (_ map[types.EnvName]Deployment, err error) {
+func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Context, tx *sql.Tx, appName types.AppName) (_ map[types.EnvName]Deployment, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsForApplication")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -131,7 +131,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 	return processAllLatestDeploymentsForApp(rows)
 }
 
-func (h *DBHandler) DBSelectOldestDeploymentForApplication(ctx context.Context, tx *sql.Tx, appName string) (*Deployment, error) {
+func (h *DBHandler) DBSelectOldestDeploymentForApplication(ctx context.Context, tx *sql.Tx, appName types.AppName) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments
@@ -151,7 +151,7 @@ func (h *DBHandler) DBSelectOldestDeploymentForApplication(ctx context.Context, 
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName types.EnvName) (_ map[string]types.ReleaseNumbers, err error) {
+func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName types.EnvName) (_ map[types.AppName]types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsOnEnvironment")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -178,7 +178,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Contex
 	return processAllLatestDeployments(rows)
 }
 
-func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
+func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector string, releaseVersion uint64) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments
@@ -200,7 +200,7 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, releaseVersion uint64) (*Deployment, error) {
+func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector string, releaseVersion uint64) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments_history
@@ -223,7 +223,7 @@ func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *s
 	return processDeployment(rows)
 }
 
-func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector string, envSelector string, limit int) (_ []Deployment, err error) {
+func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector string, limit int) (_ []Deployment, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentHistory")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -335,7 +335,7 @@ func (h *DBHandler) DBHasAnyDeployment(ctx context.Context, tx *sql.Tx) (bool, e
 	return rows.Next(), nil
 }
 
-func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName string) (_ map[types.EnvName]types.ReleaseNumbers, err error) {
+func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (_ map[types.EnvName]types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForApp")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -363,7 +363,7 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	return h.processAllDeploymentRow(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName string, ts time.Time) (_ map[types.EnvName]types.ReleaseNumbers, err error) {
+func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName types.AppName, ts time.Time) (_ map[types.EnvName]types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllDeploymentsForAppAtTimestamp")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -402,7 +402,7 @@ func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context,
 	return h.processAllDeploymentRow(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName string, limit int) (_ []QueuedDeployment, err error) {
+func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName types.AppName, limit int) (_ []QueuedDeployment, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectDeploymentAttemptHistory")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -461,7 +461,7 @@ ORDER BY appName;
 	return h.processDeploymentAttemptsRows(ctx, rows, err)
 }
 
-func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context.Context, tx *sql.Tx, appName string) (_ []*QueuedDeployment, err error) {
+func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context.Context, tx *sql.Tx, appName types.AppName) (_ []*QueuedDeployment, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectLatestDeploymentAttemptOnAllEnvironments")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -500,7 +500,7 @@ func (h *DBHandler) DBUpdateOrCreateDeployment(ctx context.Context, tx *sql.Tx, 
 	return nil
 }
 
-func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName string, version types.ReleaseNumbers) (err error) {
+func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName types.AppName, version types.ReleaseNumbers) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -514,7 +514,7 @@ func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, en
 	})
 }
 
-func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName string) (err error) {
+func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName types.AppName) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteDeploymentAttempt")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -530,7 +530,7 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		},
 	})
 }
-func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, transaction *sql.Tx, application string, releaseversion uint64, env types.EnvName, createdAt time.Time, revision uint64) (err error) {
+func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, transaction *sql.Tx, application types.AppName, releaseversion uint64, env types.EnvName, createdAt time.Time, revision uint64) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrationUpdateDeploymentsTimestamp")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -782,11 +782,11 @@ func processAllLatestDeploymentsForApp(rows *sql.Rows) (map[types.EnvName]Deploy
 	return result, nil
 }
 
-func processAllLatestDeployments(rows *sql.Rows) (map[string]types.ReleaseNumbers, error) {
-	result := make(map[string]types.ReleaseNumbers)
+func processAllLatestDeployments(rows *sql.Rows) (map[types.AppName]types.ReleaseNumbers, error) {
+	result := make(map[types.AppName]types.ReleaseNumbers)
 	for rows.Next() {
 		var releaseVersion sql.NullInt64
-		var appName string
+		var appName types.AppName
 		var revision uint64
 		err := rows.Scan(&appName, &releaseVersion, &revision)
 		if err != nil {

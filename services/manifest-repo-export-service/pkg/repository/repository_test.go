@@ -21,17 +21,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -1712,7 +1713,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			},
 			shouldCreateCommit: true,
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-				return dbHandler.DBWriteEnvironment(ctx, transaction, "production", config.EnvironmentConfig{}, []string{})
+				return dbHandler.DBWriteEnvironment(ctx, transaction, "production", config.EnvironmentConfig{}, []types.AppName{})
 			},
 		},
 		{

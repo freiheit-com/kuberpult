@@ -34,7 +34,7 @@ type ApplicationLock struct {
 	Created  time.Time
 	LockID   string
 	Env      types.EnvName
-	App      string
+	App      types.AppName
 	Metadata LockMetadata
 }
 
@@ -42,7 +42,7 @@ type ApplicationLockHistory struct {
 	Created          time.Time
 	LockID           string
 	Env              types.EnvName
-	App              string
+	App              types.AppName
 	Metadata         LockMetadata
 	Deleted          bool
 	DeletionMetadata LockDeletionMetadata
@@ -50,7 +50,7 @@ type ApplicationLockHistory struct {
 
 // SELECTS
 
-func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName string, lockID string) (*ApplicationLockHistory, error) {
+func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName types.AppName, lockID string) (*ApplicationLockHistory, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, appName, metadata, deleted
 		FROM app_locks_history
@@ -111,7 +111,7 @@ func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment
 	return nil, nil // no rows, but also no error
 }
 
-func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql.Tx, appName string) (_ []ApplicationLock, err error) {
+func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (_ []ApplicationLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveAppLocksForApp")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -134,7 +134,7 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 	return h.processAppLockRows(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, tx *sql.Tx, appNames []string) (_ []ApplicationLock, err error) {
+func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, tx *sql.Tx, appNames []types.AppName) (_ []ApplicationLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveAppLocksForSliceApps")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -172,7 +172,7 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, t
 	return h.processAppLockRows(ctx, err, rows)
 }
 
-func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName string, lockIDs []string) (_ []ApplicationLock, err error) {
+func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName types.AppName, lockIDs []string) (_ []ApplicationLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppLockSet")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -262,7 +262,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 	return appLocks, nil
 }
 
-func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName string) (_ []string, err error) {
+func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName types.AppName) (_ []string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppLocks")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -346,7 +346,7 @@ func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, e
 }
 
 // DBSelectAppLockHistory returns the last N events associated with some lock on some environment for some app. Currently only used in testing.
-func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName string, lockID string, limit int) (_ []ApplicationLockHistory, err error) {
+func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, appName types.AppName, lockID string, limit int) (_ []ApplicationLockHistory, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppLockHistory")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -433,7 +433,7 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 }
 
 // INSERT, UPDATE, DELETES
-func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, appName string, metadata LockMetadata) (err error) {
+func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lockID string, environment types.EnvName, appName types.AppName, metadata LockMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteApplicationLock")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -456,7 +456,7 @@ func (h *DBHandler) DBWriteApplicationLock(ctx context.Context, tx *sql.Tx, lock
 	return nil
 }
 
-func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName, lockID string, deletionMetadata LockDeletionMetadata) (err error) {
+func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName types.AppName, lockID string, deletionMetadata LockDeletionMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteApplicationLock")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -488,7 +488,7 @@ func (h *DBHandler) DBDeleteApplicationLock(ctx context.Context, tx *sql.Tx, env
 
 // actual changes in tables
 
-func (h *DBHandler) upsertAppLockRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, appName string, metadata LockMetadata) (err error) {
+func (h *DBHandler) upsertAppLockRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, appName types.AppName, metadata LockMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertAppLockRow")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -528,7 +528,7 @@ func (h *DBHandler) upsertAppLockRow(ctx context.Context, transaction *sql.Tx, l
 	return nil
 }
 
-func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName, appname string) (err error) {
+func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName, appname types.AppName) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "deleteAppLockRow")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -554,7 +554,7 @@ func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, l
 	return nil
 }
 
-func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, appName string, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
+func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, appName types.AppName, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppLockHistoryRow")
 	defer func() {
 		span.Finish(tracer.WithError(err))

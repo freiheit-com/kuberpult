@@ -40,7 +40,7 @@ func prepareHttpReleaseRequest(url string, authParams kutil.AuthenticationParame
 		if err != nil {
 			return nil, fmt.Errorf("error creating the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
 		}
-		_, err = part.Write([]byte(manifest))
+		_, err = part.Write(manifest)
 		if err != nil {
 			return nil, fmt.Errorf("error writing the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
 		}
@@ -51,7 +51,7 @@ func prepareHttpReleaseRequest(url string, authParams kutil.AuthenticationParame
 		if err != nil {
 			return nil, fmt.Errorf("error creating the form entry for environment %s with signature file %s, error: %w", environment, signature, err)
 		}
-		_, err = part.Write([]byte(signature))
+		_, err = part.Write(signature)
 		if err != nil {
 			return nil, fmt.Errorf("error writing the form entry for environment %s with signature file %s, error: %w", environment, signature, err)
 		}

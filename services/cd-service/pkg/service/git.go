@@ -20,6 +20,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
@@ -27,7 +29,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
-	"sync"
 
 	"sort"
 	"strconv"
@@ -103,7 +104,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 						CommitId:       "",
 						DisplayVersion: "",
 						Team:           "",
-						App:            currentApp,
+						App:            string(currentApp),
 						Version:        strconv.FormatInt(int64(*version.Version), 10),
 						Revision:       strconv.FormatInt(int64(version.Revision), 10),
 						Environment:    *in.Environment,
@@ -155,7 +156,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 									CommitId:       "",
 									DisplayVersion: "",
 									Team:           "",
-									App:            currentApp,
+									App:            string(currentApp),
 									Version:        strconv.FormatInt(int64(*version.Version), 10),
 									Revision:       strconv.FormatInt(int64(version.Revision), 10),
 									Environment:    string(envName),
@@ -188,11 +189,11 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			if err != nil {
 				return nil, fmt.Errorf("could not parse version to integer %s: %v", row.Revision, err)
 			}
-			release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, row.App, types.MakeReleaseNumbers(v, r), false, *ts)
+			release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, types.AppName(row.App), types.MakeReleaseNumbers(v, r), false, *ts)
 			if err != nil {
 				return nil, fmt.Errorf("error getting release for version")
 			}
-			team, err := state.GetApplicationTeamOwnerAtTimestamp(ctx, transaction, row.App, *ts)
+			team, err := state.GetApplicationTeamOwnerAtTimestamp(ctx, transaction, types.AppName(row.App), *ts)
 			if err != nil {
 				return nil, fmt.Errorf("could not find app %s: %v", row.App, err)
 			}
@@ -273,8 +274,8 @@ func (s *GitServer) ReadSyncStatuses(ctx context.Context) (*api.GetGitSyncStatus
 func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 	toFill := make(map[string]*api.EnvSyncStatus)
 	for _, currStatus := range statuses {
-		if _, exists := toFill[currStatus.AppName]; !exists {
-			toFill[currStatus.AppName] = &api.EnvSyncStatus{
+		if _, exists := toFill[string(currStatus.AppName)]; !exists {
+			toFill[string(currStatus.AppName)] = &api.EnvSyncStatus{
 				EnvStatus: make(map[string]api.GitSyncStatus),
 			}
 		}
@@ -288,7 +289,7 @@ func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
 			statusToWrite = api.GitSyncStatus_GIT_SYNC_STATUS_UNKNOWN
 		}
 
-		toFill[currStatus.AppName].EnvStatus[string(currStatus.EnvName)] = statusToWrite
+		toFill[string(currStatus.AppName)].EnvStatus[string(currStatus.EnvName)] = statusToWrite
 	}
 	return toFill
 }

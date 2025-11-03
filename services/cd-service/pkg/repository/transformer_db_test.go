@@ -44,8 +44,8 @@ import (
 )
 
 var (
-	testAppName     = "test"
-	nextTestAppName = "test2"
+	testAppName     types.AppName = "test"
+	nextTestAppName types.AppName = "test2"
 )
 
 func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
@@ -648,7 +648,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 }
 
 func TestCreateApplicationVersionDBRevisions(t *testing.T) {
-	const appName = "app1"
+	var appName types.AppName = "app1"
 	tcs := []struct {
 		Name               string
 		Transformers       []Transformer
@@ -762,7 +762,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				if err4 != nil {
 					return fmt.Errorf("error retrieving environment: %w", err)
 				}
-				if diff := cmp.Diff([]string{appName}, environment.Applications); diff != "" {
+				if diff := cmp.Diff([]types.AppName{appName}, environment.Applications); diff != "" {
 					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -775,7 +775,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 }
 
 func TestCreateApplicationVersionDB(t *testing.T) {
-	const appName = "app1"
+	const appName types.AppName = "app1"
 	tcs := []struct {
 		Name               string
 		Transformers       []Transformer
@@ -911,7 +911,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				if err4 != nil {
 					return fmt.Errorf("error retrieving environment: %w", err)
 				}
-				if diff := cmp.Diff([]string{appName}, environment.Applications); diff != "" {
+				if diff := cmp.Diff([]types.AppName{appName}, environment.Applications); diff != "" {
 					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -924,7 +924,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 }
 
 func TestMinorFlag(t *testing.T) {
-	appName := "app"
+	var appName types.AppName = "app"
 	tcs := []struct {
 		Name           string
 		Transformers   []Transformer
@@ -1607,7 +1607,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 }
 
 func TestCleanupOldVersionDB(t *testing.T) {
-	const appName = "app1"
+	const appName types.AppName = "app1"
 	tcs := []struct {
 		Name                   string
 		ReleaseVersionLimit    uint
@@ -1748,7 +1748,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 		Name                      string
 		Transformers              []Transformer
 		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
-		expectedStagingEnvApps    []string
+		expectedStagingEnvApps    []types.AppName
 	}
 
 	testCases := []TestCase{
@@ -1763,7 +1763,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigLatest(nil),
 			},
-			expectedStagingEnvApps: []string{},
+			expectedStagingEnvApps: []types.AppName{},
 		},
 		{
 			Name: "create a single environment twice",
@@ -1787,7 +1787,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigUpstream("development", nil),
 			},
-			expectedStagingEnvApps: []string{"testapp"},
+			expectedStagingEnvApps: []types.AppName{"testapp"},
 		},
 		{
 			Name: "create multiple environments",
@@ -1805,7 +1805,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				"development": testutil.MakeEnvConfigLatest(nil),
 				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},
-			expectedStagingEnvApps: []string{},
+			expectedStagingEnvApps: []types.AppName{},
 		},
 		{
 			Name: "create environment with argo cd configs",
@@ -1831,7 +1831,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN-STG", "PT", 100),
 				},
 			},
-			expectedStagingEnvApps: []string{},
+			expectedStagingEnvApps: []types.AppName{},
 		},
 	}
 
@@ -2556,7 +2556,7 @@ func TestEvents(t *testing.T) {
 }
 
 func TestDeleteEnvFromAppWithDB(t *testing.T) {
-	appName := "app"
+	var appName types.AppName = "app"
 	setupTransformers := []Transformer{
 		&CreateEnvironment{
 			Environment: "env",
@@ -2884,7 +2884,7 @@ func TestReleaseTrain(t *testing.T) {
 		Transformers         []Transformer
 		ExpectedVersion      types.ReleaseNumbers
 		TargetEnv            types.EnvName
-		TargetApp            string
+		TargetApp            types.AppName
 	}{
 		{
 			Name:            "Release train",
@@ -3024,7 +3024,7 @@ func TestReleaseTrain(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					WriteCommitData:       true,
 					Version:               1,
 					TransformerEslVersion: 0,
@@ -3044,7 +3044,7 @@ func TestReleaseTrain(t *testing.T) {
 					WriteCommitData:       true,
 					Version:               2,
 					TransformerEslVersion: 0,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 				},
 				&DeployApplicationVersion{
 					Environment:           envAcceptance,
@@ -3060,7 +3060,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&ReleaseTrain{
 					Target:                envProduction,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					TransformerEslVersion: 0,
 				},
 			},
@@ -3096,7 +3096,7 @@ func TestReleaseTrain(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					WriteCommitData:       true,
 					Version:               1,
 					Revision:              0,
@@ -3119,7 +3119,7 @@ func TestReleaseTrain(t *testing.T) {
 					Version:               1,
 					Revision:              1,
 					TransformerEslVersion: 0,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 				},
 				&DeployApplicationVersion{
 					Environment:           envAcceptance,
@@ -3137,7 +3137,7 @@ func TestReleaseTrain(t *testing.T) {
 				},
 				&ReleaseTrain{
 					Target:                envProduction,
-					Team:                  testAppName,
+					Team:                  string(testAppName),
 					TransformerEslVersion: 0,
 				},
 			},
@@ -3195,7 +3195,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 	type TestCase struct {
 		Name                  string
 		Transformers          []Transformer
-		expectedLatestRelease map[string]db.DBReleaseWithMetaData
+		expectedLatestRelease map[types.AppName]db.DBReleaseWithMetaData
 		expectedAllEnvs       []types.EnvName
 	}
 
@@ -3224,7 +3224,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environment: "staging",
 				},
 			},
-			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+			expectedLatestRelease: map[types.AppName]db.DBReleaseWithMetaData{
 				"app": {
 					App:            "app",
 					ReleaseNumbers: types.MakeReleaseNumberVersion(1),
@@ -3270,7 +3270,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environment: "staging",
 				},
 			},
-			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+			expectedLatestRelease: map[types.AppName]db.DBReleaseWithMetaData{
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
@@ -3331,7 +3331,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 					Environment: "staging",
 				},
 			},
-			expectedLatestRelease: map[string]db.DBReleaseWithMetaData{
+			expectedLatestRelease: map[types.AppName]db.DBReleaseWithMetaData{
 				"app": {
 					App: "app",
 					ReleaseNumbers: types.ReleaseNumbers{
@@ -3515,7 +3515,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -3544,7 +3544,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -3569,7 +3569,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -3631,7 +3631,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
 					LockId:      "22133",
-					Message:     testAppName,
+					Message:     string(testAppName),
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -4189,7 +4189,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 }
 
 func TestCreateUndeployDBState(t *testing.T) {
-	const appName = "my-app"
+	const appName types.AppName = "my-app"
 	tcs := []struct {
 		Name                   string
 		TargetApp              string
@@ -4279,7 +4279,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 }
 
 func TestAllowedCILinksState(t *testing.T) {
-	const appName = "my-app"
+	const appName types.AppName = "my-app"
 
 	tcs := []struct {
 		Name                string
@@ -4515,7 +4515,7 @@ func TestAllowedCILinksState(t *testing.T) {
 }
 
 func TestUndeployDBState(t *testing.T) {
-	const appName = "my-app"
+	const appName types.AppName = "my-app"
 
 	tcs := []struct {
 		Name                string
@@ -4654,7 +4654,7 @@ func uversion(v int) *uint64 {
 }
 
 func TestTransaction(t *testing.T) {
-	const appName = "app1"
+	const appName types.AppName = "app1"
 	tcs := []struct {
 		Name               string
 		Transformers       []Transformer
@@ -4811,7 +4811,7 @@ func TestTimestampConsistency(t *testing.T) {
 			Name:            "Release train",
 			ExpectedVersion: 2,
 			TargetEnv:       envProduction,
-			TargetApp:       testAppName,
+			TargetApp:       string(testAppName),
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envProduction,

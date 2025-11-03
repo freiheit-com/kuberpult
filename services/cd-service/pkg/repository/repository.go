@@ -525,7 +525,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 }
 
 type AppEnv struct {
-	App  string
+	App  types.AppName
 	Env  types.EnvName
 	Team string
 }
@@ -540,7 +540,7 @@ type TransformerResult struct {
 	DeletedRootApps []RootApp
 }
 
-func (r *TransformerResult) AddAppEnv(app string, env types.EnvName, team string) {
+func (r *TransformerResult) AddAppEnv(app types.AppName, env types.EnvName, team string) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
 		App:  app,
 		Env:  env,
@@ -625,8 +625,8 @@ func MeasureGitSyncStatus(unsyncedApps, syncFailedApps int) error {
 }
 
 func (r *repository) notifyChangedApps(changes *TransformerResult) {
-	var changedAppNames []string
-	var seen = make(map[string]bool)
+	var changedAppNames []types.AppName
+	var seen = make(map[types.AppName]bool)
 	for _, app := range changes.ChangedApps {
 		if _, ok := seen[app.App]; !ok {
 			seen[app.App] = true
@@ -717,11 +717,11 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	return result, nil
 }
 
-func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) (map[string]Lock, error) {
 	return s.GetEnvironmentApplicationLocksFromDB(ctx, transaction, environment, application)
 }
 
-func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentApplicationLocksFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) (map[string]Lock, error) {
 	if transaction == nil {
 		return nil, fmt.Errorf("GetEnvironmentApplicationLocksFromDB: No transaction provided")
 	}
@@ -789,7 +789,7 @@ func (s *State) GetEnvironmentTeamLocksFromDB(ctx context.Context, transaction *
 	return result, nil
 }
 
-func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (string, time.Time, error) {
+func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) (string, time.Time, error) {
 	result, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
 	if err != nil {
 		return "", time.Time{}, err
@@ -800,9 +800,9 @@ func (s *State) GetDeploymentMetaData(ctx context.Context, transaction *sql.Tx, 
 	return "", time.Time{}, err
 }
 
-func (s *State) GetQueuedVersionAllAppsFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[string]*uint64, error) {
+func (s *State) GetQueuedVersionAllAppsFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[types.AppName]*uint64, error) {
 	queuedDeployments, err := s.DBHandler.DBSelectLatestDeploymentAttemptOfAllApps(ctx, transaction, environment)
-	result := map[string]*uint64{}
+	result := map[types.AppName]*uint64{}
 	if err != nil || queuedDeployments == nil {
 		return result, err
 	}
@@ -819,22 +819,22 @@ func (s *State) GetQueuedVersionAllAppsFromDB(ctx context.Context, transaction *
 	return result, nil
 }
 
-func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) error {
+func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) error {
 	return s.DBHandler.DBDeleteDeploymentAttempt(ctx, transaction, environment, application)
 }
 
-func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) error {
+func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) error {
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
-func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[string]types.ReleaseNumbers, error) {
+func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[types.AppName]types.ReleaseNumbers, error) {
 	return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 }
 
-func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx) (map[string][]types.ReleaseNumbers, error) {
+func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx) (map[types.AppName][]types.ReleaseNumbers, error) {
 	return s.DBHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
 }
 
-func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string) (*uint64, error) {
+func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) (*uint64, error) {
 	depl, err := s.DBHandler.DBSelectLatestDeployment(ctx, transaction, application, environment)
 	if err != nil {
 		return nil, err
@@ -872,7 +872,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		if env.Upstream == nil || env.Upstream.Environment == "" {
 			continue
 		}
-		upstreamEnv := types.EnvName(env.Upstream.Environment)
+		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
 			logger.Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
 		}
@@ -919,7 +919,7 @@ func (s *State) GetAllEnvironmentConfigs(ctx context.Context, transaction *sql.T
 	return s.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 }
 
-func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName string) (map[types.EnvName]types.ReleaseNumbers, error) {
+func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *sql.Tx, appName types.AppName) (map[types.EnvName]types.ReleaseNumbers, error) {
 	result, err := s.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, appName)
 	if err != nil {
 		return nil, err
@@ -930,7 +930,7 @@ func (s *State) GetAllDeploymentsForAppFromDB(ctx context.Context, transaction *
 	return result, nil
 }
 
-func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, appName string, ts time.Time) (map[types.EnvName]types.ReleaseNumbers, error) {
+func (s *State) GetAllDeploymentsForAppFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, appName types.AppName, ts time.Time) (map[types.EnvName]types.ReleaseNumbers, error) {
 	result, err := s.DBHandler.DBSelectAllDeploymentsForAppAtTimestamp(ctx, transaction, appName, ts)
 	if err != nil {
 		return nil, err
@@ -955,7 +955,7 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 	}
 	ret := make(map[types.EnvName]config.EnvironmentConfig)
 	for _, env := range *envs {
-		ret[types.EnvName(env.Name)] = env.Config
+		ret[env.Name] = env.Config
 	}
 	return ret, nil
 }
@@ -993,49 +993,49 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 }
 
 // returns all apps of this environment
-func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]string, error) {
+func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]types.AppName, error) {
 	return s.GetEnvironmentApplicationsFromDB(ctx, transaction, environment)
 }
 
-func (s *State) GetEnvironmentApplicationsAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, ts time.Time) ([]string, error) {
+func (s *State) GetEnvironmentApplicationsAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, ts time.Time) ([]types.AppName, error) {
 	return s.GetEnvironmentApplicationsFromDBAtTimestamp(ctx, transaction, environment, ts)
 }
 
-func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]string, error) {
+func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]types.AppName, error) {
 	envApps, err := s.DBHandler.DBSelectEnvironmentApplications(ctx, transaction, environment)
 	if err != nil {
 		return nil, err
 	}
 	if envApps == nil {
-		return make([]string, 0), nil
+		return make([]types.AppName, 0), nil
 	}
 	return envApps, nil
 }
 
-func (s *State) GetEnvironmentApplicationsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, ts time.Time) ([]string, error) {
+func (s *State) GetEnvironmentApplicationsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, ts time.Time) ([]types.AppName, error) {
 	envApps, _, err := s.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, environment, ts)
 	if err != nil {
 		return nil, err
 	}
 	if envApps == nil {
-		return make([]string, 0), nil
+		return make([]types.AppName, 0), nil
 	}
 	return envApps, nil
 }
 
 // GetApplications returns all apps that exist in any env
-func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+func (s *State) GetApplications(ctx context.Context, transaction *sql.Tx) ([]types.AppName, error) {
 	applications, err := s.DBHandler.DBSelectAllApplications(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
 	if applications == nil {
-		return make([]string, 0), nil
+		return make([]types.AppName, 0), nil
 	}
 	return applications, nil
 }
 
-func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application string) ([]types.ReleaseNumbers, error) {
+func (s *State) GetAllApplicationReleases(ctx context.Context, transaction *sql.Tx, application types.AppName) ([]types.ReleaseNumbers, error) {
 	releases, err := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, application)
 	if err != nil {
 		return nil, fmt.Errorf("could not get all releases of app %s: %v", application, err)
@@ -1101,7 +1101,7 @@ func extractPrNumber(sourceMessage string) string {
 	}
 }
 
-func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application string, version types.ReleaseNumbers) (bool, error) {
+func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application types.AppName, version types.ReleaseNumbers) (bool, error) {
 	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx,
 		transaction,
 		application,
@@ -1111,7 +1111,7 @@ func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, appl
 	return release.Metadata.UndeployVersion, err
 }
 
-func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.Tx, application string, versions []uint64) ([]*Release, error) {
+func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.Tx, application types.AppName, versions []uint64) ([]*Release, error) {
 	var result []*Release
 	rels, err := s.DBHandler.DBSelectReleasesByVersions(ctx, transaction, application, versions, true)
 	if err != nil {
@@ -1140,7 +1140,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 	return result, nil
 }
 
-func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application string, version types.ReleaseNumbers) (*Release, error) {
+func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application types.AppName, version types.ReleaseNumbers) (*Release, error) {
 	env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 	if err != nil {
 		return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
@@ -1164,7 +1164,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 	}, nil
 }
 
-func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application string, version types.ReleaseNumbers) (map[types.EnvName]*api.Manifest, error) {
+func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application types.AppName, version types.ReleaseNumbers) (map[types.EnvName]*api.Manifest, error) {
 	manifests := map[types.EnvName]*api.Manifest{}
 	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
 	if err != nil {
@@ -1182,7 +1182,7 @@ func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction 
 	return manifests, nil
 }
 
-func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application string) (string, error) {
+func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx, application types.AppName) (string, error) {
 	app, err := s.DBHandler.DBSelectApp(ctx, transaction, application)
 	if err != nil {
 		return "", fmt.Errorf("could not get team of app %s: %v", application, err)
@@ -1200,12 +1200,12 @@ func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sq
 		return result, fmt.Errorf("could not get team of all apps: %w", err)
 	}
 	for _, app := range apps {
-		result[types.AppName(app.App)] = app.Metadata.Team
+		result[app.App] = app.Metadata.Team
 	}
 	return result, nil
 }
 
-func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transaction *sql.Tx, application string, ts time.Time) (string, error) {
+func (s *State) GetApplicationTeamOwnerAtTimestamp(ctx context.Context, transaction *sql.Tx, application types.AppName, ts time.Time) (string, error) {
 	app, err := s.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, application, ts)
 	if err != nil {
 		return "", fmt.Errorf("could not get team of app %s: %v", application, err)
