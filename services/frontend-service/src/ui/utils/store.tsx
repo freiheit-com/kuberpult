@@ -540,6 +540,18 @@ export const addAction = (action: BatchAction): void => {
                 isDuplicate = true;
 
             break;
+        case 'deleteEnvFromApp':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deleteEnvFromApp' &&
+                        action.action?.$case === 'deleteEnvFromApp' &&
+                        act.action.deleteEnvFromApp.environment === action.action.deleteEnvFromApp.environment &&
+                        act.action.deleteEnvFromApp.application === action.action.deleteEnvFromApp.application
+                )
+            )
+                isDuplicate = true;
+            break;
         case 'undeploy':
             if (
                 actions.some(
