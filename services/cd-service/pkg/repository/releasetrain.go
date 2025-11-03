@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -549,8 +550,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		return failedPrognosis(err)
 	}
 
-	// TODO: fix types.AppName
-	//sort.Strings(apps)
+	slices.Sort(apps)
 
 	appsPrognoses := make(map[types.AppName]ReleaseTrainApplicationPrognosis)
 
@@ -649,7 +649,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
-			team, ok := allTeams[types.AppName(appName)]
+			team, ok := allTeams[appName]
 			if !ok {
 				// If we cannot find the app in all teams, we cannot determine the team of the app.
 				// This indicates an incorrect db state, and we just skip it:
@@ -797,7 +797,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			continue
 		}
 
-		teamName, ok := allTeams[types.AppName(appName)]
+		teamName, ok := allTeams[appName]
 
 		if ok { //IF we find information for team
 			envConfig := c.AllEnvConfigs[c.Env]
@@ -994,8 +994,7 @@ func (c *envReleaseTrain) applyPrognosis(
 		appNames = append(appNames, appName)
 	}
 
-	// TODO: fix types.AppName
-	//sort.Strings(appNames)
+	slices.Sort(appNames)
 
 	span.SetTag("ConsideredApps", len(appNames))
 	var deployCounter uint = 0
@@ -1003,7 +1002,7 @@ func (c *envReleaseTrain) applyPrognosis(
 		appPrognosis := prognosis.AppsPrognoses[appName]
 		if appPrognosis.SkipCause != nil {
 			skipped = append(skipped, renderApplicationSkipCause(&appPrognosis, appName))
-			RecordQueuedAppVersion(ctx, state, transaction, t, types.AppName(appName), envConfig.Upstream.Environment, c.Env)
+			RecordQueuedAppVersion(ctx, state, transaction, t, appName, envConfig.Upstream.Environment, c.Env)
 			continue
 		}
 		d := &DeployApplicationVersion{

@@ -648,7 +648,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 }
 
 func TestCreateApplicationVersionDBRevisions(t *testing.T) {
-	const appName = "app1"
+	var appName types.AppName = "app1"
 	tcs := []struct {
 		Name               string
 		Transformers       []Transformer
@@ -762,7 +762,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				if err4 != nil {
 					return fmt.Errorf("error retrieving environment: %w", err)
 				}
-				if diff := cmp.Diff([]string{appName}, environment.Applications); diff != "" {
+				if diff := cmp.Diff([]types.AppName{appName}, environment.Applications); diff != "" {
 					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -775,7 +775,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 }
 
 func TestCreateApplicationVersionDB(t *testing.T) {
-	const appName = "app1"
+	const appName types.AppName = "app1"
 	tcs := []struct {
 		Name               string
 		Transformers       []Transformer
@@ -911,7 +911,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				if err4 != nil {
 					return fmt.Errorf("error retrieving environment: %w", err)
 				}
-				if diff := cmp.Diff([]string{appName}, environment.Applications); diff != "" {
+				if diff := cmp.Diff([]types.AppName{appName}, environment.Applications); diff != "" {
 					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
 				}
 				return nil
@@ -1607,7 +1607,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 }
 
 func TestCleanupOldVersionDB(t *testing.T) {
-	const appName = "app1"
+	const appName types.AppName = "app1"
 	tcs := []struct {
 		Name                   string
 		ReleaseVersionLimit    uint
@@ -1748,7 +1748,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 		Name                      string
 		Transformers              []Transformer
 		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
-		expectedStagingEnvApps    []string
+		expectedStagingEnvApps    []types.AppName
 	}
 
 	testCases := []TestCase{
@@ -1763,7 +1763,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigLatest(nil),
 			},
-			expectedStagingEnvApps: []string{},
+			expectedStagingEnvApps: []types.AppName{},
 		},
 		{
 			Name: "create a single environment twice",
@@ -1787,7 +1787,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigUpstream("development", nil),
 			},
-			expectedStagingEnvApps: []string{"testapp"},
+			expectedStagingEnvApps: []types.AppName{"testapp"},
 		},
 		{
 			Name: "create multiple environments",
@@ -1805,7 +1805,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				"development": testutil.MakeEnvConfigLatest(nil),
 				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},
-			expectedStagingEnvApps: []string{},
+			expectedStagingEnvApps: []types.AppName{},
 		},
 		{
 			Name: "create environment with argo cd configs",
@@ -1831,7 +1831,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN-STG", "PT", 100),
 				},
 			},
-			expectedStagingEnvApps: []string{},
+			expectedStagingEnvApps: []types.AppName{},
 		},
 	}
 
@@ -4189,7 +4189,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 }
 
 func TestCreateUndeployDBState(t *testing.T) {
-	const appName = "my-app"
+	const appName types.AppName = "my-app"
 	tcs := []struct {
 		Name                   string
 		TargetApp              string
@@ -4279,7 +4279,7 @@ func TestCreateUndeployDBState(t *testing.T) {
 }
 
 func TestAllowedCILinksState(t *testing.T) {
-	const appName = "my-app"
+	const appName types.AppName = "my-app"
 
 	tcs := []struct {
 		Name                string
@@ -4515,7 +4515,7 @@ func TestAllowedCILinksState(t *testing.T) {
 }
 
 func TestUndeployDBState(t *testing.T) {
-	const appName = "my-app"
+	const appName types.AppName = "my-app"
 
 	tcs := []struct {
 		Name                string
@@ -4654,7 +4654,7 @@ func uversion(v int) *uint64 {
 }
 
 func TestTransaction(t *testing.T) {
-	const appName = "app1"
+	const appName types.AppName = "app1"
 	tcs := []struct {
 		Name               string
 		Transformers       []Transformer

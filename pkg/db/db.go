@@ -1020,7 +1020,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 		for app := range allAppsMap {
 			l.Infof("processing app %s ...", app)
 
-			err := writeAllReleasesFun(ctx, transaction, types.AppName(app), h)
+			err := writeAllReleasesFun(ctx, transaction, app, h)
 			if err != nil {
 				return fmt.Errorf("could not migrate releases to database: %v", err)
 			}
@@ -1062,7 +1062,7 @@ func (h *DBHandler) RunCustomMigrationReleasesTimestamp(ctx context.Context, get
 		err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 			l := logger.FromContext(ctx).Sugar()
 			l.Infof("processing app %s ...", app)
-			err := fixReleasesTimestampFun(ctx, transaction, types.AppName(app), h)
+			err := fixReleasesTimestampFun(ctx, transaction, app, h)
 			if err != nil {
 				return fmt.Errorf("could not migrate releases to database: %v", err)
 			}

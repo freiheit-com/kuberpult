@@ -591,7 +591,7 @@ func (c *CreateApplicationVersion) Transform(
 			Revision: c.Revision,
 			Version:  version.Version,
 		},
-		App: types.AppName(c.Application),
+		App: c.Application,
 		Manifests: db.DBReleaseManifests{
 			Manifests: manifestsToKeep,
 		},
@@ -917,10 +917,10 @@ func canonicalizeYaml(unformatted string) string {
 }
 
 func createUnifiedDiff(existingValue string, requestValue string, prefix string) string {
-	existingValueStr := string(existingValue)
+	existingValueStr := existingValue
 	existingFilename := fmt.Sprintf("%sexisting", prefix)
 	requestFilename := fmt.Sprintf("%srequest", prefix)
-	edits := myers.ComputeEdits(diffspan.URIFromPath(existingFilename), existingValueStr, string(requestValue))
+	edits := myers.ComputeEdits(diffspan.URIFromPath(existingFilename), existingValueStr, requestValue)
 	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
@@ -987,13 +987,13 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			envs = append(envs, env)
 		}
 	}
-	v := uint64(*lastRelease.Version + 1)
+	v := *lastRelease.Version + 1
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
 			Revision: 0, //Undeploy versions always have revision 0
 			Version:  &v,
 		},
-		App: types.AppName(c.Application),
+		App: c.Application,
 		Manifests: db.DBReleaseManifests{
 			Manifests: envManifests,
 		},

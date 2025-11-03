@@ -1699,7 +1699,7 @@ func TestReleaseTrainDeployAttempts(t *testing.T) {
 					return fmt.Errorf("Expected a queued app")
 				}
 				queued := allQueued[0]
-				if queued.App != string(tc.ExpectedQueuedApp) {
+				if queued.App != tc.ExpectedQueuedApp {
 					return fmt.Errorf("Did not get expected app. expected: %s, got: %s", tc.ExpectedQueuedApp, queued.App)
 				}
 				if queued.Env != types.EnvName(tc.ReleaseTrain.Target) {
@@ -2542,7 +2542,7 @@ func TestGetCommitID(t *testing.T) {
 	type testCase struct {
 		name           string
 		transformers   []Transformer
-		app            string
+		app            types.AppName
 		version        uint64
 		expectedCommit string
 		expectError    bool
@@ -5057,7 +5057,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 }
 
 func TestReleaseTrainsWithCommitHash(t *testing.T) {
-	appName := "app"
+	var appName types.AppName = "app"
 	groupName := "prodgroup"
 	versionOne := uint64(1)
 	versionTwo := uint64(2)

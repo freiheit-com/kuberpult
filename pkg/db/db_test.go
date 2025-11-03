@@ -62,7 +62,7 @@ func TestMigrationScript(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		migrationFile string
-		expectedData  []string
+		expectedData  []types.AppName
 	}{
 		{
 			Name: "Simple migration",
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS apps
 );
 
 INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 09:38:15', 'my-test-app', 'AppStateChangeMigrate', '{}');`,
-			expectedData: []string{"my-test-app"},
+			expectedData: []types.AppName{"my-test-app"},
 		},
 	}
 	for _, tc := range tcs {
@@ -273,7 +273,7 @@ func TestCustomMigrationsApps(t *testing.T) {
 	tcs := []struct {
 		Name            string
 		expectedApps    []*DBAppWithMetaData
-		expectedAllApps []string
+		expectedAllApps []types.AppName
 		allAppsFunc     GetAllAppsFun
 	}{
 		{
@@ -287,7 +287,7 @@ func TestCustomMigrationsApps(t *testing.T) {
 					},
 				},
 			},
-			expectedAllApps: []string{appName},
+			expectedAllApps: []types.AppName{appName},
 			allAppsFunc: func() (map[types.AppName]string, error) {
 				result := map[types.AppName]string{
 					appName: teamName,
@@ -298,7 +298,7 @@ func TestCustomMigrationsApps(t *testing.T) {
 		{
 			Name:            "No apps still populate all_apps table",
 			expectedApps:    []*DBAppWithMetaData{},
-			expectedAllApps: []string{},
+			expectedAllApps: []types.AppName{},
 			allAppsFunc: func() (map[types.AppName]string, error) {
 				result := map[types.AppName]string{}
 				return result, nil
@@ -1108,7 +1108,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 		Name                string
 		EnvName             types.EnvName
 		SetupDeployments    []*Deployment
-		ExpectedDeployments map[string]types.ReleaseNumbers
+		ExpectedDeployments map[types.AppName]types.ReleaseNumbers
 	}{
 		{
 			Name:    "Select one deployment",
@@ -1121,7 +1121,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					TransformerID:  0,
 				},
 			},
-			ExpectedDeployments: map[string]types.ReleaseNumbers{
+			ExpectedDeployments: map[types.AppName]types.ReleaseNumbers{
 				"app1": types.MakeReleaseNumberVersion(7),
 			},
 		},
@@ -1145,7 +1145,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					TransformerID:  0,
 				},
 			},
-			ExpectedDeployments: map[string]types.ReleaseNumbers{
+			ExpectedDeployments: map[types.AppName]types.ReleaseNumbers{
 				"app1": types.MakeReleaseNumberVersion(8),
 			},
 		},
@@ -1178,7 +1178,7 @@ func TestReadAllLatestDeployment(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
-			ExpectedDeployments: map[string]types.ReleaseNumbers{
+			ExpectedDeployments: map[types.AppName]types.ReleaseNumbers{
 				"app1": types.MakeReleaseNumberVersion(7),
 				"app2": types.MakeReleaseNumberVersion(8),
 			},
@@ -3793,15 +3793,15 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 func TestReadWriteAllApplications(t *testing.T) {
 	type TestCase struct {
 		Name           string
-		AllAppsToWrite []string
-		ExpectedEntry  []string
+		AllAppsToWrite []types.AppName
+		ExpectedEntry  []types.AppName
 	}
 
 	testCases := []TestCase{
 		{
 			Name:           "test that app are ordered",
-			AllAppsToWrite: []string{"my_app", "ze_app", "the_app"},
-			ExpectedEntry:  []string{"my_app", "the_app", "ze_app"},
+			AllAppsToWrite: []types.AppName{"my_app", "ze_app", "the_app"},
+			ExpectedEntry:  []types.AppName{"my_app", "the_app", "ze_app"},
 		},
 	}
 	for _, tc := range testCases {
@@ -3813,7 +3813,7 @@ func TestReadWriteAllApplications(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, appname := range tc.AllAppsToWrite {
-					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(appname), AppStateChangeCreate, DBAppMetaData{})
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appname, AppStateChangeCreate, DBAppMetaData{})
 					if err != nil {
 						return err
 					}
@@ -4322,7 +4322,7 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 	tcs := []struct {
 		Name     string
 		Releases []DBReleaseWithMetaData
-		Expected map[string][]types.ReleaseNumbers
+		Expected map[types.AppName][]types.ReleaseNumbers
 	}{
 		{
 			Name: "Retrieve multiple releases",
@@ -4348,7 +4348,7 @@ func TestReadAllReleasesOfAllApps(t *testing.T) {
 					Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
 				},
 			},
-			Expected: map[string][]types.ReleaseNumbers{
+			Expected: map[types.AppName][]types.ReleaseNumbers{
 				"app1": {types.MakeReleaseNumberVersion(2), types.MakeReleaseNumberVersion(1)},
 				"app2": {types.MakeReleaseNumberVersion(2), types.MakeReleaseNumberVersion(1)},
 			},
@@ -4922,7 +4922,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 	type TestCase struct {
 		Name             string
 		Releases         []DBReleaseWithMetaData
-		ExpectedEnvsApps map[types.EnvName][]string
+		ExpectedEnvsApps map[types.EnvName][]types.AppName
 	}
 	tcs := []TestCase{
 		{
@@ -4971,7 +4971,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 					},
 				},
 			},
-			ExpectedEnvsApps: map[types.EnvName][]string{
+			ExpectedEnvsApps: map[types.EnvName][]types.AppName{
 				"env1": {"app1", "app2", "app3"},
 				"env2": {"app1"},
 				"env3": {"app1", "app2"},
@@ -5029,7 +5029,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 					},
 				},
 			},
-			ExpectedEnvsApps: map[types.EnvName][]string{
+			ExpectedEnvsApps: map[types.EnvName][]types.AppName{
 				"env1": {"app1"},
 				"env2": {"app1"},
 				"env3": {"app1"},
@@ -5079,7 +5079,7 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 					},
 				},
 			},
-			ExpectedEnvsApps: map[types.EnvName][]string{
+			ExpectedEnvsApps: map[types.EnvName][]types.AppName{
 				"env3": {"app1"},
 			},
 		},
@@ -5103,10 +5103,9 @@ func TestFindEnvAppsFromReleases(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				//for env := range envsAppsFromReleases {
-				//	// TODO: fix types.AppName
-				//	sort.Strings(envsAppsFromReleases[env])
-				//}
+				for env := range envsAppsFromReleases {
+					slices.Sort(envsAppsFromReleases[env])
+				}
 				if diff := cmp.Diff(tc.ExpectedEnvsApps, envsAppsFromReleases); diff != "" {
 					t.Errorf("response mismatch (-want, +got):\n%s", diff)
 				}
@@ -5893,7 +5892,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 		Name                            string
 		Releases                        []DBReleaseWithMetaData
 		Environments                    []DBEnvironment
-		ExpectedEnvironmentApplications map[types.EnvName][]string
+		ExpectedEnvironmentApplications map[types.EnvName][]types.AppName
 	}{
 		{
 			Name: "one Release",
@@ -5914,7 +5913,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 					Config: config.EnvironmentConfig{},
 				},
 			},
-			ExpectedEnvironmentApplications: map[types.EnvName][]string{
+			ExpectedEnvironmentApplications: map[types.EnvName][]types.AppName{
 				"dev":     {"app1"},
 				"staging": {"app1"},
 			},
@@ -5934,7 +5933,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 					Config: config.EnvironmentConfig{},
 				},
 			},
-			ExpectedEnvironmentApplications: map[types.EnvName][]string{
+			ExpectedEnvironmentApplications: map[types.EnvName][]types.AppName{
 				"dev":     {"app1"},
 				"staging": {},
 			},
@@ -5982,7 +5981,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 					Config: config.EnvironmentConfig{},
 				},
 			},
-			ExpectedEnvironmentApplications: map[types.EnvName][]string{
+			ExpectedEnvironmentApplications: map[types.EnvName][]types.AppName{
 				"dev":        {"app1", "app2", "app3"},
 				"staging":    {"app1"},
 				"production": {"app1", "app3"},
@@ -6035,7 +6034,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 		SecondReleases                  []DBReleaseWithMetaData
 		Environments                    []DBEnvironment
 		Teams                           map[types.AppName]string
-		ExpectedEnvironmentApplications map[types.EnvName][]string // this related to the apps BEFORE the 2nd releases
+		ExpectedEnvironmentApplications map[types.EnvName][]types.AppName // this related to the apps BEFORE the 2nd releases
 		ExpectedAppTeams                map[types.EnvName][]AppWithTeam
 	}{
 		{
@@ -6068,7 +6067,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				"app1": "team1",
 				"app2": "team2",
 			},
-			ExpectedEnvironmentApplications: map[types.EnvName][]string{
+			ExpectedEnvironmentApplications: map[types.EnvName][]types.AppName{
 				"dev":     {"app1"},
 				"staging": {},
 			},
@@ -6117,7 +6116,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				"app1": "team1",
 				"app2": "team2",
 			},
-			ExpectedEnvironmentApplications: map[types.EnvName][]string{
+			ExpectedEnvironmentApplications: map[types.EnvName][]types.AppName{
 				"dev":     {"app1"},
 				"staging": {"app1"},
 			},
