@@ -8,7 +8,6 @@ ARG UID=1000
 
 ENV TZ=Europe/Berlin
 
-COPY --from=builder /usr/local/bin/buf /usr/local/bin/buf
 COPY --from=builder /usr/local/go /usr/local/go
 
 ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
