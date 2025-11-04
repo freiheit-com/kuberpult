@@ -1757,10 +1757,10 @@ func (c *DeleteEnvFromApp) Transform(
 		return "", thisErrorf("could not get environment configs: %w", err)
 	}
 
-	if deployed, err := isApplicationDeployedAnywhere(fs, c.Application, &configs); err == nil {
+	if deployed, err := isApplicationDeployedAnywhere(fs, types.AppName(c.Application), &configs); err == nil {
 		if !deployed {
 			_ = removeApplication(fs, c.Application)
-			_, _ = removeApplicationFromEnvs(fs, c.Application, &configs)
+			_, _ = removeApplicationFromEnvs(fs, types.AppName(c.Application), &configs)
 		}
 	} else {
 		return "", thisErrorf("error checking if we are removing the last env: %v", err)
@@ -1972,7 +1972,7 @@ func removeApplication(fs billy.Filesystem, application string) error {
 func removeApplicationFromEnvs(fs billy.Filesystem, application types.AppName, configs *map[types.EnvName]config.EnvironmentConfig) ([]types.EnvName, error) {
 	result := make([]types.EnvName, 0)
 	for env := range *configs {
-		appDir := environmentApplicationDirectory(fs, env, application)
+		appDir := environmentApplicationDirectory(fs, env, string(application))
 		result := append(result, env)
 		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return result, fmt.Errorf("unexpected error application '%v' environment '%v': '%w'", application, env, err)
@@ -1983,7 +1983,7 @@ func removeApplicationFromEnvs(fs billy.Filesystem, application types.AppName, c
 
 func isApplicationDeployedAnywhere(fs billy.Filesystem, application types.AppName, configs *map[types.EnvName]config.EnvironmentConfig) (bool, error) {
 	for env := range *configs {
-		envAppDir := environmentApplicationDirectory(fs, env, application)
+		envAppDir := environmentApplicationDirectory(fs, env, string(application))
 		versionDir := fs.Join(envAppDir, "version")
 		if _, err := fs.Stat(versionDir); err != nil {
 			if !errors.Is(err, os.ErrNotExist) { // only errors other that "not exist" are unexpected => propagate
@@ -2055,7 +2055,7 @@ func (u *UndeployApplication) Transform(
 	if err != nil {
 		return "", fmt.Errorf("could not find team for app %s: %w", u.Application, err)
 	}
-	if envs, err := removeApplicationFromEnvs(fs, u.Application, &configs); err == nil {
+	if envs, err := removeApplicationFromEnvs(fs, types.AppName(u.Application), &configs); err == nil {
 		for _, env := range envs {
 			t.AddAppEnv(u.Application, env, teamOwner)
 		}
