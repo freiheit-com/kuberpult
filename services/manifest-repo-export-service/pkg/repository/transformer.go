@@ -368,7 +368,7 @@ func (c *DeployApplicationVersion) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvName(c.Environment)
+	envName := c.Environment
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, types.MakeReleaseNumbers(c.Version, c.Revision))
@@ -1750,7 +1750,7 @@ func (c *DeleteEnvFromApp) Transform(
 		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app."))
 	}
 
-	tCtx.DeleteEnvFromApp(c.Application, types.EnvName(c.Environment))
+	tCtx.DeleteEnvFromApp(c.Application, c.Environment)
 
 	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
@@ -1759,8 +1759,8 @@ func (c *DeleteEnvFromApp) Transform(
 
 	if deployed, err := isApplicationDeployedAnywhere(fs, c.Application, &configs); err == nil {
 		if !deployed {
-			removeApplication(fs, c.Application)
-			removeApplicationFromEnvs(fs, c.Application, &configs)
+			_ = removeApplication(fs, c.Application)
+			_, _ = removeApplicationFromEnvs(fs, c.Application, &configs)
 		}
 	} else {
 		return "", thisErrorf("error checking if we are removing the last env: %v", err)
