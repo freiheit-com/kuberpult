@@ -1981,7 +1981,7 @@ func removeApplicationFromEnvs(fs billy.Filesystem, application string, configs 
 	return result, nil
 }
 
-func isApplicationDeployedAnywhere(fs billy.Filesystem, application string, configs *map[types.EnvName]config.EnvironmentConfig) (bool, err) {
+func isApplicationDeployedAnywhere(fs billy.Filesystem, application string, configs *map[types.EnvName]config.EnvironmentConfig) (bool, error) {
 	for env := range *configs {
 		envAppDir := environmentApplicationDirectory(fs, env, application)
 		versionDir := fs.Join(envAppDir, "version")
