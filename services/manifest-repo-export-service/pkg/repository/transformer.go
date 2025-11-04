@@ -368,7 +368,7 @@ func (c *DeployApplicationVersion) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	envName := types.EnvnName(c.Environment)
+	envName := types.EnvName(c.Environment)
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, types.MakeReleaseNumbers(c.Version, c.Revision))
