@@ -40,7 +40,7 @@ RUN cd pkg && oapi-codegen -generate "std-http-server" -o publicapi/server-gen.g
 # Build js:
 WORKDIR /kp/services/frontend-service/
 RUN mkdir -p src/api
-RUN buf generate --path api --timeout 5m
+RUN  protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --proto_path=api --ts_proto_opt=oneof=unions,useOptionals=messages,esModuleInterop=true,outputClientImpl=grpc-web --ts_proto_out=src/api api/api.proto
 RUN pnpm build
 
 # Build go:
