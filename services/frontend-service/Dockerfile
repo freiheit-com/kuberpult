@@ -5,6 +5,8 @@ FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
 
 ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 
+RUN apk add protoc protobuf-dev
+
 # frontend-service:
 ADD services/frontend-service/package.json /kp/services/frontend-service/
 ADD services/frontend-service/pnpm-lock.yaml /kp/services/frontend-service/
@@ -27,9 +29,13 @@ ADD infrastructure /kp/infrastructure
 # global pkg:
 COPY --chown=kp:kp pkg pkg
 COPY go.sum go.mod /kp/
-RUN cd pkg && buf generate
+
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+RUN cd pkg && protoc --go_opt=paths=source_relative --go_out=. --go-grpc_opt=paths=source_relative,require_unimplemented_servers=false --go-grpc_out=. api/v1/api.proto
+
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-RUN cd pkg &&  oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
+RUN cd pkg && oapi-codegen -generate "std-http-server" -o publicapi/server-gen.go -package publicapi publicapi/api.yaml
 
 # Build js:
 WORKDIR /kp/services/frontend-service/
