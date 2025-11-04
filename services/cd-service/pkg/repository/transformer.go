@@ -1097,13 +1097,6 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
 	}
 
-	isUndeploy, err := state.IsUndeployVersion(ctx, transaction, u.Application, lastRelease)
-	if err != nil {
-		return "", err
-	}
-	if !isUndeploy {
-		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
-	}
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return "", err
@@ -1118,16 +1111,7 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' cannot be found", u.Application, env)
 		}
 
-		isUndeploy := false
 		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, u.Application, deployment.ReleaseNumbers, true)
-			if err != nil {
-				return "", err
-			}
-			isUndeploy = release.Metadata.UndeployVersion
-			if !isUndeploy {
-				return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the current release '%v' is not un-deployed", u.Application, env)
-			}
 			//Delete deployment (register a new deployment by deleting version)
 			user, err := auth.ReadUserFromContext(ctx)
 			if err != nil {
