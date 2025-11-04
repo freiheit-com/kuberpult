@@ -40,19 +40,19 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                 action: {
                     $case: 'deleteEnvFromApp',
                     deleteEnvFromApp: {
-                        environment: newEnv,
+                        environment: env,
                         application: props.app,
                     },
                 },
             };
-            const indexOf = selectedEnvs.indexOf(newEnv);
+            const indexOf = selectedEnvs.indexOf(env);
             if (indexOf >= 0) {
                 const copy = selectedEnvs.concat();
                 copy.splice(indexOf, 1);
                 setSelectedEnvs(copy);
                 deleteAction(action);
             } else {
-                setSelectedEnvs(selectedEnvs.concat([newEnv]));
+                setSelectedEnvs(selectedEnvs.concat([env]));
                 addAction(action);
             }
         },
