@@ -1969,7 +1969,7 @@ func removeApplication(fs billy.Filesystem, application string) error {
 	return nil
 }
 
-func removeApplicationFromEnvs(fs billy.Filesystem, application string, configs *map[types.EnvName]config.EnvironmentConfig) ([]types.EnvName, error) {
+func removeApplicationFromEnvs(fs billy.Filesystem, application types.AppName, configs *map[types.EnvName]config.EnvironmentConfig) ([]types.EnvName, error) {
 	result := make([]types.EnvName, 0)
 	for env := range *configs {
 		appDir := environmentApplicationDirectory(fs, env, application)
