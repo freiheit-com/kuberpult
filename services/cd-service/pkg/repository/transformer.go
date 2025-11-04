@@ -1141,10 +1141,6 @@ func (u *UndeployApplication) Transform(
 				return "", err
 			}
 		}
-		if deployment != nil && deployment.ReleaseNumbers.Version != nil && !isUndeploy {
-
-
-		}
 		locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
 		if err != nil {
 			return "", err

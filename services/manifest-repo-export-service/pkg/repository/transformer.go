@@ -1750,11 +1750,6 @@ func (c *DeleteEnvFromApp) Transform(
 		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app."))
 	}
 
-<<<<<<< HEAD
-	tCtx.DeleteEnvFromApp(c.Application, types.EnvName(c.Environment))
-||||||| parent of f6b5a4d8 (refactor DeleteEnvFromApp)
-	tCtx.DeleteEnvFromApp(c.Application, c.Environment)
-=======
 	tCtx.DeleteEnvFromApp(c.Application, types.EnvName(c.Environment))
 
 	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
@@ -1770,7 +1765,6 @@ func (c *DeleteEnvFromApp) Transform(
 	} else {
 		return "", thisErrorf("error checking if we are removing the last env: %v", err)
 	}
->>>>>>> f6b5a4d8 (refactor DeleteEnvFromApp)
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", c.Environment, c.Application), nil
 }
 
@@ -2047,13 +2041,7 @@ func (u *UndeployApplication) Transform(
 					logger.FromContext(ctx).Sugar().Warnf("Maximize git data is enabled but could not find undeploy file %q for application %q on environment %q.", undeployFile, u.Application, env)
 				}
 			} else {
-<<<<<<< HEAD
 				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %w", err)
-||||||| parent of f6b5a4d8 (refactor DeleteEnvFromApp)
-				return "", fmt.Errorf("UndeployApplication(repo): error cannot un-deploy application '%v' the release on '%v' is not un-deployed: '%v'. Error: %w", u.Application, env, undeployFile, err)
-=======
-				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %v", err)
->>>>>>> f6b5a4d8 (refactor DeleteEnvFromApp)
 			}
 		}
 
