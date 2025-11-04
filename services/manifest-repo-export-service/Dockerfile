@@ -35,7 +35,6 @@ COPY services/manifest-repo-export-service/cmd/server/usr/ /usr
 
 USER kp
 WORKDIR /kp
-RUN git config --global --add safe.directory '*'
 
 COPY --from=builder /kp/go.mod ./go.mod
 COPY --from=builder /kp/go.sum ./go.sum
