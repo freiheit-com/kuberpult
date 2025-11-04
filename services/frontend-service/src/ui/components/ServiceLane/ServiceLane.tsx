@@ -20,7 +20,6 @@ import {
     EnvironmentGroupExtended,
     getAppDetails,
     ReleaseNumbers,
-    showSnackbarError,
     updateAppDetails,
     useAppDetailsForApp,
     useCurrentlyExistsAtGroup,
@@ -30,7 +29,7 @@ import {
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
-import { Environment, OverviewApplication, UndeploySummary } from '../../../api/api';
+import { Environment, OverviewApplication } from '../../../api/api';
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
@@ -117,19 +116,6 @@ export const DiffElement: React.FC<{ diff: number; title: string; navCallback: (
         <div className="service-lane__diff--dot" />
     </div>
 );
-
-const deriveUndeployMessage = (undeploySummary: UndeploySummary | undefined): string | undefined => {
-    switch (undeploySummary) {
-        case UndeploySummary.UNDEPLOY:
-            return 'Delete Forever';
-        case UndeploySummary.NORMAL:
-            return 'Prepare Undeploy Release';
-        case UndeploySummary.MIXED:
-            return undefined;
-        default:
-            return undefined;
-    }
-};
 
 export const ServiceLane: React.FC<{
     application: OverviewApplication;
@@ -378,54 +364,18 @@ export const ReadyServiceLane: React.FC<{
             .sort((n1, n2) => (n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version))
     );
 
-    const prepareUndeployOrUndeploy = React.useCallback(() => {
-        if (allReleases.length === 0) {
-            // if there are no releases, we have to first create the undeploy release
-            // and then undeploy:
-            addAction({
-                action: {
-                    $case: 'prepareUndeploy',
-                    prepareUndeploy: { application: application.name },
-                },
-            });
-            addAction({
-                action: {
-                    $case: 'undeploy',
-                    undeploy: { application: application.name },
-                },
-            });
-            return;
-        }
-        switch (appDetails?.application?.undeploySummary) {
-            case UndeploySummary.UNDEPLOY:
-                addAction({
-                    action: {
-                        $case: 'undeploy',
-                        undeploy: { application: application.name },
-                    },
-                });
-                break;
-            case UndeploySummary.NORMAL:
-                addAction({
-                    action: {
-                        $case: 'prepareUndeploy',
-                        prepareUndeploy: { application: application.name },
-                    },
-                });
-                break;
-            case UndeploySummary.MIXED:
-                showSnackbarError('Internal Error: Cannot prepare to undeploy or actual undeploy in mixed state.');
-                break;
-            default:
-                showSnackbarError('Internal Error: Cannot prepare to undeploy or actual undeploy in unknown state.');
-                break;
-        }
-    }, [application.name, appDetails?.application?.undeploySummary, allReleases.length]);
+    const undeploy = React.useCallback(() => {
+        addAction({
+            action: {
+                $case: 'undeploy',
+                undeploy: { application: application.name },
+            },
+        });
+    }, [application.name]);
     let minorReleases = useMinorsForApp(application.name);
     if (!minorReleases) {
         minorReleases = [];
     }
-    const prepareUndeployOrUndeployText = deriveUndeployMessage(appDetails?.application?.undeploySummary);
     const releases = getReleasesToDisplay(deployedReleases, allReleases, minorReleases, hideMinors).sort((n1, n2) =>
         n2.version - n1.version === 0 ? n2.revision - n1.revision : n2.version - n1.version
     );
@@ -479,21 +429,18 @@ export const ReadyServiceLane: React.FC<{
             },
         },
         {
-            label: 'Remove environment from app',
+            label: `Remove app '${application.name}' from environments`,
             icon: <DeleteWhite />,
             onClick: (): void => {
                 setShowEnvSelectionDialog(true);
             },
         },
-    ];
-    if (prepareUndeployOrUndeployText) {
-        buttons.push({
-            label: prepareUndeployOrUndeployText,
-            onClick: prepareUndeployOrUndeploy,
+        {
+            label: 'Undeploy',
             icon: <DeleteWhite />,
-        });
-    }
-
+            onClick: undeploy,
+        },
+    ];
     const dotsMenu = <DotsMenu buttons={buttons} />;
     const appLocks = Object.values(appDetails?.appLocks ? appDetails.appLocks : []);
     const teamLocks = Object.values(appDetails?.teamLocks ? appDetails.teamLocks : []);
