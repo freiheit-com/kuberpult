@@ -1118,7 +1118,7 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' cannot be found", u.Application, env)
 		}
 
-		var isUndeploy bool
+		isUndeploy := false
 		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
 			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, u.Application, deployment.ReleaseNumbers, true)
 			if err != nil {
@@ -1141,30 +1141,26 @@ func (u *UndeployApplication) Transform(
 				return "", err
 			}
 		}
-		if deployment == nil || deployment.ReleaseNumbers.Version == nil || isUndeploy {
-			locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
-			if err != nil {
-				return "", err
-			}
-			if locks == nil {
-				continue
-			}
-			user, err := auth.ReadUserFromContext(ctx)
-			if err != nil {
-				return "", err
-			}
-			for _, currentLockID := range locks {
-				err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, env, u.Application, currentLockID, db.LockDeletionMetadata{
-					DeletedByUser:  user.Name,
-					DeletedByEmail: user.Email,
-				})
-				if err != nil {
-					return "", err
-				}
-			}
+		locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
+		if err != nil {
+			return "", err
+		}
+		if locks == nil {
 			continue
 		}
-		return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
+		user, err := auth.ReadUserFromContext(ctx)
+		if err != nil {
+			return "", err
+		}
+		for _, currentLockID := range locks {
+			err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, env, u.Application, currentLockID, db.LockDeletionMetadata{
+				DeletedByUser:  user.Name,
+				DeletedByEmail: user.Email,
+			})
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 	dbApp, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, u.Application)
 	if err != nil {
