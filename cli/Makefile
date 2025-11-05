@@ -29,7 +29,7 @@ build: lint test docker
 
 build-pr-internal: build release
 build-pr:
-	IMAGE_TAG=pr-$(VERSION) $(MAKE) build-pr-internal
+	IMAGE_TAG=pr-$(VERSION) BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION) $(MAKE) build-pr-internal
 
 build-main-internal: build release
 build-main:
