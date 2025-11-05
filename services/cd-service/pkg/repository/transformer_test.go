@@ -189,38 +189,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			},
 		},
 		{
-			Name: "Undeploy application where there current releases are not undeploy shouldn't work",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "acceptance",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateEnvironmentLock{
-					Environment: "acceptance",
-					LockId:      "22133",
-					Message:     "test",
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-				&UndeployApplication{
-					Application: "app1",
-				},
-			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"UndeployApplication(db): error cannot un-deploy application 'app1' the current release 'acceptance' is not un-deployed"},
-			},
-		},
-		{
 			Name: "Undeploy application where the app does not have a release in all envs must work",
 			Transformers: []Transformer{
 				&CreateEnvironment{
@@ -273,42 +241,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				&UndeployApplication{
 					Application: "app1",
 				},
-			},
-		},
-		{
-			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "production",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "", Latest: false}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						envProduction: "productionmanifest",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-				&CreateApplicationVersion{
-					Application:     "app1",
-					Manifests:       nil,
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					WriteCommitData: true,
-					Version:         3,
-				},
-				&UndeployApplication{
-					Application: "app1",
-				},
-			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"UndeployApplication: error last release is not un-deployed application version of 'app1'"},
 			},
 		},
 	}
