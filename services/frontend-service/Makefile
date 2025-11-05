@@ -25,4 +25,4 @@ include ../../infrastructure/make/go/include.mk
 gen-api:
 	pnpm i
 	mkdir -p src/api
-	protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=oneof=unions,useOptionals=messages,esModuleInterop=true,outputClientImpl=grpc-web --ts_proto_out=src/api api/api.proto
+	protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=oneof=unions,useOptionals=messages,esModuleInterop=true,outputClientImpl=grpc-web --ts_proto_out=src api/api.proto
