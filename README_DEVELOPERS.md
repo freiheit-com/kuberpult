@@ -14,8 +14,8 @@ The `cd-service` takes the URL of the repository to watch from the environment v
 
 - [docker](https://docs.docker.com/get-docker/)
 - [docker-compose](https://docs.docker.com/compose/install/) v1.29.2
-- [pnpm](https://pnpm.io/installation)
-- [protoc](https://protobuf.dev/installation/)
+- [pnpm](https://pnpm.io/installation) v10
+- [protoc](https://protobuf.dev/installation/) v30.2
 
 ## Setup builder image
 
