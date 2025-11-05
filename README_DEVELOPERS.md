@@ -243,7 +243,6 @@ On mac: install the macports package `sqlite3`
   - then follow the instructions to install `ct`
 - golang >= 1.16
 - protoc >=3.15
-- buf from https://docs.buf.build/installation
 
 ## Setup and Run
 
