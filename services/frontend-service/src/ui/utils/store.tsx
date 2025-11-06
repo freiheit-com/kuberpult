@@ -637,7 +637,7 @@ export const deleteAllActions = (): void => {
     UpdateAction.set({ actions: [] });
 };
 
-export const useDeleteEnvironmentsForAppActions = (app: string): string[] => {
+export const useDeleteEnvironmentActionsForApp = (app: string): string[] => {
     const removeActionsForApp = useActions().filter(function (v, i, a) {
         return v.action?.$case === 'deleteEnvFromApp' && v.action?.deleteEnvFromApp.application === app;
     });
