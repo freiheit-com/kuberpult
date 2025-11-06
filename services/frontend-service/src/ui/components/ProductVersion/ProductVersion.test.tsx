@@ -18,7 +18,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { Environment, EnvironmentGroup, Priority, ProductSummary, TagData } from '../../../api/api';
 import { ProductVersion, TableFiltered } from './ProductVersion';
 import { Spy } from 'spy4js';
-import { TagsWithFilter, TagsResponse } from "../../utils/store";
+import type { TagsWithFilter, TagsResponse } from "../../utils/store";
 
 const mock_UseEnvGroups = Spy('envGroup');
 const mock_UseTags = Spy('Overview');
