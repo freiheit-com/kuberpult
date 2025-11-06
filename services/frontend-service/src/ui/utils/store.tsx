@@ -637,6 +637,20 @@ export const deleteAllActions = (): void => {
     UpdateAction.set({ actions: [] });
 };
 
+export const useDeleteEnvironmentsForAppActions = (app: string): string[] => {
+    const removeActionsForApp = useActions().filter(function (v, i, a) {
+        return v.action?.$case === 'deleteEnvFromApp' && v.action?.deleteEnvFromApp.application === app;
+    });
+    const envs = removeActionsForApp.map(function (v, i, a) {
+        if (v.action?.$case === 'deleteEnvFromApp') {
+            return v.action?.deleteEnvFromApp.environment;
+        } else {
+            return ''; // should never happen
+        }
+    });
+    return envs;
+};
+
 export const deleteAction = (action: BatchAction): void => {
     UpdateAction.set(({ actions }) => ({
         // create comparison function
