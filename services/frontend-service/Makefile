@@ -26,3 +26,9 @@ gen-api:
 	pnpm i
 	mkdir -p src/api
 	protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=oneof=unions,useOptionals=messages,esModuleInterop=true,outputClientImpl=grpc-web --ts_proto_out=src api/api.proto
+
+build-pr-internal: js-test
+build-main-internal: js-test
+
+js-test:
+	pnpm test-ci
