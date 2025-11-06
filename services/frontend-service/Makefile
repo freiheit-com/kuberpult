@@ -27,8 +27,8 @@ gen-api:
 	mkdir -p src/api
 	protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=oneof=unions,useOptionals=messages,esModuleInterop=true,outputClientImpl=grpc-web --ts_proto_out=src api/api.proto
 
-build-pr-internal: js-test
-build-main-internal: js-test
+build-pr-internal: js-test-ci
+build-main-internal: js-test-ci
 
-js-test:
-	pnpm test-ci
+js-test-ci:
+	docker run --rm -w /kp/ -v $(shell pwd)/:/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'pnpm test-ci'
