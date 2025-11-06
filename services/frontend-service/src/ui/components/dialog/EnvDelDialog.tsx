@@ -14,11 +14,11 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '../button';
 import { PlainDialog } from './ConfirmationDialog';
 import { Checkbox } from '../dropdown/checkbox';
-import { addAction, deleteAction } from '../../utils/store';
+import { addAction, deleteAction, useDeleteEnvironmentActionsForApp } from '../../utils/store';
 import { BatchAction } from '../../../api/api';
 
 export type EnvDelDialogProps = {
@@ -34,6 +34,13 @@ export type EnvDelDialogProps = {
  */
 export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
     const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
+    const deleteEnvActions = useDeleteEnvironmentActionsForApp(props.app);
+    useEffect(() => {
+        if (props.open) {
+            setSelectedEnvs(deleteEnvActions);
+        }
+        return () => {};
+    }, [props.open]);
     const toggleEnv = React.useCallback(
         (env: string) => {
             const action: BatchAction = {
