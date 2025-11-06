@@ -422,129 +422,147 @@ func processEsls(
 	eslProcessingIdleTimeSeconds int64,
 	failOnErrorWithGitPushTags bool,
 ) error {
-	log := logger.FromContext(ctx).Sugar()
 	var sleepDuration = backoff.MakeSimpleBackoff(
 		time.Second*time.Duration(eslProcessingIdleTimeSeconds),
 		time.Second*time.Duration(maxEslProcessingTimeSeconds),
 	)
-
-	const transactionRetries = 10
 	for {
-		var transformer repository.Transformer = nil
-		var esl *db.EslEventRow = nil
-		const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
-
-		// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation.
-		// This means that there is a possibility that two transaction timestamps collide with the same git hash.
-		// As such, before executing any transformer, we get the current commit hash so that we can then compare it with the
-		// (possibly) new commit hash
-		oldCommitId, err := repo.GetHeadCommitId()
+		span, ctxOneEvent := tracer.StartSpanFromContext(ctx, "processOneEvent")
+		err := oneEvent(ctxOneEvent, repo, dbHandler, ddMetrics, &sleepDuration, failOnErrorWithGitPushTags)
+		span.Finish(tracer.WithError(err))
 		if err != nil {
-			d := sleepDuration.NextBackOff()
-			if sleepDuration.IsAtMax() {
-				return err
-			}
-			logger.FromContext(ctx).Sugar().Infof("error getting current commid ID, will try again in %v: %v", d, err)
-			time.Sleep(d)
-			continue
-		}
-		err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
-			var err2 error
-			transformer, esl, err2 = HandleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
-			return err2
-		})
-		if err != nil {
-			if esl == nil {
-				log.Errorf("skipping esl event, because we could not construct esl object: %v", err)
-				return err
-			}
-			log.Errorf("skipping esl event, because it returned an error: %v", err)
-			// after this many tries, we can just skip it:
-			err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, esl, err.Error())
-			if err2 != nil {
-				return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
-			}
-			sleepDuration.Reset()
-		} else {
-			if transformer == nil {
-				sleepDuration.Reset()
-				d := sleepDuration.NextBackOff()
-				measureGitPushFailures(ddMetrics, log, false)
-				logger.FromContext(ctx).Sugar().Debug("event processing skipped, will try again in %v", d)
-				time.Sleep(d)
-				continue
-			}
-			log.Infof("event processed successfully, now writing to cutoff and pushing...")
-			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
-				if err2 != nil {
-					return err2
-				}
-				err2 = repo.PushRepo(ctx)
-				if err2 != nil {
-					d := sleepDuration.NextBackOff()
-					logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v: %v", d, err2)
-					measureGitPushFailures(ddMetrics, log, true)
-					time.Sleep(d)
-					return err2
-				} else {
-					measureGitPushFailures(ddMetrics, log, false)
-				}
-
-				//Get latest commit. Write esl timestamp and commit hash.
-				commitId, err := repo.GetHeadCommitId()
-				if err != nil {
-					return err
-				}
-
-				if oldCommitId.String() != commitId.String() { // We only want to write a transaction timestamp if it resulted in a new commit.
-					var err3 = dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
-					if err3 != nil {
-						return err3
-					}
-					var gitTag = transformer.GetGitTag()
-					if gitTag != "" {
-						pushErr := HandleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
-						if pushErr != nil {
-							return handleFailedEvent(ctx, dbHandler, transactionRetries, esl,
-								fmt.Sprintf("error while pushing the git tag '%s': %v", gitTag, pushErr.Error()))
-						}
-					}
-					return nil
-				} else {
-					logger.FromContext(ctx).Warn("no commit was created, tagging skipped", zap.String("gitTag", string(transformer.GetGitTag())))
-				}
-				return nil
-			})
-			if err != nil {
-				//If we fail to push to repo or to update the cutoff, we say that SYNC has failed
-				err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-					return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
-				})
-				logger.FromContext(ctx).Sugar().Errorf("error updating state for ui: %v", err)
-				err3 := repo.FetchAndReset(ctx)
-				if err3 != nil {
-					d := sleepDuration.NextBackOff()
-					logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
-					time.Sleep(d)
-				}
-			} else {
-				//After a successful transformer processing and pushing to manifest repo, we write that apps are now SYNCED
-				err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-					return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNCED)
-				})
-				if err != nil {
-					logger.FromContext(ctx).Sugar().Warnf("Failed writing sync status after successful operation! Repo has been updated, but sync status has not. Error: %v", err)
-				}
-			}
-		}
-		repo.Notify().Notify() // Notify git sync status
-
-		err = repository.MeasureGitSyncStatus(ctx, ddMetrics, dbHandler)
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
+			return err
 		}
 	}
+}
+
+func oneEvent(
+	ctx context.Context,
+	repo repository.Repository,
+	dbHandler *db.DBHandler,
+	ddMetrics statsd.ClientInterface,
+	sleepDuration *backoff.SimpleBackoff,
+	failOnErrorWithGitPushTags bool,
+) error { // true means "processing done, move on to next event"
+	const transactionRetries = 10
+	var transformer repository.Transformer = nil
+	var esl *db.EslEventRow = nil
+	const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
+
+	log := logger.FromContext(ctx).Sugar()
+
+	// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation.
+	// This means that there is a possibility that two transaction timestamps collide with the same git hash.
+	// As such, before executing any transformer, we get the current commit hash so that we can then compare it with the
+	// (possibly) new commit hash
+	oldCommitId, err := repo.GetHeadCommitId()
+	if err != nil {
+		d := sleepDuration.NextBackOff()
+		if sleepDuration.IsAtMax() {
+			return err
+		}
+		logger.FromContext(ctx).Sugar().Infof("error getting current commid ID, will try again in %v: %v", d, err)
+		time.Sleep(d)
+		return nil
+	}
+	err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
+		var err2 error
+		transformer, esl, err2 = HandleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
+		return err2
+	})
+	if err != nil {
+		if esl == nil {
+			log.Errorf("skipping esl event, because we could not construct esl object: %v", err)
+			return err
+		}
+		log.Errorf("skipping esl event, because it returned an error: %v", err)
+		// after this many tries, we can just skip it:
+		err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, esl, err.Error())
+		if err2 != nil {
+			return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
+		}
+		sleepDuration.Reset()
+	} else {
+		if transformer == nil {
+			sleepDuration.Reset()
+			d := sleepDuration.NextBackOff()
+			measureGitPushFailures(ddMetrics, log, false)
+			logger.FromContext(ctx).Sugar().Debug("event processing skipped, will try again in %v", d)
+			time.Sleep(d)
+			return nil
+		}
+		log.Infof("event processed successfully, now writing to cutoff and pushing...")
+		err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+			err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
+			if err2 != nil {
+				return err2
+			}
+			err2 = repo.PushRepo(ctx)
+			if err2 != nil {
+				d := sleepDuration.NextBackOff()
+				logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v: %v", d, err2)
+				measureGitPushFailures(ddMetrics, log, true)
+				time.Sleep(d)
+				return err2
+			} else {
+				measureGitPushFailures(ddMetrics, log, false)
+			}
+
+			//Get latest commit. Write esl timestamp and commit hash.
+			commitId, err := repo.GetHeadCommitId()
+			if err != nil {
+				return err
+			}
+
+			if oldCommitId.String() != commitId.String() { // We only want to write a transaction timestamp if it resulted in a new commit.
+				var err3 = dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
+				if err3 != nil {
+					return err3
+				}
+				var gitTag = transformer.GetGitTag()
+				if gitTag != "" {
+					pushErr := HandleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
+					if pushErr != nil {
+						return handleFailedEvent(ctx, dbHandler, transactionRetries, esl,
+							fmt.Sprintf("error while pushing the git tag '%s': %v", gitTag, pushErr.Error()))
+					}
+				}
+				return nil
+			} else {
+				logger.FromContext(ctx).Warn("no commit was created, tagging skipped", zap.String("gitTag", string(transformer.GetGitTag())))
+			}
+			return nil
+		})
+		if err != nil {
+			//If we fail to push to repo or to update the cutoff, we say that SYNC has failed
+			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
+			})
+			logger.FromContext(ctx).Sugar().Errorf("error updating state for ui: %v", err)
+			err3 := repo.FetchAndReset(ctx)
+			if err3 != nil {
+				d := sleepDuration.NextBackOff()
+				logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
+				time.Sleep(d)
+			}
+		} else {
+			//After a successful transformer processing and pushing to manifest repo, we write that apps are now SYNCED
+			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNCED)
+			})
+			if err != nil {
+				logger.FromContext(ctx).Sugar().Warnf("Failed writing sync status after successful operation! Repo has been updated, but sync status has not. Error: %v", err)
+			}
+		}
+	}
+	repo.Notify().Notify() // Notify git sync status
+
+	err = repository.MeasureGitSyncStatus(ctx, ddMetrics, dbHandler)
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
+		// if just the metrics fail, we don't want to exit with an error
+	}
+	return nil
 }
 
 func handleFailedEvent(ctx context.Context, dbHandler *db.DBHandler, transactionRetries uint8, esl *db.EslEventRow, reason string) error {
