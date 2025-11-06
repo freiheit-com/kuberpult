@@ -18,7 +18,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { Environment, EnvironmentGroup, Priority, ProductSummary, TagData } from '../../../api/api';
 import { ProductVersion, TableFiltered } from './ProductVersion';
 import { Spy } from 'spy4js';
-import type { TagsWithFilter } from "../../utils/store";
+import type { TagsWithFilter } from '../../utils/store';
+import { TagResponse } from '../../utils/store';
 
 const mock_UseEnvGroups = Spy('envGroup');
 const mock_UseTags = Spy('Overview');
@@ -172,9 +173,9 @@ describe('Product Version Data', () => {
             // replicate api calls
             mock_UseEnvGroups.returns(testCase.environmentGroups);
             const useTagsResponse: TagsWithFilter = {
-                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: true },
-                filteredTagData: [{tag: 'test-tag-1', commitId:'sha-123'}],
-            } ;
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: [{ tag: 'test-tag-1', commitId: 'sha-123' }],
+            };
             mock_UseTags.returns(useTagsResponse);
             mockGetProductSummary.mockResolvedValue({ productSummary: testCase.productSummary });
             mock_FrontendConfig.returns({
@@ -203,9 +204,7 @@ describe('Product Version Data', () => {
             if (testCase.productSummary.length > 0) {
                 expect(document.querySelector('.table')?.textContent).toContain('App Name');
             } else {
-                expect(document.querySelector('.warning-message')?.textContent).toContain(
-                    'There are no git tags '
-                );
+                expect(document.querySelector('.warning-message')?.textContent).toContain('There are no git tags ');
             }
             const releaseTrainButton = screen.queryByText('Run Release Train');
             if (testCase.tags.length > 0) {

@@ -757,6 +757,7 @@ export const EnvironmentGroupLane: React.FC<{
             allReleases,
             release.environments,
             release.version,
+            release.revision,
             app,
             alreadyPlanned,
             deploysAlreadyPlanned,

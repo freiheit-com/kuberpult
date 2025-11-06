@@ -56,7 +56,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
                 addAction(action);
             }
         },
-        [selectedEnvs, setSelectedEnvs]
+        [selectedEnvs, setSelectedEnvs, props.app]
     );
     const removeAllEnvs = React.useCallback(() => {
         selectedEnvs.forEach((env) => {
@@ -72,7 +72,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
             deleteAction(action);
         });
         setSelectedEnvs([]);
-    }, [selectedEnvs, setSelectedEnvs]);
+    }, [selectedEnvs, setSelectedEnvs, props.app]);
     const addAllEnvs = React.useCallback(() => {
         props.envs.forEach((env) => {
             const action: BatchAction = {
@@ -87,7 +87,7 @@ export const EnvDelDialog: React.FC<EnvDelDialogProps> = (props) => {
             addAction(action);
         });
         setSelectedEnvs(props.envs);
-    }, [props.envs, setSelectedEnvs]);
+    }, [props.envs, setSelectedEnvs, props.app]);
     return (
         <PlainDialog
             open={props.open}
