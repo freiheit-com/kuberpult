@@ -22,7 +22,7 @@
     "@peculiar/webcrypto": "1.4.5",
     "@types/react-beforeunload": "2.1.5",
     "classnames": "2.5.1",
-    "jwt-decode": "4.0.0", 
+    "jwt-decode": "4.0.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router-dom": "6.25.0",
@@ -35,7 +35,8 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "build": "GENERATE_SOURCEMAP=false react-scripts build",
-    "test": "TC=Europe/Berlin react-scripts test --color",
+    "test": "TC=Europe/Berlin react-scripts test",
+    "test-ci": "CI=true TC=Europe/Berlin react-scripts test",
     "start": "WATCHPACK_POLLING=true CHOKIDAR_USEPOLLING=true react-scripts start",
     "eslint-check": "eslint --cache --max-warnings 0 --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
     "eslint-fix": "eslint --fix --cache --max-warnings 0 --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
