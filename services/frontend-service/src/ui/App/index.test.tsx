@@ -50,7 +50,7 @@ jest.mock('../utils/GrpcApi', () => ({
             rolloutService: () => ({
                 StreamStatus: () => mock_StreamStatus(),
             }),
-            gitService: () => ({
+            manifestExportGitService: () => ({
                 StreamGitSyncStatus: () => mock_StreamGitSyncStatus(),
             }),
         };

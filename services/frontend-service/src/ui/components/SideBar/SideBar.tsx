@@ -643,6 +643,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
         environmentLocks,
         teamLocks,
         appDetails,
+        configs.revisionsEnabled,
     ]);
 
     const showDialog = useCallback(() => {
