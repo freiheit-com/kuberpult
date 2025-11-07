@@ -31,4 +31,4 @@ build-pr-internal: js-test-ci
 build-main-internal: js-test-ci
 
 js-test-ci:
-	docker run --rm -w /kp/ -v $(shell pwd)/:/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'pnpm test-ci'
+	docker run --rm -w /kp/ -v $(shell pwd)/:/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'pnpm i && pnpm test-ci'
