@@ -44,6 +44,11 @@ cd ../../..
 make kuberpult
 ```
 
+- To enable tracing with Datadog for the services, run below command:
+```
+DD_ENV=<datadog-environment> make kuberpult-datadog
+```
+
 For details on how to fill the repo, see the
 [Readme for testdata](infrastructure/scripts/create-testdata/Readme.md)
 

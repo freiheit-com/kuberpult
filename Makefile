@@ -74,7 +74,7 @@ builder:
 	IMAGE_TAG=local make -C infrastructure/docker/builder build
 
 compose-down:
-	docker compose down
+	docker compose -f docker-compose.yml -f docker-compose.datadog.yml down
 
 prepare-compose: builder
 	make -C pkg gen
@@ -82,6 +82,13 @@ prepare-compose: builder
 	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 	IMAGE_TAG=local make -C services/frontend-service docker gen-api
 	make -C infrastructure/docker/ui build-pr
+
+kuberpult-datadog: prepare-compose compose-down
+ifndef DD_ENV
+	$(error "DD_ENV should be set to execute this target. E.g., DD_ENV=example-local-nov7-a make kuberpult-datadog")
+else
+	DD_ENV=$(DD_ENV) docker compose -f docker-compose.datadog.yml -f docker-compose.yml -f docker-compose.persist.yml up
+endif
 
 kuberpult: prepare-compose compose-down
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
