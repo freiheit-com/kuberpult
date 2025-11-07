@@ -16,10 +16,6 @@ Copyright freiheit.com*/
 .release-dialog {
     min-width: 980px;
 
-    a {
-        color: white;
-    }
-
     a.env-card-link {
         color: black;
         font-size: 17px;
@@ -52,6 +48,10 @@ Copyright freiheit.com*/
         display: flex;
         flex-direction: row;
         justify-content: space-between;
+
+        a {
+          color: var(--mdc-theme-anchor-on-primary);
+        }
 
         .release-dialog-app-bar-data {
             margin: 24px 10px 24px 47px;
@@ -175,6 +175,10 @@ Copyright freiheit.com*/
                 }
                 .env-card-release-diff-negative {
                     color: red;
+                }
+
+                a.deployment-ci-link {
+                    color: var(--mdc-theme-anchor)
                 }
             }
 
