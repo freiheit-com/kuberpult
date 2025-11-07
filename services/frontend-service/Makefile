@@ -32,14 +32,3 @@ build-main-internal: js-test-ci
 
 js-test-ci:
 	docker run --rm -w $(SERVICE_DIR) -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'pnpm i && mkdir -p src/api && protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=oneof=unions,useOptionals=messages,esModuleInterop=true,outputClientImpl=grpc-web --ts_proto_out=src api/api.proto && pnpm test-ci'
-
-js-debug:
-	docker run -ti --rm -w /kp/services/frontend-service/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c bash # 'pnpm i && mkdir -p src/api && bash'
-
-sudo-clean:
-	sudo rm src/pkg/api/ -rf
-	rm -rf ./.pnpm-store/
-	sudo rm node_modules/ -rf
-	sudo rm -rf ./.pnpm-store/
-	sudo rm -rf src/google/
-	git clean -fdx
