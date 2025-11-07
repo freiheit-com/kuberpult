@@ -31,4 +31,4 @@ build-pr-internal: js-test-ci
 build-main-internal: js-test-ci
 
 js-test-ci:
-	docker run --rm -w /kp/ -v $(shell pwd)/:/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'pnpm i && pnpm test-ci'
+	docker run --rm -w /kp/ -v $(shell pwd)/:/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'pnpm i && mkdir -p src/api && protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=oneof=unions,useOptionals=messages,esModuleInterop=true,outputClientImpl=grpc-web --ts_proto_out=src pkg/api/v1/api.proto && pnpm test-ci'
