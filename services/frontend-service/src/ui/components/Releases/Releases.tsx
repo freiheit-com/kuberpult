@@ -72,7 +72,7 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
             <h1 className={classNames('app_name', className)}>{'Releases | ' + app}</h1>
             {rel.map((release) =>
                 release.map((rele) => (
-                    <div key={rele.version} className={classNames('container right', className)}>
+                    <div key={rele.version} className={classNames('container', className)}>
                         <div className={classNames('release_version', className)}>
                             {rele.version}
                             {configs.revisionsEnabled && `.${rele.revision}`}
