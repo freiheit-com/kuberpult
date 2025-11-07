@@ -1223,6 +1223,7 @@ describe('Rollout Status for AA environments', () => {
             // when
             setTheStore(testcase);
             getWrapper(testcase.props);
+            expect(true).toBe(false);
             for (const [envName, status] of Object.entries(testcase.expectedRolloutDetails)) {
                 expect(
                     document
