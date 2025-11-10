@@ -21,11 +21,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"io"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 
@@ -59,7 +61,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-var c config.ServerConfig
 var backendServiceId string = ""
 
 const megaBytes int = 1024 * 1024
@@ -110,7 +111,7 @@ func readAllAndClose(r io.ReadCloser, maxBytes int64) {
 	_ = r.Close()
 }
 
-func readPgpKeyRing() (openpgp.KeyRing, error) {
+func readPgpKeyRing(c config.ServerConfig) (openpgp.KeyRing, error) {
 	if c.PgpKeyRingPath == "" {
 		return nil, nil
 	}
@@ -129,20 +130,82 @@ func RunServer() {
 	}
 }
 
-func runServer(ctx context.Context) error {
-	err := envconfig.Process("kuberpult", &c)
+func parseEnvVars() (*config.ServerConfig, error) {
+	var r = config.ServerConfig{}
+	var err error
+	r.CdServer = valid.ReadEnvVarWithDefault("KUBERPULT_CDSERVER", "kuberpult-cd-service:8443")
+	r.ManifestExportServer = valid.ReadEnvVarWithDefault("KUBERPULT_MANIFESTEXPORTSERVER", "kuberpult-manifest-repo-export-service:8443")
+	r.CdServerSecure = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CD_SERVER_SECURE", false)
+	r.RolloutServer = valid.ReadEnvVarWithDefault("KUBERPULT_ROLLOUTSERVER", "")
 
+	r.GKEProjectNumber = valid.ReadEnvVarWithDefault("KUBERPULT_GKE_PROJECT_NUMBER", "")
+	r.GKEBackendServiceID = valid.ReadEnvVarWithDefault("KUBERPULT_GKE_BACKEND_SERVICE_ID", "")
+	r.GKEBackendServiceName = valid.ReadEnvVarWithDefault("KUBERPULT_GKE_BACKEND_SERVICE_NAME", "")
+
+	r.EnableTracing = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_TRACING", false)
+	r.ArgocdBaseUrl = valid.ReadEnvVarWithDefault("KUBERPULT_ARGOCD_BASE_URL", "")
+	r.ArgocdNamespace = valid.ReadEnvVarWithDefault("KUBERPULT_ARGOCD_NAMESPACE", "tools")
+
+	r.PgpKeyRingPath = valid.ReadEnvVarWithDefault("KUBERPULT_PGP_KEY_RING_PATH", "")
+
+	r.AzureEnableAuth = valid.ReadEnvVarBoolWithDefault("KUBERPULT_AZURE_ENABLE_AUTH", false)
+	r.AzureCloudInstance = valid.ReadEnvVarWithDefault("KUBERPULT_AZURE_CLOUD_INSTANCE", "https://login.microsoftonline.com/")
+	r.AzureClientId = valid.ReadEnvVarWithDefault("KUBERPULT_AZURE_CLIENT_ID", "")
+	r.AzureTenantId = valid.ReadEnvVarWithDefault("KUBERPULT_AZURE_TENANT_ID", "")
+	r.AzureRedirectUrl = valid.ReadEnvVarWithDefault("KUBERPULT_AZURE_REDIRECT_URL", "")
+
+	r.DexClientId = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_CLIENT_ID", "")
+	r.DexClientSecret = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_CLIENT_SECRET", "")
+	r.DexRbacPolicyPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_POLICY_PATH", "")
+	r.DexBaseURL = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_BASE_URL", "")
+	r.DexFullNameOverride = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_FULL_NAME_OVERRIDE", "kuberpult-dex")
+	r.DexScopes = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_SCOPES", "")
+	r.DexUseClusterInternalCommunication = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_USE_CLUSTER_INTERNAL_COMMUNICATION", false)
+
+	r.Version = valid.ReadEnvVarWithDefault("KUBERPULT_VERSION", "")
+	r.SourceRepoUrl = valid.ReadEnvVarWithDefault("KUBERPULT_SOURCE_REPO_URL", "")
+	r.ManifestRepoUrl = valid.ReadEnvVarWithDefault("KUBERPULT_MANIFEST_REPO_URL", "")
+	r.GitBranch = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_BRANCH", "")
+	r.AllowedOrigins = valid.ReadEnvVarWithDefault("KUBERPULT_ALLOWED_ORIGINS", "")
+
+	r.GitAuthorName, err = valid.ReadEnvVar("KUBERPULT_GIT_AUTHOR_NAME")
 	if err != nil {
-		logger.FromContext(ctx).Error("config.parse", zap.Error(err))
+		// the errors returned from the valid package are detailed enough, no need to wrap the error:
+		return nil, err
+	}
+	r.GitAuthorEmail, err = valid.ReadEnvVar("KUBERPULT_GIT_AUTHOR_EMAIL")
+	if err != nil {
+		return nil, err
+	}
+
+	r.BatchClientTimeout, err = valid.ReadEnvVarDurationWithDefault("KUBERPULT_BATCH_CLIENT_TIMEOUT", 2*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	r.MaxWaitDuration, err = valid.ReadEnvVarDurationWithDefault("KUBERPULT_MAX_WAIT_DURATION", 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	r.ApiEnableDespiteNoAuth = valid.ReadEnvVarBoolWithDefault("KUBERPULT_API_ENABLE_DESPITE_NO_AUTH", false)
+	r.IapEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_IAP_ENABLED", false)
+	r.GrpcMaxRecvMsgSize, err = valid.ReadEnvVarIntWithDefault("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE", 4)
+	if err != nil {
+		return nil, err
+	}
+	r.RevisionsEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_REVISIONS_ENABLED", false)
+
+	fmt.Printf("returned config new parser: %v\n", r)
+	return &r, nil
+}
+
+func runServer(ctx context.Context) error {
+	var err error
+	var c *config.ServerConfig
+
+	c, err = EnvVarWrapper(false)
+	if err != nil {
+		logger.FromContext(ctx).Error("parseEnvVars", zap.Error(err))
 		return err
-	}
-	if c.GitAuthorEmail == "" {
-		logger.FromContext(ctx).Error("DefaultGitAuthorEmail must not be empty")
-		return fmt.Errorf("DefaultGitAuthorEmail must not be empty")
-	}
-	if c.GitAuthorName == "" {
-		logger.FromContext(ctx).Error("DefaultGitAuthorName must not be empty")
-		return fmt.Errorf("DefaultGitAuthorName must not be empty")
 	}
 
 	var jwks *keyfunc.JWKS = nil
@@ -160,7 +223,7 @@ func runServer(ctx context.Context) error {
 	logger.FromContext(ctx).Info(fmt.Sprintf("config.grpc_max_recv_msg_size: %d", c.GrpcMaxRecvMsgSize*megaBytes))
 
 	if c.GKEProjectNumber != "" {
-		backendServiceId = getBackendServiceId(c, ctx)
+		backendServiceId = getBackendServiceId(*c, ctx)
 	}
 
 	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
@@ -251,7 +314,7 @@ func runServer(ctx context.Context) error {
 		}
 	}
 
-	pgpKeyRing, err := readPgpKeyRing()
+	pgpKeyRing, err := readPgpKeyRing(*c)
 	if err != nil {
 		logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
 		return err
@@ -354,7 +417,7 @@ func runServer(ctx context.Context) error {
 		CommitDeploymentsClient:     commitDeploymentsClient,
 		ManifestRepoGitClient:       manifestRepoGitClient,
 
-		Config:    c,
+		Config:    *c,
 		KeyRing:   pgpKeyRing,
 		AzureAuth: c.AzureEnableAuth,
 		User:      defaultUser,
@@ -533,15 +596,44 @@ func runServer(ctx context.Context) error {
 	return nil
 }
 
+func EnvVarWrapper(oldWay bool) (*config.ServerConfig, error) {
+	var err error
+	var c config.ServerConfig
+	if oldWay {
+		err = envconfig.Process("kuberpult", &c)
+		if err != nil {
+			return nil, err
+		}
+		if c.GitAuthorName == "" {
+			return nil, fmt.Errorf("could not read KUBERPULT_GIT_AUTHOR_NAME")
+		}
+		if c.GitAuthorEmail == "" {
+			return nil, fmt.Errorf("could not read KUBERPULT_GIT_AUTHOR_EMAIL")
+		}
+	} else {
+		var tmp *config.ServerConfig
+		tmp, err = parseEnvVars()
+		if tmp != nil {
+			c = *tmp
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
 type Auth struct {
 	HttpServer  http.Handler
 	DefaultUser auth.User
 	// KeyRing is as of now required because we do not have technical users yet. So we protect public endpoints by requiring a signature
 	KeyRing openpgp.KeyRing
 	Policy  *auth.RBACPolicies
+
+	serverConfig config.ServerConfig
 }
 
-func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
+func getRequestAuthorFromGoogleIAP(ctx context.Context, c config.ServerConfig, r *http.Request) *auth.User {
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
 	if iapJWT == "" {
 		// not using iap (local), default user
@@ -584,20 +676,20 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var user *auth.User = nil
 		var err error
 		var source string
-		if c.AzureEnableAuth {
+		if p.serverConfig.AzureEnableAuth {
 			user, err = getRequestAuthorFromAzure(ctx, r)
 			if err != nil {
 				return err
 			}
 			source = "azure"
 		} else {
-			user = getRequestAuthorFromGoogleIAP(ctx, r)
+			user = getRequestAuthorFromGoogleIAP(ctx, p.serverConfig, r)
 			source = "iap"
 		}
-		if c.DexEnabled {
+		if p.serverConfig.DexEnabled {
 			source = "dex"
-			dexServiceURL := auth.GetDexServiceURL(c.DexFullNameOverride)
-			dexAuthContext := getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, dexServiceURL, p.Policy, c.DexUseClusterInternalCommunication)
+			dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
+			dexAuthContext := getUserFromDex(w, r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
 			if dexAuthContext == nil {
 				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
 			} else {
