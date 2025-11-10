@@ -44,7 +44,11 @@ cd ../../..
 make kuberpult
 ```
 
-- To enable tracing with Datadog for the services, run below command:
+- To enable tracing with Datadog for the services, first create `docker.env` for storing Data API Key under the Kuberpult's root directory:
+```
+DD_API_KEY=<datadog-api-key>
+```
+- then run below command:
 ```
 DD_ENV=<datadog-environment> make kuberpult-datadog
 ```
