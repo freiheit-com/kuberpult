@@ -23,6 +23,7 @@
   "gomod": {
     groupName: "go",
   },
+  "rangeStrategy": "pin",
   "dependencyDashboardLabels": ["renovate"],
   "labels": ["renovate"],
   "branchConcurrentLimit": 20,
