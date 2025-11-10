@@ -217,7 +217,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         if (deployedUNIX === '') {
             deployedByContent = 'Deployed by &nbsp;' + deployedBy;
         } else {
-            deployedByContent = 'Deployed by ' + deployedBy + ' ';
+            deployedByContent = 'Deployed by ' + deployedBy;
             const deployedDate = new Date(deployedUNIX);
             deployedAt = (
                 <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', '')} />
