@@ -105,24 +105,12 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		return
 	}
 	form := r.MultipartForm
-	if len(form.Value["application"]) != 1 {
-		if len(form.Value["application"]) > 1 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Please provide single application name")
-			return
-		} else {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Must provide application name")
-			return
-		}
-	}
-	application := form.Value["application"][0]
-	if application == "" {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Invalid application name: '%s' - must not be empty", application)
+
+	if ok := checkParameter(w, form, "application", true); !ok {
 		return
 	}
-	tf.Application = application
+	tf.Application = form.Value["application"][0]
+
 	for k, v := range form.File {
 		match := manifestFieldRx.FindStringSubmatch(k)
 		if match == nil {
@@ -185,82 +173,69 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		return
 	}
 
-	if team, ok := form.Value["team"]; ok {
-		if len(team) == 1 {
-			tf.Team = team[0]
-		}
+	if ok := checkParameter(w, form, "team", false); !ok {
+		return
 	}
+	tf.Team = form.Value["team"][0]
 
 	if sourceCommitId, ok := form.Value["source_commit_id"]; ok {
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
 		} else {
+			// TODO: why don't we reject request when the commit is not valid?
 			logger.FromContext(ctx).Sugar().Warnf("commit id not valid: '%s'", sourceCommitId)
 		}
 	} else {
 		logger.FromContext(ctx).Sugar().Warnf("commit id not found: '%s'", sourceCommitId)
 	}
 
-	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
-		if len(previousCommitId) != 1 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid number of previous commit IDs provided. Expecting 1, got %d", len(previousCommitId))
-			return
-		}
-		if !isCommitId(previousCommitId[0]) {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Provided commit id (%s) is not valid.", previousCommitId[0])
-			return
-		}
-		tf.PreviousCommitId = previousCommitId[0]
+	if ok := checkParameter(w, form, "previous_commit_id", true); !ok {
+		return
 	}
+	previousCommitId := form.Value["previous_commit_id"][0]
+	if !isCommitId(previousCommitId) {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprintf(w, "Provided previous commit id '%s' is not valid.", previousCommitId)
+		return
+	}
+	tf.PreviousCommitId = previousCommitId
 
-	if sourceAuthor, ok := form.Value["source_author"]; ok {
-		if len(sourceAuthor) == 1 && isAuthor(sourceAuthor[0]) {
-			tf.SourceAuthor = sourceAuthor[0]
-		}
+	if ok := checkParameter(w, form, "source_author", false); !ok {
+		return
 	}
+	tf.SourceAuthor = form.Value["source_author"][0]
 
-	if sourceMessage, ok := form.Value["source_message"]; ok {
-		if len(sourceMessage) == 1 {
-			tf.SourceMessage = sourceMessage[0]
-		}
+	if ok := checkParameter(w, form, "source_message", false); !ok {
+		return
 	}
-	if version, ok := form.Value["version"]; ok {
-		if len(version) == 1 {
-			val, err := strconv.ParseUint(version[0], 10, 64)
-			if err != nil {
-				w.WriteHeader(400)
-				_, _ = fmt.Fprintf(w, "Invalid version: %s", err)
-				return
-			}
-			tf.Version = val
-		}
-	}
+	tf.SourceMessage = form.Value["source_message"][0]
 
-	if displayVersion, ok := form.Value["display_version"]; ok {
-		if len(displayVersion) != 1 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(displayVersion))
-			return
-		}
-		if len(displayVersion[0]) > 15 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "DisplayVersion given should be <= 15 characters")
-			return
-		}
-		tf.DisplayVersion = displayVersion[0]
-
+	if ok := checkParameter(w, form, "version", false); !ok {
+		return
 	}
-	if ciLink, ok := form.Value["ci_link"]; ok {
-		if len(ciLink) != 1 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid number of ci links provided: %d, ", len(ciLink))
-			return
-		}
-
-		tf.CiLink = ciLink[0]
+	val, err := strconv.ParseUint(form.Value["version"][0], 10, 64)
+	if err != nil {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprintf(w, "Provided version '%s' is not valid: %s", form.Value["version"][0], err)
+		return
 	}
+	tf.Version = val
+
+	if ok := checkParameter(w, form, "display_version", true); !ok {
+		return
+	}
+	displayVersion := form.Value["display_version"][0]
+	if len(displayVersion) > 15 {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprintf(w, "Length of display_version should not exceed 15 characters")
+		return
+	}
+	tf.DisplayVersion = displayVersion
+
+	if ok := checkParameter(w, form, "ci_link", true); !ok {
+		return
+	}
+	tf.CiLink = form.Value["ci_link"][0]
 
 	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
 		if !s.Config.RevisionsEnabled {
@@ -269,19 +244,16 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 			return
 		}
 
-		if len(revision) == 1 {
-			r, err := strconv.ParseUint(revision[0], 10, 64)
-			if err != nil {
-				w.WriteHeader(400)
-				_, _ = fmt.Fprintf(w, "Invalid version: %s", err)
-				return
-			}
-			tf.Revision = r
-		} else {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid number of revisions provided: %d, ", len(revision))
+		if ok = checkParameter(w, form, "revision", true); !ok {
 			return
 		}
+		val, err = strconv.ParseUint(revision[0], 10, 64)
+		if err != nil {
+			w.WriteHeader(400)
+			_, _ = fmt.Fprintf(w, "Provided version '%s' is not valid: %s", form.Value["revision"][0], err)
+			return
+		}
+		tf.Revision = val
 	}
 
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
@@ -311,6 +283,28 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 
 	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
 	logger.FromContext(ctx).Warn("warning: The /release endpoint will be deprecated in the future, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.\n")
+}
+
+func checkParameter(w http.ResponseWriter, form *multipart.Form, param string, required bool) bool {
+	if !required && len(form.Value[param]) == 0 {
+		return true
+	}
+	if len(form.Value[param]) != 1 {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprintf(w, "Exact one '%s' parameter should be provided, %d are given", len(form.Value[param]))
+		return false
+	}
+	paramValue := form.Value[param][0]
+	if paramValue == "" {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprintf(w, "'%s' must not be empty", param)
+		return false
+	} else if len(paramValue) > 1000 {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprintf(w, "Length of '%s' must not exceed 1000 characters", param)
+		return false
+	}
+	return true
 }
 
 func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail string) {

@@ -361,9 +361,25 @@ func (d *BatchServer) processAction(
 		in := action.CreateRelease
 		response := api.CreateReleaseResponseSuccess{}
 		downstreamEnvs := types.StringsToEnvNames(in.DeployToDownstreamEnvironments)
+
+		// TODO: Make sure that we perform exact input validation like in frontend-service
+		// App name cannot be empty
+		if in.Application == "" {
+			return nil, nil, status.Error(codes.InvalidArgument, "application name must not be empty")
+		}
+
+		// check signature data for files
+
+		// At least one manifest should be provided
+		if len(in.Manifests) == 0 {
+			return nil, nil, status.Error(codes.InvalidArgument, "no manifest files provided")
+		}
+
+		// check team name
 		if in.Team != "" && !valid.TeamName(in.Team) {
 			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid Team name: '%s'", in.Team))
 		}
+
 		return &repository.CreateApplicationVersion{
 				Version:                        in.Version,
 				Application:                    types.AppName(in.Application),
