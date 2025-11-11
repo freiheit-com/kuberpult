@@ -320,7 +320,7 @@ func checkParameter(w http.ResponseWriter, form *multipart.Form, param string, r
 	}
 	if len(form.Value[param]) != 1 {
 		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Exact one '%s' parameter should be provided, %d are given", form.Value[param], len(form.Value[param]))
+		_, _ = fmt.Fprintf(w, "Exact one '%s' parameter should be provided, %d are given", param, len(form.Value[param]))
 		return false
 	}
 	paramValue := form.Value[param][0]

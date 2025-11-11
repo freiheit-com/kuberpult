@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -30,7 +29,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/types"
+
 	"context"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
@@ -499,7 +501,7 @@ func TestAppParameter(t *testing.T) {
 			inputNumberAppParam: 0,
 			inputVersion:        98,
 			expectedStatusCode:  400,
-			expectedBody:        "Must provide application name",
+			expectedBody:        "Exact one 'application' parameter should be provided",
 		},
 		{
 			name:                "1 app name",
