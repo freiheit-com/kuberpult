@@ -1,0 +1,52 @@
+services:
+  datadog-agent:
+    image: datadog/agent:latest
+    env_file:
+      - docker.env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+    ports:
+      - 127.0.0.1:8126:8126/tcp
+      - 127.0.0.1:8125:8125/udp
+    environment:
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+      - DD_AC_EXCLUDE=name:datadog-agent
+    stop_grace_period: 2.0s
+  cd-service:
+    depends_on:
+      datadog-agent:
+        condition: service_healthy
+    environment:
+      - KUBERPULT_ENABLE_METRICS=true
+      - KUBERPULT_ENABLE_TRACING=true
+      - DD_AGENT_HOST=datadog-agent
+      - KUBERPULT_DOGSTATSD_ADDR=datadog-agent:8125
+      - DD_SERVICE=kuberpult-cd-service
+      - DD_VERSION=0.0.0
+      - DD_ENV=$DD_ENV
+  manifest-repo-export-service:
+    depends_on:
+      datadog-agent:
+        condition: service_healthy
+    environment:
+      - KUBERPULT_ENABLE_METRICS=true
+      - KUBERPULT_ENABLE_TRACING=true
+      - DD_AGENT_HOST=datadog-agent
+      - KUBERPULT_DOGSTATSD_ADDR=datadog-agent:8125
+      - DD_SERVICE=kuberpult-manifest-repo-export-service
+      - DD_VERSION=0.0.0
+      - DD_ENV=$DD_ENV
+  frontend-service:
+    depends_on:
+      datadog-agent:
+        condition: service_healthy
+    environment:
+      - KUBERPULT_ENABLE_TRACING=true
+      - DD_AGENT_HOST=datadog-agent
+      - DD_SERVICE=kuberpult-frontend-service
+      - DD_VERSION=0.0.0
+      - DD_ENV=$DD_ENV
