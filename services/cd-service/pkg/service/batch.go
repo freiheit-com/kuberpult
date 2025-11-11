@@ -192,6 +192,16 @@ func ValidateEnvironment(
 	return nil
 }
 
+func ValidateParameterLength(paramName string, paramValue string, nonEmpty bool, maxLength int) error {
+	if nonEmpty && paramValue == "" {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("%s must not be empty", paramName))
+	}
+	if len(paramValue) > maxLength {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("%s must not exceed %d characters", paramName, maxLength))
+	}
+	return nil
+}
+
 func (d *BatchServer) processAction(
 	batchAction *api.BatchAction,
 ) (repository.Transformer, *api.BatchResult, error) {
@@ -362,21 +372,63 @@ func (d *BatchServer) processAction(
 		response := api.CreateReleaseResponseSuccess{}
 		downstreamEnvs := types.StringsToEnvNames(in.DeployToDownstreamEnvironments)
 
-		//// TODO: Make sure that we perform exact input validation like in frontend-service
-		//// App name cannot be empty
-		//if in.Application == "" {
-		//	return nil, nil, status.Error(codes.InvalidArgument, "application name must not be empty")
-		//}
-		//
-		//// At least one manifest should be provided
-		//if len(in.Manifests) == 0 {
-		//	return nil, nil, status.Error(codes.InvalidArgument, "no manifest files provided")
-		//}
-
-		// check team name
-		if in.Team != "" && !valid.TeamName(in.Team) {
-			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid Team name: '%s'", in.Team))
+		// checks for application name
+		if err := ValidateParameterLength("application name", in.Application, true, 1000); err != nil {
+			return nil, nil, err
 		}
+		if !valid.ApplicationName(types.AppName(in.Application)) {
+			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid application name: '%s'", in.Application))
+		}
+
+		// checks for source commit id
+		if err := ValidateParameterLength("source commit id", in.SourceCommitId, true, 1000); err != nil {
+			return nil, nil, err
+		}
+		if !valid.CommitId(in.SourceCommitId) {
+			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid source commit id: '%s'", in.SourceCommitId))
+		}
+
+		// checks for source commit id
+		if err := ValidateParameterLength("source commit id", in.PreviousCommitId, true, 1000); err != nil {
+			return nil, nil, err
+		}
+		if !valid.CommitId(in.PreviousCommitId) {
+			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid previous commit id: '%s'", in.PreviousCommitId))
+		}
+
+		// checks for display version
+		if err := ValidateParameterLength("display version", in.DisplayVersion, true, 15); err != nil {
+			return nil, nil, err
+		}
+
+		// check for manifests
+		if len(in.Manifests) == 0 {
+			return nil, nil, status.Error(codes.InvalidArgument, "no manifest files provided")
+		}
+
+		// check for team name
+		if err := ValidateParameterLength("team name", in.Team, false, 1000); err != nil {
+			return nil, nil, err
+		}
+		if in.Team != "" && !valid.TeamName(in.Team) {
+			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid team name: '%s'", in.Team))
+		}
+
+		// checks for source author, source message, ci link, source repo url
+		if err := ValidateParameterLength("source author", in.SourceAuthor, false, 1000); err != nil {
+			return nil, nil, err
+		}
+		if err := ValidateParameterLength("source message", in.SourceMessage, false, 1000); err != nil {
+			return nil, nil, err
+		}
+		if err := ValidateParameterLength("ci link", in.CiLink, false, 1000); err != nil {
+			return nil, nil, err
+		}
+		if err := ValidateParameterLength("source repo url", in.SourceRepoUrl, false, 1000); err != nil {
+			return nil, nil, err
+		}
+
+		// TODO: checks for revision
 
 		return &repository.CreateApplicationVersion{
 				Version:                        in.Version,
