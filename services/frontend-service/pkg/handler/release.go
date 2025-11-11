@@ -32,6 +32,7 @@ import (
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 )
 
 var (
@@ -403,7 +404,13 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	if ok := checkParameter(w, form, "team", false); !ok {
 		return
 	}
-	tf.Team = form.Value["team"][0]
+	team := form.Value["team"][0]
+	if !valid.TeamName(team) {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprintf(w, "Provided team name '%s' is not valid.", team)
+		return
+	}
+	tf.Team = team
 
 	if ok := checkParameter(w, form, "source_commit_id", true); !ok {
 		return
@@ -475,7 +482,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	prepublish, err := strconv.ParseBool(form.Value["is_prepublish"][0])
 	if err != nil {
 		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Invalid is_prepublish value: %s", err)
+		_, _ = fmt.Fprintf(w, "Provided version '%s' is not valid: %s", form.Value["is_prepublish"][0], err)
 		return
 	}
 	tf.IsPrepublish = prepublish
