@@ -29,6 +29,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -210,6 +211,13 @@ func RunServer() {
 		}
 
 		if c.EnableMetrics {
+			dataDogStatsAddrEnv, err := valid.ReadEnvVar("KUBERPULT_DOGSTATSD_ADDR")
+			if err != nil {
+				logger.FromContext(ctx).Info(fmt.Sprintf("using default dogStatsAddr: %s", c.DogstatsdAddr))
+			} else {
+				c.DogstatsdAddr = dataDogStatsAddrEnv
+			}
+
 			ddMetrics, err := statsd.New(c.DogstatsdAddr, statsd.WithNamespace("Kuberpult"))
 			if err != nil {
 				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
