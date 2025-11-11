@@ -464,6 +464,11 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	}
 	tf.CiLink = form.Value["ci_link"][0]
 
+	if ok := checkParameter(w, form, "source_repo_url", false); !ok {
+		return
+	}
+	tf.CiLink = form.Value["source_repo_url"][0]
+
 	if ok := checkParameter(w, form, "is_prepublish", false); !ok {
 		return
 	}
