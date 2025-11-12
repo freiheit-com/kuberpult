@@ -647,6 +647,23 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		return failedPrognosis(err)
 	}
 
+	// prefetch team locks for all the apps in the release train
+	prefetchedTeams := make(map[string]bool)
+	for _, appName := range apps {
+		teamName, ok := allTeams[appName]
+		if ok {
+			prefetchedTeams[teamName] = true
+		}
+	}
+	prefetchedTeamLocks := make(map[string]map[string]Lock)
+	for teamName := range prefetchedTeams {
+		teamLocks, err := state.GetEnvironmentTeamLocks(ctx, transaction, c.Env, teamName)
+		if err != nil {
+			return failedPrognosis(err)
+		}
+		prefetchedTeamLocks[teamName] = teamLocks
+	}
+
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			team, ok := allTeams[appName]
@@ -819,13 +836,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				continue
 			}
 
-			teamLocks, err := state.GetEnvironmentTeamLocks(ctx, transaction, c.Env, teamName)
-
-			if err != nil {
-				return failedPrognosis(err)
-			}
-
-			if len(teamLocks) > 0 {
+			if teamLocks, ok := prefetchedTeamLocks[teamName]; ok && len(teamLocks) > 0 {
 				teamLocksMap := map[string]*api.Lock{}
 				sortedKeys := sorting.SortKeys(teamLocks)
 				for _, lockId := range sortedKeys {
