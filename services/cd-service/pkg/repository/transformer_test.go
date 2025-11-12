@@ -1050,8 +1050,10 @@ func TestUndeployErrors(t *testing.T) {
 					Application: "app1",
 				},
 				&CreateApplicationVersion{
-					Application:     "app1",
-					Manifests:       nil,
+					Application: "app1",
+					Manifests: map[types.EnvName]string{
+						envProduction: "productionmanifest",
+					},
 					SourceCommitId:  "",
 					SourceAuthor:    "",
 					SourceMessage:   "",
