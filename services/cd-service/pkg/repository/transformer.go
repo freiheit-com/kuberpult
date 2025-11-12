@@ -451,7 +451,7 @@ func isValidLifeTime(lifeTime string) bool {
 
 func CheckParameterLength(paramName string, paramValue string, maxLength int) error {
 	if len(paramValue) > maxLength {
-		return GetCreateReleaseGeneralFailure(fmt.Errorf("%s must not exceed %d characters", paramName, maxLength))
+		return GetCreateReleaseGeneralFailure(fmt.Errorf("%s must not exceed %d characters, %d is given", paramName, maxLength, len(paramValue)))
 	}
 	return nil
 }
