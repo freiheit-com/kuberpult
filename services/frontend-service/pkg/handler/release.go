@@ -32,7 +32,6 @@ import (
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 )
 
 var (
@@ -323,16 +322,6 @@ func checkParameter(w http.ResponseWriter, form *multipart.Form, param string, r
 		_, _ = fmt.Fprintf(w, "Exact one '%s' parameter should be provided, %d are given", param, len(form.Value[param]))
 		return false
 	}
-	paramValue := form.Value[param][0]
-	if paramValue == "" {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "'%s' must not be empty", param)
-		return false
-	} else if len(paramValue) > 1000 {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Length of '%s' must not exceed 1000 characters", param)
-		return false
-	}
 	return true
 }
 
@@ -404,35 +393,17 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	if ok := checkParameter(w, form, "team", false); !ok {
 		return
 	}
-	team := form.Value["team"][0]
-	if !valid.TeamName(team) {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Provided team name '%s' is not valid.", team)
-		return
-	}
-	tf.Team = team
+	tf.Team = form.Value["team"][0]
 
-	if ok := checkParameter(w, form, "source_commit_id", true); !ok {
+	if ok := checkParameter(w, form, "source_commit_id", false); !ok {
 		return
 	}
-	sourceCommitId := form.Value["source_commit_id"][0]
-	if !isCommitId(sourceCommitId) {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Provided source commit id '%s' is not valid.", sourceCommitId)
-		return
-	}
-	tf.PreviousCommitId = sourceCommitId
+	tf.SourceCommitId = form.Value["source_commit_id"][0]
 
-	if ok := checkParameter(w, form, "previous_commit_id", true); !ok {
+	if ok := checkParameter(w, form, "previous_commit_id", false); !ok {
 		return
 	}
-	previousCommitId := form.Value["previous_commit_id"][0]
-	if !isCommitId(previousCommitId) {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Provided previous commit id '%s' is not valid.", previousCommitId)
-		return
-	}
-	tf.PreviousCommitId = previousCommitId
+	tf.PreviousCommitId = form.Value["previous_commit_id"][0]
 
 	if ok := checkParameter(w, form, "source_author", false); !ok {
 		return
@@ -455,16 +426,10 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	}
 	tf.Version = version
 
-	if ok := checkParameter(w, form, "display_version", true); !ok {
+	if ok := checkParameter(w, form, "display_version", false); !ok {
 		return
 	}
-	displayVersion := form.Value["display_version"][0]
-	if len(displayVersion) > 15 {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Length of display_version should not exceed 15 characters")
-		return
-	}
-	tf.DisplayVersion = displayVersion
+	tf.DisplayVersion = form.Value["display_version"][0]
 
 	if ok := checkParameter(w, form, "ci_link", false); !ok {
 		return

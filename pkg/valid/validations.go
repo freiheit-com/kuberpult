@@ -36,7 +36,6 @@ const (
 	EnvNameRegExp                  = AppNameRegExp
 	SHA1CommitIDLength             = 40
 	commitIDPrefixRegExp           = `^[0-9a-fA-F]*$`
-	commitIdRxRegExp               = `\A[0-9a-f]{7,40}\z`
 )
 
 var (
@@ -45,7 +44,6 @@ var (
 	envNameRx         = regexp.MustCompile(EnvNameRegExp)
 	groupNameRx       = regexp.MustCompile(EnvNameRegExp)
 	commitIDPrefixRx  = regexp.MustCompile(commitIDPrefixRegExp)
-	commitIdRx        = regexp.MustCompile(commitIdRxRegExp)
 	MaxAppNameLen     = setupMaxAppNameLen()
 )
 
@@ -89,10 +87,6 @@ func SHA1CommitID(commitID string) bool {
 		return false
 	}
 	return commitIDPrefixRx.MatchString(commitID)
-}
-
-func CommitId(commitId string) bool {
-	return commitIdRx.MatchString(commitId)
 }
 
 func SHA1CommitIDPrefix(prefix string) bool {
