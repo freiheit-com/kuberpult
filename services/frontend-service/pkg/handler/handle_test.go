@@ -560,6 +560,109 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "Invalid version: strconv.ParseUint: parsing \"abcd\": invalid syntax",
 		},
 		{
+			name: "create release api, version is not a number",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/release",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"application": {"my-app"},
+						"version":     {"abcd"},
+						"revision":    {"1"},
+					},
+					File: form.File,
+				},
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_Success{
+									Success: &api.CreateReleaseResponseSuccess{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Provided version 'abcd' is not valid: strconv.ParseUint: parsing \"abcd\": invalid syntax",
+		},
+		{
+			name: "create release api, revision is not a number",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/release",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"application": {"my-app"},
+						"version":     {"1"},
+						"revision":    {"abcd"},
+					},
+					File: form.File,
+				},
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_Success{
+									Success: &api.CreateReleaseResponseSuccess{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Provided revision 'abcd' is not valid: strconv.ParseUint: parsing \"abcd\": invalid syntax",
+		},
+		{
+			name: "create release api, is_prepublish is not a boolean value",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/release",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"application":   {"my-app"},
+						"version":       {"1"},
+						"revision":      {"1"},
+						"is_prepublish": {"abcd"},
+					},
+					File: form.File,
+				},
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_Success{
+									Success: &api.CreateReleaseResponseSuccess{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Provided is_prepublish 'abcd' is not valid: strconv.ParseBool: parsing \"abcd\": invalid syntax",
+		},
+		{
 			name: "Get manifests - full version",
 			req: &http.Request{
 				Method: http.MethodGet,

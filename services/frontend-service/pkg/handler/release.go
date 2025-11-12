@@ -473,7 +473,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 			prepublish, err := strconv.ParseBool(prepublishStrs[0])
 			if err != nil {
 				w.WriteHeader(400)
-				_, _ = fmt.Fprintf(w, "Provided version '%s' is not valid: %s", prepublishStrs[0], err)
+				_, _ = fmt.Fprintf(w, "Provided is_prepublish '%s' is not valid: %s", prepublishStrs[0], err)
 				return
 			}
 			tf.IsPrepublish = prepublish
@@ -493,7 +493,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 			val, err := strconv.ParseUint(revisionStrs[0], 10, 64)
 			if err != nil {
 				w.WriteHeader(400)
-				_, _ = fmt.Fprintf(w, "Provided version '%s' is not valid: %s", revisionStrs[0], err)
+				_, _ = fmt.Fprintf(w, "Provided revision '%s' is not valid: %s", revisionStrs[0], err)
 				return
 			}
 			tf.Revision = val
