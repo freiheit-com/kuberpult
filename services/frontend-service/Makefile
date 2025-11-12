@@ -14,7 +14,7 @@
 
 # Copyright freiheit.com
 
-MIN_COVERAGE=37.0
+MIN_COVERAGE=42.0
 MAKEFLAGS += --no-builtin-rules
 CONTEXT=../..
 # avoid calling docker to run buf:
