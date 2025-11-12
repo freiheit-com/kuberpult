@@ -312,6 +312,190 @@ func TestCreateApplicationVersionErrors(t *testing.T) {
 				TransformerError: errMatcher{"is_no_downstream:{no_downstream:\"acceptance\"}"},
 			},
 		},
+		{
+			Name: "create a deployment with no manifest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:                    "app1",
+					Version:                        10000,
+					Manifests:                      nil,
+					WriteCommitData:                true,
+					DeployToDownstreamEnvironments: []types.EnvName{"acceptance"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"no manifest files provided\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with empty app name",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Version: 10000,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"application name must not be empty\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with invalid source commit id",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					Version:        10000,
+					SourceCommitId: "dasdr0qewqepowqudpousapousaporupqoeupowqurpowqu",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F], but is 47 characters: 'dasdr0qewqepowqudpousapousaporupqoeupowqurpowqu'\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with invalid previous commit id",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					Version:        10000,
+					PreviousCommit: "dasdr0qewqepowqudpousapousaporupqoeupowqurpowqu",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			Name: "create a deployment with too long display version",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					Version:        10000,
+					DisplayVersion: "thisshouldbemorethanfifteencharacters",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"display version must not exceed 15 characters\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with too long source author",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:  "app",
+					Version:      10000,
+					SourceAuthor: "Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast of the Semantics, a large language ocean. A small river named Duden flows by their place and supplies it with the necessary regelialia. It is a paradisematic country, in which roasted parts of sentences fly into your mouth. Even the all-powerful Pointing has no control about the blind texts it is an almost unorthographic life One day however a small line of blind text by the name of Lorem Ipsum decided to leave for the far World of Grammar. The Big Oxmox advised her not to do so, because there were thousands of bad Commas, wild Question Marks and devious Semikoli, but the Little Blind Text didn’t listen. She packed her seven versalia, put her initial into the belt and made herself on the way. When she reached the first hills of the Italic Mountains, she had a last view back on the skyline of her hometown Bookmarksgr",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"source author must not exceed 1000 characters\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with too long source message",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:   "app",
+					Version:       10000,
+					SourceMessage: "Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast of the Semantics, a large language ocean. A small river named Duden flows by their place and supplies it with the necessary regelialia. It is a paradisematic country, in which roasted parts of sentences fly into your mouth. Even the all-powerful Pointing has no control about the blind texts it is an almost unorthographic life One day however a small line of blind text by the name of Lorem Ipsum decided to leave for the far World of Grammar. The Big Oxmox advised her not to do so, because there were thousands of bad Commas, wild Question Marks and devious Semikoli, but the Little Blind Text didn’t listen. She packed her seven versalia, put her initial into the belt and made herself on the way. When she reached the first hills of the Italic Mountains, she had a last view back on the skyline of her hometown Bookmarksgr",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"source message must not exceed 1000 characters\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with too long ci link",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app",
+					Version:     10000,
+					CiLink:      "https://github.com/search=?Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast of the Semantics, a large language ocean. A small river named Duden flows by their place and supplies it with the necessary regelialia. It is a paradisematic country, in which roasted parts of sentences fly into your mouth. Even the all-powerful Pointing has no control about the blind texts it is an almost unorthographic life One day however a small line of blind text by the name of Lorem Ipsum decided to leave for the far World of Grammar. The Big Oxmox advised her not to do so, because there were thousands of bad Commas, wild Question Marks and devious Semikoli, but the Little Blind Text didn’t listen. She packed her seven versalia, put her initial into the belt and made herself on the way. When she reached the first hills of the Italic Mountains, she had a last view back on the skyline of her hometown Bookmarksgr",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"ci link must not exceed 1000 characters\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with invalid ci link",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app",
+					Version:     10000,
+					CiLink:      "https://github.com/actions",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+					AllowedDomains: []string{"freiheit.com"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"provided CI Link: https://github.com/actions is not valid or does not match any of the allowed domain\"}"},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
