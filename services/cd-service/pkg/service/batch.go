@@ -373,11 +373,9 @@ func (d *BatchServer) processAction(
 		downstreamEnvs := types.StringsToEnvNames(in.DeployToDownstreamEnvironments)
 
 		// checks for application name
+		fmt.Print(in.Application)
 		if err := ValidateParameterLength("application name", in.Application, true, 1000); err != nil {
 			return nil, nil, err
-		}
-		if !valid.ApplicationName(types.AppName(in.Application)) {
-			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid application name: '%s'", in.Application))
 		}
 
 		// checks for source commit id

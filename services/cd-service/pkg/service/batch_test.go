@@ -20,10 +20,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os/exec"
 	"path"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -476,15 +477,20 @@ func TestBatchServiceErrors(t *testing.T) {
 				{
 					Action: &api.BatchAction_CreateRelease{
 						CreateRelease: &api.CreateReleaseRequest{
-							Environment:    "dev",
-							Application:    "myappIsWayTooLongDontYouThink",
-							Team:           "team1",
-							Manifests:      nil,
-							Version:        666,
-							SourceCommitId: "1",
-							SourceAuthor:   "2",
-							SourceMessage:  "3",
-							SourceRepoUrl:  "4",
+							Environment: "dev",
+							Application: "myappIsWayTooLongDontYouThink",
+							Team:        "team1",
+							Manifests: map[string]string{
+								"development": "manifest",
+								"staging":     "manifest",
+							},
+							Version:          666,
+							DisplayVersion:   "v666",
+							SourceCommitId:   "abcdef1",
+							PreviousCommitId: "abcdef0",
+							SourceAuthor:     "2",
+							SourceMessage:    "3",
+							SourceRepoUrl:    "4",
 						},
 					},
 				},
