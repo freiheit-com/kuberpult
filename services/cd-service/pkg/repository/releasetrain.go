@@ -659,7 +659,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	for teamName := range prefetchedTeams {
 		teamLocks, err := state.GetEnvironmentTeamLocks(ctx, transaction, c.Env, teamName)
 		if err != nil {
-			return failedPrognosis(err)
+			return failedPrognosis(fmt.Errorf("failed to get team locks for env=%s and team=%s: %w", c.Env, teamName, err))
 		}
 		prefetchedTeamLocks[teamName] = teamLocks
 	}
@@ -868,6 +868,8 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					OldReleaseCommitId: "",
 				}
 				continue
+			} else if !ok {
+				logger.FromContext(ctx).Sugar().Warnf("Team locks for team=%s was not prefetched", teamName)
 			}
 		}
 
