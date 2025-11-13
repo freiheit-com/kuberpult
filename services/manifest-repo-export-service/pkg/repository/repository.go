@@ -893,18 +893,18 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 		return err
 	}
 
-	errors, ctx := errgroup.WithContext(ctx)
+	errorGroup, ctx := errgroup.WithContext(ctx)
 	fsMutex := sync.Mutex{}
 	for env, config := range configs {
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
-			errors.Go(func() error {
+			errorGroup.Go(func() error {
 				return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
 					return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, &fsMutex)
 				})
 			})
 		}
 	}
-	return errors.Wait()
+	return errorGroup.Wait()
 }
 
 func isAAEnv(config config.EnvironmentConfig) bool {
@@ -2617,9 +2617,12 @@ func (r *repository) Notify() *notify.Notify {
 	return &r.notify
 }
 
-func MeasureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface, dbHandler *db.DBHandler) error {
+func MeasureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface, dbHandler *db.DBHandler) (err error) {
 	if ddMetrics != nil {
-		results, err := db.WithTransactionT[[2]int](dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*[2]int, error) {
+		span, ctx := tracer.StartSpanFromContext(ctx, "MeasureGitSyncStatus")
+		defer span.Finish(tracer.WithError(err))
+		var results *[2]int
+		results, err = db.WithTransactionT[[2]int](dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*[2]int, error) {
 			unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
 			if err != nil {
 				return &[2]int{}, err
@@ -2637,11 +2640,11 @@ func MeasureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface,
 			return err
 		}
 
-		if err := ddMetrics.Gauge("git_sync_unsynced", float64(results[0]), []string{}, 1); err != nil {
+		if err = ddMetrics.Gauge("git_sync_unsynced", float64(results[0]), []string{}, 1); err != nil {
 			return err
 		}
 
-		if err := ddMetrics.Gauge("git_sync_failed", float64(results[1]), []string{}, 1); err != nil {
+		if err = ddMetrics.Gauge("git_sync_failed", float64(results[1]), []string{}, 1); err != nil {
 			return err
 		}
 	}
