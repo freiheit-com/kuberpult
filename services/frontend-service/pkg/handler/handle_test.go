@@ -148,7 +148,7 @@ func generateCreateReleaseTestCasesForLengthChecks(tcName string, param string, 
 		expectedResp: &http.Response{
 			StatusCode: http.StatusBadRequest,
 		},
-		expectedBody: fmt.Sprintf("Exact one '%s' parameter should be provided, 2 are given", param),
+		expectedBody: fmt.Sprintf("Exactly one '%s' parameter should be provided, 2 are given", param),
 	}
 }
 
@@ -511,7 +511,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusBadRequest,
 			},
-			expectedBody: "Exact one 'application' parameter should be provided, 0 are given",
+			expectedBody: "Exactly one 'application' parameter should be provided, 0 are given",
 		},
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many app names", "application", form),
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many team names", "team", form),

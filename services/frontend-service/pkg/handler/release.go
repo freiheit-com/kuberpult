@@ -316,7 +316,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 func checkParameterCardinality(w http.ResponseWriter, paramName string, paramValues []string) bool {
 	if len(paramValues) != 1 {
 		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Exact one '%s' parameter should be provided, %d are given", paramName, len(paramValues))
+		_, _ = fmt.Fprintf(w, "Exactly one '%s' parameter should be provided, %d are given", paramName, len(paramValues))
 		return false
 	}
 	return true

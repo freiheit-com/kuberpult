@@ -501,7 +501,7 @@ func TestAppParameter(t *testing.T) {
 			inputNumberAppParam: 0,
 			inputVersion:        98,
 			expectedStatusCode:  400,
-			expectedBody:        "Exact one 'application' parameter should be provided, 0 are given",
+			expectedBody:        "Exactly one 'application' parameter should be provided, 0 are given",
 		},
 		{
 			name:                "1 app name",
