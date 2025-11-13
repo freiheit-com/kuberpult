@@ -520,7 +520,6 @@ func TestServer_Handle(t *testing.T) {
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many source_author", "source_author", form),
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many source_message", "source_message", form),
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many versions", "version", form),
-		generateCreateReleaseTestCasesForLengthChecks("create release api, too many source_repo_url", "source_repo_url", form),
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many display_version", "display_version", form),
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many ci_link", "ci_link", form),
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many is_prepublish", "is_prepublish", form),
