@@ -284,17 +284,11 @@ func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, 
 }
 
 func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, status SyncStatus) (_ []GitSyncData, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBRetrieveSyncStatus")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBRetrieveAppsByStatus")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	if h == nil {
-		return nil, nil
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("DBRetrieveAppsByStatus: no transaction provided")
-	}
-
+	span.SetTag("status", status)
 	selectQuery := h.AdaptQuery("SELECT transformerid, envName, appName, status FROM git_sync_status WHERE status = ? ORDER BY created DESC;")
 	rows, err := tx.QueryContext(
 		ctx,
@@ -345,12 +339,8 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	if h == nil {
-		return nil, nil
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("DBRetrieveSyncStatus: no transaction provided")
-	}
+	span.SetTag("app", appName)
+	span.SetTag("env", envName)
 
 	selectQuerry := h.AdaptQuery("SELECT transformerid, envName, appName, status FROM git_sync_status WHERE appName = ? AND envName= ? ORDER BY created DESC LIMIT 1;")
 	rows, err := tx.QueryContext(

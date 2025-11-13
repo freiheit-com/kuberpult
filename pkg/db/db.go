@@ -646,36 +646,35 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql
 }
 
 func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (_ *EventRow, err error) {
-	if h == nil {
-		return nil, nil
-	}
-	if transaction == nil {
-		return nil, fmt.Errorf("DBSelectAnyEvent: no transaction provided")
-	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAnyEvent")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events ORDER BY timestamp DESC LIMIT 1;")
+	query := h.AdaptQuery(`
+		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
+		FROM commit_events
+		ORDER BY timestamp DESC
+		LIMIT 1;`,
+	)
 	span.SetTag("query", query)
 	rows, err := transaction.QueryContext(ctx, query)
 	return h.processSingleEventsRow(ctx, rows, err)
 }
 
 func (h *DBHandler) DBContainsMigrationCommitEvent(ctx context.Context, transaction *sql.Tx) (_ bool, err error) {
-	if h == nil {
-		return false, nil
-	}
-	if transaction == nil {
-		return false, fmt.Errorf("DBContainsMigrationCommitEvent: no transaction provided")
-	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBContainsMigrationCommitEvent")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 1;")
+	query := h.AdaptQuery(`
+		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
+		FROM commit_events
+		WHERE commitHash = (?)
+		ORDER BY timestamp DESC
+		LIMIT 1;`,
+	)
 	span.SetTag("query", query)
 	rows, err := transaction.QueryContext(ctx, query, MigrationCommitEventHash)
 
@@ -700,7 +699,13 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 		span.Finish(tracer.WithError(err))
 	}()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE eventType = (?) AND transformereslVersion = (?) ORDER BY timestamp DESC LIMIT ?;")
+	query := h.AdaptQuery(`
+		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
+		FROM commit_events
+		WHERE eventType = (?) AND transformereslVersion = (?)
+		ORDER BY timestamp DESC
+		LIMIT ?;`,
+	)
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, string(eventType), transformerID, limit)
@@ -726,6 +731,7 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 		}
 		result = append(result, eventGo)
 	}
+	span.SetTag("resultLength", len(result))
 	err = rows.Close()
 	if err != nil {
 		return nil, fmt.Errorf("commit_events: row closing error: %v", err)
@@ -767,19 +773,20 @@ func (h *DBHandler) processSingleEventsRow(ctx context.Context, rows *sql.Rows, 
 }
 
 func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction *sql.Tx, commitHash string, pageNumber, pageSize uint64) (_ []EventRow, err error) {
-	if h == nil {
-		return nil, nil
-	}
-	if transaction == nil {
-		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
-	}
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
 	// NOTE: We add one so we know if there is more to load
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE commitHash = (?) ORDER BY timestamp ASC LIMIT (?) OFFSET (?);")
+	query := h.AdaptQuery(`
+		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
+		FROM commit_events
+		WHERE commitHash = (?)
+		ORDER BY timestamp ASC
+		LIMIT (?)
+		OFFSET (?);`,
+	)
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, commitHash, pageSize+1, pageNumber*pageSize)
@@ -787,13 +794,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 }
 
 func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID TransformerID) (_ []EventRow, err error) {
-	if h == nil {
-		return nil, nil
-	}
-	if transaction == nil {
-		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
-	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllCommitEventsForTransformerID")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
@@ -811,18 +812,18 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 }
 
 func (h *DBHandler) DBSelectAllLockPreventedEventsForTransformerID(ctx context.Context, transaction *sql.Tx, transformerID TransformerID) (_ []EventRow, err error) {
-	if h == nil {
-		return nil, nil
-	}
-	if transaction == nil {
-		return nil, fmt.Errorf("DBSelectAllEventsForCommit: no transaction provided")
-	}
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEventsForCommit")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLockPreventedEventsForTransformerID")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion FROM commit_events WHERE transformereslVersion = (?) AND eventtype = (?) ORDER BY timestamp DESC LIMIT 100;")
+	query := h.AdaptQuery(`
+		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
+		FROM commit_events
+		WHERE transformereslVersion = (?) AND eventtype = (?)
+		ORDER BY timestamp DESC
+		LIMIT 100;`,
+	)
 	span.SetTag("query", query)
 
 	rows, err := transaction.QueryContext(ctx, query, transformerID, string(event.EventTypeLockPreventedDeployment))

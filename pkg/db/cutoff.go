@@ -67,7 +67,7 @@ func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, e
 }
 
 func DBWriteCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (err error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCutoff")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteCutoff")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
@@ -75,7 +75,8 @@ func DBWriteCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx, eslVersion Esl
 	insertQuery := h.AdaptQuery("INSERT INTO cutoff (eslVersion, processedTime) VALUES (?, ?);")
 	span.SetTag("query", insertQuery)
 
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		eslVersion,
 		time.Now().UTC(),
