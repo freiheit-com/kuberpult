@@ -361,9 +361,6 @@ func (d *BatchServer) processAction(
 		in := action.CreateRelease
 		response := api.CreateReleaseResponseSuccess{}
 		downstreamEnvs := types.StringsToEnvNames(in.DeployToDownstreamEnvironments)
-		if in.Team != "" && !valid.TeamName(in.Team) {
-			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid Team name: '%s'", in.Team))
-		}
 		return &repository.CreateApplicationVersion{
 				Version:                        in.Version,
 				Application:                    types.AppName(in.Application),

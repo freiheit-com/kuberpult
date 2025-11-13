@@ -132,10 +132,12 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		{
 			Name: "CreateApplicationVersion",
 			Transformer: &CreateApplicationVersion{
-				Authentication:  Authentication{},
-				Version:         1,
-				Application:     "dummy",
-				Manifests:       nil,
+				Authentication: Authentication{},
+				Version:        1,
+				Application:    "dummy",
+				Manifests: map[types.EnvName]string{
+					"dev": "manifest",
+				},
 				SourceCommitId:  "",
 				SourceAuthor:    "",
 				SourceMessage:   "",
@@ -3661,8 +3663,10 @@ func TestUndeployApplicationDB(t *testing.T) {
 					Application: "app1",
 				},
 				&CreateApplicationVersion{
-					Application:     "app1",
-					Manifests:       nil,
+					Application: "app1",
+					Manifests: map[types.EnvName]string{
+						envProduction: "productionmanifest",
+					},
 					SourceCommitId:  "",
 					SourceAuthor:    "",
 					SourceMessage:   "",
@@ -4122,8 +4126,10 @@ func TestUndeployTransformerDB(t *testing.T) {
 					Application: "app1",
 				},
 				&CreateApplicationVersion{
-					Application:     "app1",
-					Manifests:       nil,
+					Application: "app1",
+					Manifests: map[types.EnvName]string{
+						envProduction: "productionmanifest",
+					},
 					SourceCommitId:  "",
 					SourceAuthor:    "",
 					SourceMessage:   "",
