@@ -449,7 +449,7 @@ func isValidLifeTime(lifeTime string) bool {
 	return matched
 }
 
-func CheckParameterLength(paramName string, paramValue string, maxLength int) error {
+func CheckParameterMaxLength(paramName string, paramValue string, maxLength int) error {
 	if len(paramValue) > maxLength {
 		return GetCreateReleaseGeneralFailure(fmt.Errorf("%s must not exceed %d characters, %d is given", paramName, maxLength, len(paramValue)))
 	}
@@ -481,7 +481,7 @@ func (c *CreateApplicationVersion) CheckPreconditions(ctx context.Context) error
 	}
 
 	// checks for display version
-	if err := CheckParameterLength("display version", c.DisplayVersion, 15); err != nil {
+	if err := CheckParameterMaxLength("display version", c.DisplayVersion, 15); err != nil {
 		return err
 	}
 
@@ -491,13 +491,13 @@ func (c *CreateApplicationVersion) CheckPreconditions(ctx context.Context) error
 	}
 
 	// checks for source author, source message, ci link, (skipping checks for source repo url, as it is not defined in CreateApplicationVersion struct)
-	if err := CheckParameterLength("source author", c.SourceAuthor, 1000); err != nil {
+	if err := CheckParameterMaxLength("source author", c.SourceAuthor, 1000); err != nil {
 		return err
 	}
-	if err := CheckParameterLength("source message", c.SourceMessage, 1000); err != nil {
+	if err := CheckParameterMaxLength("source message", c.SourceMessage, 1000); err != nil {
 		return err
 	}
-	if err := CheckParameterLength("ci link", c.CiLink, 1000); err != nil {
+	if err := CheckParameterMaxLength("ci link", c.CiLink, 1000); err != nil {
 		return err
 	}
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
