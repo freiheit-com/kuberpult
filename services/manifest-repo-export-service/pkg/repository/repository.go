@@ -2566,14 +2566,14 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 		return nil, fmt.Errorf("unable to get list of tags: %v", err)
 	}
 	for {
-		loopSpan, ctx := tracer.StartSpanFromContext(ctx, "getTags-for")
+		loopSpan, ctxLoop := tracer.StartSpanFromContext(ctx, "getTags-for")
 		tagObject, err := iters.Next()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("0: exiting with err=%v", err)
+			logger.FromContext(ctxLoop).Sugar().Warnf("0: exiting with err=%v", err)
 			loopSpan.Finish(tracer.WithError(err))
 			break
 		}
-		logger.FromContext(ctx).Sugar().Warnf("1: reading tag target=%s name=%s", tagObject.Target(), tagObject.Name())
+		logger.FromContext(ctxLoop).Sugar().Warnf("1: reading tag target=%s name=%s", tagObject.Target(), tagObject.Name())
 		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
 		var tag *api.TagData
 		var tagName string
@@ -2600,7 +2600,7 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 			commitId = tagCommit.Id().String()
 		}
 
-		result, err := db.WithTransactionT(handler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
+		result, err := db.WithTransactionT(handler, ctxLoop, 2, true, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
 			return handler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitId)
 		})
 		if err != nil {
