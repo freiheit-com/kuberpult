@@ -13,10 +13,14 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
+
 package errorMatcher
+
+import "strings"
 
 // For testing purposes only
 
+// ErrMatcher matches with "==", so only the exact error counts as a match
 type ErrMatcher struct {
 	Message string
 }
@@ -27,4 +31,23 @@ func (e ErrMatcher) Error() string {
 
 func (e ErrMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
+}
+
+// ContainsErrMatcher matches with strings.Contains
+// ContainsErrMatcher is only matching if ALL strings match
+type ContainsErrMatcher struct {
+	Messages []string
+}
+
+func (e ContainsErrMatcher) Error() string {
+	return "[]{" + strings.Join(e.Messages, " , ") + "}"
+}
+
+func (e ContainsErrMatcher) Is(err error) bool {
+	for _, msg := range e.Messages {
+		if !strings.Contains(err.Error(), msg) {
+			return false
+		}
+	}
+	return true
 }
