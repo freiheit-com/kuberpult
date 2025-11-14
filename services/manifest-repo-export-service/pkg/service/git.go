@@ -56,6 +56,7 @@ type GitServer struct {
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	var tags []*api.TagData
+	logger.FromContext(ctx).Sugar().Warnf("GetGitTags called")
 	err := logger.Wrap(ctx, func(ctx context.Context) error {
 		var innerError error
 		if s.Config.TagsPath == "" {
