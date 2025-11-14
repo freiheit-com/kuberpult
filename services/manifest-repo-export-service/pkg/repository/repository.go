@@ -2550,10 +2550,14 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 	if err != nil {
 		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
 	}
+
+	fetchSpan, _ := tracer.StartSpanFromContext(ctx, "getTags-FetchingRemote")
 	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	if err != nil {
+		fetchSpan.Finish(tracer.WithError(err))
 		return nil, fmt.Errorf("failure to fetch: %v", err)
 	}
+	fetchSpan.Finish()
 
 	tagsList, err := repo.Tags.List()
 	if err != nil {
