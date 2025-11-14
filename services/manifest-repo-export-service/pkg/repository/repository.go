@@ -2569,11 +2569,9 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 		loopSpan, ctxLoop := tracer.StartSpanFromContext(ctx, "getTags-for")
 		tagObject, err := iters.Next()
 		if err != nil {
-			logger.FromContext(ctxLoop).Sugar().Warnf("0: exiting with err=%v", err)
 			loopSpan.Finish(tracer.WithError(err))
 			break
 		}
-		logger.FromContext(ctxLoop).Sugar().Warnf("1: reading tag target=%s name=%s", tagObject.Target(), tagObject.Name())
 		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
 		var tag *api.TagData
 		var tagName string
