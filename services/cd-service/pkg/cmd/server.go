@@ -310,7 +310,7 @@ func RunServer() {
 			DBHandler:             dbHandler,
 		}
 
-		repo, repoQueue, err := repository.New2(ctx, cfg)
+		repo, _, err := repository.New2(ctx, cfg)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}
@@ -456,11 +456,6 @@ func RunServer() {
 						})
 						return nil
 					},
-				},
-				{
-					Shutdown: nil,
-					Name:     "push queue",
-					Run:      repoQueue,
 				},
 			},
 			Shutdown: func(ctx context.Context) error {
