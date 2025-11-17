@@ -119,8 +119,8 @@ func ReadEnvVarDurationWithDefault(envName string, defaultValue time.Duration) (
 	}
 	duration, err := time.ParseDuration(envValue)
 	if err != nil {
-		return 0, fmt.Errorf("could not parse environment variable '%s=%s', will used default value '%s'",
-			envName, envValue, defaultValue)
+		return 0, fmt.Errorf("could not parse environment variable '%s=%s' invalid duration",
+			envName, envValue)
 	}
 	return duration, nil
 }
