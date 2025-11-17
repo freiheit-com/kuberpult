@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
@@ -101,6 +102,29 @@ func ReadEnvVar(envName string) (string, error) {
 	return envValue, nil
 }
 
+func ReadEnvVarWithDefault(envName string, defaultValue string) string {
+	envValue, ok := os.LookupEnv(envName)
+	if !ok {
+		return defaultValue
+	}
+	return envValue
+}
+
+// ReadEnvVarDurationWithDefault returns the defaultValue if the env var is not set
+// ReadEnvVarDurationWithDefault returns an error if it is set but cannot be parsed
+func ReadEnvVarDurationWithDefault(envName string, defaultValue time.Duration) (time.Duration, error) {
+	envValue, ok := os.LookupEnv(envName)
+	if !ok {
+		return defaultValue, nil
+	}
+	duration, err := time.ParseDuration(envValue)
+	if err != nil {
+		return 0, fmt.Errorf("could not parse environment variable '%s=%s' invalid duration",
+			envName, envValue)
+	}
+	return duration, nil
+}
+
 func ReadEnvVarUInt(envName string) (uint, error) {
 	envValue, err := ReadEnvVar(envName)
 	if err != nil {
@@ -113,10 +137,30 @@ func ReadEnvVarUInt(envName string) (uint, error) {
 	return uint(i), nil
 }
 
+func ReadEnvVarIntWithDefault(envName string, defaultValue int) (int, error) {
+	envValue, err := ReadEnvVar(envName)
+	if err != nil {
+		return defaultValue, nil
+	}
+	i, err := strconv.ParseInt(envValue, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("could not convert environment variable '%s=%s' to int", envName, envValue)
+	}
+	return int(i), nil
+}
+
 func ReadEnvVarBool(envName string) (bool, error) {
 	envValue, err := ReadEnvVar(envName)
 	if err != nil {
 		return false, err
 	}
 	return envValue == "true", nil
+}
+
+func ReadEnvVarBoolWithDefault(envName string, defaultVal bool) bool {
+	envValue, err := ReadEnvVar(envName)
+	if err != nil {
+		return defaultVal
+	}
+	return envValue == "true"
 }
