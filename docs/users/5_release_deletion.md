@@ -9,7 +9,7 @@ forever. Both parts of this workflow are available in the UI.
 * Make sure that you first remove the app from your mono-repo and merge that change.
 * Use the dot menu entry "remove app 'x' from environments" to remove the app
   from one or more environments
-  * Note that an environment can still be available for removal, if the app has
+  * Note that an environment can still show up as available for removal, if the app has
     is not on the environment anymore. Thus, when using incremental removal
     from environments, the safest way of using this is to select all environments.
 * Finally, use the dot menu entry "complete removing app 'x'" after having
