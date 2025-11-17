@@ -17,19 +17,17 @@ import {
     addAction,
     AppDetailsResponse,
     AppDetailsState,
-    EnvironmentGroupExtended,
     getAppDetails,
     ReleaseNumbers,
     updateAppDetails,
     useAppDetailsForApp,
-    useCurrentlyExistsAtGroup,
     useEnvironments,
     useMinorsForApp,
     useNavigateWithSearchParams,
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
-import { Environment, OverviewApplication } from '../../../api/api';
+import { OverviewApplication } from '../../../api/api';
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
@@ -402,14 +400,10 @@ export const ReadyServiceLane: React.FC<{
             );
         });
 
-    const envs: Environment[] = useCurrentlyExistsAtGroup(application.name).flatMap(
-        (envGroup: EnvironmentGroupExtended) => envGroup.environments
-    );
-
     const [showEnvSelectionDialog, setShowEnvSelectionDialog] = useState(false);
     const finishEnvAppDelete = useCallback(() => {
         setShowEnvSelectionDialog(false);
-    }, [application.name, envs]);
+    }, []);
     const onReload = useCallback(() => {
         const details = updateAppDetails.get();
         details[application.name] = {
@@ -436,7 +430,7 @@ export const ReadyServiceLane: React.FC<{
             },
         },
         {
-            label: 'Undeploy',
+            label: `Complete removing app '${application.name}'`,
             icon: <DeleteWhite />,
             onClick: undeploy,
         },

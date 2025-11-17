@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -94,6 +95,63 @@ func createTestForm() (*multipart.Form, error) {
 	return req.MultipartForm, nil
 }
 
+type HandleRequest struct {
+	name                                 string
+	req                                  *http.Request
+	KeyRing                              openpgp.KeyRing
+	signature                            string
+	AzureAuthEnabled                     bool
+	batchResponse                        *api.BatchResponse
+	releaseTrainPrognosisResponse        *api.GetReleaseTrainPrognosisResponse
+	versionClientResponse                *api.GetManifestsResponse
+	expectedResp                         *http.Response
+	expectedBody                         string
+	expectedBatchRequest                 *api.BatchRequest
+	expectedReleaseTrainPrognosisRequest *api.ReleaseTrainRequest
+	expectedGetManifestRequest           *api.GetManifestsRequest
+}
+
+func generateCreateReleaseTestCasesForLengthChecks(tcName string, param string, form *multipart.Form) HandleRequest {
+	requestParams := map[string][]string{
+		"application": {"my-app"},
+		"version":     {"1"},
+		"revision":    {"1"},
+	}
+
+	requestParams[param] = []string{"value1", "value2"}
+
+	return HandleRequest{
+		name: tcName,
+		req: &http.Request{
+			Method: http.MethodPut,
+			URL: &url.URL{
+				Path: "/api/release",
+			},
+			MultipartForm: &multipart.Form{
+				Value: requestParams,
+				File:  form.File,
+			},
+		},
+		batchResponse: &api.BatchResponse{
+			Results: []*api.BatchResult{
+				{
+					Result: &api.BatchResult_CreateReleaseResponse{
+						CreateReleaseResponse: &api.CreateReleaseResponse{
+							Response: &api.CreateReleaseResponse_Success{
+								Success: &api.CreateReleaseResponseSuccess{},
+							},
+						},
+					},
+				},
+			},
+		},
+		expectedResp: &http.Response{
+			StatusCode: http.StatusBadRequest,
+		},
+		expectedBody: fmt.Sprintf("Exactly one '%s' parameter should be provided, 2 are given", param),
+	}
+}
+
 func TestServer_Handle(t *testing.T) {
 	exampleKey, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
 	if err != nil {
@@ -149,21 +207,7 @@ func TestServer_Handle(t *testing.T) {
 		t.Fatalf("Failed to create test form: %v", err)
 	}
 
-	tests := []struct {
-		name                                 string
-		req                                  *http.Request
-		KeyRing                              openpgp.KeyRing
-		signature                            string
-		AzureAuthEnabled                     bool
-		batchResponse                        *api.BatchResponse
-		releaseTrainPrognosisResponse        *api.GetReleaseTrainPrognosisResponse
-		versionClientResponse                *api.GetManifestsResponse
-		expectedResp                         *http.Response
-		expectedBody                         string
-		expectedBatchRequest                 *api.BatchRequest
-		expectedReleaseTrainPrognosisRequest *api.ReleaseTrainRequest
-		expectedGetManifestRequest           *api.GetManifestsRequest
-	}{
+	tests := []HandleRequest{
 		{
 			name: "wrongly routed",
 			req: &http.Request{
@@ -437,6 +481,50 @@ func TestServer_Handle(t *testing.T) {
 			},
 		},
 		{
+			name: "create release api, no app name given",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/release",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"version":  {"1"},
+						"revision": {"1"},
+					},
+					File: form.File,
+				},
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_Success{
+									Success: &api.CreateReleaseResponseSuccess{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Exactly one 'application' parameter should be provided, 0 are given",
+		},
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many app names", "application", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many team names", "team", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many source_commit_id", "source_commit_id", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many previous_commit_id", "previous_commit_id", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many source_author", "source_author", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many source_message", "source_message", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many versions", "version", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many display_version", "display_version", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many ci_link", "ci_link", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many is_prepublish", "is_prepublish", form),
+		generateCreateReleaseTestCasesForLengthChecks("create release api, too many revision", "revision", form),
+		{
 			name: "create release, revision is not a number",
 			req: &http.Request{
 				Method: http.MethodPut,
@@ -469,6 +557,109 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusBadRequest,
 			},
 			expectedBody: "Invalid version: strconv.ParseUint: parsing \"abcd\": invalid syntax",
+		},
+		{
+			name: "create release api, version is not a number",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/release",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"application": {"my-app"},
+						"version":     {"abcd"},
+						"revision":    {"1"},
+					},
+					File: form.File,
+				},
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_Success{
+									Success: &api.CreateReleaseResponseSuccess{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Provided version 'abcd' is not valid: strconv.ParseUint: parsing \"abcd\": invalid syntax",
+		},
+		{
+			name: "create release api, revision is not a number",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/release",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"application": {"my-app"},
+						"version":     {"1"},
+						"revision":    {"abcd"},
+					},
+					File: form.File,
+				},
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_Success{
+									Success: &api.CreateReleaseResponseSuccess{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Provided revision 'abcd' is not valid: strconv.ParseUint: parsing \"abcd\": invalid syntax",
+		},
+		{
+			name: "create release api, is_prepublish is not a boolean value",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/release",
+				},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"application":   {"my-app"},
+						"version":       {"1"},
+						"revision":      {"1"},
+						"is_prepublish": {"abcd"},
+					},
+					File: form.File,
+				},
+			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_Success{
+									Success: &api.CreateReleaseResponseSuccess{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Provided is_prepublish 'abcd' is not valid: strconv.ParseBool: parsing \"abcd\": invalid syntax",
 		},
 		{
 			name: "Get manifests - full version",

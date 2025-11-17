@@ -4,23 +4,12 @@ exports[`Product Version Data Displays Product Version Page No tags to Display 1
 <body>
   <div>
     <div
-      class="product_version"
+      class="warning-container"
     >
-      <h1
-        class="environment_name"
-      >
-        Product Version Page
-      </h1>
       <div
-        class=""
-      />
-      <div />
-      <div>
-        <div
-          class="page_description"
-        >
-          This page shows the version of the product for the selected environment based on tags to the repository. If there are no tags, then no data can be shown.
-        </div>
+        class="warning-message"
+      >
+        There are no git tags in your manifest repository.
       </div>
     </div>
   </div>

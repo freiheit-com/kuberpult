@@ -18,6 +18,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { Environment, EnvironmentGroup, Priority, ProductSummary, TagData } from '../../../api/api';
 import { ProductVersion, TableFiltered } from './ProductVersion';
 import { Spy } from 'spy4js';
+import type { TagsWithFilter } from '../../utils/store';
+import { TagResponse } from '../../utils/store';
 
 const mock_UseEnvGroups = Spy('envGroup');
 const mock_UseTags = Spy('Overview');
@@ -40,6 +42,12 @@ jest.mock('../../utils/store', () => ({
         return [];
     },
     showSnackbarError() {},
+
+    TagResponse: {
+        LOADING: 0,
+        READY: 1,
+        ERROR: 2,
+    },
 }));
 
 jest.mock('../../utils/Links', () => ({
@@ -56,7 +64,7 @@ const mockGetProductSummary = jest.fn();
 jest.mock('../../utils/GrpcApi', () => ({
     get useApi() {
         return {
-            gitService: () => ({
+            productSummaryService: () => ({
                 GetProductSummary: () => mockGetProductSummary(),
             }),
         };
@@ -79,7 +87,6 @@ describe('Product Version Data', () => {
         tags: TagData[];
         productSummary: ProductSummary[];
     };
-    const date = new Date();
     const data: TestData[] = [
         {
             name: 'No tags to Display',
@@ -165,7 +172,11 @@ describe('Product Version Data', () => {
         it(testCase.name, async () => {
             // replicate api calls
             mock_UseEnvGroups.returns(testCase.environmentGroups);
-            mock_UseTags.returns({ response: { tagData: testCase.tags }, tagsReady: true });
+            const useTagsResponse: TagsWithFilter = {
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: [{ tag: 'test-tag-1', commitId: 'sha-123' }],
+            };
+            mock_UseTags.returns(useTagsResponse);
             mockGetProductSummary.mockResolvedValue({ productSummary: testCase.productSummary });
             mock_FrontendConfig.returns({
                 configsReady: true,
@@ -193,9 +204,7 @@ describe('Product Version Data', () => {
             if (testCase.productSummary.length > 0) {
                 expect(document.querySelector('.table')?.textContent).toContain('App Name');
             } else {
-                expect(document.querySelector('.page_description')?.textContent).toContain(
-                    'This page shows the version'
-                );
+                expect(document.querySelector('.warning-message')?.textContent).toContain('There are no git tags ');
             }
             const releaseTrainButton = screen.queryByText('Run Release Train');
             if (testCase.tags.length > 0) {

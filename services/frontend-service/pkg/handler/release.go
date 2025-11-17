@@ -313,6 +313,15 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	logger.FromContext(ctx).Warn("warning: The /release endpoint will be deprecated in the future, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.\n")
 }
 
+func checkParameterCardinality(w http.ResponseWriter, paramName string, paramValues []string) bool {
+	if len(paramValues) != 1 {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprintf(w, "Exactly one '%s' parameter should be provided, %d are given", paramName, len(paramValues))
+		return false
+	}
+	return true
+}
+
 func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail string) {
 	ctx := r.Context()
 
@@ -344,24 +353,11 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		return
 	}
 	form := r.MultipartForm
-	if len(form.Value["application"]) != 1 {
-		if len(form.Value["application"]) > 1 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Please provide single application name")
-			return
-		} else {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Must provide application name")
-			return
-		}
-	}
-	application := form.Value["application"][0]
-	if application == "" {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprintf(w, "Invalid application name: '%s' - must not be empty", application)
+	if !checkParameterCardinality(w, "application", form.Value["application"]) {
 		return
 	}
-	tf.Application = application
+	tf.Application = form.Value["application"][0]
+
 	for k, v := range form.File {
 		match := manifestFieldRx.FindStringSubmatch(k)
 		if match == nil {
@@ -391,114 +387,102 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		return
 	}
 
-	if team, ok := form.Value["team"]; ok {
-		if len(team) == 1 {
-			tf.Team = team[0]
-		}
-	}
-
-	if sourceCommitId, ok := form.Value["source_commit_id"]; ok {
-		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
-			tf.SourceCommitId = sourceCommitId[0]
-		} else {
-			logger.FromContext(ctx).Sugar().Warnf("commit id not valid: '%s'", sourceCommitId)
-		}
-	} else {
-		logger.FromContext(ctx).Sugar().Warnf("commit id not found: '%s'", sourceCommitId)
-	}
-
-	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
-		if len(previousCommitId) != 1 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid number of previous commit IDs provided. Expecting 1, got %d", len(previousCommitId))
-		}
-		if !isCommitId(previousCommitId[0]) {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Provided commit id (%s) is not valid.", previousCommitId[0])
-		}
-		tf.PreviousCommitId = previousCommitId[0]
-	}
-
-	if sourceAuthor, ok := form.Value["source_author"]; ok {
-		if len(sourceAuthor) == 1 && isAuthor(sourceAuthor[0]) {
-			tf.SourceAuthor = sourceAuthor[0]
-		}
-	}
-
-	if sourceMessage, ok := form.Value["source_message"]; ok {
-		if len(sourceMessage) == 1 {
-			tf.SourceMessage = sourceMessage[0]
-		}
-	}
-	if version, ok := form.Value["version"]; ok {
-		if len(version) == 1 {
-			val, err := strconv.ParseUint(version[0], 10, 64)
-			if err != nil {
-				w.WriteHeader(400)
-				_, _ = fmt.Fprintf(w, "Invalid version: %s", err)
-				return
-			}
-			tf.Version = val
-		}
-	}
-
-	if displayVersion, ok := form.Value["display_version"]; ok {
-		if len(displayVersion) != 1 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(displayVersion))
-		}
-		if len(displayVersion[0]) > 15 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "DisplayVersion given should be <= 15 characters")
+	if teams, ok := form.Value["team"]; ok {
+		if !checkParameterCardinality(w, "team", teams) {
 			return
 		}
-		tf.DisplayVersion = displayVersion[0]
-
+		tf.Team = teams[0]
 	}
-	if isPrepublish, ok := form.Value["is_prepublish"]; ok {
-		if len(isPrepublish) != 1 {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid is_prepublish value")
+
+	if sourceCommitIds, ok := form.Value["source_commit_id"]; ok {
+		if !checkParameterCardinality(w, "source_commit_id", sourceCommitIds) {
 			return
 		}
-		val, err := strconv.ParseBool(isPrepublish[0])
+		tf.SourceCommitId = sourceCommitIds[0]
+	}
+
+	if previousCommitIds, ok := form.Value["previous_commit_id"]; ok {
+		if !checkParameterCardinality(w, "previous_commit_id", previousCommitIds) {
+			return
+		}
+		tf.PreviousCommitId = previousCommitIds[0]
+	}
+
+	if sourceAuthors, ok := form.Value["source_author"]; ok {
+		if !checkParameterCardinality(w, "source_author", sourceAuthors) {
+			return
+		}
+		tf.SourceAuthor = sourceAuthors[0]
+	}
+
+	if sourceMessages, ok := form.Value["source_message"]; ok {
+		if !checkParameterCardinality(w, "source_message", sourceMessages) {
+			return
+		}
+		tf.SourceMessage = sourceMessages[0]
+	}
+
+	if displayVersions, ok := form.Value["display_version"]; ok {
+		if !checkParameterCardinality(w, "display_version", displayVersions) {
+			return
+		}
+		tf.DisplayVersion = displayVersions[0]
+	}
+
+	if ciLinks, ok := form.Value["ci_link"]; ok {
+		if !checkParameterCardinality(w, "ci_link", ciLinks) {
+			return
+		}
+		tf.CiLink = ciLinks[0]
+	}
+
+	if sourceRepoUrls, ok := form.Value["source_repo_url"]; ok {
+		logger.FromContext(ctx).Sugar().Warnf("ignoring deprecated parameter source_repo_url with value '%v'", sourceRepoUrls)
+	}
+
+	if versionStrs, ok := form.Value["version"]; ok {
+		if !checkParameterCardinality(w, "version", versionStrs) {
+			return
+		}
+		version, err := strconv.ParseUint(versionStrs[0], 10, 64)
 		if err != nil {
 			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid is_prepublish value: %s", err)
+			_, _ = fmt.Fprintf(w, "Provided version '%s' is not valid: %s", versionStrs[0], err)
 			return
 		}
-		tf.IsPrepublish = val
+		tf.Version = version
 	}
-	if ciLink, ok := form.Value["ci_link"]; ok {
-		if len(ciLink) != 1 {
+
+	if prepublishStrs, ok := form.Value["is_prepublish"]; ok {
+		if !checkParameterCardinality(w, "is_prepublish", prepublishStrs) {
+			return
+		}
+		prepublish, err := strconv.ParseBool(prepublishStrs[0])
+		if err != nil {
 			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid number of ci links provided: %d, ", len(ciLink))
+			_, _ = fmt.Fprintf(w, "Provided is_prepublish '%s' is not valid: %s", prepublishStrs[0], err)
 			return
 		}
-
-		tf.CiLink = ciLink[0]
+		tf.IsPrepublish = prepublish
 	}
 
-	if revision, ok := form.Value["revision"]; ok { //Revision is an optional parameter
+	if revisionStrs, ok := form.Value["revision"]; ok { //Revision is an optional parameter
 		if !s.Config.RevisionsEnabled {
 			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "The release endpoint does not allow revisions (frontend.enabledRevisions = false).")
+			_, _ = fmt.Fprintf(w, "The release endpoint does not allow revisions (frontend.enableRevisions = false).")
 			return
 		}
 
-		if len(revision) == 1 {
-			r, err := strconv.ParseUint(revision[0], 10, 64)
-			if err != nil {
-				w.WriteHeader(400)
-				_, _ = fmt.Fprintf(w, "Invalid version: %s", err)
-				return
-			}
-			tf.Revision = r
-		} else {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Invalid number of revisions provided: %d, ", len(revision))
+		if !checkParameterCardinality(w, "revision", revisionStrs) {
 			return
 		}
+		val, err := strconv.ParseUint(revisionStrs[0], 10, 64)
+		if err != nil {
+			w.WriteHeader(400)
+			_, _ = fmt.Fprintf(w, "Provided revision '%s' is not valid: %s", revisionStrs[0], err)
+			return
+		}
+		tf.Revision = val
 	}
 
 	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
@@ -529,7 +513,6 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		return
 	}
 	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
-
 }
 
 func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *http.Request, releaseResponse *api.CreateReleaseResponse, _ error) {

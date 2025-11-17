@@ -27,7 +27,7 @@ import {
     DisplayLock,
     SnackbarStatus,
     updateActions,
-    updateAppDetails, UpdateFrontendConfig,
+    updateAppDetails,
     UpdateSnackbar,
     useActions,
 } from '../../utils/store';

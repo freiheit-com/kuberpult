@@ -312,6 +312,190 @@ func TestCreateApplicationVersionErrors(t *testing.T) {
 				TransformerError: errMatcher{"is_no_downstream:{no_downstream:\"acceptance\"}"},
 			},
 		},
+		{
+			Name: "create a deployment with no manifest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:                    "app1",
+					Version:                        10000,
+					Manifests:                      nil,
+					WriteCommitData:                true,
+					DeployToDownstreamEnvironments: []types.EnvName{"acceptance"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"no manifest files provided\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with empty app name",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Version: 10000,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"application name must not be empty\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with invalid source commit id",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					Version:        10000,
+					SourceCommitId: "dasdr0qewqepowqudpousapousaporupqoeupowqurpowqu",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F], but is 47 characters: 'dasdr0qewqepowqudpousapousaporupqoeupowqurpowqu'\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with invalid previous commit id",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					Version:        10000,
+					PreviousCommit: "dasdr0qewqepowqudpousapousaporupqoeupowqurpowqu",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			Name: "create a deployment with too long display version",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					Version:        10000,
+					DisplayVersion: "thisshouldbemorethanfifteencharacters",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"display version must not exceed 15 characters, 37 is given\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with too long source author",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:  "app",
+					Version:      10000,
+					SourceAuthor: strings.Repeat("a", 1001),
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"source author must not exceed 1000 characters, 1001 is given\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with too long source message",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application:   "app",
+					Version:       10000,
+					SourceMessage: strings.Repeat("a", 1001),
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"source message must not exceed 1000 characters, 1001 is given\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with too long ci link",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app",
+					Version:     10000,
+					CiLink:      "https://github.com/search=?" + strings.Repeat("a", 1001),
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"ci link must not exceed 1000 characters, 1028 is given\"}"},
+			},
+		},
+		{
+			Name: "create a deployment with invalid ci link",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "app",
+					Version:     10000,
+					CiLink:      "https://github.com/actions",
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "acceptance",
+					},
+					AllowedDomains: []string{"freiheit.com"},
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{"general_failure:{message:\"provided CI Link: https://github.com/actions is not valid or does not match any of the allowed domain\"}"},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -1050,8 +1234,10 @@ func TestUndeployErrors(t *testing.T) {
 					Application: "app1",
 				},
 				&CreateApplicationVersion{
-					Application:     "app1",
-					Manifests:       nil,
+					Application: "app1",
+					Manifests: map[types.EnvName]string{
+						envProduction: "productionmanifest",
+					},
 					SourceCommitId:  "",
 					SourceAuthor:    "",
 					SourceMessage:   "",

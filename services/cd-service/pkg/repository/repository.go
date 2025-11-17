@@ -270,6 +270,8 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	return result, result.ProcessQueue, nil
 }
 
+// ProcessQueue is deprecated!
+// We only keep it for now because of tests
 func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
 	defer func() {
 		close(r.queue.transformerBatches)

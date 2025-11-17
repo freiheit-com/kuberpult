@@ -169,17 +169,17 @@ func openOrCreate(path string) (*git.Repository, error) {
 			if gerr.Code == git.ErrorCodeNotFound {
 				err = os.MkdirAll(path, 0777)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("could not mkdirAll %s: %v", path, err)
 				}
 				repo2, err = git.InitRepository(path, true)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("init repository %s: %v", path, err)
 				}
 			} else {
-				return nil, err
+				return nil, fmt.Errorf("other error %s: %v", path, err)
 			}
 		} else {
-			return nil, err
+			return nil, fmt.Errorf("non-git error %s: %v", path, err)
 		}
 	}
 	sqlitePath := filepath.Join(path, "odb.sqlite")
@@ -196,7 +196,7 @@ func openOrCreate(path string) (*git.Repository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("setting odb backend: %w", err)
 	}
-	return repo2, err
+	return repo2, nil
 }
 
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
@@ -893,18 +893,18 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 		return err
 	}
 
-	errors, ctx := errgroup.WithContext(ctx)
+	errorGroup, ctx := errgroup.WithContext(ctx)
 	fsMutex := sync.Mutex{}
 	for env, config := range configs {
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
-			errors.Go(func() error {
+			errorGroup.Go(func() error {
 				return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
 					return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, &fsMutex)
 				})
 			})
 		}
 	}
-	return errors.Wait()
+	return errorGroup.Wait()
 }
 
 func isAAEnv(config config.EnvironmentConfig) bool {
@@ -2508,6 +2508,8 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 }
 
 func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, repoName string) (tags []*api.TagData, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "getTags")
+	defer span.Finish(tracer.WithError(err))
 	repo, err := openOrCreate(repoName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open/create repo: %v", err)
@@ -2548,10 +2550,14 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 	if err != nil {
 		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
 	}
+
+	fetchSpan, _ := tracer.StartSpanFromContext(ctx, "getTags-FetchingRemote")
 	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	if err != nil {
+		fetchSpan.Finish(tracer.WithError(err))
 		return nil, fmt.Errorf("failure to fetch: %v", err)
 	}
+	fetchSpan.Finish()
 
 	tagsList, err := repo.Tags.List()
 	if err != nil {
@@ -2564,8 +2570,10 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 		return nil, fmt.Errorf("unable to get list of tags: %v", err)
 	}
 	for {
+		loopSpan, ctxLoop := tracer.StartSpanFromContext(ctx, "getTags-for")
 		tagObject, err := iters.Next()
 		if err != nil {
+			loopSpan.Finish(tracer.WithError(err))
 			break
 		}
 		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
@@ -2577,24 +2585,28 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 			// If LookupTag fails, fallback to LookupCommit
 			// to cover all tags, annotated and lightweight
 			if err != nil {
-				return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
+				e := fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
+				loopSpan.Finish(tracer.WithError(e))
+				return nil, e
 			}
 			tagName = tagObject.Name()
 			commitId = tagCommit.Id().String()
 		} else {
 			tagCommit, err := repo.LookupCommit(tagRef.TargetId())
 			if err != nil {
-				return nil, fmt.Errorf("unable to lookup tag [%s]: %v", tagObject.Name(), err)
+				err = fmt.Errorf("unable to lookup tag [%s]: %v", tagObject.Name(), err)
+				loopSpan.Finish(tracer.WithError(err))
+				return nil, err
 			}
 			tagName = tagObject.Name()
 			commitId = tagCommit.Id().String()
 		}
 
-		result, err := db.WithTransactionT(handler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
+		result, err := db.WithTransactionT(handler, ctxLoop, 2, true, func(ctx context.Context, transaction *sql.Tx) (*time.Time, error) {
 			return handler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitId)
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("withtransaction: %w", err)
 		}
 
 		tag = &api.TagData{
@@ -2608,6 +2620,7 @@ func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, r
 		// else: could not find a commit date - this means something went wrong before this endpoint was called
 		// e.g. in a db migration
 		tags = append(tags, tag)
+		loopSpan.Finish()
 	}
 
 	return tags, nil
@@ -2617,9 +2630,12 @@ func (r *repository) Notify() *notify.Notify {
 	return &r.notify
 }
 
-func MeasureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface, dbHandler *db.DBHandler) error {
+func MeasureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface, dbHandler *db.DBHandler) (err error) {
 	if ddMetrics != nil {
-		results, err := db.WithTransactionT[[2]int](dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*[2]int, error) {
+		span, ctx := tracer.StartSpanFromContext(ctx, "MeasureGitSyncStatus")
+		defer span.Finish(tracer.WithError(err))
+		var results *[2]int
+		results, err = db.WithTransactionT[[2]int](dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*[2]int, error) {
 			unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
 			if err != nil {
 				return &[2]int{}, err
@@ -2637,11 +2653,11 @@ func MeasureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface,
 			return err
 		}
 
-		if err := ddMetrics.Gauge("git_sync_unsynced", float64(results[0]), []string{}, 1); err != nil {
+		if err = ddMetrics.Gauge("git_sync_unsynced", float64(results[0]), []string{}, 1); err != nil {
 			return err
 		}
 
-		if err := ddMetrics.Gauge("git_sync_failed", float64(results[1]), []string{}, 1); err != nil {
+		if err = ddMetrics.Gauge("git_sync_failed", float64(results[1]), []string{}, 1); err != nil {
 			return err
 		}
 	}

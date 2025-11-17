@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	"github.com/google/go-cmp/cmp"
 
 	config "github.com/freiheit-com/kuberpult/pkg/config"
@@ -450,6 +449,63 @@ func isValidLifeTime(lifeTime string) bool {
 	return matched
 }
 
+func CheckParameterMaxLength(paramName string, paramValue string, maxLength int) error {
+	if len(paramValue) > maxLength {
+		return GetCreateReleaseGeneralFailure(fmt.Errorf("%s must not exceed %d characters, %d is given", paramName, maxLength, len(paramValue)))
+	}
+	return nil
+}
+
+func (c *CreateApplicationVersion) CheckPreconditions(ctx context.Context) error {
+	// checks for application name (valid.ApplicationName already has length check)
+	if c.Application == "" {
+		return GetCreateReleaseGeneralFailure(fmt.Errorf("application name must not be empty"))
+	}
+	if !valid.ApplicationName(c.Application) {
+		return GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
+	}
+
+	// check for manifests
+	if len(c.Manifests) == 0 {
+		return GetCreateReleaseGeneralFailure(fmt.Errorf("no manifest files provided"))
+	}
+
+	// checks for source commit id (valid.SHA1CommitID already has length check)
+	if c.SourceCommitId != "" && !valid.SHA1CommitID(c.SourceCommitId) {
+		return GetCreateReleaseGeneralFailure(fmt.Errorf("source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F], but is %d characters: '%s'", len(c.SourceCommitId), c.SourceCommitId))
+	}
+
+	// checks for previous commit id (valid.SHA1CommitID already has length check)
+	if c.PreviousCommit != "" && !valid.SHA1CommitID(c.PreviousCommit) {
+		logger.FromContext(ctx).Sugar().Warnf("previous commit ID %s is invalid", c.PreviousCommit)
+	}
+
+	// checks for display version
+	if err := CheckParameterMaxLength("display version", c.DisplayVersion, 15); err != nil {
+		return err
+	}
+
+	// check for team name (valid.TeamName already has length check)
+	if c.Team != "" && !valid.TeamName(c.Team) {
+		return GetCreateReleaseGeneralFailure(fmt.Errorf("invalid team name: '%s'", c.Team))
+	}
+
+	// checks for source author, source message, ci link, (skipping checks for source repo url, as it is not defined in CreateApplicationVersion struct)
+	if err := CheckParameterMaxLength("source author", c.SourceAuthor, 1000); err != nil {
+		return err
+	}
+	if err := CheckParameterMaxLength("source message", c.SourceMessage, 1000); err != nil {
+		return err
+	}
+	if err := CheckParameterMaxLength("ci link", c.CiLink, 1000); err != nil {
+		return err
+	}
+	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
+		return GetCreateReleaseGeneralFailure(fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
+	}
+	return nil
+}
+
 func (c *CreateApplicationVersion) Transform(
 	ctx context.Context,
 	state *State,
@@ -461,9 +517,10 @@ func (c *CreateApplicationVersion) Transform(
 		return "", err
 	}
 
-	if !valid.ApplicationName(c.Application) {
-		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
+	if err = c.CheckPreconditions(ctx); err != nil {
+		return "", err
 	}
+
 	allApps, err := state.DBHandler.DBSelectAllApplications(ctx, transaction)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(err)
@@ -518,23 +575,12 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 
-	if c.SourceCommitId != "" && !valid.SHA1CommitID(c.SourceCommitId) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("source commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F], but is %d characters: '%s'", len(c.SourceCommitId), c.SourceCommitId))
-	}
-	if c.PreviousCommit != "" && !valid.SHA1CommitID(c.PreviousCommit) {
-		logger.FromContext(ctx).Sugar().Warnf("Previous commit ID %s is invalid", c.PreviousCommit)
-	}
-
 	configs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		if errors.Is(err, ErrInvalidJson) {
 			return "", err
 		}
 		return "", GetCreateReleaseGeneralFailure(err)
-	}
-
-	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
 
 	isLatest, err := isLatestVersion(ctx, transaction, state, c.Application, version)
@@ -574,7 +620,7 @@ func (c *CreateApplicationVersion) Transform(
 		return "", errDownstream
 	}
 
-	isMinor, err := c.checkMinorFlags(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
+	isMinor, err := c.updateSurroundingReleasesIsMinorFlag(ctx, transaction, state.DBHandler, version, state.MinorRegexes)
 	if err != nil {
 		return "", err
 	}
@@ -697,7 +743,13 @@ func validateDownstreamEnvs(downstreamEnvs []types.EnvName, sortedEnvs []types.E
 	return nil
 }
 
-func (c *CreateApplicationVersion) checkMinorFlags(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version types.ReleaseNumbers, minorRegexes []*regexp.Regexp) (bool, error) {
+// Updates the previous and next release (if they exist) with the "isMinor" flag
+// The "isMinor" flag only makes sense in comparison to other releases.
+func (c *CreateApplicationVersion) updateSurroundingReleasesIsMinorFlag(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version types.ReleaseNumbers, minorRegexes []*regexp.Regexp) (bool, error) {
+	if c.IsPrepublish {
+		// releases with prepublish=true do not have manifests, so there are no updates to be done
+		return true, nil
+	}
 	releaseVersions, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
 	if err != nil {
 		return false, err
