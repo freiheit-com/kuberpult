@@ -14,3 +14,4 @@ forever. Both parts of this workflow are available in the UI.
     from environments, the safest way of using this is to select all environments.
 * Finally, use the dot menu entry "complete removing app 'x'" after having
   ensured the app was removed from all envs first.
+  Note that this will remove the app **immediately**.
