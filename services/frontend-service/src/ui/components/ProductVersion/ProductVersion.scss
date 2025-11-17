@@ -23,6 +23,10 @@ Copyright freiheit.com*/
     color: var(--mdc-theme-on-background-dark);
 }
 
+.product_version a {
+    color: var(--mdc-theme-anchor-on-surface);
+}
+
 .environment_name {
     font-weight: 700;
     font-size: 28px;
