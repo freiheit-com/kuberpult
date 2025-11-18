@@ -719,6 +719,38 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	return result, nil
 }
 
+func (s *State) GetApplicationLocksForEnv(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (_ map[types.AppName]map[string]Lock, err error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "GetApplicationLocksForEnv")
+	defer span.Finish(tracer.WithError(err))
+
+	appLocks, err := s.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, environment)
+	if err != nil {
+		return nil, fmt.Errorf("could not select app locks for env %s: %w", environment, err)
+	}
+
+	result := make(map[types.AppName]map[string]Lock)
+	for _, lock := range appLocks {
+		genericLock := Lock{
+			Message: lock.Metadata.Message,
+			LockId:  lock.LockID,
+			CreatedBy: Actor{
+				Name:  lock.Metadata.CreatedByName,
+				Email: lock.Metadata.CreatedByEmail,
+			},
+			CreatedAt:         lock.Created,
+			CiLink:            lock.Metadata.CiLink,
+			SuggestedLifetime: lock.Metadata.SuggestedLifeTime,
+		}
+		if _, ok := result[lock.App]; !ok {
+			result[lock.App] = make(map[string]Lock)
+		}
+		result[lock.App][lock.LockID] = genericLock
+	}
+	span.SetTag("numberOfApps", len(result))
+	span.SetTag("numberOfLocks", len(appLocks))
+	return result, nil
+}
+
 func (s *State) GetEnvironmentApplicationLocks(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) (map[string]Lock, error) {
 	return s.GetEnvironmentApplicationLocksFromDB(ctx, transaction, environment, application)
 }
