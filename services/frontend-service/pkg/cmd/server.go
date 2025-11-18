@@ -201,7 +201,7 @@ func runServer(ctx context.Context) error {
 	var err error
 	var c *config.ServerConfig
 
-	c, err = EnvVarWrapper()
+	c, err = parseEnvVars()
 	if err != nil {
 		logger.FromContext(ctx).Error("parseEnvVars", zap.Error(err))
 		return err
@@ -593,10 +593,6 @@ func runServer(ctx context.Context) error {
 		},
 	})
 	return nil
-}
-
-func EnvVarWrapper() (*config.ServerConfig, error) {
-	return parseEnvVars()
 }
 
 type Auth struct {

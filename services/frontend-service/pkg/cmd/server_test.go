@@ -474,7 +474,7 @@ func TestEnvVarParsing(t *testing.T) {
 
 			var actual *config.ServerConfig
 			var err error
-			actual, err = EnvVarWrapper()
+			actual, err = parseEnvVars()
 			// check errors
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
