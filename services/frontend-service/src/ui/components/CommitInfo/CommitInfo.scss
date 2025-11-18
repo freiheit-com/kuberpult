@@ -72,4 +72,8 @@ Copyright freiheit.com*/
         margin-bottom: 10px;
     }
     color: var(--mdc-theme-on-background-dark);
+
+    a {
+        color: var(--mdc-theme-anchor-on-surface);
+    }
 }
