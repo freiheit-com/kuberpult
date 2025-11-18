@@ -658,52 +658,9 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 		}
 
-		treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
-		if insertError != nil {
-			return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
-		}
-
-		committer := r.makeGitSignature()
-
-		transformerMetadata := transformer.GetMetadata()
-		if transformerMetadata.AuthorEmail == "" || transformerMetadata.AuthorName == "" {
-			return nil, &TransformerBatchApplyError{
-				TransformerError: fmt.Errorf("transformer metadata is empty"),
-				Index:            -1,
-			}
-		}
-		user := auth.User{
-			Email:          transformerMetadata.AuthorEmail,
-			Name:           transformerMetadata.AuthorName,
-			DexAuthContext: nil,
-		}
-
-		author := &git.Signature{
-			Name:  user.Name,
-			Email: user.Email,
-			When:  time.Now(),
-		}
-
-		var rev *git.Oid
-		// the commit can be nil, if it's the first commit in the repo
-		if state.Commit != nil {
-			rev = state.Commit.Id()
-		}
-		oldCommitId := rev
-
-		newCommitId, createErr := r.repository.CreateCommitFromIds(
-			fmt.Sprintf("refs/heads/%s", r.config.Branch),
-			author,
-			committer,
-			strings.Join(commitMsg, "\n"),
-			treeId,
-			rev,
-		)
-		if createErr != nil {
-			return nil, &TransformerBatchApplyError{
-				TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
-				Index:            -1,
-			}
+		oldCommitId, newCommitId, applyError := r.createCommit(ctx, state, transformer, commitMsg)
+		if applyError != nil {
+			return nil, applyError
 		}
 
 		result.Commits = &CommitIds{
@@ -716,6 +673,62 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	}
 
 	return result, nil
+}
+
+func (r *repository) createCommit(ctx context.Context, state *State, transformer Transformer, commitMsg []string) (_ *git.Oid, _ *git.Oid, resultError *TransformerBatchApplyError) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "createCommit")
+	defer span.Finish(tracer.WithError(resultError))
+
+	insertSpan, _ := tracer.StartSpanFromContext(ctx, "fsInsert")
+	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
+	insertSpan.Finish(tracer.WithError(insertError))
+	if insertError != nil {
+		return nil, nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
+	}
+
+	committer := r.makeGitSignature()
+
+	transformerMetadata := transformer.GetMetadata()
+	if transformerMetadata.AuthorEmail == "" || transformerMetadata.AuthorName == "" {
+		return nil, nil, &TransformerBatchApplyError{
+			TransformerError: fmt.Errorf("transformer metadata is empty"),
+			Index:            -1,
+		}
+	}
+	user := auth.User{
+		Email:          transformerMetadata.AuthorEmail,
+		Name:           transformerMetadata.AuthorName,
+		DexAuthContext: nil,
+	}
+
+	author := &git.Signature{
+		Name:  user.Name,
+		Email: user.Email,
+		When:  time.Now(),
+	}
+
+	var rev *git.Oid
+	// the commit can be nil, if it's the first commit in the repo
+	if state.Commit != nil {
+		rev = state.Commit.Id()
+	}
+	oldCommitId := rev
+
+	newCommitId, createErr := r.repository.CreateCommitFromIds(
+		fmt.Sprintf("refs/heads/%s", r.config.Branch),
+		author,
+		committer,
+		strings.Join(commitMsg, "\n"),
+		treeId,
+		rev,
+	)
+	if createErr != nil {
+		return nil, nil, &TransformerBatchApplyError{
+			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
+			Index:            -1,
+		}
+	}
+	return oldCommitId, newCommitId, nil
 }
 
 func (r *repository) makeGitSignature() *git.Signature {
