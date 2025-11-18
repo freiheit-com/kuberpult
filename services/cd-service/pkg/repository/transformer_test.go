@@ -4708,7 +4708,7 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 		}
 		return repo, dbHandler
 	} else {
-		repo, _, err := New2(
+		repo, err := New(
 			testutil.MakeTestContext(),
 			repoCfg,
 		)

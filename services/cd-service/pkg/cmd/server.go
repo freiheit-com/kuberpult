@@ -310,7 +310,7 @@ func RunServer() {
 			DBHandler:             dbHandler,
 		}
 
-		repo, _, err := repository.New2(ctx, cfg)
+		repo, err := repository.New(ctx, cfg)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}

@@ -35,9 +35,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
-	"github.com/freiheit-com/kuberpult/pkg/setup"
-
-	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -169,112 +166,6 @@ func (m *mockClock) now() time.Time {
 
 func (m *mockClock) sleep(d time.Duration) {
 	m.t = m.t.Add(d)
-}
-
-func TestApplyQueueTtlForHealth(t *testing.T) {
-	// we set the networkTimeout to something low, so that it doesn't interfere with other processes e.g like once per second:
-	networkTimeout := 1 * time.Second
-
-	tcs := []struct {
-		Name string
-	}{
-		{
-			Name: "sleeps way too long, so health should fail",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
-			migrationsPath, err := db.CreateMigrationsPath(4)
-			if err != nil {
-				t.Fatalf("CreateMigrationsPath error: %v", err)
-			}
-			dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
-			if err != nil {
-				t.Fatalf("SetupPostgres: %v", err)
-			}
-
-			repoCfg := RepositoryConfig{
-				ArgoCdGenerateFiles:   true,
-				MaximumCommitsPerPush: 3,
-				NetworkTimeout:        networkTimeout,
-			}
-
-			migErr := db.RunDBMigrations(ctx, *dbConfig)
-			if migErr != nil {
-				t.Fatal(migErr)
-			}
-
-			dbHandler, err := db.Connect(ctx, *dbConfig)
-			if err != nil {
-				t.Fatal(err)
-			}
-			repoCfg.DBHandler = dbHandler
-
-			repo, processQueue, err := New2(
-				ctx,
-				repoCfg,
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
-			}
-
-			mc := mockClock{}
-			hlth := &setup.HealthServer{}
-			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
-			hlth.Clock = mc.now
-			reporterName := "ClarkKent"
-			reporter := hlth.Reporter(reporterName)
-			isReady := func() bool {
-				return hlth.IsReady(reporterName)
-			}
-			errChan := make(chan error)
-			go func() {
-				err = processQueue(ctx, reporter)
-				errChan <- err
-			}()
-			defer func() {
-				cancel()
-				chanError := <-errChan
-				if chanError != nil {
-					t.Errorf("Expected no error in processQueue but got: %v", chanError)
-				}
-			}()
-
-			finished := make(chan struct{})
-			started := make(chan struct{})
-			var transformer Transformer = &SlowTransformer{
-				finished: finished,
-				started:  started,
-			}
-
-			go func() {
-				_ = repo.Apply(ctx, transformer)
-			}()
-
-			// first, wait, until the transformer has started:
-			<-started
-			// health should be reporting as ready now
-			if !isReady() {
-				t.Error("Expected health to be ready after transformer was started, but it was not")
-			}
-			// now advance the clock time
-			mc.sleep(4 * networkTimeout)
-
-			// now that the transformer is started, we should get a failed health check immediately, because the networkTimeout is tiny:
-			if isReady() {
-				t.Error("Expected health to be not ready after transformer took too long, but it was")
-			}
-
-			// let the transformer finish:
-			finished <- struct{}{}
-
-		})
-	}
 }
 
 func getTransformer(i int) (Transformer, error) {

@@ -651,10 +651,10 @@ func TestBatchServiceLimit(t *testing.T) {
 }
 
 func setupRepositoryTestWithDB(t *testing.T) (repository.Repository, error) {
-	return setupRepositoryTestWithAllOptions(t, true)
+	return setupRepositoryTestWithAllOptions(t)
 }
 
-func setupRepositoryTestWithAllOptions(t *testing.T, withBackgroundJob bool) (repository.Repository, error) {
+func setupRepositoryTestWithAllOptions(t *testing.T) (repository.Repository, error) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -696,26 +696,14 @@ func setupRepositoryTestWithAllOptions(t *testing.T, withBackgroundJob bool) (re
 		}
 		repoCfg.DBHandler = db
 	}
-
-	if withBackgroundJob {
-		repo, err := repository.New(
-			testutil.MakeTestContext(),
-			repoCfg,
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return repo, nil
-	} else {
-		repo, _, err := repository.New2(
-			testutil.MakeTestContext(),
-			repoCfg,
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return repo, nil
+	repo, err := repository.New(
+		testutil.MakeTestContext(),
+		repoCfg,
+	)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return repo, nil
 }
 
 func setupRepositoryTest(t *testing.T) (repository.Repository, error) {

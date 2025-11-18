@@ -179,7 +179,7 @@ func TestGetManifests(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repo, err := setupRepositoryTestWithAllOptions(t, false)
+			repo, err := setupRepositoryTestWithAllOptions(t)
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}

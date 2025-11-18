@@ -42,7 +42,6 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -201,15 +200,6 @@ type RepositoryConfig struct {
 
 // Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
-	repo, bg, err := New2(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	go bg(ctx, nil) //nolint: errcheck
-	return repo, err
-}
-
-func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
 
 	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
@@ -254,7 +244,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	// check that we can build the current state
 	state, err := result.StateAt()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Check configuration for errors and abort early if any:
@@ -264,44 +254,10 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return result, result.ProcessQueue, nil
-}
-
-// ProcessQueue is deprecated!
-// We only keep it for now because of tests
-func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
-	defer func() {
-		close(r.queue.transformerBatches)
-		for e := range r.queue.transformerBatches {
-			e.finish(ctx.Err())
-		}
-	}()
-	tick := time.Tick(r.config.NetworkTimeout) //nolint: staticcheck
-	ttl := r.config.NetworkTimeout * 3
-	for {
-		/*
-			One tricky issue is that `git push` can take a while depending on the git hoster and the connection
-			(plus we do have relatively big and many commits).
-			This can lead to the situation that "everything hangs", because there is one push running already -
-			but only one push is possible at a time.
-			There is also no good way to cancel a `git push`.
-
-			To circumvent this, we report health with a "time to live" - meaning if we don't report anything within the time frame,
-			the health will turn to "failed" and then the pod will automatically restart (in kubernetes).
-		*/
-		health.ReportHealthTtl(setup.HealthReady, "processing queue", &ttl)
-		select {
-		case <-tick:
-			// this triggers a for loop every `NetworkTimeout` to refresh the readiness
-		case <-ctx.Done():
-			return nil
-		case e := <-r.queue.transformerBatches:
-			r.ProcessQueueOnce(ctx, e)
-		}
-	}
+	return result, nil
 }
 
 func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch) ([]transformerBatch, *TransformerResult, error) {
