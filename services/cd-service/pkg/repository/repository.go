@@ -719,13 +719,13 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	return result, nil
 }
 
-func (s *State) GetApplicationLocksForEnv(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[types.AppName]map[string]Lock, error) {
-	if transaction == nil {
-		return nil, fmt.Errorf("GetApplicationLocksForEnvFromDB: No transaction provided")
-	}
+func (s *State) GetApplicationLocksForEnv(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (_ map[types.AppName]map[string]Lock, err error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "GetApplicationLocksForEnv")
+	defer span.Finish(tracer.WithError(err))
+
 	appLocks, err := s.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, environment)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not select app locks for env %s: %w", environment, err)
 	}
 
 	result := make(map[types.AppName]map[string]Lock)
@@ -746,6 +746,8 @@ func (s *State) GetApplicationLocksForEnv(ctx context.Context, transaction *sql.
 		}
 		result[lock.App][lock.LockID] = genericLock
 	}
+	span.SetTag("numberOfApps", len(result))
+	span.SetTag("numberOfLocks", len(appLocks))
 	return result, nil
 }
 

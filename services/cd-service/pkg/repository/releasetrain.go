@@ -751,7 +751,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			continue
 		}
 
-		if appLocks, ok := prefetchedAppLocks[appName]; ok && len(appLocks) > 0 {
+		if appLocks, ok := prefetchedAppLocks[appName]; !ok {
+			logger.FromContext(ctx).Sugar().Warnf("app locks for app=%s and env=%s were not prefetched", appName, envName)
+		} else if len(appLocks) > 0 {
 			appLocksMap := map[string]*api.Lock{}
 			sortedKeys := sorting.SortKeys(appLocks)
 			for _, lockId := range sortedKeys {
@@ -783,8 +785,6 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				OldReleaseCommitId: "",
 			}
 			continue
-		} else if !ok {
-			logger.FromContext(ctx).Sugar().Warnf("App locks for app=%s was not prefetched", appName)
 		}
 
 		releaseEnvs, exists := allLatestReleaseEnvironments[appName][fmt.Sprintf("%v", versionToDeploy)]
@@ -838,7 +838,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				continue
 			}
 
-			if teamLocks, ok := prefetchedTeamLocks[teamName]; ok && len(teamLocks) > 0 {
+			if teamLocks, ok := prefetchedTeamLocks[teamName]; !ok {
+				logger.FromContext(ctx).Sugar().Warnf("team locks for team=%s and env=%s were not prefetched", teamName, envName)
+			} else if len(teamLocks) > 0 {
 				teamLocksMap := map[string]*api.Lock{}
 				sortedKeys := sorting.SortKeys(teamLocks)
 				for _, lockId := range sortedKeys {
@@ -870,8 +872,6 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 					OldReleaseCommitId: "",
 				}
 				continue
-			} else if !ok {
-				logger.FromContext(ctx).Sugar().Warnf("Team locks for team=%s was not prefetched", teamName)
 			}
 		}
 
