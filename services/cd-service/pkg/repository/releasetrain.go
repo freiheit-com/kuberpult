@@ -664,6 +664,12 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		prefetchedTeamLocks[teamName] = teamLocks
 	}
 
+	// prefetch app locks
+	prefetchedAppLocks, err := state.GetApplicationLocksForEnv(ctx, transaction, c.Env)
+	if err != nil {
+		return failedPrognosis(fmt.Errorf("failed to get app locks for env=%s: %w", c.Env, err))
+	}
+
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			team, ok := allTeams[appName]
@@ -745,13 +751,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			continue
 		}
 
-		appLocks, err := state.GetEnvironmentApplicationLocks(ctx, transaction, envName, appName)
-
-		if err != nil {
-			return failedPrognosis(err)
-		}
-
-		if len(appLocks) > 0 {
+		if appLocks, ok := prefetchedAppLocks[appName]; ok && len(appLocks) > 0 {
 			appLocksMap := map[string]*api.Lock{}
 			sortedKeys := sorting.SortKeys(appLocks)
 			for _, lockId := range sortedKeys {
@@ -783,6 +783,8 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				OldReleaseCommitId: "",
 			}
 			continue
+		} else if !ok {
+			logger.FromContext(ctx).Sugar().Warnf("App locks for app=%s was not prefetched", appName)
 		}
 
 		releaseEnvs, exists := allLatestReleaseEnvironments[appName][fmt.Sprintf("%v", versionToDeploy)]
