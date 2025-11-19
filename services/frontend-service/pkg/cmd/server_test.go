@@ -472,20 +472,18 @@ func TestEnvVarParsing(t *testing.T) {
 				t.Logf("set %s=%s", key, value)
 			}
 
-			for _, useOldParser := range []bool{true, false} {
-				var actual *config.ServerConfig
-				var err error
-				actual, err = EnvVarWrapper(useOldParser)
-				// check errors
-				if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Fatalf("error mismatch for case 'useOldParser=%v' (-want, +got):\n%s", useOldParser, diff)
-				}
+			var actual *config.ServerConfig
+			var err error
+			actual, err = parseEnvVars()
+			// check errors
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
 
-				if diff := cmp.Diff(actual, tc.ExpectedConfiguration); diff != "" {
-					t.Logf("actual configuration: %v", actual)
-					t.Logf("expected configuration: %v", tc.ExpectedConfiguration)
-					t.Errorf("expected args for case 'useOldParser=%v':\n  %v\ngot:\n  %v\ndiff:\n  %s\n", useOldParser, actual, tc.ExpectedConfiguration, diff)
-				}
+			if diff := cmp.Diff(actual, tc.ExpectedConfiguration); diff != "" {
+				t.Logf("actual configuration: %v", actual)
+				t.Logf("expected configuration: %v", tc.ExpectedConfiguration)
+				t.Errorf("expected args:\n  %v\ngot:\n  %v\ndiff:\n  %s\n", actual, tc.ExpectedConfiguration, diff)
 			}
 		})
 	}

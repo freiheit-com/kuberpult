@@ -21,13 +21,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"io"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 
@@ -48,7 +49,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
-	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/idtoken"
@@ -154,6 +154,7 @@ func parseEnvVars() (*config.ServerConfig, error) {
 	r.AzureTenantId = valid.ReadEnvVarWithDefault("KUBERPULT_AZURE_TENANT_ID", "")
 	r.AzureRedirectUrl = valid.ReadEnvVarWithDefault("KUBERPULT_AZURE_REDIRECT_URL", "")
 
+	r.DexEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_ENABLED", false)
 	r.DexClientId = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_CLIENT_ID", "")
 	r.DexClientSecret = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_CLIENT_SECRET", "")
 	r.DexRbacPolicyPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_POLICY_PATH", "")
@@ -202,7 +203,7 @@ func runServer(ctx context.Context) error {
 	var err error
 	var c *config.ServerConfig
 
-	c, err = EnvVarWrapper(false)
+	c, err = parseEnvVars()
 	if err != nil {
 		logger.FromContext(ctx).Error("parseEnvVars", zap.Error(err))
 		return err
@@ -594,33 +595,6 @@ func runServer(ctx context.Context) error {
 		},
 	})
 	return nil
-}
-
-func EnvVarWrapper(oldWay bool) (*config.ServerConfig, error) {
-	var err error
-	var c config.ServerConfig
-	if oldWay {
-		err = envconfig.Process("kuberpult", &c)
-		if err != nil {
-			return nil, err
-		}
-		if c.GitAuthorName == "" {
-			return nil, fmt.Errorf("could not read KUBERPULT_GIT_AUTHOR_NAME")
-		}
-		if c.GitAuthorEmail == "" {
-			return nil, fmt.Errorf("could not read KUBERPULT_GIT_AUTHOR_EMAIL")
-		}
-	} else {
-		var tmp *config.ServerConfig
-		tmp, err = parseEnvVars()
-		if tmp != nil {
-			c = *tmp
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &c, nil
 }
 
 type Auth struct {
