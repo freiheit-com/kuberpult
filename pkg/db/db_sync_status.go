@@ -364,9 +364,9 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApps []EnvApp, now time.Time, id TransformerID, status SyncStatus, batchSize int) (err error) {
 	//queryTemplate := "INSERT INTO git_sync_status (created, transformerid, envName, appName, status) VALUES ;"
 	queryTemplate := `INSERT INTO git_sync_status (created, transformerid, envName, appName, status)
-	VALUES ('%s', %d, '%s', '%s', %d)
-	ON CONFLICT(envName, appname)
-	DO UPDATE SET created = excluded.created, status = excluded.status, transformerid = excluded.transformerid;`
+		VALUES ('%s', %d, '%s', '%s', %d)
+		ON CONFLICT(envName, appname)
+		DO UPDATE SET created = excluded.created, status = excluded.status, transformerid = excluded.transformerid;`
 
 	currentQuery := ""
 	if batchSize < 1 {

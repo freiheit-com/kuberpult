@@ -448,7 +448,13 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 // DBReadEslEventLaterThan returns the first row of the esl table that has an eslVersion > the given eslVersion
 func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (_ *EslEventRow, err error) {
 	sort := "ASC"
-	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json FROM event_sourcing_light WHERE eslVersion > (?) ORDER BY eslVersion %s LIMIT 1;", sort))
+	selectQuery := h.AdaptQuery(fmt.Sprintf(`
+		SELECT eslVersion, created, event_type, json
+		FROM event_sourcing_light
+		WHERE eslVersion > (?)
+		ORDER BY eslVersion %s
+		LIMIT 1;
+		`, sort))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,

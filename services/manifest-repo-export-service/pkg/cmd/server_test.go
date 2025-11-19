@@ -19,9 +19,14 @@ package cmd
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/backoff"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"os/exec"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -133,7 +138,7 @@ func TestPushGitTags(t *testing.T) {
 	}
 }
 
-func TestHandleOneEvent(t *testing.T) {
+func TestHandleOneTransformer(t *testing.T) {
 	var setup = makeSetupTransformer()
 	type CutoffData struct {
 		eventType db.EventType
@@ -195,7 +200,7 @@ func TestHandleOneEvent(t *testing.T) {
 				return nil
 			})
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				actualTransformer, actualRow, actualError := HandleOneEvent(ctx, transaction, dbHandler, nil, repo)
+				actualTransformer, actualRow, actualError := HandleOneTransformer(ctx, transaction, dbHandler, nil, repo)
 				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
@@ -281,4 +286,216 @@ func SetupRepositoryTestWithDB(t *testing.T, ctx context.Context) (repository.Re
 		t.Fatal(err)
 	}
 	return repo, dbHandler, &config
+}
+
+func TestProcessOneEvent(t *testing.T) {
+	const (
+		minSleep = time.Nanosecond * 1
+		maxSleep = time.Nanosecond * 1000
+
+		app = "test-app"
+		env = "dev"
+	)
+	var initialSyncData *db.GitSyncData = &db.GitSyncData{
+		AppName:       app,
+		EnvName:       env,
+		TransformerID: 1,
+		SyncStatus:    db.UNSYNCED,
+	}
+	var setup = makeSetupTransformer()
+	type CutoffData struct {
+		eventType db.EventType
+		data      interface{}
+		metadata  db.ESLMetadata
+	}
+	tcs := []struct {
+		Name                  string
+		withCutoff            *CutoffData
+		expectedError         error
+		expectedTransformer   repository.Transformer
+		expectedSleepDuration time.Duration
+		expectedSyncStatus    []GitSyncStatusRow
+		expectNotification    bool
+	}{
+		{
+			Name:                  "does nothing when there is no read cutoff",
+			withCutoff:            nil,
+			expectedError:         nil,
+			expectedTransformer:   nil,
+			expectedSleepDuration: 2,
+			expectedSyncStatus:    []GitSyncStatusRow{},
+			expectNotification:    false,
+		},
+		{
+			Name: "process one transformer",
+			withCutoff: &CutoffData{
+				eventType: db.EvtCreateApplicationVersion,
+				data:      nil,
+				metadata: db.ESLMetadata{
+					AuthorName:  "author one",
+					AuthorEmail: "email two",
+				},
+			},
+			expectedError:         nil,
+			expectedTransformer:   nil,
+			expectedSleepDuration: 0,
+			expectedSyncStatus: []GitSyncStatusRow{
+				{
+					TransformerId: 1,
+					EnvName:       env,
+					AppName:       app,
+					Status:        db.SYNCED,
+				},
+			},
+			expectNotification: true,
+		},
+		{
+			Name: "fail HandleOneTransformer",
+			withCutoff: &CutoffData{
+				eventType: "foobar-does-not-exist",
+				data:      nil,
+				metadata: db.ESLMetadata{
+					AuthorName:  "author one",
+					AuthorEmail: "email two",
+				},
+			},
+			expectedError:         nil,
+			expectedTransformer:   nil,
+			expectedSleepDuration: 0,
+			expectedSyncStatus: []GitSyncStatusRow{
+				{
+					TransformerId: 1,
+					EnvName:       env,
+					AppName:       app,
+					Status:        db.SYNC_FAILED,
+				},
+			},
+			expectNotification: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			repo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+			var transformerId db.TransformerID
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, transformer := range setup {
+					applyErr := repo.Apply(ctx, transaction, transformer)
+					if applyErr != nil {
+						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+					}
+					if tc.withCutoff != nil {
+						err := dbHandler.DBWriteEslEventInternal(ctx, tc.withCutoff.eventType, transaction, tc.withCutoff.data, tc.withCutoff.metadata)
+						if err != nil {
+							t.Fatalf("DBWriteEslEventInternal Error: %v", err)
+						}
+						event, err := dbHandler.DBReadEslEventInternal(ctx, transaction, true)
+						if err != nil {
+							t.Fatalf("DBReadEslEventInternal Error: %v", err)
+						}
+						transformerId = db.TransformerID(event.EslVersion)
+						err = dbHandler.DBWriteNewSyncEvent(ctx, transaction, initialSyncData)
+						if err != nil {
+							t.Fatalf("DBReadEslEventInternal Error: %v", err)
+						}
+					}
+				}
+				return nil
+			})
+
+			subChannel, unsubFunc := repo.Notify().Subscribe()
+			defer unsubFunc()
+			<-subChannel // there's always one element in the channel, so we remove it here
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
+				actualError, actualSleepDuration := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true)
+				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				if diff := cmp.Diff(tc.expectedSleepDuration, actualSleepDuration); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+
+				allActualRows, err := DBReadGitSyncStatusAll(ctx, dbHandler, transaction, transformerId)
+				if err != nil {
+					t.Fatalf("DBReadGitSyncStatusAll Error: %v", err)
+				}
+				if diff := cmp.Diff(tc.expectedSyncStatus, allActualRows); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+
+				// Test that the notification works
+				select {
+				case _, ok := <-subChannel:
+					if ok {
+						if tc.expectNotification {
+							return nil // everything is fine
+						}
+						t.Fatalf("expected no notification, but got one!")
+					} else {
+						t.Fatalf("Channel closed! (else)")
+					}
+				default:
+					if tc.expectNotification {
+						t.Fatalf("expected a notification, but got none!")
+					}
+				}
+				return nil
+			})
+
+		})
+	}
+}
+
+type GitSyncStatusRow struct {
+	TransformerId db.TransformerID
+	EnvName       types.EnvName
+	AppName       types.AppName
+	Status        db.SyncStatus
+}
+
+func DBReadGitSyncStatusAll(ctx context.Context, h *db.DBHandler, tx *sql.Tx, id db.TransformerID) (_ []GitSyncStatusRow, err error) {
+	selectQuery := h.AdaptQuery(`
+		SELECT transformerid, envName, appName, status
+		FROM git_sync_status
+		WHERE transformerid = ?
+		ORDER BY created DESC;`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		id,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not get current eslVersion. Error: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+		}
+	}(rows)
+	allCombinations := make([]GitSyncStatusRow, 0)
+	var oneRow GitSyncStatusRow
+	for rows.Next() {
+		err := rows.Scan(&oneRow.TransformerId, &oneRow.EnvName, &oneRow.AppName, &oneRow.Status)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error table for next eslVersion. Error: %w", err)
+		}
+		allCombinations = append(allCombinations, oneRow)
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("row closing error: %v", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("row has error: %v", err)
+	}
+	return allCombinations, nil
 }
