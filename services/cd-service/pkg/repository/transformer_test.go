@@ -4667,10 +4667,10 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 }
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
-	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5, true)
+	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5)
 }
 
-func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint, startProcessQueue bool) (Repository, *db.DBHandler) {
+func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -4698,25 +4698,14 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 	}
 	repoCfg.DBHandler = dbHandler
 
-	if startProcessQueue {
-		repo, err := New(
-			testutil.MakeTestContext(),
-			repoCfg,
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return repo, dbHandler
-	} else {
-		repo, err := New(
-			testutil.MakeTestContext(),
-			repoCfg,
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return repo, dbHandler
+	repo, err := New(
+		testutil.MakeTestContext(),
+		repoCfg,
+	)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return repo, dbHandler
 }
 
 func mockSendMetrics(repo Repository, interval time.Duration) <-chan bool {
