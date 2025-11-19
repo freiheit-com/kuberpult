@@ -157,10 +157,6 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 		logger.FromContext(ctx).Sugar().Warn("Tried to update datadog metrics without database")
 		return nil
 	}
-
-	if even {
-		repo.(*repository).GaugeQueueSize(ctx)
-	}
 	err2 := UpdateLockMetrics(ctx, transaction, state, now, even)
 	if err2 != nil {
 		span.Finish(tracer.WithError(err2))

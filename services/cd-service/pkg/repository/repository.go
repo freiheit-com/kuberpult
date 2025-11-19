@@ -42,7 +42,6 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -138,7 +137,6 @@ const (
 type repository struct {
 	// Mutex gurading the writer
 	writeLock sync.Mutex
-	queue     queue
 	config    *RepositoryConfig
 
 	// Mutex guarding head
@@ -201,15 +199,6 @@ type RepositoryConfig struct {
 
 // Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
-	repo, bg, err := New2(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	go bg(ctx, nil) //nolint: errcheck
-	return repo, err
-}
-
-func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
 
 	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
@@ -244,7 +233,6 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 		notify:          notify.Notify{},
 		writeLock:       sync.Mutex{},
 		config:          &cfg,
-		queue:           makeQueueN(cfg.MaximumQueueSize),
 		backOffProvider: defaultBackOffProvider,
 		DB:              cfg.DBHandler,
 	}
@@ -254,7 +242,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	// check that we can build the current state
 	state, err := result.StateAt()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Check configuration for errors and abort early if any:
@@ -264,149 +252,10 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return result, result.ProcessQueue, nil
-}
-
-// ProcessQueue is deprecated!
-// We only keep it for now because of tests
-func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
-	defer func() {
-		close(r.queue.transformerBatches)
-		for e := range r.queue.transformerBatches {
-			e.finish(ctx.Err())
-		}
-	}()
-	tick := time.Tick(r.config.NetworkTimeout) //nolint: staticcheck
-	ttl := r.config.NetworkTimeout * 3
-	for {
-		/*
-			One tricky issue is that `git push` can take a while depending on the git hoster and the connection
-			(plus we do have relatively big and many commits).
-			This can lead to the situation that "everything hangs", because there is one push running already -
-			but only one push is possible at a time.
-			There is also no good way to cancel a `git push`.
-
-			To circumvent this, we report health with a "time to live" - meaning if we don't report anything within the time frame,
-			the health will turn to "failed" and then the pod will automatically restart (in kubernetes).
-		*/
-		health.ReportHealthTtl(setup.HealthReady, "processing queue", &ttl)
-		select {
-		case <-tick:
-			// this triggers a for loop every `NetworkTimeout` to refresh the readiness
-		case <-ctx.Done():
-			return nil
-		case e := <-r.queue.transformerBatches:
-			r.ProcessQueueOnce(ctx, e)
-		}
-	}
-}
-
-func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch) ([]transformerBatch, *TransformerResult, error) {
-	//exhaustruct:ignore
-	var changes = &TransformerResult{}
-
-	for i := 0; i < len(transformerBatches); {
-		e := transformerBatches[i]
-
-		subChanges, txErr := db.WithTransactionT(r.DB, e.ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
-			subChanges, applyErr := r.ApplyTransformers(ctx, transaction, e.transformers...)
-			if applyErr != nil {
-				return nil, applyErr
-			}
-			return subChanges, nil
-		})
-
-		r.notify.NotifyGitSyncStatus()
-
-		if txErr != nil {
-			logger.FromContext(e.ctx).Sugar().Warnf("txError in applyTransformerBatches: %s", txErr.Error())
-			e.finish(txErr)
-			transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-			continue //Skip this batch
-		}
-		changes.Combine(subChanges)
-		i++
-	}
-	return transformerBatches, changes, nil
-}
-
-var errPanic = errors.New("Panic")
-
-func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
-	if r.config.MaximumCommitsPerPush < 2 {
-		return nil
-	}
-
-	limit := r.config.MaximumCommitsPerPush - 1
-	transformerBatches := []transformerBatch{}
-	defer r.queue.GaugeQueueSize(ctx)
-	for uint(len(transformerBatches)) < limit {
-		select {
-		case f := <-r.queue.transformerBatches:
-			// Check that the item is not already cancelled
-			select {
-			case <-f.ctx.Done():
-				f.finish(f.ctx.Err())
-			default:
-				transformerBatches = append(transformerBatches, f)
-			}
-		default:
-			return transformerBatches
-		}
-	}
-	return transformerBatches
-}
-
-func (r *repository) GaugeQueueSize(ctx context.Context) {
-	r.queue.GaugeQueueSize(ctx)
-}
-
-func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
-	defer span.Finish()
-	/**
-	Note that this function has a bit different error handling.
-	The error is not returned, but send to the transformer in `el.finish(err)`
-	in order to inform the transformers request handler that this request failed.
-	Therefore, in the function instead of
-	if err != nil {
-	  return err
-	}
-	we do:
-	if err != nil {
-	  return
-	}
-	*/
-	var err = errPanic
-
-	// Check that the first transformerBatch is not already canceled
-	select {
-	case <-e.ctx.Done():
-		e.finish(e.ctx.Err())
-		return
-	default:
-	}
-
-	transformerBatches := []transformerBatch{e}
-	defer func() {
-		for _, el := range transformerBatches {
-			el.finish(err)
-		}
-	}()
-
-	// Try to fetch more items from the queue in order to push more things together
-	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
-
-	transformerBatches, changes, err := r.applyTransformerBatches(transformerBatches)
-	if len(transformerBatches) == 0 {
-		return
-	}
-
-	r.notify.Notify()
-	r.notifyChangedApps(changes)
+	return result, nil
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (_ []string, _ *State, _ []*TransformerResult, applyErr *TransformerBatchApplyError) {
@@ -638,10 +487,6 @@ func (r *repository) notifyChangedApps(changes *TransformerResult) {
 	if len(changedAppNames) != 0 {
 		r.notify.NotifyChangedApps(changedAppNames)
 	}
-}
-
-func (r *repository) GetQueue() queue {
-	return r.queue
 }
 
 func (r *repository) State() *State {

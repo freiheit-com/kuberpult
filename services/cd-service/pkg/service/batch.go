@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -557,9 +556,6 @@ func (d *BatchServer) ProcessBatch(
 	}
 	if err != nil {
 		logger.FromContext(ctx).Sugar().Warnf("error in Repository.Apply: %v", err)
-		if errors.Is(err, repository.ErrQueueFull) {
-			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
-		}
 		var applyErr = repository.UnwrapUntilTransformerBatchApplyError(err)
 		if applyErr != nil {
 			resp, handledErr := d.handleError(applyErr, err)
