@@ -137,7 +137,6 @@ const (
 type repository struct {
 	// Mutex gurading the writer
 	writeLock sync.Mutex
-	queue     queue
 	config    *RepositoryConfig
 
 	// Mutex guarding head
@@ -234,7 +233,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		notify:          notify.Notify{},
 		writeLock:       sync.Mutex{},
 		config:          &cfg,
-		queue:           makeQueueN(cfg.MaximumQueueSize),
 		backOffProvider: defaultBackOffProvider,
 		DB:              cfg.DBHandler,
 	}
@@ -258,66 +256,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	}
 
 	return result, nil
-}
-
-func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch) ([]transformerBatch, *TransformerResult, error) {
-	//exhaustruct:ignore
-	var changes = &TransformerResult{}
-
-	for i := 0; i < len(transformerBatches); {
-		e := transformerBatches[i]
-
-		subChanges, txErr := db.WithTransactionT(r.DB, e.ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*TransformerResult, error) {
-			subChanges, applyErr := r.ApplyTransformers(ctx, transaction, e.transformers...)
-			if applyErr != nil {
-				return nil, applyErr
-			}
-			return subChanges, nil
-		})
-
-		r.notify.NotifyGitSyncStatus()
-
-		if txErr != nil {
-			logger.FromContext(e.ctx).Sugar().Warnf("txError in applyTransformerBatches: %s", txErr.Error())
-			e.finish(txErr)
-			transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
-			continue //Skip this batch
-		}
-		changes.Combine(subChanges)
-		i++
-	}
-	return transformerBatches, changes, nil
-}
-
-var errPanic = errors.New("Panic")
-
-func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
-	if r.config.MaximumCommitsPerPush < 2 {
-		return nil
-	}
-
-	limit := r.config.MaximumCommitsPerPush - 1
-	transformerBatches := []transformerBatch{}
-	defer r.queue.GaugeQueueSize(ctx)
-	for uint(len(transformerBatches)) < limit {
-		select {
-		case f := <-r.queue.transformerBatches:
-			// Check that the item is not already cancelled
-			select {
-			case <-f.ctx.Done():
-				f.finish(f.ctx.Err())
-			default:
-				transformerBatches = append(transformerBatches, f)
-			}
-		default:
-			return transformerBatches
-		}
-	}
-	return transformerBatches
-}
-
-func (r *repository) GaugeQueueSize(ctx context.Context) {
-	r.queue.GaugeQueueSize(ctx)
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (_ []string, _ *State, _ []*TransformerResult, applyErr *TransformerBatchApplyError) {
@@ -549,10 +487,6 @@ func (r *repository) notifyChangedApps(changes *TransformerResult) {
 	if len(changedAppNames) != 0 {
 		r.notify.NotifyChangedApps(changedAppNames)
 	}
-}
-
-func (r *repository) GetQueue() queue {
-	return r.queue
 }
 
 func (r *repository) State() *State {
