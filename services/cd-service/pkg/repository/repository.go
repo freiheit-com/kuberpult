@@ -320,51 +320,6 @@ func (r *repository) GaugeQueueSize(ctx context.Context) {
 	r.queue.GaugeQueueSize(ctx)
 }
 
-func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
-	defer span.Finish()
-	/**
-	Note that this function has a bit different error handling.
-	The error is not returned, but send to the transformer in `el.finish(err)`
-	in order to inform the transformers request handler that this request failed.
-	Therefore, in the function instead of
-	if err != nil {
-	  return err
-	}
-	we do:
-	if err != nil {
-	  return
-	}
-	*/
-	var err = errPanic
-
-	// Check that the first transformerBatch is not already canceled
-	select {
-	case <-e.ctx.Done():
-		e.finish(e.ctx.Err())
-		return
-	default:
-	}
-
-	transformerBatches := []transformerBatch{e}
-	defer func() {
-		for _, el := range transformerBatches {
-			el.finish(err)
-		}
-	}()
-
-	// Try to fetch more items from the queue in order to push more things together
-	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
-
-	transformerBatches, changes, err := r.applyTransformerBatches(transformerBatches)
-	if len(transformerBatches) == 0 {
-		return
-	}
-
-	r.notify.Notify()
-	r.notifyChangedApps(changes)
-}
-
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (_ []string, _ *State, _ []*TransformerResult, applyErr *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
 	defer func() {

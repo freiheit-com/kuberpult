@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -187,49 +186,6 @@ func getTransformer(i int) (Transformer, error) {
 	// 	return &InvalidJsonTransformer{}, InvalidJson
 	// }
 	// return &ErrorTransformer{}, TransformerError
-}
-
-func TestProcessQueueOnce(t *testing.T) {
-	tcs := []struct {
-		Name          string
-		Element       transformerBatch
-		ExpectedError error
-	}{
-		{
-			Name: "success",
-			Element: transformerBatch{
-				ctx: testutil.MakeTestContext(),
-				transformers: []Transformer{
-					&EmptyTransformer{},
-				},
-				result: make(chan error, 1),
-			},
-			ExpectedError: nil,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-
-			// create a remote
-			dir := t.TempDir()
-			repo := SetupRepositoryTestWithDB(t)
-			repoInternal := repo.(*repository)
-			repoInternal.ProcessQueueOnce(testutil.MakeTestContext(), tc.Element)
-
-			result := tc.Element.result
-			actualError := <-result
-
-			var expectedError error
-			if tc.ExpectedError != nil {
-				expectedError = errMatcher{strings.ReplaceAll(tc.ExpectedError.Error(), "$DIR", dir)}
-			}
-			if diff := cmp.Diff(expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
-			}
-		})
-	}
 }
 
 func TestApplyTransformerBatch(t *testing.T) {
