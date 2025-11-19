@@ -21,13 +21,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"io"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 
@@ -153,6 +154,7 @@ func parseEnvVars() (*config.ServerConfig, error) {
 	r.AzureTenantId = valid.ReadEnvVarWithDefault("KUBERPULT_AZURE_TENANT_ID", "")
 	r.AzureRedirectUrl = valid.ReadEnvVarWithDefault("KUBERPULT_AZURE_REDIRECT_URL", "")
 
+	r.DexEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_ENABLED", false)
 	r.DexClientId = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_CLIENT_ID", "")
 	r.DexClientSecret = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_CLIENT_SECRET", "")
 	r.DexRbacPolicyPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_POLICY_PATH", "")
