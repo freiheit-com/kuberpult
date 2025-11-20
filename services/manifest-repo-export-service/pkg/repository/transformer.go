@@ -2344,7 +2344,7 @@ func deleteAAEnvironment(ctx context.Context, fs billy.Filesystem, env types.Env
 
 	err = json.Unmarshal(data, &envConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot unmarshal json file %s: %w", configFile, err)
 	}
 
 	if envConfig.ArgoCdConfigs.CommonEnvPrefix == nil {
