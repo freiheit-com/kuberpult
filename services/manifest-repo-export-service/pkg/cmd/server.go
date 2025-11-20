@@ -428,7 +428,7 @@ func processEsls(
 	)
 	for {
 		span, ctxOneEvent := tracer.StartSpanFromContext(ctx, "processOneEvent")
-		err, wantedSleepTime := ProcessOneEvent(ctxOneEvent, repo, dbHandler, ddMetrics, &sleepDuration, failOnErrorWithGitPushTags)
+		wantedSleepTime, err := ProcessOneEvent(ctxOneEvent, repo, dbHandler, ddMetrics, &sleepDuration, failOnErrorWithGitPushTags)
 		span.Finish(tracer.WithError(err))
 		if err != nil {
 			return err
@@ -447,8 +447,8 @@ func ProcessOneEvent(
 	sleepDuration *backoff.SimpleBackoff,
 	failOnErrorWithGitPushTags bool,
 ) (
+	time.Duration,
 	error,
-	time.Duration, // the amount of time we want to wait before processing the next event
 ) {
 	const transactionRetries = 10
 	var transformer repository.Transformer = nil
@@ -465,10 +465,10 @@ func ProcessOneEvent(
 	if err != nil {
 		d := sleepDuration.NextBackOff()
 		if sleepDuration.IsAtMax() {
-			return err, 0
+			return 0, err
 		}
 		logger.FromContext(ctx).Sugar().Infof("error getting current commid ID, will try again in %v: %v", d, err)
-		return nil, d
+		return d, nil
 	}
 	err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 		var err2 error
@@ -478,13 +478,13 @@ func ProcessOneEvent(
 	if err != nil {
 		if esl == nil {
 			logging.Errorf("skipping esl event, because we could not construct esl object: %v", err)
-			return err, 0
+			return 0, err
 		}
 		logging.Errorf("skipping esl event, because it returned an error: %v", err)
 		// after this many tries, we can just skip it:
 		err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, esl, err.Error())
 		if err2 != nil {
-			return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2), 0
+			return 0, fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
 		}
 		sleepDuration.Reset()
 	} else {
@@ -493,7 +493,7 @@ func ProcessOneEvent(
 			d := sleepDuration.NextBackOff()
 			measureGitPushFailures(ddMetrics, logging, false)
 			logger.FromContext(ctx).Sugar().Debug("event processing skipped, will try again in %v", d)
-			return nil, d
+			return d, nil
 		}
 		logging.Infof("event processed successfully, now writing to cutoff and pushing...")
 		err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -547,7 +547,7 @@ func ProcessOneEvent(
 			if err3 != nil {
 				d := sleepDuration.NextBackOff()
 				logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
-				return nil, d
+				return d, nil
 			}
 		} else {
 			//After a successful transformer processing and pushing to manifest repo, we write that apps are now SYNCED
@@ -566,7 +566,7 @@ func ProcessOneEvent(
 		logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
 		// if just the metrics fail, we don't want to exit with an error
 	}
-	return nil, 0
+	return 0, nil
 }
 
 func handleFailedEvent(ctx context.Context, dbHandler *db.DBHandler, transactionRetries uint8, esl *db.EslEventRow, reason string) error {

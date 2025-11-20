@@ -411,7 +411,7 @@ func TestProcessOneEvent(t *testing.T) {
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
-				actualError, actualSleepDuration := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true)
+				actualSleepDuration, actualError := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true)
 				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
