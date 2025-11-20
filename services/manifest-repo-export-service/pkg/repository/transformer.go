@@ -2201,7 +2201,7 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 		argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
 		err := fs.Remove(argoCdAppFile)
 		if errors.Is(err, os.ErrNotExist) {
-			logger.FromContext(ctx).Sugar().Warnf("DeleteEnvironment: environment's argocd app file %q does not exist.", argoCdAppFile)
+			logger.FromContext(ctx).Sugar().Warnf("deleteEnvironment: environment's argocd app file %q does not exist", argoCdAppFile)
 		} else if err != nil {
 			return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
 		}
