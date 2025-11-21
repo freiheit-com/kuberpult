@@ -430,7 +430,7 @@ export const ReadyServiceLane: React.FC<{
             },
         },
         {
-            label: `Complete removing app '${application.name}'`,
+            label: `Completely remove app '${application.name} immediately'`,
             icon: <DeleteWhite />,
             onClick: undeploy,
         },
