@@ -428,28 +428,34 @@ func processEsls(
 	)
 	for {
 		span, ctxOneEvent := tracer.StartSpanFromContext(ctx, "processOneEvent")
-		err := oneEvent(ctxOneEvent, repo, dbHandler, ddMetrics, &sleepDuration, failOnErrorWithGitPushTags)
+		wantedSleepTime, err := ProcessOneEvent(ctxOneEvent, repo, dbHandler, ddMetrics, &sleepDuration, failOnErrorWithGitPushTags)
 		span.Finish(tracer.WithError(err))
 		if err != nil {
 			return err
 		}
+		if wantedSleepTime > 0 {
+			time.Sleep(wantedSleepTime)
+		}
 	}
 }
 
-func oneEvent(
+func ProcessOneEvent(
 	ctx context.Context,
 	repo repository.Repository,
 	dbHandler *db.DBHandler,
 	ddMetrics statsd.ClientInterface,
 	sleepDuration *backoff.SimpleBackoff,
 	failOnErrorWithGitPushTags bool,
-) error { // true means "processing done, move on to next event"
+) (
+	time.Duration,
+	error,
+) {
 	const transactionRetries = 10
 	var transformer repository.Transformer = nil
 	var esl *db.EslEventRow = nil
 	const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
 
-	log := logger.FromContext(ctx).Sugar()
+	logging := logger.FromContext(ctx).Sugar()
 
 	// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation.
 	// This means that there is a possibility that two transaction timestamps collide with the same git hash.
@@ -459,39 +465,37 @@ func oneEvent(
 	if err != nil {
 		d := sleepDuration.NextBackOff()
 		if sleepDuration.IsAtMax() {
-			return err
+			return 0, err
 		}
 		logger.FromContext(ctx).Sugar().Infof("error getting current commid ID, will try again in %v: %v", d, err)
-		time.Sleep(d)
-		return nil
+		return d, nil
 	}
 	err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 		var err2 error
-		transformer, esl, err2 = HandleOneEvent(ctx, transaction, dbHandler, ddMetrics, repo)
+		transformer, esl, err2 = HandleOneTransformer(ctx, transaction, dbHandler, ddMetrics, repo)
 		return err2
 	})
 	if err != nil {
 		if esl == nil {
-			log.Errorf("skipping esl event, because we could not construct esl object: %v", err)
-			return err
+			logging.Errorf("skipping esl event, because we could not construct esl object: %v", err)
+			return 0, err
 		}
-		log.Errorf("skipping esl event, because it returned an error: %v", err)
+		logging.Errorf("skipping esl event, because it returned an error: %v", err)
 		// after this many tries, we can just skip it:
 		err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, esl, err.Error())
 		if err2 != nil {
-			return fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
+			return 0, fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
 		}
 		sleepDuration.Reset()
 	} else {
 		if transformer == nil {
 			sleepDuration.Reset()
 			d := sleepDuration.NextBackOff()
-			measureGitPushFailures(ddMetrics, log, false)
+			measureGitPushFailures(ddMetrics, logging, false)
 			logger.FromContext(ctx).Sugar().Debug("event processing skipped, will try again in %v", d)
-			time.Sleep(d)
-			return nil
+			return d, nil
 		}
-		log.Infof("event processed successfully, now writing to cutoff and pushing...")
+		logging.Infof("event processed successfully, now writing to cutoff and pushing...")
 		err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 			err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 			if err2 != nil {
@@ -501,11 +505,11 @@ func oneEvent(
 			if err2 != nil {
 				d := sleepDuration.NextBackOff()
 				logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v: %v", d, err2)
-				measureGitPushFailures(ddMetrics, log, true)
+				measureGitPushFailures(ddMetrics, logging, true)
 				time.Sleep(d)
 				return err2
 			} else {
-				measureGitPushFailures(ddMetrics, log, false)
+				measureGitPushFailures(ddMetrics, logging, false)
 			}
 
 			//Get latest commit. Write esl timestamp and commit hash.
@@ -543,7 +547,7 @@ func oneEvent(
 			if err3 != nil {
 				d := sleepDuration.NextBackOff()
 				logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
-				time.Sleep(d)
+				return d, nil
 			}
 		} else {
 			//After a successful transformer processing and pushing to manifest repo, we write that apps are now SYNCED
@@ -562,7 +566,7 @@ func oneEvent(
 		logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
 		// if just the metrics fail, we don't want to exit with an error
 	}
-	return nil
+	return 0, nil
 }
 
 func handleFailedEvent(ctx context.Context, dbHandler *db.DBHandler, transactionRetries uint8, esl *db.EslEventRow, reason string) error {
@@ -626,7 +630,7 @@ func measureGitPushFailures(ddMetrics statsd.ClientInterface, log *zap.SugaredLo
 	}
 }
 
-func HandleOneEvent(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
+func HandleOneTransformer(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
 	if ddMetrics != nil {
 		delaySeconds, delayEvents := dbHandler.GetCurrentDelays(ctx, transaction)
 		if err := ddMetrics.Gauge("process_delay_seconds", delaySeconds, []string{}, 1); err != nil {
@@ -686,7 +690,7 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 }
 
 // getTransformer returns an empty transformer of the type according to esl.EventType
-func getTransformer(ctx context.Context, eslEventType db.EventType) (repository.Transformer, error) {
+func getTransformer(_ context.Context, eslEventType db.EventType) (repository.Transformer, error) {
 	switch eslEventType {
 	case db.EvtDeployApplicationVersion:
 		//exhaustruct:ignore
