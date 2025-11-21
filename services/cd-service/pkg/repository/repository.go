@@ -349,18 +349,18 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				commitMsg = append(commitMsg, msg)
 				changes = append(changes, subChanges)
 				//Sync Status Update
-				envApps := make([]db.EnvApp, 0)
+				changedEnvApps := make([]db.EnvApp, 0)
 				for _, currentResult := range subChanges.ChangedApps {
 					if currentResult.App == "" || currentResult.Env == "" {
 						logger.FromContext(ctx).Sugar().Warnf("Empty changed app or environment: App = '%s', Env = '%s'", currentResult.App, currentResult.Env)
 						continue
 					}
-					envApps = append(envApps, db.EnvApp{
+					changedEnvApps = append(changedEnvApps, db.EnvApp{
 						AppName: currentResult.App,
 						EnvName: currentResult.Env,
 					})
 				}
-				err := state.DBHandler.DBWriteNewSyncEventBulk(ctx, transaction, db.TransformerID(transfomerId), envApps, db.UNSYNCED)
+				err := state.DBHandler.DBWriteNewSyncEventBulk(ctx, transaction, db.TransformerID(transfomerId), changedEnvApps, db.UNSYNCED)
 				if err != nil {
 					return nil, nil, nil, &TransformerBatchApplyError{
 						TransformerError: fmt.Errorf("failed writing new sync events for transformer '%d': %w", int(transfomerId), err),
@@ -368,7 +368,21 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					}
 				}
 
-				logger.FromContext(ctx).Sugar().Infof("Transformer modified %d app/envs", len(envApps))
+				for _, currentResult := range subChanges.DeletedApps {
+					if currentResult.App == "" || currentResult.Env == "" {
+						logger.FromContext(ctx).Sugar().Warnf("Empty changed app or environment: App = '%s', Env = '%s'", currentResult.App, currentResult.Env)
+						continue
+					}
+					err = state.DBHandler.DBDeleteSyncStatusOnAppAndEnv(ctx, transaction, currentResult.App, currentResult.Env)
+					if err != nil {
+						return nil, nil, nil, &TransformerBatchApplyError{
+							TransformerError: fmt.Errorf("couldn't delete sync status: %w", err),
+							Index:            -1,
+						}
+					}
+				}
+
+				logger.FromContext(ctx).Sugar().Infof("Transformer modified %d app/envs", len(changedEnvApps))
 			}
 		}
 		return commitMsg, state, changes, nil
@@ -388,11 +402,20 @@ type RootApp struct {
 
 type TransformerResult struct {
 	ChangedApps     []AppEnv
+	DeletedApps     []AppEnv
 	DeletedRootApps []RootApp
 }
 
 func (r *TransformerResult) AddAppEnv(app types.AppName, env types.EnvName, team string) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
+		App:  app,
+		Env:  env,
+		Team: team,
+	})
+}
+
+func (r *TransformerResult) DeleteAppEnv(app types.AppName, env types.EnvName, team string) {
+	r.DeletedApps = append(r.DeletedApps, AppEnv{
 		App:  app,
 		Env:  env,
 		Team: team,
@@ -412,6 +435,10 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 	for i := range other.ChangedApps {
 		a := other.ChangedApps[i]
 		r.AddAppEnv(a.App, a.Env, a.Team)
+	}
+	for i := range other.DeletedApps {
+		a := other.DeletedApps[i]
+		r.DeleteAppEnv(a.App, a.Env, a.Team)
 	}
 	for i := range other.DeletedRootApps {
 		a := other.DeletedRootApps[i]
