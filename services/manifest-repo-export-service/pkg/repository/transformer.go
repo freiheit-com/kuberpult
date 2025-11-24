@@ -26,12 +26,12 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -2189,24 +2189,37 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 	if d.Dryrun {
 		return GetNoOpMessage(d)
 	}
-
 	fs := state.Filesystem
-	envDir := fs.Join("environments", string(d.Environment))
-	argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
 
-	err := fs.Remove(envDir)
+	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+	if err != nil {
+		return "", err
+	}
+	config := configs[d.Environment]
+
+	if isAAEnv(config) {
+		for _, currentConfig := range config.ArgoCdConfigs.ArgoCdConfigurations {
+			if err := deleteAAEnvironment(ctx, fs, d.Environment, types.EnvName(currentConfig.ConcreteEnvName)); err != nil {
+				return "", err
+			}
+		}
+	} else {
+		argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
+		err := fs.Remove(argoCdAppFile)
+		if errors.Is(err, os.ErrNotExist) {
+			logger.FromContext(ctx).Sugar().Warnf("DeleteEnvironment: environment's argocd app file %q does not exist.", argoCdAppFile)
+		} else if err != nil {
+			return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
+		}
+	}
+	envDir := fs.Join("environments", string(d.Environment))
+	err = fs.Remove(envDir)
 	if errors.Is(err, os.ErrNotExist) {
 		logger.FromContext(ctx).Sugar().Warnf("DeleteEnvironment: environment directory %q does not exist.", envDir)
 	} else if err != nil {
 		return "", fmt.Errorf("error deleting the environment directory %q: %w", envDir, err)
 	}
 
-	err = fs.Remove(argoCdAppFile)
-	if errors.Is(err, os.ErrNotExist) {
-		logger.FromContext(ctx).Sugar().Warnf("DeleteEnvironment: environment's argocd app file %q does not exist.", envDir)
-	} else if err != nil {
-		return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
-	}
 	return fmt.Sprintf("delete environment %q", d.Environment), nil
 }
 
@@ -2318,54 +2331,53 @@ func (c *DeleteAAEnvironmentConfig) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
+func deleteAAEnvironment(ctx context.Context, fs billy.Filesystem, env types.EnvName, concreteEnv types.EnvName) error {
+	envDir := fs.Join("environments", string(env))
+
+	configFile := fs.Join(envDir, "config.json")
+
+	data, err := util.ReadFile(fs, configFile)
+	if err != nil {
+		return fmt.Errorf("error opening file: %w", err)
+	}
+	var envConfig config.EnvironmentConfig
+
+	err = json.Unmarshal(data, &envConfig)
+	if err != nil {
+		return err
+	}
+
+	if envConfig.ArgoCdConfigs.CommonEnvPrefix == nil {
+		return fmt.Errorf("could not read CommonEnvPrefix for AA environment %q", env)
+	}
+	argoCdAppFile := getArgoCdAAEnvFileName(fs, types.EnvName(*envConfig.ArgoCdConfigs.CommonEnvPrefix), env, concreteEnv, true)
+	err = fs.Remove(argoCdAppFile)
+	if errors.Is(err, os.ErrNotExist) {
+		logger.FromContext(ctx).Sugar().Warnf("AA environment argocd app file %q does not exist.", argoCdAppFile)
+	} else if err != nil {
+		return fmt.Errorf("error deleting AA environment's argocd app file %q: %w", argoCdAppFile, err)
+	}
+	for idx, currentConfig := range envConfig.ArgoCdConfigs.ArgoCdConfigurations {
+		if types.EnvName(currentConfig.ConcreteEnvName) == concreteEnv {
+			envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations[:idx], envConfig.ArgoCdConfigs.ArgoCdConfigurations[idx+1:]...)
+			break
+		}
+	}
+	err = writeEnvironmentConfigurationToManifestRepo(fs, configFile, envConfig)
+	if err != nil {
+		return fmt.Errorf("error writing environment configuration to manifest repository: %w", err)
+	}
+	return nil
+}
+
 func (c *DeleteAAEnvironmentConfig) Transform(
 	ctx context.Context,
 	state *State,
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	fs := state.Filesystem
-
-	envDir := fs.Join("environments", string(c.Environment))
-
-	configFile := fs.Join(envDir, "config.json")
-
-	data, err := util.ReadFile(fs, configFile)
-	if err != nil {
-		return "", fmt.Errorf("error opening file: %w", err)
-	}
-	var envConfig config.EnvironmentConfig
-
-	err = json.Unmarshal(data, &envConfig)
-	if err != nil {
+	if err := deleteAAEnvironment(ctx, state.Filesystem, c.Environment, c.ConcreteEnvironmentName); err != nil {
 		return "", err
-	}
-
-	if envConfig.ArgoCdConfigs.CommonEnvPrefix == nil {
-		return "", fmt.Errorf("could not read CommonEnvPrefix for AA environment %q", c.Environment)
-	}
-	argoCdAppFile := getArgoCdAAEnvFileName(fs, types.EnvName(*envConfig.ArgoCdConfigs.CommonEnvPrefix), c.Environment, c.ConcreteEnvironmentName, true)
-	err = fs.Remove(argoCdAppFile)
-	if errors.Is(err, os.ErrNotExist) {
-		logger.FromContext(ctx).Sugar().Warnf("AA environment argocd app file %q does not exist.", argoCdAppFile)
-	} else if err != nil {
-		return "", fmt.Errorf("error deleting AA environment's argocd app file %q: %w", argoCdAppFile, err)
-	}
-
-	if tCtx.ShouldMinimizeGitData() {
-		return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
-	}
-
-	for idx, currentConfig := range envConfig.ArgoCdConfigs.ArgoCdConfigurations {
-		if types.EnvName(currentConfig.ConcreteEnvName) == c.ConcreteEnvironmentName {
-			envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations[:idx], envConfig.ArgoCdConfigs.ArgoCdConfigurations[idx+1:]...)
-			break
-		}
-	}
-
-	err = writeEnvironmentConfigurationToManifestRepo(fs, configFile, envConfig)
-	if err != nil {
-		return "", fmt.Errorf("error writing environment configuration to manifest repository: %w", err)
 	}
 	return fmt.Sprintf("removed configuration for AA environment %q - %q", c.Environment, c.ConcreteEnvironmentName), nil
 }
