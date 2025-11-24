@@ -326,6 +326,7 @@ type TransformerContext interface {
 func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx) (string, *TransformerResult, error) {
 	runner := transformerRunner{
 		ChangedApps:     nil,
+		DeleteApps:      nil,
 		DeletedRootApps: nil,
 		State:           s,
 	}
@@ -335,6 +336,7 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 	commitMsg := ""
 	return commitMsg, &TransformerResult{
 		ChangedApps:     runner.ChangedApps,
+		DeletedApps:     runner.DeleteApps,
 		DeletedRootApps: runner.DeletedRootApps,
 	}, nil
 }
@@ -347,6 +349,7 @@ type transformerRunner struct {
 	// entry of the inner slices correspond to a message generated
 	// by that step.
 	ChangedApps     []AppEnv
+	DeleteApps      []AppEnv
 	DeletedRootApps []RootApp
 }
 
@@ -368,7 +371,7 @@ func (r *transformerRunner) AddAppEnv(app types.AppName, env types.EnvName, team
 }
 
 func (r *transformerRunner) DeleteEnvFromApp(app types.AppName, env types.EnvName) {
-	r.ChangedApps = append(r.ChangedApps, AppEnv{
+	r.DeleteApps = append(r.DeleteApps, AppEnv{
 		Team: "",
 		App:  app,
 		Env:  env,
