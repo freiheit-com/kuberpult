@@ -206,7 +206,7 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 }
 
 func isAAEnv(config *api.EnvironmentConfig) bool {
-	return config.ArgoConfigs != nil && len(config.ArgoConfigs.Configs) > 1
+	return config.ArgoConfigs != nil && config.ArgoConfigs.CommonEnvPrefix != ""
 }
 
 func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, ev *v1alpha1.ApplicationWatchEvent) {
