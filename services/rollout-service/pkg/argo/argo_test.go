@@ -1391,6 +1391,51 @@ func TestReactToKuberpultEvents(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "works with empty argo configs",
+			KnowArgoApps: []ArgoAppMetadata{},
+			ArgoOverview: []*ArgoOverview{
+				{
+					AppDetails: map[string]*api.GetAppDetailsResponse{
+						"foo": {
+							Application: &api.Application{
+								Team: "footeam",
+								Releases: []*api.Release{
+									{
+										Version:        1,
+										SourceCommitId: "00012",
+									},
+								},
+							},
+							Deployments: map[string]*api.Deployment{
+								"staging": &api.Deployment{},
+							},
+						},
+					},
+					Overview: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "staging-group",
+								Environments: []*api.Environment{
+									{
+										Name:     "staging",
+										Priority: api.Priority_UPSTREAM,
+										Config: &api.EnvironmentConfig{
+											ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
+												CommonEnvPrefix: "test",
+												Configs: []*api.ArgoCDEnvironmentConfiguration{},
+											},
+										},
+									},
+								},
+							},
+						},
+						GitRevision: "1234",
+					},
+				},
+			},
+			ExpectedArgoApps: []ArgoAppMetadata{},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
