@@ -19,7 +19,7 @@ CGO_ENABLED=0
 MAIN_PATH=cmd/kuberpult-client
 SERVICE=client
 MIN_COVERAGE=66.6
-MAX_DOCKER_SIZE_MB=12
+MAX_DOCKER_SIZE_MB=10.7
 CONTEXT?=../
 
 include ../infrastructure/make/go/include.mk

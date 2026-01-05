@@ -1754,7 +1754,7 @@ func (c *DeleteEnvFromApp) Transform(
 
 	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
-		return "", thisErrorf("could not get environment configs: %w", err)
+		return "", thisErrorf("could not get environment configs: %v", err)
 	}
 
 	if deployed, err := isApplicationDeployedAnywhere(fs, types.AppName(c.Application), &configs); err == nil {

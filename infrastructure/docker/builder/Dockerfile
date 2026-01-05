@@ -1,4 +1,4 @@
-FROM golang:1.24.2-alpine3.21
+FROM golang:1.25.5-alpine3.23
 
 RUN apk add --no-cache  \
         ca-certificates tar tzdata curl bash git \
@@ -15,7 +15,7 @@ RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
 
 RUN npm install -g pnpm@8.9.2
 
-ARG GO_CI_LINT_VERSION="v2.2.1"
+ARG GO_CI_LINT_VERSION="v2.7.2"
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin $GO_CI_LINT_VERSION
 
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest

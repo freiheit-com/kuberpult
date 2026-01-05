@@ -1088,7 +1088,6 @@ func (c *envReleaseTrain) applyPrognosis(
 func (c *envReleaseTrain) renderEnvironmentSkipCause() func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 	return func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 		envConfig := c.AllEnvConfigs[c.Env]
-		upstreamEnvName := envConfig.Upstream.Environment
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM:
 			return fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", c.Env)
@@ -1097,6 +1096,7 @@ func (c *envReleaseTrain) renderEnvironmentSkipCause() func(SkipCause *api.Relea
 		case api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV:
 			return fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", c.Env)
 		case api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND:
+			upstreamEnvName := envConfig.Upstream.Environment
 			return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, c.Env)
 		case api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED:
 			return fmt.Sprintf("Target Environment '%s' is locked - skipping.", c.Env)
