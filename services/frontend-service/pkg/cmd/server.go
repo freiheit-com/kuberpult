@@ -549,10 +549,11 @@ func runServer(ctx context.Context) error {
 		}
 	})
 	authHandler := &Auth{
-		HttpServer:  splitGrpcHandler,
-		DefaultUser: defaultUser,
-		KeyRing:     pgpKeyRing,
-		Policy:      policy,
+		HttpServer:   splitGrpcHandler,
+		DefaultUser:  defaultUser,
+		KeyRing:      pgpKeyRing,
+		Policy:       policy,
+		serverConfig: *c,
 	}
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
@@ -620,7 +621,7 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, c config.ServerConfig, r
 		return nil
 	}
 
-	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, backendServiceId)
+	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
 		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
