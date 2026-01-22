@@ -61,8 +61,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-var backendServiceId string = ""
-
 const megaBytes int = 1024 * 1024
 
 func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
@@ -224,7 +222,7 @@ func runServer(ctx context.Context) error {
 	logger.FromContext(ctx).Info(fmt.Sprintf("config.grpc_max_recv_msg_size: %d", c.GrpcMaxRecvMsgSize*megaBytes))
 
 	if c.GKEProjectNumber != "" {
-		backendServiceId = getBackendServiceId(*c, ctx)
+		c.GKEBackendServiceID = getBackendServiceId(*c, ctx)
 	}
 
 	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
@@ -458,7 +456,7 @@ func runServer(ctx context.Context) error {
 			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
 			return
 		}
-		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, backendServiceId, c.GKEProjectNumber)
+		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, c.GKEBackendServiceID, c.GKEProjectNumber)
 	})
 	for _, endpoint := range []string{
 		"/api",
@@ -616,7 +614,7 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, c config.ServerConfig, r
 		return nil
 	}
 
-	if backendServiceId == "" {
+	if c.GKEBackendServiceID == "" {
 		logger.FromContext(ctx).Warn("Failed to get backend_service_id! Author information will be lost. Make sure gke environment variables are set up correctly.")
 		return nil
 	}
