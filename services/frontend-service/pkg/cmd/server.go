@@ -620,7 +620,6 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, c *config.ServerConfig, 
 	}
 
 	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
-	logger.FromContext(ctx).Info(fmt.Sprintf("Expected aud: %s", aud))
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
 		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
