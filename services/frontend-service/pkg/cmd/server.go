@@ -643,57 +643,64 @@ func getRequestAuthorFromAzure(ctx context.Context, r *http.Request) (*auth.User
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := logger.Wrap(r.Context(), func(ctx context.Context) error {
-		span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
-		defer span.Finish()
-		span.SetTag("uri", r.URL)
-		var user *auth.User = nil
-		var err error
-		var source string
-		if p.serverConfig.AzureEnableAuth {
-			user, err = getRequestAuthorFromAzure(ctx, r)
-			if err != nil {
-				return err
-			}
-			source = "azure"
-		} else {
-			user = getRequestAuthorFromGoogleIAP(ctx, p.serverConfig, r)
-			source = "iap"
-		}
-		if p.serverConfig.DexEnabled {
-			source = "dex"
-			dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
-			dexAuthContext := getUserFromDex(w, r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
-			if dexAuthContext == nil {
-				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
-			} else {
-				if user == nil {
-					user = &p.DefaultUser
-				}
-				user.DexAuthContext = dexAuthContext
-				logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
-			}
-		}
-		if user != nil {
-			span.SetTag("current-user-name", user.Name)
-			span.SetTag("current-user-email", user.Email)
-			span.SetTag("current-user-source", source)
-		}
-		combinedUser := auth.GetUserOrDefault(user, p.DefaultUser)
-
-		auth.WriteUserToHttpHeader(r, combinedUser)
-		ctx = auth.WriteUserToContext(ctx, combinedUser)
-		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
-		if user != nil && user.DexAuthContext != nil {
-			for _, role := range user.DexAuthContext.Role {
-				ctx = auth.WriteUserRoleToGrpcContext(ctx, role)
-			}
-		}
-		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
-		return nil
+		return p.serveHTTPInner(ctx, w, r)
 	})
 	if err != nil {
 		fmt.Printf("error: %v %#v", err, err)
 	}
+}
+
+func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	if p.serverConfig == nil {
+		return fmt.Errorf("serverConfig is nil in Auth middleware")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
+	defer span.Finish()
+	span.SetTag("uri", r.URL)
+	var user *auth.User = nil
+	var err error
+	var source string
+	if p.serverConfig.AzureEnableAuth {
+		user, err = getRequestAuthorFromAzure(ctx, r)
+		if err != nil {
+			return err
+		}
+		source = "azure"
+	} else {
+		user = getRequestAuthorFromGoogleIAP(ctx, p.serverConfig, r)
+		source = "iap"
+	}
+	if p.serverConfig.DexEnabled {
+		source = "dex"
+		dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
+		dexAuthContext := getUserFromDex(w, r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
+		if dexAuthContext == nil {
+			logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
+		} else {
+			if user == nil {
+				user = &p.DefaultUser
+			}
+			user.DexAuthContext = dexAuthContext
+			logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
+		}
+	}
+	if user != nil {
+		span.SetTag("current-user-name", user.Name)
+		span.SetTag("current-user-email", user.Email)
+		span.SetTag("current-user-source", source)
+	}
+	combinedUser := auth.GetUserOrDefault(user, p.DefaultUser)
+
+	auth.WriteUserToHttpHeader(r, combinedUser)
+	ctx = auth.WriteUserToContext(ctx, combinedUser)
+	ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
+	if user != nil && user.DexAuthContext != nil {
+		for _, role := range user.DexAuthContext.Role {
+			ctx = auth.WriteUserRoleToGrpcContext(ctx, role)
+		}
+	}
+	p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
+	return nil
 }
 
 func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
