@@ -61,8 +61,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-var backendServiceId string = ""
-
 const megaBytes int = 1024 * 1024
 
 func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
@@ -224,7 +222,7 @@ func runServer(ctx context.Context) error {
 	logger.FromContext(ctx).Info(fmt.Sprintf("config.grpc_max_recv_msg_size: %d", c.GrpcMaxRecvMsgSize*megaBytes))
 
 	if c.GKEProjectNumber != "" {
-		backendServiceId = getBackendServiceId(*c, ctx)
+		c.GKEBackendServiceID = getBackendServiceId(*c, ctx)
 	}
 
 	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
@@ -458,7 +456,7 @@ func runServer(ctx context.Context) error {
 			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
 			return
 		}
-		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, backendServiceId, c.GKEProjectNumber)
+		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, c.GKEBackendServiceID, c.GKEProjectNumber)
 	})
 	for _, endpoint := range []string{
 		"/api",
@@ -549,10 +547,11 @@ func runServer(ctx context.Context) error {
 		}
 	})
 	authHandler := &Auth{
-		HttpServer:  splitGrpcHandler,
-		DefaultUser: defaultUser,
-		KeyRing:     pgpKeyRing,
-		Policy:      policy,
+		HttpServer:   splitGrpcHandler,
+		DefaultUser:  defaultUser,
+		KeyRing:      pgpKeyRing,
+		Policy:       policy,
+		serverConfig: c,
 	}
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
@@ -604,10 +603,10 @@ type Auth struct {
 	KeyRing openpgp.KeyRing
 	Policy  *auth.RBACPolicies
 
-	serverConfig config.ServerConfig
+	serverConfig *config.ServerConfig
 }
 
-func getRequestAuthorFromGoogleIAP(ctx context.Context, c config.ServerConfig, r *http.Request) *auth.User {
+func getRequestAuthorFromGoogleIAP(ctx context.Context, c *config.ServerConfig, r *http.Request) *auth.User {
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
 	if iapJWT == "" {
 		// not using iap (local), default user
@@ -615,12 +614,12 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, c config.ServerConfig, r
 		return nil
 	}
 
-	if backendServiceId == "" {
+	if c.GKEBackendServiceID == "" {
 		logger.FromContext(ctx).Warn("Failed to get backend_service_id! Author information will be lost. Make sure gke environment variables are set up correctly.")
 		return nil
 	}
 
-	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, backendServiceId)
+	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
 		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
@@ -644,57 +643,64 @@ func getRequestAuthorFromAzure(ctx context.Context, r *http.Request) (*auth.User
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := logger.Wrap(r.Context(), func(ctx context.Context) error {
-		span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
-		defer span.Finish()
-		span.SetTag("uri", r.URL)
-		var user *auth.User = nil
-		var err error
-		var source string
-		if p.serverConfig.AzureEnableAuth {
-			user, err = getRequestAuthorFromAzure(ctx, r)
-			if err != nil {
-				return err
-			}
-			source = "azure"
-		} else {
-			user = getRequestAuthorFromGoogleIAP(ctx, p.serverConfig, r)
-			source = "iap"
-		}
-		if p.serverConfig.DexEnabled {
-			source = "dex"
-			dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
-			dexAuthContext := getUserFromDex(w, r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
-			if dexAuthContext == nil {
-				logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
-			} else {
-				if user == nil {
-					user = &p.DefaultUser
-				}
-				user.DexAuthContext = dexAuthContext
-				logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
-			}
-		}
-		if user != nil {
-			span.SetTag("current-user-name", user.Name)
-			span.SetTag("current-user-email", user.Email)
-			span.SetTag("current-user-source", source)
-		}
-		combinedUser := auth.GetUserOrDefault(user, p.DefaultUser)
-
-		auth.WriteUserToHttpHeader(r, combinedUser)
-		ctx = auth.WriteUserToContext(ctx, combinedUser)
-		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
-		if user != nil && user.DexAuthContext != nil {
-			for _, role := range user.DexAuthContext.Role {
-				ctx = auth.WriteUserRoleToGrpcContext(ctx, role)
-			}
-		}
-		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
-		return nil
+		return p.serveHTTPInner(ctx, w, r)
 	})
 	if err != nil {
 		fmt.Printf("error: %v %#v", err, err)
 	}
+}
+
+func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	if p.serverConfig == nil {
+		return fmt.Errorf("serverConfig is nil in Auth middleware")
+	}
+	span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
+	defer span.Finish()
+	span.SetTag("uri", r.URL)
+	var user *auth.User = nil
+	var err error
+	var source string
+	if p.serverConfig.AzureEnableAuth {
+		user, err = getRequestAuthorFromAzure(ctx, r)
+		if err != nil {
+			return err
+		}
+		source = "azure"
+	} else {
+		user = getRequestAuthorFromGoogleIAP(ctx, p.serverConfig, r)
+		source = "iap"
+	}
+	if p.serverConfig.DexEnabled {
+		source = "dex"
+		dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
+		dexAuthContext := getUserFromDex(w, r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
+		if dexAuthContext == nil {
+			logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
+		} else {
+			if user == nil {
+				user = &p.DefaultUser
+			}
+			user.DexAuthContext = dexAuthContext
+			logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
+		}
+	}
+	if user != nil {
+		span.SetTag("current-user-name", user.Name)
+		span.SetTag("current-user-email", user.Email)
+		span.SetTag("current-user-source", source)
+	}
+	combinedUser := auth.GetUserOrDefault(user, p.DefaultUser)
+
+	auth.WriteUserToHttpHeader(r, combinedUser)
+	ctx = auth.WriteUserToContext(ctx, combinedUser)
+	ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
+	if user != nil && user.DexAuthContext != nil {
+		for _, role := range user.DexAuthContext.Role {
+			ctx = auth.WriteUserRoleToGrpcContext(ctx, role)
+		}
+	}
+	p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
+	return nil
 }
 
 func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {

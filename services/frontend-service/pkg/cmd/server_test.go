@@ -19,17 +19,20 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/google/go-cmp/cmp"
@@ -487,4 +490,70 @@ func TestEnvVarParsing(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAuthServeHTTPInner(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		ServerConfig  *config.ServerConfig
+		Request       *http.Request
+		ExpectedError string
+	}{
+		{
+			Name:         "server config nil",
+			ServerConfig: nil,
+			Request: &http.Request{
+				Method: "GET",
+				URL:    &url.URL{Path: "/test"},
+				Header: http.Header{},
+			},
+			ExpectedError: "serverConfig is nil in Auth middleware",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			mockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+			auth := &Auth{
+				HttpServer: mockHandler,
+				DefaultUser: auth.User{
+					Name:  "default",
+					Email: "default@example.com",
+				},
+				serverConfig: tc.ServerConfig,
+			}
+			w := &mockResponseWriter{}
+
+			err := auth.serveHTTPInner(context.Background(), w, tc.Request)
+
+			if tc.ExpectedError != "" && err == nil {
+				t.Error("expected error, but got none")
+			}
+			if tc.ExpectedError == "" && err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
+			if !strings.Contains(err.Error(), tc.ExpectedError) {
+				t.Errorf("expected error to contain %q, got %v", tc.ExpectedError, err)
+			}
+		})
+	}
+}
+
+type mockResponseWriter struct {
+	header http.Header
+}
+
+func (m *mockResponseWriter) Header() http.Header {
+	if m.header == nil {
+		m.header = http.Header{}
+	}
+	return m.header
+}
+
+func (m *mockResponseWriter) Write(data []byte) (int, error) {
+	return len(data), nil
+}
+
+func (m *mockResponseWriter) WriteHeader(statusCode int) {
+	// no-op
 }
