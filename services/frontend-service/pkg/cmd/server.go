@@ -551,7 +551,7 @@ func runServer(ctx context.Context) error {
 		DefaultUser:  defaultUser,
 		KeyRing:      pgpKeyRing,
 		Policy:       policy,
-		serverConfig: *c,
+		serverConfig: c,
 	}
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
@@ -603,10 +603,10 @@ type Auth struct {
 	KeyRing openpgp.KeyRing
 	Policy  *auth.RBACPolicies
 
-	serverConfig config.ServerConfig
+	serverConfig *config.ServerConfig
 }
 
-func getRequestAuthorFromGoogleIAP(ctx context.Context, c config.ServerConfig, r *http.Request) *auth.User {
+func getRequestAuthorFromGoogleIAP(ctx context.Context, c *config.ServerConfig, r *http.Request) *auth.User {
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
 	if iapJWT == "" {
 		// not using iap (local), default user
