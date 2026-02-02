@@ -2382,7 +2382,7 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash st
 		return nil, fmt.Errorf("timestamp for the provided commit hash %q does not exist", commitHash)
 	}
 
-	apps, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, upstreamEnvName, *ts)
+	apps, _, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, upstreamEnvName, *ts)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get applications for environment %s at timestamp %s: %w", upstreamEnvName, *ts, err)
 	}

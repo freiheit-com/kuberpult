@@ -402,6 +402,9 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while closing rows, error: %w", err)
 	}
+	if appNames == nil {
+		return make([]types.AppName, 0), nil, nil
+	}
 	return appNames, appNamesWithTeam, nil
 }
 
