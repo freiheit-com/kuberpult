@@ -876,23 +876,8 @@ func (s *State) GetEnvironmentApplications(ctx context.Context, transaction *sql
 	return s.GetEnvironmentApplicationsFromDB(ctx, transaction, environment)
 }
 
-func (s *State) GetEnvironmentApplicationsAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, ts time.Time) ([]types.AppName, error) {
-	return s.GetEnvironmentApplicationsFromDBAtTimestamp(ctx, transaction, environment, ts)
-}
-
 func (s *State) GetEnvironmentApplicationsFromDB(ctx context.Context, transaction *sql.Tx, environment types.EnvName) ([]types.AppName, error) {
 	envApps, err := s.DBHandler.DBSelectEnvironmentApplications(ctx, transaction, environment)
-	if err != nil {
-		return nil, err
-	}
-	if envApps == nil {
-		return make([]types.AppName, 0), nil
-	}
-	return envApps, nil
-}
-
-func (s *State) GetEnvironmentApplicationsFromDBAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, ts time.Time) ([]types.AppName, error) {
-	envApps, _, err := s.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, environment, ts)
 	if err != nil {
 		return nil, err
 	}

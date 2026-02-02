@@ -61,7 +61,7 @@ func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.Ge
 		}
 		if in.Environment != nil && *in.Environment != "" {
 			//Single environment
-			allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, types.EnvName(*in.Environment), *ts)
+			allAppsForEnv, _, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, types.EnvName(*in.Environment), *ts)
 			if err != nil {
 				return nil, fmt.Errorf("unable to get applications for environment '%s': %v", *in.Environment, err)
 			}
@@ -113,7 +113,7 @@ func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.Ge
 				if *in.EnvironmentGroup == envGroup.EnvironmentGroupName {
 					for _, env := range envGroup.Environments {
 						envName := types.EnvName(env.Name)
-						allAppsForEnv, err := state.GetEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *ts)
+						allAppsForEnv, _, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *ts)
 						if err != nil {
 							return nil, fmt.Errorf("unable to get all applications for environment '%s': %v", envName, err)
 						}
