@@ -390,6 +390,9 @@ func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*se
 	migrateEnvApps := func(ctx context.Context) error {
 		return dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
 	}
+	cleanOutdatedDeployments := func(ctx context.Context) error {
+		return dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
+	}
 
 	// Migrations here must be IN ORDER, oldest first:
 	return []*service.Migration{
@@ -405,6 +408,10 @@ func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*se
 		{
 			Version:   migrations.CreateKuberpultVersion(0, 0, 2),
 			Migration: migrateEnvApps,
+		},
+		{
+			Version:   migrations.CreateKuberpultVersion(0, 0, 3),
+			Migration: cleanOutdatedDeployments,
 		},
 		// New migrations should be added here:
 		// {

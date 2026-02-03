@@ -1449,6 +1449,43 @@ func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction
 	return !hasEnv, nil
 }
 
+func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Context) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationCleanOutdatedDeployments")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		// delete the deloyments without a release version or with no existing environment
+		err := h.DBDeleteOrphanDeployments(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not clean orphan deployments, error: %w", err)
+		}
+
+		// delete deployments with release versions that do not have manifests for the environment they are deployed to
+		deployments, err := h.DBSelectAllDeploymentsWithReleaseVersions(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("could not select deployments with release versions, error: %w", err)
+		}
+		for _, deployment := range deployments {
+			release, err := h.DBSelectReleaseByVersion(ctx, transaction, deployment.App, deployment.ReleaseNumbers, false)
+			if err != nil {
+				return fmt.Errorf("could not fetch release %v for app %s, error: %w", deployment.ReleaseNumbers, deployment.App, err)
+			}
+			if release == nil {
+				continue
+			}
+			if _, ok := release.Manifests.Manifests[deployment.Env]; !ok {
+				err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
+				if err != nil {
+					return fmt.Errorf("could not delete deployment for app %s in env %s, error: %w", deployment.App, deployment.Env, err)
+				}
+			}
+		}
+		return nil
+	})
+}
+
 func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Context) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironmentApplications")
 	defer func() {
