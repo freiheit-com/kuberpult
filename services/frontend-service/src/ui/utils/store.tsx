@@ -1472,7 +1472,7 @@ export class RolloutStatusGetter {
 }
 
 export const IsAAEnvironment = (config: EnvironmentConfig | undefined): boolean =>
-    config !== undefined && config.argoConfigs !== undefined && config.argoConfigs.commonEnvPrefix;
+    config !== undefined && config.argoConfigs !== undefined && config.argoConfigs.commonEnvPrefix !== undefined;
 
 export const useRolloutStatus = <T,>(f: (getter: RolloutStatusGetter) => T): T =>
     useEntireRolloutStatus((data) => f(new RolloutStatusGetter(data)));

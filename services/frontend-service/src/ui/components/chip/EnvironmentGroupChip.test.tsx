@@ -44,9 +44,19 @@ describe('EnvironmentChip', () => {
                 configs: [
                     {
                         concreteEnvName: 'aa1',
+                        syncWindows: [],
+                        accessList: [],
+                        applicationAnnotations: {},
+                        ignoreDifferences: [],
+                        syncOptions: [],
                     },
                     {
                         concreteEnvName: 'aa2',
+                        syncWindows: [],
+                        accessList: [],
+                        applicationAnnotations: {},
+                        ignoreDifferences: [],
+                        syncOptions: [],
                     },
                 ],
             },
@@ -177,15 +187,14 @@ describe('EnvironmentChip', () => {
 
     it('renders a list of argcod links for active/active', () => {
         // given
+        const envGroup = {
+            environments: [envAA],
+            environmentGroupName: 'dontcare',
+            distanceToUpstream: 0,
+            priority: Priority.UNRECOGNIZED,
+        };
         UpdateOverview.set({
-            environmentGroups: [
-                {
-                    environments: [envAA],
-                    environmentGroupName: 'dontcare',
-                    distanceToUpstream: 0,
-                    priority: Priority.UNRECOGNIZED,
-                },
-            ],
+            environmentGroups: [envGroup],
         });
         UpdateFrontendConfig.set({
             configs: {
@@ -193,15 +202,20 @@ describe('EnvironmentChip', () => {
                     baseUrl: 'http://argcod.example.com',
                     namespace: 'some-namespace',
                 },
+                sourceRepoUrl: 'http://source.example.com',
+                kuberpultVersion: '0.0.1',
+                branch: 'main',
+                manifestRepoUrl: 'http://manifests.example.com',
+                revisionsEnabled: false,
             },
             configReady: true,
         });
         updateAllEnvLocks.set(allEnvLocks);
         // then
-        const { container } = getWrapper({ smallEnvChip: false, env: envAA, envGroup: { environments: [envAA] } });
+        const { container } = getWrapper({ smallEnvChip: false, env: envAA, envGroup: envGroup });
         const links = Array.from(container.querySelectorAll('.env-card-link'));
         expect(links.length).toBe(2);
-        expect(links.map((n) => n.href)).toStrictEqual([
+        expect(links.map((n) => n.getAttribute('href'))).toStrictEqual([
             'http://argcod.example.com/applications/some-namespace/common-AA-aa1-app2',
             'http://argcod.example.com/applications/some-namespace/common-AA-aa2-app2',
         ]);
