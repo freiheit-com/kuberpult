@@ -1480,7 +1480,7 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 	}
 
 	var allDeployments []Deployment
-	err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+	err = h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		allDeployments, err = h.DBSelectAllDeployments(ctx, transaction, true)
 		return err
 	})
@@ -1496,6 +1496,7 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 				if err != nil {
 					return fmt.Errorf("could not fetch release %v for app %s: %w", deployment.ReleaseNumbers, deployment.App, err)
 				}
+				// note that deployments without releases have already been deleted (see above)
 				if release == nil {
 					continue
 				}

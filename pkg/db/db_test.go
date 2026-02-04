@@ -504,7 +504,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 			dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
 
 			// then:
-			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			err = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 				allDeployments, err := dbHandler.DBSelectAllDeployments(ctx, transaction, false)
 				if err != nil {
 					t.Fatalf("transaction error: %v", err)

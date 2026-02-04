@@ -333,7 +333,7 @@ func Run(ctx context.Context) error {
 	if dbOutdatedDeloymentsCleaningEnabled {
 		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Errorf("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.Enabled:false' - error: %w", err)
+			logger.FromContext(ctx).Sugar().Errorf("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false' - error: %w", err)
 		}
 	}
 
