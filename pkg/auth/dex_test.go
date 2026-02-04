@@ -205,7 +205,7 @@ func TestValidateToken(t *testing.T) {
 	hostURL := "https://www.test.com"
 	DexFullNameOverride := "dex-instance"
 	scopes := []string{"scope1", "scope2"}
-	useClusterInternalCommunication := false
+	const useClusterInternalCommunication = false
 	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, DexFullNameOverride, scopes, useClusterInternalCommunication)
 
 	testCases := []struct {
@@ -266,13 +266,13 @@ func TestVerifyToken(t *testing.T) {
 	hostURL := "https://www.test.com"
 	scopes := []string{"scope1", "scope2"}
 	DexFullNameOverride := "dex-instance"
-	useClusterInternalCommunication := false
+	const useClusterInternalCommunication = false
 	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, DexFullNameOverride, scopes, useClusterInternalCommunication)
 
 	testCases := []struct {
 		Name      string
 		claims    jwtV5.MapClaims
-		wantErr   string
+		WantErr   error
 		wantClaim jwtV5.MapClaims
 	}{
 		{
@@ -290,12 +290,38 @@ func TestVerifyToken(t *testing.T) {
 			},
 		},
 		{
+			Name: "Fix Bug 2699: multiple groups with no email lead to no panic but an error",
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"name":          "User",
+				"email":         "",
+				"groups":        []string{"Developer", "Hero of Time"}},
+			WantErr: errMatcher{
+				msg: "need required field 'email' to verify token",
+			},
+		},
+		{
+			Name: "Fix Bug 2699 (part2): with no email but a groups leads to error",
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"name":          "User",
+				"email":         "",
+				"groups":        []string{"group1"}},
+			WantErr: errMatcher{
+				msg: "need required field 'email' to verify token",
+			},
+		},
+		{
 			Name: "Token Verifier works as expected with no name",
 			claims: jwtV5.MapClaims{
 				jwt.AudienceKey: clientID,
 				jwt.IssuerKey:   appDex.IssuerURL,
 				"name":          ""},
-			wantErr: "need required fields to determine group of user",
+			WantErr: errMatcher{
+				msg: "need required field 'groups' to verify token",
+			},
 		},
 	}
 	for _, tc := range testCases {
@@ -328,13 +354,13 @@ func TestVerifyToken(t *testing.T) {
 
 			ctx := oidc.ClientContext(context.Background(), httpClient)
 			u, err := VerifyToken(ctx, req, appDex.ClientID, hostURL, appDex.DexServiceURL, useClusterInternalCommunication)
-			if err != nil {
-				if diff := cmp.Diff(tc.wantErr, err.Error()); diff != "" {
-					t.Errorf("Error mismatch (-want +got):\n%s", diff)
+			if tc.WantErr == nil {
+				if diff := CmpDiff(u["groups"], tc.wantClaim["groups"]); diff != "" {
+					t.Errorf("got %v, want %v, diff (-want +got) %s", u, tc.wantClaim, diff)
 				}
 			} else {
-				if diff := cmp.Diff(u["groups"], tc.wantClaim["groups"]); diff != "" {
-					t.Errorf("got %v, want %v, diff (-want +got) %s", u, tc.wantClaim, diff)
+				if diff := CmpDiff(tc.WantErr, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -419,4 +445,9 @@ func MockOIDCTestServer(issuerURL string, keySet jwk.Set) *httptest.Server {
 		}
 	})
 	return ts
+}
+
+// cmpDiff is exactly like cmp.Diff but with type safety
+func CmpDiff[T any](want, got T, opts ...cmp.Option) string {
+	return cmp.Diff(want, got, opts...)
 }
