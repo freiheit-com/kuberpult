@@ -598,7 +598,8 @@ func (h *DBHandler) DBDeleteOrphanDeployments(ctx context.Context, tx *sql.Tx) (
 
 	// select the orphan deployments from db
 	selectQuery := h.AdaptQuery(`
-		SELECT d.appName, d.envName FROM deployments d
+		SELECT d.appName, d.envName
+		FROM deployments d
 			WHERE d.releaseversion IS NULL
 			OR NOT EXISTS (
 				SELECT 1 
@@ -649,15 +650,9 @@ func (h *DBHandler) DBDeleteOrphanDeployments(ctx context.Context, tx *sql.Tx) (
 }
 
 func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, appName types.AppName, envName types.EnvName) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteDeployment")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM deployments WHERE appName=? AND envName=?;
 	`)
-	span.SetTag("query", deleteQuery)
 	_, err = tx.Exec(deleteQuery, appName, envName)
 	if err != nil {
 		return fmt.Errorf("could not delete deployment for app '%s' in environment '%s' from DB. Error: %w", appName, envName, err)
