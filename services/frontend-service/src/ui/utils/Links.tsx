@@ -164,7 +164,7 @@ export const ArgoAppMultiEnvLink: React.FC<{
                 envs.map((env) => (
                     <a
                         key={env}
-                        title={'Opens the app in ArgoCd for this environment'}
+                        title={'Opens the app in ArgoCd for the cluster ' + env}
                         className={classNames('env-card-link')}
                         href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
                         <Argo className={classNames('argo-logo')}></Argo>
