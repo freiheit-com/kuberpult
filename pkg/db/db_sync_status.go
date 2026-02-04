@@ -361,13 +361,6 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 }
 
 func (h *DBHandler) DBDeleteSyncStatusOnAppAndEnv(ctx context.Context, tx *sql.Tx, appName types.AppName, envName types.EnvName) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteSyncStatusOnAppAndEnv")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-	span.SetTag("app", appName)
-	span.SetTag("env", envName)
-
 	selectQuerry := h.AdaptQuery(`
 		DELETE FROM git_sync_status
 		WHERE appName = ? AND envName= ?
