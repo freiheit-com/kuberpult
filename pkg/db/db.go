@@ -1458,7 +1458,7 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 	}()
 
 	var orphanDeployments []Deployment
-	err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+	err = h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		orphanDeployments, err = h.DBSelectAllOrphanDeployments(ctx, transaction)
 		return err
 	})
