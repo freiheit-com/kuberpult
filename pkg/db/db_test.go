@@ -156,7 +156,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 					{
 						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 						App:            "app",
-						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
 					},
 				},
 				setupDeployments: []Deployment{
@@ -164,14 +164,33 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 						App: "app",
 						Env: "non-existing-env",
 						ReleaseNumbers: types.ReleaseNumbers{
-							Revision: 1,
-							Version:  uversion(0),
+							Version:  uversion(1),
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+					{
+						App: "app",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(1),
+							Revision: 0,
 						},
 						TransformerID: 0,
 					},
 				},
 			},
-			expectedDeployments: []Deployment{},
+			expectedDeployments: []Deployment{
+				{
+					App: "app",
+					Env: "env",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
+					TransformerID: 0,
+				},
+			},
 		},
 	}
 
