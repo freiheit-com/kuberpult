@@ -590,8 +590,8 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 	})
 }
 
-func (h *DBHandler) DBDeleteOrphanDeployments(ctx context.Context, tx *sql.Tx) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteOrphanDeployments")
+func (h *DBHandler) DBSelectAllOrphanDeployments(ctx context.Context, tx *sql.Tx) (_ []Deployment, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllOrphanDeployments")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
@@ -613,7 +613,7 @@ func (h *DBHandler) DBDeleteOrphanDeployments(ctx context.Context, tx *sql.Tx) (
 		selectQuery,
 	)
 	if err != nil {
-		return fmt.Errorf("could not select orphan deployments from DB. Error: %w", err)
+		return nil, fmt.Errorf("could not select orphan deployments from DB. Error: %w", err)
 	}
 
 	orphanDeployments := make([]Deployment, 0)
@@ -624,29 +624,20 @@ func (h *DBHandler) DBDeleteOrphanDeployments(ctx context.Context, tx *sql.Tx) (
 		}
 		err := rows.Scan(&curr.App, &curr.Env)
 		if err != nil {
-			return fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
+			return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
 		}
 		orphanDeployments = append(orphanDeployments, curr)
 	}
 
 	err = rows.Close()
 	if err != nil {
-		return fmt.Errorf("deployments: row closing error: %v", err)
+		return nil, fmt.Errorf("deployments: row closing error: %v", err)
 	}
 	err = rows.Err()
 	if err != nil {
-		return fmt.Errorf("deployments: row has error: %v", err)
+		return nil, fmt.Errorf("deployments: row has error: %v", err)
 	}
-
-	// delete the orphan deployments
-	for _, deployment := range orphanDeployments {
-		err = h.DBDeleteDeployment(ctx, tx, deployment.App, deployment.Env)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return orphanDeployments, nil
 }
 
 func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, appName types.AppName, envName types.EnvName) (err error) {
