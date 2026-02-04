@@ -115,7 +115,7 @@ func TestNewDexAppClient(t *testing.T) {
 			http.DefaultServeMux = http.NewServeMux()
 			a, err := NewDexAppClient(tc.clientID, tc.clientSecret, tc.baseURL, tc.DexFullNameOverride, tc.scopes, tc.useClusterInternalCommunication)
 			if (err != nil) != tc.wantErr {
-				t.Errorf("creating new dex client error = %v, WantErr %v", err, tc.wantErr)
+				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
 			}
 			if diff := cmp.Diff(a, tc.wantClientApp, cmpopts.IgnoreFields(DexRewriteURLRoundTripper{}, "T")); diff != "" {
 				t.Errorf("got %v, want %v, diff (-want +got) %s", a, tc.wantClientApp, diff)
@@ -251,7 +251,7 @@ func TestValidateToken(t *testing.T) {
 			ctx := oidc.ClientContext(context.Background(), httpClient)
 			_, err := ValidateOIDCToken(ctx, appDex.IssuerURL, string(token), tc.allowedAudience, appDex.DexServiceURL, useClusterInternalCommunication)
 			if (err != nil) != tc.wantErr {
-				t.Errorf("creating new dex client error = %v, WantErr %v", err, tc.wantErr)
+				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
 			}
 		})
 	}
