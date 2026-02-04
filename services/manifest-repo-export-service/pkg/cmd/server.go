@@ -32,7 +32,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DataDog/datadog-agent/pkg/trace/log"
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -434,6 +433,7 @@ func processEsls(
 			return err
 		}
 		if wantedSleepTime > 0 {
+			measureDelays(ddMetrics, logger.FromContext(ctx).Sugar(), 0, 0)
 			time.Sleep(wantedSleepTime)
 		}
 	}
@@ -630,15 +630,20 @@ func measureGitPushFailures(ddMetrics statsd.ClientInterface, log *zap.SugaredLo
 	}
 }
 
-func HandleOneTransformer(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
+func measureDelays(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, delaySeconds float64, delayEvents uint64) {
 	if ddMetrics != nil {
-		delaySeconds, delayEvents := dbHandler.GetCurrentDelays(ctx, transaction)
 		if err := ddMetrics.Gauge("process_delay_seconds", delaySeconds, []string{}, 1); err != nil {
 			log.Error("Error in ddMetrics.Gauge for delay seconds: %v", err)
 		}
 		if err := ddMetrics.Gauge("process_delay_events", float64(delayEvents), []string{}, 1); err != nil {
 			log.Error("Error in ddMetrics.Gauge for delay events: %v", err)
 		}
+	}
+}
+func HandleOneTransformer(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
+	if ddMetrics != nil {
+		delaySeconds, delayEvents := dbHandler.GetCurrentDelays(ctx, transaction)
+		measureDelays(ddMetrics, logger.FromContext(ctx).Sugar(), delaySeconds, delayEvents)
 	}
 	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
