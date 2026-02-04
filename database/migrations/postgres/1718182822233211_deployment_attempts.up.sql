@@ -1,1 +1,9 @@
-../sqlite/1718182822233211_deployment_attempts.up.sql
+CREATE TABLE IF NOT EXISTS deployment_attempts
+(
+    eslVersion INTEGER, -- internal ID for ESL
+    created TIMESTAMP,
+    envName VARCHAR,
+    appName VARCHAR,
+    queuedReleaseVersion BIGINT NULL,
+    PRIMARY KEY(eslVersion, appName, envName)
+);

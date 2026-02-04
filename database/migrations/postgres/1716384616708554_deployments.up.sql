@@ -1,1 +1,10 @@
-../sqlite/1716384616708554_deployments.up.sql
+CREATE TABLE IF NOT EXISTS deployments
+(
+    eslVersion INTEGER, -- internal ID for ESL
+    created TIMESTAMP,
+    releaseVersion BIGINT NULL, -- this ID is provided by the API caller
+    appName VARCHAR,
+    envName VARCHAR,
+    metadata VARCHAR,
+    PRIMARY KEY(eslVersion, appName, envName)
+);
