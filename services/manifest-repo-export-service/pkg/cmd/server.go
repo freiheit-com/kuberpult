@@ -222,6 +222,12 @@ func Run(ctx context.Context) error {
 	}
 	dbGitTimestampMigrationEnabled := gitTimestampMigrationEnabledString == "true"
 
+	dbOutdatedDeloymentsCleaningEnabledStr, err := valid.ReadEnvVar("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED")
+	if err != nil {
+		return err
+	}
+	dbOutdatedDeloymentsCleaningEnabled := dbOutdatedDeloymentsCleaningEnabledStr == "true"
+
 	failOnErrorWithGitPushTags, err := valid.ReadEnvVarBool("KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS")
 	if err != nil {
 		return err
@@ -329,6 +335,13 @@ func Run(ctx context.Context) error {
 		}
 	}
 
+	if dbOutdatedDeloymentsCleaningEnabled {
+		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
+		if err != nil {
+			return fmt.Errorf("error running migrations for cleaning outdated deployments: %w", err)
+		}
+	}
+
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
@@ -390,9 +403,6 @@ func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*se
 	migrateEnvApps := func(ctx context.Context) error {
 		return dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
 	}
-	cleanOutdatedDeployments := func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
-	}
 
 	// Migrations here must be IN ORDER, oldest first:
 	return []*service.Migration{
@@ -408,10 +418,6 @@ func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*se
 		{
 			Version:   migrations.CreateKuberpultVersion(0, 0, 2),
 			Migration: migrateEnvApps,
-		},
-		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 3),
-			Migration: cleanOutdatedDeployments,
 		},
 		// New migrations should be added here:
 		// {
