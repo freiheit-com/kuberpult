@@ -534,9 +534,7 @@ message Locks {
 message Deployment {
   message DeploymentMetaData {
     string deploy_author = 1;
-    // we use a string here, because the UI cannot handle int64 as a type.
-    // the string contains the unix timestamps in seconds (utc)
-    string deploy_time = 2;
+    google.protobuf.Timestamp deploy_time = 2;
 
     string ci_link = 3;
   }
