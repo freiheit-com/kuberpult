@@ -221,11 +221,7 @@ func Run(ctx context.Context) error {
 	}
 	dbGitTimestampMigrationEnabled := gitTimestampMigrationEnabledString == "true"
 
-	dbOutdatedDeloymentsCleaningEnabledStr, err := valid.ReadEnvVar("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED")
-	if err != nil {
-		return err
-	}
-	dbOutdatedDeloymentsCleaningEnabled := dbOutdatedDeloymentsCleaningEnabledStr == "true"
+	dbOutdatedDeloymentsCleaningEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED", false)
 
 	failOnErrorWithGitPushTags, err := valid.ReadEnvVarBool("KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS")
 	if err != nil {
@@ -337,7 +333,7 @@ func Run(ctx context.Context) error {
 	if dbOutdatedDeloymentsCleaningEnabled {
 		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
 		if err != nil {
-			return fmt.Errorf("error running migrations for cleaning outdated deployments: %w", err)
+			logger.FromContext(ctx).Sugar().Errorf("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.Enabled:false' - error: %w", err)
 		}
 	}
 

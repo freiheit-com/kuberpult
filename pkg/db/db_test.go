@@ -223,13 +223,10 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 				setupDeployments: []Deployment{
 					{
-						App: "app",
-						Env: "",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  uversion(1),
-							Revision: 0,
-						},
-						TransformerID: 0,
+						App:            "app",
+						Env:            "",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
 					},
 				},
 			},
@@ -254,13 +251,10 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 				setupDeployments: []Deployment{
 					{
-						App: "app",
-						Env: "non-existing-env",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  uversion(1),
-							Revision: 0,
-						},
-						TransformerID: 0,
+						App:            "app",
+						Env:            "non-existing-env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
 					},
 				},
 			},
@@ -285,13 +279,10 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 				setupDeployments: []Deployment{
 					{
-						App: "app",
-						Env: "env",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  uversion(1),
-							Revision: 0,
-						},
-						TransformerID: 0,
+						App:            "app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
 					},
 				},
 			},
@@ -316,13 +307,10 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 				setupDeployments: []Deployment{
 					{
-						App: "app",
-						Env: "env",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  uversion(1),
-							Revision: 0,
-						},
-						TransformerID: 0,
+						App:            "app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
 					},
 				},
 			},
@@ -347,25 +335,19 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 				setupDeployments: []Deployment{
 					{
-						App: "app",
-						Env: "env",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  uversion(1),
-							Revision: 0,
-						},
-						TransformerID: 0,
+						App:            "app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
 					},
 				},
 			},
 			expectedDeployments: []Deployment{
 				{
-					App: "app",
-					Env: "env",
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
-					TransformerID: 0,
+					App:            "app",
+					Env:            "env",
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  0,
 				},
 			},
 		},
@@ -388,25 +370,19 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 				setupDeployments: []Deployment{
 					{
-						App: "non-existing-app",
-						Env: "env",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  uversion(1),
-							Revision: 0,
-						},
-						TransformerID: 0,
+						App:            "non-existing-app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
 					},
 				},
 			},
 			expectedDeployments: []Deployment{
 				{
-					App: "non-existing-app",
-					Env: "env",
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
-					TransformerID: 0,
+					App:            "non-existing-app",
+					Env:            "env",
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  0,
 				},
 			},
 		},
@@ -429,25 +405,19 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 				setupDeployments: []Deployment{
 					{
-						App: "app",
-						Env: "env",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  uversion(1),
-							Revision: 0,
-						},
-						TransformerID: 0,
+						App:            "app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
 					},
 				},
 			},
 			expectedDeployments: []Deployment{
 				{
-					App: "app",
-					Env: "env",
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
-					TransformerID: 0,
+					App:            "app",
+					Env:            "env",
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  0,
 				},
 			},
 		},
@@ -470,25 +440,19 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 				setupDeployments: []Deployment{
 					{
-						App: "definitely-non-existing-app",
-						Env: "env",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  uversion(1),
-							Revision: 0,
-						},
-						TransformerID: 0,
+						App:            "definitely-non-existing-app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
 					},
 				},
 			},
 			expectedDeployments: []Deployment{
 				{
-					App: "definitely-non-existing-app",
-					Env: "env",
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
-					TransformerID: 0,
+					App:            "definitely-non-existing-app",
+					Env:            "env",
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  0,
 				},
 			},
 		},
