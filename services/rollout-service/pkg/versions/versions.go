@@ -24,9 +24,8 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 
 	"github.com/argoproj/argo-cd/v2/util/grpc"
@@ -121,12 +120,8 @@ func deployedAt(deployment *api.Deployment) time.Time {
 		return time.Time{}
 	}
 	deployTime := deployment.DeploymentMetaData.DeployTime
-	if deployTime != "" {
-		dt, err := strconv.ParseInt(deployTime, 10, 64)
-		if err != nil {
-			return time.Time{}
-		}
-		return time.Unix(dt, 0).UTC()
+	if deployTime != nil {
+		return deployTime.AsTime()
 	}
 	return time.Time{}
 }
