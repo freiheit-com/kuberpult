@@ -298,7 +298,7 @@ func TestVerifyToken(t *testing.T) {
 				"email":         "",
 				"groups":        []string{"Developer", "Hero of Time"}},
 			WantErr: errMatcher{
-				msg: "need required field 'email' to determine group of user",
+				msg: "need required field 'email' to verify token",
 			},
 		},
 		{
@@ -310,7 +310,7 @@ func TestVerifyToken(t *testing.T) {
 				"email":         "",
 				"groups":        []string{"group1"}},
 			WantErr: errMatcher{
-				msg: "need required field 'email' to determine group of user",
+				msg: "need required field 'email' to verify token",
 			},
 		},
 		{
@@ -320,7 +320,7 @@ func TestVerifyToken(t *testing.T) {
 				jwt.IssuerKey:   appDex.IssuerURL,
 				"name":          ""},
 			WantErr: errMatcher{
-				msg: "need required field 'groups' to determine group of user",
+				msg: "need required field 'groups' to verify token",
 			},
 		},
 	}
