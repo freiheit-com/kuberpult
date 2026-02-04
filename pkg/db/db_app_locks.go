@@ -310,8 +310,7 @@ func (h *DBHandler) DBHasAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (bool
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, appName, metadata
 		FROM app_locks
-		LIMIT 1
-		ORDER BY lockId;
+		LIMIT 1;
 	`)
 
 	rows, err := tx.QueryContext(

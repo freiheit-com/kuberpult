@@ -315,7 +315,7 @@ func Run(ctx context.Context) error {
 		}
 		log.Infof("Finished Custom Migrations successfully")
 	} else {
-		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if" +
+		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if " +
 			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=true.")
 	}
 	if dbGitTimestampMigrationEnabled {
