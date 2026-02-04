@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -62,6 +63,64 @@ type QueuedDeployment struct {
 }
 
 // SELECT
+func (h *DBHandler) DBSelectAllDeployments(ctx context.Context, tx *sql.Tx, mustHaveReleaseVersion bool) ([]Deployment, error) {
+	queryStr := `
+		SELECT created, releaseVersion, appName, envName, revision
+		FROM deployments
+	`
+	if mustHaveReleaseVersion {
+		queryStr += "\nWHERE releaseVersion IS NOT NULL"
+	}
+	queryStr += ";"
+
+	selectQuery := h.AdaptQuery(queryStr)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployments from DB. Error: %w", err)
+	}
+	defer closeRowsAndLog(rows, ctx, "DBSelectAllDeployments")
+	return processAllDeploymentsWithReleaseVersions(rows)
+}
+
+func processAllDeploymentsWithReleaseVersions(rows *sql.Rows) ([]Deployment, error) {
+	results := make([]Deployment, 0)
+	for rows.Next() {
+		var curr = Deployment{
+			Created: time.Time{},
+			App:     "",
+			Env:     "",
+			ReleaseNumbers: types.ReleaseNumbers{
+				Revision: 0,
+				Version:  nil,
+			},
+		}
+		var releaseVersion sql.NullInt64
+		err := rows.Scan(&curr.Created, &releaseVersion, &curr.App, &curr.Env, &curr.ReleaseNumbers.Revision)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
+		}
+		if releaseVersion.Valid {
+			conv := uint64(releaseVersion.Int64)
+			curr.ReleaseNumbers.Version = &conv
+		}
+		results = append(results, curr)
+	}
+	err := rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row closing error: %v", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row has error: %v", err)
+	}
+	return results, nil
+}
 
 func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector types.EnvName) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
@@ -530,6 +589,69 @@ func (h *DBHandler) DBDeleteDeploymentAttempt(ctx context.Context, tx *sql.Tx, e
 		},
 	})
 }
+
+func (h *DBHandler) DBSelectAllOrphanDeployments(ctx context.Context, tx *sql.Tx) (_ []Deployment, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllOrphanDeployments")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	// select the orphan deployments from db
+	selectQuery := h.AdaptQuery(`
+		SELECT d.appName, d.envName
+		FROM deployments d
+			WHERE d.releaseversion IS NULL
+			OR NOT EXISTS (
+				SELECT 1 
+				FROM environments e 
+				WHERE e.name = d.envname
+			);
+	`)
+	span.SetTag("selectQuery", selectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select orphan deployments from DB. Error: %w", err)
+	}
+
+	orphanDeployments := make([]Deployment, 0)
+	for rows.Next() {
+		var curr = Deployment{
+			App: "",
+			Env: "",
+		}
+		err := rows.Scan(&curr.App, &curr.Env)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
+		}
+		orphanDeployments = append(orphanDeployments, curr)
+	}
+
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row closing error: %v", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("deployments: row has error: %v", err)
+	}
+	return orphanDeployments, nil
+}
+
+func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, appName types.AppName, envName types.EnvName) (err error) {
+	deleteQuery := h.AdaptQuery(`
+		DELETE FROM deployments WHERE appName=? AND envName=?;
+	`)
+	_, err = tx.Exec(deleteQuery, appName, envName)
+	if err != nil {
+		return fmt.Errorf("could not delete deployment for app '%s' in environment '%s' from DB. Error: %w", appName, envName, err)
+	}
+	logger.FromContext(ctx).Sugar().Warnf("deleted outdated deployment for app '%s' in environment '%s'", appName, envName)
+	return nil
+}
+
 func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, transaction *sql.Tx, application types.AppName, releaseversion uint64, env types.EnvName, createdAt time.Time, revision uint64) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrationUpdateDeploymentsTimestamp")
 	defer func() {

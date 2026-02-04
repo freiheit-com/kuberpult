@@ -221,6 +221,8 @@ func Run(ctx context.Context) error {
 	}
 	dbGitTimestampMigrationEnabled := gitTimestampMigrationEnabledString == "true"
 
+	dbOutdatedDeloymentsCleaningEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED", false)
+
 	failOnErrorWithGitPushTags, err := valid.ReadEnvVarBool("KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS")
 	if err != nil {
 		return err
@@ -314,7 +316,7 @@ func Run(ctx context.Context) error {
 		}
 		log.Infof("Finished Custom Migrations successfully")
 	} else {
-		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if" +
+		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if " +
 			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=true.")
 	}
 	if dbGitTimestampMigrationEnabled {
@@ -325,6 +327,13 @@ func Run(ctx context.Context) error {
 		err = repo.FixCommitsTimestamp(ctx, *repo.State())
 		if err != nil {
 			return fmt.Errorf("error fixing commit timestamps: %w", err)
+		}
+	}
+
+	if dbOutdatedDeloymentsCleaningEnabled {
+		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Errorf("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false' - error: %w", err)
 		}
 	}
 

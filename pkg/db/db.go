@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -87,6 +88,7 @@ const (
 	MigrationCommitEventUUID = "00000000-0000-0000-0000-000000000000"
 	MigrationCommitEventHash = "0000000000000000000000000000000000000000"
 	WhereInBatchMax          = 1024
+	MaxDeleteBatchSize       = 20
 )
 
 func (h *DBHandler) ShouldUseEslTable() bool {
@@ -1447,6 +1449,71 @@ func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction
 		log.Infof("custom migration for environments already ran because row was found, skipping custom migration")
 	}
 	return !hasEnv, nil
+}
+
+func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Context) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationCleanOutdatedDeployments")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	var orphanDeployments []Deployment
+	err = h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		orphanDeployments, err = h.DBSelectAllOrphanDeployments(ctx, transaction)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("could not get all orphan deployments: %w", err)
+	}
+
+	// delete the orphan deployments
+	for deploymentBatch := range slices.Chunk(orphanDeployments, MaxDeleteBatchSize) {
+		err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			for _, deployment := range deploymentBatch {
+				err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("could not delete deployments: %w", err)
+		}
+	}
+
+	var allDeployments []Deployment
+	err = h.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		allDeployments, err = h.DBSelectAllDeployments(ctx, transaction, true)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("could not get all deployments: %w", err)
+	}
+
+	// delete deployments with release versions that do not have manifests for the environment they are deployed to
+	for deploymentBatch := range slices.Chunk(allDeployments, MaxDeleteBatchSize) {
+		err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			for _, deployment := range deploymentBatch {
+				release, err := h.DBSelectReleaseByVersion(ctx, transaction, deployment.App, deployment.ReleaseNumbers, false)
+				if err != nil {
+					return fmt.Errorf("could not fetch release %v for app %s: %w", deployment.ReleaseNumbers, deployment.App, err)
+				}
+				// note that deployments without releases have already been deleted (see above)
+				if release == nil {
+					continue
+				}
+				if _, ok := release.Manifests.Manifests[deployment.Env]; !ok {
+					err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
+					if err != nil {
+						return fmt.Errorf("could not delete deployment for app %s in env %s: %w", deployment.App, deployment.Env, err)
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("could not delete deployments: %w", err)
+		}
+	}
+	return nil
 }
 
 func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Context) (err error) {
