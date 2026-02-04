@@ -352,7 +352,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				changedEnvApps := make([]db.EnvApp, 0)
 				for _, currentResult := range subChanges.ChangedApps {
 					if currentResult.App == "" || currentResult.Env == "" {
-						logger.FromContext(ctx).Sugar().Warnf("Empty changed app or environment: App = '%s', Env = '%s'", currentResult.App, currentResult.Env)
+						logger.FromContext(ctx).Sugar().Warnf("empty changed app or environment: app='%s', env='%s'", currentResult.App, currentResult.Env)
 						continue
 					}
 					changedEnvApps = append(changedEnvApps, db.EnvApp{
@@ -370,7 +370,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 
 				for _, currentResult := range subChanges.DeletedApps {
 					if currentResult.App == "" || currentResult.Env == "" {
-						logger.FromContext(ctx).Sugar().Warnf("Empty changed app or environment: App = '%s', Env = '%s'", currentResult.App, currentResult.Env)
+						logger.FromContext(ctx).Sugar().Warnf("empty delete app or environment: app='%s', env='%s'", currentResult.App, currentResult.Env)
 						continue
 					}
 					err = state.DBHandler.DBDeleteSyncStatusOnAppAndEnv(ctx, transaction, currentResult.App, currentResult.Env)
