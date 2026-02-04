@@ -143,6 +143,156 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 		expectedDeployments []Deployment
 	}{
 		{
+			name: "should delete deployments with empty data",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App: "",
+						Env: "",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  nil,
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+					{
+						App: "app",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(1),
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+				},
+			},
+			expectedDeployments: []Deployment{
+				{
+					App: "app",
+					Env: "env",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
+					TransformerID: 0,
+				},
+			},
+		},
+		{
+			name: "should delete deployments with no release version",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App: "app",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  nil,
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+					{
+						App: "app",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(1),
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+				},
+			},
+			expectedDeployments: []Deployment{
+				{
+					App: "app",
+					Env: "env",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
+					TransformerID: 0,
+				},
+			},
+		},
+		{
+			name: "should delete deployments with empty environment",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App: "app",
+						Env: "",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(1),
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+					{
+						App: "app",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(1),
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+				},
+			},
+			expectedDeployments: []Deployment{
+				{
+					App: "app",
+					Env: "env",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
+					TransformerID: 0,
+				},
+			},
+		},
+		{
 			name: "should delete deployments with a non-existing environment",
 			given: Given{
 				setupEnvs: []DBEnvironment{
@@ -171,6 +321,116 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 					},
 					{
 						App: "app",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(1),
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+				},
+			},
+			expectedDeployments: []Deployment{
+				{
+					App: "app",
+					Env: "env",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
+					TransformerID: 0,
+				},
+			},
+		},
+		{
+			name: "should delete deployments with a release that has no manifest data",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app", "app1"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app1",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App: "app",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(1),
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+					{
+						App: "app1",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(1),
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+				},
+			},
+			expectedDeployments: []Deployment{
+				{
+					App: "app",
+					Env: "env",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Version:  uversion(1),
+						Revision: 0,
+					},
+					TransformerID: 0,
+				},
+			},
+		},
+		{
+			name: "should delete deployments with a release that has no manifest data on the deployed environment",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app", "app1"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app1",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"another-env": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App: "app",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  uversion(1),
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+					{
+						App: "app1",
 						Env: "env",
 						ReleaseNumbers: types.ReleaseNumbers{
 							Version:  uversion(1),
