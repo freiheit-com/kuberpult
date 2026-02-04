@@ -16,7 +16,7 @@ Copyright freiheit.com*/
 import { EnvironmentChip, EnvironmentChipProps, EnvironmentGroupChip } from './EnvironmentGroupChip';
 import { fireEvent, render } from '@testing-library/react';
 import { Environment, EnvironmentGroup, Lock, Priority, GetAllEnvTeamLocksResponse } from '../../../api/api';
-import { EnvironmentGroupExtended, UpdateOverview, updateAllEnvLocks } from '../../utils/store';
+import { EnvironmentGroupExtended, UpdateFrontendConfig, UpdateOverview, updateAllEnvLocks } from '../../utils/store';
 import { Spy } from 'spy4js';
 
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
@@ -33,6 +33,34 @@ describe('EnvironmentChip', () => {
         name: 'Test Me',
         distanceToUpstream: 0,
         priority: Priority.PROD,
+    };
+    const envAA: Environment = {
+        name: 'AA',
+        distanceToUpstream: 0,
+        priority: Priority.PROD,
+        config: {
+            argoConfigs: {
+                commonEnvPrefix: 'common',
+                configs: [
+                    {
+                        concreteEnvName: 'aa1',
+                        syncWindows: [],
+                        accessList: [],
+                        applicationAnnotations: {},
+                        ignoreDifferences: [],
+                        syncOptions: [],
+                    },
+                    {
+                        concreteEnvName: 'aa2',
+                        syncWindows: [],
+                        accessList: [],
+                        applicationAnnotations: {},
+                        ignoreDifferences: [],
+                        syncOptions: [],
+                    },
+                ],
+            },
+        },
     };
     const allEnvLocks: GetAllEnvTeamLocksResponse = {
         allEnvLocks: {},
@@ -155,6 +183,42 @@ describe('EnvironmentChip', () => {
             'action.deleteEnvironmentLock.lockId',
             'test-lock1'
         );
+    });
+
+    it('renders a list of argcod links for active/active', () => {
+        // given
+        const envGroup = {
+            environments: [envAA],
+            environmentGroupName: 'dontcare',
+            distanceToUpstream: 0,
+            priority: Priority.UNRECOGNIZED,
+        };
+        UpdateOverview.set({
+            environmentGroups: [envGroup],
+        });
+        UpdateFrontendConfig.set({
+            configs: {
+                argoCd: {
+                    baseUrl: 'http://argcod.example.com',
+                    namespace: 'some-namespace',
+                },
+                sourceRepoUrl: 'http://source.example.com',
+                kuberpultVersion: '0.0.1',
+                branch: 'main',
+                manifestRepoUrl: 'http://manifests.example.com',
+                revisionsEnabled: false,
+            },
+            configReady: true,
+        });
+        updateAllEnvLocks.set(allEnvLocks);
+        // then
+        const { container } = getWrapper({ smallEnvChip: false, env: envAA, envGroup: envGroup });
+        const links = Array.from(container.querySelectorAll('.env-card-link'));
+        expect(links.length).toBe(2);
+        expect(links.map((n) => n.getAttribute('href'))).toStrictEqual([
+            'http://argcod.example.com/applications/some-namespace/common-AA-aa1-app2',
+            'http://argcod.example.com/applications/some-namespace/common-AA-aa2-app2',
+        ]);
     });
 });
 

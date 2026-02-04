@@ -147,6 +147,33 @@ export const ArgoAppEnvLink: React.FC<{ app: string; env: string; namespace: str
     );
 };
 
+export const ArgoAppMultiEnvLink: React.FC<{
+    app: string;
+    env: string;
+    envs: string[];
+    namespace: string | undefined;
+}> = (props): JSX.Element => {
+    const { app, env, envs, namespace } = props;
+    const argoBaseUrl = useArgoCdBaseUrl();
+    const gitSyncStatusEnabled = useGitSyncStatus((getter) => getter.isEnabled());
+    return (
+        <>
+            <span className={classNames('env-card-header-name')}>{env}</span>
+            {argoBaseUrl &&
+                !gitSyncStatusEnabled &&
+                envs.map((env) => (
+                    <a
+                        key={env}
+                        title={'Opens the app in ArgoCd for the cluster ' + env}
+                        className={classNames('env-card-link')}
+                        href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
+                        <Argo className={classNames('argo-logo')}></Argo>
+                    </a>
+                ))}
+        </>
+    );
+};
+
 export const DisplaySourceLink: React.FC<{ displayString: string; commitId: string }> = (props): JSX.Element | null => {
     const { commitId, displayString } = props;
     const sourceRepo = useSourceRepoUrl();

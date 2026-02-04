@@ -26,7 +26,7 @@ import {
 } from '../../utils/store';
 import { LocksWhite } from '../../../images';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
-import { ArgoAppEnvLink } from '../../utils/Links';
+import { ArgoAppEnvLink, ArgoAppMultiEnvLink } from '../../utils/Links';
 
 export const AppLockSummary: React.FC<{
     app: string;
@@ -63,6 +63,7 @@ export type EnvironmentChipProps = {
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const { className, env, envGroup, smallEnvChip, app } = props;
     const envLocks = useAllEnvLocks((map) => map.allEnvLocks)[env.name]?.locks ?? [];
+    const argocdConfigs = env.config?.argoConfigs;
 
     let fullClassName;
     if (props.useEnvColor || props.useEnvColor === undefined) {
@@ -99,18 +100,26 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
             </div>
         )
     );
+    const chip = smallEnvChip ? (
+        name[0].toUpperCase()
+    ) : argocdConfigs !== undefined ? (
+        <ArgoAppMultiEnvLink
+            app={app}
+            env={name}
+            envs={argocdConfigs.configs.map(
+                (config) => argocdConfigs.commonEnvPrefix + '-' + name + '-' + config.concreteEnvName
+            )}
+            namespace={namespace}
+        />
+    ) : (
+        <ArgoAppEnvLink app={app} env={name} namespace={namespace} />
+    );
     return (
         <div className={fullClassName} role="row">
             <span
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
-                <span className="mdc-evolution-chip__text-name">
-                    {smallEnvChip ? (
-                        name[0].toUpperCase()
-                    ) : (
-                        <ArgoAppEnvLink app={app} env={name} namespace={namespace} />
-                    )}
-                </span>{' '}
+                <span className="mdc-evolution-chip__text-name">{chip}</span>{' '}
                 <span className="mdc-evolution-chip__text-numbers">{numberString}</span>
                 {locks}
             </span>

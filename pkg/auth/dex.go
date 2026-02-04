@@ -317,7 +317,7 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 	}, nil
 }
 
-// Verifies if the user is authenticated.
+// VerifyToken verifies if the user is authenticated.
 func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexServiceURL string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
@@ -344,20 +344,29 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexSer
 		return nil, fmt.Errorf("failed to verify token: %s", err)
 	}
 	// Extract token claims and verify the token is not expired.
-	claims := jwt.MapClaims{
-		"groups": []string{},
-		"email":  "",
-		"name":   "",
-		"sub":    "",
-	}
+	// Use a generic MapClaims to allow the library to decode into interface{}
+	claims := jwt.MapClaims{}
 	err = idToken.Claims(&claims)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse token claims")
 	}
 
-	// check if claims is empty in terms of required fields for identification
-	if claims["email"].(string) == "" && len(claims["groups"].([]string)) < 1 {
-		return nil, fmt.Errorf("need required fields to determine group of user")
+	email, _ := claims["email"].(string)
+
+	// Safely extract groups for []interface and []string cases:
+	groupsCount := 0
+	if groups, ok := claims["groups"].([]interface{}); ok {
+		groupsCount = len(groups)
+	} else if groupsStr, ok := claims["groups"].([]string); ok {
+		// Just in case the library or provider behaves differently later
+		groupsCount = len(groupsStr)
+	}
+
+	if groupsCount == 0 {
+		return nil, fmt.Errorf("need required field 'groups' to verify token")
+	}
+	if email == "" {
+		return nil, fmt.Errorf("need required field 'email' to verify token")
 	}
 
 	return claims, nil
