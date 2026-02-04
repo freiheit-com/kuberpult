@@ -20,11 +20,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"io"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -282,7 +283,7 @@ func TestVersionClientStream(t *testing.T) {
 									"staging": {
 										Version: 1234,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
@@ -371,7 +372,7 @@ func TestVersionClientStream(t *testing.T) {
 									"staging": {
 										Version: 1,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
@@ -412,7 +413,7 @@ func TestVersionClientStream(t *testing.T) {
 									"staging": {
 										Version: 1,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
@@ -449,7 +450,7 @@ func TestVersionClientStream(t *testing.T) {
 									"staging": {
 										Version: 1,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
@@ -490,7 +491,7 @@ func TestVersionClientStream(t *testing.T) {
 									"staging": {
 										Version: 1,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
@@ -541,7 +542,7 @@ func TestVersionClientStream(t *testing.T) {
 									"staging": {
 										Version: 1,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
@@ -621,7 +622,7 @@ func TestVersionClientStream(t *testing.T) {
 									"staging": {
 										Version: 1,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
@@ -706,7 +707,7 @@ func TestVersionClientStream(t *testing.T) {
 									"staging": {
 										Version: 1,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
@@ -747,7 +748,7 @@ func TestVersionClientStream(t *testing.T) {
 									"staging": {
 										Version: 2,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
@@ -797,13 +798,13 @@ func TestVersionClientStream(t *testing.T) {
 									"production": {
 										Version: 1234,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 									"canary": {
 										Version: 1234,
 										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-											DeployTime: "123456789",
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 										},
 									},
 								},
