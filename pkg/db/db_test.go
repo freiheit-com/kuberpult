@@ -128,6 +128,120 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 
 	}
 }
 
+func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
+
+	type Given struct {
+		setupDeployments []Deployment
+		setupEnvs        []DBEnvironment
+		setupApps        []types.AppName
+		setupReleases    []DBReleaseWithMetaData
+	}
+
+	tcs := []struct {
+		name                string
+		given               Given
+		expectedDeployments []Deployment
+	}{
+		{
+			name: "should delete deployments with a non-existing environment",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App: "app",
+						Env: "non-existing-env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Revision: 1,
+							Version:  uversion(0),
+						},
+						TransformerID: 0,
+					},
+				},
+			},
+			expectedDeployments: []Deployment{},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// given:
+			ctx := testutil.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				// create environments
+				for _, env := range tc.given.setupEnvs {
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, env.Name, env.Config, tc.given.setupApps)
+					if err != nil {
+						return fmt.Errorf("error while creating environment, error: %w", err)
+					}
+				}
+
+				// create releases
+				for _, release := range tc.given.setupReleases {
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, release)
+					if err != nil {
+						return fmt.Errorf("error while creating release, error: %w", err)
+					}
+				}
+
+				// create deployments
+				for _, deployment := range tc.given.setupDeployments {
+					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment)
+					if err != nil {
+						return fmt.Errorf("error while creating deployment, error: %w", err)
+					}
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+
+			// when:
+			dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
+
+			// then:
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				allDeployments, err := dbHandler.DBSelectAllDeployments(ctx, transaction, false)
+				if err != nil {
+					t.Fatalf("transaction error: %v", err)
+				}
+
+				t.Logf("all deployments: %v", allDeployments)
+
+				if diff := cmp.Diff(tc.expectedDeployments, allDeployments, cmpopts.IgnoreFields(Deployment{}, "Created")); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+
+	}
+}
+
 func TestCustomMigrationReleases(t *testing.T) {
 	var getAllApps = /*GetAllAppsFun*/ func() (map[types.AppName]string, error) {
 		result := map[types.AppName]string{

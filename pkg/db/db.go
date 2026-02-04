@@ -1463,7 +1463,7 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 		}
 
 		// delete deployments with release versions that do not have manifests for the environment they are deployed to
-		deployments, err := h.DBSelectAllDeploymentsWithReleaseVersions(ctx, transaction)
+		deployments, err := h.DBSelectAllDeployments(ctx, transaction, true)
 		if err != nil {
 			return fmt.Errorf("could not select deployments with release versions, error: %w", err)
 		}

@@ -63,12 +63,17 @@ type QueuedDeployment struct {
 }
 
 // SELECT
-func (h *DBHandler) DBSelectAllDeploymentsWithReleaseVersions(ctx context.Context, tx *sql.Tx) ([]Deployment, error) {
-	selectQuery := h.AdaptQuery(`
+func (h *DBHandler) DBSelectAllDeployments(ctx context.Context, tx *sql.Tx, mustHaveReleaseVersion bool) ([]Deployment, error) {
+	queryStr := `
 		SELECT created, releaseVersion, appName, envName, revision
 		FROM deployments
-		WHERE releaseVersion IS NOT NULL;
-	`)
+	`
+	if mustHaveReleaseVersion {
+		queryStr += "\nWHERE releaseVersion IS NOT NULL"
+	}
+	queryStr += ";"
+
+	selectQuery := h.AdaptQuery(queryStr)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -76,7 +81,7 @@ func (h *DBHandler) DBSelectAllDeploymentsWithReleaseVersions(ctx context.Contex
 	if err != nil {
 		return nil, fmt.Errorf("could not select deployments from DB. Error: %w", err)
 	}
-	defer closeRowsAndLog(rows, ctx, "DBSelectAllDeploymentsWithReleaseVersions")
+	defer closeRowsAndLog(rows, ctx, "DBSelectAllDeployments")
 	return processAllDeploymentsWithReleaseVersions(rows)
 }
 
