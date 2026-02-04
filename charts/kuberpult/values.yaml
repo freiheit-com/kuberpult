@@ -181,6 +181,10 @@ db:
   # This option migrates all the timestamps in the git repo to the databases
   gitTimestampMigrations:
     enabled: false
+  # In the past, Kuberpult had a bug which keept invalid deployment records in the database.
+  # i.e., These records point to nil releases version or the releases which do not have any manifests for the environment they are deployed to.
+  # Or they point to environments that do not exist anymore.
+  # This flag enables a custom migration which removes these outdated deployment records from the database.
   outdatedDeploymentsCleaning:
     enabled: true
 manifestRepoExport:

@@ -245,10 +245,6 @@ spec:
 {{- end }}
         - name: KUBERPULT_GIT_TIMESTAMP_MIGRATIONS_ENABLED
           value: "{{ .Values.db.gitTimestampMigrations.enabled }}"
-          # In the past, Kuberpult had a bug which keept invalid deployment records in the database.
-          # i.e., These records point to nil releases version or the releases which do not have any manifests for the environment they are deployed to.
-          # Or they point to environments that do not exist anymore.
-          # This flag enables a custom migration which removes these outdated deployment records from the database.
         - name: KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED
           value: "{{ .Values.db.outdatedDeploymentsCleaning.enabled }}"
         volumeMounts:
