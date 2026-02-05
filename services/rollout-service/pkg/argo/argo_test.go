@@ -32,11 +32,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -324,7 +326,7 @@ func TestArgoConsume(t *testing.T) {
 							"staging": {
 								Version: 1,
 								DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-									DeployTime: "123456789",
+									DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 								},
 							},
 						},
@@ -383,7 +385,7 @@ func TestArgoConsume(t *testing.T) {
 							"staging": {
 								Version: 1,
 								DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-									DeployTime: "123456789",
+									DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 								},
 							},
 						},
@@ -459,7 +461,7 @@ func TestArgoConsume(t *testing.T) {
 							"staging": {
 								Version: 1,
 								DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-									DeployTime: "123456789",
+									DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 								},
 							},
 						},
@@ -536,7 +538,7 @@ func TestArgoConsume(t *testing.T) {
 							"staging": {
 								Version: 1,
 								DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-									DeployTime: "123456789",
+									DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 								},
 							},
 						},
@@ -613,7 +615,7 @@ func TestArgoConsume(t *testing.T) {
 							"staging": {
 								Version: 1,
 								DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-									DeployTime: "123456789",
+									DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 								},
 							},
 						},
@@ -632,7 +634,7 @@ func TestArgoConsume(t *testing.T) {
 							"staging": {
 								Version: 1,
 								DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-									DeployTime: "1234567892",
+									DeployTime: timestamppb.New(time.Unix(1234567892, 0)),
 								},
 							},
 						},
@@ -691,7 +693,7 @@ func TestArgoConsume(t *testing.T) {
 							"staging": {
 								Version: 1,
 								DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-									DeployTime: "123456789",
+									DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 								},
 							},
 						},
@@ -710,7 +712,7 @@ func TestArgoConsume(t *testing.T) {
 							"staging": {
 								Version: 1,
 								DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-									DeployTime: "1234567892",
+									DeployTime: timestamppb.New(time.Unix(1234567892, 0)),
 								},
 							},
 						},
@@ -792,7 +794,7 @@ func TestArgoConsume(t *testing.T) {
 							"staging": {
 								Version: 1,
 								DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-									DeployTime: "123456789",
+									DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 								},
 							},
 						},
@@ -1035,7 +1037,7 @@ func TestReactToKuberpultEvents(t *testing.T) {
 								"staging": {
 									Version: 1,
 									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
+										DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 									},
 								},
 							},
@@ -1095,7 +1097,7 @@ func TestReactToKuberpultEvents(t *testing.T) {
 								"staging": {
 									Version: 1,
 									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
+										DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 									},
 								},
 							},
@@ -1191,7 +1193,7 @@ func TestReactToKuberpultEvents(t *testing.T) {
 								"staging": {
 									Version: 1,
 									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
-										DeployTime: "123456789",
+										DeployTime: timestamppb.New(time.Unix(123456789, 0)),
 									},
 								},
 							},
@@ -1392,7 +1394,7 @@ func TestReactToKuberpultEvents(t *testing.T) {
 			},
 		},
 		{
-			Name: "works with empty argo configs",
+			Name:         "works with empty argo configs",
 			KnowArgoApps: []ArgoAppMetadata{},
 			ArgoOverview: []*ArgoOverview{
 				{
@@ -1423,7 +1425,7 @@ func TestReactToKuberpultEvents(t *testing.T) {
 										Config: &api.EnvironmentConfig{
 											ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
 												CommonEnvPrefix: "test",
-												Configs: []*api.ArgoCDEnvironmentConfiguration{},
+												Configs:         []*api.ArgoCDEnvironmentConfiguration{},
 											},
 										},
 									},
