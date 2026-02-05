@@ -247,6 +247,8 @@ spec:
           value: "{{ .Values.db.gitTimestampMigrations.enabled }}"
         - name: KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED
           value: "{{ .Values.db.outdatedDeploymentsCleaning.enabled }}"
+        - name: KUBERPULT_RESET_GIT_SYNC_STATUS_ENABLED
+          value: "{{ .Values.db.resetGitSyncStatus.enabled }}"
         volumeMounts:
         - name: repository
           # The repository volume, an emptyDir, is mounted to the kp directory.

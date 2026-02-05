@@ -362,7 +362,6 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 
 // These queries can get long. Because of this, we insert these values in batches
 func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApps []EnvApp, now time.Time, id TransformerID, status SyncStatus, batchSize int) (err error) {
-	//queryTemplate := "INSERT INTO git_sync_status (created, transformerid, envName, appName, status) VALUES ;"
 	queryTemplate := `INSERT INTO git_sync_status (created, transformerid, envName, appName, status)
 		VALUES ('%s', %d, '%s', '%s', %d)
 		ON CONFLICT(envName, appname)
@@ -381,6 +380,15 @@ func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApp
 			}
 			currentQuery = ""
 		}
+	}
+	return nil
+}
+
+func (h *DBHandler) truncateGitSyncStatus(ctx context.Context, tx *sql.Tx) error {
+	const query = "TRUNCATE TABLE git_sync_status;"
+	_, err := tx.ExecContext(ctx, query)
+	if err != nil {
+		return fmt.Errorf("could not truncate git_sync_status: %w", err)
 	}
 	return nil
 }

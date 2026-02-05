@@ -221,7 +221,9 @@ func Run(ctx context.Context) error {
 	}
 	dbGitTimestampMigrationEnabled := gitTimestampMigrationEnabledString == "true"
 
-	dbOutdatedDeloymentsCleaningEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED", false)
+	dbOutdatedDeploymentsCleaningEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED", false)
+
+	resetGitSyncStatusEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_RESET_GIT_SYNC_STATUS_ENABLED", false)
 
 	failOnErrorWithGitPushTags, err := valid.ReadEnvVarBool("KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS")
 	if err != nil {
@@ -330,10 +332,16 @@ func Run(ctx context.Context) error {
 		}
 	}
 
-	if dbOutdatedDeloymentsCleaningEnabled {
+	if dbOutdatedDeploymentsCleaningEnabled {
 		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Errorf("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false' - error: %w", err)
+			logger.FromContext(ctx).Error("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false'", zap.Error(err))
+		}
+	}
+	if resetGitSyncStatusEnabled {
+		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)
+		if err != nil {
+			logger.FromContext(ctx).Error("error cleaning git sync status - you can disable this cleaning operation with 'db.resetGitSyncStatus.enabled:false'", zap.Error(err))
 		}
 	}
 
