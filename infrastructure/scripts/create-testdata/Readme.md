@@ -38,3 +38,16 @@ To see more useful data with the tag, create some dummy deployments prior to cre
 ### Why "fakeprod"?
 We want to make it as clear as possible that this is testdata.
 We therefore recommend to have no "prod" environment locally.
+
+### Generating Signatures
+Some endpoints like /api/environments/"${env}" require a signature (depending on helm-chart parameter).
+
+1) Export the keyring:
+`gpg --output pgpRing-local-public.pgp --armor --export`
+
+2) Configure to use that keyring in frontend-service:
+In docker-compose.yml, add `KUBERPULT_PGP_KEY_RING_PATH=/kp/kuberpult/pgpRing-local-public.pgp`
+
+
+3) Generate the signature:
+`echo -n 'fakeprod-ca' | gpg --local-user GPG_USER_EMAIL --detach --sign --armor  > ./fakeprod-ca.yaml.sig`
