@@ -119,99 +119,109 @@ func (c *Config) storageBackend() repository.StorageBackend {
 	}
 }
 
+func parseEnvVars() (_ *Config, err error) {
+	var c = Config{}
+	c.EnableProfiling = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_PROFILING", false)
+	c.DatadogApiKeyLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DATADOG_APIKEY_LOCATION", "")
+
+	c.DexMock = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_MOCK", false)
+	c.DexEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_ENABLED", false)
+	c.DexMockRole = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_MOCK_ROLE", "Developer")
+	c.DexRbacPolicyPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_POLICY_PATH", "")
+	c.DexRbacTeamPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_TEAM_PATH", "")
+	c.DexDefaultRoleEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_DEFAULT_ROLE_ENABLED", false)
+
+	c.EnableTracing = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_TRACING", false)
+	c.EnableMetrics = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_METRICS", false)
+	c.DogstatsdAddr = valid.ReadEnvVarWithDefault("KUBERPULT_DOGSTATSD_ADDR", "127.0.0.1:8125")
+
+	c.DbOption = valid.ReadEnvVarWithDefault("KUBERPULT_DB_OPTION", "NO_DB")
+	c.DbLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_LOCATION", "/kp/database")
+	c.DbAuthProxyPort = valid.ReadEnvVarWithDefault("KUBERPULT_DB_AUTH_PROXY_PORT", "5432")
+	c.DbName = valid.ReadEnvVarWithDefault("KUBERPULT_DB_NAME", "")
+	c.DbUserName = valid.ReadEnvVarWithDefault("KUBERPULT_DB_USER_NAME", "")
+	c.DbUserPassword = valid.ReadEnvVarWithDefault("KUBERPULT_DB_USER_PASSWORD", "")
+	c.DbMigrationsLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_MIGRATIONS_LOCATION", "")
+	c.DbWriteEslTableOnly = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DB_WRITE_ESL_TABLE_ONLY", false)
+	c.DbSslMode = valid.ReadEnvVarWithDefault("KUBERPULT_DB_SSL_MODE", "verify-full")
+
+	c.DbMaxIdleConnections, err = valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_IDLE_CONNECTIONS")
+	if err != nil {
+		return nil, err
+	}
+	c.DbMaxOpenConnections, err = valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_OPEN_CONNECTIONS")
+	if err != nil {
+		return nil, err
+	}
+
+	c.GitUrl = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_URL", "")
+	c.GitBranch = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_BRANCH", "master")
+	c.GitWriteCommitData = valid.ReadEnvVarBoolWithDefault("KUBERPULT_GIT_WRITE_COMMIT_DATA", false)
+	c.AllowLongAppNames = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ALLOW_LONG_APP_NAMES", false)
+	c.ArgoCdGenerateFiles = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ARGO_CD_GENERATE_FILES", true)
+	c.AllowedDomains, err = valid.ReadEnvVarAsList("KUBERPULT_ALLOWED_DOMAINS", ",")
+	if err != nil {
+		return nil, err
+	}
+
+	c.MaxNumberOfThreads, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAX_NUMBER_OF_THREADS", 3)
+	if err != nil {
+		return nil, err
+	}
+	c.GitNetworkTimeout, err = valid.ReadEnvVarDurationWithDefault("KUBERPULT_GIT_NETWORK_TIMEOUT", time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	c.GitMaximumCommitsPerPush, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH", 1)
+	if err != nil {
+		return nil, err
+	}
+	c.MaximumQueueSize, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAXIMUM_QUEUE_SIZE", 5)
+	if err != nil {
+		return nil, err
+	}
+	c.ReleaseVersionsLimit, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_RELEASE_VERSIONS_LIMIT", 20)
+	if err != nil {
+		return nil, err
+	}
+
+	c.GrpcMaxRecvMsgSize, err = valid.ReadEnvVarInt("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE")
+	if err != nil {
+		return nil, err
+	}
+	c.MigrationServer, err = valid.ReadEnvVar("KUBERPULT_MIGRATION_SERVER")
+	if err != nil {
+		return nil, err
+	}
+	c.MigrationServerSecure, err = valid.ReadEnvVarBool("KUBERPULT_MIGRATION_SERVER_SECURE")
+	if err != nil {
+		return nil, err
+	}
+
+	c.Version, err = valid.ReadEnvVar("KUBERPULT_VERSION")
+	if err != nil {
+		return nil, err
+	}
+	c.LockType, err = valid.ReadEnvVar("KUBERPULT_LOCK_TYPE")
+	if err != nil {
+		return nil, err
+	}
+
+	c.CheckCustomMigrations = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CHECK_CUSTOM_MIGRATIONS", false)
+	c.EnableSqlite = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_SQLITE", true)
+	c.MinorRegexes = valid.ReadEnvVarWithDefault("KUBERPULT_MINOR_REGEXES", "")
+
+	return &c, nil
+}
+
 func RunServer() {
 	err := logger.Wrap(context.Background(), func(ctx context.Context) (err error) {
 
-		var c Config
-		c.EnableProfiling = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_PROFILING", false)
-		c.DatadogApiKeyLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DATADOG_APIKEY_LOCATION", "")
-
-		c.DexMock = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_MOCK", false)
-		c.DexEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_ENABLED", false)
-		c.DexMockRole = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_MOCK_ROLE", "Developer")
-		c.DexRbacPolicyPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_POLICY_PATH", "")
-		c.DexRbacTeamPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_TEAM_PATH", "")
-		c.DexDefaultRoleEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_DEFAULT_ROLE_ENABLED", false)
-
-		c.EnableTracing = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_TRACING", false)
-		c.EnableMetrics = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_METRICS", false)
-		c.DogstatsdAddr = valid.ReadEnvVarWithDefault("KUBERPULT_DOGSTATSD_ADDR", "127.0.0.1:8125")
-
-		c.DbOption = valid.ReadEnvVarWithDefault("KUBERPULT_DB_OPTION", "NO_DB")
-		c.DbLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_LOCATION", "/kp/database")
-		c.DbAuthProxyPort = valid.ReadEnvVarWithDefault("KUBERPULT_DB_AUTH_PROXY_PORT", "5432")
-		c.DbName = valid.ReadEnvVarWithDefault("KUBERPULT_DB_NAME", "")
-		c.DbUserName = valid.ReadEnvVarWithDefault("KUBERPULT_DB_USER_NAME", "")
-		c.DbUserPassword = valid.ReadEnvVarWithDefault("KUBERPULT_DB_USER_PASSWORD", "")
-		c.DbMigrationsLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_MIGRATIONS_LOCATION", "")
-		c.DbWriteEslTableOnly = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DB_WRITE_ESL_TABLE_ONLY", false)
-		c.DbSslMode = valid.ReadEnvVarWithDefault("KUBERPULT_DB_SSL_MODE", "verify-full")
-
-		c.DbMaxIdleConnections, err = valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_IDLE_CONNECTIONS")
+		c, err := parseEnvVars()
 		if err != nil {
+			logger.FromContext(ctx).Error("parsing environment variables", zap.Error(err))
 			return err
 		}
-		c.DbMaxOpenConnections, err = valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_OPEN_CONNECTIONS")
-		if err != nil {
-			return err
-		}
-
-		c.GitUrl = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_URL", "")
-		c.GitBranch = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_BRANCH", "master")
-		c.GitWriteCommitData = valid.ReadEnvVarBoolWithDefault("KUBERPULT_GIT_WRITE_COMMIT_DATA", false)
-		c.AllowLongAppNames = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ALLOW_LONG_APP_NAMES", false)
-		c.ArgoCdGenerateFiles = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ARGO_CD_GENERATE_FILES", true)
-		c.AllowedDomains, err = valid.ReadEnvVarAsList("KUBERPULT_ALLOWED_DOMAINS", ",")
-		if err != nil {
-			return err
-		}
-
-		c.MaxNumberOfThreads, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAX_NUMBER_OF_THREADS", 3)
-		if err != nil {
-			return err
-		}
-		c.GitNetworkTimeout, err = valid.ReadEnvVarDurationWithDefault("KUBERPULT_GIT_NETWORK_TIMEOUT", time.Minute)
-		if err != nil {
-			return err
-		}
-		c.GitMaximumCommitsPerPush, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH", 1)
-		if err != nil {
-			return err
-		}
-		c.MaximumQueueSize, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAXIMUM_QUEUE_SIZE", 5)
-		if err != nil {
-			return err
-		}
-		c.ReleaseVersionsLimit, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_RELEASE_VERSIONS_LIMIT", 20)
-		if err != nil {
-			return err
-		}
-
-		c.GrpcMaxRecvMsgSize, err = valid.ReadEnvVarInt("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE")
-		if err != nil {
-			return err
-		}
-		c.MigrationServer, err = valid.ReadEnvVar("KUBERPULT_MIGRATION_SERVER")
-		if err != nil {
-			return err
-		}
-		c.MigrationServerSecure, err = valid.ReadEnvVarBool("KUBERPULT_MIGRATION_SERVER_SECURE")
-		if err != nil {
-			return err
-		}
-
-		c.Version, err = valid.ReadEnvVar("KUBERPULT_VERSION")
-		if err != nil {
-			return err
-		}
-		c.LockType, err = valid.ReadEnvVar("KUBERPULT_LOCK_TYPE")
-		if err != nil {
-			return err
-		}
-
-		c.CheckCustomMigrations = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CHECK_CUSTOM_MIGRATIONS", false)
-		c.EnableSqlite = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_SQLITE", true)
-		c.MinorRegexes = valid.ReadEnvVarWithDefault("KUBERPULT_MINOR_REGEXES", "")
 
 		var lockType service.LockType
 		lockType, err = service.ParseLockType(c.LockType)
