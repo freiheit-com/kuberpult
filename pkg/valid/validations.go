@@ -132,9 +132,33 @@ func ReadEnvVarUInt(envName string) (uint, error) {
 	}
 	i, err := strconv.ParseUint(envValue, 10, 32)
 	if err != nil {
-		return 0, fmt.Errorf("could not convert environment variable '%s=%s' to int", envName, envValue)
+		return 0, fmt.Errorf("could not convert environment variable '%s=%s' to unsigned int", envName, envValue)
 	}
 	return uint(i), nil
+}
+
+func ReadEnvVarUIntWithDefault(envName string, defaultValue uint) (uint, error) {
+	envValue, err := ReadEnvVar(envName)
+	if err != nil {
+		return defaultValue, nil
+	}
+	i, err := strconv.ParseUint(envValue, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("could not convert environment variable '%s=%s' to unsigned int", envName, envValue)
+	}
+	return uint(i), nil
+}
+
+func ReadEnvVarInt(envName string) (int, error) {
+	envValue, err := ReadEnvVar(envName)
+	if err != nil {
+		return 0, err
+	}
+	i, err := strconv.ParseInt(envValue, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("could not convert environment variable '%s=%s' to int", envName, envValue)
+	}
+	return int(i), nil
 }
 
 func ReadEnvVarIntWithDefault(envName string, defaultValue int) (int, error) {
@@ -163,4 +187,24 @@ func ReadEnvVarBoolWithDefault(envName string, defaultVal bool) bool {
 		return defaultVal
 	}
 	return envValue == "true"
+}
+
+func ReadEnvVarAsList(envName string, separator string) ([]string, error) {
+	envValue, err := ReadEnvVar(envName)
+	if err != nil {
+		return nil, err
+	}
+	if envValue == "" {
+		return []string{}, nil
+	}
+
+	raws := strings.Split(envValue, ",")
+	results := make([]string, 0)
+	for _, s := range raws {
+		trimmed := strings.TrimSpace(s)
+		if trimmed != "" { // skip empty string
+			results = append(results, trimmed)
+		}
+	}
+	return results, nil
 }
