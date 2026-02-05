@@ -19,25 +19,25 @@ package argo
 import (
 	"context"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
 	"path/filepath"
 	"slices"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/conversion"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 )
 
 // this is a simpler version of ApplicationServiceClient from the application package

@@ -18,6 +18,7 @@ package tracing
 
 import (
 	"context"
+
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 

@@ -21,10 +21,11 @@ import (
 	"errors"
 	"time"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 type BatchServiceWithDefaultTimeout struct {

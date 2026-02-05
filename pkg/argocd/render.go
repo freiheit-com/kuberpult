@@ -19,16 +19,15 @@ package argocd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"path/filepath"
 	"strings"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
 	"sigs.k8s.io/yaml"
 
+	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 type ApiVersion string

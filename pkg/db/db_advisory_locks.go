@@ -22,10 +22,9 @@ import (
 	"errors"
 	"fmt"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type AdvisoryLockId int

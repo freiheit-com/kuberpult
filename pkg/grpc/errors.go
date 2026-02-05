@@ -18,10 +18,12 @@ package grpc
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 func InternalError(ctx context.Context, err error) error {

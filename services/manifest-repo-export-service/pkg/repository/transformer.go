@@ -22,16 +22,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path"
 	"slices"
+	"sort"
 	"strconv"
+	"strings"
+	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/argocd"
-	"github.com/freiheit-com/kuberpult/pkg/types"
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	yaml3 "gopkg.in/yaml.v3"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -40,18 +46,9 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
-	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
-	yaml3 "gopkg.in/yaml.v3"
-
-	"os"
-	"sort"
-	"strings"
-
 	"github.com/freiheit-com/kuberpult/pkg/valid"
-
-	"time"
 )
 
 const (

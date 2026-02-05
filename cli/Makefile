@@ -39,3 +39,7 @@ build-main:
 lint:
 	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) $(MAKE) -C $(ROOT_DIR)/pkg gen
 	docker run --rm -w /kp/ -v $(shell pwd)/..:/kp/ $(BUILDER_IMAGE) sh -c 'cd cli && GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false ./...'
+
+lint-fix:
+	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) $(MAKE) -C $(ROOT_DIR)/pkg gen
+	docker run --rm -w /kp/ -v $(shell pwd)/..:/kp/ $(BUILDER_IMAGE) sh -c 'cd cli && GOFLAGS="-buildvcs=false" golangci-lint run --fix --timeout=15m -j4 --tests=false ./...'

@@ -25,10 +25,10 @@ import (
 	"strings"
 	"time"
 
-	xpath "github.com/freiheit-com/kuberpult/pkg/path"
-
 	"github.com/MicahParks/keyfunc/v2"
 	jwt "github.com/golang-jwt/jwt/v5"
+
+	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 )
 
 func JWKSInitAzureFromJson() (*keyfunc.JWKS, error) {

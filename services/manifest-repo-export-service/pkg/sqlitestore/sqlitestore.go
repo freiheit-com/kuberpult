@@ -23,6 +23,7 @@ package sqlitestore
 #include "sqlite.h"
 */
 import "C"
+
 import (
 	"fmt"
 	"unsafe"

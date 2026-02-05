@@ -20,9 +20,10 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 func handleGRPCError(ctx context.Context, w http.ResponseWriter, err error) {

@@ -26,11 +26,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/types"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 type DBEnvironment struct {

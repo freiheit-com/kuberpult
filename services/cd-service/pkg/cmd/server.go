@@ -27,31 +27,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/migrations"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
-
 	"github.com/DataDog/datadog-go/v5/statsd"
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 )
 
 const (
