@@ -198,7 +198,7 @@ func ReadEnvVarAsList(envName string, separator string) ([]string, error) {
 		return []string{}, nil
 	}
 
-	raws := strings.Split(envValue, ",")
+	raws := strings.Split(envValue, separator)
 	results := make([]string, 0)
 	for _, s := range raws {
 		trimmed := strings.TrimSpace(s)
