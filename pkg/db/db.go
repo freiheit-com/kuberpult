@@ -396,6 +396,8 @@ type EslEventRow struct {
 	Created    time.Time
 	EventType  EventType
 	EventJson  string
+	TraceId    uint64
+	SpanId     uint64
 }
 
 type EslFailedEventRow struct {
@@ -417,7 +419,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	if firstRow {
 		sort = "ASC"
 	}
-	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type , json FROM event_sourcing_light ORDER BY eslVersion %s LIMIT 1;", sort))
+	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json, trace_id, span_id FROM event_sourcing_light ORDER BY eslVersion %s LIMIT 1;", sort))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -431,9 +433,11 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		Created:    time.Unix(0, 0),
 		EventType:  "",
 		EventJson:  "",
+		TraceId:    0,
+		SpanId:     0,
 	}
 	if rows.Next() {
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -450,7 +454,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (_ *EslEventRow, err error) {
 	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf(`
-		SELECT eslVersion, created, event_type, json
+		SELECT eslVersion, created, event_type, json, trace_id, span_id
 		FROM event_sourcing_light
 		WHERE eslVersion > (?)
 		ORDER BY eslVersion %s
@@ -470,11 +474,13 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 		Created:    time.Unix(0, 0),
 		EventType:  "",
 		EventJson:  "",
+		TraceId:    0,
+		SpanId:     0,
 	}
 	if !rows.Next() {
 		row = nil
 	} else {
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -1775,11 +1781,11 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light ORDER BY eslVersion DESC LIMIT ?;")
+	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json, trace_id, span_id FROM event_sourcing_light ORDER BY eslVersion DESC LIMIT ?;")
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
-		return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
+		return nil, fmt.Errorf("could not read last events from DB. Error: %w", err)
 	}
 
 	defer closeRowsAndLog(rows, ctx, "DBReadLastEslEvents")
@@ -1791,8 +1797,10 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 			Created:    time.Unix(0, 0),
 			EventType:  "",
 			EventJson:  "",
+			TraceId:    0,
+			SpanId:     0,
 		}
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
 		if err != nil {
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 		}
