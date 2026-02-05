@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
-
 	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
 
