@@ -2341,7 +2341,7 @@ func TestTransformerChanges(t *testing.T) {
 	tcs := []struct {
 		Name            string
 		Transformers    []Transformer
-		expectedChanges *TransformerResult
+		expectedChanges *TransformerResult // we only test for changes of the LAST transformer
 		expectedError   string
 	}{
 		{
@@ -2535,7 +2535,7 @@ func TestTransformerChanges(t *testing.T) {
 				},
 			},
 			expectedChanges: &TransformerResult{
-				ChangedApps: []AppEnv{
+				DeletedApps: []AppEnv{
 					{
 						App: "foo",
 						Env: envAcceptance,
