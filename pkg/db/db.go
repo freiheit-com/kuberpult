@@ -323,7 +323,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("could not marshal combined json data: %w", err)
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type, json)  VALUES (?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type, json, trace_id, span_id)  VALUES (?, ?, ?, ?, ?);")
 
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -334,7 +334,9 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		insertQuery,
 		*now,
 		eventType,
-		jsonToInsert)
+		jsonToInsert,
+		span.Context().TraceID(),
+		span.Context().SpanID())
 
 	if err != nil {
 		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err)
