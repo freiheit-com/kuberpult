@@ -1,1 +1,7 @@
-../sqlite/1718277975909620_all_environments.up.sql
+CREATE TABLE IF NOT EXISTS all_environments
+(
+    created TIMESTAMP,
+    version BIGINT,
+    json VARCHAR(255),
+    PRIMARY KEY(version)
+);

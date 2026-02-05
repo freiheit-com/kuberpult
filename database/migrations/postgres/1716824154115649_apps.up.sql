@@ -1,1 +1,9 @@
-../sqlite/1716824154115649_apps.up.sql
+CREATE TABLE IF NOT EXISTS apps
+(
+    eslVersion INTEGER, -- internal ID for ESL
+    created TIMESTAMP,
+    appName VARCHAR,
+    stateChange VARCHAR,
+    metadata VARCHAR,
+    PRIMARY KEY(eslVersion, appName)
+);

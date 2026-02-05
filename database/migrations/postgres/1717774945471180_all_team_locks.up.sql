@@ -1,1 +1,9 @@
-../sqlite/1717774945471180_all_team_locks.up.sql
+CREATE TABLE IF NOT EXISTS all_team_locks
+(
+    version BIGINT,
+    created TIMESTAMP,
+    environment VARCHAR(255),
+    teamName     VARCHAR(255),
+    json VARCHAR,
+    PRIMARY KEY(version, environment, teamName)
+);
