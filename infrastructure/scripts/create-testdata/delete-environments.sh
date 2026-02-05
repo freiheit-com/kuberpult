@@ -10,6 +10,7 @@ cd "$(dirname "$0")"
 
 FRONTEND_PORT=8081 # see docker-compose.yml
 env=${1}
+
 curl  -f -X DELETE  \
     http://localhost:${FRONTEND_PORT}/api/environments/"${env}"
 
