@@ -1451,6 +1451,20 @@ func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction
 	return !hasEnv, nil
 }
 
+func (h *DBHandler) RunCustomMigrationCleanGitSyncStatus(ctx context.Context) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationCleanGitSyncStatus")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		return h.truncateGitSyncStatus(ctx, transaction)
+	})
+	if err != nil {
+		return fmt.Errorf("cleanup failed: %w", err)
+	}
+	return nil
+}
+
 func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Context) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationCleanOutdatedDeployments")
 	defer func() {

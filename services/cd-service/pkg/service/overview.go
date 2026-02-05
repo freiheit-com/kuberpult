@@ -237,7 +237,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
 					CiLink:       currentDeployment.Metadata.CiLink,
 					DeployAuthor: currentDeployment.Metadata.DeployedByName,
-					DeployTime:   currentDeployment.Created.String(),
+					DeployTime:   timestamppb.New(currentDeployment.Created),
 				},
 				Revision: currentDeployment.ReleaseNumbers.Revision,
 			}
