@@ -362,12 +362,8 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexSer
 		groupsCount = len(groupsStr)
 	}
 
-	if groupsCount == 0 {
-		return nil, fmt.Errorf("need required field 'groups' to verify token")
+	if groupsCount == 0 && email == "" {
+		return nil, fmt.Errorf("need required fields to determine group of user")
 	}
-	if email == "" {
-		return nil, fmt.Errorf("need required field 'email' to verify token")
-	}
-
 	return claims, nil
 }

@@ -290,27 +290,31 @@ func TestVerifyToken(t *testing.T) {
 			},
 		},
 		{
-			Name: "Fix Bug 2699: multiple groups with no email lead to no panic but an error",
+			Name: "Fix Bug 2699: multiple groups with no email lead to no panic",
 			claims: jwtV5.MapClaims{
 				jwt.AudienceKey: clientID,
 				jwt.IssuerKey:   appDex.IssuerURL,
 				"name":          "User",
 				"email":         "",
 				"groups":        []string{"Developer", "Hero of Time"}},
-			WantErr: errMatcher{
-				msg: "need required field 'email' to verify token",
+			wantClaim: jwtV5.MapClaims{
+				"email":  "",
+				"name":   "User",
+				"groups": []any{"Developer", "Hero of Time"},
 			},
 		},
 		{
-			Name: "Fix Bug 2699 (part2): with no email but a groups leads to error",
+			Name: "Fix Bug 2699 (part2): with no email but a groups leads to no error",
 			claims: jwtV5.MapClaims{
 				jwt.AudienceKey: clientID,
 				jwt.IssuerKey:   appDex.IssuerURL,
 				"name":          "User",
 				"email":         "",
 				"groups":        []string{"group1"}},
-			WantErr: errMatcher{
-				msg: "need required field 'email' to verify token",
+			wantClaim: jwtV5.MapClaims{
+				"email":  "",
+				"name":   "User",
+				"groups": []any{"group1"},
 			},
 		},
 		{
@@ -320,7 +324,7 @@ func TestVerifyToken(t *testing.T) {
 				jwt.IssuerKey:   appDex.IssuerURL,
 				"name":          ""},
 			WantErr: errMatcher{
-				msg: "need required field 'groups' to verify token",
+				msg: "need required fields to determine group of user",
 			},
 		},
 	}
