@@ -311,6 +311,17 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		span.Finish(tracer.WithError(err))
 	}()
 
+	carrier := make(map[string]string)
+	err = tracer.Inject(span.Context(), carrier)
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("Unable to serialize trace context into carrier map: %v", err)
+	}
+	jsonTraceContext, err := json.Marshal(carrier)
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Warnf("Unable to serialize trace context into json: %v", err)
+		jsonTraceContext = []byte("{}") // Store empty JSON on failure
+	}
+
 	dataMap, err := convertObjectToMap(data)
 
 	if err != nil {
@@ -326,7 +337,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("could not marshal combined json data: %w", err)
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type, json)  VALUES (?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type, json, ddspan)  VALUES (?, ?, ?, ?);")
 
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -337,7 +348,8 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		insertQuery,
 		*now,
 		eventType,
-		jsonToInsert)
+		jsonToInsert,
+		jsonTraceContext)
 
 	if err != nil {
 		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err)
