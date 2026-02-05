@@ -61,52 +61,59 @@ const (
 )
 
 type Config struct {
-	GitUrl                   string
-	GitBranch                string
-	GitNetworkTimeout        time.Duration
-	GitWriteCommitData       bool
-	DexEnabled               bool
-	DexRbacPolicyPath        string
-	DexRbacTeamPath          string
-	EnableTracing            bool
-	EnableMetrics            bool
-	DogstatsdAddr            string
-	EnableProfiling          bool
-	DatadogApiKeyLocation    string
-	EnableSqlite             bool
-	DexMock                  bool
-	DexMockRole              string
-	GitMaximumCommitsPerPush uint
-	MaximumQueueSize         uint
-	AllowLongAppNames        bool
-	ArgoCdGenerateFiles      bool
-	MaxNumberOfThreads       uint
+	DexMock               bool
+	DexEnabled            bool
+	DexMockRole           string
+	DexRbacPolicyPath     string
+	DexRbacTeamPath       string
+	DexDefaultRoleEnabled bool
 
-	DbOption             string
-	DbLocation           string
+	EnableProfiling       bool
+	EnableTracing         bool
+	EnableMetrics         bool
+	DogstatsdAddr         string
+	DatadogApiKeyLocation string
+
+	DbOption        string
+	DbLocation      string
+	DbAuthProxyPort string
+
 	DbName               string
 	DbUserName           string
 	DbUserPassword       string
-	DbAuthProxyPort      string
 	DbMigrationsLocation string
 	DbWriteEslTableOnly  bool
+	DbSslMode            string
+
 	DbMaxIdleConnections uint
 	DbMaxOpenConnections uint
 
-	DexDefaultRoleEnabled bool
-	CheckCustomMigrations bool
-	ReleaseVersionsLimit  uint
-	DbSslMode             string
-	MinorRegexes          string
-	AllowedDomains        []string
+	AllowLongAppNames   bool
+	ArgoCdGenerateFiles bool
+	AllowedDomains      []string
+
+	GitUrl             string
+	GitBranch          string
+	GitWriteCommitData bool
+
+	GitNetworkTimeout        time.Duration
+	GitMaximumCommitsPerPush uint
+	ReleaseVersionsLimit     uint
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
+	CheckCustomMigrations bool
 	MigrationServer       string
 	MigrationServerSecure bool
-	GrpcMaxRecvMsgSize    int
 
 	Version  string
 	LockType string
+
+	GrpcMaxRecvMsgSize int
+	MaxNumberOfThreads uint
+	MaximumQueueSize   uint
+
+	EnableSqlite bool
+	MinorRegexes string
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -119,9 +126,6 @@ func (c *Config) storageBackend() repository.StorageBackend {
 
 func parseEnvVars() (_ *Config, err error) {
 	var c = Config{}
-	c.EnableProfiling = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_PROFILING", false)
-	c.DatadogApiKeyLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DATADOG_API_KEY_LOCATION", "")
-
 	c.DexMock = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_MOCK", false)
 	c.DexEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_ENABLED", false)
 	c.DexMockRole = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_MOCK_ROLE", "Developer")
@@ -129,9 +133,11 @@ func parseEnvVars() (_ *Config, err error) {
 	c.DexRbacTeamPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_TEAM_PATH", "")
 	c.DexDefaultRoleEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_DEFAULT_ROLE_ENABLED", false)
 
+	c.EnableProfiling = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_PROFILING", false)
 	c.EnableTracing = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_TRACING", false)
 	c.EnableMetrics = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_METRICS", false)
 	c.DogstatsdAddr = valid.ReadEnvVarWithDefault("KUBERPULT_DOGSTATSD_ADDR", "127.0.0.1:8125")
+	c.DatadogApiKeyLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DATADOG_API_KEY_LOCATION", "")
 
 	c.DbOption = valid.ReadEnvVarWithDefault("KUBERPULT_DB_OPTION", "NO_DB")
 	c.DbLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_LOCATION", "/kp/database")
@@ -152,9 +158,6 @@ func parseEnvVars() (_ *Config, err error) {
 		return nil, err
 	}
 
-	c.GitUrl = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_URL", "")
-	c.GitBranch = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_BRANCH", "master")
-	c.GitWriteCommitData = valid.ReadEnvVarBoolWithDefault("KUBERPULT_GIT_WRITE_COMMIT_DATA", false)
 	c.AllowLongAppNames = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ALLOW_LONG_APP_NAMES", false)
 	c.ArgoCdGenerateFiles = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ARGO_CD_GENERATE_FILES", true)
 	c.AllowedDomains, err = valid.ReadEnvVarAsList("KUBERPULT_ALLOWED_DOMAINS", ",")
@@ -166,6 +169,10 @@ func parseEnvVars() (_ *Config, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	c.GitUrl = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_URL", "")
+	c.GitBranch = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_BRANCH", "master")
+	c.GitWriteCommitData = valid.ReadEnvVarBoolWithDefault("KUBERPULT_GIT_WRITE_COMMIT_DATA", false)
 	c.GitNetworkTimeout, err = valid.ReadEnvVarDurationWithDefault("KUBERPULT_GIT_NETWORK_TIMEOUT", time.Minute)
 	if err != nil {
 		return nil, err
@@ -174,19 +181,12 @@ func parseEnvVars() (_ *Config, err error) {
 	if err != nil {
 		return nil, err
 	}
-	c.MaximumQueueSize, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAXIMUM_QUEUE_SIZE", 5)
-	if err != nil {
-		return nil, err
-	}
 	c.ReleaseVersionsLimit, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_RELEASE_VERSIONS_LIMIT", 20)
 	if err != nil {
 		return nil, err
 	}
 
-	c.GrpcMaxRecvMsgSize, err = valid.ReadEnvVarInt("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE")
-	if err != nil {
-		return nil, err
-	}
+	c.CheckCustomMigrations = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CHECK_CUSTOM_MIGRATIONS", false)
 	c.MigrationServer, err = valid.ReadEnvVar("KUBERPULT_MIGRATION_SERVER")
 	if err != nil {
 		return nil, err
@@ -200,12 +200,22 @@ func parseEnvVars() (_ *Config, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	c.LockType, err = valid.ReadEnvVar("KUBERPULT_LOCK_TYPE")
 	if err != nil {
 		return nil, err
 	}
 
-	c.CheckCustomMigrations = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CHECK_CUSTOM_MIGRATIONS", false)
+	c.GrpcMaxRecvMsgSize, err = valid.ReadEnvVarInt("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE")
+	if err != nil {
+		return nil, err
+	}
+
+	c.MaximumQueueSize, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAXIMUM_QUEUE_SIZE", 5)
+	if err != nil {
+		return nil, err
+	}
+
 	c.EnableSqlite = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_SQLITE", true)
 	c.MinorRegexes = valid.ReadEnvVarWithDefault("KUBERPULT_MINOR_REGEXES", "")
 
