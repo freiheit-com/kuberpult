@@ -19,3 +19,14 @@ issues:
 output:
   format: tab # This is where you set the output format to 'tab'
   sort-results: true # Equivalent to --sort-results
+formatters:
+  enable:
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard # Standard packages.
+        - default # Imports that are not standard and not current project.
+        - prefix(github.com/freiheit-com/kuberpult) # Your local packages.
+      section-separators:
+        - newLine # Ensures a newline between the sections above.

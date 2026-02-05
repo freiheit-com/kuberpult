@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"go.uber.org/zap"
+	json "google.golang.org/protobuf/encoding/protojson"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
-	"go.uber.org/zap"
-	json "google.golang.org/protobuf/encoding/protojson"
 )
 
 func (s Server) handleCommitDeployments(ctx context.Context, w http.ResponseWriter, r *http.Request, tail string) {

@@ -20,9 +20,10 @@ import (
 	"context"
 	"database/sql"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type EslServiceServer struct {

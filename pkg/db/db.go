@@ -27,24 +27,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/lib/pq"
-
-	"github.com/freiheit-com/kuberpult/pkg/valid"
-
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/onokonem/sillyQueueServer/timeuuid"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
-	config "github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
 	psql "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-
+	"github.com/lib/pq"
+	"github.com/onokonem/sillyQueueServer/timeuuid"
 	ddsql "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	config "github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 )
 
 type DBConfig struct {

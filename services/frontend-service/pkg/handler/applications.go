@@ -22,11 +22,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 func (s Server) handleApplications(w http.ResponseWriter, req *http.Request, environment, tail string) {

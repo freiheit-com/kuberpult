@@ -25,10 +25,8 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
-
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 type DeploymentMap map[types.AppName]db.Deployment

@@ -19,9 +19,8 @@ package types
 import (
 	"cmp"
 	"fmt"
-	"strconv"
-
 	"sort"
+	"strconv"
 	"strings"
 )
 

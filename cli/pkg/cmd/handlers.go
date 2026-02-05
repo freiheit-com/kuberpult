@@ -19,19 +19,19 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	sorting2 "github.com/freiheit-com/kuberpult/cli/pkg/sorting"
-	"github.com/google/go-cmp/cmp"
 	"log"
 	"os"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 	"github.com/freiheit-com/kuberpult/cli/pkg/deployments"
 	"github.com/freiheit-com/kuberpult/cli/pkg/environments"
-	"github.com/freiheit-com/kuberpult/cli/pkg/locks"
-	"github.com/freiheit-com/kuberpult/cli/pkg/releasetrain"
-
 	kutil "github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
+	"github.com/freiheit-com/kuberpult/cli/pkg/locks"
 	rl "github.com/freiheit-com/kuberpult/cli/pkg/release"
+	"github.com/freiheit-com/kuberpult/cli/pkg/releasetrain"
+	sorting2 "github.com/freiheit-com/kuberpult/cli/pkg/sorting"
 )
 
 func handleRelease(kpClientParams kuberpultClientParameters, args []string) ReturnCode {

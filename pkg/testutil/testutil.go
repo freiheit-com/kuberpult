@@ -19,20 +19,20 @@ package testutil
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
-	"google.golang.org/grpc/metadata"
 )
 
 func MakeTestContext() context.Context {

@@ -34,6 +34,21 @@ function createMatrix() {
     debug "Building only what's required, because of ${makeTarget} parameter (pull-request build)."
   fi
 
+  # if we have golang-ci or makefile changes, then build all go services
+  grepOutput=$(echo "${ALL_FILES}" | grep -e '^.golangci.yml' -e 'include.mk' -e 'Makefile')
+  # shellcheck disable=SC2181
+  if [ "$?" -eq 0 ]
+  then
+    debug "linter/make was touched, therefore we need to build all of stage B as well."
+    for stageB in $STAGE_B_BUILDS
+    do
+      ALL_FILES=$(echo -e "${ALL_FILES}\n${stageB}\n")
+    done
+  else
+    debug "linter/make untouched, no need to build all of stage B"
+  fi
+  debug "grep for linter/make: ${grepOutput}"
+
   # if we have pkg, then build all go services
   grepOutput=$(echo "${ALL_FILES}" | grep '^pkg')
   # shellcheck disable=SC2181

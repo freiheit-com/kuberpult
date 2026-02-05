@@ -25,19 +25,19 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
-
 	"github.com/argoproj/argo-cd/v2/util/grpc"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"k8s.io/utils/lru"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"k8s.io/utils/lru"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 )
 
 // This is a the user that the rollout service uses to query the versions.

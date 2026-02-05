@@ -19,17 +19,16 @@ package handler
 import (
 	"bytes"
 	"fmt"
-
-	xpath "github.com/freiheit-com/kuberpult/pkg/path"
-	"github.com/gogo/protobuf/jsonpb"
-
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
+	"github.com/gogo/protobuf/jsonpb"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 )
 
 const (
