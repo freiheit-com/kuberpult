@@ -243,7 +243,7 @@ describe('Release Dialog', () => {
                                 deploymentMetaData: {
                                     ciLink: 'www.somewebsite.com',
                                     deployAuthor: 'somebody',
-                                    deployTime: 'sometime',
+                                    deployTime: new Date(Date.now()),
                                 },
                             },
                         },
@@ -349,7 +349,7 @@ describe('Release Dialog', () => {
                                 deploymentMetaData: {
                                     ciLink: 'www.somewebsite.com',
                                     deployAuthor: 'somebody',
-                                    deployTime: 'sometime',
+                                    deployTime: new Date(Date.now()),
                                 },
                             },
                         },
@@ -494,7 +494,7 @@ describe('Release Dialog', () => {
                                 deploymentMetaData: {
                                     ciLink: 'www.somewebsite.com',
                                     deployAuthor: 'somebody',
-                                    deployTime: 'sometime',
+                                    deployTime: new Date(Date.now()),
                                 },
                             },
                             dev: {
@@ -505,7 +505,7 @@ describe('Release Dialog', () => {
                                 deploymentMetaData: {
                                     ciLink: 'www.somewebsite.com',
                                     deployAuthor: 'somebody',
-                                    deployTime: 'sometime',
+                                    deployTime: new Date(Date.now()),
                                 },
                             },
                         },
@@ -635,7 +635,7 @@ describe('Release Dialog', () => {
                                 deploymentMetaData: {
                                     ciLink: 'www.somewebsite.com',
                                     deployAuthor: 'somebody',
-                                    deployTime: 'sometime',
+                                    deployTime: new Date(Date.now()),
                                 },
                             },
                         },
@@ -915,7 +915,7 @@ describe('Release Dialog CI Links', () => {
                                 deploymentMetaData: {
                                     ciLink: 'www.somewebsite.com',
                                     deployAuthor: 'somebody',
-                                    deployTime: 'sometime',
+                                    deployTime: new Date(Date.now()),
                                 },
                             },
                         },
@@ -1075,7 +1075,7 @@ describe('Rollout Status for AA environments', () => {
                                 deploymentMetaData: {
                                     ciLink: 'www.somewebsite.com',
                                     deployAuthor: 'somebody',
-                                    deployTime: 'sometime',
+                                    deployTime: new Date(Date.now()),
                                 },
                             },
                             dev: {
@@ -1086,7 +1086,7 @@ describe('Rollout Status for AA environments', () => {
                                 deploymentMetaData: {
                                     ciLink: 'www.somewebsite.com',
                                     deployAuthor: 'somebody',
-                                    deployTime: 'sometime',
+                                    deployTime: new Date(Date.now()),
                                 },
                             },
                         },
