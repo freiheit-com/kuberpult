@@ -48,6 +48,5 @@ Some endpoints like /api/environments/"${env}" require a signature (depending on
 2) Configure to use that keyring in frontend-service:
 In docker-compose.yml, add `KUBERPULT_PGP_KEY_RING_PATH=/kp/kuberpult/pgpRing-local-public.pgp`
 
-
 3) Generate the signature:
 `echo -n 'fakeprod-ca' | gpg --local-user GPG_USER_EMAIL --detach --sign --armor  > ./fakeprod-ca.yaml.sig`
