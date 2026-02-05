@@ -22,12 +22,23 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
 	"net/url"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	"github.com/kelseyhightower/envconfig"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/types/known/emptypb"
+	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -39,17 +50,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/revolution"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	"github.com/kelseyhightower/envconfig"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/reflection"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
-	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 )
 
 type contextKey string

@@ -23,8 +23,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, error) {

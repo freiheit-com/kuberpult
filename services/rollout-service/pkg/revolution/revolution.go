@@ -29,13 +29,13 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 )
 
 type Config struct {

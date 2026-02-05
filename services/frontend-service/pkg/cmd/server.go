@@ -28,25 +28,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/valid"
-
-	"github.com/freiheit-com/kuberpult/pkg/publicapi"
-
-	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
-
-	"github.com/ProtonMail/go-crypto/openpgp"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
-
 	"github.com/MicahParks/keyfunc/v2"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
-
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
+	"github.com/ProtonMail/go-crypto/openpgp"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"go.uber.org/zap"
@@ -59,6 +42,19 @@ import (
 	"google.golang.org/grpc/status"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/publicapi"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 )
 
 const megaBytes int = 1024 * 1024

@@ -43,6 +43,9 @@ bench-test:
 lint:
 	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false $(SERVICE_DIR)/...'
 
+lint-fix:
+	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --fix --timeout=15m -j4 --tests=false $(SERVICE_DIR)/...'
+
 .PHONY: docker
 # Note that the docker target should be standalone - everything necessary to build the docker image must happen in the Dockerfile, not in make.
 docker: # no dependencies here!

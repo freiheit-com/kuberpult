@@ -21,20 +21,21 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
 
 const ARGO_APP_ENVIRONMENT_TAG = "com.freiheit.kuberpult/environment"

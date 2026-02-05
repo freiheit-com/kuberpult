@@ -17,8 +17,9 @@ Copyright freiheit.com*/
 package repository
 
 import (
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"google.golang.org/protobuf/proto"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
 type CreateReleaseError struct {

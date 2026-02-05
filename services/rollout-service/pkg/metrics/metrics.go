@@ -19,15 +19,16 @@ package metrics
 import (
 	"context"
 	"fmt"
-	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
 	"math"
 	"sync"
 	"time"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 )
 
 func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.MeterProvider, clock func() time.Time, done func()) error {

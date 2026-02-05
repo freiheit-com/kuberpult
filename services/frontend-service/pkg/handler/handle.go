@@ -25,13 +25,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/freiheit-com/kuberpult/pkg/publicapi"
-
 	"github.com/ProtonMail/go-crypto/openpgp"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
+	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 )
 

@@ -21,15 +21,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	"strconv"
 	"strings"
 	"time"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
@@ -39,7 +33,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 type reposerver struct {

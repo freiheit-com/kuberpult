@@ -29,33 +29,27 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp"
-
-	config "github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/mapper"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/metrics"
-
-	"github.com/freiheit-com/kuberpult/pkg/uuid"
-
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
-
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-
+	"github.com/google/go-cmp/cmp"
+	"github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
+	diffspan "github.com/hexops/gotextdiff/span"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/hexops/gotextdiff"
-	"github.com/hexops/gotextdiff/myers"
-	diffspan "github.com/hexops/gotextdiff/span"
+	config "github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/pkg/metrics"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/pkg/uuid"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 )
 
 const (

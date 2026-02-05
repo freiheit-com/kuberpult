@@ -19,19 +19,18 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"sync"
 	"time"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/conversion"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
 
 type Key struct {
