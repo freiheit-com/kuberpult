@@ -39,11 +39,18 @@ type AppData struct {
 	TeamName string
 }
 
+type ArgoProjectNamesPerEnv map[types.EnvName]types.ArgoProjectName
+type AllArgoProjectNameOverrides struct {
+	Environments             ArgoProjectNamesPerEnv
+	ActiveActiveEnvironments ArgoProjectNamesPerEnv
+}
+
 type EnvironmentInfo struct {
-	ArgoCDConfig          *config.EnvironmentConfigArgoCd
-	CommonPrefix          string
-	ParentEnvironmentName types.EnvName
-	IsAAEnv               bool
+	ArgoCDConfig            *config.EnvironmentConfigArgoCd
+	CommonPrefix            string
+	ParentEnvironmentName   types.EnvName
+	IsAAEnv                 bool
+	ArgoProjectNameOverride types.ArgoProjectName
 }
 
 func (e *EnvironmentInfo) GetFullyQualifiedName() string {
@@ -113,13 +120,18 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, info *EnvironmentInfo, apps
 	}
 	appProjectDestination.Namespace = appProjectNs
 
+	argoProjectName := (types.ArgoProjectName)(info.GetFullyQualifiedName())
+	if info.ArgoProjectNameOverride != "" {
+		argoProjectName = info.ArgoProjectNameOverride
+	}
+
 	project := v1alpha1.AppProject{
 		TypeMeta: v1alpha1.AppProjectTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
 			Annotations: nil,
 			Labels:      nil,
 			Finalizers:  nil,
-			Name:        info.GetFullyQualifiedName(),
+			Name:        string(argoProjectName),
 		},
 		Spec: v1alpha1.AppProjectSpec{
 			Description:              info.GetFullyQualifiedName(),

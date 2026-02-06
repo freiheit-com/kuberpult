@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package valid
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/mail"
 	"os"
@@ -207,4 +208,19 @@ func ReadEnvVarAsList(envName string, separator string) ([]string, error) {
 		}
 	}
 	return results, nil
+}
+
+type StringMap map[string]string
+
+func ReadEnvVarJsonMap(envName string) (StringMap, error) {
+	envValue, err := ReadEnvVar(envName)
+	if err != nil {
+		return nil, err
+	}
+	var resultJson = StringMap{}
+	err = json.Unmarshal(([]byte)(envValue), &resultJson)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read env var '%s', not a valid string-map", envName)
+	}
+	return resultJson, nil
 }

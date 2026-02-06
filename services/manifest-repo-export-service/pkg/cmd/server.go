@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -229,6 +230,24 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
+	experimentalRolloutWithManifest := valid.ReadEnvVarBoolWithDefault("KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED", false)
+	allArgoProjectNames := argocd.AllArgoProjectNameOverrides{}
+	rawStringMapEnvironments := valid.StringMap{}
+	rawStringMapAAEnvironments := valid.StringMap{}
+	if experimentalRolloutWithManifest {
+		logger.FromContext(ctx).Warn("experimental feature KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED enabled")
+
+		rawStringMapEnvironments, err = valid.ReadEnvVarJsonMap("KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENVIRONMENTS")
+		if err != nil {
+			return err
+		}
+		rawStringMapAAEnvironments, err = valid.ReadEnvVarJsonMap("KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_AA_ENVIRONMENTS")
+		if err != nil {
+			return err
+		}
+
+	}
+
 	var dbCfg db.DBConfig
 	if dbOption == "postgreSQL" {
 		dbCfg = db.DBConfig{
@@ -263,6 +282,17 @@ func Run(ctx context.Context) error {
 		}
 	}
 
+	dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		dbEnvNames, err := dbHandler.DBSelectAllEnvironments(ctx, transaction)
+		if err != nil {
+			return err
+		}
+		allArgoProjectNames.ActiveActiveEnvironments = parseEnvironmentOverrides(ctx, rawStringMapAAEnvironments, dbEnvNames)
+		allArgoProjectNames.Environments = parseEnvironmentOverrides(ctx, rawStringMapEnvironments, dbEnvNames)
+
+		return nil
+	})
+
 	cfg := repository.RepositoryConfig{
 		URL:            gitUrl,
 		Path:           "./repository",
@@ -284,6 +314,8 @@ func Run(ctx context.Context) error {
 		DBHandler: dbHandler,
 
 		DDMetrics: ddMetrics,
+
+		ArgoProjectNames: allArgoProjectNames,
 	}
 	repo, err := repository.New(ctx, cfg)
 	if err != nil {
@@ -381,6 +413,28 @@ func Run(ctx context.Context) error {
 		},
 	})
 	return nil
+}
+
+func parseEnvironmentOverrides(ctx context.Context, environments valid.StringMap, existingEnvsInDb []types.EnvName) argocd.ArgoProjectNamesPerEnv {
+	// temporarily put envs into a map for easier access:
+	existingEnvsMap := map[types.EnvName]struct{}{}
+	for _, e := range existingEnvsInDb {
+		existingEnvsMap[e] = struct{}{}
+	}
+
+	// check that all envs exist:
+	result := argocd.ArgoProjectNamesPerEnv{}
+	for environment := range environments {
+		_, exists := existingEnvsMap[types.EnvName(environment)]
+		if !exists {
+			logger.FromContext(ctx).Warn("overridden environment does not exist",
+				zap.String("env", environment),
+				zap.String("helm-parameter", "manifestRepoExport.experimentalRolloutWithManifest"),
+				zap.String("experimental", "will continue anyway, because this feature is experimental"),
+			)
+		}
+	}
+	return result
 }
 
 func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {

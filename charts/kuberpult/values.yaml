@@ -241,6 +241,16 @@ manifestRepoExport:
   # 
   # Consider setting `dogstatsdMetrics.enabled:true`, then the failings of git push operations are measured in the metric "manifest_export_tag_push_failures".
   failOnErrorWithGitPushTags: true
+  # Allows to run the rollout service and the manifest service at the same time.
+  # This is only useful if you are migrating from the rollout-service(which is deprecated) to the manifest-repo-export-service.
+  experimentalRolloutWithManifest:
+    enabled: false
+    argoProjectNames:
+      # Here you can overwrite the argoCd project name per environment
+      environments:
+        # key: name of kuberpult environment
+      aaEnvironments:
+        # key: name of kuberpult active/active environment in the format $commonPrefix + "-" + $parentEnvironment + "-" + $concreteEnvName
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.
