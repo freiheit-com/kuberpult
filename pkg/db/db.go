@@ -396,8 +396,8 @@ type EslEventRow struct {
 	Created    time.Time
 	EventType  EventType
 	EventJson  string
-	TraceId    uint64
-	SpanId     uint64
+	TraceId    *uint64
+	SpanId     *uint64
 }
 
 type EslFailedEventRow struct {
@@ -428,13 +428,15 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBReadEslEventInternal")
+	zeroTrace := uint64(0)
+	zeroSpan := uint64(0)
 	var row = &EslEventRow{
 		EslVersion: 0,
 		Created:    time.Unix(0, 0),
 		EventType:  "",
 		EventJson:  "",
-		TraceId:    0,
-		SpanId:     0,
+		TraceId:    &zeroTrace,
+		SpanId:     &zeroSpan,
 	}
 	if rows.Next() {
 		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
@@ -469,13 +471,15 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBReadEslEventLaterThan")
+	zeroTrace := uint64(0)
+	zeroSpan := uint64(0)
 	var row = &EslEventRow{
 		EslVersion: 0,
 		Created:    time.Unix(0, 0),
 		EventType:  "",
 		EventJson:  "",
-		TraceId:    0,
-		SpanId:     0,
+		TraceId:    &zeroTrace,
+		SpanId:     &zeroSpan,
 	}
 	if !rows.Next() {
 		row = nil
@@ -1792,13 +1796,15 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 	failedEsls := make([]*EslEventRow, 0)
 
 	for rows.Next() {
+		zeroTrace := uint64(0)
+		zeroSpan := uint64(0)
 		row := &EslEventRow{
 			EslVersion: 0,
 			Created:    time.Unix(0, 0),
 			EventType:  "",
 			EventJson:  "",
-			TraceId:    0,
-			SpanId:     0,
+			TraceId:    &zeroTrace,
+			SpanId:     &zeroSpan,
 		}
 		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
 		if err != nil {
