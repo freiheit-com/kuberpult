@@ -575,6 +575,7 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 		<-ch
 		o.update(o.Repository.State())
 		go func() {
+			defer logger.LogPanics(o.Context)
 			defer unsub()
 			for {
 				select {
@@ -598,6 +599,7 @@ func (o *OverviewServiceServer) subscribeChangedApps() (<-chan notify.ChangedApp
 		// This means, we have to wait here until the changedApps are loaded for the first time.
 		<-ch
 		go func() {
+			defer logger.LogPanics(o.Context)
 			defer unsub()
 			for {
 				select {
