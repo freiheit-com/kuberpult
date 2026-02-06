@@ -294,6 +294,20 @@ func RunServer() {
 			unaryUserContextInterceptor,
 		}
 
+		// handle panics for gRPC server
+		grpcStreamInterceptors = append(grpcStreamInterceptors,
+			func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+				defer logger.LogPanics(ss.Context())
+				return handler(srv, ss)
+			},
+		)
+		grpcUnaryInterceptors = append(grpcUnaryInterceptors,
+			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+				defer logger.LogPanics(ctx)
+				return handler(ctx, req)
+			},
+		)
+
 		if c.EnableTracing {
 			tracer.Start()
 			defer tracer.Stop()
@@ -487,6 +501,7 @@ func RunServer() {
 						if c.EnableTracing {
 							handler = httptrace.WrapHandler(handler, datadogNameCd, "/")
 						}
+
 						mux.Handle("/", handler)
 					},
 				},
