@@ -8,6 +8,19 @@ on:
         description: "omit the starting 'v'"
 
 jobs:
+  execution-plan:
+    uses: ./.github/workflows/execution-plan-snippet.yml
+    with:
+      trigger: main
+    secrets: inherit
+
+#  integration-tests:
+#    needs: [execution-plan]
+#    uses: ./.github/workflows/integration-tests.yml
+#    with:
+#      trigger: main
+#    secrets: inherit
+
   release:
     name: Release kuberpult with semantic versioning
     runs-on: ubuntu-latest
