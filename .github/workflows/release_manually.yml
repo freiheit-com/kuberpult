@@ -22,6 +22,7 @@ jobs:
 #    secrets: inherit
 
   release:
+    needs: [ execution-plan ]
     name: Release kuberpult with semantic versioning
     runs-on: ubuntu-latest
     steps:
