@@ -125,6 +125,7 @@ func (c *Config) storageBackend() repository.StorageBackend {
 
 func RunServer() {
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
+		defer logger.LogPanics(ctx)
 
 		var c Config
 

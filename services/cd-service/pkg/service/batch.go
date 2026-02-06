@@ -475,6 +475,8 @@ func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (_ *api.BatchResponse, err error) {
+	defer logger.LogPanics(ctx)
+
 	parentSpan, parentSpanExisted := tracer.SpanFromContext(ctx)
 	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessBatch")
 	defer func() {
