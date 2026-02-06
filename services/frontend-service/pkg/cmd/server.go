@@ -194,6 +194,7 @@ func parseEnvVars() (*config.ServerConfig, error) {
 }
 
 func runServer(ctx context.Context) error {
+	defer logger.LogPanics(ctx)
 	var err error
 	var c *config.ServerConfig
 
