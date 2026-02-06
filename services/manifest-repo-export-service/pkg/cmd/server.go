@@ -699,8 +699,13 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	if err != nil {
 		return nil, err
 	}
-	links := []ddtrace.SpanLink{{TraceID: esl.TraceId, SpanID: esl.SpanId}}
-	span, ctx := tracer.StartSpanFromContext(ctx, "processEslEvent", tracer.WithSpanLinks(links))
+	var span tracer.Span
+	if esl.TraceId != nil && esl.SpanId != nil {
+		links := []ddtrace.SpanLink{{TraceID: *esl.TraceId, SpanID: *esl.SpanId}}
+		span, ctx = tracer.StartSpanFromContext(ctx, "processEslEvent", tracer.WithSpanLinks(links))
+	} else {
+		span, ctx = tracer.StartSpanFromContext(ctx, "processEslEvent")
+	}
 	defer span.Finish()
 	t.SetEslVersion(db.TransformerID(esl.EslVersion))
 	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
