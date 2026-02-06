@@ -28,8 +28,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	"github.com/kelseyhightower/envconfig"
+	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -47,6 +46,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
@@ -61,58 +61,59 @@ const (
 )
 
 type Config struct {
-	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl                   string        `split_words:"true"`
-	GitBranch                string        `default:"master" split_words:"true"`
-	GitNetworkTimeout        time.Duration `default:"1m" split_words:"true"`
-	GitWriteCommitData       bool          `default:"false" split_words:"true"`
-	PgpKeyRingPath           string        `split_words:"true"`
-	AzureEnableAuth          bool          `default:"false" split_words:"true"`
-	DexEnabled               bool          `default:"false" split_words:"true"`
-	DexRbacPolicyPath        string        `split_words:"true"`
-	DexRbacTeamPath          string        `split_words:"true"`
-	EnableTracing            bool          `default:"false" split_words:"true"`
-	EnableMetrics            bool          `default:"false" split_words:"true"`
-	EnableEvents             bool          `default:"false" split_words:"true"`
-	DogstatsdAddr            string        `default:"127.0.0.1:8125" split_words:"true"`
-	EnableProfiling          bool          `default:"false" split_words:"true"`
-	DatadogApiKeyLocation    string        `default:"" split_words:"true"`
-	EnableSqlite             bool          `default:"true" split_words:"true"`
-	DexMock                  bool          `default:"false" split_words:"true"`
-	DexMockRole              string        `default:"Developer" split_words:"true"`
-	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
-	MaximumQueueSize         uint          `default:"5" split_words:"true"`
-	AllowLongAppNames        bool          `default:"false" split_words:"true"`
-	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
-	MaxNumberOfThreads       uint          `default:"3" split_words:"true"`
+	DexMock               bool
+	DexEnabled            bool
+	DexMockRole           string
+	DexRbacPolicyPath     string
+	DexRbacTeamPath       string
+	DexDefaultRoleEnabled bool
 
-	DbOption             string `default:"NO_DB" split_words:"true"`
-	DbLocation           string `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance   string `default:"" split_words:"true"`
-	DbName               string `default:"" split_words:"true"`
-	DbUserName           string `default:"" split_words:"true"`
-	DbUserPassword       string `default:"" split_words:"true"`
-	DbAuthProxyPort      string `default:"5432" split_words:"true"`
-	DbMigrationsLocation string `default:"" split_words:"true"`
-	DbWriteEslTableOnly  bool   `default:"false" split_words:"true"`
-	DbMaxIdleConnections uint   `required:"true" split_words:"true"`
-	DbMaxOpenConnections uint   `required:"true" split_words:"true"`
+	EnableProfiling       bool
+	EnableTracing         bool
+	EnableMetrics         bool
+	DogstatsdAddr         string
+	DatadogApiKeyLocation string
 
-	DexDefaultRoleEnabled bool     `default:"false" split_words:"true"`
-	CheckCustomMigrations bool     `default:"false" split_words:"true"`
-	ReleaseVersionsLimit  uint     `default:"20" split_words:"true"`
-	DbSslMode             string   `default:"verify-full" split_words:"true"`
-	MinorRegexes          string   `default:"" split_words:"true"`
-	AllowedDomains        []string `split_words:"true"`
-	CacheTtlHours         uint     `default:"24" split_words:"true"`
+	DbOption        string
+	DbLocation      string
+	DbAuthProxyPort string
+
+	DbName               string
+	DbUserName           string
+	DbUserPassword       string
+	DbMigrationsLocation string
+	DbWriteEslTableOnly  bool
+	DbSslMode            string
+
+	DbMaxIdleConnections uint
+	DbMaxOpenConnections uint
+
+	AllowLongAppNames   bool
+	ArgoCdGenerateFiles bool
+	AllowedDomains      []string
+
+	GitUrl             string
+	GitBranch          string
+	GitWriteCommitData bool
+
+	GitNetworkTimeout        time.Duration
+	GitMaximumCommitsPerPush uint
+	ReleaseVersionsLimit     uint
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
-	MigrationServer       string `required:"false" split_words:"true"`
-	MigrationServerSecure bool   `required:"true" split_words:"true"`
-	GrpcMaxRecvMsgSize    int    `required:"true" split_words:"true"`
+	CheckCustomMigrations bool
+	MigrationServer       string
+	MigrationServerSecure bool
 
-	Version  string `required:"true" split_words:"true"`
-	LockType string `required:"true" split_words:"true"`
+	Version  string
+	LockType string
+
+	GrpcMaxRecvMsgSize int
+	MaxNumberOfThreads uint
+	MaximumQueueSize   uint
+
+	EnableSqlite bool
+	MinorRegexes string
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -123,16 +124,113 @@ func (c *Config) storageBackend() repository.StorageBackend {
 	}
 }
 
+func parseEnvVars() (_ *Config, err error) {
+	var c = Config{}
+	c.DexMock = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_MOCK", false)
+	c.DexEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_ENABLED", false)
+	c.DexMockRole = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_MOCK_ROLE", "Developer")
+	c.DexRbacPolicyPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_POLICY_PATH", "")
+	c.DexRbacTeamPath = valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_TEAM_PATH", "")
+	c.DexDefaultRoleEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_DEFAULT_ROLE_ENABLED", false)
+
+	c.EnableProfiling = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_PROFILING", false)
+	c.EnableTracing = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_TRACING", false)
+	c.EnableMetrics = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_METRICS", false)
+	c.DogstatsdAddr = valid.ReadEnvVarWithDefault("KUBERPULT_DOGSTATSD_ADDR", "127.0.0.1:8125")
+	c.DatadogApiKeyLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DATADOG_API_KEY_LOCATION", "")
+
+	c.DbOption = valid.ReadEnvVarWithDefault("KUBERPULT_DB_OPTION", "NO_DB")
+	c.DbLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_LOCATION", "/kp/database")
+	c.DbAuthProxyPort = valid.ReadEnvVarWithDefault("KUBERPULT_DB_AUTH_PROXY_PORT", "5432")
+	c.DbName = valid.ReadEnvVarWithDefault("KUBERPULT_DB_NAME", "")
+	c.DbUserName = valid.ReadEnvVarWithDefault("KUBERPULT_DB_USER_NAME", "")
+	c.DbUserPassword = valid.ReadEnvVarWithDefault("KUBERPULT_DB_USER_PASSWORD", "")
+	c.DbMigrationsLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_MIGRATIONS_LOCATION", "")
+	c.DbWriteEslTableOnly = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DB_WRITE_ESL_TABLE_ONLY", false)
+	c.DbSslMode = valid.ReadEnvVarWithDefault("KUBERPULT_DB_SSL_MODE", "verify-full")
+
+	c.DbMaxIdleConnections, err = valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_IDLE_CONNECTIONS")
+	if err != nil {
+		return nil, err
+	}
+	c.DbMaxOpenConnections, err = valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_OPEN_CONNECTIONS")
+	if err != nil {
+		return nil, err
+	}
+
+	c.AllowLongAppNames = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ALLOW_LONG_APP_NAMES", false)
+	c.ArgoCdGenerateFiles = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ARGO_CD_GENERATE_FILES", true)
+	c.AllowedDomains, err = valid.ReadEnvVarAsList("KUBERPULT_ALLOWED_DOMAINS", ",")
+	if err != nil {
+		return nil, err
+	}
+
+	c.MaxNumberOfThreads, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAX_NUMBER_OF_THREADS", 3)
+	if err != nil {
+		return nil, err
+	}
+
+	c.GitUrl = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_URL", "")
+	c.GitBranch = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_BRANCH", "master")
+	c.GitWriteCommitData = valid.ReadEnvVarBoolWithDefault("KUBERPULT_GIT_WRITE_COMMIT_DATA", false)
+	c.GitNetworkTimeout, err = valid.ReadEnvVarDurationWithDefault("KUBERPULT_GIT_NETWORK_TIMEOUT", time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	c.GitMaximumCommitsPerPush, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH", 1)
+	if err != nil {
+		return nil, err
+	}
+	c.ReleaseVersionsLimit, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_RELEASE_VERSIONS_LIMIT", 20)
+	if err != nil {
+		return nil, err
+	}
+
+	c.CheckCustomMigrations = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CHECK_CUSTOM_MIGRATIONS", false)
+	c.MigrationServer, err = valid.ReadEnvVar("KUBERPULT_MIGRATION_SERVER")
+	if err != nil {
+		return nil, err
+	}
+	c.MigrationServerSecure, err = valid.ReadEnvVarBool("KUBERPULT_MIGRATION_SERVER_SECURE")
+	if err != nil {
+		return nil, err
+	}
+
+	c.Version, err = valid.ReadEnvVar("KUBERPULT_VERSION")
+	if err != nil {
+		return nil, err
+	}
+
+	c.LockType, err = valid.ReadEnvVar("KUBERPULT_LOCK_TYPE")
+	if err != nil {
+		return nil, err
+	}
+
+	c.GrpcMaxRecvMsgSize, err = valid.ReadEnvVarInt("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE")
+	if err != nil {
+		return nil, err
+	}
+
+	c.MaximumQueueSize, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAXIMUM_QUEUE_SIZE", 5)
+	if err != nil {
+		return nil, err
+	}
+
+	c.EnableSqlite = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_SQLITE", true)
+	c.MinorRegexes = valid.ReadEnvVarWithDefault("KUBERPULT_MINOR_REGEXES", "")
+
+	return &c, nil
+}
+
 func RunServer() {
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
 		defer logger.LogPanics(ctx)
 
-		var c Config
-
-		err := envconfig.Process("kuberpult", &c)
+		c, err := parseEnvVars()
 		if err != nil {
-			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
+			logger.FromContext(ctx).Fatal("parsing environment variables", zap.Error(err))
 		}
+
 		var lockType service.LockType
 		lockType, err = service.ParseLockType(c.LockType)
 		if err != nil {
@@ -189,10 +287,10 @@ func RunServer() {
 		}
 
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
-			grpc_zap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
+			grpczap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 		}
 		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
-			grpc_zap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
+			grpczap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 			unaryUserContextInterceptor,
 		}
 
