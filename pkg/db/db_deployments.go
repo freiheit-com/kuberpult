@@ -605,6 +605,11 @@ func (h *DBHandler) DBSelectAllOrphanDeployments(ctx context.Context, tx *sql.Tx
 				SELECT 1 
 				FROM environments e 
 				WHERE e.name = d.envname
+			)
+			OR NOT EXISTS (
+				SELECT 1 
+				FROM apps a 
+				WHERE a.appname = d.appname
 			);
 	`)
 	span.SetTag("selectQuery", selectQuery)

@@ -1507,11 +1507,12 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 				if err != nil {
 					return fmt.Errorf("could not fetch release %v for app %s: %w", deployment.ReleaseNumbers, deployment.App, err)
 				}
-				// note that deployments without releases have already been deleted (see above)
-				if release == nil {
-					continue
-				}
-				if _, ok := release.Manifests.Manifests[deployment.Env]; !ok {
+				if release == nil { // release does not exist
+					err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
+					if err != nil {
+						return fmt.Errorf("could not delete deployment for app %s in env %s: %w", deployment.App, deployment.Env, err)
+					}
+				} else if _, ok := release.Manifests.Manifests[deployment.Env]; !ok {
 					err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
 					if err != nil {
 						return fmt.Errorf("could not delete deployment for app %s in env %s: %w", deployment.App, deployment.Env, err)
