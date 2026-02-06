@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -33,6 +34,7 @@ type EslServiceServer struct {
 const PAGESIZE = 25 // Number of failed esls per page
 
 func (s *EslServiceServer) GetFailedEsls(ctx context.Context, req *api.GetFailedEslsRequest) (*api.GetFailedEslsResponse, error) {
+	defer logger.LogPanics(ctx)
 	state := s.Repository.State()
 	var response = &api.GetFailedEslsResponse{
 		FailedEsls: make([]*api.EslFailedItem, 0),

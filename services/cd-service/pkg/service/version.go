@@ -26,6 +26,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
@@ -41,6 +42,7 @@ func (o *VersionServiceServer) GetVersion(
 }
 
 func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
+	defer logger.LogPanics(ctx)
 	if req.Application == "" {
 		return nil, status.Error(codes.InvalidArgument, "no application specified")
 	}

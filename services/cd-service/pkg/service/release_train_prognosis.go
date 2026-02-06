@@ -23,6 +23,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -32,6 +33,7 @@ type ReleaseTrainPrognosisServer struct {
 }
 
 func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Context, in *api.ReleaseTrainRequest) (*api.GetReleaseTrainPrognosisResponse, error) {
+	defer logger.LogPanics(ctx)
 	t := &rp.ReleaseTrain{
 		Authentication: rp.Authentication{
 			RBACConfig: s.RBACConfig,

@@ -28,6 +28,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
@@ -39,6 +40,7 @@ type CommitDeploymentServer struct {
 }
 
 func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in *api.GetCommitDeploymentInfoRequest) (*api.GetCommitDeploymentInfoResponse, error) {
+	defer logger.LogPanics(ctx)
 	commitDeploymentStatus := make(map[string]*api.AppCommitDeploymentStatus, 0)
 	allEnvironments := make([]types.EnvName, 0)
 	applicationReleases := make(map[types.AppName]map[types.EnvName]uint64, 0)
