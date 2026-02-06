@@ -228,7 +228,6 @@ func RunServer() {
 		c, err := parseEnvVars()
 		if err != nil {
 			logger.FromContext(ctx).Fatal("parsing environment variables", zap.Error(err))
-			return err
 		}
 
 		var lockType service.LockType
