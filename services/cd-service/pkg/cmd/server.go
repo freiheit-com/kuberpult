@@ -223,7 +223,8 @@ func parseEnvVars() (_ *Config, err error) {
 }
 
 func RunServer() {
-	err := logger.Wrap(context.Background(), func(ctx context.Context) (err error) {
+	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
+		defer logger.LogPanics(ctx)
 
 		c, err := parseEnvVars()
 		if err != nil {
@@ -292,6 +293,20 @@ func RunServer() {
 			grpczap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 			unaryUserContextInterceptor,
 		}
+
+		// handle panics for gRPC server
+		grpcStreamInterceptors = append(grpcStreamInterceptors,
+			func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+				defer logger.LogPanics(ss.Context())
+				return handler(srv, ss)
+			},
+		)
+		grpcUnaryInterceptors = append(grpcUnaryInterceptors,
+			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+				defer logger.LogPanics(ctx)
+				return handler(ctx, req)
+			},
+		)
 
 		if c.EnableTracing {
 			tracer.Start()
@@ -486,6 +501,7 @@ func RunServer() {
 						if c.EnableTracing {
 							handler = httptrace.WrapHandler(handler, datadogNameCd, "/")
 						}
+
 						mux.Handle("/", handler)
 					},
 				},

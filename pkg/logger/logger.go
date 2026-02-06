@@ -27,6 +27,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/blendle/zapdriver"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -101,5 +102,18 @@ func DisableLogging() []grpc_zap.Option {
 		grpc_zap.WithLevels(func(code codes.Code) zapcore.Level {
 			return zapcore.InvalidLevel // disables logging entirely for gRPC middleware
 		}),
+	}
+}
+
+func LogPanics(ctx context.Context) {
+	if r := recover(); r != nil {
+		var err error
+		var ok bool
+		if err, ok = r.(error); !ok {
+			err = fmt.Errorf("panic: %v", r)
+		}
+
+		FromContext(ctx).Sugar().Errorf("error: %v, error.stack: %s", err, string(debug.Stack()))
+		os.Exit(2) // 2 is the code for go panics
 	}
 }
