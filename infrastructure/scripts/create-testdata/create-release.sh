@@ -66,7 +66,7 @@ configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
 
 manifests=()
-for env in development development2 staging fakeprod-de fakeprod-ca
+for env in development development2 staging fakeprod-de fakeprod-ca aa-test
 do
   file=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
   randomValue=$(head -c 20 /dev/urandom | sha1sum | awk '{print $1}' | head -c 12)

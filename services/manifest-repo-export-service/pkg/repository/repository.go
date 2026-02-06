@@ -128,6 +128,8 @@ type repository struct {
 	DB *db.DBHandler
 
 	ddMetrics statsd.ClientInterface
+
+	ArgoProjectNames *argocd.AllArgoProjectNameOverrides
 }
 
 var _ Repository = &repository{} // ensure interface is implemented
@@ -149,13 +151,15 @@ type RepositoryConfig struct {
 
 	DBHandler *db.DBHandler
 
-	ArgoCdGenerateFiles bool
 	ReleaseVersionLimit uint
 
 	MinimizeExportedData bool
 
 	DDMetrics statsd.ClientInterface
 	TagsPath  string
+
+	ArgoCdGenerateFiles bool
+	ArgoProjectNames    *argocd.AllArgoProjectNameOverrides
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
@@ -239,14 +243,15 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			return nil, err
 		} else {
 			result := &repository{
-				config:          &cfg,
-				credentials:     credentials,
-				certificates:    certificates,
-				repository:      repo2,
-				backOffProvider: defaultBackOffProvider,
-				DB:              cfg.DBHandler,
-				notify:          notify.Notify{},
-				ddMetrics:       cfg.DDMetrics,
+				config:           &cfg,
+				credentials:      credentials,
+				certificates:     certificates,
+				repository:       repo2,
+				backOffProvider:  defaultBackOffProvider,
+				DB:               cfg.DBHandler,
+				notify:           notify.Notify{},
+				ddMetrics:        cfg.DDMetrics,
+				ArgoProjectNames: cfg.ArgoProjectNames,
 			}
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 			//exhaustruct:ignore
@@ -957,16 +962,38 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, commonEnvPrefix *string, currentArgoCdConfiguration *config.EnvironmentConfigArgoCd, isAAEnv bool, ts time.Time, fsMutex *sync.Mutex) error {
+func (r *repository) processApp(
+	ctx context.Context,
+	transaction *sql.Tx,
+	state *State,
+	env types.EnvName,
+	commonEnvPrefix *string,
+	currentArgoCdConfiguration *config.EnvironmentConfigArgoCd,
+	isAAEnv bool,
+	ts time.Time,
+	fsMutex *sync.Mutex,
+) error {
 	prefix := ""
 	if commonEnvPrefix != nil {
 		prefix = *commonEnvPrefix
 	}
+	projectName := types.ArgoProjectName("")
 	environmentInfo := &argocd.EnvironmentInfo{
 		ArgoCDConfig:          currentArgoCdConfiguration,
 		CommonPrefix:          prefix,
 		ParentEnvironmentName: env,
 		IsAAEnv:               isAAEnv,
+	}
+	ok := false
+	if isAAEnv {
+		projectName, ok = (*r.ArgoProjectNames.ActiveActiveEnvironments)[types.EnvName(environmentInfo.GetFullyQualifiedName())]
+	} else {
+		projectName, ok = (*r.ArgoProjectNames.Environments)[types.EnvName(environmentInfo.GetFullyQualifiedName())]
+	}
+	if ok {
+		environmentInfo.ArgoProjectNameOverride = projectName
+	} else {
+		environmentInfo.ArgoProjectNameOverride = ""
 	}
 	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo, ts, fsMutex)
 	return err

@@ -242,6 +242,20 @@ manifestRepoExport:
   # 
   # Consider setting `dogstatsdMetrics.enabled:true`, then the failings of git push operations are measured in the metric "manifest_export_tag_push_failures".
   failOnErrorWithGitPushTags: true
+  # Allows to run the rollout service and the manifest service at the same time.
+  # This is useful if you are migrating from the rollout-service (which is deprecated!) to the manifest-repo-export-service without a downtime.
+  experimentalRolloutWithManifest:
+    enabled: false
+    argoProjectNames:
+      # Here you can overwrite the argoCd project name per environment.
+      # Note that kuberpult will - independent of this configuration - always create the same AppProject for ArgoCD.
+      # Adding other AppProjects here will require you to set up those projects in ArgoCD.
+      environments:
+        # keys: name of kuberpult environment
+        # value: name of argoProject
+      aaEnvironments:
+        # key: name of kuberpult active/active environment in the format $commonPrefix + "-" + $parentEnvironment + "-" + $concreteEnvName
+        # value: name of argoProject
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.
@@ -268,6 +282,7 @@ frontend:
   # When enabled, the /release endpoint to accept a revision (i.e. 1.0, 1.1, 2.0...), instead of only integers (1,2,3...).
   enableRevisions: false
 rollout:
+  # DEPRECATED
   # Note that the rollout service is not the recommended way to set up kuberpult.
   # We recommend to set rollout.enabled=false, reposerver.enabled=false, and manifestRepoExport.enabled=true
   enabled: false
@@ -318,6 +333,7 @@ rollout:
     kuberpultEventsMetricsEnabled: false
 # Standalone reposerver service for interacting with argocd
 reposerver:
+  # DEPRECATED
   # Note that the reposerver is not the recommended way to set up kuberpult.
   # We recommend to set rollout.enabled=false, reposerver.enabled=false, and manifestRepoExport.enabled=true
   enabled: false

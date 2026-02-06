@@ -69,7 +69,7 @@ reposerver:
       memory: 200Mi
       cpu: 0.05
 manifestRepoExport:
-  eslProcessingIdleTimeSeconds: 15
+  eslProcessingIdleTimeSeconds: 10
   resources:
     limits:
       memory: 200Mi
@@ -77,6 +77,13 @@ manifestRepoExport:
     requests:
       memory: 200Mi
       cpu: 0.05
+  experimentalRolloutWithManifest:
+    enabled: true
+    argoProjectNames:
+      environments:
+        staging: staging-proj-override666
+      aaEnvironments:
+        aa-aa-test-dev-1: aa-proj-override666
 ingress:
   domainName: kuberpult.example.com
 log:
@@ -86,7 +93,7 @@ git:
   sourceRepoUrl: "https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}"
   branch: "main"
   networkTimeout: 1s
-  enableWritingCommitData: true
+  enableWritingCommitData: false
 ssh:
   identity: |
 $(sed -e "s/^/    /" <../../services/cd-service/client)

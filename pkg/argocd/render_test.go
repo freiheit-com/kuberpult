@@ -17,8 +17,10 @@ Copyright freiheit.com*/
 package argocd
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
+	"context"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
@@ -76,10 +78,11 @@ spec:
     - ApplyOutOfSyncOnly=true
 `,
 			eInfo: &EnvironmentInfo{
-				ArgoCDConfig:          nil,
-				CommonPrefix:          "does-not-matter",
-				ParentEnvironmentName: "dev",
-				IsAAEnv:               false,
+				ArgoCDConfig:            nil,
+				CommonPrefix:            "does-not-matter",
+				ParentEnvironmentName:   "dev",
+				IsAAEnv:                 false,
+				ArgoProjectNameOverride: "",
 			},
 		},
 
@@ -671,13 +674,14 @@ spec:
 				gitBranch = "branch-name"
 				env       = "test-env"
 			)
+			ctx := context.Background()
 			environmentInfo := &EnvironmentInfo{
 				ArgoCDConfig:          tt.config.ArgoCd,
 				ParentEnvironmentName: env,
 				CommonPrefix:          "AA",
 				IsAAEnv:               tt.config.ArgoCd.ConcreteEnvName != "",
 			}
-			got, err := RenderV1Alpha1(gitUrl, gitBranch, environmentInfo, tt.appData)
+			got, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, environmentInfo, tt.appData)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
