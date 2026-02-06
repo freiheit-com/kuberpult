@@ -57,7 +57,6 @@ type OverviewServiceServer struct {
 func (o *OverviewServiceServer) GetAppDetails(
 	ctx context.Context,
 	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
-	defer logger.LogPanics(ctx)
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetAppDetails")
 	defer span.Finish()
 	span.SetTag("application", in.AppName)

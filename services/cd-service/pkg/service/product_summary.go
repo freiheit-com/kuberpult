@@ -25,7 +25,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -36,7 +35,6 @@ type ProductSummaryServer struct {
 }
 
 func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
-	defer logger.LogPanics(ctx)
 	if in.Environment == nil && in.EnvironmentGroup == nil {
 		return nil, fmt.Errorf("must have an environment or environmentGroup to get the product summary for")
 	}
