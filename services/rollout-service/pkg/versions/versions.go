@@ -136,12 +136,13 @@ func sourceCommitId(appReleases []*api.Release, deployment *api.Deployment) stri
 }
 
 type KuberpultEvent struct {
-	Environment      string
-	Application      string
-	EnvironmentGroup string
-	IsProduction     bool
-	Team             string
-	Version          *VersionInfo
+	Environment       string
+	ParentEnvironment string
+	Application       string
+	EnvironmentGroup  string
+	IsProduction      bool
+	Team              string
+	Version           *VersionInfo
 }
 
 type VersionEventProcessor interface {
@@ -242,18 +243,22 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
 						l.Info("version.process", zap.String("application", appName), zap.String("environment", env.Name), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt), zap.String("commitid", sc))
 
-						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-							Application:      appName,
-							Environment:      env.Name,
-							EnvironmentGroup: envGroup.EnvironmentGroupName,
-							Team:             appDetailsResponse.Application.Team,
-							IsProduction:     (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
-							Version: &VersionInfo{
-								Version:        deployment.Version,
-								SourceCommitId: sc,
-								DeployedAt:     dt,
-							},
-						})
+						clusters := childEnvironments(env)
+						for _, cluster := range clusters {
+							processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+								Application:       appName,
+								Environment:       cluster,
+								ParentEnvironment: env.Name,
+								EnvironmentGroup:  envGroup.EnvironmentGroupName,
+								Team:              appDetailsResponse.Application.Team,
+								IsProduction:      (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
+								Version: &VersionInfo{
+									Version:        deployment.Version,
+									SourceCommitId: sc,
+									DeployedAt:     dt,
+								},
+							})
+						}
 					}
 				}
 				// Delete all environments that we track but we did not see
@@ -302,4 +307,15 @@ func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, ap
 
 func (v *versionClient) GetArgoProcessor() *argo.ArgoAppProcessor {
 	return &v.ArgoProcessor
+}
+
+func childEnvironments(env *api.Environment) []string {
+	if env.Config == nil || env.Config.ArgoConfigs == nil {
+		return []string{env.Name}
+	}
+	result := make([]string, 0, len(env.Config.ArgoConfigs.Configs))
+	for _, config := range env.Config.ArgoConfigs.Configs {
+		result = append(result, fmt.Sprintf("%s-%s-%s", env.Config.ArgoConfigs.CommonEnvPrefix, env.Name, config.ConcreteEnvName))
+	}
+	return result
 }

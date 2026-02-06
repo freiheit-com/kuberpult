@@ -193,6 +193,47 @@ func TestVersionClientStream(t *testing.T) {
 		GitRevision: "1234",
 	}
 
+	testOverviewMultiCluster := &api.GetOverviewResponse{
+		EnvironmentGroups: []*api.EnvironmentGroup{
+			{
+
+				EnvironmentGroupName: "staging-group",
+				Priority:             api.Priority_UPSTREAM,
+				Environments: []*api.Environment{
+					{
+						Name: "staging",
+						Config: &api.EnvironmentConfig{
+							ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
+								CommonEnvPrefix: "prefix",
+								Configs: []*api.ArgoCDEnvironmentConfiguration{
+									{
+										SyncWindows:            []*api.ArgoCDEnvironmentConfiguration_SyncWindows{},
+										Destination:            &api.ArgoCDEnvironmentConfiguration_Destination{},
+										AccessList:             []*api.ArgoCDEnvironmentConfiguration_AccessEntry{},
+										ApplicationAnnotations: map[string]string{},
+										IgnoreDifferences:      []*api.ArgoCDEnvironmentConfiguration_IgnoreDifferences{},
+										SyncOptions:            []string{},
+										ConcreteEnvName:        "primary",
+									},
+									{
+										SyncWindows:            []*api.ArgoCDEnvironmentConfiguration_SyncWindows{},
+										Destination:            &api.ArgoCDEnvironmentConfiguration_Destination{},
+										AccessList:             []*api.ArgoCDEnvironmentConfiguration_AccessEntry{},
+										ApplicationAnnotations: map[string]string{},
+										IgnoreDifferences:      []*api.ArgoCDEnvironmentConfiguration_IgnoreDifferences{},
+										SyncOptions:            []string{},
+										ConcreteEnvName:        "secondary",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		GitRevision: "1234",
+	}
+
 	testOverviewWithDifferentEnvgroup := &api.GetOverviewResponse{
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
@@ -294,10 +335,11 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "staging",
-							Application:      "foo",
-							EnvironmentGroup: "staging-group",
-							Team:             "footeam",
+							Environment:       "staging",
+							ParentEnvironment: "staging",
+							Application:       "foo",
+							EnvironmentGroup:  "staging-group",
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        1234,
 								SourceCommitId: "",
@@ -383,10 +425,102 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "staging",
-							Application:      "foo",
-							EnvironmentGroup: "staging-group",
-							Team:             "footeam",
+							Environment:       "staging",
+							ParentEnvironment: "staging",
+							Application:       "foo",
+							EnvironmentGroup:  "staging-group",
+							Team:              "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverview,
+					ExpectReady:      true,
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			Name: "Notifies for each cluster",
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedApps: []*api.GetAppDetailsResponse{
+							{
+								Application: &api.Application{
+									Team: "footeam",
+									Name: "foo",
+									Releases: []*api.Release{
+										{
+											Version:        1,
+											SourceCommitId: "00001",
+										},
+									},
+								},
+								Deployments: map[string]*api.Deployment{
+									"staging": {
+										Version: 1,
+										DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+											DeployTime: timestamppb.New(time.Unix(123456789, 0)),
+										},
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: testOverviewMultiCluster,
+					ExpectReady:      true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:       "prefix-staging-primary",
+							ParentEnvironment: "staging",
+							Application:       "foo",
+							EnvironmentGroup:  "staging-group",
+							Team:              "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+						{
+							Environment:       "prefix-staging-secondary",
+							ParentEnvironment: "staging",
+							Application:       "foo",
+							EnvironmentGroup:  "staging-group",
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        1,
 								SourceCommitId: "00001",
@@ -461,10 +595,11 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "staging",
-							Application:      "foo",
-							EnvironmentGroup: "staging-group",
-							Team:             "footeam",
+							Environment:       "staging",
+							ParentEnvironment: "staging",
+							Application:       "foo",
+							EnvironmentGroup:  "staging-group",
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        1,
 								SourceCommitId: "00001",
@@ -502,10 +637,11 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "staging",
-							Application:      "bar",
-							EnvironmentGroup: "staging-group",
-							Team:             "footeam",
+							Environment:       "staging",
+							ParentEnvironment: "staging",
+							Application:       "bar",
+							EnvironmentGroup:  "staging-group",
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        1,
 								SourceCommitId: "00001",
@@ -553,10 +689,11 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "staging",
-							Application:      "foo",
-							EnvironmentGroup: "staging-group",
-							Team:             "footeam",
+							Environment:       "staging",
+							ParentEnvironment: "staging",
+							Application:       "foo",
+							EnvironmentGroup:  "staging-group",
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        1,
 								SourceCommitId: "00001",
@@ -633,10 +770,11 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "staging",
-							Application:      "foo",
-							EnvironmentGroup: "staging-group",
-							Team:             "footeam",
+							Environment:       "staging",
+							ParentEnvironment: "staging",
+							Application:       "foo",
+							EnvironmentGroup:  "staging-group",
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        1,
 								SourceCommitId: "00001",
@@ -672,7 +810,8 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "staging",
+							Environment: "staging",
+
 							Application:      "foo",
 							EnvironmentGroup: "staging-group",
 							Team:             "footeam",
@@ -718,10 +857,11 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "staging",
-							Application:      "foo",
-							EnvironmentGroup: "staging-group",
-							Team:             "footeam",
+							Environment:       "staging",
+							ParentEnvironment: "staging",
+							Application:       "foo",
+							EnvironmentGroup:  "staging-group",
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        1,
 								SourceCommitId: "00001",
@@ -759,10 +899,11 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "staging",
-							Application:      "foo",
-							EnvironmentGroup: "not-staging-group",
-							Team:             "footeam",
+							Environment:       "staging",
+							ParentEnvironment: "staging",
+							Application:       "foo",
+							EnvironmentGroup:  "not-staging-group",
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        2,
 								SourceCommitId: "00002",
@@ -815,11 +956,12 @@ func TestVersionClientStream(t *testing.T) {
 					ExpectReady:      true,
 					ExpectedEvents: []KuberpultEvent{
 						{
-							Environment:      "production",
-							Application:      "foo",
-							EnvironmentGroup: "production",
-							IsProduction:     true,
-							Team:             "footeam",
+							Environment:       "production",
+							ParentEnvironment: "production",
+							Application:       "foo",
+							EnvironmentGroup:  "production",
+							IsProduction:      true,
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        1234,
 								SourceCommitId: "00002",
@@ -827,11 +969,12 @@ func TestVersionClientStream(t *testing.T) {
 							},
 						},
 						{
-							Environment:      "canary",
-							Application:      "foo",
-							EnvironmentGroup: "canary",
-							IsProduction:     true,
-							Team:             "footeam",
+							Environment:       "canary",
+							ParentEnvironment: "canary",
+							Application:       "foo",
+							EnvironmentGroup:  "canary",
+							IsProduction:      true,
+							Team:              "footeam",
 							Version: &VersionInfo{
 								Version:        1234,
 								SourceCommitId: "00002",
