@@ -28,7 +28,9 @@ ADD services/frontend-service/.npmrc /kp/services/frontend-service/
 ADD services/frontend-service/.eslintrc /kp/services/frontend-service/
 
 # go:
-COPY go.sum go.mod /kp/
+WORKDIR /kp/
+COPY go.sum go.mod .
+RUN go mod download
 ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
 ADD services/frontend-service/pkg /kp/services/frontend-service/pkg
 ADD services/frontend-service/src /kp/services/frontend-service/src
@@ -37,7 +39,6 @@ ADD services/frontend-service/public /kp/services/frontend-service/public
 ADD pkg/api/v1 /kp/services/frontend-service/api
 ADD infrastructure /kp/infrastructure
 
-RUN cd /kp/services/frontend-service && pnpm i
 
 # Build go:
 WORKDIR /kp/
@@ -47,6 +48,7 @@ RUN make -C pkg gen SKIP_BUILDER=1 PKG_WITHOUT_DOCKER=1
 RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/frontend-service/cmd/server/main.go
 
 # Build js:
+RUN cd /kp/services/frontend-service && pnpm i
 WORKDIR /kp/services/frontend-service/
 RUN mkdir -p src/api
 RUN protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=oneof=unions,useOptionals=messages,esModuleInterop=true,outputClientImpl=grpc-web --ts_proto_out=src api/api.proto
