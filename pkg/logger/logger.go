@@ -103,3 +103,20 @@ func DisableLogging() []grpc_zap.Option {
 		}),
 	}
 }
+
+func LogPanics(exitOnPanic bool) {
+	if r := recover(); r != nil {
+		var err error
+		var ok bool
+		if err, ok = r.(error); !ok {
+			err = fmt.Errorf("panic: %v", r)
+		}
+		_ = Wrap(context.Background(), func(ctx context.Context) error {
+			FromContext(ctx).Error("panic error", zap.Error(err), zap.Stack("error.stack"))
+			return nil
+		})
+		if exitOnPanic {
+			os.Exit(2) // 2 is the code for go panics
+		}
+	}
+}

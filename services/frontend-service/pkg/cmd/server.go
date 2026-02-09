@@ -194,6 +194,7 @@ func parseEnvVars() (*config.ServerConfig, error) {
 }
 
 func runServer(ctx context.Context) error {
+	defer logger.LogPanics(true)
 	var err error
 	var c *config.ServerConfig
 
@@ -850,6 +851,7 @@ func (p *GrpcProxy) StreamGitSyncStatus(
 }
 
 func (p *GrpcProxy) listenGitSyncStatus(in *api.GetGitSyncStatusRequest, stream api.ManifestExportGitService_StreamGitSyncStatusServer, c chan *api.GetGitSyncStatusResponse, errCh chan error, gitClient api.ManifestExportGitServiceClient) {
+	defer logger.LogPanics(true)
 	if resp, err := gitClient.StreamGitSyncStatus(stream.Context(), in); err != nil {
 		errCh <- err
 	} else {

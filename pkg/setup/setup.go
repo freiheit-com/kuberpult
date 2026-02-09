@@ -230,6 +230,15 @@ func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port st
 		handler = NewBasicAuthHandler(basicAuth, handler)
 	}
 
+	panicHandler := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer logger.LogPanics(false)
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	handler = panicHandler(handler)
+
 	//exhaustruct:ignore
 	httpS := &http.Server{
 		Handler: handler,
@@ -286,6 +295,7 @@ func setupBackgroundTask(ctx context.Context, s *setup, config BackgroundTaskCon
 }
 
 func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel context.CancelFunc, reporter *HealthReporter) {
+	defer logger.LogPanics(true)
 	defer cancel()
 	if err := config.Run(ctx, reporter); err != nil {
 		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))

@@ -129,20 +129,22 @@ cd -
 
 
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-
-if "$LOCAL_EXECUTION"
-then
-  print 'building services...'
-  make -C ../.. all-services
-else
-  print 'not building services...'
-fi
-
 print version...
 VERSION=$(make --no-print-directory -C ../../ version)
 print "version is ${VERSION}"
 IMAGE_TAG_KUBERPULT=${IMAGE_TAG_KUBERPULT:-$VERSION}
 print "IMAGE_TAG_KUBERPULT is now ${IMAGE_TAG_KUBERPULT}"
+
+if "$LOCAL_EXECUTION"
+then
+  print 'building services...'
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../infrastructure/docker/builder build
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/cd-service docker
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/manifest-repo-export-service docker
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/frontend-service docker gen-api
+else
+  print 'not building services...'
+fi
 
 cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT}"
 manifest_repo_export_imagename="${IMAGE_REGISTRY}/kuberpult-manifest-repo-export-service:${IMAGE_TAG_KUBERPULT}"

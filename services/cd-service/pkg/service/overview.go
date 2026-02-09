@@ -57,7 +57,6 @@ type OverviewServiceServer struct {
 func (o *OverviewServiceServer) GetAppDetails(
 	ctx context.Context,
 	in *api.GetAppDetailsRequest) (*api.GetAppDetailsResponse, error) {
-
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetAppDetails")
 	defer span.Finish()
 	span.SetTag("application", in.AppName)
@@ -576,6 +575,7 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 		<-ch
 		o.update(o.Repository.State())
 		go func() {
+			defer logger.LogPanics(true)
 			defer unsub()
 			for {
 				select {
@@ -599,6 +599,7 @@ func (o *OverviewServiceServer) subscribeChangedApps() (<-chan notify.ChangedApp
 		// This means, we have to wait here until the changedApps are loaded for the first time.
 		<-ch
 		go func() {
+			defer logger.LogPanics(true)
 			defer unsub()
 			for {
 				select {

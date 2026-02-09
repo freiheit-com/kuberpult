@@ -326,6 +326,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 
 	var prognosisResultChannel = make(chan *ChannelData, maxThreads)
 	go func() {
+		defer logger.LogPanics(true)
 		spanSpawnAll, ctxSpawnAll := tracer.StartSpanFromContext(parentCtx, "Spawn Go Routines")
 		spanSpawnAll.SetTag("numEnvironments", len(envNames))
 		group, ctxRoutines := errgroup.WithContext(ctxSpawnAll)
