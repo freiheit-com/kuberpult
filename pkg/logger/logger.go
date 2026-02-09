@@ -112,7 +112,7 @@ func LogPanics(exitOnPanic bool) {
 		if err, ok = r.(error); !ok {
 			err = fmt.Errorf("panic: %v", r)
 		}
-		Wrap(context.Background(), func(ctx context.Context) error {
+		_ = Wrap(context.Background(), func(ctx context.Context) error {
 			FromContext(ctx).Sugar().Errorf("error: %v, error.stack: %s", err, string(debug.Stack()))
 			return nil
 		})
