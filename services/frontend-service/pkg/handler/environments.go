@@ -52,7 +52,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		fmt.Fprint(w, errMessage) //nolint:errcheck
 		return
 	}
-	panic("panic this")
+
 	_, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_CreateEnvironment{

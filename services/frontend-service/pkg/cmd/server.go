@@ -563,15 +563,6 @@ func runServer(ctx context.Context) error {
 		NextHandler: authHandler,
 	}
 
-	panicHandler := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer logger.LogPanics(r.Context(), false)
-			next.ServeHTTP(w, r)
-		})
-	}
-
-	webHandler := panicHandler(corsHandler)
-
 	publicApiServer := &handler.PublicApiServer{
 		S: httpHandler,
 	}
@@ -586,7 +577,7 @@ func runServer(ctx context.Context) error {
 				Shutdown:  nil,
 				Port:      "8081",
 				Register: func(mux *http.ServeMux) {
-					mux.Handle("/", webHandler)
+					mux.Handle("/", corsHandler)
 				},
 			},
 			{
@@ -860,6 +851,7 @@ func (p *GrpcProxy) StreamGitSyncStatus(
 }
 
 func (p *GrpcProxy) listenGitSyncStatus(in *api.GetGitSyncStatusRequest, stream api.ManifestExportGitService_StreamGitSyncStatusServer, c chan *api.GetGitSyncStatusResponse, errCh chan error, gitClient api.ManifestExportGitServiceClient) {
+	defer logger.LogPanics(stream.Context(), true)
 	if resp, err := gitClient.StreamGitSyncStatus(stream.Context(), in); err != nil {
 		errCh <- err
 	} else {

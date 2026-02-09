@@ -230,6 +230,15 @@ func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port st
 		handler = NewBasicAuthHandler(basicAuth, handler)
 	}
 
+	panicHandler := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer logger.LogPanics(ctx, false)
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	handler = panicHandler(handler)
+
 	//exhaustruct:ignore
 	httpS := &http.Server{
 		Handler: handler,
