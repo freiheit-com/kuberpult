@@ -140,8 +140,8 @@ then
   print 'building services...'
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../infrastructure/docker/builder build
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/cd-service docker
-	IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/manifest-repo-export-service docker
-	IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/frontend-service docker gen-api
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/manifest-repo-export-service docker
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/frontend-service docker gen-api
 else
   print 'not building services...'
 fi
