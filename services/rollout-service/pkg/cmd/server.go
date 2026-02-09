@@ -143,7 +143,7 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 func RunServer() {
 	var config Config
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
-		defer logger.LogPanics(ctx, true)
+		defer logger.LogPanics(true)
 		err := envconfig.Process("kuberpult", &config)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))

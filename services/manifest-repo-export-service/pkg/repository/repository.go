@@ -350,6 +350,7 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 		// Usually we call `defer` right after resource allocation (`CreateAnonymous`).
 		// The issue with that is that the `callback` requires the remote, and cannot be cancelled properly.
 		// So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
+		defer logger.LogPanics(true)
 		defer remote.Disconnect()
 		errCh <- callback(remote)
 	}()
