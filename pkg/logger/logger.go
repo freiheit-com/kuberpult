@@ -27,7 +27,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"runtime/debug"
 
 	"github.com/blendle/zapdriver"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -113,7 +112,7 @@ func LogPanics(exitOnPanic bool) {
 			err = fmt.Errorf("panic: %v", r)
 		}
 		_ = Wrap(context.Background(), func(ctx context.Context) error {
-			FromContext(ctx).Sugar().Errorf("error: %v, error.stack: %s", err, string(debug.Stack()))
+			FromContext(ctx).Error("panic error", zap.Error(err), zap.Stack("error.stack"))
 			return nil
 		})
 		if exitOnPanic {
