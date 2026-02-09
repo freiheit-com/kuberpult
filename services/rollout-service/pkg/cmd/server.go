@@ -201,9 +201,17 @@ func runServer(ctx context.Context, config Config) error {
 	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 		grpc_zap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
+		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+			defer logger.LogPanics(true)
+			return handler(srv, ss)
+		},
 	}
 	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 		grpc_zap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
+		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+			defer logger.LogPanics(true)
+			return handler(ctx, req)
+		},
 	}
 
 	if config.EnableTracing {

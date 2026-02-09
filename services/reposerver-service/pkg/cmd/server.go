@@ -133,6 +133,19 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
+	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
+		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+			defer logger.LogPanics(true)
+			return handler(srv, ss)
+		},
+	}
+	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
+		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+			defer logger.LogPanics(true)
+			return handler(ctx, req)
+		},
+	}
+
 	// Shutdown channel is used to terminate server side streams.
 	shutdownCh := make(chan struct{})
 	setup.Run(ctx, setup.ServerConfig{
@@ -147,7 +160,10 @@ func Run(ctx context.Context) error {
 		GRPC: &setup.GRPCConfig{
 			Shutdown: nil,
 			Port:     "8443",
-			Opts:     []grpc.ServerOption{},
+			Opts: []grpc.ServerOption{
+				grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
+				grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
+			},
 			Register: func(srv *grpc.Server) {
 				reposerver.Register(srv, dbHandler)
 				reflection.Register(srv)

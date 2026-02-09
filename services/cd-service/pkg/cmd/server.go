@@ -288,25 +288,19 @@ func RunServer() {
 
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 			grpczap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
-		}
-		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
-			grpczap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
-			unaryUserContextInterceptor,
-		}
-
-		// handle panics for gRPC server
-		grpcStreamInterceptors = append(grpcStreamInterceptors,
 			func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 				defer logger.LogPanics(true)
 				return handler(srv, ss)
 			},
-		)
-		grpcUnaryInterceptors = append(grpcUnaryInterceptors,
+		}
+		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
+			grpczap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
+			unaryUserContextInterceptor,
 			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 				defer logger.LogPanics(true)
 				return handler(ctx, req)
 			},
-		)
+		}
 
 		if c.EnableTracing {
 			tracer.Start()
