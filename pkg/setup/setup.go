@@ -286,7 +286,7 @@ func setupBackgroundTask(ctx context.Context, s *setup, config BackgroundTaskCon
 }
 
 func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel context.CancelFunc, reporter *HealthReporter) {
-	defer logger.LogPanics(ctx)
+	defer logger.LogPanics(ctx, true)
 	defer cancel()
 	if err := config.Run(ctx, reporter); err != nil {
 		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))

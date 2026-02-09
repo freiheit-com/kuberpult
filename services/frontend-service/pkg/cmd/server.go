@@ -194,7 +194,7 @@ func parseEnvVars() (*config.ServerConfig, error) {
 }
 
 func runServer(ctx context.Context) error {
-	defer logger.LogPanics(ctx)
+	defer logger.LogPanics(ctx, true)
 	var err error
 	var c *config.ServerConfig
 
@@ -563,6 +563,15 @@ func runServer(ctx context.Context) error {
 		NextHandler: authHandler,
 	}
 
+	panicHandler := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer logger.LogPanics(r.Context(), false)
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	webHandler := panicHandler(corsHandler)
+
 	publicApiServer := &handler.PublicApiServer{
 		S: httpHandler,
 	}
@@ -577,7 +586,7 @@ func runServer(ctx context.Context) error {
 				Shutdown:  nil,
 				Port:      "8081",
 				Register: func(mux *http.ServeMux) {
-					mux.Handle("/", corsHandler)
+					mux.Handle("/", webHandler)
 				},
 			},
 			{

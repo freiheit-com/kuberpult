@@ -54,7 +54,7 @@ const (
 
 func RunServer() {
 	_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
-		defer logger.LogPanics(ctx)
+		defer logger.LogPanics(ctx, true)
 		err := Run(ctx)
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Errorf("error in startup: %v %#v", err, err)
