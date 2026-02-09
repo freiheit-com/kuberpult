@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS event_sourcing_light ADD COLUMN IF NOT EXISTS trace_id BIGINT;
+ALTER TABLE IF EXISTS event_sourcing_light ADD COLUMN IF NOT EXISTS span_id BIGINT;

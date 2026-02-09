@@ -323,7 +323,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("could not marshal combined json data: %w", err)
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type, json)  VALUES (?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type, json, trace_id, span_id)  VALUES (?, ?, ?, ?, ?);")
 
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -334,7 +334,9 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		insertQuery,
 		*now,
 		eventType,
-		jsonToInsert)
+		jsonToInsert,
+		span.Context().TraceID(),
+		span.Context().SpanID())
 
 	if err != nil {
 		return fmt.Errorf("could not write internal esl event into DB. Error: %w", err)
@@ -394,6 +396,8 @@ type EslEventRow struct {
 	Created    time.Time
 	EventType  EventType
 	EventJson  string
+	TraceId    *uint64
+	SpanId     *uint64
 }
 
 type EslFailedEventRow struct {
@@ -415,7 +419,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	if firstRow {
 		sort = "ASC"
 	}
-	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type , json FROM event_sourcing_light ORDER BY eslVersion %s LIMIT 1;", sort))
+	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json, trace_id, span_id FROM event_sourcing_light ORDER BY eslVersion %s LIMIT 1;", sort))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -424,14 +428,18 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBReadEslEventInternal")
+	zeroTrace := uint64(0)
+	zeroSpan := uint64(0)
 	var row = &EslEventRow{
 		EslVersion: 0,
 		Created:    time.Unix(0, 0),
 		EventType:  "",
 		EventJson:  "",
+		TraceId:    &zeroTrace,
+		SpanId:     &zeroSpan,
 	}
 	if rows.Next() {
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -448,7 +456,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (_ *EslEventRow, err error) {
 	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf(`
-		SELECT eslVersion, created, event_type, json
+		SELECT eslVersion, created, event_type, json, trace_id, span_id
 		FROM event_sourcing_light
 		WHERE eslVersion > (?)
 		ORDER BY eslVersion %s
@@ -463,16 +471,20 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBReadEslEventLaterThan")
+	zeroTrace := uint64(0)
+	zeroSpan := uint64(0)
 	var row = &EslEventRow{
 		EslVersion: 0,
 		Created:    time.Unix(0, 0),
 		EventType:  "",
 		EventJson:  "",
+		TraceId:    &zeroTrace,
+		SpanId:     &zeroSpan,
 	}
 	if !rows.Next() {
 		row = nil
 	} else {
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -1507,11 +1519,12 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 				if err != nil {
 					return fmt.Errorf("could not fetch release %v for app %s: %w", deployment.ReleaseNumbers, deployment.App, err)
 				}
-				// note that deployments without releases have already been deleted (see above)
-				if release == nil {
-					continue
-				}
-				if _, ok := release.Manifests.Manifests[deployment.Env]; !ok {
+				if release == nil { // release does not exist
+					err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
+					if err != nil {
+						return fmt.Errorf("could not delete deployment for app %s in env %s: %w", deployment.App, deployment.Env, err)
+					}
+				} else if _, ok := release.Manifests.Manifests[deployment.Env]; !ok {
 					err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
 					if err != nil {
 						return fmt.Errorf("could not delete deployment for app %s in env %s: %w", deployment.App, deployment.Env, err)
@@ -1772,24 +1785,28 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json FROM event_sourcing_light ORDER BY eslVersion DESC LIMIT ?;")
+	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json, trace_id, span_id FROM event_sourcing_light ORDER BY eslVersion DESC LIMIT ?;")
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
-		return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
+		return nil, fmt.Errorf("could not read last events from DB. Error: %w", err)
 	}
 
 	defer closeRowsAndLog(rows, ctx, "DBReadLastEslEvents")
 	failedEsls := make([]*EslEventRow, 0)
 
 	for rows.Next() {
+		zeroTrace := uint64(0)
+		zeroSpan := uint64(0)
 		row := &EslEventRow{
 			EslVersion: 0,
 			Created:    time.Unix(0, 0),
 			EventType:  "",
 			EventJson:  "",
+			TraceId:    &zeroTrace,
+			SpanId:     &zeroSpan,
 		}
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
 		if err != nil {
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 		}

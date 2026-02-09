@@ -261,6 +261,62 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 			expectedDeployments: []Deployment{},
 		},
 		{
+			name: "should delete deployments with a non-existing app",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "non-existed-app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App:            "non-existed-app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
+					},
+				},
+			},
+			expectedDeployments: []Deployment{},
+		},
+		{
+			name: "should delete deployments with a non-existing release",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App:            "app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(2, 0),
+						TransformerID:  0,
+					},
+				},
+			},
+			expectedDeployments: []Deployment{},
+		},
+		{
 			name: "should delete deployments with a release that has no manifest data",
 			given: Given{
 				setupEnvs: []DBEnvironment{
@@ -317,6 +373,34 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 			expectedDeployments: []Deployment{},
 		},
 		{
+			name: "should delete deployments if the app name is mismatched between deployment and release",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "non-existing-app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App:            "app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
+					},
+				},
+			},
+			expectedDeployments: []Deployment{},
+		},
+		{
 			name: "should not delete valid deployments",
 			given: Given{
 				setupEnvs: []DBEnvironment{
@@ -351,111 +435,6 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "should not delete deployments if the app name is mismatched between deployment and environment",
-			given: Given{
-				setupEnvs: []DBEnvironment{
-					{
-						Name:   "env",
-						Config: config.EnvironmentConfig{},
-					},
-				},
-				setupApps: []types.AppName{"app"},
-				setupReleases: []DBReleaseWithMetaData{
-					{
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						App:            "app",
-						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
-					},
-				},
-				setupDeployments: []Deployment{
-					{
-						App:            "non-existing-app",
-						Env:            "env",
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						TransformerID:  0,
-					},
-				},
-			},
-			expectedDeployments: []Deployment{
-				{
-					App:            "non-existing-app",
-					Env:            "env",
-					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-					TransformerID:  0,
-				},
-			},
-		},
-		{
-			name: "should not delete deployments if the app name is mismatched between deployment and release",
-			given: Given{
-				setupEnvs: []DBEnvironment{
-					{
-						Name:   "env",
-						Config: config.EnvironmentConfig{},
-					},
-				},
-				setupApps: []types.AppName{"app"},
-				setupReleases: []DBReleaseWithMetaData{
-					{
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						App:            "non-existing-app",
-						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
-					},
-				},
-				setupDeployments: []Deployment{
-					{
-						App:            "app",
-						Env:            "env",
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						TransformerID:  0,
-					},
-				},
-			},
-			expectedDeployments: []Deployment{
-				{
-					App:            "app",
-					Env:            "env",
-					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-					TransformerID:  0,
-				},
-			},
-		},
-		{
-			name: "should not delete deployments if the app name is mismatched between environemnt, release, and deployment",
-			given: Given{
-				setupEnvs: []DBEnvironment{
-					{
-						Name:   "env",
-						Config: config.EnvironmentConfig{},
-					},
-				},
-				setupApps: []types.AppName{"app"},
-				setupReleases: []DBReleaseWithMetaData{
-					{
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						App:            "non-existing-app",
-						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
-					},
-				},
-				setupDeployments: []Deployment{
-					{
-						App:            "definitely-non-existing-app",
-						Env:            "env",
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						TransformerID:  0,
-					},
-				},
-			},
-			expectedDeployments: []Deployment{
-				{
-					App:            "definitely-non-existing-app",
-					Env:            "env",
-					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-					TransformerID:  0,
-				},
-			},
-		},
 	}
 
 	for _, tc := range tcs {
@@ -475,6 +454,16 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 					err := dbHandler.DBWriteEnvironment(ctx, transaction, env.Name, env.Config, tc.given.setupApps)
 					if err != nil {
 						return fmt.Errorf("error while creating environment, error: %w", err)
+					}
+				}
+
+				// create apps
+				for _, app := range tc.given.setupApps {
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, app, AppStateChangeCreate, DBAppMetaData{
+						Team: "team",
+					})
+					if err != nil {
+						return fmt.Errorf("error while creating application, error: %w", err)
 					}
 				}
 
@@ -501,7 +490,10 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 			}
 
 			// when:
-			dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
+			err = dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
+			if err != nil {
+				t.Fatalf("execution error: %v", err)
+			}
 
 			// then:
 			err = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {

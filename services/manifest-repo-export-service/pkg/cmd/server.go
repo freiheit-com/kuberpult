@@ -30,6 +30,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -699,6 +700,14 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	if err != nil {
 		return nil, err
 	}
+	var span tracer.Span
+	if esl.TraceId != nil && esl.SpanId != nil {
+		links := []ddtrace.SpanLink{{TraceID: *esl.TraceId, SpanID: *esl.SpanId}}
+		span, ctx = tracer.StartSpanFromContext(ctx, "processEslEvent", tracer.WithSpanLinks(links))
+	} else {
+		span, ctx = tracer.StartSpanFromContext(ctx, "processEslEvent")
+	}
+	defer span.Finish()
 	t.SetEslVersion(db.TransformerID(esl.EslVersion))
 	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
 	t.SetCreationTimestamp(esl.Created)
