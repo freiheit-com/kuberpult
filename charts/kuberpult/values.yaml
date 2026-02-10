@@ -185,15 +185,16 @@ db:
   # i.e., These records point to nil releases version or the releases which do not have any manifests for the environment they are deployed to.
   # Or they point to environments that do not exist anymore.
   # This flag enables a custom migration which removes these outdated deployment records from the database.
+  # In our test, it takes 9 seconds for 5000 deployments
   outdatedDeploymentsCleaning:
-    enabled: true
+    enabled: false
   # The git sync status is displayed in the home page as a checkmark.
   # If this indicator is not being reset (e.g. always stays "red"),
   # then you can use this flag, to clean the git sync status in the database.
   # This is generally harmless because the data in the git_sync_status table is temporary.
   # We recommend to activate this flag once, if necessary, and then set it back to false:
   resetGitSyncStatus:
-    enabled: true
+    enabled: false
 manifestRepoExport:
   enabled: true
   image: kuberpult-manifest-repo-export-service
