@@ -36,7 +36,7 @@
           pkgs.protoc-gen-go-grpc
           pkgs.oapi-codegen
 
-          # rpgc utilities
+          # grpc utilities
           pkgs.evans
           pkgs.grpcurl
 
