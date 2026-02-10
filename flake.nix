@@ -7,11 +7,18 @@
     inputs.systems.follows = "systems";
   };
 
+  # nixpkgs revision that haves libgit2 package with version 1.5.0
+  inputs.nixpkgs-libgit2.url = "github:NixOS/nixpkgs/dc7ba75c10f017061ab164bab59e4b49fa6b2efe";
+
   outputs =
-    { nixpkgs, flake-utils, ... }:
+    { nixpkgs, flake-utils, nixpkgs-libgit2, ... }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
+        old-pkgs = import nixpkgs-libgit2 {
+          inherit system;
+        };
+
         pkgs = import nixpkgs {
           inherit system;
         };
@@ -20,7 +27,7 @@
           pkgs.gnumake
 
           # libgit
-          pkgs.libgit2
+          old-pkgs.libgit2
 
           # docker
           pkgs.docker

@@ -46,7 +46,7 @@ To verify that nix is installed properly, run:
 pkg-config --modversion libgit2
 ```
 
-It should print the current version of `libgit2` (at least `1.9.2`).
+It should print the current version of `libgit2` as `1.5.0`.
 
 ## Setup builder image
 
