@@ -7,7 +7,7 @@
     inputs.systems.follows = "systems";
   };
 
-  # nixpkgs revision that haves libgit2 package with version 1.5.0
+  # nixpkgs revision that has libgit2 package with version 1.5.0
   inputs.nixpkgs-libgit2.url = "github:NixOS/nixpkgs/dc7ba75c10f017061ab164bab59e4b49fa6b2efe";
 
   outputs =
