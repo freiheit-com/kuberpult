@@ -6,16 +6,47 @@ Unlike ArgoCD, Kuberpult is not triggered based on push to the repository. It is
 When a `/release` or `/api/release` endpoint is called with the manifest files, it saves that manifest in the database, and then the manifest-repo-export-service checks the repository for additional information (ArgoCD related), then commits and pushes the manifests to the repository which is then handled by ArgoCD.
 For full usage instructions, please check the [readme](https://github.com/freiheit-com/kuberpult/blob/main/readme.md).
 
-## Install dev tools
-It is split into two parts. The backend logic is in the `cd-service`. The frontend is also split into two parts (but they are both deployed as one microservice), the `frontend-service` that provides the REST backing for the ui, and the `ui-service` with the actual ui.
+Kuberpult is split into two parts. The backend logic is in the `cd-service`. The frontend is also split into two parts (but they are both deployed as one microservice), the `frontend-service` that provides the REST backing for the ui, and the `ui-service` with the actual ui.
 The `cd-service` takes the URL of the repository to watch from the environment variable `KUBERPULT_GIT_URL` and the branch to watch from the environment variable `KUBERPULT_GIT_BRANCH`.
 
-## Prerequisite software
+## Install Prerequisite Software with Nix Setup
+Developing Kuberpult locally requires several prerequisite software (e.g., docker, pnpm, protoc, libgit2, etc.) to be installed on your local machine. To simplify this, we provide a Nix setup that automatically installs all the required tools and provides them when you enter the Kuberpult project environment.
 
-- [docker](https://docs.docker.com/get-docker/)
-- [docker-compose](https://docs.docker.com/compose/install/) v1.29.2
-- [pnpm](https://pnpm.io/installation) v10
-- [protoc](https://protobuf.dev/installation/) v30.2
+#### Install Nix
+
+To install Nix see the [official installation guide](https://nixos.org/download/) of Nix. Additional information and troubleshooting tips may also be found [here](https://nixos.wiki/wiki/Nix_Installation_Guide).
+**NOTE:** If you encounter issues with the nix socket after the initial installation, you may need to restart. 
+
+We use a [Nix Flake](https://nix.dev/concepts/flakes.html) setup in order to guarantee reproducibility and consistency across our various environments. Since Nix Flakes are considered experimental within Nix, the usage has to be explicitly enabled. If not done already, this can be done with the following command:
+```
+mkdir -p ~/.config/nix
+echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
+```
+
+#### Install Direnv
+To automatically enable the Nix setup when entering the directory or integrate this with your IDE install [direnv](https://direnv.net) and [add the required hook](https://direnv.net/docs/hook.html) for your shell.
+
+If you experience the error `use_flake: command not found`, install and setup [nix-direnv](https://github.com/nix-community/nix-direnv)
+
+```
+nix profile add nixpkgs#nix-direnv
+mkdir -p ~/.config/direnv
+echo 'source $HOME/.nix-profile/share/nix-direnv/direnvrc' >> ~/.config/direnv/direnvrc
+```
+
+#### Enable Direnv
+To enable IDE integration you can then install the direnv plugin/extension for your IDE making the flake's environment available for the IDE and all subterminals automatically.
+
+In order to enable direnv you just need to call `direnv allow` in the terminal somewhere in the project.
+
+Custom additions to the `.envrc` that should not be added to the repository can be added in `.envrc.local`.
+
+To verify that nix is installed properly, run:
+```
+pkg-config --modversion libgit2
+```
+
+It should print the current version of `libgit2` (at least `1.9.2`).
 
 ## Setup builder image
 
