@@ -310,7 +310,7 @@ func (v *versionClient) GetArgoProcessor() *argo.ArgoAppProcessor {
 }
 
 func childEnvironments(env *api.Environment) []string {
-	if env.Config == nil || env.Config.ArgoConfigs == nil {
+	if env.Config == nil || env.Config.ArgoConfigs == nil || env.Config.ArgoConfigs.CommonEnvPrefix == "" {
 		return []string{env.Name}
 	}
 	result := make([]string, 0, len(env.Config.ArgoConfigs.Configs))

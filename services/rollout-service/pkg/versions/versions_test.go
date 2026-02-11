@@ -186,6 +186,14 @@ func TestVersionClientStream(t *testing.T) {
 				Environments: []*api.Environment{
 					{
 						Name: "staging",
+						Config: &api.EnvironmentConfig{
+							ArgoConfigs: &api.EnvironmentConfig_ArgoConfigs{
+								CommonEnvPrefix: "",
+								Configs:         []*api.ArgoCDEnvironmentConfiguration{},
+							},
+							Upstream:         &api.EnvironmentConfig_Upstream{},
+							Argocd:           &api.ArgoCDEnvironmentConfiguration{},
+						},
 					},
 				},
 			},
