@@ -13,7 +13,7 @@ COPY services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgi
 COPY services/manifest-repo-export-service/gitconfig /etc/gitconfig
 RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
 
-RUN npm install -g pnpm@8.9.2
+RUN npm install -g pnpm@8.15.9
 
 ARG GO_CI_LINT_VERSION="v2.7.2"
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin $GO_CI_LINT_VERSION
