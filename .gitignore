@@ -24,8 +24,6 @@ pkg/coverage.out
 cli/coverage.html
 cli/coverage.out
 
-# used by envrc https://direnv.net/
-.envrc
 charts/kuberpult/kuberpult-keyring.gpg
 charts/kuberpult/manifests/
 known_hosts_github
@@ -38,3 +36,7 @@ services/cd-service/repository_checked_out/
 CHANGELOG.tmp.md
 vendor/
 docker.env
+
+# local setup
+.direnv
+.envrc.local
