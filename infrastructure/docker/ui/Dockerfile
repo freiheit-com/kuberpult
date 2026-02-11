@@ -3,7 +3,7 @@ FROM alpine:3.21
 ARG UID=1000
 
 RUN apk --update add --no-cache nodejs npm
-RUN npm install -g pnpm@8.5.1
+RUN npm install -g pnpm@8.15.9
 
 EXPOSE 3000
 
