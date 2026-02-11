@@ -1157,15 +1157,8 @@ func (u *UndeployApplication) Transform(
 		}
 
 		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
-			//Delete deployment (register a new deployment by deleting version)
-			user, err := auth.ReadUserFromContext(ctx)
-			if err != nil {
-				return "", err
-			}
-			deployment.ReleaseNumbers.Version = nil
-			deployment.Metadata.DeployedByName = user.Name
-			deployment.Metadata.DeployedByEmail = user.Email
-			err = state.DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
+			// delete deployment
+			err := state.DBHandler.DBDeleteDeployment(ctx, transaction, deployment.App, env)
 			if err != nil {
 				return "", err
 			}
