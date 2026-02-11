@@ -7,15 +7,22 @@
     inputs.systems.follows = "systems";
   };
 
-  # nixpkgs revision that has libgit2 package with version 1.5.0
+  # libgit2 1.5.0
   inputs.nixpkgs-libgit2.url = "github:NixOS/nixpkgs/dc7ba75c10f017061ab164bab59e4b49fa6b2efe";
 
+  # golangci-lint 2.7.2
+  inputs.nixpkgs-golangci-lint.url = "github:NixOS/nixpkgs/07c10b3282ff0a5b0fa3a684d5174c17e823929a";
+
   outputs =
-    { nixpkgs, flake-utils, nixpkgs-libgit2, ... }:
+    { nixpkgs, flake-utils, nixpkgs-libgit2, nixpkgs-golangci-lint, ... }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        old-pkgs = import nixpkgs-libgit2 {
+        libgit-pkgs = import nixpkgs-libgit2 {
+          inherit system;
+        };
+
+        golangci-pkgs = import nixpkgs-golangci-lint {
           inherit system;
         };
 
@@ -27,7 +34,7 @@
           pkgs.gnumake
 
           # libgit
-          old-pkgs.libgit2
+          libgit-pkgs.libgit2
 
           # docker
           pkgs.docker
@@ -35,7 +42,7 @@
 
           # go
           pkgs.go_1_25
-          pkgs.golangci-lint
+          golangci-pkgs.golangci-lint
 
           # go plugins
           pkgs.protobuf_30

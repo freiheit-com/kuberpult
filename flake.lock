@@ -36,6 +36,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-golangci-lint": {
+      "locked": {
+        "lastModified": 1765138943,
+        "narHash": "sha256-Q1HzDT/9osWJr/azM6KaB1R5pGpTMqVSTo9n1103ZiI=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "07c10b3282ff0a5b0fa3a684d5174c17e823929a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "07c10b3282ff0a5b0fa3a684d5174c17e823929a",
+        "type": "github"
+      }
+    },
     "nixpkgs-libgit2": {
       "locked": {
         "lastModified": 1657877574,
@@ -56,6 +72,7 @@
       "inputs": {
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
+        "nixpkgs-golangci-lint": "nixpkgs-golangci-lint",
         "nixpkgs-libgit2": "nixpkgs-libgit2",
         "systems": "systems"
       }
