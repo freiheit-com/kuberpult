@@ -63,11 +63,6 @@
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [pkgs.pkg-config];
           buildInputs = packages;
-          shellHook = ''
-            if command -v zsh >/dev/null 2>&1 && [ -z "$DIRENV" ] && [ -z "$DIRENV_IN_ENVRC" ] && [ -z "$ZSH_VERSION" ]; then
-              exec zsh
-            fi
-          '';
         };
       }
     );
