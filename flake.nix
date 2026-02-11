@@ -34,7 +34,7 @@
           pkgs.docker-compose
 
           # go
-          pkgs.go_1_24
+          pkgs.go_1_25
           pkgs.golangci-lint
 
           # go plugins
@@ -49,7 +49,7 @@
 
           # frontend
           pkgs.nodejs_24
-          pkgs.pnpm
+          pkgs.pnpm_8
         ];
       in
       {
