@@ -168,10 +168,10 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 		span.Finish(tracer.WithError(err))
 	}()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO apps (created, appName, stateChange, metadata)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO apps (created, appName, stateChange, metadata, teamname)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(appname)
-		DO UPDATE SET created = excluded.created, appname = excluded.appname, statechange = excluded.statechange, metadata = excluded.metadata;
+		DO UPDATE SET created = excluded.created, appname = excluded.appname, statechange = excluded.statechange, metadata = excluded.metadata, teamname = excluded.teamname;
 	`)
 	span.SetTag("query", upsertQuery)
 
@@ -189,6 +189,7 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 		appName,
 		stateChange,
 		jsonToInsert,
+		metaData.Team,
 	)
 	if err != nil {
 		return fmt.Errorf("could not upsert app %s into DB. Error: %w", appName, err)
@@ -202,8 +203,8 @@ func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.T
 		span.Finish(tracer.WithError(err))
 	}()
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO apps_history (created, appName, stateChange, metadata)
-		VALUES (?, ?, ?, ?);
+		INSERT INTO apps_history (created, appName, stateChange, metadata, teamname)
+		VALUES (?, ?, ?, ?, ?);
 	`)
 	span.SetTag("query", insertQuery)
 
@@ -221,6 +222,7 @@ func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.T
 		appName,
 		stateChange,
 		jsonToInsert,
+		metaData.Team,
 	)
 	if err != nil {
 		return fmt.Errorf("could not upsert app %s into DB. Error: %w", appName, err)
