@@ -977,23 +977,25 @@ func (r *repository) processApp(
 	if commonEnvPrefix != nil {
 		prefix = *commonEnvPrefix
 	}
-	projectName := types.ArgoProjectName("")
 	environmentInfo := &argocd.EnvironmentInfo{
 		ArgoCDConfig:          currentArgoCdConfiguration,
 		CommonPrefix:          prefix,
 		ParentEnvironmentName: env,
 		IsAAEnv:               isAAEnv,
 	}
-	ok := false
-	if isAAEnv {
-		projectName, ok = (*r.ArgoProjectNames.ActiveActiveEnvironments)[types.EnvName(environmentInfo.GetFullyQualifiedName())]
-	} else {
-		projectName, ok = (*r.ArgoProjectNames.Environments)[types.EnvName(environmentInfo.GetFullyQualifiedName())]
-	}
-	if ok {
-		environmentInfo.ArgoProjectNameOverride = projectName
-	} else {
-		environmentInfo.ArgoProjectNameOverride = ""
+	projectNameOverride := types.ArgoProjectName("")
+	if r.ArgoProjectNames != nil && r.ArgoProjectNames.ActiveActiveEnvironments != nil && r.ArgoProjectNames.Environments != nil {
+		ok := false
+		if isAAEnv {
+			projectNameOverride, ok = (*r.ArgoProjectNames.ActiveActiveEnvironments)[types.EnvName(environmentInfo.GetFullyQualifiedName())]
+		} else {
+			projectNameOverride, ok = (*r.ArgoProjectNames.Environments)[types.EnvName(environmentInfo.GetFullyQualifiedName())]
+		}
+		if ok {
+			environmentInfo.ArgoProjectNameOverride = projectNameOverride
+		} else {
+			environmentInfo.ArgoProjectNameOverride = ""
+		}
 	}
 	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo, ts, fsMutex)
 	return err
