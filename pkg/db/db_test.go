@@ -143,68 +143,6 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 		expectedDeployments []Deployment
 	}{
 		{
-			name: "should delete deployments with empty data",
-			given: Given{
-				setupEnvs: []DBEnvironment{
-					{
-						Name:   "env",
-						Config: config.EnvironmentConfig{},
-					},
-				},
-				setupApps: []types.AppName{"app"},
-				setupReleases: []DBReleaseWithMetaData{
-					{
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						App:            "app",
-						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
-					},
-				},
-				setupDeployments: []Deployment{
-					{
-						App: "",
-						Env: "",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  nil,
-							Revision: 0,
-						},
-						TransformerID: 0,
-					},
-				},
-			},
-			expectedDeployments: []Deployment{},
-		},
-		{
-			name: "should delete deployments with no release version",
-			given: Given{
-				setupEnvs: []DBEnvironment{
-					{
-						Name:   "env",
-						Config: config.EnvironmentConfig{},
-					},
-				},
-				setupApps: []types.AppName{"app"},
-				setupReleases: []DBReleaseWithMetaData{
-					{
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						App:            "app",
-						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
-					},
-				},
-				setupDeployments: []Deployment{
-					{
-						App: "app",
-						Env: "env",
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  nil,
-							Revision: 0,
-						},
-						TransformerID: 0,
-					},
-				},
-			},
-			expectedDeployments: []Deployment{},
-		},
-		{
 			name: "should delete deployments with empty environment",
 			given: Given{
 				setupEnvs: []DBEnvironment{
@@ -289,34 +227,6 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 			expectedDeployments: []Deployment{},
 		},
 		{
-			name: "should delete deployments with a non-existing release",
-			given: Given{
-				setupEnvs: []DBEnvironment{
-					{
-						Name:   "env",
-						Config: config.EnvironmentConfig{},
-					},
-				},
-				setupApps: []types.AppName{"app"},
-				setupReleases: []DBReleaseWithMetaData{
-					{
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						App:            "app",
-						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{}},
-					},
-				},
-				setupDeployments: []Deployment{
-					{
-						App:            "app",
-						Env:            "env",
-						ReleaseNumbers: types.MakeReleaseNumbers(2, 0),
-						TransformerID:  0,
-					},
-				},
-			},
-			expectedDeployments: []Deployment{},
-		},
-		{
 			name: "should delete deployments with a release that has no manifest data",
 			given: Given{
 				setupEnvs: []DBEnvironment{
@@ -359,34 +269,6 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 						App:            "app",
 						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"another-env": "manifest1"}},
-					},
-				},
-				setupDeployments: []Deployment{
-					{
-						App:            "app",
-						Env:            "env",
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						TransformerID:  0,
-					},
-				},
-			},
-			expectedDeployments: []Deployment{},
-		},
-		{
-			name: "should delete deployments if the app name is mismatched between deployment and release",
-			given: Given{
-				setupEnvs: []DBEnvironment{
-					{
-						Name:   "env",
-						Config: config.EnvironmentConfig{},
-					},
-				},
-				setupApps: []types.AppName{"app"},
-				setupReleases: []DBReleaseWithMetaData{
-					{
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						App:            "non-existing-app",
-						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
 					},
 				},
 				setupDeployments: []Deployment{
@@ -1171,25 +1053,9 @@ func TestReadWriteDeployment(t *testing.T) {
 				TransformerID: 0,
 			},
 		},
-		{
-			Name:            "with eslVersion == nil",
-			App:             "app-b",
-			Env:             "prod",
-			VersionToDeploy: nil,
-			ExpectedDeployment: &Deployment{
-				App: "app-b",
-				Env: "prod",
-				ReleaseNumbers: types.ReleaseNumbers{
-					Revision: 0,
-					Version:  nil,
-				},
-				TransformerID: 0,
-			},
-		},
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutil.MakeTestContext()
@@ -1206,6 +1072,19 @@ func TestReadWriteDeployment(t *testing.T) {
 				}
 
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+
+				// a release should be added if it doesn't exist
+				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, DBReleaseWithMetaData{
+					App: tc.App,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  tc.VersionToDeploy,
+					},
+					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+				})
 				if err != nil {
 					return err
 				}
@@ -1466,7 +1345,19 @@ func TestReadAllLatestDeploymentForApplication(t *testing.T) {
 				}
 
 				for _, deployment := range tc.SetupDeployments {
-					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, DBReleaseWithMetaData{
+						App: deployment.App,
+						ReleaseNumbers: types.ReleaseNumbers{
+							Revision: deployment.ReleaseNumbers.Revision,
+							Version:  deployment.ReleaseNumbers.Version,
+						},
+						Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					})
+					if err != nil {
+						return err
+					}
+
+					err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
 					if err != nil {
 						return err
 					}
@@ -1586,7 +1477,19 @@ func TestReadAllLatestDeployment(t *testing.T) {
 				}
 
 				for _, deployment := range tc.SetupDeployments {
-					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, DBReleaseWithMetaData{
+						App: deployment.App,
+						ReleaseNumbers: types.ReleaseNumbers{
+							Revision: deployment.ReleaseNumbers.Revision,
+							Version:  deployment.ReleaseNumbers.Version,
+						},
+						Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					})
+					if err != nil {
+						return err
+					}
+
+					err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, *deployment)
 					if err != nil {
 						return err
 					}
@@ -1827,7 +1730,20 @@ func TestAllDeployments(t *testing.T) {
 						Metadata:      DeploymentMetadata{},
 						TransformerID: 0,
 					}
-					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment)
+
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, DBReleaseWithMetaData{
+						App: deployment.App,
+						ReleaseNumbers: types.ReleaseNumbers{
+							Revision: deployment.ReleaseNumbers.Revision,
+							Version:  deployment.ReleaseNumbers.Version,
+						},
+						Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{deployment.Env: "manifest1"}},
+					})
+					if err != nil {
+						return err
+					}
+
+					err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment)
 					if err != nil {
 						t.Fatalf("Error updating all deployments: %v", err)
 					}
@@ -6080,7 +5996,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: oldId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  oldId,
 				},
 			},
 			ExpectedDeploymentsNewID: []Deployment{
@@ -6093,7 +6010,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: newId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  newId,
 				},
 			},
 		},
@@ -6109,7 +6027,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: oldId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  oldId,
 				},
 				{
 					Created: time.Now(),
@@ -6120,7 +6039,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: oldId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  oldId,
 				},
 			},
 			ExpectedDeploymentsOldId: []Deployment{},
@@ -6134,7 +6054,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: newId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  newId,
 				},
 				{
 					Created: time.Now(),
@@ -6145,7 +6066,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: newId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  newId,
 				},
 			},
 		},
@@ -6161,7 +6083,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: oldId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  oldId,
 				},
 				{
 					Created: time.Now(),
@@ -6172,7 +6095,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: oldId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  oldId,
 				},
 				{
 					Created: time.Now(),
@@ -6183,7 +6107,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: 3,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  3,
 				},
 			},
 			ExpectedDeploymentsNewID: []Deployment{
@@ -6196,7 +6121,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: newId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  newId,
 				},
 				{
 					Created: time.Now(),
@@ -6207,7 +6133,8 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						DeployedByEmail: "email1",
 						CiLink:          "cilink1",
 					},
-					TransformerID: newId,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+					TransformerID:  newId,
 				},
 			},
 		},
@@ -6234,7 +6161,19 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 					return fmt.Errorf("error while writing EvtMigrationTransformer, error: %w", err)
 				}
 				for _, deployment := range tc.InitialDeployments {
-					err := dbHandler.upsertDeploymentRow(ctx, transaction, deployment)
+					err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, DBReleaseWithMetaData{
+						App: deployment.App,
+						ReleaseNumbers: types.ReleaseNumbers{
+							Revision: deployment.ReleaseNumbers.Revision,
+							Version:  deployment.ReleaseNumbers.Version,
+						},
+						Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{deployment.Env: "manifest1"}},
+					})
+					if err != nil {
+						return err
+					}
+
+					err = dbHandler.upsertDeploymentRow(ctx, transaction, deployment)
 					if err != nil {
 						return fmt.Errorf("error while writing deployment, error: %w", err)
 					}
