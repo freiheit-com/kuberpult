@@ -25,7 +25,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -48,8 +50,9 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) (string, error) {
 	op, err := exec.Command("sh", "-c", "helm template ./.. --values "+tempValuesFile+" > "+outputFile).CombinedOutput()
 
 	if err != nil {
-		t.Logf("Error generating chart: %v: %s", err, string(op))
-		return "", err
+		//t.Logf("Error generating chart: %v: %s", err, string(op))
+		//return "", err
+		return string(op), fmt.Errorf("Error generating chart: %v: %s", err, string(op))
 	}
 
 	fileContent, err := os.ReadFile(outputFile)
@@ -57,7 +60,7 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) (string, error) {
 		t.Fatalf("Error reading file '%s' content: \n%s\n", outputFile, string(fileContent))
 		return "", nil
 	}
-	t.Logf("output file: \n%s\n", fileContent)
+	t.Logf("output file '%s': \n%s\n", outputFile, fileContent)
 
 	return outputFile, nil
 }
@@ -1482,6 +1485,8 @@ ingress:
   domainName: "kuberpult-example.com"
 rollout:
   enabled: true
+manifestRepoExport:
+  enabled: false
 argocd:
   server: https://argo:1090
 db:
@@ -1514,6 +1519,8 @@ ingress:
 rollout:
   enabled: true
   persistArgoEvents: false
+manifestRepoExport:
+  enabled: false
 argocd:
   server: https://argo:1090
 `,
@@ -1541,6 +1548,8 @@ ingress:
 rollout:
   enabled: true
   persistArgoEvents: true
+manifestRepoExport:
+  enabled: false
 argocd:
   server: https://argo:1090
 `,
@@ -1568,6 +1577,8 @@ rollout:
   enabled: true
   persistArgoEvents: true
   argoEventsBatchSize: 50
+manifestRepoExport:
+  enabled: false
 argocd:
   server: https://argo:1090
 `,
@@ -1594,6 +1605,8 @@ ingress:
 rollout:
   enabled: true
   argoEventsChannelSize: 100
+manifestRepoExport:
+  enabled: false
 argocd:
   server: https://argo:1090
 `,
@@ -1616,6 +1629,8 @@ ingress:
 rollout:
   enabled: true
   kuberpultEventsChannelSize: 99
+manifestRepoExport:
+  enabled: false
 argocd:
   server: https://argo:1090
 `,
@@ -1641,6 +1656,8 @@ rollout:
     doraMetricsEnabled: true
     argoEventsMetricsEnabled: true
     kuberpultEventsMetricsEnabled: true
+manifestRepoExport:
+  enabled: false
 argocd:
   server: https://argo:1090
 `,
@@ -1662,7 +1679,7 @@ argocd:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Test enable all metrics",
+			Name: "Test enable all metrics with dora",
 			Values: `
 git:
   url: "testURL"
@@ -1670,6 +1687,8 @@ ingress:
   domainName: "kuberpult-example.com"
 rollout:
   enabled: true
+manifestRepoExport:
+  enabled: false
 revolution:
   dora:
     enabled: true
@@ -1993,6 +2012,10 @@ ingress:
   domainName: "kuberpult-example.com"
 rollout:
   enabled: true
+manifestRepoExport:
+  enabled: true
+  experimentalRolloutWithManifest:
+    enabled: true
 db:
   dbOption: postgreSQL
 argocd:
@@ -2029,6 +2052,8 @@ manifestRepoExport:
     annotations:
       test-key: test-value2
       secondKey: secondValue2
+  experimentalRolloutWithManifest:
+    enabled: true
 frontend:
   pod:
     annotations:
@@ -2078,6 +2103,8 @@ manifestRepoExport:
     annotations:
       test-key: test-value2
       secondKey: secondValue2
+  experimentalRolloutWithManifest:
+    enabled: true
 frontend:
   pod:
     annotations:
@@ -2133,6 +2160,8 @@ manifestRepoExport:
     annotations:
       test-key: test-value2
       secondKey: secondValue2
+  experimentalRolloutWithManifest:
+    enabled: true
 frontend:
   service:
     annotations:
@@ -2220,6 +2249,44 @@ argocd:
 					t.Fatalf("wrong rollout service annotations (-want, +got):\n%s", diff)
 				}
 			}
+		})
+	}
+}
+
+// tests that our helm chars do some error handling when incompatible values are set
+func TestHelmErrors(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Values        string
+		ExpectedError error
+	}{
+		{
+			Name: "Rollout and manifest-export should not go together",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+manifestRepoExport:
+  enabled: true
+rollout:
+  enabled: true
+`,
+			ExpectedError: errorMatcher.ContainsErrMatcher{
+				Messages: []string{"cannot enable both rollout and manifestRepoExport at the same time"},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			_, err := runHelm(t, []byte(tc.Values), testDirName)
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+			}
+
 		})
 	}
 }
