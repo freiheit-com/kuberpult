@@ -67,6 +67,11 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			App:            appPow,
 			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
+		{
+			ReleaseNumbers: types.MakeReleaseNumberVersion(0),
+			App:            appFoo,
+			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
+		},
 	}
 
 	type AppEnv struct {
@@ -228,6 +233,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			for _, toBeDeployed := range tc.InputDeployments {
 				// starting new transactions here so that each deployment gets its own timestamp
 				err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+
 					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 						Created:        time.Time{},
 						App:            toBeDeployed.App,

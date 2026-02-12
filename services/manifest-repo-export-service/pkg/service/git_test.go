@@ -1288,9 +1288,10 @@ func TestRetryEvent(t *testing.T) {
 			expectedFailedEvents:   []*db.EslFailedEventRow{},
 			initialDeployments: []*db.Deployment{
 				{
-					Created: time.Now(),
-					Env:     envName,
-					App:     appName,
+					Created:        time.Now(),
+					Env:            envName,
+					App:            appName,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 					Metadata: db.DeploymentMetadata{
 						DeployedByName:  "author1",
 						DeployedByEmail: "email1",
@@ -1301,9 +1302,10 @@ func TestRetryEvent(t *testing.T) {
 			},
 			expectedDeployments: []db.Deployment{
 				{
-					Created: time.Now(),
-					Env:     envName,
-					App:     appName,
+					Created:        time.Now(),
+					Env:            envName,
+					App:            appName,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 					Metadata: db.DeploymentMetadata{
 						DeployedByName:  "author1",
 						DeployedByEmail: "email1",
@@ -1373,9 +1375,10 @@ func TestRetryEvent(t *testing.T) {
 			},
 			initialDeployments: []*db.Deployment{
 				{
-					Created: time.Now(),
-					Env:     envName,
-					App:     appName,
+					Created:        time.Now(),
+					Env:            envName,
+					App:            appName,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 					Metadata: db.DeploymentMetadata{
 						DeployedByName:  "author1",
 						DeployedByEmail: "email1",
@@ -1386,9 +1389,10 @@ func TestRetryEvent(t *testing.T) {
 			},
 			expectedDeployments: []db.Deployment{
 				{
-					Created: time.Now(),
-					Env:     envName,
-					App:     appName,
+					Created:        time.Now(),
+					Env:            envName,
+					App:            appName,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 					Metadata: db.DeploymentMetadata{
 						DeployedByName:  "author1",
 						DeployedByEmail: "email1",
@@ -1485,9 +1489,10 @@ func TestRetryEvent(t *testing.T) {
 			},
 			initialDeployments: []*db.Deployment{
 				{
-					Created: time.Now(),
-					Env:     envName,
-					App:     appName,
+					Created:        time.Now(),
+					Env:            envName,
+					App:            appName,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 					Metadata: db.DeploymentMetadata{
 						DeployedByName:  "author1",
 						DeployedByEmail: "email1",
@@ -1498,9 +1503,10 @@ func TestRetryEvent(t *testing.T) {
 			},
 			expectedDeployments: []db.Deployment{
 				{
-					Created: time.Now(),
-					Env:     envName,
-					App:     appName,
+					Created:        time.Now(),
+					Env:            envName,
+					App:            appName,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 					Metadata: db.DeploymentMetadata{
 						DeployedByName:  "author1",
 						DeployedByEmail: "email1",
@@ -1549,7 +1555,16 @@ func TestRetryEvent(t *testing.T) {
 					}
 				}
 				for _, in := range tc.initialDeployments {
-					err := repo.State().DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, *in)
+					err := repo.State().DBHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+						App:            in.App,
+						ReleaseNumbers: in.ReleaseNumbers,
+						Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					})
+					if err != nil {
+						return err
+					}
+
+					err = repo.State().DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, *in)
 					if err != nil {
 						return err
 					}
