@@ -34,8 +34,8 @@ function createMatrix() {
     debug "Building only what's required, because of ${makeTarget} parameter (pull-request build)."
   fi
 
-  # if we have golang-ci or makefile changes, then build all go services
-  grepOutput=$(echo "${ALL_FILES}" | grep -e '^.golangci.yml' -e 'include.mk' -e 'Makefile')
+  # if we have golang-ci or makefile or sql-migration changes, then build all go services
+  grepOutput=$(echo "${ALL_FILES}" | grep -e '^.golangci.yml' -e 'include.mk' -e 'Makefile' -e '.sql')
   # shellcheck disable=SC2181
   if [ "$?" -eq 0 ]
   then
