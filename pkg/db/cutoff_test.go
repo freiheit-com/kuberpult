@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -51,7 +51,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 
 			dbHandler := setupDB(t)
 

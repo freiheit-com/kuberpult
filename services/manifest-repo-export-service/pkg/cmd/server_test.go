@@ -30,6 +30,7 @@ import (
 	errs "github.com/freiheit-com/kuberpult/pkg/errorMatcher"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
@@ -341,7 +342,7 @@ func SetupRepositoryTestWithDB(t *testing.T, ctx context.Context) (repository.Re
 		Branch:              "master",
 	}
 	repo, err := repository.New(
-		testutil.MakeTestContext(),
+		testutilauth.MakeTestContext(),
 		config,
 	)
 	if err != nil {

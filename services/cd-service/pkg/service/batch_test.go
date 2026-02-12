@@ -24,21 +24,19 @@ import (
 	"path"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -248,7 +246,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			user, err := auth.ReadUserFromContext(ctx)
 			if err != nil {
 				t.Fatalf("error reading user from context")
@@ -392,7 +390,7 @@ func TestBatchServiceFails(t *testing.T) {
 				},
 			},
 			Batch:              []*api.BatchAction{},
-			context:            testutil.MakeTestContextDexEnabled(),
+			context:            testutilauth.MakeTestContextDexEnabled(),
 			svc:                &BatchServer{},
 			expectedSetupError: errMatcher{"the desired action can not be performed because Dex is enabled without any RBAC policies"},
 		},
@@ -404,7 +402,7 @@ func TestBatchServiceFails(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			errSetupObserved := false
 			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
@@ -521,7 +519,7 @@ func TestBatchServiceErrors(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
 				if err2 != nil && err2.TransformerError != nil {
@@ -533,7 +531,7 @@ func TestBatchServiceErrors(t *testing.T) {
 				Repository: repo,
 			}
 			response, processErr := svc.ProcessBatch(
-				testutil.MakeTestContext(),
+				testutilauth.MakeTestContext(),
 				&api.BatchRequest{
 					Actions: tc.Batch,
 				},
@@ -599,7 +597,7 @@ func TestBatchServiceLimit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
 				if err2 != nil && err2.TransformerError != nil {
@@ -611,7 +609,7 @@ func TestBatchServiceLimit(t *testing.T) {
 				Repository: repo,
 			}
 			_, err = svc.ProcessBatch(
-				testutil.MakeTestContext(),
+				testutilauth.MakeTestContext(),
 				&api.BatchRequest{
 					Actions: tc.Batch,
 				},
@@ -697,7 +695,7 @@ func setupRepositoryTestWithAllOptions(t *testing.T) (repository.Repository, err
 		repoCfg.DBHandler = db
 	}
 	repo, err := repository.New(
-		testutil.MakeTestContext(),
+		testutilauth.MakeTestContext(),
 		repoCfg,
 	)
 	if err != nil {
@@ -807,7 +805,7 @@ func TestReleaseTrain(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
 				if err2 != nil && err2.TransformerError != nil {
@@ -819,7 +817,7 @@ func TestReleaseTrain(t *testing.T) {
 				Repository: repo,
 			}
 			resp, err := svc.ProcessBatch(
-				testutil.MakeTestContext(),
+				testutilauth.MakeTestContext(),
 				tc.Request,
 			)
 			if err != nil {
@@ -1073,7 +1071,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			_ = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, _, _, err2 := repo.ApplyTransformersInternal(ctx, transaction, tc.Setup...)
 				if err2 != nil && err2.TransformerError != nil {
@@ -1085,7 +1083,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 				Repository: repo,
 			}
 			resp, err := svc.ProcessBatch(
-				testutil.MakeTestContext(),
+				testutilauth.MakeTestContext(),
 				tc.Request,
 			)
 			if err != nil {

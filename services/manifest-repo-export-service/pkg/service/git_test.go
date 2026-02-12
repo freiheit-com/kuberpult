@@ -19,12 +19,14 @@ package service
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os/exec"
 	"path"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
@@ -953,7 +955,7 @@ func TestGetCommitInfo(t *testing.T) {
 				uuidGenerate = testutil.NewIncrementalUUIDGeneratorForPageSizeTest()
 				pageSize = 2
 			}
-			ctx := rp.AddGeneratorToContext(testutil.MakeTestContext(), uuidGenerate)
+			ctx := rp.AddGeneratorToContext(testutilauth.MakeTestContext(), uuidGenerate)
 			dbHandler := repo.State().DBHandler
 
 			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1193,7 +1195,7 @@ func TestGetSyncData(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			pageSize := 100
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			config := rp.RepositoryConfig{
 				ArgoCdGenerateFiles:  true,
 				DBHandler:            repo.State().DBHandler,
@@ -1514,7 +1516,7 @@ func TestRetryEvent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			pageSize := 100
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			config := rp.RepositoryConfig{
 				ArgoCdGenerateFiles:  true,
 				DBHandler:            repo.State().DBHandler,
@@ -1766,7 +1768,7 @@ func TestSkipEvent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 			pageSize := 100
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			config := rp.RepositoryConfig{
 				ArgoCdGenerateFiles:  true,
 				DBHandler:            repo.State().DBHandler,
@@ -1908,7 +1910,7 @@ func TestGetGitTags(t *testing.T) {
 		}
 	}
 
-	res, err := sv.GetGitTags(testutil.MakeTestContext(), &api.GetGitTagsRequest{})
+	res, err := sv.GetGitTags(testutilauth.MakeTestContext(), &api.GetGitTagsRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1969,7 +1971,7 @@ func setupRepositoryTestWithPathAndDB(t *testing.T) (rp.Repository, *db.DBHandle
 	}
 
 	repo, err := rp.New(
-		testutil.MakeTestContext(),
+		testutilauth.MakeTestContext(),
 		repoCfg,
 	)
 	if err != nil {

@@ -32,6 +32,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/cenkalti/backoff/v4"
@@ -95,7 +96,7 @@ func TestRetrySsh(t *testing.T) {
 			repo.backOffProvider = func() backoff.BackOff {
 				return backoff.WithMaxRetries(&backoff.ZeroBackOff{}, 5)
 			}
-			resp := repo.Push(testutil.MakeTestContext(), func() error {
+			resp := repo.Push(testutilauth.MakeTestContext(), func() error {
 				counter++
 				if counter > tc.NumOfFailures {
 					return nil
@@ -264,7 +265,7 @@ func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *Reposi
 		Branch:              "master",
 	}
 	repo, err := New(
-		testutil.MakeTestContext(),
+		testutilauth.MakeTestContext(),
 		config,
 	)
 	if err != nil {
@@ -283,7 +284,7 @@ func TestGetTagsNoTags(t *testing.T) {
 		localDir := repoConfig.Path
 		// dbHandler can be nil here, because that part of the code is not reached, because we do not have tags:
 		var dbHandler *db.DBHandler
-		tags, err := GetTags(testutil.MakeTestContext(), dbHandler, *repoConfig, localDir)
+		tags, err := GetTags(testutilauth.MakeTestContext(), dbHandler, *repoConfig, localDir)
 		if err != nil {
 			t.Fatalf("new: expected no error, got '%e'", err)
 		}
@@ -318,7 +319,7 @@ func TestGetTags(t *testing.T) {
 			_, dbHandler, repoConfig := SetupRepositoryTestWithDB(t)
 			localDir := repoConfig.Path
 			_, err := New(
-				testutil.MakeTestContext(),
+				testutilauth.MakeTestContext(),
 				*repoConfig,
 			)
 			if err != nil {
@@ -357,7 +358,7 @@ func TestGetTags(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			tags, err := GetTags(testutil.MakeTestContext(), dbHandler, *repoConfig, localDir)
+			tags, err := GetTags(testutilauth.MakeTestContext(), dbHandler, *repoConfig, localDir)
 			if err != nil {
 				t.Fatalf("new: expected no error, got '%e'", err)
 			}
@@ -545,7 +546,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
 			repo.config.ArgoCdGenerateFiles = tc.shouldGenerateFiles
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, tr := range tc.TransformerSetup {
@@ -933,7 +934,7 @@ spec:
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
 			repo.config.ArgoCdGenerateFiles = true
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			for _, step := range tc.Steps {
 				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					ts, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
@@ -1790,7 +1791,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
 
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := tc.databasePopulation(ctx, transaction, dbHandler)
@@ -1923,7 +1924,7 @@ func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 	}
 
 	repo, err := New(
-		testutil.MakeTestContext(),
+		testutilauth.MakeTestContext(),
 		repoCfg,
 	)
 	if err != nil {
@@ -1935,7 +1936,7 @@ func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 func BenchmarkApplyQueue(t *testing.B) {
 	t.StopTimer()
 	repo, _ := setupRepositoryBenchmarkWithPath(t)
-	ctx := testutil.MakeTestContext()
+	ctx := testutilauth.MakeTestContext()
 	generator := testutil.NewIncrementalUUIDGenerator()
 	dbHandler := repo.State().DBHandler
 
@@ -2097,7 +2098,7 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			repo, _, _ := SetupRepositoryTestWithDB(t)
 			repo.(*repository).ddMetrics = client
 			dbHandler := repo.State().DBHandler
