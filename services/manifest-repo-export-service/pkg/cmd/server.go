@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -35,6 +34,7 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/backoff"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
