@@ -23,14 +23,13 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	v1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -185,7 +184,7 @@ func TestGenerateManifest(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name+"_with_db", func(t *testing.T) {
 			dbHandler := SetupRepositoryTestWithDBOptions(t, false)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteEnvironment(ctx, transaction, tc.SetupEnv.Name, tc.SetupEnv.Config, tc.SetupEnv.Applications)
 				if err != nil {

@@ -119,6 +119,9 @@ GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no
 
 cd manifests
 pwd
+print 'to run git commands here, run:'
+print "export GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../../services/cd-service/client'"
+
 cp -r ../../../infrastructure/scripts/create-testdata/testdata_template/environments .
 git add environments
 GIT_AUTHOR_NAME='Initial Kuberpult Commiter' GIT_COMMITTER_NAME='Initial Kuberpult Commiter' GIT_AUTHOR_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com'  GIT_COMMITTER_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com' git commit -m "add initial environments from template"
@@ -245,6 +248,34 @@ metadata:
   namespace: ${ARGO_NAMESPACE}
 spec:
   description: test-env
+  destinations:
+  - name: "dest1"
+    namespace: '*'
+    server: https://kubernetes.default.svc
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: staging
+  namespace: ${ARGO_NAMESPACE}
+spec:
+  description: staging-normal
+  destinations:
+  - name: "dest1"
+    namespace: '*'
+    server: https://kubernetes.default.svc
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: staging
+  namespace: ${ARGO_NAMESPACE}
+spec:
+  description: staging-proj-override666
   destinations:
   - name: "dest1"
     namespace: '*'

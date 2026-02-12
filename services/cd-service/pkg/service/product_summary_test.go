@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -433,13 +433,13 @@ func TestGetProductDB(t *testing.T) {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
 			sv := &ProductSummaryServer{State: repo.State()}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 
 			var commitHashes []string
 			for idx, steps := range tc.SetupStages {
 				err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					//Apply the setup transformers
-					_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, steps...)
+					_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, steps...)
 					if err != nil {
 						return err
 					}
@@ -466,9 +466,9 @@ func TestGetProductDB(t *testing.T) {
 				for iter, currentExpectedProductSummary := range tc.expectedProductSummary {
 					var productSummary *api.GetProductSummaryResponse
 					if tc.givenEnvGroup != nil {
-						productSummary, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: commitHashes[iter], Environment: nil, EnvironmentGroup: tc.givenEnvGroup})
+						productSummary, err = sv.GetProductSummary(testutilauth.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: commitHashes[iter], Environment: nil, EnvironmentGroup: tc.givenEnvGroup})
 					} else {
-						productSummary, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: commitHashes[iter], Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
+						productSummary, err = sv.GetProductSummary(testutilauth.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: commitHashes[iter], Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
 					}
 					if err != nil && tc.expectedErrors == nil {
 						t.Errorf("error mismatch. did not expect any errors but got: %v", err)
@@ -563,12 +563,12 @@ func TestGetProductDBFailureCases(t *testing.T) {
 			}
 			sv := &ProductSummaryServer{State: repo.State()}
 			for _, transformer := range tc.Setup {
-				err := repo.Apply(testutil.MakeTestContext(), transformer)
+				err := repo.Apply(testutilauth.MakeTestContext(), transformer)
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err2 := repo.State().DBHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ts.UTC())
 				return err2
@@ -577,10 +577,10 @@ func TestGetProductDBFailureCases(t *testing.T) {
 				t.Error(err)
 			}
 			if tc.timestamp != nil {
-				_, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
+				_, err = sv.GetProductSummary(testutilauth.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
 
 			} else {
-				_, err = sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
+				_, err = sv.GetProductSummary(testutilauth.MakeTestContext(), &api.GetProductSummaryRequest{ManifestRepoCommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
 			}
 			if diff := cmp.Diff(tc.expectedErr, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)

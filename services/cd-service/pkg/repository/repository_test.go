@@ -26,14 +26,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	"github.com/DataDog/datadog-go/v5/statsd"
-
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -261,7 +258,7 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			repo := SetupRepositoryTestWithDB(t)
 			ddMetrics = client
 			dbHandler := repo.State().DBHandler
@@ -337,7 +334,7 @@ func SetupRepositoryBenchmark(t *testing.B) (Repository, *db.DBHandler) {
 	repoCfg.DBHandler = dbHandler
 
 	repo, err := New(
-		testutil.MakeTestContext(),
+		testutilauth.MakeTestContext(),
 		repoCfg,
 	)
 	if err != nil {
@@ -354,7 +351,7 @@ type TestStruct struct {
 func BenchmarkApplyQueue(t *testing.B) {
 	t.StopTimer()
 	repo, _ := SetupRepositoryBenchmark(t)
-	ctx := testutil.MakeTestContext()
+	ctx := testutilauth.MakeTestContext()
 	dbHandler := repo.State().DBHandler
 
 	repoInternal := repo.(*repository)

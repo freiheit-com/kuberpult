@@ -14,6 +14,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
+/*
+Package testutil provides utilities for anything that has only basic dependencies, especially not pkg/auth.
+*/
+
 package testutil
 
 import (
@@ -25,52 +29,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
-	"google.golang.org/grpc/metadata"
 
-	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 )
-
-func MakeTestContext() context.Context {
-	u := auth.User{
-		DexAuthContext: nil,
-		Email:          "testmail@example.com",
-		Name:           "test tester",
-	}
-	ctx := auth.WriteUserToContext(context.Background(), u)
-
-	// for some specific calls we need to set the *incoming* grpc context
-	// this happens when we call a function like `ProcessBatch` directly in the test
-	ctx = metadata.NewIncomingContext(ctx, metadata.New(map[string]string{
-		auth.HeaderUserEmail: auth.Encode64("myemail@example.com"),
-		auth.HeaderUserName:  auth.Encode64("my name"),
-	}))
-	return ctx
-}
-
-func MakeTestContextDexEnabled() context.Context {
-	// Default user role.
-	return MakeTestContextDexEnabledUser("developer")
-}
-
-func MakeTestContextDexEnabledUser(role string) context.Context {
-	u := auth.User{
-		Email:          "testmail@example.com",
-		Name:           "test tester",
-		DexAuthContext: &auth.DexAuthContext{Role: []string{role}},
-	}
-	ctx := auth.WriteUserToContext(context.Background(), u)
-	ctx = metadata.NewIncomingContext(ctx, metadata.New(map[string]string{
-		auth.HeaderUserEmail: auth.Encode64("myemail@example.com"),
-		auth.HeaderUserName:  auth.Encode64("my name"),
-		auth.HeaderUserRole:  auth.Encode64(role),
-	}))
-	return ctx
-}
 
 func MakeEnvConfigLatest(argoCd *config.EnvironmentConfigArgoCd) config.EnvironmentConfig {
 	return MakeEnvConfigLatestWithGroup(argoCd, nil)
@@ -233,4 +199,9 @@ func WrapTestRoutine(t *testing.T, ctx context.Context, logLevel string, inner f
 	if err != nil {
 		t.Fatalf("failed to wrap logger: %v", err)
 	}
+}
+
+// CmpDiff is exactly like cmp.Diff but with type safety
+func CmpDiff[T any](want, got T, opts ...cmp.Option) string {
+	return cmp.Diff(want, got, opts...)
 }
