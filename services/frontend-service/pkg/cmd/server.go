@@ -188,8 +188,6 @@ func parseEnvVars() (*config.ServerConfig, error) {
 		return nil, err
 	}
 	r.RevisionsEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_REVISIONS_ENABLED", false)
-
-	fmt.Printf("returned config new parser: %v\n", r)
 	return &r, nil
 }
 
@@ -203,6 +201,7 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Error("parseEnvVars", zap.Error(err))
 		return err
 	}
+	logger.FromContext(ctx).Info("parsedConfig", zap.Any("config", *c))
 
 	var jwks *keyfunc.JWKS = nil
 	if c.AzureEnableAuth {
