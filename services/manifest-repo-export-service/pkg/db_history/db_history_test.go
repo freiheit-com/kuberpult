@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright freiheit.com*/
+Copyright freiheit.com
+*/
 package db_history
 
 import (
@@ -64,6 +66,11 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(2),
 			App:            appPow,
+			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
+		},
+		{
+			ReleaseNumbers: types.MakeReleaseNumberVersion(0),
+			App:            appFoo,
 			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 	}
@@ -227,6 +234,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			for _, toBeDeployed := range tc.InputDeployments {
 				// starting new transactions here so that each deployment gets its own timestamp
 				err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+
 					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
 						Created:        time.Time{},
 						App:            toBeDeployed.App,
