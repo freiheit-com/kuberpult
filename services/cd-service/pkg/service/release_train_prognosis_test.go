@@ -21,7 +21,7 @@ import (
 	"database/sql"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/google/go-cmp/cmp"
 
@@ -429,14 +429,14 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 
 			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, environmentSetup...)
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, environmentSetup...)
 				if err2 != nil {
 					return err2
 				}
-				_, _, _, err2 = repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Setup...)
+				_, _, _, err2 = repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Setup...)
 				if err2 != nil {
 					return err2
 				}
@@ -539,11 +539,11 @@ func TestReleaseTrainAppSkip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 
 			err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 
-				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, setup...)
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, setup...)
 				if err2 != nil {
 					return err2
 				}

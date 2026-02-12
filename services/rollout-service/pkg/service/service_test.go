@@ -24,7 +24,7 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"io"
@@ -813,7 +813,7 @@ func TestArgoEvents(t *testing.T) {
 					},
 				},
 			}, &versions.VersionInfo{Version: uint64(tc.ExpectedDBEvent.deployedVersion)}, false)
-			dbCtx := testutil.MakeTestContext()
+			dbCtx := testutilauth.MakeTestContext()
 			result, err := db.WithTransactionT(dbHandler, dbCtx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.ArgoEvent, error) {
 				r, err := dbHandler.DBReadArgoEvent(dbCtx, transaction, types.AppName(tc.ExpectedDBEvent.AppName), tc.ExpectedDBEvent.EnvName)
 				return r, err

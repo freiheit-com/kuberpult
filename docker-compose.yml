@@ -96,6 +96,9 @@ services:
       - KUBERPULT_RESET_GIT_SYNC_STATUS_ENABLED=false
       - KUBERPULT_ESL_PROCESSING_BACKOFF=1
       - KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS=true
+      - KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED=true
+      - KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENVIRONMENTS={"development":"dev-proj"}
+      - KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_AA_ENVIRONMENTS={"aa-aa-test-dev-1":"aa-dev-proj"}
     volumes:
       - ./services/cd-service:/kp/kuberpult
     ports:

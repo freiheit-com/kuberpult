@@ -39,11 +39,18 @@ type AppData struct {
 	TeamName string
 }
 
+type ArgoProjectNamesPerEnv map[types.EnvName]types.ArgoProjectName
+type AllArgoProjectNameOverrides struct {
+	Environments             *ArgoProjectNamesPerEnv
+	ActiveActiveEnvironments *ArgoProjectNamesPerEnv
+}
+
 type EnvironmentInfo struct {
-	ArgoCDConfig          *config.EnvironmentConfigArgoCd
-	CommonPrefix          string
-	ParentEnvironmentName types.EnvName
-	IsAAEnv               bool
+	ArgoCDConfig            *config.EnvironmentConfigArgoCd
+	CommonPrefix            string
+	ParentEnvironmentName   types.EnvName
+	IsAAEnv                 bool
+	ArgoProjectNameOverride types.ArgoProjectName
 }
 
 func (e *EnvironmentInfo) GetFullyQualifiedName() string {
@@ -60,7 +67,7 @@ func Render(ctx context.Context, gitUrl string, gitBranch string, info *Environm
 		return nil, fmt.Errorf("no ArgoCd configured for environment %s", info.GetFullyQualifiedName())
 	}
 	result := map[ApiVersion][]byte{}
-	if content, err := RenderV1Alpha1(gitUrl, gitBranch, info, appsData); err != nil {
+	if content, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, info, appsData); err != nil {
 		return nil, err
 	} else {
 		result[V1Alpha1] = content
@@ -68,7 +75,7 @@ func Render(ctx context.Context, gitUrl string, gitBranch string, info *Environm
 	return result, nil
 }
 
-func RenderV1Alpha1(gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData) ([]byte, error) {
+func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData) ([]byte, error) {
 	applicationNs := ""
 	config := info.ArgoCDConfig
 	if config.Destination.Namespace != nil {
@@ -153,6 +160,11 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 	name := appData.AppName
 	annotations := map[string]string{}
 	labels := map[string]string{}
+	argoProjectName := (types.ArgoProjectName)(info.GetFullyQualifiedName())
+	if info.ArgoProjectNameOverride != "" {
+		argoProjectName = info.ArgoProjectNameOverride
+	}
+
 	manifestPath := filepath.Join("environments", string(info.ParentEnvironmentName), "applications", name, "manifests")
 	for k, v := range applicationAnnotations {
 		annotations[k] = v
@@ -175,7 +187,7 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 			Finalizers:  calculateFinalizers(),
 		},
 		Spec: v1alpha1.ApplicationSpec{
-			Project: info.GetFullyQualifiedName(),
+			Project: string(argoProjectName),
 			Source: v1alpha1.ApplicationSource{
 				RepoURL:        gitUrl,
 				Path:           manifestPath,

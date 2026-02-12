@@ -21,16 +21,16 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"os/exec"
 	"path"
 	"testing"
 	gotime "time"
 
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
@@ -93,7 +93,7 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	}
 
 	repo, err := repository.New(
-		testutil.MakeTestContext(),
+		testutilauth.MakeTestContext(),
 		repoCfg,
 	)
 	if err != nil {

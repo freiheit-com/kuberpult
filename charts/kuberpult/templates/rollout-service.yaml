@@ -19,6 +19,11 @@
 {{ end -}}
 
 {{- if .Values.rollout.enabled }}
+{{- if .Values.manifestRepoExport.enabled}}
+{{- if not .Values.manifestRepoExport.experimentalRolloutWithManifest.enabled }}
+{{ fail "cannot enable both rollout and manifestRepoExport at the same time unless manifestRepoExport.experimentalRolloutWithManifest=true"}}
+{{- end -}}
+{{- end -}}
 {{- if not (regexMatch "^https?://[^:]+:[0-9]+$" .Values.argocd.server) -}}
 {{ fail "argocd.server must be a valid http/https url including the port"}}
 {{- end -}}

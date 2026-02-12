@@ -24,7 +24,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -120,7 +120,7 @@ func TestGetFailedEslsService(t *testing.T) {
 			svc := &EslServiceServer{
 				Repository: repo,
 			}
-			err = repo.State().DBHandler.WithTransaction(testutil.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
+			err = repo.State().DBHandler.WithTransaction(testutilauth.MakeTestContext(), false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := repo.State().DBHandler.DBWriteMigrationsTransformer(ctx, transaction)
 				if err != nil {
 					return err

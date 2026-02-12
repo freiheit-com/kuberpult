@@ -29,12 +29,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"context"
 
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -354,7 +354,7 @@ func TestEnvironmentLock(t *testing.T) {
 				Message:   "Delete environment lock",
 				Signature: inputSignature,
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			dbHandler := connectToDB(t, tc.dbConfig, ctx)
 			//Call the api to create Environment Lock in development
 			actualStatusCode, respBody, err := callEnvironmentLock(t, environment, lockId, requestBodyPut, false)

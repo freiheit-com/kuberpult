@@ -19,15 +19,16 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -126,7 +127,7 @@ func TestDeployApplicationVersionPartOne(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			r := repo.(*repository)
 			err = repo.Apply(ctx, setupTransformers...)
@@ -260,7 +261,7 @@ func TestDeployApplicationVersionPartTwo(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			r := repo.(*repository)
 			err := repo.Apply(ctx, setupTransformers...)
@@ -413,7 +414,7 @@ func TestDeployApplicationVersionWithRevision(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			r := repo.(*repository)
 			err := repo.Apply(ctx, setupTransformers...)

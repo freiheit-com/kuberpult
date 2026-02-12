@@ -31,6 +31,8 @@ type EnvName string
 
 type AppName string
 
+type ArgoProjectName string
+
 func EnvNamesToStrings(a []EnvName) []string {
 	var result = make([]string, len(a))
 	for i := range a {
