@@ -471,7 +471,6 @@ func ParseEnvironmentOverrides(ctx context.Context, configuredArgoNamesPerEnv va
 		_, exists := existingEnvsInDbMap[env]
 		if exists {
 			result[env] = types.ArgoProjectName(argoProjectName)
-			logger.FromContext(ctx).Error("overridden environment mapping added", zap.String("env", string(env)), zap.String("argoProjectName", argoProjectName))
 		} else {
 			logger.FromContext(ctx).Error("overridden environment does not exist - continuing with default argoProject name",
 				zap.String("env", environment),
