@@ -14,6 +14,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
+/*
+Package testutil provides utilities for anything that has only basic dependencies, especially not pkg/auth.
+*/
+
 package testutil
 
 import (

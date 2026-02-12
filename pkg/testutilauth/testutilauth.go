@@ -14,6 +14,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
+/*
+Package testutilauth provides utilities for anything that depends on pkg/auth.
+*/
+
 package testutilauth
 
 import (
