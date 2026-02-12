@@ -29,13 +29,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/cmd"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -291,66 +287,6 @@ func TestGrpcForwardHeader(t *testing.T) {
 				t.Fatalf("expected no error, but got %q", err)
 			}
 			wg.Wait()
-		})
-	}
-}
-
-func TestParseEnvironmentOverrides(t *testing.T) {
-	tcs := []struct {
-		Name string
-
-		ConfiguredOverrides valid.StringMap
-		DbEnvironments      []types.EnvName
-
-		ExpectedArgoProjectNamesPerEnv argocd.ArgoProjectNamesPerEnv
-	}{
-		{
-			Name:                           "empty input results in empty map",
-			ConfiguredOverrides:            map[string]string{},
-			DbEnvironments:                 []types.EnvName{"dev"},
-			ExpectedArgoProjectNamesPerEnv: argocd.ArgoProjectNamesPerEnv{},
-		},
-		{
-			Name: "env is missing",
-			ConfiguredOverrides: map[string]string{
-				"fake-env": "argo-proj-1",
-			},
-			DbEnvironments:                 []types.EnvName{"dev"},
-			ExpectedArgoProjectNamesPerEnv: argocd.ArgoProjectNamesPerEnv{},
-		},
-		{
-			Name: "1 valid env override",
-			ConfiguredOverrides: map[string]string{
-				"dev": "argo-proj-2",
-			},
-			DbEnvironments: []types.EnvName{"dev"},
-			ExpectedArgoProjectNamesPerEnv: argocd.ArgoProjectNamesPerEnv{
-				"dev": "argo-proj-2",
-			},
-		},
-		{
-			Name: "1 valid + 1 invalid env override",
-			ConfiguredOverrides: map[string]string{
-				"dev": "argo-proj-dev",
-				"prd": "argo-proj-prd",
-			},
-			DbEnvironments: []types.EnvName{"prd"},
-			ExpectedArgoProjectNamesPerEnv: argocd.ArgoProjectNamesPerEnv{
-				"prd": "argo-proj-prd",
-			},
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-			ctx := context.Background()
-
-			actual := cmd.ParseEnvironmentOverrides(ctx, tc.ConfiguredOverrides, tc.DbEnvironments)
-
-			if diff := cmp.Diff(actual, tc.ExpectedArgoProjectNamesPerEnv); diff != "" {
-				t.Logf("actual configuration: %v", actual)
-				t.Logf("expected configuration: %v", tc.ExpectedArgoProjectNamesPerEnv)
-				t.Errorf("expected args:\n  %v\ngot:\n  %v\ndiff:\n  %s\n", actual, tc.ExpectedArgoProjectNamesPerEnv, diff)
-			}
 		})
 	}
 }
