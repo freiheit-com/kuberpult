@@ -973,7 +973,7 @@ func (r *repository) processApp(ctx context.Context, transaction *sql.Tx, state 
 }
 
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time, fsMutex *sync.Mutex) error {
-	_, appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp)
+	appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsWithTeamAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp)
 	if err != nil {
 		return err
 	}

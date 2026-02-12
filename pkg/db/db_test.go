@@ -6581,7 +6581,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 
 			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for envName, expectedApps := range tc.ExpectedEnvironmentApplications {
-					apps, _, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
+					apps, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
 					if err != nil {
 						return fmt.Errorf("couldn't retrieve environment %s applications, error: %w", envName, err)
 					}
@@ -6590,7 +6590,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 					}
 				}
 				for envName, expectedAppTeam := range tc.ExpectedAppTeams {
-					_, appTeams, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
+					appTeams, err := dbHandler.DBSelectEnvironmentApplicationsWithTeamAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
 					if err != nil {
 						return fmt.Errorf("couldn't retrieve environment %s applications, error: %w", envName, err)
 					}
