@@ -20,13 +20,13 @@ RUN chown -R kp:kp /kp
 USER kp
 WORKDIR /kp
 
-COPY --from=builder /kp/go.mod ./go.mod
-COPY --from=builder /kp/go.sum ./go.sum
-RUN go mod download
-
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+
+COPY --from=builder /kp/go.mod ./go.mod
+COPY --from=builder /kp/go.sum ./go.sum
+RUN go mod download
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
