@@ -138,9 +138,10 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 	}
 
 	tcs := []struct {
-		name                string
-		given               Given
-		expectedDeployments []Deployment
+		name                            string
+		given                           Given
+		expectedDeployments             []Deployment
+		expectedDeploymentCreationError error
 	}{
 		{
 			name: "should delete deployments with empty environment",
@@ -317,6 +318,128 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "should prevent creating deployments with empty data",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App: "",
+						Env: "",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  nil,
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+				},
+			},
+			expectedDeployments:             []Deployment{},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\""},
+		},
+		{
+			name: "should prevent creating deployments with no release version",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App: "app",
+						Env: "env",
+						ReleaseNumbers: types.ReleaseNumbers{
+							Version:  nil,
+							Revision: 0,
+						},
+						TransformerID: 0,
+					},
+				},
+			},
+			expectedDeployments:             []Deployment{},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\""},
+		},
+		{
+			name: "should prevent creatings deployments with a non-existing release",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App:            "app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(2, 0),
+						TransformerID:  0,
+					},
+				},
+			},
+			expectedDeployments:             []Deployment{},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\""},
+		},
+		{
+			name: "should preventing creating deployments if the app name is mismatched between deployment and release",
+			given: Given{
+				setupEnvs: []DBEnvironment{
+					{
+						Name:   "env",
+						Config: config.EnvironmentConfig{},
+					},
+				},
+				setupApps: []types.AppName{"app"},
+				setupReleases: []DBReleaseWithMetaData{
+					{
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						App:            "non-existing-app",
+						Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"env": "manifest1"}},
+					},
+				},
+				setupDeployments: []Deployment{
+					{
+						App:            "app",
+						Env:            "env",
+						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+						TransformerID:  0,
+					},
+				},
+			},
+			expectedDeployments:             []Deployment{},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\""},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -360,14 +483,23 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				// create deployments
 				for _, deployment := range tc.given.setupDeployments {
 					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment)
-					if err != nil {
-						return fmt.Errorf("error while creating deployment, error: %w", err)
+
+					if err != nil && tc.expectedDeploymentCreationError == nil {
+						t.Fatalf("expected no error, got: %v", err)
+					}
+					if err == nil && tc.expectedDeploymentCreationError != nil {
+						t.Fatalf("expected error: %v, but got none", tc.expectedDeploymentCreationError)
+					}
+					if err != nil && tc.expectedDeploymentCreationError != nil {
+						if diff := cmp.Diff(tc.expectedDeploymentCreationError, err, cmpopts.EquateErrors()); diff != "" {
+							t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+						}
 					}
 				}
 
 				return nil
 			})
-			if err != nil {
+			if err != nil && tc.expectedDeploymentCreationError == nil {
 				t.Fatalf("transaction error: %v", err)
 			}
 
