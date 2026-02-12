@@ -51,13 +51,13 @@ func TestParseEnvironmentOverrides(t *testing.T) {
 		ConfiguredOverrides valid.StringMap
 		DbEnvironments      []types.EnvName
 
-		ExpectedArgoProjectNamesPerEnv argocd.ArgoProjectNamesPerEnv
+		ExpectedArgoProjectNamesPerEnv *argocd.ArgoProjectNamesPerEnv
 	}{
 		{
 			Name:                           "empty input results in empty map",
 			ConfiguredOverrides:            map[string]string{},
 			DbEnvironments:                 []types.EnvName{"dev"},
-			ExpectedArgoProjectNamesPerEnv: argocd.ArgoProjectNamesPerEnv{},
+			ExpectedArgoProjectNamesPerEnv: &argocd.ArgoProjectNamesPerEnv{},
 		},
 		{
 			Name: "env is missing",
@@ -65,7 +65,7 @@ func TestParseEnvironmentOverrides(t *testing.T) {
 				"fake-env": "argo-proj-1",
 			},
 			DbEnvironments:                 []types.EnvName{"dev"},
-			ExpectedArgoProjectNamesPerEnv: argocd.ArgoProjectNamesPerEnv{},
+			ExpectedArgoProjectNamesPerEnv: &argocd.ArgoProjectNamesPerEnv{},
 		},
 		{
 			Name: "1 valid env override",
@@ -73,7 +73,7 @@ func TestParseEnvironmentOverrides(t *testing.T) {
 				"dev": "argo-proj-2",
 			},
 			DbEnvironments: []types.EnvName{"dev"},
-			ExpectedArgoProjectNamesPerEnv: argocd.ArgoProjectNamesPerEnv{
+			ExpectedArgoProjectNamesPerEnv: &argocd.ArgoProjectNamesPerEnv{
 				"dev": "argo-proj-2",
 			},
 		},
@@ -84,7 +84,7 @@ func TestParseEnvironmentOverrides(t *testing.T) {
 				"prd": "argo-proj-prd",
 			},
 			DbEnvironments: []types.EnvName{"prd"},
-			ExpectedArgoProjectNamesPerEnv: argocd.ArgoProjectNamesPerEnv{
+			ExpectedArgoProjectNamesPerEnv: &argocd.ArgoProjectNamesPerEnv{
 				"prd": "argo-proj-prd",
 			},
 		},
@@ -95,7 +95,7 @@ func TestParseEnvironmentOverrides(t *testing.T) {
 
 			actual := ParseEnvironmentOverrides(ctx, tc.ConfiguredOverrides, tc.DbEnvironments)
 
-			if diff := cmp.Diff(actual, tc.ExpectedArgoProjectNamesPerEnv); diff != "" {
+			if diff := testutil.CmpDiff(actual, tc.ExpectedArgoProjectNamesPerEnv); diff != "" {
 				t.Logf("actual configuration: %v", actual)
 				t.Logf("expected configuration: %v", tc.ExpectedArgoProjectNamesPerEnv)
 				t.Errorf("expected args:\n  %v\ngot:\n  %v\ndiff:\n  %s\n", actual, tc.ExpectedArgoProjectNamesPerEnv, diff)

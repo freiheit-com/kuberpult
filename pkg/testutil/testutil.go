@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"google.golang.org/grpc/metadata"
 
@@ -233,4 +234,9 @@ func WrapTestRoutine(t *testing.T, ctx context.Context, logLevel string, inner f
 	if err != nil {
 		t.Fatalf("failed to wrap logger: %v", err)
 	}
+}
+
+// CmpDiff is exactly like cmp.Diff but with type safety
+func CmpDiff[T any](want, got T, opts ...cmp.Option) string {
+	return cmp.Diff(want, got, opts...)
 }
