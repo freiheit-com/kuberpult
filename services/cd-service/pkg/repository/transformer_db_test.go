@@ -4568,19 +4568,6 @@ func TestUndeployDBState(t *testing.T) {
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{
 						Revision: 0,
-						Version:  nil,
-					},
-					Metadata: db.DeploymentMetadata{
-						DeployedByEmail: "testmail@example.com",
-						DeployedByName:  "test tester",
-					},
-					TransformerID: 3,
-				},
-				{
-					App: appName,
-					Env: envProduction,
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
 						Version:  uversion(2),
 					},
 					Metadata: db.DeploymentMetadata{
