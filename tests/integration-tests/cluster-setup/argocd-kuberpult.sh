@@ -169,6 +169,8 @@ rollout:
       memory: 200Mi
       cpu: 0.2
 manifestRepoExport:
+  experimentalRolloutWithManifest:
+    enabled: true
   eslProcessingIdleTimeSeconds: 1
   resources:
     limits:

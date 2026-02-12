@@ -34,6 +34,7 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/pkg/backoff"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -231,6 +232,24 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
+	experimentalRolloutWithManifest := valid.ReadEnvVarBoolWithDefault("KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED", false)
+	allArgoProjectNames := argocd.AllArgoProjectNameOverrides{}
+	rawStringMapEnvironments := valid.StringMap{}
+	rawStringMapAAEnvironments := valid.StringMap{}
+	if experimentalRolloutWithManifest {
+		logger.FromContext(ctx).Warn("experimental feature KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED enabled")
+
+		rawStringMapEnvironments, err = valid.ReadEnvVarJsonMap("KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENVIRONMENTS")
+		if err != nil {
+			return err
+		}
+		rawStringMapAAEnvironments, err = valid.ReadEnvVarJsonMap("KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_AA_ENVIRONMENTS")
+		if err != nil {
+			return err
+		}
+
+	}
+
 	var dbCfg db.DBConfig
 	if dbOption == "postgreSQL" {
 		dbCfg = db.DBConfig{
@@ -286,6 +305,8 @@ func Run(ctx context.Context) error {
 		DBHandler: dbHandler,
 
 		DDMetrics: ddMetrics,
+
+		ArgoProjectNames: &allArgoProjectNames, // note that this is empty here, we'll fill it later
 	}
 	repo, err := repository.New(ctx, cfg)
 	if err != nil {
@@ -332,6 +353,41 @@ func Run(ctx context.Context) error {
 			return fmt.Errorf("error fixing commit timestamps: %w", err)
 		}
 	}
+
+	// we need to run this after the initial migrations are done
+	existingEnvsFullName := []types.EnvName{}
+	err = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		dbEnvNames, err := dbHandler.DBSelectAllEnvironments(ctx, transaction)
+		if err != nil {
+			return err
+		}
+		for _, dbEnvName := range dbEnvNames {
+			dbEnv, err := dbHandler.DBSelectEnvironment(ctx, transaction, dbEnvName)
+			if err != nil {
+				return err
+			}
+			if dbEnv.Config.ArgoCdConfigs != nil {
+				cfgs := dbEnv.Config.ArgoCdConfigs.ArgoCdConfigurations
+				prefix := ""
+				if dbEnv.Config.ArgoCdConfigs.CommonEnvPrefix != nil {
+					prefix = *dbEnv.Config.ArgoCdConfigs.CommonEnvPrefix
+				}
+				for _, cfg := range cfgs {
+					concreteEnvName := cfg.ConcreteEnvName
+					validEnvName := types.EnvName(prefix + "-" + string(dbEnvName) + "-" + concreteEnvName)
+					existingEnvsFullName = append(existingEnvsFullName, validEnvName)
+				}
+			} else {
+				existingEnvsFullName = append(existingEnvsFullName, dbEnvName)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	allArgoProjectNames.ActiveActiveEnvironments = ParseEnvironmentOverrides(ctx, rawStringMapAAEnvironments, existingEnvsFullName)
+	allArgoProjectNames.Environments = ParseEnvironmentOverrides(ctx, rawStringMapEnvironments, existingEnvsFullName)
 
 	if dbOutdatedDeploymentsCleaningEnabled {
 		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
@@ -399,6 +455,32 @@ func Run(ctx context.Context) error {
 		},
 	})
 	return nil
+}
+
+func ParseEnvironmentOverrides(ctx context.Context, configuredArgoNamesPerEnv valid.StringMap, existingEnvsInDb []types.EnvName) *argocd.ArgoProjectNamesPerEnv {
+	// temporarily put envs into a map for easier access:
+	existingEnvsInDbMap := map[types.EnvName]struct{}{}
+	for _, e := range existingEnvsInDb {
+		existingEnvsInDbMap[e] = struct{}{}
+	}
+
+	// check that all envs exist:
+	result := argocd.ArgoProjectNamesPerEnv{}
+	for environment, argoProjectName := range configuredArgoNamesPerEnv {
+		env := types.EnvName(environment)
+		_, exists := existingEnvsInDbMap[env]
+		if exists {
+			result[env] = types.ArgoProjectName(argoProjectName)
+		} else {
+			logger.FromContext(ctx).Error("overridden environment does not exist - continuing with default argoProject name",
+				zap.String("env", environment),
+				zap.String("existingEnvs", fmt.Sprintf("%v+", existingEnvsInDbMap)),
+				zap.String("helm-parameter", "manifestRepoExport.experimentalRolloutWithManifest"),
+				zap.String("experimental", "will continue anyway, because this feature is experimental"),
+			)
+		}
+	}
+	return &result
 }
 
 func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
@@ -711,7 +793,6 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 		// no error, but also no transformer to process:
 		return nil, nil
 	}
-	logger.FromContext(ctx).Sugar().Infof("processEslEvent: unmarshal \n%s", esl.EventJson)
 	err = json.Unmarshal(([]byte)(esl.EventJson), &t)
 	if err != nil {
 		return nil, err
@@ -725,14 +806,12 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	}
 	defer span.Finish()
 	t.SetEslVersion(db.TransformerID(esl.EslVersion))
-	logger.FromContext(ctx).Sugar().Infof("read esl event of type (%s) event=%v", t.GetDBEventType(), t)
 	t.SetCreationTimestamp(esl.Created)
 	err = repo.Apply(ctx, tx, t)
 	if err != nil {
 		return nil, fmt.Errorf("error while running repo apply: %v", err)
 	}
 
-	logger.FromContext(ctx).Sugar().Infof("Applied transformer succesfully event=%s", t.GetDBEventType())
 	return t, nil
 }
 

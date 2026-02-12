@@ -19,14 +19,15 @@ package migrations
 import (
 	"context"
 	"database/sql"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
-	"google.golang.org/protobuf/testing/protocmp"
 	"os/exec"
 	"path"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/google/go-cmp/cmp"
@@ -70,7 +71,7 @@ func TestMigrationsCutoff(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo, _ := setupRepositoryTestWithPath(t)
 
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			dbHandler := repo.State().DBHandler
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -146,7 +147,7 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	}
 
 	repo, err := repository.New(
-		testutil.MakeTestContext(),
+		testutilauth.MakeTestContext(),
 		repoCfg,
 	)
 	if err != nil {

@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -443,11 +444,11 @@ func TestOverviewAndAppDetails(t *testing.T) {
 			}
 
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+				if err := repo.Apply(testutilauth.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
@@ -515,7 +516,7 @@ func TestOverviewService(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {
-				ctx, cancel := context.WithCancel(testutil.MakeTestContext())
+				ctx, cancel := context.WithCancel(testutilauth.MakeTestContext())
 				ch := make(chan *api.GetOverviewResponse)
 				stream := mockOverviewService_StreamOverviewServer{
 					Results: ch,
@@ -609,7 +610,7 @@ func TestOverviewService(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {
-				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+				var ctx = auth.WriteUserToContext(testutilauth.MakeTestContext(), auth.User{
 					Email: "test-email@example.com",
 					Name:  "overview tester",
 				})
@@ -695,11 +696,11 @@ func TestOverviewService(t *testing.T) {
 				}
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+				if err := repo.Apply(testutilauth.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
@@ -1393,11 +1394,11 @@ func TestGetApplicationDetails(t *testing.T) {
 				Shutdown:         shutdown,
 			}
 
-			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+			if err := repo.Apply(testutilauth.MakeTestContext(), tc.Setup...); err != nil {
 				t.Fatal(err)
 			}
 
-			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+			var ctx = auth.WriteUserToContext(testutilauth.MakeTestContext(), auth.User{
 				Email: "app-email@example.com",
 				Name:  "overview tester",
 			})
@@ -1752,11 +1753,11 @@ func TestGetAllAppLocks(t *testing.T) {
 				Shutdown:         shutdown,
 			}
 
-			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+			if err := repo.Apply(testutilauth.MakeTestContext(), tc.Setup...); err != nil {
 				t.Fatal(err)
 			}
 
-			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+			var ctx = auth.WriteUserToContext(testutilauth.MakeTestContext(), auth.User{
 				Email: "app-email@example.com",
 				Name:  "overview tester",
 			})
@@ -1895,11 +1896,11 @@ func TestGetAllEnvTeamLocks(t *testing.T) {
 				Shutdown:         shutdown,
 			}
 
-			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+			if err := repo.Apply(testutilauth.MakeTestContext(), tc.Setup...); err != nil {
 				t.Fatal(err)
 			}
 
-			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+			var ctx = auth.WriteUserToContext(testutilauth.MakeTestContext(), auth.User{
 				Email: "app-email@example.com",
 				Name:  "overview tester",
 			})
@@ -2138,7 +2139,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			shutdown := make(chan struct{}, 1)
 			var repo repository.Repository
 			repo, err := setupRepositoryTestWithDB(t)
@@ -2147,7 +2148,7 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 			}
 
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+				if err := repo.Apply(testutilauth.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -2393,11 +2394,11 @@ func TestCalculateWarnings(t *testing.T) {
 			}
 
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+				if err := repo.Apply(testutilauth.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
@@ -2406,7 +2407,7 @@ func TestCalculateWarnings(t *testing.T) {
 			}
 
 			for _, appName := range tc.AppsNamesToCheck {
-				appDetails, err := svc.GetAppDetails(testutil.MakeTestContext(), &api.GetAppDetailsRequest{AppName: appName})
+				appDetails, err := svc.GetAppDetails(testutilauth.MakeTestContext(), &api.GetAppDetailsRequest{AppName: appName})
 				if err != nil {
 					t.Error(err)
 				}
@@ -2905,7 +2906,7 @@ func TestDeploymentHistory(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			svc := &OverviewServiceServer{
 				Repository: repo,
 				Shutdown:   shutdown,
