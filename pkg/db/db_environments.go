@@ -378,7 +378,7 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsWithTeamAtTimestamp(ctx conte
 		AND a.statechange != 'AppStateChangeDelete'
 		AND r.created <= ?
 		AND r.environments @> ?
-	ORDER BY a.appname;
+	ORDER BY a.appname, a.teamname;
 	`)
 	span.SetTag("query", selectQuery)
 
