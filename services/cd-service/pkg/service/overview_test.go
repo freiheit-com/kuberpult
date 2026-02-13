@@ -2809,6 +2809,23 @@ func TestDeploymentHistory(t *testing.T) {
 					TransformerID: 0,
 				},
 			},
+			SetupReleases: []db.DBReleaseWithMetaData{
+				{
+					App: "testapp",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
+					Manifests: db.DBReleaseManifests{
+						Manifests: map[types.EnvName]string{
+							"dev":     "dev",
+							"staging": "staging",
+						},
+					},
+					Environments: []types.EnvName{"dev", "staging"},
+					Created:      created.AddDate(-1, 0, 0),
+				},
+			},
 			SetupEnvs: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "dev",
