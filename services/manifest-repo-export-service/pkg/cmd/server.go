@@ -313,7 +313,7 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
 
-	log.Infof("Running SQL Migrations")
+	logger.FromContext(ctx).Info("Running SQL Migrations")
 
 	migErr := db.RunDBMigrations(ctx, dbCfg)
 	if migErr != nil {
