@@ -21,7 +21,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/google/go-cmp/cmp"
 )
@@ -115,7 +115,7 @@ func TestDBArgoEvent(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 
 			dbHandler := setupDB(t)
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {

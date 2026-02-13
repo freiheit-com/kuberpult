@@ -17,14 +17,15 @@ Copyright freiheit.com*/
 package service
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"reflect"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 )
@@ -499,11 +500,11 @@ func TestGetDeploymentCommitInfo(t *testing.T) {
 				DBHandler: repo.State().DBHandler,
 			}
 
-			if err := repo.Apply(testutil.MakeTestContext(), tc.Setup...); err != nil {
+			if err := repo.Apply(testutilauth.MakeTestContext(), tc.Setup...); err != nil {
 				t.Fatal(err)
 			}
 
-			var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+			var ctx = auth.WriteUserToContext(testutilauth.MakeTestContext(), auth.User{
 				Email: "app-email@example.com",
 				Name:  "overview tester",
 			})

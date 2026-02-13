@@ -27,6 +27,7 @@ import (
 	"testing"
 	gotime "time"
 
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -305,7 +306,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
 			r := repo.(*repository)
 			row := &db.EslEventRow{}
@@ -315,7 +316,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			}
 
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformer)
+				_, _, _, err2 := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformer)
 				if err2 != nil {
 					return err2
 				}
@@ -442,7 +443,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
 			var err error
@@ -450,7 +451,7 @@ func TestEnvLockTransformersWithDB(t *testing.T) {
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError
-				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, batchError = r.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
 				}
@@ -607,7 +608,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 			t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
 			var err error
@@ -615,7 +616,7 @@ func TestTeamLockTransformersWithDB(t *testing.T) {
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError
-				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, batchError = r.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
 				}
@@ -739,7 +740,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -888,7 +889,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1321,7 +1322,7 @@ func TestMinorFlag(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t).(*repository)
 			repo.config.MinorRegexes = tc.MinorRegexes
 			err3 := repo.State().DBHandler.WithTransactionR(ctxWithTime, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1427,7 +1428,7 @@ func TestFilterManifestLines(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctx := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			filteredLines := filterManifestLines(ctx, tc.StartingString, tc.Regexes)
 			if diff := cmp.Diff(tc.ExpectedResult, filteredLines); diff != "" {
 				t.Errorf("error mismatch in filtered lines (-want, +got):\n%s", diff)
@@ -1484,7 +1485,7 @@ func TestDeleteQueueApplicationVersion(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			errTx := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1585,7 +1586,7 @@ func TestQueueDeploymentTransformer(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -1721,7 +1722,7 @@ func TestCleanupOldVersionDB(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1841,7 +1842,7 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -2048,7 +2049,7 @@ func TestExtendAAEnvironment(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -2231,7 +2232,7 @@ func TestDeleteAAEnvironmentConfig(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -2316,7 +2317,7 @@ func TestEventGenerationFromTransformers(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -2507,7 +2508,7 @@ func TestEvents(t *testing.T) {
 			t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
 			var err error
@@ -2515,7 +2516,7 @@ func TestEvents(t *testing.T) {
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError
-				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, batchError = r.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
 				}
@@ -2794,7 +2795,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			// GIVEN
 			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -3154,11 +3155,11 @@ func TestReleaseTrain(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			for _, transformer := range tc.Transformers {
 				err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					_, _, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, transformer)
+					_, _, _, err2 := r.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, transformer)
 					if err2 != nil {
 						return err2
 					}
@@ -3375,7 +3376,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var repo Repository
 			var err error
@@ -3383,7 +3384,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 			r := repo.(*repository)
 			err = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				var batchError *TransformerBatchApplyError
-				_, _, _, batchError = r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, batchError = r.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 				if batchError != nil {
 					return batchError
 				}
@@ -3692,10 +3693,10 @@ func TestUndeployApplicationDB(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 
 				if err != nil {
 					return err
@@ -4006,10 +4007,10 @@ func TestDeleteEnvironment(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
 					return err
 				}
@@ -4167,10 +4168,10 @@ func TestUndeployTransformerDB(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, &CreateEnvironment{Environment: "production"})
+				_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, &CreateEnvironment{Environment: "production"})
 				if err != nil {
 					return err
 				}
@@ -4180,7 +4181,7 @@ func TestUndeployTransformerDB(t *testing.T) {
 				t.Fatalf("Did not expect error but got:\n%+v", err)
 			}
 			err = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
 					return err
 				}
@@ -4247,10 +4248,10 @@ func TestCreateUndeployDBState(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, s, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, s, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 
 				if err != nil {
 					return err
@@ -4484,10 +4485,10 @@ func TestAllowedCILinksState(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, s, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, s, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 
 				if err != nil {
 					return err
@@ -4610,10 +4611,10 @@ func TestUndeployDBState(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, s, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, s, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 
 				if err != nil {
 					return err
@@ -4778,7 +4779,7 @@ func TestTransaction(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctxWithTime := time.WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
 			repo := SetupRepositoryTestWithDB(t)
 			err3 := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
 				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...)
@@ -4885,10 +4886,10 @@ func TestTimestampConsistency(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
 			//check deployments
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, state, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, state, _, err2 := r.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 				if err2 != nil {
 					return err2
 				}
@@ -5131,7 +5132,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+			ctx := time.WithTimeNow(testutilauth.MakeTestContext(), gotime.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -5278,7 +5279,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
-			ctx := time.WithTimeNow(testutil.MakeTestContext(), gotime.Unix(0, 0))
+			ctx := time.WithTimeNow(testutilauth.MakeTestContext(), gotime.Unix(0, 0))
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
@@ -5411,11 +5412,11 @@ func TestChangedApps(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 
 			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Setup...)
+				_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Setup...)
 				if err != nil {
 					return err
 				}
@@ -5427,7 +5428,7 @@ func TestChangedApps(t *testing.T) {
 			}
 
 			err = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, changes, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, tc.Transformers...)
+				_, _, changes, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
 					return err
 				}
@@ -5603,11 +5604,11 @@ func TestChangedAppsSyncStatus(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			for _, transformer := range tc.Transformers {
 				err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					_, _, _, err2 := r.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, transformer)
+					_, _, _, err2 := r.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, transformer)
 					if err2 != nil {
 						return err2
 					}

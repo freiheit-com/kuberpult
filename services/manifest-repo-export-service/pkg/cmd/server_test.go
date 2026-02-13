@@ -21,26 +21,89 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/backoff"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"os/exec"
-	"path"
-	"testing"
-	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/argocd"
+	"github.com/freiheit-com/kuberpult/pkg/backoff"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	errs "github.com/freiheit-com/kuberpult/pkg/errorMatcher"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/service"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"os/exec"
+	"path"
+	"testing"
+	"time"
 )
+
+func TestParseEnvironmentOverrides(t *testing.T) {
+	tcs := []struct {
+		Name string
+
+		ConfiguredOverrides valid.StringMap
+		DbEnvironments      []types.EnvName
+
+		ExpectedArgoProjectNamesPerEnv *argocd.ArgoProjectNamesPerEnv
+	}{
+		{
+			Name:                           "empty input results in empty map",
+			ConfiguredOverrides:            map[string]string{},
+			DbEnvironments:                 []types.EnvName{"dev"},
+			ExpectedArgoProjectNamesPerEnv: &argocd.ArgoProjectNamesPerEnv{},
+		},
+		{
+			Name: "env is missing",
+			ConfiguredOverrides: map[string]string{
+				"fake-env": "argo-proj-1",
+			},
+			DbEnvironments:                 []types.EnvName{"dev"},
+			ExpectedArgoProjectNamesPerEnv: &argocd.ArgoProjectNamesPerEnv{},
+		},
+		{
+			Name: "1 valid env override",
+			ConfiguredOverrides: map[string]string{
+				"dev": "argo-proj-2",
+			},
+			DbEnvironments: []types.EnvName{"dev"},
+			ExpectedArgoProjectNamesPerEnv: &argocd.ArgoProjectNamesPerEnv{
+				"dev": "argo-proj-2",
+			},
+		},
+		{
+			Name: "1 valid + 1 invalid env override",
+			ConfiguredOverrides: map[string]string{
+				"dev": "argo-proj-dev",
+				"prd": "argo-proj-prd",
+			},
+			DbEnvironments: []types.EnvName{"prd"},
+			ExpectedArgoProjectNamesPerEnv: &argocd.ArgoProjectNamesPerEnv{
+				"prd": "argo-proj-prd",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+
+			actual := ParseEnvironmentOverrides(ctx, tc.ConfiguredOverrides, tc.DbEnvironments)
+
+			if diff := testutil.CmpDiff(actual, tc.ExpectedArgoProjectNamesPerEnv); diff != "" {
+				t.Logf("actual configuration: %v", actual)
+				t.Logf("expected configuration: %v", tc.ExpectedArgoProjectNamesPerEnv)
+				t.Errorf("expected args:\n  %v\ngot:\n  %v\ndiff:\n  %s\n", actual, tc.ExpectedArgoProjectNamesPerEnv, diff)
+			}
+		})
+	}
+}
 
 func TestPushGitTags(t *testing.T) {
 	var setup = makeSetupTransformer()
@@ -279,7 +342,7 @@ func SetupRepositoryTestWithDB(t *testing.T, ctx context.Context) (repository.Re
 		Branch:              "master",
 	}
 	repo, err := repository.New(
-		testutil.MakeTestContext(),
+		testutilauth.MakeTestContext(),
 		config,
 	)
 	if err != nil {

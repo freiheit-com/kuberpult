@@ -22,9 +22,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -183,12 +182,12 @@ func TestGetManifests(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			ctx := testutil.MakeTestContext()
+			ctx := testutilauth.MakeTestContext()
 			sv := &VersionServiceServer{Repository: repo}
 
 			for i, setup := range tc.setup {
 				err = repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					_, _, _, err2 := repo.ApplyTransformersInternal(testutil.MakeTestContext(), transaction, setup)
+					_, _, _, err2 := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, setup)
 					if err2 != nil {
 						return err2
 					}

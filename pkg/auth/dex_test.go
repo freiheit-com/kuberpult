@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	jwtV5 "github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -359,11 +360,11 @@ func TestVerifyToken(t *testing.T) {
 			ctx := oidc.ClientContext(context.Background(), httpClient)
 			u, err := VerifyToken(ctx, req, appDex.ClientID, hostURL, appDex.DexServiceURL, useClusterInternalCommunication)
 			if tc.WantErr == nil {
-				if diff := CmpDiff(u["groups"], tc.wantClaim["groups"]); diff != "" {
+				if diff := testutil.CmpDiff(u["groups"], tc.wantClaim["groups"]); diff != "" {
 					t.Errorf("got %v, want %v, diff (-want +got) %s", u, tc.wantClaim, diff)
 				}
 			} else {
-				if diff := CmpDiff(tc.WantErr, err, cmpopts.EquateErrors()); diff != "" {
+				if diff := testutil.CmpDiff(tc.WantErr, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -449,9 +450,4 @@ func MockOIDCTestServer(issuerURL string, keySet jwk.Set) *httptest.Server {
 		}
 	})
 	return ts
-}
-
-// cmpDiff is exactly like cmp.Diff but with type safety
-func CmpDiff[T any](want, got T, opts ...cmp.Option) string {
-	return cmp.Diff(want, got, opts...)
 }

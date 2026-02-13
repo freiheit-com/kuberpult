@@ -249,6 +249,12 @@ spec:
           value: "{{ .Values.db.outdatedDeploymentsCleaning.enabled }}"
         - name: KUBERPULT_RESET_GIT_SYNC_STATUS_ENABLED
           value: "{{ .Values.db.resetGitSyncStatus.enabled }}"
+        - name: KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED
+          value: "{{ .Values.manifestRepoExport.experimentalRolloutWithManifest.enabled }}"
+        - name: KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENVIRONMENTS
+          value: {{ .Values.manifestRepoExport.experimentalRolloutWithManifest.argoProjectNames.environments | toJson | quote }}
+        - name: KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_AA_ENVIRONMENTS
+          value: {{ .Values.manifestRepoExport.experimentalRolloutWithManifest.argoProjectNames.aaEnvironments | toJson | quote }}
         volumeMounts:
         - name: repository
           # The repository volume, an emptyDir, is mounted to the kp directory.
