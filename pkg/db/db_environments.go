@@ -310,17 +310,18 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 		span.Finish(tracer.WithError(err))
 	}()
 
+	// select all the non-deleted apps with at least one existing release on the given environment
 	selectQuery := h.AdaptQuery(`
 	SELECT DISTINCT
 		a.appname
-	FROM
-		apps_history as a
-	JOIN releases_history as r ON a.appname = r.appname
+	FROM apps as a
+		JOIN releases as r ON a.appname = r.appname
 	WHERE
 		a.created <= ?
+		AND a.statechange != 'AppStateChangeDelete'
 		AND r.created <= ?
 		AND r.environments @> ?
-		AND r.deleted = false;
+	ORDER BY a.appname;
 	`)
 	span.SetTag("query", selectQuery)
 
@@ -370,14 +371,14 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsWithTeamAtTimestamp(ctx conte
 	SELECT DISTINCT
 		a.appname,
 		a.teamname
-	FROM
-		apps_history as a
-	JOIN releases_history as r ON a.appname = r.appname
+	FROM apps as a
+		JOIN releases as r ON a.appname = r.appname
 	WHERE
 		a.created <= ?
+		AND a.statechange != 'AppStateChangeDelete'
 		AND r.created <= ?
 		AND r.environments @> ?
-		AND r.deleted = false;
+	ORDER BY a.appname;
 	`)
 	span.SetTag("query", selectQuery)
 

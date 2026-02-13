@@ -6414,12 +6414,17 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 }
 
 func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
+	type UndeployRequest struct {
+		App types.AppName
+	}
+
 	tcs := []struct {
 		Name                            string
 		FirstReleases                   []DBReleaseWithMetaData
 		SecondReleases                  []DBReleaseWithMetaData
 		Environments                    []DBEnvironment
 		Teams                           map[types.AppName]string
+		UndeployRequests                []UndeployRequest
 		ExpectedEnvironmentApplications map[types.EnvName][]types.AppName // this related to the apps BEFORE the 2nd releases
 		ExpectedAppTeams                map[types.EnvName][]AppWithTeam
 	}{
@@ -6453,6 +6458,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				"app1": "team1",
 				"app2": "team2",
 			},
+			UndeployRequests: []UndeployRequest{},
 			ExpectedEnvironmentApplications: map[types.EnvName][]types.AppName{
 				"dev":     {"app1"},
 				"staging": {},
@@ -6502,6 +6508,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				"app1": "team1",
 				"app2": "team2",
 			},
+			UndeployRequests: []UndeployRequest{},
 			ExpectedEnvironmentApplications: map[types.EnvName][]types.AppName{
 				"dev":     {"app1"},
 				"staging": {"app1"},
@@ -6517,6 +6524,64 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 					{
 						AppName:  "app1",
 						TeamName: "team1",
+					},
+				},
+			},
+		},
+		{
+			Name: "App undeployed afterwards",
+			FirstReleases: []DBReleaseWithMetaData{
+				{
+					ReleaseNumbers: types.MakeReleaseNumberVersion(10),
+					App:            "app1",
+					Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
+				},
+				{
+					ReleaseNumbers: types.MakeReleaseNumberVersion(20),
+					App:            "app1",
+					Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"staging": "manifest2"}},
+				},
+				{
+					ReleaseNumbers: types.MakeReleaseNumberVersion(10),
+					App:            "app2",
+					Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1", "staging": "manifest2"}},
+				},
+			},
+			SecondReleases: []DBReleaseWithMetaData{},
+			Environments: []DBEnvironment{
+				{
+					Name:   "dev",
+					Config: config.EnvironmentConfig{},
+				},
+				{
+					Name:   "staging",
+					Config: config.EnvironmentConfig{},
+				},
+			},
+			Teams: map[types.AppName]string{
+				"app1": "team1",
+				"app2": "team2",
+			},
+			UndeployRequests: []UndeployRequest{
+				{
+					App: "app1",
+				},
+			},
+			ExpectedEnvironmentApplications: map[types.EnvName][]types.AppName{
+				"dev":     {"app2"},
+				"staging": {"app2"},
+			},
+			ExpectedAppTeams: map[types.EnvName][]AppWithTeam{
+				"dev": {
+					{
+						AppName:  "app2",
+						TeamName: "team2",
+					},
+				},
+				"staging": {
+					{
+						AppName:  "app2",
+						TeamName: "team2",
 					},
 				},
 			},
@@ -6577,6 +6642,40 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatalf("error with second release: %v", err)
+			}
+
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// Simulate the steps in the UndeployApplication transformer
+				for _, undeployRequest := range tc.UndeployRequests {
+					err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, undeployRequest.App, AppStateChangeDelete, DBAppMetaData{Team: tc.Teams[undeployRequest.App]})
+					if err != nil {
+						return fmt.Errorf("UndeployApplication: could not insert app '%s': %v", undeployRequest.App, err)
+					}
+
+					err = dbHandler.DBClearReleases(ctx, transaction, undeployRequest.App)
+					if err != nil {
+						return fmt.Errorf("UndeployApplication: could not clear releases for app '%s': %v", undeployRequest.App, err)
+					}
+
+					allEnvs, err := dbHandler.DBSelectAllEnvironments(ctx, transaction)
+					if err != nil {
+						return fmt.Errorf("UndeployApplication: could not get all environments: %v", err)
+					}
+					if allEnvs == nil {
+						return fmt.Errorf("UndeployApplication: all environments nil")
+					}
+
+					for _, envName := range allEnvs {
+						err = dbHandler.DBRemoveAppFromEnvironment(ctx, transaction, envName, undeployRequest.App)
+						if err != nil {
+							return fmt.Errorf("UndeployApplication: could not remove app '%s' from environment '%s': %v", undeployRequest.App, envName, err)
+						}
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error with undeploy requests: %v", err)
 			}
 
 			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
