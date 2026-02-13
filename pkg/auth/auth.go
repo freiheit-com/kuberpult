@@ -259,3 +259,8 @@ type User struct {
 	// Optional. User role, only used if RBAC is enabled.
 	DexAuthContext *DexAuthContext
 }
+
+func AddRoleToContext(req *http.Request, roles []string) context.Context {
+	WriteUserRoleToHttpHeader(req, strings.Join(roles, ","))
+	return WriteUserRoleToGrpcContext(req.Context(), strings.Join(roles, ","))
+}
