@@ -318,8 +318,14 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 	}, nil
 }
 
+type TypedJwtMapClaims struct {
+	Email  string
+	Groups []string
+	Roles  []string
+}
+
 // VerifyToken verifies if the user is authenticated.
-func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexServiceURL string, useClusterInternalCommunication bool) (jwt.MapClaims, error) {
+func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexServiceURL string, useClusterInternalCommunication bool, DexRbacPolicy *RBACPolicies) (*TypedJwtMapClaims, error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
 
@@ -352,19 +358,56 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexSer
 		return nil, fmt.Errorf("could not parse token claims")
 	}
 
-	email, _ := claims["email"].(string)
-
+	var roles []string
 	// Safely extract groups for []interface and []string cases:
-	groupsCount := 0
-	if groups, ok := claims["groups"].([]interface{}); ok {
-		groupsCount = len(groups)
-	} else if groupsStr, ok := claims["groups"].([]string); ok {
-		// Just in case the library or provider behaves differently later
-		groupsCount = len(groupsStr)
+	groupsResult := []string{}
+	if groupInterfaces, ok := claims["groups"].([]interface{}); ok {
+		for _, group := range groupInterfaces {
+			groupName := strings.Trim(group.(string), "\"")
+			groupsResult = append(groupsResult, groupName)
+			roles = AppendRoleForPolicy(groupName, roles, DexRbacPolicy)
+		}
+	} else if groupStrings, ok := claims["groups"].([]string); ok {
+		groupsResult = groupStrings
+		roles = AppendRoleForPolicy(strings.Join(groupStrings, ","), roles, DexRbacPolicy)
+	} else if groupString, ok := claims["groups"].(string); ok {
+		groupsResult = []string{groupString}
+		roles = AppendRoleForPolicy(groupString, roles, DexRbacPolicy)
 	}
-
-	if groupsCount == 0 && email == "" {
+	// Note that the "_" here is important, because we can't know for sure that the email is of type string (Issue 2699)
+	email, _ := claims["email"].(string)
+	if len(groupsResult) == 0 && email == "" {
 		return nil, fmt.Errorf("need required fields to determine group of user")
 	}
-	return claims, nil
+	return &TypedJwtMapClaims{Email: email, Groups: groupsResult, Roles: roles}, nil
+}
+
+// AppendRoleForPolicy appends the Role of the policy, if we find a policy where policy.Group=userGroup
+func AppendRoleForPolicy(userGroup string, roles []string, policy *RBACPolicies) []string {
+	for _, policyGroup := range policy.Groups {
+		if policyGroup.Group == userGroup {
+			roles = append(roles, policyGroup.Role)
+		}
+	}
+	return roles
+}
+
+func GetContextFromDex(ctx context.Context, req *http.Request, clientID, baseURL, dexServiceURL string, DexRbacPolicy *RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
+	claimsParsed, err := VerifyToken(ctx, req, clientID, baseURL, dexServiceURL, useClusterInternalCommunication, DexRbacPolicy)
+	if err != nil {
+		logger.FromContext(ctx).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
+		return ctx, err
+	}
+	httpCtx := ctx
+	var roles []string
+	roles = append(roles, claimsParsed.Roles...)
+	if claimsParsed.Email != "" {
+		roles = AppendRoleForPolicy(claimsParsed.Email, roles, DexRbacPolicy)
+	} else if len(claimsParsed.Groups) == 0 {
+		return nil, fmt.Errorf("unable to parse token with expected fields for DEX login")
+	}
+	if len(roles) != 0 {
+		httpCtx = AddRoleToContext(req, roles)
+	}
+	return httpCtx, nil
 }

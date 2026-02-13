@@ -39,6 +39,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -258,7 +259,7 @@ func TestValidateToken(t *testing.T) {
 	}
 }
 
-func TestVerifyToken(t *testing.T) {
+func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 	// Reset Handler registration. Avoids "panic: http: multiple registrations for <PATH>" error.
 	http.DefaultServeMux = new(http.ServeMux)
 	// Dex app client configuration variables.
@@ -271,24 +272,58 @@ func TestVerifyToken(t *testing.T) {
 	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, DexFullNameOverride, scopes, useClusterInternalCommunication)
 
 	testCases := []struct {
-		Name      string
-		claims    jwtV5.MapClaims
-		WantErr   error
-		wantClaim jwtV5.MapClaims
+		Name             string
+		claims           jwtV5.MapClaims
+		WantErr          error
+		WantClaimsParsed *TypedJwtMapClaims
+		WantHeaderRoles  []string
 	}{
 		{
-			Name: "Token Verifier works as expected with the correct token value",
+			Name: "Token Verifier with group type []string yields the correct token value",
 			claims: jwtV5.MapClaims{
 				jwt.AudienceKey: clientID,
 				jwt.IssuerKey:   appDex.IssuerURL,
 				"name":          "User",
 				"email":         "user@mail.com",
-				"groups":        []string{"Developer"}},
-			wantClaim: jwtV5.MapClaims{
-				"email":  "user@mail.com",
-				"name":   string("User"),
-				"groups": []any{string("Developer")},
+				"groups":        []string{"Developer", "Engineer"}},
+			WantClaimsParsed: &TypedJwtMapClaims{
+				Groups: []string{"Developer", "Engineer"},
+				Email:  "user@mail.com",
+				Roles:  []string{"Developer_ROLE"},
 			},
+			WantHeaderRoles: []string{"Developer_ROLE,user@mail.com_ROLE"},
+		},
+		{
+			Name: "Token Verifier with group type []interface yields correct token value",
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"name":          "User",
+				"email":         "user@mail.com",
+				"groups":        []interface{}{"Developer"},
+			},
+			WantClaimsParsed: &TypedJwtMapClaims{
+				Groups: []string{"Developer"},
+				Email:  "user@mail.com",
+				Roles:  []string{"Developer_ROLE"},
+			},
+			WantHeaderRoles: []string{"Developer_ROLE,user@mail.com_ROLE"},
+		},
+		{
+			Name: "Token Verifier with group type string yields correct token value",
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"name":          "User",
+				"email":         "user@mail.com",
+				"groups":        "Developer",
+			},
+			WantClaimsParsed: &TypedJwtMapClaims{
+				Groups: []string{"Developer"},
+				Email:  "user@mail.com",
+				Roles:  []string{"Developer_ROLE"},
+			},
+			WantHeaderRoles: []string{"Developer_ROLE,user@mail.com_ROLE"},
 		},
 		{
 			Name: "Fix Bug 2699: multiple groups with no email lead to no panic",
@@ -298,26 +333,44 @@ func TestVerifyToken(t *testing.T) {
 				"name":          "User",
 				"email":         "",
 				"groups":        []string{"Developer", "Hero of Time"}},
-			wantClaim: jwtV5.MapClaims{
-				"email":  "",
-				"name":   "User",
-				"groups": []any{"Developer", "Hero of Time"},
+			WantClaimsParsed: &TypedJwtMapClaims{
+				Groups: []string{"Developer", "Hero of Time"},
+				Email:  "",
+				Roles:  []string{"Developer_ROLE", "Hero of Time_ROLE"},
 			},
+			WantHeaderRoles: []string{"Developer_ROLE,Hero of Time_ROLE"},
 		},
 		{
-			Name: "Fix Bug 2699 (part2): with no email but a groups leads to no error",
+			Name: "Fix Bug 2699 (part2): with no email ('') but a group leads to no error",
 			claims: jwtV5.MapClaims{
 				jwt.AudienceKey: clientID,
 				jwt.IssuerKey:   appDex.IssuerURL,
 				"name":          "User",
 				"email":         "",
 				"groups":        []string{"group1"}},
-			wantClaim: jwtV5.MapClaims{
-				"email":  "",
-				"name":   "User",
-				"groups": []any{"group1"},
+			WantClaimsParsed: &TypedJwtMapClaims{
+				Groups: []string{"group1"},
+				Email:  "",
+				Roles:  []string{"group1_ROLE"},
 			},
+			WantHeaderRoles: []string{"group1_ROLE"},
 		},
+		{
+			Name: "Fix Bug 2699 (part3): with no email (nil) but a group leads to no error",
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"name":          "User",
+				"email":         nil,
+				"groups":        []string{"group1"}},
+			WantClaimsParsed: &TypedJwtMapClaims{
+				Groups: []string{"group1"},
+				Email:  "",
+				Roles:  []string{"group1_ROLE"},
+			},
+			WantHeaderRoles: []string{"group1_ROLE"},
+		},
+
 		{
 			Name: "Token Verifier works as expected with no name",
 			claims: jwtV5.MapClaims{
@@ -327,6 +380,8 @@ func TestVerifyToken(t *testing.T) {
 			WantErr: errMatcher{
 				msg: "need required fields to determine group of user",
 			},
+			WantClaimsParsed: nil,
+			WantHeaderRoles:  []string{""},
 		},
 	}
 	for _, tc := range testCases {
@@ -358,15 +413,74 @@ func TestVerifyToken(t *testing.T) {
 			req.AddCookie(cookie)
 
 			ctx := oidc.ClientContext(context.Background(), httpClient)
-			u, err := VerifyToken(ctx, req, appDex.ClientID, hostURL, appDex.DexServiceURL, useClusterInternalCommunication)
-			if tc.WantErr == nil {
-				if diff := testutil.CmpDiff(u["groups"], tc.wantClaim["groups"]); diff != "" {
-					t.Errorf("got %v, want %v, diff (-want +got) %s", u, tc.wantClaim, diff)
-				}
-			} else {
+			policy := &RBACPolicies{
+				Groups: map[string]RBACGroup{
+					"dont care 1": {
+						Group: "Developer",
+						Role:  "Developer_ROLE",
+					},
+					"dont care 2": {
+						Group: "user@mail.com",
+						Role:  "user@mail.com_ROLE",
+					},
+					"dont care 3": {
+						Group: "Hero of Time",
+						Role:  "Hero of Time_ROLE",
+					},
+					"dont care 4": {
+						Group: "group1",
+						Role:  "group1_ROLE",
+					},
+				},
+			}
+
+			// Test VerifyToken:
+			claimsParsed, err := VerifyToken(ctx, req, appDex.ClientID, hostURL, appDex.DexServiceURL, useClusterInternalCommunication, policy)
+
+			if diff := testutil.CmpDiff(claimsParsed, tc.WantClaimsParsed); diff != "" {
+				t.Errorf("claimsParsed: got %v, want %v, diff (-want +got) %s", claimsParsed, tc.WantClaimsParsed, diff)
+			}
+
+			if tc.WantErr != nil {
 				if diff := testutil.CmpDiff(tc.WantErr, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
+			}
+
+			// Test GetContextFromDex:
+			actualCtx, err := GetContextFromDex(ctx,
+				req,
+				appDex.ClientID,
+				hostURL,
+				appDex.DexServiceURL,
+				policy,
+				useClusterInternalCommunication,
+			)
+			if actualCtx == nil {
+				t.Fatal("context nil")
+			}
+			if diff := testutil.CmpDiff(tc.WantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("Error mismatch (-want +got):\n%s", diff)
+			}
+			if err != nil {
+				return
+			}
+
+			raw2, ok := metadata.FromOutgoingContext(actualCtx)
+			if !ok {
+				t.Fatalf("FromOutgoingContext not ok")
+			}
+			actualRolesEncoded := raw2.Get(HeaderUserRole)
+			actualRoles := []string{}
+			for _, actualRoleEncoded := range actualRolesEncoded {
+				actualRole, err := Decode64(actualRoleEncoded)
+				if err != nil {
+					t.Fatalf("unexpected error while decoding '%s': %v", actualRoleEncoded, err)
+				}
+				actualRoles = append(actualRoles, actualRole)
+			}
+			if diff := testutil.CmpDiff[[]string](actualRoles, tc.WantHeaderRoles); diff != "" {
+				t.Errorf("headerRoles: got %v, want %v, diff (-want +got) %s", actualRoles, tc.WantHeaderRoles, diff)
 			}
 		})
 	}

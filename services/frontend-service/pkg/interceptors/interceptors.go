@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/MicahParks/keyfunc/v2"
 	"google.golang.org/api/idtoken"
@@ -126,20 +125,6 @@ func GoogleIAPInterceptor(
 	httpHandler(w, req)
 }
 
-func AddRoleToContext(w http.ResponseWriter, req *http.Request, roles []string) context.Context {
-	auth.WriteUserRoleToHttpHeader(req, strings.Join(roles, ","))
-	return auth.WriteUserRoleToGrpcContext(req.Context(), strings.Join(roles, ","))
-}
-
-func CreateRoleString(userGroup string, roles []string, policy *auth.RBACPolicies) []string {
-	for _, policyGroup := range policy.Groups {
-		if policyGroup.Group == userGroup {
-			roles = append(roles, policyGroup.Role)
-		}
-	}
-	return roles
-}
-
 // DexLoginInterceptor intercepts HTTP calls to the frontend service.
 // DexLoginInterceptor must only be used if dex is enabled.
 // If the user us not logged in, it redirected the calls to the Dex login page.
@@ -150,7 +135,7 @@ func DexLoginInterceptor(
 	httpHandler http.HandlerFunc,
 	clientID, baseURL, dexServiceURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool,
 ) {
-	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
+	httpCtx, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Warn(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
@@ -171,7 +156,7 @@ func DexAPIInterceptor(
 	httpHandler http.HandlerFunc,
 	clientID, baseURL, dexServiceURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool,
 ) {
-	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
+	httpCtx, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
 	if err != nil {
 		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated respond with unauthorized
@@ -180,36 +165,4 @@ func DexAPIInterceptor(
 	}
 	req = req.WithContext(httpCtx)
 	httpHandler(w, req)
-}
-
-func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, dexServiceURL string, DexRbacPolicy *auth.RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
-	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, dexServiceURL, useClusterInternalCommunication)
-	if err != nil {
-		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
-		return req.Context(), err
-	}
-	httpCtx := req.Context()
-	var roles []string
-	// switch case to handle multiple types of claims that can be extracted from the Dex Response
-	switch val := claims["groups"].(type) {
-	case []interface{}:
-		for _, group := range val {
-			groupName := strings.Trim(group.(string), "\"")
-			roles = CreateRoleString(groupName, roles, DexRbacPolicy)
-		}
-	case []string:
-		roles = CreateRoleString(strings.Join(val, ","), roles, DexRbacPolicy)
-	case string:
-		roles = CreateRoleString(val, roles, DexRbacPolicy)
-	}
-
-	if claims["email"].(string) != "" {
-		roles = CreateRoleString(claims["email"].(string), roles, DexRbacPolicy)
-	} else if claims["groups"] == nil {
-		return nil, fmt.Errorf("unable to parse token with expected fields for DEX login")
-	}
-	if len(roles) != 0 {
-		httpCtx = AddRoleToContext(w, req, roles)
-	}
-	return httpCtx, nil
 }
