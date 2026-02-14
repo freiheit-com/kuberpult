@@ -62,6 +62,7 @@
       {
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [pkgs.pkg-config];
+          hardeningDisable = [ "fortify" ];
           buildInputs = packages;
         };
       }
