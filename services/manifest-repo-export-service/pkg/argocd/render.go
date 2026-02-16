@@ -25,9 +25,9 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"sigs.k8s.io/yaml"
 
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd/v1alpha1"
 )
 
 type ApiVersion string

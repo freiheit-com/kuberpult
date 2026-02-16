@@ -20,10 +20,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/argocd/v1alpha1"
-
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	godebug "github.com/kylelemons/godebug/diff"
 )
