@@ -21,7 +21,7 @@ MAKEFILE_DIR := $(dir $(MAKEFILE_PATH))
 MAKEFLAGS += --no-builtin-rules
 CHARTS_REGISTRY:=$(DOCKER_REGISTRY_URI)/charts
 CHARTS_BASE_IMAGE_URL:=$(CHARTS_REGISTRY):$(VERSION)
-BUILDER_IMAGE:=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
+BUILDER_IMAGE:=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG_KUBERPULT)
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
 build-base-image:
@@ -58,7 +58,6 @@ else
 endif
 
 test-helm: $(TGZ_FILE) Chart.yaml
-	IMAGE_TAG=$(IMAGE_TAG) make -C ../../infrastructure/docker/builder build
 	docker run --rm -w /kp -v "$(MAKEFILE_DIR)$(TGZ_FILE):/kp/$(TGZ_FILE)" -v "$(MAKEFILE_DIR)Chart.yaml:/kp/Chart.yaml" -v "$(MAKEFILE_DIR)values.yaml:/kp/values.yaml" -v "$(MAKEFILE_DIR)templates:/kp/templates" -v "$(MAKEFILE_DIR)tests:/kp/tests" $(BUILDER_IMAGE) sh -c "helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com && helm dependency build &&  cd tests &&  go mod init test-helm && go mod tidy &&  go test ./..."
 	rm $(MAKEFILE_DIR)tests/go.mod $(MAKEFILE_DIR)tests/go.sum
 
