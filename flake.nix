@@ -10,8 +10,8 @@
   # libgit2 1.5.0
   inputs.nixpkgs-libgit2.url = "github:NixOS/nixpkgs/dc7ba75c10f017061ab164bab59e4b49fa6b2efe";
 
-  # golangci-lint 2.7.2
-  inputs.nixpkgs-golangci-lint.url = "github:NixOS/nixpkgs/07c10b3282ff0a5b0fa3a684d5174c17e823929a";
+  # golangci-lint 2.9.0
+  inputs.nixpkgs-golangci-lint.url = "github:NixOS/nixpkgs/5658e3793ef17f837c67f830a9d3bef3e12ecded";
 
   outputs =
     { nixpkgs, flake-utils, nixpkgs-libgit2, nixpkgs-golangci-lint, ... }:
