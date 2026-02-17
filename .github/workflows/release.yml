@@ -20,7 +20,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run helm chart tests
         run: |
-          make -C charts/kuberpult test-helm
+          IMAGE_TAG_KUBERPULT="main-$(make version)" make -C charts/kuberpult test-helm
       - name: Create helm chart for release
         run: |
           make -C charts/kuberpult release-tag VERSION=v${{ steps.new-semrel-version.outputs.version }}
