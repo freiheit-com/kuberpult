@@ -499,7 +499,6 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
-		subChanges := &TransformerResult{}
 		commitMsg := []string{}
 		ctxWithTime := time2.WithTimeNow(ctx, time.Now())
 		if r.DB != nil && transaction == nil {
