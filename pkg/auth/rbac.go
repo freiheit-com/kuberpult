@@ -164,6 +164,10 @@ type RBACTeams struct {
 	Permissions map[string][]string
 }
 
+func IsApplicableForAllAppsAndEnvs(p Permission) bool {
+	return p.Application == "*" && p.Environment == "*:*"
+}
+
 func ValidateRbacPermission(line string) (p Permission, err error) {
 	cfg := initPolicyConfig()
 	// Verifies if all fields are specified

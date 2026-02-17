@@ -65,7 +65,6 @@ func (s *GitServer) CheckUserPermissions(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("checkUserPermissions: user not found: %v", err)
 	}
-	// TODO: make sure that the "*" are used in the policies during the setup
 	return auth.CheckUserPermissions(s.RBACConfig, user, "*", "", "*", "*", auth.PermissionSkipEslEvent)
 }
 
@@ -358,7 +357,6 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "RetryFailedEvent")
 	defer span.Finish()
-	// TODO: Add Dex permission check
 	dbHandler := s.Repository.State().DBHandler
 	response := &api.RetryFailedEventResponse{}
 	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -403,7 +401,6 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "SkipEslEvent")
 	defer span.Finish()
-	// TODO: Add Dex permission check
 	dbHandler := s.Repository.State().DBHandler
 
 	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {

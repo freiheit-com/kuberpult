@@ -27,6 +27,12 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/backoff"
@@ -40,11 +46,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/service"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
@@ -261,7 +262,7 @@ func Run(ctx context.Context) error {
 	// for now, the setup permissions for SkipEslEvent and RetryFailedEvent must not be specific to any app, or env/envgroup
 	for _, permission := range dexRbacPolicy.Permissions {
 		if permission.Action == auth.PermissionSkipEslEvent || permission.Action == auth.PermissionRetryFailedEvent {
-			if permission.Application != "*" || permission.Environment != "*:*" {
+			if !auth.IsApplicableForAllAppsAndEnvs(permission) {
 				logger.FromContext(ctx).Fatal("permissions for SkipEslEvent and RetryFailedEvent policies must not be scoped to specific apps or envs/envgroups")
 			}
 		}

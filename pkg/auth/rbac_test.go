@@ -17,8 +17,9 @@ Copyright freiheit.com*/
 package auth
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -408,6 +409,56 @@ func TestValidateRbacPermissionWildcards(t *testing.T) {
 				if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
+			}
+		})
+	}
+}
+
+func TestIsApplicableForAllAppsAndEnvs(t *testing.T) {
+	tcs := []struct {
+		Name       string
+		permission string
+		Want       bool
+	}{
+		{
+			Name:       "should return true when with no specific app, env, or env group",
+			permission: "p,role:Developer,SkipEslEvent,*:*,*,allow",
+			Want:       true,
+		},
+		{
+			Name:       "should return false when with specific app",
+			permission: "p,role:Developer,SkipEslEvent,*:*,app1,allow",
+			Want:       false,
+		},
+		{
+			Name:       "should return false when with specific env group",
+			permission: "p,role:Developer,SkipEslEvent,dev-group:*,*,allow",
+			Want:       false,
+		},
+		{
+			Name:       "should return false when with specific env",
+			permission: "p,role:Developer,SkipEslEvent,*:dev,*,allow",
+			Want:       false,
+		},
+		{
+			Name:       "should return false when with specific env and env group",
+			permission: "p,role:Developer,SkipEslEvent,dev-group:dev,*,allow",
+			Want:       false,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			// given:
+			permission, err := ValidateRbacPermission(tc.permission)
+			if err != nil {
+				t.Errorf("could not validate permission:\n%s", err)
+			}
+			// when:
+			isApplicable := IsApplicableForAllAppsAndEnvs(permission)
+
+			// then:
+			if diff := cmp.Diff(tc.Want, isApplicable); diff != "" {
+				t.Errorf("Error mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
