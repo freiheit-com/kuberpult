@@ -908,7 +908,7 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	return nil
 }
 
-func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time, changedEnvironments map[types.EnvName]struct{}) (err error) {
+func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer func() {
 		span.Finish(tracer.WithError(err))
