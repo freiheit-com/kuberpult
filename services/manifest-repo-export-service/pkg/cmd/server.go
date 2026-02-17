@@ -253,21 +253,10 @@ func Run(ctx context.Context) error {
 	} else {
 		reader = &auth.DexGrpcContextReader{DexEnabled: dexEnabled, DexDefaultRoleEnabled: dexDefaultRoleEnabled}
 	}
-
 	dexRbacPolicy, err := auth.ReadRbacPolicy(dexEnabled, dexRbacPolicyPath)
 	if err != nil {
 		logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
 	}
-
-	// for now, the setup permissions for SkipEslEvent and RetryFailedEvent must not be specific to any app, or env/envgroup
-	for _, permission := range dexRbacPolicy.Permissions {
-		if permission.Action == auth.PermissionSkipEslEvent || permission.Action == auth.PermissionRetryFailedEvent {
-			if !auth.IsApplicableForAllAppsAndEnvs(permission) {
-				logger.FromContext(ctx).Fatal("permissions for SkipEslEvent and RetryFailedEvent policies must not be scoped to specific apps or envs/envgroups")
-			}
-		}
-	}
-
 	dexRbacTeam, err := auth.ReadRbacTeam(dexEnabled, dexRbacTeamPath)
 	if err != nil {
 		logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))

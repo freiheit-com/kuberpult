@@ -414,36 +414,36 @@ func TestValidateRbacPermissionWildcards(t *testing.T) {
 	}
 }
 
-func TestIsApplicableForAllAppsAndEnvs(t *testing.T) {
+func TestValidatePermissionsForManifestRepoExportService(t *testing.T) {
 	tcs := []struct {
 		Name       string
 		permission string
-		Want       bool
+		WantError  error
 	}{
 		{
 			Name:       "should return true when with no specific app, env, or env group",
 			permission: "p,role:Developer,SkipEslEvent,*:*,*,allow",
-			Want:       true,
+			WantError:  nil,
 		},
 		{
 			Name:       "should return false when with specific app",
 			permission: "p,role:Developer,SkipEslEvent,*:*,app1,allow",
-			Want:       false,
+			WantError:  errMatcher{"permissions for SkipEslEvent must not be scoped to specific apps or envs/envgroups"},
 		},
 		{
 			Name:       "should return false when with specific env group",
 			permission: "p,role:Developer,SkipEslEvent,dev-group:*,*,allow",
-			Want:       false,
+			WantError:  errMatcher{"permissions for SkipEslEvent must not be scoped to specific apps or envs/envgroups"},
 		},
 		{
 			Name:       "should return false when with specific env",
 			permission: "p,role:Developer,SkipEslEvent,*:dev,*,allow",
-			Want:       false,
+			WantError:  errMatcher{"permissions for SkipEslEvent must not be scoped to specific apps or envs/envgroups"},
 		},
 		{
 			Name:       "should return false when with specific env and env group",
 			permission: "p,role:Developer,SkipEslEvent,dev-group:dev,*,allow",
-			Want:       false,
+			WantError:  errMatcher{"permissions for SkipEslEvent must not be scoped to specific apps or envs/envgroups"},
 		},
 	}
 	for _, tc := range tcs {
@@ -454,10 +454,15 @@ func TestIsApplicableForAllAppsAndEnvs(t *testing.T) {
 				t.Errorf("could not validate permission:\n%s", err)
 			}
 			// when:
-			isApplicable := IsApplicableForAllAppsAndEnvs(permission)
+			err = validatePermissionsForManifestRepoExportService(&RBACPolicies{
+				Permissions: map[string]Permission{
+					tc.permission: permission,
+				},
+				Groups: map[string]RBACGroup{},
+			})
 
 			// then:
-			if diff := cmp.Diff(tc.Want, isApplicable); diff != "" {
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("Error mismatch (-want +got):\n%s", diff)
 			}
 		})
