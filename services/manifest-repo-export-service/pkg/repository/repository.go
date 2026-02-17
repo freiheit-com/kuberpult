@@ -65,7 +65,7 @@ type Repository interface {
 	Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
 	PushTag(ctx context.Context, tag types.GitTag) error
-	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
+	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, *TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	FetchAndReset(ctx context.Context) error
@@ -493,13 +493,13 @@ func (r *repository) GetHeadCommitId() (*git.Oid, error) {
 	return ref.Target(), nil
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, *TransformerResult, *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
 	defer span.Finish()
 	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
-		var changes []*TransformerResult = nil
+		var subChanges *TransformerResult = nil
 		commitMsg := []string{}
 		ctxWithTime := time2.WithTimeNow(ctx, time.Now())
 		if r.DB != nil && transaction == nil {
@@ -509,7 +509,8 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 			}
 			return nil, nil, nil, &applyErr
 		}
-		if msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction, r.config.MinimizeExportedData); err != nil {
+		msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction, r.config.MinimizeExportedData)
+		if err != nil {
 			applyErr := TransformerBatchApplyError{
 				TransformerError: err,
 				Index:            0,
@@ -517,9 +518,8 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 			return nil, nil, nil, &applyErr
 		} else {
 			commitMsg = append(commitMsg, msg)
-			changes = append(changes, subChanges)
 		}
-		return commitMsg, state, changes, nil
+		return commitMsg, state, subChanges, nil
 	}
 }
 
@@ -589,15 +589,18 @@ type AppEnv struct {
 	Team string
 }
 
-type RootApp struct {
+type ChangedEnvironment struct {
 	Env types.EnvName
 	//argocd/v1alpha1/development2.yaml
 }
 
 type TransformerResult struct {
-	ChangedApps     []AppEnv
-	DeletedRootApps []RootApp
-	Commits         *CommitIds
+	ChangedApps []AppEnv
+
+	// by "Changed" we mean any change that is forcing us to render this environment in afterTransform
+	// Deletions therefore do not count as "change", however additions do.
+	ChangedEnvironments []ChangedEnvironment
+	Commits             *CommitIds
 }
 
 type CommitIds struct {
@@ -613,8 +616,8 @@ func (r *TransformerResult) AddAppEnv(app string, env types.EnvName, team string
 	})
 }
 
-func (r *TransformerResult) AddRootApp(env types.EnvName) {
-	r.DeletedRootApps = append(r.DeletedRootApps, RootApp{
+func (r *TransformerResult) AddEnvironmentDeletion(env types.EnvName) {
+	r.ChangedEnvironments = append(r.ChangedEnvironments, ChangedEnvironment{
 		Env: env,
 	})
 }
@@ -627,37 +630,38 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 		a := other.ChangedApps[i]
 		r.AddAppEnv(a.App, a.Env, a.Team)
 	}
-	for i := range other.DeletedRootApps {
-		a := other.DeletedRootApps[i]
-		r.AddRootApp(a.Env)
+	for i := range other.ChangedEnvironments {
+		a := other.ChangedEnvironments[i]
+		r.AddEnvironmentDeletion(a.Env)
 	}
 	if r.Commits == nil {
 		r.Commits = other.Commits
 	}
 }
 
-func CombineArray(others []*TransformerResult) *TransformerResult {
-	//exhaustruct:ignore
-	var r = &TransformerResult{}
-	for i := range others {
-		r.Combine(others[i])
+// CalculateChangedEnvironments returns a map with all environments that have been changed in the current transformer
+func (r *TransformerResult) CalculateChangedEnvironments() map[types.EnvName]struct{} {
+	result := map[types.EnvName]struct{}{}
+	for _, changed := range r.ChangedApps {
+		result[changed.Env] = struct{}{}
 	}
-	return r
+	for _, changed := range r.ChangedEnvironments {
+		result[changed.Env] = struct{}{}
+	}
+	return result
 }
 
 func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, transformer Transformer) (*TransformerResult, *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformer")
 	defer span.Finish()
 
-	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformer)
+	commitMsg, state, result, applyErr := r.ApplyTransformersInternal(ctx, transaction, transformer)
 	if applyErr != nil {
 		return nil, applyErr
 	}
 
-	result := CombineArray(changes)
-
 	if r.shouldCreateNewCommit(commitMsg) {
-		if err := r.afterTransform(ctx, transaction, *state, transformer.GetCreationTimestamp()); err != nil {
+		if err := r.afterTransform(ctx, transaction, *state, transformer.GetCreationTimestamp(), result.CalculateChangedEnvironments()); err != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 		}
 
@@ -908,7 +912,7 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	return nil
 }
 
-func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time) (err error) {
+func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time, changedEnvironments map[types.EnvName]struct{}) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -921,15 +925,27 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 
 	errorGroup, ctx := errgroup.WithContext(ctx)
 	fsMutex := sync.Mutex{}
+	skippedEnvs := []types.EnvName{}
+	renderedEnvs := []types.EnvName{}
 	for env, config := range configs {
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
-			errorGroup.Go(func() error {
-				return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
-					return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, &fsMutex)
+			_, envHasChanged := changedEnvironments[env]
+			if envHasChanged {
+				errorGroup.Go(func() error {
+					return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
+						return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, &fsMutex)
+					})
 				})
-			})
+				renderedEnvs = append(renderedEnvs, env)
+			} else {
+				skippedEnvs = append(skippedEnvs, env)
+			}
 		}
 	}
+	logger.FromContext(ctx).Info("rendering of environments",
+		zap.Strings("skippedEnvs", types.EnvNamesToStrings(skippedEnvs)),
+		zap.Strings("renderedEnvs", types.EnvNamesToStrings(renderedEnvs)),
+	)
 	return errorGroup.Wait()
 }
 

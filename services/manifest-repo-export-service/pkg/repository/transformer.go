@@ -152,6 +152,7 @@ type TransformerContext interface {
 	DeleteEnvFromApp(app string, env types.EnvName)
 	ShouldMinimizeGitData() bool
 	ShouldMaximizeGitData() bool
+	ChangeEnvironment(environment types.EnvName)
 }
 
 type TransformerMetadata struct {
@@ -172,12 +173,12 @@ func GetNoOpMessage(t Transformer) (string, error) {
 
 func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx, minimizeExportedData bool) (string, *TransformerResult, error) {
 	runner := transformerRunner{
-		ChangedApps:     nil,
-		DeletedRootApps: nil,
-		Commits:         nil,
-		Context:         ctx,
-		State:           s,
-		Stack:           [][]string{nil},
+		ChangedApps:         nil,
+		ChangedEnvironments: nil,
+		Commits:             nil,
+		Context:             ctx,
+		State:               s,
+		Stack:               [][]string{nil},
 
 		MinimizeGitData: minimizeExportedData,
 	}
@@ -190,9 +191,9 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		commitMsg = runner.Stack[0][0]
 	}
 	return commitMsg, &TransformerResult{
-		ChangedApps:     runner.ChangedApps,
-		DeletedRootApps: runner.DeletedRootApps,
-		Commits:         runner.Commits,
+		ChangedApps:         runner.ChangedApps,
+		ChangedEnvironments: runner.ChangedEnvironments,
+		Commits:             runner.Commits,
 	}, nil
 }
 
@@ -203,13 +204,17 @@ type transformerRunner struct {
 	// the outer slice corresponds to a step being executed. Each
 	// entry of the inner slices correspond to a message generated
 	// by that step.
-	Stack           [][]string
-	ChangedApps     []AppEnv
-	DeletedRootApps []RootApp
-	Commits         *CommitIds
+	Stack       [][]string
+	ChangedApps []AppEnv
+
+	// ChangedEnvironments contains all environments that were added or changed, but not deleted
+	ChangedEnvironments []ChangedEnvironment
+	Commits             *CommitIds
 
 	MinimizeGitData bool
 }
+
+var _ TransformerContext = &transformerRunner{} // ensure interface is implemented
 
 func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
 	r.Stack = append(r.Stack, nil)
@@ -232,6 +237,10 @@ func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
 	return nil
 }
 
+func (r *transformerRunner) ChangeEnvironment(environment types.EnvName) {
+	r.ChangedEnvironments = append(r.ChangedEnvironments, ChangedEnvironment{environment})
+}
+
 func (r *transformerRunner) AddAppEnv(app string, env types.EnvName, team string) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
 		App:  app,
@@ -245,9 +254,6 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env types.EnvName) {
 		Team: "",
 		App:  app,
 		Env:  env,
-	})
-	r.DeletedRootApps = append(r.DeletedRootApps, RootApp{
-		Env: env,
 	})
 }
 
@@ -381,7 +387,7 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 	if version == nil {
-		return "", fmt.Errorf("release of app %s with version %v not found", c.Application, c.Version)
+		return "", fmt.Errorf("release of app %s with version %v (revision %v) not found", c.Application, c.Version, c.Revision)
 	}
 	var manifestContent = []byte(version.Manifests.Manifests[envName])
 
@@ -1338,7 +1344,7 @@ func (c *CreateEnvironment) Transform(
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() || c.Dryrun {
+	if c.Dryrun {
 		return GetNoOpMessage(c)
 	}
 	fs := state.Filesystem
@@ -1360,6 +1366,8 @@ func (c *CreateEnvironment) Transform(
 	if err != nil {
 		return "", fmt.Errorf("error closing environment config file %s, error: %w", configFile, err)
 	}
+
+	tCtx.ChangeEnvironment(c.Environment)
 
 	// we do not need to inform argoCd when creating an environment, as there are no apps yet
 	return fmt.Sprintf("create environment %q", c.Environment), nil

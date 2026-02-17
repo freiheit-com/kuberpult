@@ -2143,3 +2143,147 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestTransformerResultEnvironments(t *testing.T) {
+	// basic idea here is to make sure that the "ChangedEnvironments" field in the TransformerResult is correct.
+	// Note that "CalculateChangedEnvironments" also considers other fields - that's why most of the tests here expect "nil".
+	setup := []Transformer{
+		&CreateEnvironment{
+			Environment: "dev",
+			Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+				Destination: config.ArgoCdDestination{
+					Server: "dev",
+				},
+			}},
+			TransformerMetadata: metadata(),
+		},
+		&CreateEnvironment{
+			Environment: "prod",
+			Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "dev"}, ArgoCd: &config.EnvironmentConfigArgoCd{
+				Destination: config.ArgoCdDestination{
+					Server: "prod",
+				},
+			}},
+			TransformerMetadata: metadata(),
+		},
+		&CreateApplicationVersion{
+			Application: "app1",
+			Version:     1,
+			Revision:    1,
+			Manifests: map[types.EnvName]string{
+				"dev":  "dev-manifest",
+				"prod": "prod-manifest",
+			},
+			TransformerMetadata: metadata(),
+		},
+	}
+
+	tcs := []struct {
+		Name                          string
+		GivenTransformers             []Transformer
+		ExpectedLastTransformerResult []ChangedEnvironment
+	}{
+		{
+			Name: "CreateEnvironment: New environment leads to result with env",
+			GivenTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "prod2",
+					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "dev"}, ArgoCd: &config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Server: "prod2",
+						},
+					}},
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: []ChangedEnvironment{
+				{
+					Env: "prod2",
+				},
+			},
+		},
+		{
+			Name: "Deploying an existing release of an app leads to result without environment change",
+			GivenTransformers: []Transformer{
+				&DeployApplicationVersion{
+					Environment:         "prod2",
+					Application:         "app1",
+					Version:             1,
+					Revision:            1,
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: nil,
+		},
+		{
+			Name: "Creating an existing release of an app leads to a deployment, but no environment change",
+			GivenTransformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app2",
+					Version:     1,
+					Revision:    1,
+					Manifests: map[types.EnvName]string{
+						"dev":  "dev-manifest",
+						"prod": "prod-manifest",
+					},
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: nil,
+		},
+		{
+			Name: "Creating a lock leads to no environment change",
+			GivenTransformers: []Transformer{
+				&CreateEnvironmentLock{
+					Environment:         "dev",
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: nil,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			repo.config.MinimizeExportedData = true
+
+			ctx := testutilauth.MakeTestContext()
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, transformer := range setup {
+					prepareDatabaseLikeCdService(ctx, transaction, transformer, dbHandler, t, "author", "email")
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
+					if applyErr != nil && applyErr.TransformerError != nil {
+						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+					}
+				}
+				return nil
+			})
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i, transformer := range tc.GivenTransformers {
+					prepareDatabaseLikeCdService(ctx, transaction, transformer, dbHandler, t, "author", "email")
+					_, _, actualResult, applyErr := repo.ApplyTransformersInternal(ctx, transaction, transformer)
+					if applyErr != nil && applyErr.TransformerError != nil {
+						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+					}
+					isLast := i == len(tc.GivenTransformers)-1
+					if isLast {
+						// we only test the last transformer result:
+						if diff := testutil.CmpDiff(tc.ExpectedLastTransformerResult, actualResult.ChangedEnvironments); diff != "" {
+							t.Errorf("expected from transformer (%s) args:\n  %v\ngot:\n  %v\ndiff:\n  %s\n",
+								transformer.GetDBEventType(), actualResult, tc.ExpectedLastTransformerResult, diff)
+						}
+					}
+				}
+				return nil
+			})
+		})
+	}
+}
+
+func metadata() TransformerMetadata {
+	return TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"}
+}
