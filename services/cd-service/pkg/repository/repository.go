@@ -589,7 +589,7 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 
 func (s *State) GetApplicationLocksForEnv(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (_ map[types.AppName]map[string]Lock, err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "GetApplicationLocksForEnv")
-	defer span.Finish(tracer.WithError(err))
+	defer func() { span.Finish(tracer.WithError(err)) }()
 
 	appLocks, err := s.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, environment)
 	if err != nil {
@@ -986,16 +986,6 @@ func extractPrNumber(sourceMessage string) string {
 	} else {
 		return res[len(res)-1][1]
 	}
-}
-
-func (s *State) IsUndeployVersion(ctx context.Context, transaction *sql.Tx, application types.AppName, version types.ReleaseNumbers) (bool, error) {
-	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx,
-		transaction,
-		application,
-		version,
-		true,
-	)
-	return release.Metadata.UndeployVersion, err
 }
 
 func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.Tx, application types.AppName, versions []uint64) ([]*Release, error) {
