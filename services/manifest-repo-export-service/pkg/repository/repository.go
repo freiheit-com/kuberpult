@@ -680,7 +680,15 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 
 func (r *repository) createCommit(ctx context.Context, state *State, transformer Transformer, commitMsg []string) (_ *git.Oid, _ *git.Oid, resultError *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "createCommit")
-	defer span.Finish(tracer.WithError(resultError))
+	defer func() {
+		// Casting our TransformerBatchApplyError to error yields non-nil, even if it was nil.
+		// We have to avoid this by manually checking for nil:
+		if resultError == nil {
+			span.Finish()
+		} else {
+			span.Finish(tracer.WithError(resultError))
+		}
+	}()
 
 	insertSpan, _ := tracer.StartSpanFromContext(ctx, "fsInsert")
 	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
@@ -900,9 +908,11 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	return nil
 }
 
-func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time) error {
+func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time, changedEnvironments map[types.EnvName]struct{}) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	configs, err := state.GetAllEnvironmentConfigsFromDBAtTimestamp(ctx, transaction, ts)
 	if err != nil {
@@ -927,9 +937,12 @@ func isAAEnv(config config.EnvironmentConfig) bool {
 	return config.ArgoCdConfigs != nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time, fsMutex *sync.Mutex) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time, fsMutex *sync.Mutex) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
-	defer span.Finish()
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	span.SetTag("environment", string(env))
 	if !r.config.ArgoCdGenerateFiles {
 		return nil
 	}
@@ -2549,7 +2562,7 @@ func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.
 
 func GetTags(ctx context.Context, handler *db.DBHandler, cfg RepositoryConfig, repoName string) (tags []*api.TagData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "getTags")
-	defer span.Finish(tracer.WithError(err))
+	defer func() { span.Finish(tracer.WithError(err)) }()
 	repo, err := openOrCreate(repoName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open/create repo: %v", err)
@@ -2673,7 +2686,7 @@ func (r *repository) Notify() *notify.Notify {
 func MeasureGitSyncStatus(ctx context.Context, ddMetrics statsd.ClientInterface, dbHandler *db.DBHandler) (err error) {
 	if ddMetrics != nil {
 		span, ctx := tracer.StartSpanFromContext(ctx, "MeasureGitSyncStatus")
-		defer span.Finish(tracer.WithError(err))
+		defer func() { span.Finish(tracer.WithError(err)) }()
 		var results *[2]int
 		results, err = db.WithTransactionT[[2]int](dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*[2]int, error) {
 			unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)

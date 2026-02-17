@@ -589,7 +589,6 @@ func TestArgoCDFileGeneration(t *testing.T) {
 }
 
 func TestArgoCDFileGenerationAcrossTimestamps(t *testing.T) {
-	const appName = "myapp"
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
 	var aaEnvName = "aa"
