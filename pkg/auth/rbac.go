@@ -41,6 +41,10 @@ const (
 	PermissionDeleteEnvironment            = "DeleteEnvironment"
 	PermissionDeleteEnvironmentApplication = "DeleteEnvironmentApplication"
 	PermissionDeployReleaseTrain           = "DeployReleaseTrain"
+
+	PermissionSkipEslEvent     = "SkipEslEvent"
+	PermissionRetryFailedEvent = "RetryFailedEvent"
+
 	// The default permission template.
 	PermissionTemplate = "p,role:%s,%s,%s:%s,%s,allow"
 )
@@ -69,7 +73,11 @@ func initPolicyConfig() policyConfig {
 			PermissionCreateEnvironment,
 			PermissionDeleteEnvironment,
 			PermissionDeleteEnvironmentApplication,
-			PermissionDeployReleaseTrain},
+			PermissionDeployReleaseTrain,
+
+			PermissionSkipEslEvent,
+			PermissionRetryFailedEvent,
+		},
 	}
 }
 

@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
@@ -53,6 +54,19 @@ type GitServer struct {
 	streamGitSyncStatusInitFunc sync.Once
 	notify                      notify.Notify
 	DBHandler                   *db.DBHandler
+	RBACConfig                  auth.RBACConfig
+}
+
+func (s *GitServer) CheckUserPermissions(ctx context.Context) error {
+	if !s.RBACConfig.DexEnabled {
+		return nil
+	}
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("checkUserPermissions: user not found: %v", err)
+	}
+	// TODO: make sure that the "*" are used in the policies during the setup
+	return auth.CheckUserPermissions(s.RBACConfig, user, "*", "", "*", "*", auth.PermissionSkipEslEvent)
 }
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
@@ -344,6 +358,7 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "RetryFailedEvent")
 	defer span.Finish()
+	// TODO: Add Dex permission check
 	dbHandler := s.Repository.State().DBHandler
 	response := &api.RetryFailedEventResponse{}
 	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -388,7 +403,7 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "SkipEslEvent")
 	defer span.Finish()
-
+	// TODO: Add Dex permission check
 	dbHandler := s.Repository.State().DBHandler
 
 	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {

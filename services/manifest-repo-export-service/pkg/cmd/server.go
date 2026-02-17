@@ -27,15 +27,11 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/backoff"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/interceptors"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
@@ -44,6 +40,11 @@ import (
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/service"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
@@ -232,6 +233,45 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
+	dexMock := valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_MOCK", false)
+	dexEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_ENABLED", false)
+	dexMockRole := valid.ReadEnvVarWithDefault("KUBERPULT_DEX_MOCK_ROLE", "Developer")
+	dexRbacPolicyPath := valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_POLICY_PATH", "")
+	dexRbacTeamPath := valid.ReadEnvVarWithDefault("KUBERPULT_DEX_RBAC_TEAM_PATH", "")
+	dexDefaultRoleEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_DEX_DEFAULT_ROLE_ENABLED", false)
+
+	var reader auth.GrpcContextReader
+	if dexMock {
+		if !dexEnabled {
+			logger.FromContext(ctx).Fatal("dexEnabled must be true if dexMock is true")
+		}
+		if dexMockRole == "" {
+			logger.FromContext(ctx).Fatal("dexMockRole must be set to a role (e.g 'DEVELOPER' because dexEnabled=true")
+		}
+		reader = &auth.DummyGrpcContextReader{Role: dexMockRole}
+	} else {
+		reader = &auth.DexGrpcContextReader{DexEnabled: dexEnabled, DexDefaultRoleEnabled: dexDefaultRoleEnabled}
+	}
+
+	dexRbacPolicy, err := auth.ReadRbacPolicy(dexEnabled, dexRbacPolicyPath)
+	if err != nil {
+		logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+	}
+
+	// for now, the setup permissions for SkipEslEvent and RetryFailedEvent must not be specific to any app, or env/envgroup
+	for _, permission := range dexRbacPolicy.Permissions {
+		if permission.Action == auth.PermissionSkipEslEvent || permission.Action == auth.PermissionRetryFailedEvent {
+			if permission.Application != "*" || permission.Environment != "*:*" {
+				logger.FromContext(ctx).Fatal("permissions for SkipEslEvent and RetryFailedEvent policies must not be scoped to specific apps or envs/envgroups")
+			}
+		}
+	}
+
+	dexRbacTeam, err := auth.ReadRbacTeam(dexEnabled, dexRbacTeamPath)
+	if err != nil {
+		logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+	}
+
 	experimentalRolloutWithManifest := valid.ReadEnvVarBoolWithDefault("KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED", false)
 	allArgoProjectNames := argocd.AllArgoProjectNameOverrides{}
 	rawStringMapEnvironments := valid.StringMap{}
@@ -413,6 +453,12 @@ func Run(ctx context.Context) error {
 			defer logger.LogPanics(true)
 			return handler(ctx, req)
 		},
+		func(ctx context.Context,
+			req interface{},
+			info *grpc.UnaryServerInfo,
+			handler grpc.UnaryHandler) (interface{}, error) {
+			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, reader)
+		},
 	}
 
 	shutdownCh := make(chan struct{})
@@ -434,7 +480,17 @@ func Run(ctx context.Context) error {
 			},
 			Register: func(srv *grpc.Server) {
 				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
-				api.RegisterManifestExportGitServiceServer(srv, &service.GitServer{Repository: repo, Config: cfg, PageSize: 10, DBHandler: dbHandler})
+				api.RegisterManifestExportGitServiceServer(srv, &service.GitServer{
+					Repository: repo,
+					Config:     cfg,
+					PageSize:   10,
+					DBHandler:  dbHandler,
+					RBACConfig: auth.RBACConfig{
+						DexEnabled: dexEnabled,
+						Policy:     dexRbacPolicy,
+						Team:       dexRbacTeam,
+					},
+				})
 				api.RegisterMigrationServiceServer(srv, migrationServer)
 				reflection.Register(srv)
 			},
