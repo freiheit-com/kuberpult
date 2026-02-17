@@ -583,24 +583,24 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 	return nil
 }
 
-type AppEnv struct {
-	App  string
-	Env  types.EnvName
-	Team string
+type AppEnvToRender struct {
+	App string
+	Env types.EnvName
 }
 
-type ChangedEnvironment struct {
+type EnvironmentToRender struct {
 	Env types.EnvName
 	//argocd/v1alpha1/development2.yaml
 }
 
 type TransformerResult struct {
-	ChangedApps []AppEnv
+	// List of apps that have been changed in such a way that it requires us to render them again
+	// For example a DeployApplicationVersion would add its app and env here
+	AppEnvsToRender []AppEnvToRender
 
-	// by "Changed" we mean any change that is forcing us to render this environment in afterTransform
-	// Deletions therefore do not count as "change", however additions do.
-	ChangedEnvironments []ChangedEnvironment
-	Commits             *CommitIds
+	// Sometimes we do not change an app, but still want to render the environment, for example when an environment is created
+	EnvironmentsToRender []EnvironmentToRender
+	Commits              *CommitIds
 }
 
 type CommitIds struct {
@@ -608,16 +608,15 @@ type CommitIds struct {
 	Current  *git.Oid
 }
 
-func (r *TransformerResult) AddAppEnv(app string, env types.EnvName, team string) {
-	r.ChangedApps = append(r.ChangedApps, AppEnv{
-		App:  app,
-		Env:  env,
-		Team: team,
+func (r *TransformerResult) AddAppEnv(app string, env types.EnvName) {
+	r.AppEnvsToRender = append(r.AppEnvsToRender, AppEnvToRender{
+		App: app,
+		Env: env,
 	})
 }
 
 func (r *TransformerResult) AddEnvironmentDeletion(env types.EnvName) {
-	r.ChangedEnvironments = append(r.ChangedEnvironments, ChangedEnvironment{
+	r.EnvironmentsToRender = append(r.EnvironmentsToRender, EnvironmentToRender{
 		Env: env,
 	})
 }
@@ -626,12 +625,12 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 	if other == nil {
 		return
 	}
-	for i := range other.ChangedApps {
-		a := other.ChangedApps[i]
-		r.AddAppEnv(a.App, a.Env, a.Team)
+	for i := range other.AppEnvsToRender {
+		a := other.AppEnvsToRender[i]
+		r.AddAppEnv(a.App, a.Env)
 	}
-	for i := range other.ChangedEnvironments {
-		a := other.ChangedEnvironments[i]
+	for i := range other.EnvironmentsToRender {
+		a := other.EnvironmentsToRender[i]
 		r.AddEnvironmentDeletion(a.Env)
 	}
 	if r.Commits == nil {
@@ -642,10 +641,10 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 // CalculateChangedEnvironments returns a map with all environments that have been changed in the current transformer
 func (r *TransformerResult) CalculateChangedEnvironments() map[types.EnvName]struct{} {
 	result := map[types.EnvName]struct{}{}
-	for _, changed := range r.ChangedApps {
+	for _, changed := range r.AppEnvsToRender {
 		result[changed.Env] = struct{}{}
 	}
-	for _, changed := range r.ChangedEnvironments {
+	for _, changed := range r.EnvironmentsToRender {
 		result[changed.Env] = struct{}{}
 	}
 	return result

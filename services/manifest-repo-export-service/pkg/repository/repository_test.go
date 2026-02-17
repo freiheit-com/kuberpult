@@ -2145,12 +2145,11 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 }
 
 func TestTransformerResultEnvironments(t *testing.T) {
-	// basic idea here is to make sure that the "ChangedEnvironments" field in the TransformerResult is correct.
-	// Note that "CalculateChangedEnvironments" also considers other fields - that's why most of the tests here expect "nil".
+	// basic idea here is to make sure that the "EnvironmentsToRender" field in the TransformerResult is correct.
 	setup := []Transformer{
 		&CreateEnvironment{
 			Environment: "dev",
-			Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+			Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: false}, ArgoCd: &config.EnvironmentConfigArgoCd{
 				Destination: config.ArgoCdDestination{
 					Server: "dev",
 				},
@@ -2181,7 +2180,7 @@ func TestTransformerResultEnvironments(t *testing.T) {
 	tcs := []struct {
 		Name                          string
 		GivenTransformers             []Transformer
-		ExpectedLastTransformerResult []ChangedEnvironment
+		ExpectedLastTransformerResult *TransformerResult
 	}{
 		{
 			Name: "CreateEnvironment: New environment leads to result with env",
@@ -2196,9 +2195,12 @@ func TestTransformerResultEnvironments(t *testing.T) {
 					TransformerMetadata: metadata(),
 				},
 			},
-			ExpectedLastTransformerResult: []ChangedEnvironment{
-				{
-					Env: "prod2",
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: nil,
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod2",
+					},
 				},
 			},
 		},
@@ -2213,10 +2215,18 @@ func TestTransformerResultEnvironments(t *testing.T) {
 					TransformerMetadata: metadata(),
 				},
 			},
-			ExpectedLastTransformerResult: nil,
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "prod2",
+					},
+				},
+				EnvironmentsToRender: nil,
+			},
 		},
 		{
-			Name: "Creating an existing release of an app leads to a deployment, but no environment change",
+			Name: "Creating a release of an app leads to no deployment, and no environment change",
 			GivenTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "app2",
@@ -2229,22 +2239,60 @@ func TestTransformerResultEnvironments(t *testing.T) {
 					TransformerMetadata: metadata(),
 				},
 			},
-			ExpectedLastTransformerResult: nil,
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+			},
 		},
 		{
-			Name: "Creating a lock leads to no environment change",
+			Name: "Creating a deployment leads to an app/env change, and an no environment change",
+			GivenTransformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app2",
+					Version:     1,
+					Revision:    1,
+					Manifests: map[types.EnvName]string{
+						"dev":  "dev-manifest",
+						"prod": "prod-manifest",
+					},
+					TransformerMetadata: metadata(),
+				},
+				&DeployApplicationVersion{
+					Application:         "app2",
+					Environment:         "dev",
+					Version:             1,
+					Revision:            1,
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app2",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: nil,
+			},
+		},
+		{
+			Name: "Creating a lock leads to no change",
 			GivenTransformers: []Transformer{
 				&CreateEnvironmentLock{
 					Environment:         "dev",
 					TransformerMetadata: metadata(),
 				},
 			},
-			ExpectedLastTransformerResult: nil,
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+			},
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
 			repo.config.MinimizeExportedData = true
@@ -2272,7 +2320,7 @@ func TestTransformerResultEnvironments(t *testing.T) {
 					isLast := i == len(tc.GivenTransformers)-1
 					if isLast {
 						// we only test the last transformer result:
-						if diff := testutil.CmpDiff(tc.ExpectedLastTransformerResult, actualResult.ChangedEnvironments); diff != "" {
+						if diff := testutil.CmpDiff(tc.ExpectedLastTransformerResult, actualResult); diff != "" {
 							t.Errorf("expected from transformer (%s) args:\n  %v\ngot:\n  %v\ndiff:\n  %s\n",
 								transformer.GetDBEventType(), actualResult, tc.ExpectedLastTransformerResult, diff)
 						}
@@ -2286,4 +2334,133 @@ func TestTransformerResultEnvironments(t *testing.T) {
 
 func metadata() TransformerMetadata {
 	return TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"}
+}
+
+func TestCombineTransformerResult(t *testing.T) {
+	tcs := []struct {
+		Name                          string
+		GivenTransformerResultA       *TransformerResult
+		GivenTransformerResultB       *TransformerResult
+		ExpectedLastTransformerResult *TransformerResult
+	}{
+		{
+			Name: "nil + nil = nil",
+			GivenTransformerResultA: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+				Commits:              nil,
+			},
+			GivenTransformerResultB: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+				Commits:              nil,
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+				Commits:              nil,
+			},
+		},
+		{
+			Name: "A + nil = A",
+			GivenTransformerResultA: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod",
+					},
+				},
+				Commits: nil,
+			},
+			GivenTransformerResultB: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+				Commits:              nil,
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod",
+					},
+				},
+				Commits: nil,
+			},
+		},
+		{
+			Name: "A + B = C",
+			GivenTransformerResultA: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod",
+					},
+				},
+				Commits: nil,
+			},
+			GivenTransformerResultB: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app2",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "testing",
+					},
+				},
+				Commits: nil,
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "dev",
+					},
+					{
+						App: "app2",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod",
+					},
+					{
+						Env: "testing",
+					},
+				},
+				Commits: nil,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			tmp := *tc.GivenTransformerResultA
+			tmp.Combine(tc.GivenTransformerResultB)
+			actualResult := &tmp
+			if diff := testutil.CmpDiff(tc.ExpectedLastTransformerResult, actualResult); diff != "" {
+				t.Errorf("got:\n  %v\ndiff:\n  %s\n", actualResult, diff)
+			}
+		})
+	}
 }

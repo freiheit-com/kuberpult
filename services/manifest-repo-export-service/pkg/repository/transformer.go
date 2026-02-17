@@ -148,7 +148,7 @@ type Transformer interface {
 
 type TransformerContext interface {
 	Execute(t Transformer, transaction *sql.Tx) error
-	AddAppEnv(app string, env types.EnvName, team string)
+	AddAppEnv(app string, env types.EnvName)
 	DeleteEnvFromApp(app string, env types.EnvName)
 	ShouldMinimizeGitData() bool
 	ShouldMaximizeGitData() bool
@@ -191,9 +191,9 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		commitMsg = runner.Stack[0][0]
 	}
 	return commitMsg, &TransformerResult{
-		ChangedApps:         runner.ChangedApps,
-		ChangedEnvironments: runner.ChangedEnvironments,
-		Commits:             runner.Commits,
+		AppEnvsToRender:      runner.ChangedApps,
+		EnvironmentsToRender: runner.ChangedEnvironments,
+		Commits:              runner.Commits,
 	}, nil
 }
 
@@ -205,10 +205,10 @@ type transformerRunner struct {
 	// entry of the inner slices correspond to a message generated
 	// by that step.
 	Stack       [][]string
-	ChangedApps []AppEnv
+	ChangedApps []AppEnvToRender
 
 	// ChangedEnvironments contains all environments that were added or changed, but not deleted
-	ChangedEnvironments []ChangedEnvironment
+	ChangedEnvironments []EnvironmentToRender
 	Commits             *CommitIds
 
 	MinimizeGitData bool
@@ -238,22 +238,20 @@ func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
 }
 
 func (r *transformerRunner) ChangeEnvironment(environment types.EnvName) {
-	r.ChangedEnvironments = append(r.ChangedEnvironments, ChangedEnvironment{environment})
+	r.ChangedEnvironments = append(r.ChangedEnvironments, EnvironmentToRender{environment})
 }
 
-func (r *transformerRunner) AddAppEnv(app string, env types.EnvName, team string) {
-	r.ChangedApps = append(r.ChangedApps, AppEnv{
-		App:  app,
-		Env:  env,
-		Team: team,
+func (r *transformerRunner) AddAppEnv(app string, env types.EnvName) {
+	r.ChangedApps = append(r.ChangedApps, AppEnvToRender{
+		App: app,
+		Env: env,
 	})
 }
 
 func (r *transformerRunner) DeleteEnvFromApp(app string, env types.EnvName) {
-	r.ChangedApps = append(r.ChangedApps, AppEnv{
-		Team: "",
-		App:  app,
-		Env:  env,
+	r.ChangedApps = append(r.ChangedApps, AppEnvToRender{
+		App: app,
+		Env: env,
 	})
 }
 
@@ -424,11 +422,7 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
-	teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
-	if err != nil {
-		return "", err
-	}
-	tCtx.AddAppEnv(c.Application, c.Environment, teamOwner)
+	tCtx.AddAppEnv(c.Application, c.Environment)
 
 	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, types.AppName(c.Application), envName)
 	if err != nil {
@@ -949,13 +943,6 @@ func (c *CreateApplicationVersion) Transform(
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
 		}
-
-		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
-		if err != nil {
-			return "", err
-		}
-
-		tCtx.AddAppEnv(c.Application, env, teamOwner)
 
 		if _, exists := deploymentsMap[env]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			d := &DeployApplicationVersion{
@@ -1883,11 +1870,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			}
 		}
 
-		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
-		if err != nil {
-			return "", err
-		}
-		tCtx.AddAppEnv(c.Application, env, teamOwner)
+		tCtx.AddAppEnv(c.Application, env)
 		if _, exists := deploymentsMap[env]; !exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			continue
 		}
@@ -2071,13 +2054,9 @@ func (u *UndeployApplication) Transform(
 		return "", err
 	}
 
-	teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, u.Application)
-	if err != nil {
-		return "", fmt.Errorf("could not find team for app %s: %w", u.Application, err)
-	}
 	if envs, err := removeApplicationFromEnvs(fs, types.AppName(u.Application), &configs); err == nil {
 		for _, env := range envs {
-			t.AddAppEnv(u.Application, env, teamOwner)
+			t.AddAppEnv(u.Application, env)
 		}
 	} else {
 		return "", err
