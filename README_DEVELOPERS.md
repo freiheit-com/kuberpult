@@ -48,6 +48,10 @@ pkg-config --modversion libgit2
 
 It should print the current version of `libgit2` as `1.5.0`.
 
+#### Running Unit tests with libgit2
+If you want to run unit tests from the manifest-export-repo-service, you can now do this in your IDE.
+Just make sure you are in the kuberpult directory, and have set `LD_LIBRARY_PATH="$NIX_LD_LIBRARY_PATH"` before starting your IDE.
+
 ## Setup builder image
 
 You need a `builder` image that is tagged as `latest` to build services locally.

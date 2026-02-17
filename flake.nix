@@ -35,6 +35,9 @@
 
           # libgit
           libgit-pkgs.libgit2
+          pkgs.sqlite   # needed by libgit
+          pkgs.openssl  # needed by libgit
+          pkgs.zlib     # needed by libgit
 
           # docker
           pkgs.docker
@@ -64,6 +67,16 @@
           nativeBuildInputs = [pkgs.pkg-config];
           hardeningDisable = [ "fortify" ];
           buildInputs = packages;
+          shellHook = ''
+# These paths are important for running go tests in an IDE,
+# otherwise it won't find opennssl/etc which is a requirement of libgit2:
+export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" packages}"
+
+# We do not want to overwrite the global LD_LIBRARY_PATH, as it can mess with git (e.g. when creating a signed commit)
+# To make it work in the IDE, start it like this:
+# LD_LIBRARY_PATH="$NIX_LD_LIBRARY_PATH" myIdeExecutable
+export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath packages}:$LD_LIBRARY_PATH"
+            '';
         };
       }
     );
