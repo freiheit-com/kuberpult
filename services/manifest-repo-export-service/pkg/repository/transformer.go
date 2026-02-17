@@ -173,12 +173,12 @@ func GetNoOpMessage(t Transformer) (string, error) {
 
 func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx, minimizeExportedData bool) (string, *TransformerResult, error) {
 	runner := transformerRunner{
-		ChangedApps:         nil,
-		ChangedEnvironments: nil,
-		Commits:             nil,
-		Context:             ctx,
-		State:               s,
-		Stack:               [][]string{nil},
+		ChangedApps:          nil,
+		EnvironmentsToRender: nil,
+		Commits:              nil,
+		Context:              ctx,
+		State:                s,
+		Stack:                [][]string{nil},
 
 		MinimizeGitData: minimizeExportedData,
 	}
@@ -192,7 +192,7 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 	}
 	return commitMsg, &TransformerResult{
 		AppEnvsToRender:      runner.ChangedApps,
-		EnvironmentsToRender: runner.ChangedEnvironments,
+		EnvironmentsToRender: runner.EnvironmentsToRender,
 		Commits:              runner.Commits,
 	}, nil
 }
@@ -207,9 +207,8 @@ type transformerRunner struct {
 	Stack       [][]string
 	ChangedApps []AppEnvToRender
 
-	// ChangedEnvironments contains all environments that were added or changed, but not deleted
-	ChangedEnvironments []EnvironmentToRender
-	Commits             *CommitIds
+	EnvironmentsToRender []EnvironmentToRender
+	Commits              *CommitIds
 
 	MinimizeGitData bool
 }
@@ -238,7 +237,7 @@ func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
 }
 
 func (r *transformerRunner) ChangeEnvironment(environment types.EnvName) {
-	r.ChangedEnvironments = append(r.ChangedEnvironments, EnvironmentToRender{environment})
+	r.EnvironmentsToRender = append(r.EnvironmentsToRender, EnvironmentToRender{environment})
 }
 
 func (r *transformerRunner) AddAppEnv(app string, env types.EnvName) {

@@ -583,22 +583,25 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 	return nil
 }
 
+// AppEnvToRender is an app/env combination that has been changed in such a way that it requires us to render them again.
+// For example a DeployApplicationVersion would add its app and env here,
+// while none of the Lock transformers would add anything.
 type AppEnvToRender struct {
 	App string
 	Env types.EnvName
 }
 
+// EnvironmentToRender stands for an environment that needs to be rendered again after the transformer is done.
+// This means it was added or changed, but not deleted,
+// because deleted environments should not be rendered.
 type EnvironmentToRender struct {
 	Env types.EnvName
 	//argocd/v1alpha1/development2.yaml
 }
 
 type TransformerResult struct {
-	// List of apps that have been changed in such a way that it requires us to render them again
-	// For example a DeployApplicationVersion would add its app and env here
 	AppEnvsToRender []AppEnvToRender
 
-	// Sometimes we do not change an app, but still want to render the environment, for example when an environment is created
 	EnvironmentsToRender []EnvironmentToRender
 	Commits              *CommitIds
 }
