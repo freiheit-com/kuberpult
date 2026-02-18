@@ -30,6 +30,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
+	"go.uber.org/zap"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -347,6 +348,8 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		IsPrepublish:                   false,
 		DeployToDownstreamEnvironments: []string{},
 		Revision:                       0,
+
+		ArgoCdBracket: "",
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -354,6 +357,16 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		return
 	}
 	form := r.MultipartForm
+
+	const paramArgoCdBracket = "argoBracket"
+	if argoBrackets, ok := form.Value[paramArgoCdBracket]; ok {
+		if !checkParameterCardinality(w, paramArgoCdBracket, argoBrackets) {
+			return
+		}
+		tf.ArgoCdBracket = argoBrackets[0]
+	}
+	logger.FromContext(ctx).Warn("argoCdBracket", zap.String("argoCdBracket", tf.ArgoCdBracket))
+
 	if !checkParameterCardinality(w, "application", form.Value["application"]) {
 		return
 	}

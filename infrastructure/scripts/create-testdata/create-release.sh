@@ -9,6 +9,9 @@ set -o pipefail
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
 prev=${3:-""}
+argoCdBracket=${4:-""}
+
+echo bracket: "${argoCdBracket}"
 
 function debug() {
     echo "$@" > /dev/stderr
@@ -64,6 +67,7 @@ revision=('--form-string' "revision=${rev}")
 
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
+configuration+=("--form" "argoBracket=${argoCdBracket}")
 
 manifests=()
 for env in development development2 staging fakeprod-de fakeprod-ca aa-test
