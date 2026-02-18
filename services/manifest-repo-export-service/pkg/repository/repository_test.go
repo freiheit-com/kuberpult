@@ -1676,7 +1676,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			},
 		},
 		{
-			Name: "Create environment should not create new commits",
+			Name: "Create environment should create new commits",
 			setup: []Transformer{
 				&CreateEnvironment{
 					Environment:         "production",
@@ -1691,7 +1691,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
 				},
 			},
-			shouldCreateCommit: false,
+			shouldCreateCommit: true,
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				return nil
 			},
@@ -1785,7 +1785,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+		//tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
