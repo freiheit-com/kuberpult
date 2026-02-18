@@ -166,6 +166,12 @@ cd services/cd-service
 go test ./... -v
 ```
 
+Many unit tests connect to a postgres database that is instantiated as part of the test setup when `make test` is called.
+The postgres database is instantiated in a docker network with the service name `kuberpult-test-posgtres`. 
+When running `make test`, the unit tests can reach the database without any additional required setup.
+When running the unit tests locally, first add a line `127.0.0.1 kuberpult-test-postgres` to `/etc/hosts`.
+Then run `make unit-test-db` to instantiate the database. After that, tests can be run locally from the terminal or IDE.
+
 ### Best practices for unit tests
 
 #### Always use `cmp.Diff`

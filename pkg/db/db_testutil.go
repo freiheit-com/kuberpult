@@ -59,7 +59,7 @@ func CreateMigrationsPath(numDirs int) (string, error) {
 func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
 	dbConfig := &DBConfig{
 		// the options here must be the same as provided by docker-compose-unittest.yml
-		DbHost:     "localhost",
+		DbHost:     "kuberpult-test-postgres",
 		DbPort:     "5432",
 		DriverName: "postgres",
 		DbName:     "kuberpult",

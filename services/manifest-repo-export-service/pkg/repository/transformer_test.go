@@ -164,7 +164,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"release of app myapp with version 7 not found",
+				"release of app myapp with version 7 (revision 0) not found",
 			},
 			ExpectedApp:  nil,
 			ExpectedFile: nil,
