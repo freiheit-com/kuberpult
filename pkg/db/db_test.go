@@ -6485,6 +6485,43 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 	}
 }
 
+func TestDBInsertOrUpdateApplication(t *testing.T) {
+	tcs := []struct {
+		Name  string
+		Teams map[types.AppName]string
+	}{
+		{
+			Name: "test 1",
+			Teams: map[types.AppName]string{
+				"app1": "team1",
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for appName, teamName := range tc.Teams {
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, AppStateChangeUpdate, DBAppMetaData{
+						Team: teamName,
+					})
+					if err != nil {
+						return fmt.Errorf("error while writing app: %w", err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 	tcs := []struct {
 		Name                            string

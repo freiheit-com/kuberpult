@@ -158,7 +158,66 @@ func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction
 	if err != nil {
 		return err
 	}
+
+	// add new entry into apps_teams_history
+
 	return nil
+}
+
+func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppsTeamsHistoryRow")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	insertQuery := h.AdaptQuery(`
+		INSERT INTO apps_teams_history (created, apps_teams)
+		VALUES (?, ?);
+	`)
+	span.SetTag("query", insertQuery)
+
+	jsonToInsert, err := json.Marshal(appsWithTeams)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("unable to get transaction timestamp: %w", err)
+	}
+	_, err = transaction.Exec(
+		insertQuery,
+		*now,
+		jsonToInsert,
+	)
+	if err != nil {
+		return fmt.Errorf("could not insert new row into apps_teams_history table. Error: %w", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transaction *sql.Tx) (_ []AppWithTeam, err error) {
+	query := h.AdaptQuery(`
+		SELECT apps_teams
+		FROM apps_teams_history
+		ORDER BY created_at DESC
+		LIMIT 1;
+	`)
+	rows, err := transaction.QueryContext(ctx, query)
+
+	appsWithTeams := make([]AppWithTeam, 0)
+	for rows.Next() {
+		var appsTeamsJson string
+		if err := rows.Scan(&appsTeamsJson); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(appsTeamsJson), &appsWithTeams); err != nil {
+			return nil, err
+		}
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return appsWithTeams, nil
 }
 
 // actual changes in tables
