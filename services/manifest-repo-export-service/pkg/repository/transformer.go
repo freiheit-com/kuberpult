@@ -147,7 +147,7 @@ type Transformer interface {
 }
 
 type TransformerContext interface {
-	Execute(t Transformer, transaction *sql.Tx) error
+	Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error
 	AddAppEnv(app string, env types.EnvName, team string)
 	DeleteEnvFromApp(app string, env types.EnvName)
 	ShouldMinimizeGitData() bool
@@ -175,13 +175,12 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 		ChangedApps:     nil,
 		DeletedRootApps: nil,
 		Commits:         nil,
-		Context:         ctx,
 		State:           s,
 		Stack:           [][]string{nil},
 
 		MinimizeGitData: minimizeExportedData,
 	}
-	if err := runner.Execute(t, transaction); err != nil {
+	if err := runner.Execute(ctx, t, transaction); err != nil {
 		return "", nil, err
 	}
 
@@ -197,8 +196,7 @@ func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *s
 }
 
 type transformerRunner struct {
-	Context context.Context
-	State   *State
+	State *State
 	// Stores the current stack of commit messages. Each entry of
 	// the outer slice corresponds to a step being executed. Each
 	// entry of the inner slices correspond to a message generated
@@ -211,9 +209,9 @@ type transformerRunner struct {
 	MinimizeGitData bool
 }
 
-func (r *transformerRunner) Execute(t Transformer, transaction *sql.Tx) error {
+func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error {
 	r.Stack = append(r.Stack, nil)
-	msg, err := t.Transform(r.Context, r.State, r, transaction)
+	msg, err := t.Transform(ctx, r.State, r, transaction)
 	if err != nil {
 		return err
 	}
@@ -458,7 +456,7 @@ func (c *DeployApplicationVersion) Transform(
 		},
 		TransformerEslVersion: c.TransformerEslVersion,
 	}
-	if err := tCtx.Execute(d, transaction); err != nil {
+	if err := tCtx.Execute(ctx, d, transaction); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("deployed version %v of %q to %q", types.MakeReleaseNumbers(c.Version, c.Revision), c.Application, c.Environment), nil
@@ -968,7 +966,7 @@ func (c *CreateApplicationVersion) Transform(
 				},
 				Revision: version.Revision,
 			}
-			err = tCtx.Execute(d, transaction)
+			err = tCtx.Execute(ctx, d, transaction)
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
@@ -1597,7 +1595,7 @@ func (u *ReleaseTrain) Transform(
 	}
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, u.TargetType)
 	for _, currentDeployment := range deployments {
-		loopSpan, _ := tracer.StartSpanFromContext(ctx, "ReleaseTrain::Transform Deploy One Application")
+		loopSpan, loopCtx := tracer.StartSpanFromContext(ctx, "ReleaseTrain::Transform Deploy One Application")
 		envConfig := envGroupConfigs[currentDeployment.Env]
 		if envConfig.Upstream == nil || (envConfig.Upstream.Environment == "" && !envConfig.Upstream.Latest) {
 			loopSpan.Finish()
@@ -1611,7 +1609,7 @@ func (u *ReleaseTrain) Transform(
 		if isEnvGroup {
 			trainGroup = conversion.FromString(targetGroupName)
 		}
-		if err := t.Execute(&DeployApplicationVersion{
+		if err := t.Execute(loopCtx, &DeployApplicationVersion{
 			Authentication:      u.Authentication,
 			TransformerMetadata: u.TransformerMetadata,
 			Environment:         currentDeployment.Env,
@@ -1901,7 +1899,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				},
 				Revision: nextReleaseNumber.Revision,
 			}
-			err := tCtx.Execute(d, transaction)
+			err := tCtx.Execute(ctx, d, transaction)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
