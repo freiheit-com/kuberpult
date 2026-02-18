@@ -9,12 +9,15 @@
 
   # libgit2 1.5.0
   inputs.nixpkgs-libgit2.url = "github:NixOS/nixpkgs/dc7ba75c10f017061ab164bab59e4b49fa6b2efe";
+  inputs.nixpkgs-sqlite.url = "github:NixOS/nixpkgs/2343bbb58f99267223bc2aac4fc9ea301a155a16";
+  inputs.nixpkgs-zlib.url = "github:NixOS/nixpkgs/8482c7ded03bae7550f3d69884f1e611e3bd19e8";
+  inputs.nixpkgs-openssl.url = "github:NixOS/nixpkgs/a672be65651c80d3f592a89b3945466584a22069";
 
   # golangci-lint 2.7.2
   inputs.nixpkgs-golangci-lint.url = "github:NixOS/nixpkgs/07c10b3282ff0a5b0fa3a684d5174c17e823929a";
 
   outputs =
-    { nixpkgs, flake-utils, nixpkgs-libgit2, nixpkgs-golangci-lint, ... }:
+    { nixpkgs, flake-utils, nixpkgs-libgit2, nixpkgs-golangci-lint, nixpkgs-sqlite, nixpkgs-zlib, nixpkgs-openssl, ... }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -25,6 +28,9 @@
         golangci-pkgs = import nixpkgs-golangci-lint {
           inherit system;
         };
+        pinned-sqlite = nixpkgs-sqlite.legacyPackages.${system}.sqlite;
+        pinned-zlib = nixpkgs-zlib.legacyPackages.${system}.zlib;
+        pinned-openssl = nixpkgs-openssl.legacyPackages.${system}.openssl;
 
         pkgs = import nixpkgs {
           inherit system;
@@ -35,9 +41,9 @@
 
           # libgit
           libgit-pkgs.libgit2
-          pkgs.sqlite   # needed by libgit
-          pkgs.openssl  # needed by libgit
-          pkgs.zlib     # needed by libgit
+          pinned-sqlite  # needed by libgit
+          pinned-openssl # needed by libgit
+          pinned-zlib    # needed by libgit
 
           # docker
           pkgs.docker
