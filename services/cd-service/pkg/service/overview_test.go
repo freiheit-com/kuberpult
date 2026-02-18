@@ -2518,7 +2518,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Environment: "staging",
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: &staging,
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -2623,7 +2623,7 @@ func TestDeploymentHistory(t *testing.T) {
 					Environment: "staging",
 					Config: config.EnvironmentConfig{
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: &staging,
 					},
 				},
 				&repository.CreateApplicationVersion{
