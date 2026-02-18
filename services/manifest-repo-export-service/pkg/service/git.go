@@ -259,7 +259,9 @@ func findCommitID(
 
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (_ *api.GetGitSyncStatusResponse, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "GetGitSyncStatus")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	dbHandler := s.Repository.State().DBHandler
 	response := &api.GetGitSyncStatusResponse{
@@ -331,7 +333,9 @@ func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 	stream api.ManifestExportGitService_StreamGitSyncStatusServer) (err error) {
 	span, ctx := tracer.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	ch, unsubscribe := s.subscribeGitSyncStatus()
 	defer unsubscribe()
 	done := stream.Context().Done()
@@ -356,7 +360,9 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 
 func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEventRequest) (_ *api.RetryFailedEventResponse, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RetryFailedEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	err = s.checkUserPermissions(ctx, auth.PermissionRetryFailedEvent)
 	if err != nil {
@@ -406,7 +412,9 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 
 func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (_ *api.SkipEslEventResponse, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "SkipEslEvent")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	err = s.checkUserPermissions(ctx, auth.PermissionSkipEslEvent)
 	if err != nil {
