@@ -321,16 +321,6 @@ metadata:
   annotations:
 {{ .Values.manifestRepoExport.service.annotations | toYaml | indent 4}}
 {{- end }}
-{{- if .Values.auth.dexAuth.enabled }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kuberpult-rbac
-data:
-  policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
-  team.csv: {{ .Values.auth.dexAuth.team_csv| quote}}
-{{- end }}
 spec:
   ports:
   - name: grpc
