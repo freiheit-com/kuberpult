@@ -159,7 +159,43 @@ func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction
 		return err
 	}
 
-	// add new entry into apps_teams_history
+	latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, transaction)
+	if err != nil {
+		return err
+	}
+
+	var toInsert []AppWithTeam
+	var existedApp *AppWithTeam
+	for _, appWithTeam := range latestAppsWithTeams {
+		if appWithTeam.AppName == appName {
+			existedApp = &appWithTeam
+			break
+		}
+	}
+
+	if stateChange == AppStateChangeCreate || (stateChange == AppStateChangeUpdate && existedApp == nil) {
+		toInsert = append(latestAppsWithTeams, AppWithTeam{
+			AppName:  appName,
+			TeamName: metaData.Team,
+		})
+	}
+
+	if existedApp != nil {
+		for _, appWithTeam := range latestAppsWithTeams {
+			if appWithTeam.AppName != appName {
+				toInsert = append(toInsert, appWithTeam)
+			} else if stateChange == AppStateChangeUpdate {
+				toInsert = append(toInsert, AppWithTeam{
+					AppName:  appName,
+					TeamName: metaData.Team,
+				})
+			}
+		}
+	}
+	err = h.insertAppsTeamsHistoryRow(ctx, transaction, toInsert)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -170,7 +206,7 @@ func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *
 		span.Finish(tracer.WithError(err))
 	}()
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO apps_teams_history (created, apps_teams)
+		INSERT INTO apps_teams_history (created_at, apps_teams)
 		VALUES (?, ?);
 	`)
 	span.SetTag("query", insertQuery)
@@ -198,7 +234,7 @@ func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transact
 	query := h.AdaptQuery(`
 		SELECT apps_teams
 		FROM apps_teams_history
-		ORDER BY created_at DESC
+		ORDER BY id DESC
 		LIMIT 1;
 	`)
 	rows, err := transaction.QueryContext(ctx, query)

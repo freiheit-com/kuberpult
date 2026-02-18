@@ -6486,14 +6486,41 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 }
 
 func TestDBInsertOrUpdateApplication(t *testing.T) {
+	type Action struct {
+		AppStateChange AppStateChange
+		AppWithTeam    map[types.AppName]string
+	}
 	tcs := []struct {
-		Name  string
-		Teams map[types.AppName]string
+		Name    string
+		Actions []Action
 	}{
 		{
 			Name: "test 1",
-			Teams: map[types.AppName]string{
-				"app1": "team1",
+			Actions: []Action{
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app1": "team1"},
+				},
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app2": "team2"},
+				},
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app3": "team3"},
+				},
+				{
+					AppStateChange: AppStateChangeUpdate,
+					AppWithTeam:    map[types.AppName]string{"app1": "team1-updated"},
+				},
+				{
+					AppStateChange: AppStateChangeDelete,
+					AppWithTeam:    map[types.AppName]string{"app2": "team2"},
+				},
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app4": "team4"},
+				},
 			},
 		},
 	}
@@ -6505,12 +6532,14 @@ func TestDBInsertOrUpdateApplication(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				for appName, teamName := range tc.Teams {
-					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, AppStateChangeUpdate, DBAppMetaData{
-						Team: teamName,
-					})
-					if err != nil {
-						return fmt.Errorf("error while writing app: %w", err)
+				for _, action := range tc.Actions {
+					for appName, teamName := range action.AppWithTeam {
+						err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, action.AppStateChange, DBAppMetaData{
+							Team: teamName,
+						})
+						if err != nil {
+							return fmt.Errorf("error while writing app: %w", err)
+						}
 					}
 				}
 				return nil
