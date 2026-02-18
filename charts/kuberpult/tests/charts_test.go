@@ -1248,20 +1248,45 @@ db:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Test KUBERPULT_DEX_USE_CLUSTER_INTERNAL_COMMUNICATION",
+			Name: "Test out dex auth not enabled",
 			Values: `
 git:
-  url:  "testURL"
+  url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
+auth:
+  dexAuth:
+    enabled: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DEX_ENABLED",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DEX_CLIENT_ID",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DEX_RBAC_POLICY_PATH",
+					Value: "",
+				},
+			},
+		},
+		{
+			Name: "Test out dex auth enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
 auth:
   dexAuth:
     enabled: true
-    useClusterInternalCommunicationToDex: true
     policy_csv: "testing"
+
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
