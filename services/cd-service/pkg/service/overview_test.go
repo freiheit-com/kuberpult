@@ -2971,7 +2971,7 @@ func TestDeploymentHistory(t *testing.T) {
 
 			err = svc.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 				query := svc.DBHandler.AdaptQuery(`
-					SELECT created FROM deployments_history
+					SELECT created, envname FROM deployments_history
 					WHERE releaseversion IS NOT NULL
 					ORDER BY created ASC;
 				`)
@@ -2982,14 +2982,20 @@ func TestDeploymentHistory(t *testing.T) {
 				}
 
 				defer func() { _ = rows.Close() }()
-				for i := 1; rows.Next() && i < len(tc.ExpectedCsvLines); i++ {
+				writtenCsvLines := 1
+				for rows.Next() && writtenCsvLines < len(tc.ExpectedCsvLines) {
 					var createdAt time.Time
-					err = rows.Scan(&createdAt)
+					var envName string
+					err = rows.Scan(&createdAt, &envName)
 					if err != nil {
 						return fmt.Errorf("error scanning row: %w", err)
 					}
-					line := fmt.Sprintf("%s,%s", createdAt.Format(time.RFC3339), tc.ExpectedCsvLines[i])
+					if envName != tc.Request.Environment {
+						continue
+					}
+					line := fmt.Sprintf("%s,%s", createdAt.Format(time.RFC3339), tc.ExpectedCsvLines[writtenCsvLines])
 					expectedLinesWithCreated = append(expectedLinesWithCreated, line)
+					writtenCsvLines++
 				}
 
 				return nil
