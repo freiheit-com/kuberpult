@@ -2245,7 +2245,7 @@ func TestTransformerResultEnvironments(t *testing.T) {
 			},
 		},
 		{
-			Name: "Creating a deployment leads to an app/env change, and an no environment change",
+			Name: "Creating a deployment leads to an app/env change, and no environment change",
 			GivenTransformers: []Transformer{
 				&CreateApplicationVersion{
 					Application: "app2",
