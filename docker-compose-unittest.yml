@@ -2,7 +2,7 @@
 # As of now this is only the postgres container
 
 services:
-  postgres:
+  kuberpult-test-postgres:
     image: postgres:13.15
     restart: unless-stopped
     environment:
@@ -12,11 +12,18 @@ services:
       - "5432:5432"
     # We run a lot of unit tests in parallel, so the default limit of 100 is not sufficient
     command: -c max_connections=500
-#    command: -c config_file=/etc/postgresql.conf
-#    volumes:
-#      - ./unittest-psql.conf:/etc/postgresql.conf
+    #    command: -c config_file=/etc/postgresql.conf
+    #    volumes:
+    #      - ./unittest-psql.conf:/etc/postgresql.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 1s
       timeout: 5s
       retries: 3
+    networks:
+      - kuberpult-test-net
+
+networks:
+  kuberpult-test-net:
+    name: kuberpult-test-net
+    driver: bridge
