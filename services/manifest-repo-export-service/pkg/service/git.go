@@ -32,13 +32,14 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
@@ -53,6 +54,18 @@ type GitServer struct {
 	streamGitSyncStatusInitFunc sync.Once
 	notify                      notify.Notify
 	DBHandler                   *db.DBHandler
+	RBACConfig                  auth.RBACConfig
+}
+
+func (s *GitServer) checkUserPermissions(ctx context.Context, permission string) error {
+	if !s.RBACConfig.DexEnabled {
+		return nil
+	}
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("checkUserPermissions: user not found: %v", err)
+	}
+	return auth.CheckUserPermissions(s.RBACConfig, user, "*", "", "*", "*", permission)
 }
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
@@ -244,15 +257,17 @@ func findCommitID(
 	return commitID, nil
 }
 
-func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (*api.GetGitSyncStatusResponse, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetGitSyncStatus")
-	defer span.Finish()
+func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (_ *api.GetGitSyncStatusResponse, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetGitSyncStatus")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	dbHandler := s.Repository.State().DBHandler
 	response := &api.GetGitSyncStatusResponse{
 		AppStatuses: make(map[string]*api.EnvSyncStatus),
 	}
-	err := dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
+	err = dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
 		delaySecs, delayEvents := dbHandler.GetCurrentDelays(ctx, transaction)
 		response.ProcessDelaySeconds = delaySecs
 		response.ProcessDelayEvents = delayEvents
@@ -268,7 +283,7 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 		response.AppStatuses = toApiStatuses(append(unsyncedStatuses, syncFailedStatuses...))
 		return nil
 	})
-	return response, onErr(err)
+	return response, err
 }
 
 func toApiStatuses(statuses []db.GitSyncData) map[string]*api.EnvSyncStatus {
@@ -316,9 +331,11 @@ func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 }
 
 func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
-	stream api.ManifestExportGitService_StreamGitSyncStatusServer) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
-	defer span.Finish()
+	stream api.ManifestExportGitService_StreamGitSyncStatusServer) (err error) {
+	span, ctx := tracer.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	ch, unsubscribe := s.subscribeGitSyncStatus()
 	defer unsubscribe()
 	done := stream.Context().Done()
@@ -329,11 +346,11 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 		case <-ch:
 			response, err := s.GetGitSyncStatus(ctx, in)
 			if err != nil {
-				return onErr(err)
+				return err
 			}
 			if err := stream.Send(response); err != nil {
 				logger.FromContext(ctx).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
-				return onErr(err)
+				return err
 			}
 		case <-done:
 			return nil
@@ -341,12 +358,20 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 	}
 }
 
-func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEventRequest) (*api.RetryFailedEventResponse, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "RetryFailedEvent")
-	defer span.Finish()
+func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEventRequest) (_ *api.RetryFailedEventResponse, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RetryFailedEvent")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	err = s.checkUserPermissions(ctx, auth.PermissionRetryFailedEvent)
+	if err != nil {
+		return nil, err
+	}
+
 	dbHandler := s.Repository.State().DBHandler
 	response := &api.RetryFailedEventResponse{}
-	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+	err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 		failedEvent, err := dbHandler.DBReadEslFailedEventFromEslVersion(ctx, transaction, in.Eslversion)
 		if err != nil {
 			return err
@@ -382,16 +407,23 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 		return nil
 	})
 	s.Repository.Notify().Notify() //Notify sync statuses have changed
-	return response, onErr(err)
+	return response, err
 }
 
-func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "SkipEslEvent")
-	defer span.Finish()
+func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (_ *api.SkipEslEventResponse, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "SkipEslEvent")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	err = s.checkUserPermissions(ctx, auth.PermissionSkipEslEvent)
+	if err != nil {
+		return &api.SkipEslEventResponse{}, err
+	}
 
 	dbHandler := s.Repository.State().DBHandler
 
-	err := dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+	err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 		failedEvent, err := dbHandler.DBReadEslFailedEventFromEslVersion(ctx, transaction, in.EventEslVersion)
 		if err != nil {
 			return err
@@ -401,5 +433,5 @@ func (s *GitServer) SkipEslEvent(ctx context.Context, in *api.SkipEslEventReques
 		}
 		return dbHandler.DBSkipFailedEslEvent(ctx, transaction, db.TransformerID(in.EventEslVersion))
 	})
-	return &api.SkipEslEventResponse{}, onErr(err)
+	return &api.SkipEslEventResponse{}, err
 }

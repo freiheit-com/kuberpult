@@ -1247,6 +1247,59 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test out dex auth not enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+auth:
+  dexAuth:
+    enabled: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DEX_ENABLED",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DEX_CLIENT_ID",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DEX_RBAC_POLICY_PATH",
+					Value: "",
+				},
+			},
+		},
+		{
+			Name: "Test out dex auth enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+auth:
+  dexAuth:
+    enabled: true
+    policy_csv: "testing"
+
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DEX_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_DEX_RBAC_POLICY_PATH",
+					Value: "/kuberpult-rbac/policy.csv",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
