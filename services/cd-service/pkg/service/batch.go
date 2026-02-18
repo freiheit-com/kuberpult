@@ -377,7 +377,7 @@ func (d *BatchServer) processAction(
 				IsPrepublish:                   in.IsPrepublish,
 				DeployToDownstreamEnvironments: downstreamEnvs,
 				Revision:                       in.Revision,
-				ArgoCdBracket:                  in.ArgoCdBracket,
+				ArgoBracket:                    types.ArgoBracketName(in.ArgoBracket),
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{
 					CreateReleaseResponse: &api.CreateReleaseResponse{

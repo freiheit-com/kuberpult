@@ -270,7 +270,7 @@ message CreateReleaseRequest {
   bool is_prepublish = 13;
   repeated string deploy_to_downstream_environments = 14;
   uint64 revision = 15;
-  string argoCdBracket = 16;
+  string argoBracket = 16;
 }
 
 message CreateReleaseResponseSuccess {

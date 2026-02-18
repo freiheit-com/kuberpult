@@ -53,13 +53,14 @@ type DBAppWithMetaData struct {
 	App         types.AppName
 	Metadata    DBAppMetaData
 	StateChange AppStateChange
+	ArgoBracket types.ArgoBracketName
 }
 
 // SELECTS
 
 func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (*DBAppWithMetaData, error) {
 	selectQuery := h.AdaptQuery(`
-		SELECT appName, stateChange, metadata
+		SELECT appName, stateChange, metadata, argoBracket
 		FROM apps
 		WHERE appName=? 
 		LIMIT 1;
@@ -79,7 +80,7 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (_ 
 		span.Finish(tracer.WithError(err))
 	}()
 	selectQuery := h.AdaptQuery(`
-		SELECT appname, stateChange, metadata
+		SELECT appname, stateChange, metadata, argoBracket
 		FROM apps
 		WHERE stateChange <> 'AppStateChangeDelete'
 		ORDER BY appname;
@@ -92,7 +93,7 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (_ 
 
 func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName types.AppName, ts time.Time) (*DBAppWithMetaData, error) {
 	selectQuery := h.AdaptQuery(`
-		SELECT appName, stateChange, metadata
+		SELECT appName, stateChange, metadata, argoBracket
 		FROM apps_history
 		WHERE appName=? AND created <= ?
 		ORDER BY version DESC 
@@ -145,33 +146,37 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 }
 
 // INSERT, UPDATE, DELETE
-func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
+func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData, argoBracket types.ArgoBracketName) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertOrUpdateApplication")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	err = h.upsertAppsRow(ctx, transaction, appName, stateChange, metaData)
+	err = h.upsertAppsRow(ctx, transaction, appName, stateChange, metaData, argoBracket)
 	if err != nil {
-		return err
+		return fmt.Errorf("upsertAppRow: %w", err)
 	}
-	err = h.insertAppsHistoryRow(ctx, transaction, appName, stateChange, metaData)
+	err = h.insertAppsHistoryRow(ctx, transaction, appName, stateChange, metaData, argoBracket)
 	if err != nil {
-		return err
+		return fmt.Errorf("insertAppsHistoryRow: %w", err)
 	}
 	return nil
 }
 
 // actual changes in tables
-func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
+func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData, argoBracket types.ArgoBracketName) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "upsertAppsRow")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO apps (created, appName, stateChange, metadata)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO apps (created, appName, stateChange, metadata, argoBracket)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(appname)
-		DO UPDATE SET created = excluded.created, appname = excluded.appname, statechange = excluded.statechange, metadata = excluded.metadata;
+		DO UPDATE SET created = excluded.created,
+		    appname = excluded.appname,
+		    statechange = excluded.statechange,
+		    metadata = excluded.metadata,
+		    argoBracket = excluded.argoBracket;
 	`)
 	span.SetTag("query", upsertQuery)
 
@@ -183,12 +188,14 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 	if err != nil {
 		return fmt.Errorf("upsertAppsRow unable to get transaction timestamp: %w", err)
 	}
+	nullableBracket := argoBracketToSql(argoBracket)
 	_, err = transaction.Exec(
 		upsertQuery,
 		*now,
 		appName,
 		stateChange,
 		jsonToInsert,
+		nullableBracket,
 	)
 	if err != nil {
 		return fmt.Errorf("could not upsert app %s into DB. Error: %w", appName, err)
@@ -196,14 +203,14 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 	return nil
 }
 
-func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
+func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData, argoBracket types.ArgoBracketName) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppsHistoryRow")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO apps_history (created, appName, stateChange, metadata)
-		VALUES (?, ?, ?, ?);
+		INSERT INTO apps_history (created, appName, stateChange, metadata, argoBracket)
+		VALUES (?, ?, ?, ?, ?);
 	`)
 	span.SetTag("query", insertQuery)
 
@@ -215,17 +222,37 @@ func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.T
 	if err != nil {
 		return fmt.Errorf("upsertAppsRow unable to get transaction timestamp: %w", err)
 	}
+
+	nullableBracket := argoBracketToSql(argoBracket)
 	_, err = transaction.Exec(
 		insertQuery,
 		*now,
 		appName,
 		stateChange,
 		jsonToInsert,
+		nullableBracket,
 	)
 	if err != nil {
 		return fmt.Errorf("could not upsert app %s into DB. Error: %w", appName, err)
 	}
 	return nil
+}
+
+func argoBracketToSql(argoBracket types.ArgoBracketName) *string {
+	var nilBracket *string = nil
+	if argoBracket == "" {
+		nilBracket = nil
+	} else {
+		nilBracket = types.Ptr(string(argoBracket))
+	}
+	return nilBracket
+}
+
+func sqlToArgoBracket(sqlData sql.NullString) types.ArgoBracketName {
+	if sqlData.Valid {
+		return types.ArgoBracketName(sqlData.String)
+	}
+	return ""
 }
 
 // process rows functions
@@ -238,20 +265,10 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	//exhaustruct:ignore
 	var row = &DBAppWithMetaData{}
 	if rows.Next() {
-		var metadataStr string
-		err := rows.Scan(&row.App, &row.StateChange, &metadataStr)
+		row, err = h.processOneAppInternal(rows)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("error scanning apps row from DB. Error: %w", err)
+			return nil, fmt.Errorf("processOneAppInternal: %w", err)
 		}
-		var metaData = DBAppMetaData{Team: ""}
-		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
-		if err != nil {
-			return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
-		}
-		row.Metadata = metaData
 	} else {
 		row = nil
 	}
@@ -262,8 +279,28 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	return row, nil
 }
 
-func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) (map[types.AppName]*DBAppWithMetaData, error) {
+func (h *DBHandler) processOneAppInternal(rows *sql.Rows) (*DBAppWithMetaData, error) {
+	var metadataStr string
+	rawBracket := sql.NullString{}
+	result := &DBAppWithMetaData{}
+	err := rows.Scan(&result.App, &result.StateChange, &metadataStr, &rawBracket)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error scanning apps row from DB. Error: %w", err)
+	}
+	var metaData = DBAppMetaData{Team: ""}
+	err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+	if err != nil {
+		return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
+	}
+	result.Metadata = metaData
+	result.ArgoBracket = sqlToArgoBracket(rawBracket)
+	return result, nil
+}
 
+func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err error) (map[types.AppName]*DBAppWithMetaData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
@@ -271,22 +308,13 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 	result := make(map[types.AppName]*DBAppWithMetaData)
 	for rows.Next() {
 		//exhaustruct:ignore
-		var row = &DBAppWithMetaData{}
-		var metadataStr string
-		err := rows.Scan(&row.App, &row.StateChange, &metadataStr)
+		row, err := h.processOneAppInternal(rows)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("error scanning apps row from DB. Error: %w", err)
+			return nil, fmt.Errorf("processOneAppInternal: %w", err)
 		}
-		var metaData = DBAppMetaData{Team: ""}
-		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
-		if err != nil {
-			return nil, fmt.Errorf("error during json unmarshal of apps. Error: %w. Data: %s", err, metadataStr)
+		if row != nil {
+			result[row.App] = row
 		}
-		row.Metadata = metaData
-		result[row.App] = row
 	}
 	err = closeRows(rows)
 	if err != nil {

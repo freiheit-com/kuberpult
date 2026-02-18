@@ -30,6 +30,8 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"go.uber.org/zap"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -349,7 +351,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		DeployToDownstreamEnvironments: []string{},
 		Revision:                       0,
 
-		ArgoCdBracket: "",
+		ArgoBracket: "",
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -358,14 +360,20 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	}
 	form := r.MultipartForm
 
-	const paramArgoCdBracket = "argoBracket"
-	if argoBrackets, ok := form.Value[paramArgoCdBracket]; ok {
-		if !checkParameterCardinality(w, paramArgoCdBracket, argoBrackets) {
+	const paramArgoBracket = "argoBracket"
+	if argoBrackets, ok := form.Value[paramArgoBracket]; ok {
+		if !checkParameterCardinality(w, paramArgoBracket, argoBrackets) {
 			return
 		}
-		tf.ArgoCdBracket = argoBrackets[0]
+		tf.ArgoBracket = argoBrackets[0]
+		if !valid.ArgoBracketName(types.ArgoBracketName(tf.ArgoBracket)) {
+			w.WriteHeader(400)
+			_, _ = fmt.Fprintf(w, "Parameter '%s=%s' is invalid, must be minimum %d and maximum %d characters and adhere to regexp '%s'",
+				paramArgoBracket, tf.ArgoBracket, valid.MinArgoBracketNameLength, valid.MaxArgoBracketNameLength, valid.ArgoBracketNameRegExp)
+			return
+		}
 	}
-	logger.FromContext(ctx).Warn("argoCdBracket", zap.String("argoCdBracket", tf.ArgoCdBracket))
+	logger.FromContext(ctx).Warn("argoBracket detected", zap.String("argoBracket", tf.ArgoBracket))
 
 	if !checkParameterCardinality(w, "application", form.Value["application"]) {
 		return

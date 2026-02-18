@@ -9,9 +9,9 @@ set -o pipefail
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
 prev=${3:-""}
-argoCdBracket=${4:-""}
+argoBracket=${4:-""}
 
-echo bracket: "${argoCdBracket}"
+echo bracket: "${argoBracket}"
 
 function debug() {
     echo "$@" > /dev/stderr
@@ -67,7 +67,11 @@ revision=('--form-string' "revision=${rev}")
 
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
-configuration+=("--form" "argoBracket=${argoCdBracket}")
+if [ -z "${argoBracket}" ]; then
+  echo "skipping argoBracket"
+else
+  configuration+=("--form" "argoBracket=${argoBracket}")
+fi
 
 manifests=()
 for env in development development2 staging fakeprod-de fakeprod-ca aa-test
