@@ -1782,9 +1782,6 @@ func (h *DBHandler) DBSkipFailedEslEvent(ctx context.Context, tx *sql.Tx, transf
 }
 
 func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) (*time.Time, error) {
-	if h == nil {
-		return nil, nil
-	}
 	if tx == nil {
 		return nil, fmt.Errorf("attempting to read transaction timestamp without a transaction")
 	}

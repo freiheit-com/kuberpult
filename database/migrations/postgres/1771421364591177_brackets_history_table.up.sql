@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS brackets_history
 (
-    esl_id SERIAL PRIMARY KEY
+    esl_id SERIAL,
     created_at TIMESTAMP,
     all_brackets VARCHAR, -- all brackets as one JSON blob that is a map[bracket][]appName
     PRIMARY KEY(esl_id)

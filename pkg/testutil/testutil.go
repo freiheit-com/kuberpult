@@ -202,6 +202,15 @@ func WrapTestRoutine(t *testing.T, ctx context.Context, logLevel string, inner f
 }
 
 // CmpDiff is exactly like cmp.Diff but with type safety
-func CmpDiff[T any](want, got T, opts ...cmp.Option) string {
-	return cmp.Diff(want, got, opts...)
+func CmpDiff[T any](expected, got T, opts ...cmp.Option) string {
+	return cmp.Diff(expected, got, opts...)
+}
+
+func DiffOrFail[T any](t *testing.T, message string, expected, got T, opts ...cmp.Option) {
+	t.Helper()
+	if diff := CmpDiff(expected, got, opts...); diff != "" {
+		t.Logf("%s: want:\n%v\n", message, expected)
+		t.Logf("%s: got:\n%v\n", message, got)
+		t.Errorf("%s: (-want +got):\n%s", message, diff)
+	}
 }

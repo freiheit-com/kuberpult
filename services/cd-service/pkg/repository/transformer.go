@@ -529,6 +529,14 @@ func (c *CreateApplicationVersion) Transform(
 	if allApps == nil {
 		allApps = []types.AppName{}
 	}
+	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
+	}
+	err = db.HandleBracketsUpdate(state.DBHandler, ctx, transaction, c.Application, c.ArgoBracket, *now)
+	if err != nil {
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update brackets: %w", err))
+	}
 
 	if !slices.Contains(allApps, c.Application) {
 		// this app is new
@@ -630,10 +638,6 @@ func (c *CreateApplicationVersion) Transform(
 	manifestsToKeep := c.Manifests
 	if c.IsPrepublish {
 		manifestsToKeep = make(map[types.EnvName]string)
-	}
-	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 	}
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
@@ -1201,8 +1205,17 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)
 	}
 
-	err = state.DBHandler.DBClearReleases(ctx, transaction, u.Application)
+	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("UndeployApplication: could not get timestamp: %w", err)
+	}
 
+	err = db.HandleBracketsDeletion(state.DBHandler, ctx, transaction, u.Application, dbApp.ArgoBracket, *now)
+	if err != nil {
+		return "", fmt.Errorf("UndeployApplication: could not handle bracket deletion for app '%s': %v", u.Application, err)
+	}
+
+	err = state.DBHandler.DBClearReleases(ctx, transaction, u.Application)
 	if err != nil {
 		return "", fmt.Errorf("UndeployApplication: could not clear releases for app '%s': %v", u.Application, err)
 	}
