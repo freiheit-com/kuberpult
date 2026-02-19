@@ -300,8 +300,8 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 }
 
 type AppWithTeam struct {
-	AppName  types.AppName
-	TeamName string
+	AppName  types.AppName `json:"app"`
+	TeamName string        `json:"team"`
 }
 
 func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName types.EnvName, ts time.Time) (_ []types.AppName, _ []AppWithTeam, err error) {

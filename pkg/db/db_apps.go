@@ -238,6 +238,9 @@ func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transact
 		LIMIT 1;
 	`)
 	rows, err := transaction.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("could not select latest history of apps and teams. Error: %w", err)
+	}
 
 	appsWithTeams := make([]AppWithTeam, 0)
 	for rows.Next() {
