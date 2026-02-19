@@ -2429,8 +2429,6 @@ func TestDeploymentHistory(t *testing.T) {
 	tomorrow := yesterday.AddDate(0, 0, 2)
 	versionOne := uint64(1)
 	versionTwo := uint64(2)
-	dev := "dev"
-	staging := "staging"
 
 	tcs := []struct {
 		Name             string
@@ -2447,10 +2445,6 @@ func TestDeploymentHistory(t *testing.T) {
 			SetupEnvs: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "dev",
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
-					},
 				},
 			},
 			Request: &api.DeploymentHistoryRequest{
@@ -2509,17 +2503,9 @@ func TestDeploymentHistory(t *testing.T) {
 			SetupEnvs: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "dev",
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
-					},
 				},
 				&repository.CreateEnvironment{
 					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						EnvironmentGroup: &staging,
-					},
 				},
 				&repository.CreateApplicationVersion{
 					Application: testApp,
@@ -2614,17 +2600,9 @@ func TestDeploymentHistory(t *testing.T) {
 			SetupEnvs: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "dev",
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
-					},
 				},
 				&repository.CreateEnvironment{
 					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						EnvironmentGroup: &staging,
-					},
 				},
 				&repository.CreateApplicationVersion{
 					Application: testApp,
@@ -2739,17 +2717,9 @@ func TestDeploymentHistory(t *testing.T) {
 			SetupEnvs: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "dev",
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
-					},
 				},
 				&repository.CreateEnvironment{
 					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
-					},
 				},
 				&repository.CreateApplicationVersion{
 					Application: testApp,
@@ -2829,17 +2799,9 @@ func TestDeploymentHistory(t *testing.T) {
 			SetupEnvs: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "dev",
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
-					},
 				},
 				&repository.CreateEnvironment{
 					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						EnvironmentGroup: &staging,
-					},
 				},
 				&repository.CreateApplicationVersion{
 					Application: testApp,
