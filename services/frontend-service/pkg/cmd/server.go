@@ -956,8 +956,8 @@ func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.Releas
 }
 
 func (p *GrpcProxy) SkipEslEvent(ctx context.Context, in *api.SkipEslEventRequest) (*api.SkipEslEventResponse, error) {
-	if p.ManifestExportGitClient != nil {
-		return nil, status.Error(codes.Unimplemented, "rollout service is enabled.")
+	if p.ManifestExportGitClient == nil {
+		return nil, status.Error(codes.Unimplemented, "SkipEslEvent requires the manifest-repo-export to be enabled")
 	}
 	return p.ManifestExportGitClient.SkipEslEvent(ctx, in)
 }
