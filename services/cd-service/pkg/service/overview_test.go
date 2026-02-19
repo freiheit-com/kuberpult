@@ -2955,6 +2955,7 @@ func TestDeploymentHistory(t *testing.T) {
 					if envName != tc.Request.Environment {
 						continue
 					}
+// Note that we only get precision down to the second here
 					line := fmt.Sprintf("%s,%s", createdAt.Format(time.RFC3339), tc.ExpectedCsvLines[writtenCsvLines])
 					expectedLinesWithCreated = append(expectedLinesWithCreated, line)
 					writtenCsvLines++
