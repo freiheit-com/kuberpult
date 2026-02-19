@@ -1036,6 +1036,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 	if err != nil {
 		return err
 	}
+	// TODO SU: here we ALSO need the bracket
 	spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 	defer spanCollectData.Finish()
 	appData := []argocd.AppData{}
