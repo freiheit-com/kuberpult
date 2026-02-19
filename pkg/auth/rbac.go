@@ -41,6 +41,10 @@ const (
 	PermissionDeleteEnvironment            = "DeleteEnvironment"
 	PermissionDeleteEnvironmentApplication = "DeleteEnvironmentApplication"
 	PermissionDeployReleaseTrain           = "DeployReleaseTrain"
+
+	PermissionSkipEslEvent     = "SkipEslEvent"
+	PermissionRetryFailedEvent = "RetryFailedEvent"
+
 	// The default permission template.
 	PermissionTemplate = "p,role:%s,%s,%s:%s,%s,allow"
 )
@@ -69,7 +73,11 @@ func initPolicyConfig() policyConfig {
 			PermissionCreateEnvironment,
 			PermissionDeleteEnvironment,
 			PermissionDeleteEnvironmentApplication,
-			PermissionDeployReleaseTrain},
+			PermissionDeployReleaseTrain,
+
+			PermissionSkipEslEvent,
+			PermissionRetryFailedEvent,
+		},
 	}
 }
 
@@ -154,6 +162,10 @@ type RBACPolicies struct {
 
 type RBACTeams struct {
 	Permissions map[string][]string
+}
+
+func isApplicableForAllAppsAndEnvs(p Permission) bool {
+	return p.Application == "*" && p.Environment == "*:*"
 }
 
 func ValidateRbacPermission(line string) (p Permission, err error) {
@@ -271,7 +283,24 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 	if len(policy.Permissions) == 0 {
 		return nil, errors.New("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLED\" is true")
 	}
+
+	err = validatePermissionsForManifestRepoExportService(policy)
+	if err != nil {
+		return nil, err
+	}
+
 	return policy, nil
+}
+
+func validatePermissionsForManifestRepoExportService(policy *RBACPolicies) error {
+	for _, permission := range policy.Permissions {
+		if permission.Action == PermissionSkipEslEvent || permission.Action == PermissionRetryFailedEvent {
+			if !isApplicableForAllAppsAndEnvs(permission) {
+				return fmt.Errorf("permissions for %s must not be scoped to specific apps or envs/envgroups", permission.Action)
+			}
+		}
+	}
+	return nil
 }
 
 func AddUsersToTeam(team string, users []string, teamPermissions *RBACTeams) {

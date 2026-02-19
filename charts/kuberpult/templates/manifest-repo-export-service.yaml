@@ -229,6 +229,16 @@ spec:
         - name: KUBERPULT_DOGSTATSD_ADDR
           value: "{{ .Values.dogstatsdMetrics.address }}"
 {{- end }}
+        - name: KUBERPULT_DEX_ENABLED
+          value: "{{ .Values.auth.dexAuth.enabled }}"
+{{- if .Values.auth.dexAuth.enabled }}
+        - name: KUBERPULT_DEX_RBAC_POLICY_PATH
+          value: /kuberpult-rbac/policy.csv
+        - name: KUBERPULT_DEX_DEFAULT_ROLE_ENABLED
+          value: "{{ .Values.auth.dexAuth.defaultRoleEnabled }}"
+        - name: KUBERPULT_DEX_RBAC_TEAM_PATH
+          value: /kuberpult-rbac/team.csv
+{{- end }}
         - name: KUBERPULT_ENABLE_PROFILING
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
@@ -273,6 +283,10 @@ spec:
           mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
           readOnly: true
 {{- end }}
+{{- if .Values.auth.dexAuth.enabled }}
+        - name: kuberpult-rbac
+          mountPath: /kuberpult-rbac
+{{- end }}
       volumes:
       - name: repository
         # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
@@ -292,6 +306,11 @@ spec:
       - name: dsdsocket
         hostPath:
           path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
+{{- end }}
+{{- if .Values.auth.dexAuth.enabled }}
+      - name: kuberpult-rbac
+        configMap:
+          name: kuberpult-rbac
 {{- end }}
 ---
 apiVersion: v1

@@ -5,6 +5,7 @@ p, role:Developer, DeployRelease, *:*, *, allow
 p, role:Developer, CreateUndeploy, *:*, *, allow
 p, role:Developer, DeployUndeploy, *:*, *, allow
 p, role:Developer, CreateEnvironment, *:*, *, allow
+p, role:Developer, DeleteEnvironment, *:*, *, allow
 p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
 p, role:Developer, DeployReleaseTrain, *:*, *, allow
 
