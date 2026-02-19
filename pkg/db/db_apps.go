@@ -230,6 +230,41 @@ func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *
 	return nil
 }
 
+func (h *DBHandler) DBSelectAppsWithReleasesAtTimestamp(ctx context.Context, transaction *sql.Tx, envName types.EnvName, ts time.Time) ([]types.AppName, error) {
+	query := h.AdaptQuery(`
+	SELECT bool_or(NOT deleted) existed, appname
+	FROM (
+			SELECT
+				bool_or(deleted) as deleted, appname, releaseversion
+			FROM releases_history
+			WHERE
+				created <= ?
+				AND environments @> ?
+			GROUP BY
+				appname, releaseversion
+		) releases
+	GROUP BY appname
+	`)
+	rows, err := transaction.QueryContext(ctx, query, ts, `["`+envName+`"]`)
+	if err != nil {
+		return nil, fmt.Errorf("could not query apps with releases at timestamp: %w", err)
+	}
+	defer closeRows(rows)
+
+	var apps []types.AppName
+	for rows.Next() {
+		var existed bool
+		var appName types.AppName
+		if err := rows.Scan(&existed, &appName); err != nil {
+			return nil, fmt.Errorf("could not scan apps with releases at timestamp: %w", err)
+		}
+		if existed {
+			apps = append(apps, appName)
+		}
+	}
+	return apps, nil
+}
+
 func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transaction *sql.Tx) (_ []AppWithTeam, err error) {
 	query := h.AdaptQuery(`
 		SELECT apps_teams
@@ -238,17 +273,33 @@ func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transact
 		LIMIT 1;
 	`)
 	rows, err := transaction.QueryContext(ctx, query)
+	return h.processAppsTeamsRow(rows, err)
+}
+
+func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) (_ []AppWithTeam, err error) {
+	query := h.AdaptQuery(`
+		SELECT apps_teams
+		FROM apps_teams_history
+		WHERE created_at <= ?
+		ORDER BY id DESC
+		LIMIT 1;
+	`)
+	rows, err := transaction.QueryContext(ctx, query, ts)
+	return h.processAppsTeamsRow(rows, err)
+}
+
+func (h *DBHandler) processAppsTeamsRow(rows *sql.Rows, err error) ([]AppWithTeam, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not select latest history of apps and teams. Error: %w", err)
+		return nil, fmt.Errorf("could not query apps_teams_history table. Error: %w", err)
 	}
 
-	appsWithTeams := make([]AppWithTeam, 0)
+	appsWithTeam := make([]AppWithTeam, 0)
 	for rows.Next() {
 		var appsTeamsJson string
 		if err := rows.Scan(&appsTeamsJson); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal([]byte(appsTeamsJson), &appsWithTeams); err != nil {
+		if err := json.Unmarshal([]byte(appsTeamsJson), &appsWithTeam); err != nil {
 			return nil, err
 		}
 	}
@@ -256,7 +307,7 @@ func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transact
 	if err != nil {
 		return nil, err
 	}
-	return appsWithTeams, nil
+	return appsWithTeam, nil
 }
 
 // actual changes in tables
