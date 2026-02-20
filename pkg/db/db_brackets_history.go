@@ -25,8 +25,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 const bracketsHistoryTable = "brackets_history"
@@ -82,7 +83,7 @@ func HandleBracketsUpdate(h *DBHandler, ctx context.Context, tx *sql.Tx, app typ
 			}
 			// we found the app but in a different bracket
 			// 1) remove app from old bracket:
-			slices.Delete(appNames, oldIndex, oldIndex)
+			appNames = slices.Delete(appNames, oldIndex, oldIndex)
 			bracketRow.AllBracketsJsonBlob.BracketMap[oldBracketName] = appNames
 			bracketRow.CreatedAt = now
 		}
@@ -91,7 +92,7 @@ func HandleBracketsUpdate(h *DBHandler, ctx context.Context, tx *sql.Tx, app typ
 	newBracketApps, ok := bracketRow.AllBracketsJsonBlob.BracketMap[newBracketName]
 	if ok {
 		// bracket exists, just add the app
-		newBracketApps = append(newBracketApps, app)
+		bracketRow.AllBracketsJsonBlob.BracketMap[newBracketName] = append(newBracketApps, app)
 	} else {
 		// bracket is new, just add it with only our app:
 		bracketRow.AllBracketsJsonBlob.BracketMap[newBracketName] = AppNames{app}

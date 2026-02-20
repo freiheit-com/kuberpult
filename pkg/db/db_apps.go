@@ -239,13 +239,10 @@ func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.T
 }
 
 func argoBracketToSql(argoBracket types.ArgoBracketName) *string {
-	var nilBracket *string = nil
 	if argoBracket == "" {
-		nilBracket = nil
-	} else {
-		nilBracket = types.Ptr(string(argoBracket))
+		return nil
 	}
-	return nilBracket
+	return types.Ptr(string(argoBracket))
 }
 
 func sqlToArgoBracket(sqlData sql.NullString) types.ArgoBracketName {
@@ -262,8 +259,7 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 		return nil, fmt.Errorf("could not query apps table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "apps")
-	//exhaustruct:ignore
-	var row = &DBAppWithMetaData{}
+	var row *DBAppWithMetaData
 	if rows.Next() {
 		row, err = h.processOneAppInternal(rows)
 		if err != nil {
