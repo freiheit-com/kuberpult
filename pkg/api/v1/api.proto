@@ -750,6 +750,7 @@ message Application {
   string team = 4;
   UndeploySummary undeploy_summary = 5;
   repeated Warning warnings = 8;
+  string argoBracket = 9;
 }
 
 message Actor {

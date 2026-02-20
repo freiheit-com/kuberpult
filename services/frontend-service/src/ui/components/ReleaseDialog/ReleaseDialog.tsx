@@ -515,6 +515,7 @@ export const undeployTooltipExplanation =
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
     const appDetails = useAppDetailsForApp(app);
+    const linkTarget: string = appDetails.details?.application?.argoBracket || app;
     const team = useTeamFromApplication(app) || '';
     const closeReleaseDialog = useCloseReleaseDialog();
     if (!appDetails) {
@@ -585,7 +586,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         </div>
                         <div className={classNames('release-dialog-app', className)}>
                             {'App: '}
-                            <ArgoAppLink app={app} />
+                            <ArgoAppLink linkTarget={linkTarget} />
                             <ArgoTeamLink team={team} />
                         </div>
                     </div>
