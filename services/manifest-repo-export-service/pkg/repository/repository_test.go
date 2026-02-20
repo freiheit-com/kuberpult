@@ -1064,7 +1064,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1110,7 +1110,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1149,7 +1149,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1195,7 +1195,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1257,7 +1257,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1309,7 +1309,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1409,7 +1409,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1485,7 +1485,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1551,7 +1551,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1593,7 +1593,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1658,7 +1658,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1748,7 +1748,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1953,7 +1953,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 		}
 		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{
 			Team: "team-123",
-		})
+		}, "")
 		if err != nil {
 			return err
 		}

@@ -131,7 +131,6 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()
@@ -211,6 +210,37 @@ func TestHandleBracketUpdates(t *testing.T) {
 			},
 		},
 		{
+			Name: "three entries on two buckets are sorted",
+			AddAppBrackets: []AppBracketTime{
+				{
+					App:     types.AppName("app3"),
+					Bracket: types.ArgoBracketName("b1"),
+					Time:    timeA,
+				},
+				{
+					App:     types.AppName("app2"),
+					Bracket: types.ArgoBracketName("b2"),
+					Time:    timeB,
+				},
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName("b1"),
+					Time:    timeC,
+				},
+			},
+			DeleteAppBrackets: []AppBracketTime{},
+			PreparedTimestamp: timeA,
+			ExpectedBracketRow: &BracketRow{
+				CreatedAt: timeA,
+				AllBracketsJsonBlob: BracketJsonBlob{
+					BracketMap: map[types.ArgoBracketName]AppNames{
+						"b1": {"app1", "app3"},
+						"b2": {"app2"},
+					},
+				},
+			},
+		},
+		{
 			Name: "add one entry, delete same entry",
 			AddAppBrackets: []AppBracketTime{
 				{
@@ -259,7 +289,9 @@ func TestHandleBracketUpdates(t *testing.T) {
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeC,
 				AllBracketsJsonBlob: BracketJsonBlob{
-					BracketMap: map[types.ArgoBracketName]AppNames{},
+					BracketMap: map[types.ArgoBracketName]AppNames{
+						"b1": {"app2"},
+					},
 				},
 			},
 		},
@@ -292,7 +324,6 @@ func TestHandleBracketUpdates(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()

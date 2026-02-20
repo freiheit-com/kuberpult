@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sort"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -55,11 +56,6 @@ func fromJson(data []byte) (BracketJsonBlob, error) {
 }
 
 func HandleBracketsUpdate(h *DBHandler, ctx context.Context, tx *sql.Tx, app types.AppName, newBracketName types.ArgoBracketName, now time.Time) error {
-	//now, err := h.DBReadTransactionTimestamp(ctx, tx)
-	//if err != nil {
-	//	return fmt.Errorf("HandleBracketsUpdate could not get timestamp: %w", err)
-	//}
-
 	bracketRow, err := DBSelectBracketHistoryByTimestamp(h, ctx, tx, &now)
 	if err != nil {
 		return fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
@@ -92,7 +88,11 @@ func HandleBracketsUpdate(h *DBHandler, ctx context.Context, tx *sql.Tx, app typ
 	newBracketApps, ok := bracketRow.AllBracketsJsonBlob.BracketMap[newBracketName]
 	if ok {
 		// bracket exists, just add the app
-		bracketRow.AllBracketsJsonBlob.BracketMap[newBracketName] = append(newBracketApps, app)
+		newBracketApps = append(newBracketApps, app)
+		sort.Slice(newBracketApps, func(i, j int) bool {
+			return newBracketApps[i] < newBracketApps[j]
+		})
+		bracketRow.AllBracketsJsonBlob.BracketMap[newBracketName] = newBracketApps
 	} else {
 		// bracket is new, just add it with only our app:
 		bracketRow.AllBracketsJsonBlob.BracketMap[newBracketName] = AppNames{app}
