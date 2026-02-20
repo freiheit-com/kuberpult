@@ -173,7 +173,7 @@ func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction
 		}
 	}
 
-	if stateChange == AppStateChangeCreate || (stateChange == AppStateChangeUpdate && existedApp == nil) {
+	if stateChange == AppStateChangeCreate || stateChange == AppStateChangeMigrate || (stateChange == AppStateChangeUpdate && existedApp == nil) {
 		toInsert = append(latestAppsWithTeams, AppWithTeam{
 			AppName:  appName,
 			TeamName: metaData.Team,
