@@ -80,6 +80,8 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 		s.handleApiRelease(w, req, tail)
 	case "commit-deployments":
 		s.handleCommitDeployments(req.Context(), w, req, tail)
+	case "process-delay":
+		s.handleProcessDelay(req.Context(), w, req, tail)
 	default:
 		http.Error(w, fmt.Sprintf("unknown endpoint 'api/%s'", group), http.StatusNotFound)
 	}

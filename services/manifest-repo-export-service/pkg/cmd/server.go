@@ -804,12 +804,15 @@ func measureDelays(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, del
 }
 func HandleOneTransformer(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
 	if ddMetrics != nil {
-		delaySeconds, delayEvents := dbHandler.GetCurrentDelays(ctx, transaction)
+		delaySeconds, delayEvents, err := dbHandler.GetCurrentDelays(ctx, transaction)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error in GetCurrentDelays: %v", err)
+		}
 		measureDelays(ddMetrics, logger.FromContext(ctx).Sugar(), delaySeconds, delayEvents)
 	}
 	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error in DBReadCutoff %v", err)
+		return nil, nil, fmt.Errorf("error in DBReadCutoff: %v", err)
 	}
 	if eslVersion == nil {
 		logger.FromContext(ctx).Sugar().Infof("did not find cutoff")
