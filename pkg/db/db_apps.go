@@ -231,7 +231,7 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context) 
 
 	var alreadyMigrated = false
 	err = h.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
-		latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, nil)
+		latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
 		if err != nil {
 			return err
 		}
