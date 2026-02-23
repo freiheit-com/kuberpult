@@ -1201,6 +1201,10 @@ func (u *UndeployApplication) Transform(
 	if allEnvs == nil {
 		return "", fmt.Errorf("UndeployApplication: all environments nil")
 	}
+	for _, envName := range allEnvs {
+		t.AddAppEnv(u.Application, envName, dbApp.Metadata.Team)
+	}
+
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
 
@@ -1234,6 +1238,14 @@ func (u *DeleteEnvFromApp) Transform(
 	err := state.checkUserPermissions(ctx, transaction, envName, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig, true)
 	if err != nil {
 		return "", err
+	}
+
+	environment, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
+	if err != nil {
+		return "", fmt.Errorf("environment does not exist: '%s' %w", envName, err)
+	}
+	if environment == nil {
+		return "", fmt.Errorf("environment does not exist: '%s'", envName)
 	}
 
 	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
