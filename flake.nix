@@ -13,8 +13,8 @@
   inputs.nixpkgs-zlib.url = "github:NixOS/nixpkgs/8482c7ded03bae7550f3d69884f1e611e3bd19e8";
   inputs.nixpkgs-openssl.url = "github:NixOS/nixpkgs/a672be65651c80d3f592a89b3945466584a22069";
 
-  # golangci-lint 2.7.2
-  inputs.nixpkgs-golangci-lint.url = "github:NixOS/nixpkgs/07c10b3282ff0a5b0fa3a684d5174c17e823929a";
+  # golangci-lint 2.9.0
+  inputs.nixpkgs-golangci-lint.url = "github:NixOS/nixpkgs/5658e3793ef17f837c67f830a9d3bef3e12ecded";
 
   outputs =
     { nixpkgs, flake-utils, nixpkgs-libgit2, nixpkgs-golangci-lint, nixpkgs-sqlite, nixpkgs-zlib, nixpkgs-openssl, ... }:

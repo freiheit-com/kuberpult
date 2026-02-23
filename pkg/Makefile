@@ -38,7 +38,7 @@ test: gen unit-test
 lint: gen
 ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"
-	GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false ./pkg/...
+	GOFLAGS="-buildvcs=false" golangci-lint run -c ../.golangci.yml --timeout=15m -j4 --tests=false ./...
 else
 	@echo "Running in docker"
 	docker run --rm -w /kp/ -v "$(shell pwd)/..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false ./pkg/...'

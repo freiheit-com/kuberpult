@@ -38,17 +38,17 @@
     },
     "nixpkgs-golangci-lint": {
       "locked": {
-        "lastModified": 1765138943,
-        "narHash": "sha256-Q1HzDT/9osWJr/azM6KaB1R5pGpTMqVSTo9n1103ZiI=",
+        "lastModified": 1770822898,
+        "narHash": "sha256-pMb1DXI0Ho0v7vq6tPtso5u4b+4UHZE1txs3yuqOWnI=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "07c10b3282ff0a5b0fa3a684d5174c17e823929a",
+        "rev": "5658e3793ef17f837c67f830a9d3bef3e12ecded",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "07c10b3282ff0a5b0fa3a684d5174c17e823929a",
+        "rev": "5658e3793ef17f837c67f830a9d3bef3e12ecded",
         "type": "github"
       }
     },

@@ -15,7 +15,7 @@ RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
 
 RUN npm install -g pnpm@8.15.9
 
-ARG GO_CI_LINT_VERSION="v2.7.2"
+ARG GO_CI_LINT_VERSION="v2.9.0"
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin $GO_CI_LINT_VERSION
 
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
