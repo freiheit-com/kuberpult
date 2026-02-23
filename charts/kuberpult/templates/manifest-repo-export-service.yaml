@@ -257,8 +257,6 @@ spec:
           value: "{{ .Values.db.gitTimestampMigrations.enabled }}"
         - name: KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED
           value: "{{ .Values.db.outdatedDeploymentsCleaning.enabled }}"
-        - name: KUBERPULT_APPS_HISTORY_MIGRATION_ENABLED
-          value: "{{ .Values.db.appsHistoryMigration.enabled }}"
         - name: KUBERPULT_RESET_GIT_SYNC_STATUS_ENABLED
           value: "{{ .Values.db.resetGitSyncStatus.enabled }}"
         - name: KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED

@@ -85,6 +85,7 @@ const (
 	MigrationCommitEventUUID = "00000000-0000-0000-0000-000000000000"
 	MigrationCommitEventHash = "0000000000000000000000000000000000000000"
 	WhereInBatchMax          = 1024
+	MaxInsertBatchSize       = 1000
 	MaxDeleteBatchSize       = 20
 )
 
@@ -1480,9 +1481,7 @@ func (h *DBHandler) RunCustomMigrationAppsHistory(ctx context.Context) (err erro
 		span.Finish(tracer.WithError(err))
 	}()
 
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		return h.DBMigrateAppsHistoryToAppsTeamsHistory(ctx, transaction)
-	})
+	return h.DBMigrateAppsHistoryToAppsTeamsHistory(ctx)
 }
 
 func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Context) (err error) {

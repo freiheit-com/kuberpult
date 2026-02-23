@@ -22,12 +22,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
-	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
@@ -174,22 +173,22 @@ func (h *DBHandler) DBInsertAppsTeamsHistory(ctx context.Context, tx *sql.Tx, ap
 	}
 
 	var toInsert []AppWithTeam
-	var existedApp *AppWithTeam
+	var latestApp *AppWithTeam
 	for _, appWithTeam := range latestAppsWithTeams {
 		if appWithTeam.AppName == appName {
-			existedApp = &appWithTeam
+			latestApp = &appWithTeam
 			break
 		}
 	}
 
-	if stateChange == AppStateChangeCreate || stateChange == AppStateChangeMigrate || (stateChange == AppStateChangeUpdate && existedApp == nil) {
+	if stateChange == AppStateChangeCreate || stateChange == AppStateChangeMigrate || (stateChange == AppStateChangeUpdate && latestApp == nil) {
 		toInsert = append(latestAppsWithTeams, AppWithTeam{
 			AppName:  appName,
 			TeamName: teamName,
 		})
 	}
 
-	if existedApp != nil {
+	if latestApp != nil {
 		for _, appWithTeam := range latestAppsWithTeams {
 			if appWithTeam.AppName != appName {
 				toInsert = append(toInsert, appWithTeam)
@@ -224,46 +223,78 @@ type AppHistoryRow struct {
 	Metadata    DBAppMetaData
 }
 
-func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, tx *sql.Tx) (err error) {
+func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrateAppsHistoryToAppsTeamsHistory")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
-	selectQuery := h.AdaptQuery(`
-		SELECT created, appName, stateChange, metadata
-		FROM apps_history
-		ORDER BY version;
-	`)
+	var alreadyMigrated = false
+	err = h.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
+		latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if len(latestAppsWithTeams) > 0 {
+			alreadyMigrated = true
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if alreadyMigrated {
+		return nil
+	}
 
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-	)
-	if err != nil {
-		return err
-	}
 	var appsHistoryRows []AppHistoryRow
-	for rows.Next() {
-		appHistoryRow := AppHistoryRow{}
-		var metadataJson string
-		err = rows.Scan(&appHistoryRow.Created, &appHistoryRow.AppName, &appHistoryRow.StateChange, &metadataJson)
+	err = h.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
+		selectQuery := h.AdaptQuery(`
+			SELECT created, appName, stateChange, metadata
+			FROM apps_history
+			ORDER BY version;
+		`)
+		rows, err := tx.QueryContext(
+			ctx,
+			selectQuery,
+		)
 		if err != nil {
 			return err
 		}
-		err = json.Unmarshal([]byte(metadataJson), &appHistoryRow.Metadata)
+
+		for rows.Next() {
+			appHistoryRow := AppHistoryRow{}
+			var metadataJson string
+			err = rows.Scan(&appHistoryRow.Created, &appHistoryRow.AppName, &appHistoryRow.StateChange, &metadataJson)
+			if err != nil {
+				return err
+			}
+			err = json.Unmarshal([]byte(metadataJson), &appHistoryRow.Metadata)
+			if err != nil {
+				return err
+			}
+			appsHistoryRows = append(appsHistoryRows, appHistoryRow)
+		}
+		err = closeRows(rows)
 		if err != nil {
 			return err
 		}
-		appsHistoryRows = append(appsHistoryRows, appHistoryRow)
-	}
-	err = closeRows(rows)
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Info("Migrating apps history to apps teams history", zap.Int("apps_count", len(appsHistoryRows)))
-	for _, appHistoryRow := range appsHistoryRows {
-		err = h.DBInsertAppsTeamsHistory(ctx, tx, appHistoryRow.AppName, appHistoryRow.Metadata.Team, appHistoryRow.StateChange, &appHistoryRow.Created)
+
+	for deploymentBatch := range slices.Chunk(appsHistoryRows, MaxInsertBatchSize) {
+		err = h.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+			for _, appHistoryRow := range deploymentBatch {
+				err = h.DBInsertAppsTeamsHistory(ctx, tx, appHistoryRow.AppName, appHistoryRow.Metadata.Team, appHistoryRow.StateChange, &appHistoryRow.Created)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 		if err != nil {
 			return err
 		}
