@@ -260,21 +260,19 @@ func (h *DBHandler) DBSelectAppsWithReleasesAtTimestamp(ctx context.Context, tra
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps with releases at timestamp: %w", err)
 	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
 
 	var apps []types.AppName
 	for rows.Next() {
-		var existed bool
 		var appName types.AppName
-		if err := rows.Scan(&existed, &appName); err != nil {
+		if err := rows.Scan(&appName); err != nil {
 			return nil, fmt.Errorf("could not scan apps with releases at timestamp: %w", err)
 		}
-		if existed {
-			apps = append(apps, appName)
-		}
+		apps = append(apps, appName)
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
 	}
 	return apps, nil
 }
