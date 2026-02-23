@@ -105,7 +105,7 @@ unit-test-db:
 	docker compose -f docker-compose-unittest.yml up
 
 integration-test:
-	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) make -C ./pkg gen
+	BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG_KUBERPULT) make -C ./pkg gen
 	mkdir -p $(INTEGRATION_TEST_CONFIG_DIR)
 	rm -f $(INTEGRATION_TEST_CONFIG_FILE)
 	K3S_TOKEN="Random" docker compose -f tests/integration-tests/cluster-setup/docker-compose-k3s.yml down
@@ -116,7 +116,7 @@ integration-test:
 	done;
 	sudo sed -i -e 's|6443|8443|g' $(INTEGRATION_TEST_CONFIG_FILE)
 	docker build -f tests/integration-tests/Dockerfile . -t $(INTEGRATION_TEST_IMAGE) --build-arg kuberpult_version=$(IMAGE_TAG_KUBERPULT) --build-arg charts_version=$(VERSION)
-	docker run  --network=host -v "./$(INTEGRATION_TEST_CONFIG_FILE):/kp/kubeconfig.yaml" --rm $(INTEGRATION_TEST_IMAGE)
+	docker run --network=host -v "./$(INTEGRATION_TEST_CONFIG_FILE):/kp/kubeconfig.yaml" --rm $(INTEGRATION_TEST_IMAGE)
 	rm -f $(INTEGRATION_TEST_CONFIG_FILE)
 
 pull-service-image/%:

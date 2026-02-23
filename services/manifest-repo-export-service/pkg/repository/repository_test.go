@@ -589,7 +589,6 @@ func TestArgoCDFileGeneration(t *testing.T) {
 }
 
 func TestArgoCDFileGenerationAcrossTimestamps(t *testing.T) {
-	const appName = "myapp"
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
 	var aaEnvName = "aa"
@@ -1677,7 +1676,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			},
 		},
 		{
-			Name: "Create environment should not create new commits",
+			Name: "Create environment should create new commits",
 			setup: []Transformer{
 				&CreateEnvironment{
 					Environment:         "production",
@@ -1692,7 +1691,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"},
 				},
 			},
-			shouldCreateCommit: false,
+			shouldCreateCommit: true,
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				return nil
 			},
@@ -1786,7 +1785,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
+		//tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
@@ -2140,6 +2139,327 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 			}
 			if diff := cmp.Diff(tc.ExpectedGauges, mockClient.gauges, cmpopts.SortSlices(cmpGauge)); diff != "" {
 				t.Errorf("gauges mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTransformerResultEnvironments(t *testing.T) {
+	// basic idea here is to make sure that the "EnvironmentsToRender" field in the TransformerResult is correct.
+	setup := []Transformer{
+		&CreateEnvironment{
+			Environment: "dev",
+			Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: false}, ArgoCd: &config.EnvironmentConfigArgoCd{
+				Destination: config.ArgoCdDestination{
+					Server: "dev",
+				},
+			}},
+			TransformerMetadata: metadata(),
+		},
+		&CreateEnvironment{
+			Environment: "prod",
+			Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "dev"}, ArgoCd: &config.EnvironmentConfigArgoCd{
+				Destination: config.ArgoCdDestination{
+					Server: "prod",
+				},
+			}},
+			TransformerMetadata: metadata(),
+		},
+		&CreateApplicationVersion{
+			Application: "app1",
+			Version:     1,
+			Revision:    1,
+			Manifests: map[types.EnvName]string{
+				"dev":  "dev-manifest",
+				"prod": "prod-manifest",
+			},
+			TransformerMetadata: metadata(),
+		},
+	}
+
+	tcs := []struct {
+		Name                          string
+		GivenTransformers             []Transformer
+		ExpectedLastTransformerResult *TransformerResult
+	}{
+		{
+			Name: "CreateEnvironment: New environment leads to result with env",
+			GivenTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "prod2",
+					Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "dev"}, ArgoCd: &config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Server: "prod2",
+						},
+					}},
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: nil,
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod2",
+					},
+				},
+			},
+		},
+		{
+			Name: "Deploying an existing release of an app leads to result without environment change",
+			GivenTransformers: []Transformer{
+				&DeployApplicationVersion{
+					Environment:         "prod2",
+					Application:         "app1",
+					Version:             1,
+					Revision:            1,
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "prod2",
+					},
+				},
+				EnvironmentsToRender: nil,
+			},
+		},
+		{
+			Name: "Creating a release of an app leads to no deployment, and no environment change",
+			GivenTransformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app2",
+					Version:     1,
+					Revision:    1,
+					Manifests: map[types.EnvName]string{
+						"dev":  "dev-manifest",
+						"prod": "prod-manifest",
+					},
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+			},
+		},
+		{
+			Name: "Creating a deployment leads to an app/env change, and no environment change",
+			GivenTransformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app2",
+					Version:     1,
+					Revision:    1,
+					Manifests: map[types.EnvName]string{
+						"dev":  "dev-manifest",
+						"prod": "prod-manifest",
+					},
+					TransformerMetadata: metadata(),
+				},
+				&DeployApplicationVersion{
+					Application:         "app2",
+					Environment:         "dev",
+					Version:             1,
+					Revision:            1,
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app2",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: nil,
+			},
+		},
+		{
+			Name: "Creating a lock leads to no change",
+			GivenTransformers: []Transformer{
+				&CreateEnvironmentLock{
+					Environment:         "dev",
+					TransformerMetadata: metadata(),
+				},
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			repo.config.MinimizeExportedData = true
+
+			ctx := testutilauth.MakeTestContext()
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, transformer := range setup {
+					prepareDatabaseLikeCdService(ctx, transaction, transformer, dbHandler, t, "author", "email")
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, transformer)
+					if applyErr != nil && applyErr.TransformerError != nil {
+						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+					}
+				}
+				return nil
+			})
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i, transformer := range tc.GivenTransformers {
+					prepareDatabaseLikeCdService(ctx, transaction, transformer, dbHandler, t, "author", "email")
+					_, _, actualResult, applyErr := repo.ApplyTransformersInternal(ctx, transaction, transformer)
+					if applyErr != nil && applyErr.TransformerError != nil {
+						t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+					}
+					isLast := i == len(tc.GivenTransformers)-1
+					if isLast {
+						// we only test the last transformer result:
+						if diff := testutil.CmpDiff(tc.ExpectedLastTransformerResult, actualResult); diff != "" {
+							t.Errorf("expected from transformer (%s) args:\n  %v\ngot:\n  %v\ndiff:\n  %s\n",
+								transformer.GetDBEventType(), actualResult, tc.ExpectedLastTransformerResult, diff)
+						}
+					}
+				}
+				return nil
+			})
+		})
+	}
+}
+
+func metadata() TransformerMetadata {
+	return TransformerMetadata{AuthorName: "test", AuthorEmail: "testmail@example.com"}
+}
+
+func TestCombineTransformerResult(t *testing.T) {
+	tcs := []struct {
+		Name                          string
+		GivenTransformerResultA       *TransformerResult
+		GivenTransformerResultB       *TransformerResult
+		ExpectedLastTransformerResult *TransformerResult
+	}{
+		{
+			Name: "nil + nil = nil",
+			GivenTransformerResultA: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+				Commits:              nil,
+			},
+			GivenTransformerResultB: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+				Commits:              nil,
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+				Commits:              nil,
+			},
+		},
+		{
+			Name: "A + nil = A",
+			GivenTransformerResultA: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod",
+					},
+				},
+				Commits: nil,
+			},
+			GivenTransformerResultB: &TransformerResult{
+				AppEnvsToRender:      nil,
+				EnvironmentsToRender: nil,
+				Commits:              nil,
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod",
+					},
+				},
+				Commits: nil,
+			},
+		},
+		{
+			Name: "A + B = C",
+			GivenTransformerResultA: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod",
+					},
+				},
+				Commits: nil,
+			},
+			GivenTransformerResultB: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app2",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "testing",
+					},
+				},
+				Commits: nil,
+			},
+			ExpectedLastTransformerResult: &TransformerResult{
+				AppEnvsToRender: []AppEnvToRender{
+					{
+						App: "app1",
+						Env: "dev",
+					},
+					{
+						App: "app2",
+						Env: "dev",
+					},
+				},
+				EnvironmentsToRender: []EnvironmentToRender{
+					{
+						Env: "prod",
+					},
+					{
+						Env: "testing",
+					},
+				},
+				Commits: nil,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			tmp := *tc.GivenTransformerResultA
+			tmp.Combine(tc.GivenTransformerResultB)
+			actualResult := &tmp
+			if diff := testutil.CmpDiff(tc.ExpectedLastTransformerResult, actualResult); diff != "" {
+				t.Errorf("got:\n  %v\ndiff:\n  %s\n", actualResult, diff)
 			}
 		})
 	}

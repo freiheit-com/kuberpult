@@ -17,8 +17,9 @@ Copyright freiheit.com*/
 package auth
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -408,6 +409,61 @@ func TestValidateRbacPermissionWildcards(t *testing.T) {
 				if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
+			}
+		})
+	}
+}
+
+func TestValidatePermissionsForManifestRepoExportService(t *testing.T) {
+	tcs := []struct {
+		Name       string
+		permission string
+		WantError  error
+	}{
+		{
+			Name:       "should return true when with no specific app, env, or env group",
+			permission: "p,role:Developer,SkipEslEvent,*:*,*,allow",
+			WantError:  nil,
+		},
+		{
+			Name:       "should return false when with specific app",
+			permission: "p,role:Developer,SkipEslEvent,*:*,app1,allow",
+			WantError:  errMatcher{"permissions for SkipEslEvent must not be scoped to specific apps or envs/envgroups"},
+		},
+		{
+			Name:       "should return false when with specific env group",
+			permission: "p,role:Developer,SkipEslEvent,dev-group:*,*,allow",
+			WantError:  errMatcher{"permissions for SkipEslEvent must not be scoped to specific apps or envs/envgroups"},
+		},
+		{
+			Name:       "should return false when with specific env",
+			permission: "p,role:Developer,SkipEslEvent,*:dev,*,allow",
+			WantError:  errMatcher{"permissions for SkipEslEvent must not be scoped to specific apps or envs/envgroups"},
+		},
+		{
+			Name:       "should return false when with specific env and env group",
+			permission: "p,role:Developer,SkipEslEvent,dev-group:dev,*,allow",
+			WantError:  errMatcher{"permissions for SkipEslEvent must not be scoped to specific apps or envs/envgroups"},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			// given:
+			permission, err := ValidateRbacPermission(tc.permission)
+			if err != nil {
+				t.Errorf("could not validate permission:\n%s", err)
+			}
+			// when:
+			err = validatePermissionsForManifestRepoExportService(&RBACPolicies{
+				Permissions: map[string]Permission{
+					tc.permission: permission,
+				},
+				Groups: map[string]RBACGroup{},
+			})
+
+			// then:
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("Error mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

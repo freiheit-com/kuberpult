@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 
@@ -1856,6 +1857,162 @@ func TestSkipEvent(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatalf("DB error unexpected: %v", err)
+			}
+		})
+	}
+}
+
+func TestRetryEventRbac(t *testing.T) {
+	var user = auth.User{DexAuthContext: &auth.DexAuthContext{Role: []string{"Developer"}}}
+
+	type TestCase struct {
+		name    string
+		rbac    auth.RBACConfig
+		wantErr error
+	}
+
+	tcs := []TestCase{
+		{
+			name: "should fail due to missing permission",
+			rbac: auth.RBACConfig{
+				DexEnabled: true,
+				Policy: &auth.RBACPolicies{
+					Permissions: map[string]auth.Permission{},
+				},
+			},
+			wantErr: errMatcher{"PermissionDenied The user '' with role 'Developer' is not allowed to perform the action 'RetryFailedEvent' on environment '*'"},
+		},
+		{
+			name: "should fail due to wrong role",
+			rbac: auth.RBACConfig{
+				DexEnabled: true,
+				Policy: &auth.RBACPolicies{
+					Permissions: map[string]auth.Permission{
+						"p,role:Admin,RetryFailedEvent,*:*,*,allow": {Role: "Admin"},
+					},
+				},
+			},
+			wantErr: errMatcher{"PermissionDenied The user '' with role 'Developer' is not allowed to perform the action 'RetryFailedEvent' on environment '*'"},
+		},
+		{
+			name: "should pass the permission check",
+			rbac: auth.RBACConfig{
+				DexEnabled: true,
+				Policy: &auth.RBACPolicies{
+					Permissions: map[string]auth.Permission{
+						"p,role:Developer,RetryFailedEvent,*:*,*,allow": {Role: "Developer"},
+					},
+				},
+			},
+			wantErr: errMatcher{"couldn't find failed event with eslVersion: 1"},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// given:
+			repo, _ := setupRepositoryTestWithPath(t)
+			pageSize := 100
+			ctx := testutilauth.MakeTestContext()
+			ctx = auth.WriteUserToContext(ctx, user)
+
+			config := rp.RepositoryConfig{
+				ArgoCdGenerateFiles:  true,
+				DBHandler:            repo.State().DBHandler,
+				MinimizeExportedData: false,
+			}
+
+			sv := &GitServer{
+				Repository: repo,
+				Config:     config,
+				PageSize:   uint64(pageSize),
+				RBACConfig: tc.rbac,
+			}
+
+			// when:
+			_, err := sv.RetryFailedEvent(ctx, &api.RetryFailedEventRequest{Eslversion: uint64(1)})
+
+			// then:
+			if diff := cmp.Diff(tc.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestSkipEventRbac(t *testing.T) {
+	var user = auth.User{DexAuthContext: &auth.DexAuthContext{Role: []string{"Developer"}}}
+
+	type TestCase struct {
+		name    string
+		rbac    auth.RBACConfig
+		wantErr error
+	}
+
+	tcs := []TestCase{
+		{
+			name: "should fail due to missing permission",
+			rbac: auth.RBACConfig{
+				DexEnabled: true,
+				Policy: &auth.RBACPolicies{
+					Permissions: map[string]auth.Permission{},
+				},
+			},
+			wantErr: errMatcher{"PermissionDenied The user '' with role 'Developer' is not allowed to perform the action 'SkipEslEvent' on environment '*'"},
+		},
+		{
+			name: "should fail due to wrong role",
+			rbac: auth.RBACConfig{
+				DexEnabled: true,
+				Policy: &auth.RBACPolicies{
+					Permissions: map[string]auth.Permission{
+						"p,role:Admin,SkipEslEvent,*:*,*,allow": {Role: "Admin"},
+					},
+				},
+			},
+			wantErr: errMatcher{"PermissionDenied The user '' with role 'Developer' is not allowed to perform the action 'SkipEslEvent' on environment '*'"},
+		},
+		{
+			name: "should pass the permission check",
+			rbac: auth.RBACConfig{
+				DexEnabled: true,
+				Policy: &auth.RBACPolicies{
+					Permissions: map[string]auth.Permission{
+						"p,role:Developer,SkipEslEvent,*:*,*,allow": {Role: "Developer"},
+					},
+				},
+			},
+			wantErr: errMatcher{"couldn't find failed event with eslVersion: 1"},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// given:
+			repo, _ := setupRepositoryTestWithPath(t)
+			pageSize := 100
+			ctx := testutilauth.MakeTestContext()
+			ctx = auth.WriteUserToContext(ctx, user)
+
+			config := rp.RepositoryConfig{
+				ArgoCdGenerateFiles:  true,
+				DBHandler:            repo.State().DBHandler,
+				MinimizeExportedData: false,
+			}
+
+			sv := &GitServer{
+				Repository: repo,
+				Config:     config,
+				PageSize:   uint64(pageSize),
+				RBACConfig: tc.rbac,
+			}
+
+			// when:
+			_, err := sv.SkipEslEvent(ctx, &api.SkipEslEventRequest{EventEslVersion: uint64(1)})
+
+			// then:
+			if diff := cmp.Diff(tc.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}

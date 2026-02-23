@@ -8,18 +8,11 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 1s
       timeout: 5s
       retries: 3
-#  swagger-ui:
-#    image: swaggerapi/swagger-ui:latest
-#    ports:
-#      - "80:8080"
-#    environment:
-#      QUERY_CONFIG_ENABLED: true # this is to allow using the query parameter "url"
-#    depends_on:
-#      - cd-service
+
   cd-service:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:local
     environment:
@@ -41,7 +34,7 @@ services:
       - KUBERPULT_DEX_ENABLED=false
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
       - KUBERPULT_DEX_RBAC_TEAM_PATH=/etc/team.csv
-      - KUBERPULT_DEX_MOCK_ROLE=developer
+      - KUBERPULT_DEX_MOCK_ROLE=Developer
       - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
       - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
       - KUBERPULT_ALLOW_LONG_APP_NAMES=true
@@ -99,6 +92,11 @@ services:
       - KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED=true
       - KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENVIRONMENTS={"development":"dev-proj"}
       - KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_AA_ENVIRONMENTS={"aa-aa-test-dev-1":"aa-dev-proj"}
+      - KUBERPULT_DEX_MOCK=false
+      - KUBERPULT_DEX_ENABLED=false
+      - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
+      - KUBERPULT_DEX_RBAC_TEAM_PATH=/etc/team.csv
+      - KUBERPULT_DEX_MOCK_ROLE=Developer
     volumes:
       - ./services/cd-service:/kp/kuberpult
     ports:
@@ -106,7 +104,7 @@ services:
       - "8444:8443"
     stop_grace_period: 0.5s
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz" ]
       interval: 1s
       timeout: 5s
       retries: 50

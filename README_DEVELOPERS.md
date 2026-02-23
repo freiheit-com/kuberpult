@@ -48,6 +48,11 @@ pkg-config --modversion libgit2
 
 It should print the current version of `libgit2` as `1.5.0`.
 
+#### Running Unit tests with libgit2
+If you want to run unit tests from the manifest-export-repo-service, you can now do this in your IDE.
+Just make sure you are in the kuberpult directory, and have set `LD_LIBRARY_PATH="$NIX_LD_LIBRARY_PATH"` before starting your IDE.
+And set the go compiler in your IDE to use the one from nix.
+
 ## Setup builder image
 
 You need a `builder` image that is tagged as `latest` to build services locally.
@@ -161,6 +166,12 @@ For a more verbose version, you could go into the service directory and run the 
 cd services/cd-service
 go test ./... -v
 ```
+
+Many unit tests connect to a postgres database that is instantiated as part of the test setup when `make test` is called.
+The postgres database is instantiated in a docker network with the service name `kuberpult-test-posgtres`. 
+When running `make test`, the unit tests can reach the database without any additional required setup.
+When running the unit tests locally, first add a line `127.0.0.1 kuberpult-test-postgres` to `/etc/hosts`.
+Then run `make unit-test-db` to instantiate the database. After that, tests can be run locally from the terminal or IDE.
 
 ### Best practices for unit tests
 
