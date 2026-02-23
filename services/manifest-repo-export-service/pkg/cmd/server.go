@@ -433,7 +433,7 @@ func Run(ctx context.Context) error {
 
 		err := dbHandler.RunCustomMigrationAppsHistory(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Error("error running migrations for apps history - you can disable this cleaning operation with 'db.appsHistoryMigration.enabled:false'", zap.Error(err))
+			logger.FromContext(ctx).Error("error running migrations for apps history - you can disable this operation with 'db.appsHistoryMigration.enabled:false'", zap.Error(err))
 		}
 	}
 
