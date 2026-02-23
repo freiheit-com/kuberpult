@@ -465,7 +465,7 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 		return nil
 	}
 	if tx == nil {
-		return fmt.Errorf("attempting to write to the environmets table without a transaction")
+		return fmt.Errorf("attempting to write to the environments table without a transaction")
 	}
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO environments (created, name, json, applications)
@@ -532,8 +532,8 @@ func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx,
 		return fmt.Errorf("attempting to write to the environments table without a transaction")
 	}
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO environments_history (created, name, json, '[]', deleted)
-		VALUES (?, ?, ?, ?);
+		INSERT INTO environments_history (created, name, json, applications, deleted)
+		VALUES (?, ?, ?, ?, ?);
 	`)
 	span.SetTag("query", insertQuery)
 
@@ -551,6 +551,7 @@ func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx,
 		*now,
 		environmentName,
 		jsonToInsert,
+		"[]",
 		deleted,
 	)
 	if err != nil {

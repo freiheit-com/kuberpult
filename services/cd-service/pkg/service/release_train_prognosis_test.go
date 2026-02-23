@@ -19,22 +19,20 @@ package service
 import (
 	"context"
 	"database/sql"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp"
-
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
@@ -532,8 +530,6 @@ func TestReleaseTrainAppSkip(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
-
 		t.Run(tc.Name, func(t *testing.T) {
 			repo, err := setupRepositoryTestWithDB(t)
 			if err != nil {

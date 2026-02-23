@@ -1415,20 +1415,6 @@ func (h *DBHandler) RunCustomMigrationEnvironments(_ context.Context, _ GetAllEn
 	return nil
 }
 
-func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	log := logger.FromContext(ctx).Sugar()
-
-	hasEnv, err := h.DBHasAnyEnvironment(ctx, transaction)
-
-	if err != nil {
-		return true, err
-	}
-	if hasEnv {
-		log.Infof("custom migration for environments already ran because row was found, skipping custom migration")
-	}
-	return !hasEnv, nil
-}
-
 func (h *DBHandler) RunCustomMigrationCleanGitSyncStatus(ctx context.Context) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationCleanGitSyncStatus")
 	defer func() {
