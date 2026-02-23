@@ -260,7 +260,10 @@ func (h *DBHandler) DBSelectAppsWithReleasesAtTimestamp(ctx context.Context, tra
 	if err != nil {
 		return nil, fmt.Errorf("could not query apps with releases at timestamp: %w", err)
 	}
-	defer closeRows(rows)
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
 
 	var apps []types.AppName
 	for rows.Next() {
