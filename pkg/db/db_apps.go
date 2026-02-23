@@ -209,7 +209,7 @@ func (h *DBHandler) DBInsertAppsTeamsHistory(ctx context.Context, tx *sql.Tx, ap
 		}
 	}
 
-	err = h.insertAppsTeamsHistoryRow(ctx, tx, toInsert, ts)
+	err = h.insertAppsTeamsHistoryRow(tx, toInsert, ts)
 	if err != nil {
 		return err
 	}
@@ -252,7 +252,7 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context) 
 		selectQuery := h.AdaptQuery(`
 			SELECT created, appName, stateChange, metadata
 			FROM apps_history
-			ORDER BY version;
+			ORDER BY version ASC;
 		`)
 		rows, err := tx.QueryContext(
 			ctx,
@@ -303,16 +303,11 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context) 
 	return nil
 }
 
-func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "insertAppsTeamsHistoryRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
+func (h *DBHandler) insertAppsTeamsHistoryRow(transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO apps_teams_history (created_at, apps_teams)
 		VALUES (?, ?);
 	`)
-	span.SetTag("query", insertQuery)
 
 	jsonToInsert, err := json.Marshal(appsWithTeams)
 	if err != nil {

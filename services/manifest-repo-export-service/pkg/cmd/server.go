@@ -428,7 +428,7 @@ func Run(ctx context.Context) error {
 
 	err = dbHandler.RunCustomMigrationAppsHistory(ctx)
 	if err != nil {
-		logger.FromContext(ctx).Error("error running migrations for apps history", zap.Error(err))
+		logger.FromContext(ctx).Fatal("error running migrations for apps history", zap.Error(err))
 	}
 
 	if resetGitSyncStatusEnabled {
