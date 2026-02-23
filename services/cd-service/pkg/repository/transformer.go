@@ -654,11 +654,6 @@ func (c *CreateApplicationVersion) Transform(
 
 	for i := range sortedEnvs {
 		env := sortedEnvs[i]
-		err = state.DBHandler.DBAppendAppToEnvironment(ctx, transaction, env, c.Application)
-		if err != nil {
-			return "", grpc.PublicError(ctx, err)
-		}
-
 		config := configs[env]
 		hasUpstream := false
 		if config.Upstream != nil {
@@ -1206,14 +1201,6 @@ func (u *UndeployApplication) Transform(
 	if allEnvs == nil {
 		return "", fmt.Errorf("UndeployApplication: all environments nil")
 	}
-	for _, envName := range allEnvs {
-		t.AddAppEnv(u.Application, envName, dbApp.Metadata.Team)
-		err = state.DBHandler.DBRemoveAppFromEnvironment(ctx, transaction, envName, u.Application)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: could not write environment: %v", err)
-		}
-	}
-
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
 
@@ -1293,10 +1280,6 @@ func (u *DeleteEnvFromApp) Transform(
 		}
 	}
 
-	err = state.DBHandler.DBRemoveAppFromEnvironment(ctx, transaction, envName, u.Application)
-	if err != nil {
-		return "", fmt.Errorf("couldn't write environment '%s' into environments table, error: %w", u.Environment, err)
-	}
 	t.DeleteEnvFromApp(u.Application, envName)
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
 }
@@ -1990,24 +1973,11 @@ func (c *CreateEnvironment) Transform(
 	if err != nil {
 		return "", err
 	}
-	// first read the env to see if it has applications:
-	env, err := state.DBHandler.DBSelectEnvironment(ctx, transaction, envName)
-	if err != nil {
-		return "", fmt.Errorf("could not select environment %s from database, error: %w", c.Environment, err)
-	}
-
-	// write to environments table
-	// We don't use environment applications column anymore, but for backward compatibility we keep it updated
-	environmentApplications := make([]types.AppName, 0)
-	if env != nil {
-		environmentApplications = env.Applications
-	}
-
 	if c.Dryrun {
 		return fmt.Sprintf("Dry-run to create environment %q successful", c.Environment), nil
 	}
 
-	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, c.Config, environmentApplications)
+	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, c.Config)
 	if err != nil {
 		return "", fmt.Errorf("unable to write to the environment table, error: %w", err)
 	}
@@ -2260,7 +2230,7 @@ func (c *ExtendAAEnvironment) Transform(
 
 	env.Config.ArgoCdConfigs.ArgoCdConfigurations = configs
 
-	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, env.Applications)
+	err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config)
 	if err != nil {
 		return "", fmt.Errorf("could not extend Active/Active environment: %q. %w", envName, err)
 	}
@@ -2326,7 +2296,7 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 		})
 		env.Config.ArgoCdConfigs.ArgoCdConfigurations = configs
 
-		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config, env.Applications)
+		err = state.DBHandler.DBWriteEnvironment(ctx, transaction, envName, env.Config)
 
 		if err != nil {
 			return "", fmt.Errorf("could not delete configuration from Active/Active environment %q. Error writing environment into database: %w", envName, err)

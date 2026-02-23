@@ -1410,40 +1410,9 @@ func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql
 	return nil
 }
 
-func (h *DBHandler) RunCustomMigrationEnvironments(ctx context.Context, getAllEnvironmentsFun GetAllEnvironmentsFun) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironments")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		needsMigrating, err := h.needsEnvironmentsMigrations(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		if !needsMigrating {
-			return nil
-		}
-		allEnvironments, err := getAllEnvironmentsFun(ctx)
-		if err != nil {
-			return fmt.Errorf("could not get environments, error: %w", err)
-		}
-
-		allEnvsApps, err := h.FindEnvsAppsFromReleases(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		for envName, config := range allEnvironments {
-			if allEnvsApps[envName] == nil {
-				allEnvsApps[envName] = make([]types.AppName, 0)
-			}
-			err = h.DBWriteEnvironment(ctx, transaction, envName, config, allEnvsApps[envName])
-			if err != nil {
-				return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
-			}
-		}
-		return nil
-	})
+func (h *DBHandler) RunCustomMigrationEnvironments(_ context.Context, _ GetAllEnvironmentsFun) (err error) {
+	// This migration is not needed anymore, because the environments.apps column is obsolete
+	return nil
 }
 
 func (h *DBHandler) needsEnvironmentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
@@ -1540,43 +1509,9 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 	return nil
 }
 
-func (h *DBHandler) RunCustomMigrationEnvironmentApplications(ctx context.Context) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationEnvironmentApplications")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		allEnvironments, err := h.DBSelectAllEnvironments(ctx, transaction)
-		if err != nil {
-			return fmt.Errorf("could not get environments, error: %w", err)
-		}
-		var allEnvsApps map[types.EnvName][]types.AppName
-		for _, envName := range allEnvironments {
-			env, err := h.DBSelectEnvironment(ctx, transaction, envName)
-			if err != nil {
-				return fmt.Errorf("could not get env: %s, error: %w", envName, err)
-			}
-
-			// We don't use environment applications column anymore, but for backward compatibility we keep it updated
-			if len(env.Applications) == 0 {
-				if allEnvsApps == nil {
-					allEnvsApps, err = h.FindEnvsAppsFromReleases(ctx, transaction)
-					if err != nil {
-						return fmt.Errorf("could not find all applications of all environments, error: %w", err)
-					}
-				}
-				if allEnvsApps[envName] == nil {
-					allEnvsApps[envName] = make([]types.AppName, 0)
-				}
-				err = h.DBWriteEnvironment(ctx, transaction, envName, env.Config, allEnvsApps[envName])
-				if err != nil {
-					return fmt.Errorf("unable to write manifest for environment %s to the database, error: %w", envName, err)
-				}
-			}
-		}
-		return nil
-	})
+func (h *DBHandler) RunCustomMigrationEnvironmentApplications(_ context.Context) (err error) {
+	// This migration is not needed anymore, because the environments.apps column is obsolete
+	return nil
 }
 
 func (h *DBHandler) FindEnvsAppsFromReleases(ctx context.Context, tx *sql.Tx) (map[types.EnvName][]types.AppName, error) {
