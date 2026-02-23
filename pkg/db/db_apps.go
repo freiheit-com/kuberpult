@@ -273,7 +273,7 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, 
 }
 
 func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppsTeamsHistoryRow")
+	span, _ := tracer.StartSpanFromContext(ctx, "insertAppsTeamsHistoryRow")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
