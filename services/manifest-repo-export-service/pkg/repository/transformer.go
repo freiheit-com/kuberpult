@@ -328,6 +328,8 @@ type DeployApplicationVersion struct {
 	Author                string                          `json:"author"`
 	TransformerEslVersion db.TransformerID                `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 	CreationTimestamp     time.Time                       `json:"-"`
+
+	AllEnvironmentsPreloaded AllEnvironments `json:"-"`
 }
 
 func (c *DeployApplicationVersion) GetCreationTimestamp() time.Time {
@@ -447,13 +449,19 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
+	allEnvConfigs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+	if err != nil {
+		return "", err
+	}
+
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
 		TransformerMetadata: TransformerMetadata{
 			AuthorName:  existingDeployment.Metadata.DeployedByName,
 			AuthorEmail: existingDeployment.Metadata.DeployedByEmail,
 		},
-		TransformerEslVersion: c.TransformerEslVersion,
+		TransformerEslVersion:    c.TransformerEslVersion,
+		AllEnvironmentsPreloaded: allEnvConfigs,
 	}
 	if err := tCtx.Execute(ctx, d, transaction); err != nil {
 		return "", err
@@ -956,7 +964,8 @@ func (c *CreateApplicationVersion) Transform(
 					AuthorName:  c.SourceAuthor,
 					AuthorEmail: "",
 				},
-				Revision: version.Revision,
+				Revision:                 version.Revision,
+				AllEnvironmentsPreloaded: nil,
 			}
 			err = tCtx.Execute(ctx, d, transaction)
 			if err != nil {
@@ -1044,12 +1053,17 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
 // Releases older that the oldest deployed release are eligible for deletion. releaseVersionsLimit
-func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, appName string) ([]types.ReleaseNumbers, error) {
+func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, appName string, allEnvironments AllEnvironments) ([]types.ReleaseNumbers, error) {
 	// 1) get release in each env:
-	envConfigs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
-	//envConfigs, err := state.GetEnvironmentConfigs()
-	if err != nil {
-		return nil, err
+	var envConfigs AllEnvironments
+	if allEnvironments == nil {
+		var err error
+		envConfigs, err = state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		envConfigs = allEnvironments
 	}
 	versions, err := state.GetApplicationReleasesFromFile(appName)
 	if err != nil {
@@ -1422,10 +1436,11 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 }
 
 type CleanupOldApplicationVersions struct {
-	Application           string
-	TransformerMetadata   `json:"metadata"`
-	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-	CreationTimestamp     time.Time        `json:"-"`
+	Application              string
+	TransformerMetadata      `json:"metadata"`
+	TransformerEslVersion    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
+	CreationTimestamp        time.Time        `json:"-"`
+	AllEnvironmentsPreloaded AllEnvironments  `json:"-"`
 }
 
 func (c *CleanupOldApplicationVersions) GetCreationTimestamp() time.Time {
@@ -1459,11 +1474,14 @@ func (c *CleanupOldApplicationVersions) Transform(
 	state *State,
 	_ TransformerContext,
 	transaction *sql.Tx,
-) (string, error) {
+) (result string, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "CleanupOldApplicationVersions")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	fs := state.Filesystem
-	var err error
 	var oldVersions []types.ReleaseNumbers
-	oldVersions, err = findOldApplicationVersions(ctx, transaction, state, c.Application)
+	oldVersions, err = findOldApplicationVersions(ctx, transaction, state, c.Application, c.AllEnvironmentsPreloaded)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
@@ -1583,11 +1601,11 @@ func (u *ReleaseTrain) Transform(
 	}
 
 	var targetGroupName = u.Target
-	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
+	allEnvironmentConfigs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
 		return "", err
 	}
-	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName, u.TargetType)
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(allEnvironmentConfigs, targetGroupName, u.TargetType)
 	for _, currentDeployment := range deployments {
 		loopSpan, loopCtx := tracer.StartSpanFromContext(ctx, "ReleaseTrain::Transform Deploy One Application")
 		envConfig := envGroupConfigs[currentDeployment.Env]
@@ -1618,6 +1636,8 @@ func (u *ReleaseTrain) Transform(
 			TransformerEslVersion: u.TransformerEslVersion,
 			Author:                "",
 			Revision:              currentDeployment.ReleaseNumbers.Revision,
+
+			AllEnvironmentsPreloaded: allEnvironmentConfigs,
 		}, transaction); err != nil {
 			loopSpan.Finish()
 			return "", err
