@@ -29,18 +29,18 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/cenkalti/backoff/v4"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	git "github.com/libgit2/git2go/v34"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-
-	"github.com/cenkalti/backoff/v4"
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	git "github.com/libgit2/git2go/v34"
 )
 
 var versionZero = uint64(0)
@@ -1713,7 +1713,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			},
 			shouldCreateCommit: true,
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
-				return dbHandler.DBWriteEnvironment(ctx, transaction, "production", config.EnvironmentConfig{}, []types.AppName{})
+				return dbHandler.DBWriteEnvironment(ctx, transaction, "production", config.EnvironmentConfig{})
 			},
 		},
 		{

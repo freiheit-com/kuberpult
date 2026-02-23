@@ -22,12 +22,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
@@ -214,7 +215,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				// GIVEN:
 				for _, environment := range Environments {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]types.AppName, 0))
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config)
 					if err != nil {
 						t.Fatalf("error while writing environment, error: %v", err)
 					}
