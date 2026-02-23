@@ -27,12 +27,13 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -367,7 +368,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 			return err
 		}
 
-		err = dbHandler.DBWriteEnvironment(ctx, transaction, "development", config.EnvironmentConfig{}, []types.AppName{"foo"})
+		err = dbHandler.DBWriteEnvironment(ctx, transaction, "development", config.EnvironmentConfig{})
 		if err != nil {
 			return err
 		}
