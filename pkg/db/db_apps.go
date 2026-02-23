@@ -232,18 +232,29 @@ func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *
 
 func (h *DBHandler) DBSelectAppsWithReleasesAtTimestamp(ctx context.Context, transaction *sql.Tx, envName types.EnvName, ts time.Time) ([]types.AppName, error) {
 	query := h.AdaptQuery(`
-	SELECT bool_or(NOT deleted) existed, appname
-	FROM (
+	WITH
+		latest_releases AS (
 			SELECT
-				bool_or(deleted) as deleted, appname, releaseversion
+				MAX(version) AS latest,
+				appname,
+				releaseversion,
+				revision
 			FROM releases_history
 			WHERE
 				created <= ?
-				AND environments @> ?
 			GROUP BY
-				appname, releaseversion
-		) releases
-	GROUP BY appname
+				appname,
+				releaseversion,
+				revision
+		)
+	SELECT DISTINCT
+		releases_history.appname
+	FROM
+		latest_releases
+		JOIN releases_history ON latest_releases.latest = releases_history.version
+	WHERE
+		releases_history.environments @> ?
+		AND releases_history.deleted = false;
 	`)
 	rows, err := transaction.QueryContext(ctx, query, ts, `["`+envName+`"]`)
 	if err != nil {
