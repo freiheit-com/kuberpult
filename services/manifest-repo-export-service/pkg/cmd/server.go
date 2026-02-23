@@ -227,6 +227,8 @@ func Run(ctx context.Context) error {
 
 	dbOutdatedDeploymentsCleaningEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED", false)
 
+	dbAppsHistoryMigrationEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_APPS_HISTORY_MIGRATION_ENABLED", false)
+
 	resetGitSyncStatusEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_RESET_GIT_SYNC_STATUS_ENABLED", false)
 
 	failOnErrorWithGitPushTags, err := valid.ReadEnvVarBool("KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS")
@@ -425,6 +427,16 @@ func Run(ctx context.Context) error {
 			logger.FromContext(ctx).Error("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false'", zap.Error(err))
 		}
 	}
+
+	if dbAppsHistoryMigrationEnabled {
+		logger.FromContext(ctx).Info("Running Apps History Migration")
+
+		err := dbHandler.RunCustomMigrationAppsHistory(ctx)
+		if err != nil {
+			logger.FromContext(ctx).Error("error running migrations for apps history - you can disable this cleaning operation with 'db.appsHistoryMigration.enabled:false'", zap.Error(err))
+		}
+	}
+
 	if resetGitSyncStatusEnabled {
 		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)
 		if err != nil {

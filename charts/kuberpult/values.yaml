@@ -188,6 +188,9 @@ db:
   # In our test, it takes 9 seconds for 5000 deployments
   outdatedDeploymentsCleaning:
     enabled: false
+  # This flags enables a custom migration which migrates the existing data from the apps_history table to the apps_teams_history table.
+  appsHistoryMigration:
+    enabled: true
   # The git sync status is displayed in the home page as a checkmark.
   # If this indicator is not being reset (e.g. always stays "red"),
   # then you can use this flag, to clean the git sync status in the database.

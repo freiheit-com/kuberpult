@@ -1474,6 +1474,17 @@ func (h *DBHandler) RunCustomMigrationCleanGitSyncStatus(ctx context.Context) (e
 	return nil
 }
 
+func (h *DBHandler) RunCustomMigrationAppsHistory(ctx context.Context) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAppsHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		return h.DBMigrateAppsHistoryToAppsTeamsHistory(ctx, transaction)
+	})
+}
+
 func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Context) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationCleanOutdatedDeployments")
 	defer func() {

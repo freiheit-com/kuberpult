@@ -24,8 +24,10 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
@@ -158,8 +160,15 @@ func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction
 	if err != nil {
 		return err
 	}
+	return h.DBInsertAppsTeamsHistory(ctx, transaction, appName, metaData.Team, stateChange, nil)
+}
 
-	latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, transaction)
+func (h *DBHandler) DBInsertAppsTeamsHistory(ctx context.Context, tx *sql.Tx, appName types.AppName, teamName string, stateChange AppStateChange, ts *time.Time) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertAppsTeamsHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
 	if err != nil {
 		return err
 	}
@@ -176,7 +185,7 @@ func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction
 	if stateChange == AppStateChangeCreate || stateChange == AppStateChangeMigrate || (stateChange == AppStateChangeUpdate && existedApp == nil) {
 		toInsert = append(latestAppsWithTeams, AppWithTeam{
 			AppName:  appName,
-			TeamName: metaData.Team,
+			TeamName: teamName,
 		})
 	}
 
@@ -187,20 +196,83 @@ func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction
 			} else if stateChange == AppStateChangeUpdate {
 				toInsert = append(toInsert, AppWithTeam{
 					AppName:  appName,
-					TeamName: metaData.Team,
+					TeamName: teamName,
 				})
 			}
 		}
 	}
-	err = h.insertAppsTeamsHistoryRow(ctx, transaction, toInsert)
+
+	if ts == nil {
+		// get current timestamp
+		ts, err = h.DBReadTransactionTimestamp(ctx, tx)
+		if err != nil {
+			return fmt.Errorf("unable to get transaction timestamp: %w", err)
+		}
+	}
+
+	err = h.insertAppsTeamsHistoryRow(ctx, tx, toInsert, ts)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+type AppHistoryRow struct {
+	Created     time.Time
+	AppName     types.AppName
+	StateChange AppStateChange
+	Metadata    DBAppMetaData
+}
+
+func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, tx *sql.Tx) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrateAppsHistoryToAppsTeamsHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	selectQuery := h.AdaptQuery(`
+		SELECT created, appName, stateChange, metadata
+		FROM apps_history
+		ORDER BY version;
+	`)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return err
+	}
+	var appsHistoryRows []AppHistoryRow
+	for rows.Next() {
+		appHistoryRow := AppHistoryRow{}
+		var metadataJson string
+		err = rows.Scan(&appHistoryRow.Created, &appHistoryRow.AppName, &appHistoryRow.StateChange, &metadataJson)
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal([]byte(metadataJson), &appHistoryRow.Metadata)
+		if err != nil {
+			return err
+		}
+		appsHistoryRows = append(appsHistoryRows, appHistoryRow)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return err
+	}
+	logger.FromContext(ctx).Info("Migrating apps history to apps teams history", zap.Int("apps_count", len(appsHistoryRows)))
+	for _, appHistoryRow := range appsHistoryRows {
+		err = h.DBInsertAppsTeamsHistory(ctx, tx, appHistoryRow.AppName, appHistoryRow.Metadata.Team, appHistoryRow.StateChange, &appHistoryRow.Created)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam) (err error) {
+func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppsTeamsHistoryRow")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -215,13 +287,10 @@ func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
-	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("unable to get transaction timestamp: %w", err)
-	}
+
 	_, err = transaction.Exec(
 		insertQuery,
-		*now,
+		*ts,
 		jsonToInsert,
 	)
 	if err != nil {
