@@ -1995,26 +1995,27 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 	return timestamp, nil
 }
 
-func (h *DBHandler) GetCurrentDelays(ctx context.Context, transaction *sql.Tx) (float64, uint64) {
+func (h *DBHandler) GetCurrentDelays(ctx context.Context, transaction *sql.Tx) (float64, uint64, error) {
 	eslVersion, err := DBReadCutoff(h, ctx, transaction)
 	if err != nil {
-		return math.NaN(), 0
+		return math.MaxFloat64, math.MaxUint64, err
 	}
 	esl, err := h.DBReadEslEvent(ctx, transaction, eslVersion)
 	if err != nil {
-		return math.NaN(), 0
+		return math.MaxFloat64, math.MaxUint64, err
 	}
 	if esl == nil {
-		return 0, 0
+		// we have no events at all
+		return 0, 0, err
 	}
 	if esl.Created.IsZero() {
-		return 0, 0
+		return 0, 0, nil
 	}
 	count, err := h.DBCountEslEventsNewer(ctx, transaction, esl.EslVersion)
+	if err != nil {
+		return math.MaxFloat64, math.MaxUint64, err
+	}
 	now := time.Now().UTC()
 	diff := now.Sub(esl.Created).Seconds()
-	if err != nil {
-		return diff, 1
-	}
-	return diff, count
+	return diff, count, nil
 }

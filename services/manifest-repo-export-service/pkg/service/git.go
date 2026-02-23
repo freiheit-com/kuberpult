@@ -268,7 +268,10 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 		AppStatuses: make(map[string]*api.EnvSyncStatus),
 	}
 	err = dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
-		delaySecs, delayEvents := dbHandler.GetCurrentDelays(ctx, transaction)
+		delaySecs, delayEvents, err := dbHandler.GetCurrentDelays(ctx, transaction)
+		if err != nil {
+			return fmt.Errorf("GetCurrentDelays: %v", err)
+		}
 		response.ProcessDelaySeconds = delaySecs
 		response.ProcessDelayEvents = delayEvents
 		unsyncedStatuses, err := dbHandler.DBRetrieveAppsByStatus(ctx, transaction, db.UNSYNCED)
