@@ -360,7 +360,7 @@ func Run(ctx context.Context) error {
 		Migrations:       getAllMigrations(dbHandler, repo),
 	}
 	if shouldRunCustomMigrations(checkCustomMigrations, minimizeExportedData) {
-		log.Infof("Running Custom Migrations")
+		logger.FromContext(ctx).Info("Running Custom Migrations")
 
 		_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
 			Version: kuberpultVersion,
@@ -368,7 +368,7 @@ func Run(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("error running custom migrations: %w", err)
 		}
-		log.Infof("Finished Custom Migrations successfully")
+		logger.FromContext(ctx).Info("Finished Custom Migrations successfully")
 	} else {
 		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if " +
 			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=true.")
@@ -426,10 +426,12 @@ func Run(ctx context.Context) error {
 		}
 	}
 
+	logger.FromContext(ctx).Info("Running migration for apps history")
 	err = dbHandler.RunCustomMigrationAppsHistory(ctx)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("error running migrations for apps history", zap.Error(err))
+		logger.FromContext(ctx).Fatal("error running migration for apps history", zap.Error(err))
 	}
+	logger.FromContext(ctx).Info("Finished migration for apps history")
 
 	if resetGitSyncStatusEnabled {
 		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)

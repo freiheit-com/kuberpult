@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -223,78 +222,58 @@ type AppHistoryRow struct {
 	Metadata    DBAppMetaData
 }
 
-func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context) (err error) {
+func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, tx *sql.Tx) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrateAppsHistoryToAppsTeamsHistory")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
 	var alreadyMigrated = false
-	err = h.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
-		latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if len(latestAppsWithTeams) > 0 {
-			alreadyMigrated = true
-		}
-		return nil
-	})
+	latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
 	if err != nil {
 		return err
+	}
+	if len(latestAppsWithTeams) > 0 {
+		alreadyMigrated = true
 	}
 	if alreadyMigrated {
 		return nil
 	}
 
 	var appsHistoryRows []AppHistoryRow
-	err = h.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
-		selectQuery := h.AdaptQuery(`
-			SELECT created, appName, stateChange, metadata
-			FROM apps_history
-			ORDER BY version ASC;
-		`)
-		rows, err := tx.QueryContext(
-			ctx,
-			selectQuery,
-		)
-		if err != nil {
-			return err
-		}
-
-		for rows.Next() {
-			appHistoryRow := AppHistoryRow{}
-			var metadataJson string
-			err = rows.Scan(&appHistoryRow.Created, &appHistoryRow.AppName, &appHistoryRow.StateChange, &metadataJson)
-			if err != nil {
-				return err
-			}
-			err = json.Unmarshal([]byte(metadataJson), &appHistoryRow.Metadata)
-			if err != nil {
-				return err
-			}
-			appsHistoryRows = append(appsHistoryRows, appHistoryRow)
-		}
-		err = closeRows(rows)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	selectQuery := h.AdaptQuery(`
+		SELECT created, appName, stateChange, metadata
+		FROM apps_history
+		ORDER BY version ASC;
+	`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
 	if err != nil {
 		return err
 	}
 
-	for deploymentBatch := range slices.Chunk(appsHistoryRows, MaxInsertBatchSize) {
-		err = h.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
-			for _, appHistoryRow := range deploymentBatch {
-				err = h.DBInsertAppsTeamsHistory(ctx, tx, appHistoryRow.AppName, appHistoryRow.Metadata.Team, appHistoryRow.StateChange, &appHistoryRow.Created)
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+	for rows.Next() {
+		appHistoryRow := AppHistoryRow{}
+		var metadataJson string
+		err = rows.Scan(&appHistoryRow.Created, &appHistoryRow.AppName, &appHistoryRow.StateChange, &metadataJson)
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal([]byte(metadataJson), &appHistoryRow.Metadata)
+		if err != nil {
+			return err
+		}
+		appsHistoryRows = append(appsHistoryRows, appHistoryRow)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return err
+	}
+
+	for _, appHistoryRow := range appsHistoryRows {
+		err = h.DBInsertAppsTeamsHistory(ctx, tx, appHistoryRow.AppName, appHistoryRow.Metadata.Team, appHistoryRow.StateChange, &appHistoryRow.Created)
 		if err != nil {
 			return err
 		}

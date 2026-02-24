@@ -1481,7 +1481,9 @@ func (h *DBHandler) RunCustomMigrationAppsHistory(ctx context.Context) (err erro
 		span.Finish(tracer.WithError(err))
 	}()
 
-	return h.DBMigrateAppsHistoryToAppsTeamsHistory(ctx)
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		return h.DBMigrateAppsHistoryToAppsTeamsHistory(ctx, transaction)
+	})
 }
 
 func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Context) (err error) {
