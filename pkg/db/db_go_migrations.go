@@ -21,9 +21,10 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 const GoMigration_AppsHistory = "AppsHistory"
