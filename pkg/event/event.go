@@ -163,9 +163,9 @@ type Event interface {
 }
 
 // Read an event from a filesystem.
-func Read(fs billy.Filesystem, eventDir string) (Event, error) {
+func Read(filesystem billy.Filesystem, eventDir string) (Event, error) {
 	var tp eventType
-	if err := read(fs, eventDir, &tp); err != nil {
+	if err := read(filesystem, eventDir, &tp); err != nil {
 		return nil, err
 	}
 	var result Event
@@ -185,7 +185,7 @@ func Read(fs billy.Filesystem, eventDir string) (Event, error) {
 	default:
 		return nil, fmt.Errorf("unknown event type: %q", tp.EventType)
 	}
-	if err := read(fs, eventDir, result); err != nil {
+	if err := read(filesystem, eventDir, result); err != nil {
 		return nil, err
 	}
 	return result, nil

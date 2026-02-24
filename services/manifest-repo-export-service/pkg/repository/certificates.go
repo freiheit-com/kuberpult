@@ -74,21 +74,20 @@ func (store *certificateStore) CertificateCheckCallback(ctx context.Context) fun
 			return fmt.Errorf("certificates error") // should never be called
 		}
 	}
-	logger := logger.FromContext(ctx)
 	return func(cert *git.Certificate, valid bool, hostname string) error {
 		if cert.Kind == git.CertificateHostkey {
 			if hsh, ok := store.sha256Hashes[hostname]; ok {
 				if bytes.Equal(hsh, cert.Hostkey.HashSHA256[:]) {
 					return nil
 				} else {
-					logger.Error("git.ssh.hostkeyMismatch",
+					logger.FromContext(ctx).Error("git.ssh.hostkeyMismatch",
 						zap.String("hostname", hostname),
 						zap.String("hostkey.expected", fmt.Sprintf("%x", hsh)),
 						zap.String("hostkey.actual", fmt.Sprintf("%x", cert.Hostkey.HashSHA256)),
 					)
 				}
 			} else {
-				logger.Error("git.ssh.hostnameUnknown",
+				logger.FromContext(ctx).Error("git.ssh.hostnameUnknown",
 					zap.String("hostname", hostname),
 				)
 			}

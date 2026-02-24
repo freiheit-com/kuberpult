@@ -149,9 +149,9 @@ type IncrementalUUIDBaseForPageSizeTest struct {
 }
 
 func (gen *IncrementalUUIDBaseForPageSizeTest) Generate() string {
-	uuid := gen.arr[gen.count]
+	id := gen.arr[gen.count]
 	gen.count += 1
-	return uuid
+	return id
 
 }
 

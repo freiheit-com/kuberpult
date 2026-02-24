@@ -124,10 +124,10 @@ func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, 
 	return nil
 }
 
-func getCommitEventByCommitId(ctx context.Context, db *db.DBHandler, transaction *sql.Tx, commitId string) ([]byte, error) {
+func getCommitEventByCommitId(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx, commitId string) ([]byte, error) {
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "getCommitEventByCommitId")
 	defer span.Finish()
-	query := db.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
+	query := dbHandler.AdaptQuery("SELECT json FROM commit_events WHERE commithash = ? AND eventtype = ? ORDER BY timestamp DESC LIMIT 1;")
 
 	row := transaction.QueryRowContext(ctx, query, commitId, event.EventTypeNewRelease)
 	var jsonCommitEventsMetadata []byte

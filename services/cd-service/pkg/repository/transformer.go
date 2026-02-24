@@ -659,9 +659,9 @@ func (c *CreateApplicationVersion) Transform(
 			return "", grpc.PublicError(ctx, err)
 		}
 
-		config := configs[env]
+		cfg := configs[env]
 		hasUpstream := false
-		if config.Upstream != nil {
+		if cfg.Upstream != nil {
 			hasUpstream = true
 		}
 		err = state.checkUserPermissionsFromConfig(ctx,
@@ -672,7 +672,7 @@ func (c *CreateApplicationVersion) Transform(
 			c.Team,
 			c.RBACConfig,
 			true,
-			&config,
+			&cfg,
 		)
 		if err != nil {
 			return "", err
@@ -683,7 +683,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", err
 		}
 		t.AddAppEnv(c.Application, env, teamOwner)
-		envIsConfiguredLatest := hasUpstream && config.Upstream.Latest && isLatest
+		envIsConfiguredLatest := hasUpstream && cfg.Upstream.Latest && isLatest
 		downstreamDeploymentRequested := slices.Contains(c.DeployToDownstreamEnvironments, env)
 		if (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
@@ -722,8 +722,8 @@ func validateDownstreamEnvs(downstreamEnvs []types.EnvName, sortedEnvs []types.E
 		if !slices.Contains(sortedEnvs, downEnv) {
 			missingManifestEnvs = append(missingManifestEnvs, downEnv)
 		}
-		config := configs[downEnv]
-		if config.Upstream != nil && config.Upstream.Latest {
+		cfg := configs[downEnv]
+		if cfg.Upstream != nil && cfg.Upstream.Latest {
 			notDownstreamEnvs = append(notDownstreamEnvs, downEnv)
 		}
 	}
@@ -1069,17 +1069,17 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
-		config, found := configs[env]
+		cfg, found := configs[env]
 		hasUpstream := false
 		if found {
-			hasUpstream = config.Upstream != nil
+			hasUpstream = cfg.Upstream != nil
 		}
 		teamOwner, err := state.GetApplicationTeamOwner(ctx, transaction, c.Application)
 		if err != nil {
 			return "", err
 		}
 		t.AddAppEnv(c.Application, env, teamOwner)
-		if hasUpstream && config.Upstream.Latest {
+		if hasUpstream && cfg.Upstream.Latest {
 			d := &DeployApplicationVersion{
 				SourceTrain: nil,
 				Environment: env,
@@ -1411,7 +1411,7 @@ func (c *CreateEnvironmentLock) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction *sql.Tx, env types.EnvName, application types.AppName, action, team string, RBACConfig auth.RBACConfig, checkTeam bool, config *config.EnvironmentConfig) error {
+func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction *sql.Tx, env types.EnvName, application types.AppName, action, team string, RBACConfig auth.RBACConfig, checkTeam bool, cfg *config.EnvironmentConfig) error {
 	if !RBACConfig.DexEnabled {
 		return nil
 	}
@@ -1420,10 +1420,10 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 		return fmt.Errorf("checkUserPermissions: user not found: %v", err)
 	}
 
-	if config == nil {
+	if cfg == nil {
 		return fmt.Errorf("checkUserPermissions: environment not found: %s", env)
 	}
-	group := mapper.DeriveGroupName(*config, env)
+	group := mapper.DeriveGroupName(*cfg, env)
 
 	if group == "" {
 		return fmt.Errorf("group not found for environment: %s", env)
@@ -2335,8 +2335,8 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 	return fmt.Sprintf("Successfully deleted ArgoCD configuration from '%s'", c.Environment), nil
 }
 
-func isAAEnv(config *config.EnvironmentConfig) bool {
-	return config.ArgoCdConfigs != nil
+func isAAEnv(cfg *config.EnvironmentConfig) bool {
+	return cfg.ArgoCdConfigs != nil
 }
 
 type QueueApplicationVersion struct {

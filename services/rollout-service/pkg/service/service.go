@@ -94,15 +94,15 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 				}
 				return err
 			}
-			concreteEnvironment, application, parentEnvironment := getArgoApplicationData(ev.Application.Annotations)
-			if application == "" {
+			concreteEnvironment, app, parentEnvironment := getArgoApplicationData(ev.Application.Annotations)
+			if app == "" {
 				continue
 			}
 			if parentEnvironment == "" {
 				parentEnvironment = concreteEnvironment //For backwards compatibility, older apps might not have the aa-parent-environment tag
 			}
 
-			k := ArgoAppData{Application: application, Environment: concreteEnvironment, ParentEnvironment: parentEnvironment}
+			k := ArgoAppData{Application: app, Environment: concreteEnvironment, ParentEnvironment: parentEnvironment}
 
 			var eventDiscarded = false
 			switch ev.Type {

@@ -495,13 +495,13 @@ func (t *TreeBuilderFS) MkdirAll(dir string, perm os.FileMode) error {
 	return err
 }
 
-func (t *TreeBuilderFS) Lstat(path string) (os.FileInfo, error) {
+func (t *TreeBuilderFS) Lstat(pathStr string) (os.FileInfo, error) {
 	// TODO(HVG): implement this to support actual symlinkk (https://github.com/freiheit-com/kuberpult/issues/1046)
-	return t.Stat(path)
+	return t.Stat(pathStr)
 }
 
-func (t *TreeBuilderFS) Readlink(path string) (string, error) {
-	node, rest, err := t.traverse(path, false)
+func (t *TreeBuilderFS) Readlink(pathStr string) (string, error) {
+	node, rest, err := t.traverse(pathStr, false)
 	if err != nil {
 		return "", err
 	}

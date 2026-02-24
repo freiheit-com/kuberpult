@@ -27,8 +27,7 @@ import (
 )
 
 func InternalError(ctx context.Context, err error) error {
-	logger := logger.FromContext(ctx)
-	logger.Error("grpc.internal", zap.Error(err))
+	logger.FromContext(ctx).Error("grpc.internal", zap.Error(err))
 	return status.Error(codes.Internal, "internal error")
 }
 
