@@ -177,7 +177,7 @@ db:
   # that there is no information we want to migrate from an existing manifest repository to the database.
   # You should only enable this flag, if you want to do a one-step upgrade of kuberpult from a (relatively old) version that still uses git as storage.
   # If you are already using the database, ignore this flag.
-  checkCustomMigrations: false
+  checkGit2DBMigrations: false
   # This option migrates all the timestamps in the git repo to the databases
   gitTimestampMigrations:
     enabled: false

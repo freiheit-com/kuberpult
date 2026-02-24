@@ -166,11 +166,11 @@ func Run(ctx context.Context) error {
 	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
-	checkCustomMigrationsString, err := valid.ReadEnvVar("KUBERPULT_CHECK_CUSTOM_MIGRATIONS")
+	checkGit2DBMigrationsString, err := valid.ReadEnvVar("KUBERPULT_CHECK_GIT2DB_MIGRATIONS")
 	if err != nil {
 		log.Info("datadog metrics are disabled")
 	}
-	checkCustomMigrations := checkCustomMigrationsString == "true"
+	checkGit2DBMigrations := checkGit2DBMigrationsString == "true"
 	minimizeExportedData, err := valid.ReadEnvVarBool("KUBERPULT_MINIMIZE_EXPORTED_DATA")
 	if err != nil {
 		return err
@@ -357,21 +357,21 @@ func Run(ctx context.Context) error {
 	migrationServer := &service.MigrationServer{
 		KuberpultVersion: kuberpultVersion,
 		DBHandler:        dbHandler,
-		Migrations:       getAllMigrations(dbHandler, repo),
+		Migrations:       getGit2DBMigrations(dbHandler, repo),
 	}
-	if shouldRunCustomMigrations(checkCustomMigrations, minimizeExportedData) {
-		logger.FromContext(ctx).Info("Running Custom Migrations")
+	if shouldRunGit2DBMigrations(checkGit2DBMigrations, minimizeExportedData) {
+		logger.FromContext(ctx).Info("Running Git2DB Migrations")
 
-		_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+		_, err = migrationServer.EnsureGit2DBMigrationApplied(ctx, &api.EnsureGit2DBMigrationAppliedRequest{
 			Version: kuberpultVersion,
 		})
 		if err != nil {
-			return fmt.Errorf("error running custom migrations: %w", err)
+			return fmt.Errorf("error running Git2DB migrations: %w", err)
 		}
-		logger.FromContext(ctx).Info("Finished Custom Migrations successfully")
+		logger.FromContext(ctx).Info("Finished Git2DB Migrations successfully")
 	} else {
-		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if " +
-			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=true.")
+		logger.FromContext(ctx).Info("Git2DB Migrations skipped. Kuberpult only runs Git2DB Migrations if " +
+			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_GIT2DB_MIGRATIONS=true.")
 	}
 	if dbGitTimestampMigrationEnabled {
 		err := dbHandler.RunCustomMigrationReleasesTimestamp(ctx, repo.State().GetAppsAndTeams, repo.State().FixReleasesTimestamp)
@@ -427,7 +427,7 @@ func Run(ctx context.Context) error {
 	}
 
 	logger.FromContext(ctx).Info("Running migration for apps history")
-	err = service.RunCustomMigrationAppsHistory(ctx, dbHandler)
+	err = dbHandler.RunCustomMigrationAppsHistory(ctx)
 	if err != nil {
 		logger.FromContext(ctx).Fatal("error running migration for apps history", zap.Error(err))
 	}
@@ -537,7 +537,7 @@ func ParseEnvironmentOverrides(ctx context.Context, configuredArgoNamesPerEnv va
 	return &result
 }
 
-func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
+func getGit2DBMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
 	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
 		return dbHandler.RunCustomMigrations(
 			ctx,
@@ -940,6 +940,6 @@ func checkReleaseVersionLimit(limit uint) error {
 	return nil
 }
 
-func shouldRunCustomMigrations(checkCustomMigrations, minimizeGitData bool) bool {
-	return checkCustomMigrations && !minimizeGitData //If `minimizeGitData` is enabled we can't make sure we have all the information on the repository to perform all the migrations
+func shouldRunGit2DBMigrations(checkGit2DBMigrations, minimizeGitData bool) bool {
+	return checkGit2DBMigrations && !minimizeGitData //If `minimizeGitData` is enabled we can't make sure we have all the information on the repository to perform all the migrations
 }

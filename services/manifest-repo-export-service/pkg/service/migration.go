@@ -33,7 +33,6 @@ import (
 	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/migrations"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type MigrationFunc func(ctx context.Context) error
@@ -49,7 +48,7 @@ type MigrationServer struct {
 	Migrations       []*Migration
 }
 
-func (s *MigrationServer) EnsureCustomMigrationApplied(ctx context.Context, in *api.EnsureCustomMigrationAppliedRequest) (*api.EnsureCustomMigrationAppliedResponse, error) {
+func (s *MigrationServer) EnsureGit2DBMigrationApplied(ctx context.Context, in *api.EnsureGit2DBMigrationAppliedRequest) (*api.EnsureGit2DBMigrationAppliedResponse, error) {
 	if s.KuberpultVersion == nil {
 		return nil, fmt.Errorf("configured kuberpult version is nil")
 	}
@@ -63,23 +62,23 @@ func (s *MigrationServer) EnsureCustomMigrationApplied(ctx context.Context, in *
 		)
 	}
 
-	err := s.RunMigrations(ctx, in.Version)
+	err := s.RunGit2DBMigrations(ctx, in.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	return &api.EnsureCustomMigrationAppliedResponse{
+	return &api.EnsureGit2DBMigrationAppliedResponse{
 		MigrationsApplied: true,
 	}, nil
 }
 
-func (s *MigrationServer) RunMigrations(ctx context.Context, kuberpultVersion *api.KuberpultVersion) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "CustomMigrations")
+func (s *MigrationServer) RunGit2DBMigrations(ctx context.Context, kuberpultVersion *api.KuberpultVersion) error {
+	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "RunGit2DBMigrations")
 	defer span.Finish()
 	log := logger.FromContext(ctx).Sugar()
 
 	if kuberpultVersion == nil {
-		return onErr(fmt.Errorf("RunMigrations: kuberpult version is nil"))
+		return onErr(fmt.Errorf("RunGit2DBMigrations: kuberpult version is nil"))
 	}
 
 	log.Infof("Starting to run all migrations...")
@@ -109,36 +108,9 @@ func (s *MigrationServer) RunMigrations(ctx context.Context, kuberpultVersion *a
 			return migrations.DBUpsertCustomMigrationCutoff(s.DBHandler, ctx, transaction, m.Version)
 		})
 		if err != nil {
-			return onErr(fmt.Errorf("RunMigrations: error for version %s: %w", migrations2.FormatKuberpultVersion(m.Version), err))
+			return onErr(fmt.Errorf("RunGit2DBMigrations: error for version %s: %w", migrations2.FormatKuberpultVersion(m.Version), err))
 		}
 	}
 	log.Infof("All migrations are applied.")
 	return nil
-}
-
-func RunCustomMigrationAppsHistory(ctx context.Context, dbHandler *db.DBHandler) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAppsHistory")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
-	return dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		// check if the migration already ran
-		hasMigration, err := dbHandler.DBHasGoMigrationCutoff(ctx, transaction, db.GoMigration_AppsHistory)
-		if err != nil {
-			return err
-		}
-		if hasMigration {
-			return nil
-		}
-
-		// run the migration
-		err = dbHandler.DBMigrateAppsHistoryToAppsTeamsHistory(ctx, transaction)
-		if err != nil {
-			return err
-		}
-
-		// mark the migration as done
-		return dbHandler.DBInsertGoMigrationCutoff(ctx, transaction, db.GoMigration_AppsHistory)
-	})
 }

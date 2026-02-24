@@ -693,11 +693,11 @@ ingress:
   domainName: "kuberpult-example.com"
 db:
   dbOption: "postgreSQL"
-  checkCustomMigrations: false
+  checkGit2DBMigrations: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Name:  "KUBERPULT_CHECK_GIT2DB_MIGRATIONS",
 					Value: "false",
 				},
 			},
@@ -712,11 +712,11 @@ ingress:
   domainName: "kuberpult-example.com"
 db:
   dbOption: "postgreSQL"
-  checkCustomMigrations: true
+  checkGit2DBMigrations: true
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Name:  "KUBERPULT_CHECK_GIT2DB_MIGRATIONS",
 					Value: "true",
 				},
 			},

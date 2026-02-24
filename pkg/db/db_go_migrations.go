@@ -7,6 +7,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"go.uber.org/zap"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const GoMigration_AppsHistory = "AppsHistory"
@@ -54,4 +55,31 @@ func (h *DBHandler) DBHasGoMigrationCutoff(ctx context.Context, tx *sql.Tx, migr
 		}
 	}(rows)
 	return rows.Next(), nil
+}
+
+func (h *DBHandler) RunCustomMigrationAppsHistory(ctx context.Context) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAppsHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		// check if the migration already ran
+		hasMigration, err := h.DBHasGoMigrationCutoff(ctx, transaction, GoMigration_AppsHistory)
+		if err != nil {
+			return err
+		}
+		if hasMigration {
+			return nil
+		}
+
+		// run the migration
+		err = h.DBMigrateAppsHistoryToAppsTeamsHistory(ctx, transaction)
+		if err != nil {
+			return err
+		}
+
+		// mark the migration as done
+		return h.DBInsertGoMigrationCutoff(ctx, transaction, GoMigration_AppsHistory)
+	})
 }
