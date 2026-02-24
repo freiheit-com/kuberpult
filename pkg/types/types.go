@@ -26,7 +26,7 @@ import (
 
 type GitTag string
 
-// EnvName is a type that helps us avoid mixing up envNames from other strings.z
+// EnvName is a type that helps us avoid mixing up envNames from other strings.
 type EnvName string
 
 type AppName string
