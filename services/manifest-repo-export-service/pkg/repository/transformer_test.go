@@ -28,23 +28,20 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
-	"github.com/freiheit-com/kuberpult/pkg/api/v1"
-
-	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/go-git/go-billy/v5"
-
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 const (
@@ -1129,7 +1126,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					ArgoCd:           nil,
 					EnvironmentGroup: nil,
 				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envConfig, []types.AppName{})
+				err = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envConfig)
 				if err != nil {
 					return err
 				}
@@ -1996,11 +1993,11 @@ func TestCreateUndeployLogic(t *testing.T) {
 					t.Fatal(err2)
 				}
 
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig, []types.AppName{appName})
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig)
 				if err2 != nil {
 					return err2
 				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config, []types.AppName{appName})
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config)
 				if err2 != nil {
 					return err2
 				}
@@ -2423,11 +2420,11 @@ func TestUndeployLogic(t *testing.T) {
 				if err2 != nil {
 					t.Fatal(err2)
 				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, environmentConfigAcceptance, []types.AppName{appName})
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, environmentConfigAcceptance)
 				if err2 != nil {
 					return err2
 				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, environmentConfigAcceptance2, []types.AppName{appName})
+				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, environmentConfigAcceptance2)
 				if err2 != nil {
 					return err2
 				}
@@ -3583,7 +3580,7 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 	}
 	if tr.GetDBEventType() == db.EvtCreateEnvironment {
 		concreteTransformer := tr.(*CreateEnvironment)
-		err2 := dbHandler.DBWriteEnvironment(ctx, transaction, concreteTransformer.Environment, concreteTransformer.Config, []types.AppName{})
+		err2 := dbHandler.DBWriteEnvironment(ctx, transaction, concreteTransformer.Environment, concreteTransformer.Config)
 		if err2 != nil {
 			t.Fatal(err2)
 		}

@@ -2213,7 +2213,9 @@ func envExists(envConfigs map[types.EnvName]config.EnvironmentConfig, envNameToS
 	return false
 }
 
-func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (map[types.EnvName]config.EnvironmentConfig, error) {
+type AllEnvironments = map[types.EnvName]config.EnvironmentConfig
+
+func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction *sql.Tx) (AllEnvironments, error) {
 	dbAllEnvs, err := s.DBHandler.DBSelectAllEnvironments(ctx, transaction)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve all environments, error: %w", err)

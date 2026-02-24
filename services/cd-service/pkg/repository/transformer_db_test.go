@@ -27,21 +27,20 @@ import (
 	"testing"
 	gotime "time"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/lib/pq"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/time"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/protobuf/testing/protocmp"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 var (
@@ -761,12 +760,9 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
-				environment, err4 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "acceptance")
+				_, err4 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "acceptance")
 				if err4 != nil {
 					return fmt.Errorf("error retrieving environment: %w", err)
-				}
-				if diff := cmp.Diff([]types.AppName{appName}, environment.Applications); diff != "" {
-					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
@@ -910,12 +906,9 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedDbReleases, actualRelease); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
-				environment, err4 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "acceptance")
+				_, err4 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "acceptance")
 				if err4 != nil {
 					return fmt.Errorf("error retrieving environment: %w", err)
-				}
-				if diff := cmp.Diff([]types.AppName{appName}, environment.Applications); diff != "" {
-					t.Errorf("environment applications list mismatch: (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
@@ -1751,7 +1744,6 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 		Name                      string
 		Transformers              []Transformer
 		expectedEnvironmentConfig map[types.EnvName]config.EnvironmentConfig
-		expectedStagingEnvApps    []types.AppName
 	}
 
 	testCases := []TestCase{
@@ -1766,7 +1758,6 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigLatest(nil),
 			},
-			expectedStagingEnvApps: []types.AppName{},
 		},
 		{
 			Name: "create a single environment twice",
@@ -1790,7 +1781,6 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 			expectedEnvironmentConfig: map[types.EnvName]config.EnvironmentConfig{
 				"staging": testutil.MakeEnvConfigUpstream("development", nil),
 			},
-			expectedStagingEnvApps: []types.AppName{"testapp"},
 		},
 		{
 			Name: "create multiple environments",
@@ -1808,7 +1798,6 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				"development": testutil.MakeEnvConfigLatest(nil),
 				"staging":     testutil.MakeEnvConfigUpstream("development", nil),
 			},
-			expectedStagingEnvApps: []types.AppName{},
 		},
 		{
 			Name: "create environment with argo cd configs",
@@ -1834,7 +1823,6 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 					ArgoCdConfigs: testutil.MakeArgoCDConfigs("CN-STG", "PT", 100),
 				},
 			},
-			expectedStagingEnvApps: []types.AppName{},
 		},
 	}
 
@@ -1856,12 +1844,9 @@ func TestCreateEnvironmentTransformer(t *testing.T) {
 				if diff := cmp.Diff(tc.expectedEnvironmentConfig, result, cmpopts.IgnoreFields(db.QueuedDeployment{}, "Created")); diff != "" {
 					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
-				env, err2 := state.DBHandler.DBSelectEnvironment(ctx, transaction, "staging")
+				_, err2 = state.DBHandler.DBSelectEnvironment(ctx, transaction, "staging")
 				if err2 != nil {
 					return err2
-				}
-				if diff := cmp.Diff(tc.expectedStagingEnvApps, env.Applications); diff != "" {
-					t.Errorf("error mismatch staging env apps (-want, +got):\n%s", diff)
 				}
 				return nil
 			})
@@ -2857,17 +2842,6 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 					}
 				}
 
-				environment, err2 := repo.State().DBHandler.DBSelectEnvironment(ctx, transaction, envName)
-				if err2 != nil {
-					return err2
-				}
-				if environment != nil {
-					for _, envApp := range environment.Applications {
-						if envApp == appName {
-							return fmt.Errorf("expected app %s to be deleted from environment %s", appName, environment.Name)
-						}
-					}
-				}
 				actualSyncStatus, err2 := repo.State().DBHandler.DBRetrieveSyncStatus(ctx, transaction, appName, envName)
 				if err2 != nil {
 					return err2

@@ -1124,7 +1124,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 		if err != nil {
 			return err
 		}
-		err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{}, []types.AppName{})
+		err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{})
 		if err != nil {
 			return err
 		}

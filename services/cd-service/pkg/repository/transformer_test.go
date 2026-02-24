@@ -21,36 +21,31 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
-
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-
 	"os/exec"
 	"path"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/DataDog/datadog-go/v5/statsd"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/google/go-cmp/cmp"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	time2 "github.com/freiheit-com/kuberpult/pkg/time"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 const (
@@ -4897,7 +4892,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index:            3,
-				TransformerError: errMatcher{"couldn't write environment '' into environments table, error: remove from env with environment does not exist: ''"},
+				TransformerError: errMatcher{"environment does not exist: ''"},
 			},
 			shouldSucceed: false,
 		},

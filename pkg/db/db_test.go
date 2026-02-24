@@ -30,16 +30,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
-	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"go.uber.org/zap"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 type errMatcher struct {
@@ -457,7 +457,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 
 				// create environments
 				for _, env := range tc.given.setupEnvs {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, env.Name, env.Config, tc.given.setupApps)
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, env.Name, env.Config)
 					if err != nil {
 						return fmt.Errorf("error while creating environment, error: %w", err)
 					}
@@ -3449,9 +3449,8 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Name:         "development",
-				Config:       testutil.MakeEnvConfigLatest(nil),
-				Applications: []types.AppName{"app1", "app2", "app3"},
+				Name:   "development",
+				Config: testutil.MakeEnvConfigLatest(nil),
 			},
 		},
 		{
@@ -3465,9 +3464,8 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Name:         "development",
-				Config:       testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
-				Applications: []types.AppName{"app1"},
+				Name:   "development",
+				Config: testutil.MakeEnvConfigLatestWithGroup(nil, conversion.FromString("development-group")),
 			},
 		},
 		{
@@ -3554,9 +3552,8 @@ func TestReadWriteEnvironment(t *testing.T) {
 			},
 			EnvToQuery: "development",
 			ExpectedEntry: &DBEnvironment{
-				Name:         "development",
-				Config:       testutil.MakeEnvConfigLatest(nil),
-				Applications: []types.AppName{"app1", "capp", "zapp"},
+				Name:   "development",
+				Config: testutil.MakeEnvConfigLatest(nil),
 			},
 		},
 	}
@@ -3569,7 +3566,7 @@ func TestReadWriteEnvironment(t *testing.T) {
 
 			for _, envToWrite := range tc.EnvsToWrite {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications)
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
@@ -3633,14 +3630,12 @@ func TestReadEnvironmentBatch(t *testing.T) {
 			EnvsToQuery: []types.EnvName{"development", "staging"},
 			ExpectedEnvs: &[]DBEnvironment{
 				{
-					Name:         "development",
-					Config:       testutil.MakeEnvConfigLatest(nil),
-					Applications: []types.AppName{"app1", "app2", "app3"},
+					Name:   "development",
+					Config: testutil.MakeEnvConfigLatest(nil),
 				},
 				{
-					Name:         "staging",
-					Config:       testutil.MakeEnvConfigLatest(nil),
-					Applications: []types.AppName{"app1", "app2", "app3"},
+					Name:   "staging",
+					Config: testutil.MakeEnvConfigLatest(nil),
 				},
 			},
 		},
@@ -3666,14 +3661,12 @@ func TestReadEnvironmentBatch(t *testing.T) {
 			EnvsToQuery: []types.EnvName{"development", "staging"},
 			ExpectedEnvs: &[]DBEnvironment{
 				{
-					Name:         "development",
-					Config:       testutil.MakeEnvConfigLatest(nil),
-					Applications: []types.AppName{"app1", "app2"},
+					Name:   "development",
+					Config: testutil.MakeEnvConfigLatest(nil),
 				},
 				{
-					Name:         "staging",
-					Config:       testutil.MakeEnvConfigLatest(nil),
-					Applications: []types.AppName{"app1", "app2", "app3"},
+					Name:   "staging",
+					Config: testutil.MakeEnvConfigLatest(nil),
 				},
 			},
 		},
@@ -3687,7 +3680,7 @@ func TestReadEnvironmentBatch(t *testing.T) {
 
 			for _, envToWrite := range tc.EnvsToWrite {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications)
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
@@ -3747,9 +3740,8 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
-							Name:         "development",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3"},
+							Name:   "development",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 					},
 				},
@@ -3773,19 +3765,16 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
-							Name:         "development",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3", "app4", "app5"},
+							Name:   "development",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 						{
-							Name:         "staging",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3"},
+							Name:   "staging",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 						{
-							Name:         "production",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3"},
+							Name:   "production",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 					},
 				},
@@ -3804,9 +3793,8 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
-							Name:         "development",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3"},
+							Name:   "development",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 					},
 				},
@@ -3820,14 +3808,12 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
-							Name:         "development",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3"},
+							Name:   "development",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 						{
-							Name:         "staging",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3"},
+							Name:   "staging",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 					},
 				},
@@ -3841,19 +3827,16 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 					},
 					ExpectedEnvs: &[]DBEnvironment{
 						{
-							Name:         "development",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3"},
+							Name:   "development",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 						{
-							Name:         "staging",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3"},
+							Name:   "staging",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 						{
-							Name:         "production",
-							Config:       testutil.MakeEnvConfigLatest(nil),
-							Applications: []types.AppName{"app1", "app2", "app3"},
+							Name:   "production",
+							Config: testutil.MakeEnvConfigLatest(nil),
 						},
 					},
 				},
@@ -3872,7 +3855,7 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 					for _, envToWrite := range envsToWrite {
 
-						err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig, envToWrite.Applications)
+						err := dbHandler.DBWriteEnvironment(ctx, transaction, envToWrite.EnvironmentName, envToWrite.EnvironmentConfig)
 						if err != nil {
 							return fmt.Errorf("error while writing environment, error: %w", err)
 						}
@@ -4196,7 +4179,7 @@ func TestReadWriteAllEnvironments(t *testing.T) {
 
 			for _, envName := range tc.AllEnvsToWrite {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, envName, config.EnvironmentConfig{}, []types.AppName{})
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, envName, config.EnvironmentConfig{})
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
@@ -6456,7 +6439,7 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, environment := range tc.Environments {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]types.AppName, 0))
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config)
 					if err != nil {
 						return fmt.Errorf("error while writing environment, error: %w", err)
 					}
@@ -6611,7 +6594,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 					}
 				}
 				for _, environment := range tc.Environments {
-					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config, make([]types.AppName, 0))
+					err := dbHandler.DBWriteEnvironment(ctx, transaction, environment.Name, environment.Config)
 					if err != nil {
 						return nil, fmt.Errorf("error while writing environment, error: %w", err)
 					}
@@ -6708,7 +6691,6 @@ func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 					transaction,
 					envName,
 					config.EnvironmentConfig{},
-					make([]types.AppName, 0),
 				)
 				if err != nil {
 					return fmt.Errorf("error while writing environment, error: %w", err)
@@ -6777,7 +6759,6 @@ func TestDBSelectCommitIdAppReleaseVersionsMany(t *testing.T) {
 					transaction,
 					envName,
 					config.EnvironmentConfig{},
-					make([]types.AppName, 0),
 				)
 				if err != nil {
 					return fmt.Errorf("error while writing environment, error: %w", err)
