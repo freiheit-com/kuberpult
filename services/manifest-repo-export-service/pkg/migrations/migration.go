@@ -112,3 +112,62 @@ func DBUpsertCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql
 	}
 	return nil
 }
+
+const GoMigration_AppsHistory = "AppsHistory"
+
+func DBInsertGoMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, migrationName string) error {
+	timestamp, err := h.DBReadTransactionTimestamp(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("read transaction timestamp from DB. Error: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery(`
+		INSERT INTO go_migration_cutoff (migration_done_at, migration_name)
+		VALUES (?, ?);`)
+
+	_, err = tx.Exec(
+		insertQuery,
+		timestamp,
+		migrationName,
+	)
+	if err != nil {
+		return fmt.Errorf("could not write to go_migration_cutoff table from DB: %w", err)
+	}
+	return nil
+}
+
+func DBHasGoMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql.Tx, migrationName string) (bool, error) {
+	selectQuery := h.AdaptQuery(`
+		SELECT migration_done_at
+		FROM go_migration_cutoff
+		WHERE migration_name=?
+		LIMIT 1;
+	`)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		migrationName,
+	)
+	if err != nil {
+		return false, fmt.Errorf("could not query go_migration_cutoff table from DB: %w", err)
+	}
+
+	if !rows.Next() {
+		return false, nil
+	}
+	var rawVersion string
+	err = rows.Scan(&rawVersion)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("migration_cutoff: Error scanning row from DB. Error: %w", err)
+	}
+	err = rows.Close()
+	if err != nil {
+		return false, fmt.Errorf("migration_cutoff: row closing error: %v", err)
+	}
+
+	return true, nil
+}
