@@ -19,8 +19,8 @@
 
 git:
   # The git url of the manifest repository (git protocol)
-  url: # git@github.com/.../...
-  webUrl: # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
+  url:  # git@github.com/.../...
+  webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
   branch: "master"
@@ -86,13 +86,13 @@ log:
   level: "WARN"
 cd:
   image: kuberpult-cd-service
-  # By default, kuberpult allows names of apps to be max 39 characters.
-  # This is usually enough. If you want to extend the length to up to 70 characters,
-  # You need to ensure that ArgoCD has no issue with this. Set the Argo CD helm parameter:
-  # `configs.cm.application.resourceTrackingMethod: annotation+label`
-  # Note that there is no simple way in kuberpult to rename an app.
+# By default, kuberpult allows names of apps to be max 39 characters.
+# This is usually enough. If you want to extend the length to up to 70 characters,
+# You need to ensure that ArgoCD has no issue with this. Set the Argo CD helm parameter:
+# `configs.cm.application.resourceTrackingMethod: annotation+label`
+# Note that there is no simple way in kuberpult to rename an app.
   allowLongAppNames: false
-  # List of allowed domains that the links provided in releases, release trains and locks must match
+# List of allowed domains that the links provided in releases, release trains and locks must match
   allowedDomains: ""
   cacheTtlHours: 24
   maxNumberOfThreads: 3
@@ -110,8 +110,8 @@ cd:
   pod:
     annotations: {}
   backendConfig:
-    create: false # Add backend config for health checks on GKE only
-    timeoutSec: 300 # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
+    create: false   # Add backend config for health checks on GKE only
+    timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
     queueSize: 5
   # The maximum message size in megabytes the client can receive or send:
   grpcMaxRecvMsgSize: 4
@@ -138,12 +138,12 @@ cd:
 db:
   location: "127.0.0.1"
   authProxyPort: 5432
-  # The Database feature is now required:
+# The Database feature is now required:
   dbOption: "postgreSQL"
-  # k8sServiceAccountName is required.
-  # k8sServiceAccountName is the name of the kubernetes service account.
+# k8sServiceAccountName is required.
+# k8sServiceAccountName is the name of the kubernetes service account.
   k8sServiceAccountName: "kp-k8s-service-account"
-  # cloudSqlProxyEnabled enables the cloudsql proxy.
+# cloudSqlProxyEnabled enables the cloudsql proxy.
   cloudSqlProxyEnabled: false
   dbConnectionName: "connectioname"
   dbName: "databaseName"
@@ -155,7 +155,7 @@ db:
   requests:
     cpu: "100m"
     memory: "200Mi"
-  connections: # You need to ensure that your sql server can handle at least
+  connections:    # You need to ensure that your sql server can handle at least
     # `cd.maxOpen + manifestRepoExport.maxOpen` connections in parallel.
     cd:
       # The cd-service may need to respond to many parallel requests,
@@ -239,7 +239,7 @@ manifestRepoExport:
   # Pushing the *commit* always happens before pushing the tag, and failing to push the commit is always considered an error.
   # Note that if there was no commit created (because the release train did not deploy anything),
   # then we do not attempt to push the tag either, because pushing is a slow operation.
-  #
+  # 
   # Consider setting `dogstatsdMetrics.enabled:true`, then the failings of git push operations are measured in the metric "manifest_export_tag_push_failures".
   failOnErrorWithGitPushTags: true
   # Allows to run the rollout service and the manifest service at the same time.
@@ -258,8 +258,8 @@ manifestRepoExport:
         # value: name of argoProject
 frontend:
   image: kuberpult-frontend-service
-  # Annotations given here will be added to kuberpult-frontend-service annotations.
-  # See frontend-service.yaml for automatically added annotations.
+# Annotations given here will be added to kuberpult-frontend-service annotations.
+# See frontend-service.yaml for automatically added annotations.
   service:
     annotations: {}
   pod:
@@ -271,8 +271,8 @@ frontend:
     requests:
       cpu: 500m
       memory: 250Mi
-  # Limit for the wait time for resources that support waiting on conditions ( e.g. rollout-status ).
-  # This MUST be lower than the combined timeouts of ALL http proxies in use.
+# Limit for the wait time for resources that support waiting on conditions ( e.g. rollout-status ).
+# This MUST be lower than the combined timeouts of ALL http proxies in use.
   maxWaitDuration: 10m
   batchClient:
     # This value needs to be higher than the network timeout for git
@@ -402,7 +402,7 @@ ingress:
     gateway: null
 ssh:
   # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
-  identity: "some SSH key" # This value must be the complete OpenSSH private key file content (i.e. starts with "-----BEGIN OPENSSH PRIVATE KEY-----")
+  identity: "some SSH key"  # This value must be the complete OpenSSH private key file content (i.e. starts with "-----BEGIN OPENSSH PRIVATE KEY-----")
   known_hosts: |
     github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
 pgp:
