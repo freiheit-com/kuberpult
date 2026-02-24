@@ -246,7 +246,7 @@ spec:
         - name: KUBERPULT_MINIMIZE_EXPORTED_DATA
           value: "{{ .Values.git.minimizeExportedData }}"
         - name: KUBERPULT_CHECK_GIT2DB_MIGRATIONS
-          value: "{{ .Values.db.checkGit2DBMigrations }}"
+          value: "{{ .Values.db.checkCustomMigrations }}"
         - name: KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS
           value: {{ .Values.manifestRepoExport.failOnErrorWithGitPushTags | quote }}
 

@@ -947,7 +947,7 @@ type GetAllAppsFun = func() (map[types.AppName]string, error)
 // return value is a map from environment name to environment config
 type GetAllEnvironmentsFun = func(ctx context.Context) (map[types.EnvName]config.EnvironmentConfig, error)
 
-func (h *DBHandler) RunCustomMigrations(
+func (h *DBHandler) RunGit2DBMigrations(
 	ctx context.Context,
 	getAllAppsFun GetAllAppsFun,
 	writeAllDeploymentsFun WriteAllDeploymentsFun,

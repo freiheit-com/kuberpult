@@ -266,7 +266,7 @@ spec:
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.cd.maxIdle }}"
         - name: KUBERPULT_CHECK_GIT2DB_MIGRATIONS
-          value: "{{ .Values.db.checkGit2DBMigrations }}"
+          value: "{{ .Values.db.checkCustomMigrations }}"
         - name: KUBERPULT_LOCK_TYPE
           value: "{{ .Values.cd.lockType }}"
 {{- end }}

@@ -228,18 +228,6 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, 
 		span.Finish(tracer.WithError(err))
 	}()
 
-	var alreadyMigrated = false
-	latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
-	if err != nil {
-		return err
-	}
-	if len(latestAppsWithTeams) > 0 {
-		alreadyMigrated = true
-	}
-	if alreadyMigrated {
-		return nil
-	}
-
 	var appsHistoryRows []AppHistoryRow
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, stateChange, metadata

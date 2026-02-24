@@ -73,29 +73,47 @@ func (h *DBHandler) DBHasGoMigrationCutoff(ctx context.Context, tx *sql.Tx, migr
 	return rows.Next(), nil
 }
 
-func (h *DBHandler) RunCustomMigrationAppsHistory(ctx context.Context) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAppsHistory")
+type DBMigration struct {
+	migrationName string
+	migrationFunc func(ctx context.Context, tx *sql.Tx) error
+}
+
+func (h *DBHandler) RunCustomMigrations(ctx context.Context) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
-	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		// check if the migration already ran
-		hasMigration, err := h.DBHasGoMigrationCutoff(ctx, transaction, GoMigration_AppsHistory)
+	migrations := []DBMigration{
+		{
+			migrationName: GoMigration_AppsHistory,
+			migrationFunc: h.DBMigrateAppsHistoryToAppsTeamsHistory,
+		},
+	}
+
+	for _, migration := range migrations {
+		err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			// check if the migration already ran
+			hasMigration, err := h.DBHasGoMigrationCutoff(ctx, transaction, migration.migrationName)
+			if err != nil {
+				return err
+			}
+			if hasMigration {
+				return nil
+			}
+
+			// run the migration
+			err = migration.migrationFunc(ctx, transaction)
+			if err != nil {
+				return err
+			}
+
+			// mark the migration as done
+			return h.DBInsertGoMigrationCutoff(ctx, transaction, migration.migrationName)
+		})
 		if err != nil {
 			return err
 		}
-		if hasMigration {
-			return nil
-		}
-
-		// run the migration
-		err = h.DBMigrateAppsHistoryToAppsTeamsHistory(ctx, transaction)
-		if err != nil {
-			return err
-		}
-
-		// mark the migration as done
-		return h.DBInsertGoMigrationCutoff(ctx, transaction, GoMigration_AppsHistory)
-	})
+	}
+	return nil
 }

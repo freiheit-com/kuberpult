@@ -349,7 +349,17 @@ func Run(ctx context.Context) error {
 	if migErr != nil {
 		logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 	}
-	logger.FromContext(ctx).Info("Finished with basic database migration.")
+	logger.FromContext(ctx).Info("Finished with SQL migration.")
+
+	// the custom migrations that we also want to run on startup
+	logger.FromContext(ctx).Info("Running custom migrations")
+	err = dbHandler.RunCustomMigrations(ctx)
+	if err != nil {
+		logger.FromContext(ctx).Fatal("error running custom migrations", zap.Error(err))
+	}
+	logger.FromContext(ctx).Info("Finished custom migrations")
+
+	// the custom migrations that we only want to run on startup if the flag is enabled
 	kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
 	if err != nil {
 		return err
@@ -373,6 +383,21 @@ func Run(ctx context.Context) error {
 		logger.FromContext(ctx).Info("Git2DB Migrations skipped. Kuberpult only runs Git2DB Migrations if " +
 			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_GIT2DB_MIGRATIONS=true.")
 	}
+
+	if dbOutdatedDeploymentsCleaningEnabled {
+		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
+		if err != nil {
+			logger.FromContext(ctx).Error("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false'", zap.Error(err))
+		}
+	}
+
+	if resetGitSyncStatusEnabled {
+		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)
+		if err != nil {
+			logger.FromContext(ctx).Error("error cleaning git sync status - you can disable this cleaning operation with 'db.resetGitSyncStatus.enabled:false'", zap.Error(err))
+		}
+	}
+
 	if dbGitTimestampMigrationEnabled {
 		err := dbHandler.RunCustomMigrationReleasesTimestamp(ctx, repo.State().GetAppsAndTeams, repo.State().FixReleasesTimestamp)
 		if err != nil {
@@ -418,27 +443,6 @@ func Run(ctx context.Context) error {
 	}
 	allArgoProjectNames.ActiveActiveEnvironments = ParseEnvironmentOverrides(ctx, rawStringMapAAEnvironments, existingEnvsFullName)
 	allArgoProjectNames.Environments = ParseEnvironmentOverrides(ctx, rawStringMapEnvironments, existingEnvsFullName)
-
-	if dbOutdatedDeploymentsCleaningEnabled {
-		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
-		if err != nil {
-			logger.FromContext(ctx).Error("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false'", zap.Error(err))
-		}
-	}
-
-	logger.FromContext(ctx).Info("Running migration for apps history")
-	err = dbHandler.RunCustomMigrationAppsHistory(ctx)
-	if err != nil {
-		logger.FromContext(ctx).Fatal("error running migration for apps history", zap.Error(err))
-	}
-	logger.FromContext(ctx).Info("Finished migration for apps history")
-
-	if resetGitSyncStatusEnabled {
-		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)
-		if err != nil {
-			logger.FromContext(ctx).Error("error cleaning git sync status - you can disable this cleaning operation with 'db.resetGitSyncStatus.enabled:false'", zap.Error(err))
-		}
-	}
 
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -539,7 +543,7 @@ func ParseEnvironmentOverrides(ctx context.Context, configuredArgoNamesPerEnv va
 
 func getGit2DBMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
 	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrations(
+		return dbHandler.RunGit2DBMigrations(
 			ctx,
 			repo.State().GetAppsAndTeams,
 			repo.State().WriteCurrentlyDeployed,
