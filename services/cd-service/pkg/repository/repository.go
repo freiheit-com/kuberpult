@@ -195,13 +195,11 @@ type RepositoryConfig struct {
 
 // Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
-	logger := logger.FromContext(ctx)
-
 	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
 	if ddMetricsFromCtx != nil {
 		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
 	} else {
-		logger.Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
+		logger.FromContext(ctx).Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
 	}
 
 	if cfg.StorageBackend == DefaultBackend {
@@ -758,25 +756,24 @@ func envExists(envConfigs map[types.EnvName]config.EnvironmentConfig, envNameToS
 }
 
 func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transaction *sql.Tx) (map[types.EnvName]config.EnvironmentConfig, error) {
-	logger := logger.FromContext(ctx)
 	envConfigs, err := s.GetAllEnvironmentConfigs(ctx, transaction)
 	if err != nil {
 		return nil, err
 	}
 	if len(envConfigs) == 0 {
-		logger.Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
+		logger.FromContext(ctx).Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
 	}
 
 	for envName, env := range envConfigs {
 		if env.ArgoCdConfigs != nil && env.ArgoCd != nil {
-			logger.Error(fmt.Sprintf("The environment '%s' has both ArgoCdConfigs and ArgoCd configured. This is not supported", envName))
+			logger.FromContext(ctx).Error(fmt.Sprintf("The environment '%s' has both ArgoCdConfigs and ArgoCd configured. This is not supported", envName))
 		}
 		if env.Upstream == nil || env.Upstream.Environment == "" {
 			continue
 		}
 		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
-			logger.Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
+			logger.FromContext(ctx).Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
 		}
 	}
 	envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
@@ -784,7 +781,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		grpDist := group.Environments[0].DistanceToUpstream
 		for _, env := range group.Environments {
 			if env.DistanceToUpstream != grpDist {
-				logger.Warn(fmt.Sprintf("The environment group '%s' has multiple environments setup with different distances to upstream", group.EnvironmentGroupName))
+				logger.FromContext(ctx).Warn(fmt.Sprintf("The environment group '%s' has multiple environments setup with different distances to upstream", group.EnvironmentGroupName))
 			}
 
 		}
@@ -937,8 +934,8 @@ type Release struct {
 	Version  uint64
 	Revision uint64
 	/**
-	"UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
-	It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
+	  "UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
+	  It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
 	*/
 	UndeployVersion bool
 	SourceAuthor    string
@@ -948,8 +945,8 @@ type Release struct {
 	DisplayVersion  string
 	IsMinor         bool
 	/**
-	"IsPrepublish=true" is used at the start of the merge pipeline to create a pre-publish release which can't be deployed.
-	The goal is to get 100% of the commits even if the pipeline fails.
+	  "IsPrepublish=true" is used at the start of the merge pipeline to create a pre-publish release which can't be deployed.
+	  The goal is to get 100% of the commits even if the pipeline fails.
 	*/
 	IsPrepublish bool
 	Environments []types.EnvName

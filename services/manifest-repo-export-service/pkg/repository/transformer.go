@@ -1869,10 +1869,10 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	for env := range configs {
 		envDir := fs.Join(releaseDir, "environments", string(env))
 
-		config, found := configs[env]
+		cfg, found := configs[env]
 		hasUpstream := false
 		if found {
-			hasUpstream = config.Upstream != nil
+			hasUpstream = cfg.Upstream != nil
 		}
 		if tCtx.ShouldMaximizeGitData() {
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
@@ -1891,7 +1891,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		if _, exists := deploymentsMap[env]; !exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			continue
 		}
-		if hasUpstream && config.Upstream.Latest {
+		if hasUpstream && cfg.Upstream.Latest {
 			d := &DeployApplicationVersion{
 				SourceTrain: nil,
 				Environment: env,
@@ -2211,10 +2211,10 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 	if err != nil {
 		return "", err
 	}
-	config := configs[d.Environment]
+	cfg := configs[d.Environment]
 
-	if isAAEnv(config) {
-		for _, currentConfig := range config.ArgoCdConfigs.ArgoCdConfigurations {
+	if isAAEnv(cfg) {
+		for _, currentConfig := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
 			if err := deleteAAEnvironment(ctx, fs, d.Environment, types.EnvName(currentConfig.ConcreteEnvName)); err != nil {
 				return "", err
 			}

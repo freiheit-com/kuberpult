@@ -10,9 +10,15 @@ linters:
     - copyloopvar
     - staticcheck
     - unconvert
+    - gocritic
   exclusions:
     paths:
       - pkg/publicapi
+  settings:
+    gocritic:
+      disable-all: true
+      enabled-checks:
+        - importShadow
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
