@@ -427,7 +427,7 @@ func Run(ctx context.Context) error {
 	}
 
 	logger.FromContext(ctx).Info("Running migration for apps history")
-	err = dbHandler.RunCustomMigrationAppsHistory(ctx)
+	err = service.RunCustomMigrationAppsHistory(ctx, dbHandler)
 	if err != nil {
 		logger.FromContext(ctx).Fatal("error running migration for apps history", zap.Error(err))
 	}

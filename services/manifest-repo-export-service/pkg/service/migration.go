@@ -33,6 +33,7 @@ import (
 	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/migrations"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type MigrationFunc func(ctx context.Context) error
@@ -113,4 +114,31 @@ func (s *MigrationServer) RunMigrations(ctx context.Context, kuberpultVersion *a
 	}
 	log.Infof("All migrations are applied.")
 	return nil
+}
+
+func RunCustomMigrationAppsHistory(ctx context.Context, dbHandler *db.DBHandler) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrationAppsHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	return dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		// check if the migration already ran
+		hasMigration, err := dbHandler.DBHasGoMigrationCutoff(ctx, transaction, db.GoMigration_AppsHistory)
+		if err != nil {
+			return err
+		}
+		if hasMigration {
+			return nil
+		}
+
+		// run the migration
+		err = dbHandler.DBMigrateAppsHistoryToAppsTeamsHistory(ctx, transaction)
+		if err != nil {
+			return err
+		}
+
+		// mark the migration as done
+		return dbHandler.DBInsertGoMigrationCutoff(ctx, transaction, db.GoMigration_AppsHistory)
+	})
 }
