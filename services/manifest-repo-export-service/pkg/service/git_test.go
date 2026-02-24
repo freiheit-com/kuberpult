@@ -25,27 +25,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
-	git "github.com/libgit2/git2go/v34"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/uuid"
-
+	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	rp "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
 
@@ -57,7 +53,7 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 	fixtureAppications := []types.AppName{"app", "app-1", "app-2", "app-3"}
 	eslVersion := 0
 	for _, app := range fixtureAppications {
-		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(app), db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"})
+		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"}, types.ArgoBracketName(app))
 		if err != nil {
 			return err
 		}

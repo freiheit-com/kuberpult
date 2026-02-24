@@ -25,19 +25,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	"github.com/cenkalti/backoff/v4"
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 type step struct {
@@ -191,8 +191,8 @@ func TestVersionClientStream(t *testing.T) {
 								CommonEnvPrefix: "",
 								Configs:         []*api.ArgoCDEnvironmentConfiguration{},
 							},
-							Upstream:         &api.EnvironmentConfig_Upstream{},
-							Argocd:           &api.ArgoCDEnvironmentConfiguration{},
+							Upstream: &api.EnvironmentConfig_Upstream{},
+							Argocd:   &api.ArgoCDEnvironmentConfiguration{},
 						},
 					},
 				},
@@ -1128,7 +1128,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 		if err != nil {
 			return err
 		}
-		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{})
+		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{}, "foo")
 		if err != nil {
 			return err
 		}
