@@ -449,11 +449,6 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
-	allEnvConfigs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
-	if err != nil {
-		return "", err
-	}
-
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
 		TransformerMetadata: TransformerMetadata{
@@ -461,7 +456,7 @@ func (c *DeployApplicationVersion) Transform(
 			AuthorEmail: existingDeployment.Metadata.DeployedByEmail,
 		},
 		TransformerEslVersion:    c.TransformerEslVersion,
-		AllEnvironmentsPreloaded: allEnvConfigs,
+		AllEnvironmentsPreloaded: c.AllEnvironmentsPreloaded,
 	}
 	if err := tCtx.Execute(ctx, d, transaction); err != nil {
 		return "", err
