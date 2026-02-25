@@ -11,6 +11,7 @@ linters:
     - staticcheck
     - unconvert
     - gocritic
+    - revive
   exclusions:
     paths:
       - pkg/publicapi
@@ -19,6 +20,11 @@ linters:
       disable-all: true
       enabled-checks:
         - importShadow
+    revive:
+      rules:
+        - name: redundant-import-alias
+          severity: error
+          disabled: false
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
