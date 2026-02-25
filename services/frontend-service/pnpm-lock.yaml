@@ -157,8 +157,8 @@ importers:
         specifier: 3.8.1
         version: 3.8.1
       protobufjs:
-        specifier: 8.0.0
-        version: 8.0.0
+        specifier: 7.2.6
+        version: 7.2.6
       react-refresh:
         specifier: 0.18.0
         version: 0.18.0
@@ -10248,8 +10248,8 @@ packages:
       react-is: 16.13.1
     dev: false
 
-  /protobufjs@8.0.0:
-    resolution: {integrity: sha512-jx6+sE9h/UryaCZhsJWbJtTEy47yXoGNYI4z8ZaRncM0zBKeRqjO2JEcOUYwrYGb1WLhXM1FfMzW3annvFv0rw==}
+  /protobufjs@7.2.6:
+    resolution: {integrity: sha512-dgJaEDDL6x8ASUZ1YqWciTRrdOuYNzoOf27oHNfdyvKqHr5i0FV7FSLU+aIeFjyFgVxrpTOtQUi0BLLBymZaBw==}
     engines: {node: '>=12.0.0'}
     requiresBuild: true
     dependencies:
