@@ -560,11 +560,6 @@ func (h *DBHandler) DBUpdateOrCreateDeployment(ctx context.Context, tx *sql.Tx, 
 }
 
 func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName types.AppName, version types.ReleaseNumbers) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
 	return h.dbWriteDeploymentAttemptInternal(ctx, tx, &QueuedDeployment{
 		Created:        time.Time{},
 		Env:            envName,
@@ -1031,11 +1026,6 @@ func (h *DBHandler) processDeploymentAttemptsRows(ctx context.Context, rows *sql
 }
 
 func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "dbWriteDeploymentAttemptInternal")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
 	nullVersion := NewNullUInt(deployment.ReleaseNumbers.Version)
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -1045,7 +1035,6 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO deployment_attempts_history (created, envName, appName, releaseVersion, revision) VALUES (?, ?, ?, ?, ?);")
 
-	span.SetTag("insert", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
 		*now,
@@ -1074,7 +1063,6 @@ ON CONFLICT (appName, envName) DO UPDATE SET
 	revision = excluded.revision;
 		`)
 
-		span.SetTag("upsert", upsertQuery)
 		_, err = tx.Exec(
 			upsertQuery,
 			*now,
@@ -1094,7 +1082,6 @@ DELETE FROM deployment_attempts_latest WHERE
 	AND
 	envName = ?
 			`)
-		span.SetTag("delete", deleteQuery)
 		_, err = tx.Exec(
 			deleteQuery,
 			deployment.App,

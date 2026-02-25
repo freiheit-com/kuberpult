@@ -570,11 +570,6 @@ func (h *DBHandler) processEnvLockRows(ctx context.Context, err error, rows *sql
 }
 
 func (h *DBHandler) processAllEnvLocksRows(ctx context.Context, err error, rows *sql.Rows) ([]string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processAllEnvLocksRows")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
 	if err != nil {
 		return nil, fmt.Errorf("could not query all environment locks table from DB. Error: %w", err)
 	}
