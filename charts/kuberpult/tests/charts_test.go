@@ -697,7 +697,7 @@ db:
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Name:  "KUBERPULT_CHECK_GIT2DB_MIGRATIONS",
 					Value: "false",
 				},
 			},
@@ -716,7 +716,7 @@ db:
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_CHECK_CUSTOM_MIGRATIONS",
+					Name:  "KUBERPULT_CHECK_GIT2DB_MIGRATIONS",
 					Value: "true",
 				},
 			},

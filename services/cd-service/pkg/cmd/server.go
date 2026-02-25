@@ -101,7 +101,7 @@ type Config struct {
 	ReleaseVersionsLimit     uint
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
-	CheckCustomMigrations bool
+	CheckGit2DBMigrations bool
 	MigrationServer       string
 	MigrationServerSecure bool
 
@@ -186,7 +186,7 @@ func parseEnvVars() (_ *Config, err error) {
 		return nil, err
 	}
 
-	c.CheckCustomMigrations = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CHECK_CUSTOM_MIGRATIONS", false)
+	c.CheckGit2DBMigrations = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CHECK_GIT2DB_MIGRATIONS", false)
 	c.MigrationServer, err = valid.ReadEnvVar("KUBERPULT_MIGRATION_SERVER")
 	if err != nil {
 		return nil, err
@@ -426,13 +426,13 @@ func RunServer() {
 			}
 		grpcMsgSizeBytes := c.GrpcMaxRecvMsgSize * megaBytes
 
-		if dbHandler.ShouldUseOtherTables() && c.CheckCustomMigrations {
+		if dbHandler.ShouldUseOtherTables() && c.CheckGit2DBMigrations {
 			//Check for migrations -> for pulling
 			logger.FromContext(ctx).Sugar().Warnf("checking if migrations are required...")
 
 			var migrationClient api.MigrationServiceClient = nil
 			if c.MigrationServer == "" {
-				logger.FromContext(ctx).Fatal("MigrationServer required when KUBERPULT_CHECK_CUSTOM_MIGRATIONS is enabled")
+				logger.FromContext(ctx).Fatal("MigrationServer required when KUBERPULT_CHECK_GIT2DB_MIGRATIONS is enabled")
 			}
 			var cred = insecure.NewCredentials()
 			if c.MigrationServerSecure {
@@ -461,23 +461,23 @@ func RunServer() {
 				logger.FromContext(ctx).Fatal("env.parse.error", zap.Error(err), zap.String("version", c.Version))
 			}
 
-			response, migErr := migrationClient.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+			response, migErr := migrationClient.EnsureGit2DBMigrationApplied(ctx, &api.EnsureGit2DBMigrationAppliedRequest{
 				Version: kuberpultVersion,
 			})
 
 			if migErr != nil {
-				logger.FromContext(ctx).Fatal("Error ensuring custom migrations are applied", zap.Error(migErr))
+				logger.FromContext(ctx).Fatal("Error ensuring Git2DB migrations are applied", zap.Error(migErr))
 			}
 			if response == nil {
-				logger.FromContext(ctx).Sugar().Fatal("Custom database migrations returned nil response")
+				logger.FromContext(ctx).Sugar().Fatal("Git2DB migrations returned nil response")
 			}
 			if !response.MigrationsApplied {
-				logger.FromContext(ctx).Sugar().Fatalf("Custom database migrations where not applied: %v", response)
+				logger.FromContext(ctx).Sugar().Fatalf("Git2DB migrations where not applied: %v", response)
 			}
 
-			logger.FromContext(ctx).Sugar().Warnf("finished running custom migrations")
+			logger.FromContext(ctx).Sugar().Warnf("finished running Git2DB migrations")
 		} else {
-			logger.FromContext(ctx).Sugar().Warnf("Skipping custom migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=%t and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=%t", dbHandler.ShouldUseOtherTables(), c.CheckCustomMigrations)
+			logger.FromContext(ctx).Sugar().Warnf("Skipping Git2DB migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=%t and KUBERPULT_CHECK_GIT2DB_MIGRATIONS=%t", dbHandler.ShouldUseOtherTables(), c.CheckGit2DBMigrations)
 		}
 
 		span.Finish()
