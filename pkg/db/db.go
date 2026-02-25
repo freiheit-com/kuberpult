@@ -331,7 +331,8 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("DBWriteEslEventInternal unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", insertQuery)
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		eventType,
@@ -364,7 +365,8 @@ func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eve
 		return fmt.Errorf("DBWriteEslEventInternal unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", insertQuery)
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		eventType,
@@ -545,13 +547,6 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 }
 
 func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "WriteEvent")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-	span.SetTag("eventType", eventType)
-	span.SetTag("commitHash", sourceCommitHash)
-
 	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
 
 	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
@@ -559,13 +554,12 @@ func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transfo
 		return fmt.Errorf("WriteEvent unable to get transaction timestamp: %w", err)
 	}
 
-	span.SetTag("query", insertQuery)
-
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
 	if err != nil {
 		return fmt.Errorf("error parsing UUID. Error: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		insertQuery,
 		rawUUID.String(),
 		*now,
@@ -1346,7 +1340,8 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 		return fmt.Errorf("DBWriteMigrationsTransformer unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", insertQuery)
-	_, err2 := transaction.Exec(
+	_, err2 := transaction.ExecContext(
+		ctx,
 		insertQuery,
 		ts,
 		EvtMigrationTransformer,
@@ -1561,9 +1556,6 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	if h == nil {
-		return nil
-	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteFailedEslEvent: no transaction provided")
 	}
@@ -1574,7 +1566,8 @@ func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table
 		return fmt.Errorf("DBWriteFailedEslEvent unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", insertQuery)
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		eslEvent.EventType,
@@ -1831,7 +1824,8 @@ func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *s
 	span.SetTag("query", insertQuery)
 	span.SetTag("commitHash", commitHash)
 	span.SetTag("timestamp", timestamp)
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		commitHash,
 		timestamp,
@@ -1843,14 +1837,6 @@ func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *s
 }
 
 func (h *DBHandler) DBUpdateCommitTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string, timestamp time.Time) (err error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "DBUpdateCommitTransactionTimestamp")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
-	if h == nil {
-		return nil
-	}
 	if tx == nil {
 		return fmt.Errorf("attempting to write to the commit_transaction_timestamps table without a transaction")
 	}
@@ -1859,7 +1845,8 @@ func (h *DBHandler) DBUpdateCommitTransactionTimestamp(ctx context.Context, tx *
 		"UPDATE commit_transaction_timestamps SET transactionTimestamp=? WHERE commitHash=?;",
 	)
 
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		timestamp,
 		commitHash,

@@ -509,7 +509,8 @@ func (h *DBHandler) upsertAppLockRow(ctx context.Context, transaction *sql.Tx, l
 	if err != nil {
 		return fmt.Errorf("upsertAppLockRow unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		lockID,
@@ -537,7 +538,8 @@ func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, l
 		DELETE FROM app_locks WHERE appname=? AND lockId=? AND envname=?
 	`)
 	span.SetTag("query", deleteQuery)
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		deleteQuery,
 		appname,
 		lockId,
@@ -555,15 +557,10 @@ func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, l
 }
 
 func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, appName types.AppName, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppLockHistoryRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO app_locks_history (created, lockId, envname, appName, metadata, deleted, deletionMetadata)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
-	span.SetTag("query", upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -578,7 +575,8 @@ func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sq
 	if err != nil {
 		return fmt.Errorf("upsertAppLockRow unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		lockID,

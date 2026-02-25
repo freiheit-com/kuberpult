@@ -414,15 +414,11 @@ func (h *DBHandler) DBClearReleases(ctx context.Context, transaction *sql.Tx, ap
 // actual changes in tables
 
 func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) (err error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "deleteReleaseRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM releases WHERE appname=? AND releaseversion=?
 	`)
-	span.SetTag("query", deleteQuery)
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		deleteQuery,
 		release.App,
 		*release.ReleaseNumbers.Version,
@@ -438,17 +434,12 @@ func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, r
 }
 
 func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "upsertReleaseRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO releases (created, releaseVersion, appName, manifests, metadata, environments, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(releaseVersion, appname, revision)
 		DO UPDATE SET manifests = excluded.manifests, metadata = excluded.metadata, environments = excluded.environments;
 	`)
-	span.SetTag("query", upsertQuery)
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
 		return fmt.Errorf("upsert release: could not marshal json data: %w", err)
@@ -473,7 +464,8 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 	if err != nil {
 		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		*(release.ReleaseNumbers.Version),
@@ -494,15 +486,10 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 }
 
 func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData, deleted bool) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertReleaseHistoryRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO releases_history (created, releaseVersion, appName, manifests, metadata, deleted, environments, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 	`)
-	span.SetTag("query", insertQuery)
 	metadataJson, err := json.Marshal(release.Metadata)
 	if err != nil {
 		return fmt.Errorf("insert release: could not marshal json data: %w", err)
@@ -527,7 +514,8 @@ func (h *DBHandler) insertReleaseHistoryRow(ctx context.Context, transaction *sq
 	if err != nil {
 		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		*release.ReleaseNumbers.Version,
@@ -933,7 +921,7 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 	}
 	queryID := rand.IntN(1 << 31) // this function should be called no more than once per transaction, but just to be save ...
 	tableQuery := h.AdaptQuery(`CREATE TEMP TABLE IF NOT EXISTS temp_query_app_releaseversions(queryId INTEGER, appName VARCHAR NOT NULL, releaseVersion INTEGER, revision INTEGER);`)
-	_, err = transaction.Exec(tableQuery)
+	_, err = transaction.ExecContext(ctx, tableQuery)
 	if err != nil {
 		return nil, fmt.Errorf("could not create query app releases table. Error: %w", err)
 	}
@@ -950,7 +938,8 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 		args[i] = releaseVersion.Revision
 		i++
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		insertQuery,
 		args...,
 	)
