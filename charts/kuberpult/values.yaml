@@ -173,7 +173,7 @@ db:
     reposerver:
       maxOpen: 5
       maxIdle: 2
-  # Kuberpult only checks for custom migrations if this flag is enabled. Otherwise, it skips them entirely, assuming
+  # Kuberpult only checks for Git2DB migrations if this flag is enabled. Otherwise, it skips them entirely, assuming
   # that there is no information we want to migrate from an existing manifest repository to the database.
   # You should only enable this flag, if you want to do a one-step upgrade of kuberpult from a (relatively old) version that still uses git as storage.
   # If you are already using the database, ignore this flag.
