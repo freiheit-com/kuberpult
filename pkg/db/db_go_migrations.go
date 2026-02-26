@@ -39,7 +39,8 @@ func (h *DBHandler) DBInsertGoMigrationCutoff(ctx context.Context, tx *sql.Tx, m
 		INSERT INTO go_migration_cutoff (migration_done_at, migration_name)
 		VALUES (?, ?);`)
 
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		timestamp,
 		migrationName,

@@ -102,7 +102,8 @@ func DBUpsertCustomMigrationCutoff(h *db.DBHandler, ctx context.Context, tx *sql
 		;`)
 	span.SetTag("query", insertQuery)
 
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		timestamp,
 		migrations2.FormatKuberpultVersion(kuberpultVersion),

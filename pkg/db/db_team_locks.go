@@ -444,7 +444,8 @@ func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 	if err != nil {
 		return fmt.Errorf("upsertTeamLockRow unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		lockID,
@@ -464,15 +465,11 @@ func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 }
 
 func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName, teamName string) (err error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "deleteTeamLockRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM team_locks
 		WHERE teamname=? AND lockId=? AND envname=?;`)
-	span.SetTag("query", deleteQuery)
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		deleteQuery,
 		teamName,
 		lockId,
@@ -490,15 +487,10 @@ func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 }
 
 func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertTeamLockHistoryRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO team_locks_history (created, lockId, envname, teamName, metadata, deleted, deletionMetadata)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
-	span.SetTag("query", upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -513,7 +505,8 @@ func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *s
 	if err != nil {
 		return fmt.Errorf("upsertTeamLockRow unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		lockID,

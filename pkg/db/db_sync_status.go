@@ -64,7 +64,8 @@ func (h *DBHandler) DBWriteNewSyncEvent(ctx context.Context, tx *sql.Tx, syncDat
 		return fmt.Errorf("DBWriteNewSyncEvent unable to get transaction timestamp: %w", err)
 	}
 	span.SetTag("query", insertQuery)
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		syncData.TransformerID,

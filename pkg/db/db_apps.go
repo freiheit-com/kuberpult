@@ -208,7 +208,7 @@ func (h *DBHandler) DBInsertAppsTeamsHistory(ctx context.Context, tx *sql.Tx, ap
 		}
 	}
 
-	err = h.insertAppsTeamsHistoryRow(tx, toInsert, ts)
+	err = h.insertAppsTeamsHistoryRow(ctx, tx, toInsert, ts)
 	if err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, 
 	return nil
 }
 
-func (h *DBHandler) insertAppsTeamsHistoryRow(transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
+func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO apps_teams_history (created_at, apps_teams)
 		VALUES (?, ?);
@@ -281,7 +281,8 @@ func (h *DBHandler) insertAppsTeamsHistoryRow(transaction *sql.Tx, appsWithTeams
 		return fmt.Errorf("could not marshal json data: %w", err)
 	}
 
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		insertQuery,
 		*ts,
 		jsonToInsert,
@@ -380,17 +381,12 @@ func (h *DBHandler) processAppsTeamsRow(rows *sql.Rows, err error) ([]AppWithTea
 
 // actual changes in tables
 func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "upsertAppsRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO apps (created, appName, stateChange, metadata)
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(appname)
 		DO UPDATE SET created = excluded.created, appname = excluded.appname, statechange = excluded.statechange, metadata = excluded.metadata;
 	`)
-	span.SetTag("query", upsertQuery)
 
 	jsonToInsert, err := json.Marshal(metaData)
 	if err != nil {
@@ -400,7 +396,8 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 	if err != nil {
 		return fmt.Errorf("upsertAppsRow unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		appName,
@@ -414,15 +411,10 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 }
 
 func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppsHistoryRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO apps_history (created, appName, stateChange, metadata)
 		VALUES (?, ?, ?, ?);
 	`)
-	span.SetTag("query", insertQuery)
 
 	jsonToInsert, err := json.Marshal(metaData)
 	if err != nil {
@@ -432,7 +424,8 @@ func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.T
 	if err != nil {
 		return fmt.Errorf("upsertAppsRow unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		appName,

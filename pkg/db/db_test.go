@@ -6969,7 +6969,8 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 	if err != nil {
 		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		*release.ReleaseNumbers.Version,

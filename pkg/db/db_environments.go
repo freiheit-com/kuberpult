@@ -413,7 +413,8 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 	if err != nil {
 		return fmt.Errorf("DBWriteEnvironment unable to get transaction timestamp: %w", err)
 	}
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		environmentName,
@@ -427,15 +428,11 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 }
 
 func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.Tx, environmentName types.EnvName) (err error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "deleteEnvironmentRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM environments WHERE name=? 
 	`)
-	span.SetTag("query", deleteQuery)
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		deleteQuery,
 		environmentName,
 	)
@@ -449,10 +446,6 @@ func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.T
 }
 
 func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx, environmentName types.EnvName, environmentConfig config.EnvironmentConfig, deleted bool) (err error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "insertEnvironmentHistoryRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	if h == nil {
 		return nil
 	}
@@ -463,7 +456,6 @@ func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx,
 		INSERT INTO environments_history (created, name, json, applications, deleted)
 		VALUES (?, ?, ?, ?, ?);
 	`)
-	span.SetTag("query", insertQuery)
 
 	jsonToInsert, err := json.Marshal(environmentConfig)
 	if err != nil {
@@ -474,7 +466,8 @@ func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx,
 	if err != nil {
 		return fmt.Errorf("DBWriteEnvironment unable to get transaction timestamp: %w", err)
 	}
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		environmentName,
