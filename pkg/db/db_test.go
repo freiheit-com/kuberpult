@@ -349,7 +349,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 			expectedDeployments:             []Deployment{},
-			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\""},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\" (23514)"},
 		},
 		{
 			name: "should prevent creating deployments with no release version",
@@ -381,7 +381,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 			expectedDeployments:             []Deployment{},
-			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\""},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\" (23514)"},
 		},
 		{
 			name: "should prevent creatings deployments with a non-existing release",
@@ -410,7 +410,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 			expectedDeployments:             []Deployment{},
-			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\""},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\" (23503)"},
 		},
 		{
 			name: "should preventing creating deployments if the app name is mismatched between deployment and release",
@@ -439,7 +439,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 			expectedDeployments:             []Deployment{},
-			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\""},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\" (23503)"},
 		},
 	}
 
