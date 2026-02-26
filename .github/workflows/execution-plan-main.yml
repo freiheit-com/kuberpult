@@ -6,6 +6,12 @@ name: "Execution Plan on main"
     branches:
       - main
 
+# As of now, we do not want multiple "main" pipelines to run in parallel,
+# because the pipeline relies on stable git tags throughout the run.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 jobs:
   execution-plan:
     uses: ./.github/workflows/execution-plan-snippet.yml
