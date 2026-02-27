@@ -147,7 +147,7 @@ jobs:
           setup_only: true
       - name: Install oapi-codegen
         run: |
-          go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+          go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.1
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
       - name: Set version pr/main
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
