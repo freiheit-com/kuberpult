@@ -49,7 +49,7 @@ var RolloutServiceUser auth.User = auth.User{
 }
 
 type VersionClient interface {
-	GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error)
+	GetVersion(ctx context.Context, revision, environment, app string) (*VersionInfo, error)
 	ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error
 	GetArgoProcessor() *argo.ArgoAppProcessor
 }
@@ -82,30 +82,30 @@ var ErrNotFound error = fmt.Errorf("not found")
 var ZeroVersion VersionInfo
 
 // GetVersion implements VersionClient
-func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
+func (v *versionClient) GetVersion(ctx context.Context, revision, environment, app string) (*VersionInfo, error) {
 	// use db access see cd-service/pkg/services/version
 	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetVersion")
 	defer span.Finish()
 	span.SetTag("GitRevision", revision)
 	span.SetTag("Environment", environment)
-	span.SetTag("Application", application)
+	span.SetTag("Application", app)
 
 	releaseVersion, err := strconv.ParseUint(revision, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse GitRevision '%s' for app '%s' in env '%s': %w",
-			revision, application, environment, err)
+			revision, app, environment, err)
 	}
 	return db.WithTransactionT[VersionInfo](&v.db, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
-		deployment, err := v.db.DBSelectSpecificDeploymentHistory(ctx, tx, types.AppName(application), environment, releaseVersion)
+		deployment, err := v.db.DBSelectSpecificDeploymentHistory(ctx, tx, types.AppName(app), environment, releaseVersion)
 		if err != nil || deployment == nil {
-			return nil, onErr(fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, application, err))
+			return nil, onErr(fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, app, err))
 		}
-		release, err := v.db.DBSelectReleaseByVersion(ctx, tx, types.AppName(application), types.ReleaseNumbers{Version: &releaseVersion, Revision: 0}, true)
+		release, err := v.db.DBSelectReleaseByVersion(ctx, tx, types.AppName(app), types.ReleaseNumbers{Version: &releaseVersion, Revision: 0}, true)
 		if err != nil {
-			return nil, onErr(fmt.Errorf("could not get release of app %s: %v", application, err))
+			return nil, onErr(fmt.Errorf("could not get release of app %s: %v", app, err))
 		}
 		if release == nil {
-			return nil, onErr(fmt.Errorf("no release found for env='%s' and app='%s'", environment, application))
+			return nil, onErr(fmt.Errorf("no release found for env='%s' and app='%s'", environment, app))
 		}
 		return &VersionInfo{
 			Version:        releaseVersion,
@@ -294,13 +294,13 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, db db.DBHandler, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, dbHandler db.DBHandler, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) VersionClient {
 	result := &versionClient{
 		cache:          lru.New(20),
 		overviewClient: oclient,
 		versionClient:  vclient,
 		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics),
-		db:             db,
+		db:             dbHandler,
 	}
 	return result
 }

@@ -318,11 +318,11 @@ func TransformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 	return nil
 }
 
-func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCDEnvironmentConfiguration {
+func TransformArgocd(cfg config.EnvironmentConfigArgoCd) *api.ArgoCDEnvironmentConfiguration {
 	var syncWindows []*api.ArgoCDEnvironmentConfiguration_SyncWindows
 	var accessList []*api.ArgoCDEnvironmentConfiguration_AccessEntry
 	var ignoreDifferences []*api.ArgoCDEnvironmentConfiguration_IgnoreDifferences
-	for _, i := range config.SyncWindows {
+	for _, i := range cfg.SyncWindows {
 		syncWindow := &api.ArgoCDEnvironmentConfiguration_SyncWindows{
 			Kind:         i.Kind,
 			Duration:     i.Duration,
@@ -332,7 +332,7 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCDEnvironme
 		syncWindows = append(syncWindows, syncWindow)
 	}
 
-	for _, i := range config.ClusterResourceWhitelist {
+	for _, i := range cfg.ClusterResourceWhitelist {
 		access := &api.ArgoCDEnvironmentConfiguration_AccessEntry{
 			Group: i.Group,
 			Kind:  i.Kind,
@@ -340,7 +340,7 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCDEnvironme
 		accessList = append(accessList, access)
 	}
 
-	for _, i := range config.IgnoreDifferences {
+	for _, i := range cfg.IgnoreDifferences {
 		ignoreDiff := &api.ArgoCDEnvironmentConfiguration_IgnoreDifferences{
 			Group:                 i.Group,
 			Kind:                  i.Kind,
@@ -355,24 +355,24 @@ func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.ArgoCDEnvironme
 
 	return &api.ArgoCDEnvironmentConfiguration{
 		Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
-			Name:                 config.Destination.Name,
-			Server:               config.Destination.Server,
-			Namespace:            config.Destination.Namespace,
-			AppProjectNamespace:  config.Destination.AppProjectNamespace,
-			ApplicationNamespace: config.Destination.ApplicationNamespace,
+			Name:                 cfg.Destination.Name,
+			Server:               cfg.Destination.Server,
+			Namespace:            cfg.Destination.Namespace,
+			AppProjectNamespace:  cfg.Destination.AppProjectNamespace,
+			ApplicationNamespace: cfg.Destination.ApplicationNamespace,
 		},
 		SyncWindows:            syncWindows,
 		AccessList:             accessList,
 		IgnoreDifferences:      ignoreDifferences,
-		ApplicationAnnotations: config.ApplicationAnnotations,
-		SyncOptions:            config.SyncOptions,
-		ConcreteEnvName:        config.ConcreteEnvName,
+		ApplicationAnnotations: cfg.ApplicationAnnotations,
+		SyncOptions:            cfg.SyncOptions,
+		ConcreteEnvName:        cfg.ConcreteEnvName,
 	}
 }
-func TransformArgocdConfigs(config config.ArgoCDConfigs) *api.EnvironmentConfig_ArgoConfigs {
+func TransformArgocdConfigs(cfg config.ArgoCDConfigs) *api.EnvironmentConfig_ArgoConfigs {
 	var toReturn api.EnvironmentConfig_ArgoConfigs
-	toReturn.CommonEnvPrefix = *config.CommonEnvPrefix
-	for _, cfg := range config.ArgoCdConfigurations {
+	toReturn.CommonEnvPrefix = *cfg.CommonEnvPrefix
+	for _, cfg := range cfg.ArgoCdConfigurations {
 		toReturn.Configs = append(toReturn.Configs, TransformArgocd(*cfg))
 	}
 	return &toReturn

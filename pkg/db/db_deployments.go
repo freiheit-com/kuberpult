@@ -414,7 +414,8 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 	}
 
 	span.SetTag("query", insertQuery)
-	rows, err := tx.Query(
+	rows, err := tx.QueryContext(
+		ctx,
 		insertQuery,
 		appName,
 	)
@@ -452,7 +453,8 @@ func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context,
 		AND latest.envName=deployments_history.envName;`)
 	span.SetTag("query", query)
 
-	rows, err := tx.Query(
+	rows, err := tx.QueryContext(
+		ctx,
 		query,
 		appName,
 		ts,
@@ -560,11 +562,6 @@ func (h *DBHandler) DBUpdateOrCreateDeployment(ctx context.Context, tx *sql.Tx, 
 }
 
 func (h *DBHandler) DBWriteDeploymentAttempt(ctx context.Context, tx *sql.Tx, envName types.EnvName, appName types.AppName, version types.ReleaseNumbers) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentAttempt")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
 	return h.dbWriteDeploymentAttemptInternal(ctx, tx, &QueuedDeployment{
 		Created:        time.Time{},
 		Env:            envName,
@@ -649,7 +646,7 @@ func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, appName 
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM deployments WHERE appName=? AND envName=?;
 	`)
-	_, err = tx.Exec(deleteQuery, appName, envName)
+	_, err = tx.ExecContext(ctx, deleteQuery, appName, envName)
 	if err != nil {
 		return fmt.Errorf("could not delete deployment for app '%s' in environment '%s' from DB. Error: %w", appName, envName, err)
 	}
@@ -722,9 +719,6 @@ func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deploym
 		ON CONFLICT(appName, envName)
 		DO UPDATE SET created = excluded.created, releaseVersion = excluded.releaseVersion, metadata = excluded.metadata, transformereslversion = excluded.transformereslversion, revision = excluded.revision;
 	`)
-	if h == nil {
-		return nil
-	}
 	if tx == nil {
 		return fmt.Errorf("upsertDeploymentRow: no transaction provided")
 	}
@@ -741,7 +735,8 @@ func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deploym
 	span.SetTag("query", upsertQuery)
 	nullVersion := NewNullUInt(deployment.ReleaseNumbers.Version)
 
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		nullVersion,
@@ -758,18 +753,10 @@ func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deploym
 }
 
 func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, deployment Deployment) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertDeploymentHistoryRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO deployments_history (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision) 
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
-	if h == nil {
-		return nil
-	}
 	if tx == nil {
 		return fmt.Errorf("DBWriteDeployment: no transaction provided")
 	}
@@ -783,10 +770,10 @@ func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, 
 	if err != nil {
 		return fmt.Errorf("DBWriteDeployment unable to get transaction timestamp: %w", err)
 	}
-	span.SetTag("query", insertQuery)
 	nullVersion := NewNullUInt(deployment.ReleaseNumbers.Version)
 
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		nullVersion,
@@ -1031,11 +1018,6 @@ func (h *DBHandler) processDeploymentAttemptsRows(ctx context.Context, rows *sql
 }
 
 func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sql.Tx, deployment *QueuedDeployment) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "dbWriteDeploymentAttemptInternal")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
 	nullVersion := NewNullUInt(deployment.ReleaseNumbers.Version)
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -1045,8 +1027,8 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	insertQuery := h.AdaptQuery(
 		"INSERT INTO deployment_attempts_history (created, envName, appName, releaseVersion, revision) VALUES (?, ?, ?, ?, ?);")
 
-	span.SetTag("insert", insertQuery)
-	_, err = tx.Exec(
+	_, err = tx.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		deployment.Env,
@@ -1074,8 +1056,8 @@ ON CONFLICT (appName, envName) DO UPDATE SET
 	revision = excluded.revision;
 		`)
 
-		span.SetTag("upsert", upsertQuery)
-		_, err = tx.Exec(
+		_, err = tx.ExecContext(
+			ctx,
 			upsertQuery,
 			*now,
 			deployment.Env,
@@ -1094,8 +1076,8 @@ DELETE FROM deployment_attempts_latest WHERE
 	AND
 	envName = ?
 			`)
-		span.SetTag("delete", deleteQuery)
-		_, err = tx.Exec(
+		_, err = tx.ExecContext(
+			ctx,
 			deleteQuery,
 			deployment.App,
 			deployment.Env,

@@ -159,15 +159,229 @@ func (h *DBHandler) DBInsertOrUpdateApplication(ctx context.Context, transaction
 	if err != nil {
 		return fmt.Errorf("insertAppsHistoryRow: %w", err)
 	}
+	return h.DBInsertAppsTeamsHistory(ctx, transaction, appName, metaData.Team, stateChange, nil)
+}
+
+func (h *DBHandler) DBInsertAppsTeamsHistory(ctx context.Context, tx *sql.Tx, appName types.AppName, teamName string, stateChange AppStateChange, ts *time.Time) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertAppsTeamsHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	var toInsert []AppWithTeam
+	var latestApp *AppWithTeam
+	for _, appWithTeam := range latestAppsWithTeams {
+		if appWithTeam.AppName == appName {
+			latestApp = &appWithTeam
+			break
+		}
+	}
+
+	if stateChange == AppStateChangeCreate || stateChange == AppStateChangeMigrate || (stateChange == AppStateChangeUpdate && latestApp == nil) {
+		toInsert = append(latestAppsWithTeams, AppWithTeam{
+			AppName:  appName,
+			TeamName: teamName,
+		})
+	}
+
+	if latestApp != nil {
+		for _, appWithTeam := range latestAppsWithTeams {
+			if appWithTeam.AppName != appName {
+				toInsert = append(toInsert, appWithTeam)
+			} else if stateChange == AppStateChangeUpdate {
+				toInsert = append(toInsert, AppWithTeam{
+					AppName:  appName,
+					TeamName: teamName,
+				})
+			}
+		}
+	}
+
+	if ts == nil {
+		// get current timestamp
+		ts, err = h.DBReadTransactionTimestamp(ctx, tx)
+		if err != nil {
+			return fmt.Errorf("unable to get transaction timestamp: %w", err)
+		}
+	}
+
+	err = h.insertAppsTeamsHistoryRow(ctx, tx, toInsert, ts)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+type AppHistoryRow struct {
+	Created     time.Time
+	AppName     types.AppName
+	StateChange AppStateChange
+	Metadata    DBAppMetaData
+}
+
+func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, tx *sql.Tx) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrateAppsHistoryToAppsTeamsHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	var appsHistoryRows []AppHistoryRow
+	selectQuery := h.AdaptQuery(`
+		SELECT created, appName, stateChange, metadata
+		FROM apps_history
+		ORDER BY version ASC;
+	`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		appHistoryRow := AppHistoryRow{}
+		var metadataJson string
+		err = rows.Scan(&appHistoryRow.Created, &appHistoryRow.AppName, &appHistoryRow.StateChange, &metadataJson)
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal([]byte(metadataJson), &appHistoryRow.Metadata)
+		if err != nil {
+			return err
+		}
+		appsHistoryRows = append(appsHistoryRows, appHistoryRow)
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return err
+	}
+
+	for _, appHistoryRow := range appsHistoryRows {
+		err = h.DBInsertAppsTeamsHistory(ctx, tx, appHistoryRow.AppName, appHistoryRow.Metadata.Team, appHistoryRow.StateChange, &appHistoryRow.Created)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
+	insertQuery := h.AdaptQuery(`
+		INSERT INTO apps_teams_history (created_at, apps_teams)
+		VALUES (?, ?);
+	`)
+
+	jsonToInsert, err := json.Marshal(appsWithTeams)
+	if err != nil {
+		return fmt.Errorf("could not marshal json data: %w", err)
+	}
+
+	_, err = transaction.ExecContext(
+		ctx,
+		insertQuery,
+		*ts,
+		jsonToInsert,
+	)
+	if err != nil {
+		return fmt.Errorf("could not insert new row into apps_teams_history table. Error: %w", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBSelectAppsWithReleasesAtTimestamp(ctx context.Context, transaction *sql.Tx, envName types.EnvName, ts time.Time) ([]types.AppName, error) {
+	query := h.AdaptQuery(`
+	SELECT DISTINCT appname
+	FROM (
+		SELECT DISTINCT ON (appname, releaseversion, revision)
+			appname,
+			environments,
+			deleted
+		FROM releases_history
+		WHERE created <= ?
+		ORDER BY
+			appname,
+			releaseversion,
+			revision,
+			version DESC
+	) AS latest_releases
+	WHERE
+		environments @> ?
+		AND deleted = false;
+	`)
+	rows, err := transaction.QueryContext(ctx, query, ts, `"`+envName+`"`)
+	if err != nil {
+		return nil, fmt.Errorf("could not query apps with releases at timestamp: %w", err)
+	}
+
+	var apps []types.AppName
+	for rows.Next() {
+		var appName types.AppName
+		if err := rows.Scan(&appName); err != nil {
+			return nil, fmt.Errorf("could not scan apps with releases at timestamp: %w", err)
+		}
+		apps = append(apps, appName)
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return apps, nil
+}
+
+func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transaction *sql.Tx) (_ []AppWithTeam, err error) {
+	query := h.AdaptQuery(`
+		SELECT apps_teams
+		FROM apps_teams_history
+		ORDER BY id DESC
+		LIMIT 1;
+	`)
+	rows, err := transaction.QueryContext(ctx, query)
+	return h.processAppsTeamsRow(rows, err)
+}
+
+func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) (_ []AppWithTeam, err error) {
+	query := h.AdaptQuery(`
+		SELECT apps_teams
+		FROM apps_teams_history
+		WHERE created_at <= ?
+		ORDER BY id DESC
+		LIMIT 1;
+	`)
+	rows, err := transaction.QueryContext(ctx, query, ts)
+	return h.processAppsTeamsRow(rows, err)
+}
+
+func (h *DBHandler) processAppsTeamsRow(rows *sql.Rows, err error) ([]AppWithTeam, error) {
+	if err != nil {
+		return nil, fmt.Errorf("could not query apps_teams_history table. Error: %w", err)
+	}
+
+	appsWithTeam := make([]AppWithTeam, 0)
+	for rows.Next() {
+		var appsTeamsJson string
+		if err := rows.Scan(&appsTeamsJson); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(appsTeamsJson), &appsWithTeam); err != nil {
+			return nil, err
+		}
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return appsWithTeam, nil
 }
 
 // actual changes in tables
 func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData, argoBracket types.ArgoBracketName) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "upsertAppsRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO apps (created, appName, stateChange, metadata, argoBracket)
 		VALUES (?, ?, ?, ?, ?)
@@ -178,7 +392,6 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 		    metadata = excluded.metadata,
 		    argoBracket = excluded.argoBracket;
 	`)
-	span.SetTag("query", upsertQuery)
 
 	jsonToInsert, err := json.Marshal(metaData)
 	if err != nil {
@@ -189,7 +402,8 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 		return fmt.Errorf("upsertAppsRow unable to get transaction timestamp: %w", err)
 	}
 	nullableBracket := argoBracketToSql(argoBracket)
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		appName,
@@ -204,15 +418,10 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 }
 
 func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData, argoBracket types.ArgoBracketName) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertAppsHistoryRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO apps_history (created, appName, stateChange, metadata, argoBracket)
 		VALUES (?, ?, ?, ?, ?);
 	`)
-	span.SetTag("query", insertQuery)
 
 	jsonToInsert, err := json.Marshal(metaData)
 	if err != nil {
@@ -224,7 +433,8 @@ func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.T
 	}
 
 	nullableBracket := argoBracketToSql(argoBracket)
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		appName,

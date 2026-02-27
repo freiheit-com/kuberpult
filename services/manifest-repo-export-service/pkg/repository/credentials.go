@@ -80,9 +80,8 @@ func (c *credentialsStore) CredentialsCallback(ctx context.Context) git.Credenti
 			return nil, nil
 		}
 	}
-	logger := logger.FromContext(ctx)
 	return func(url string, username_from_url string, allowed_types git.CredentialType) (*git.Credential, error) {
-		logger.Debug("git.credentialsCallback",
+		logger.FromContext(ctx).Debug("git.credentialsCallback",
 			zap.String("url", url),
 			zap.String("username", username_from_url),
 		)

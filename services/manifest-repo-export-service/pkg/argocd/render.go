@@ -77,20 +77,20 @@ func Render(ctx context.Context, gitUrl string, gitBranch string, info *Environm
 
 func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData) ([]byte, error) {
 	applicationNs := ""
-	config := info.ArgoCDConfig
-	if config.Destination.Namespace != nil {
-		applicationNs = *config.Destination.Namespace
-	} else if config.Destination.ApplicationNamespace != nil {
-		applicationNs = *config.Destination.ApplicationNamespace
+	cfg := info.ArgoCDConfig
+	if cfg.Destination.Namespace != nil {
+		applicationNs = *cfg.Destination.Namespace
+	} else if cfg.Destination.ApplicationNamespace != nil {
+		applicationNs = *cfg.Destination.ApplicationNamespace
 	}
 	applicationDestination := v1alpha1.ApplicationDestination{
-		Name:      config.Destination.Name,
+		Name:      cfg.Destination.Name,
 		Namespace: applicationNs,
-		Server:    config.Destination.Server,
+		Server:    cfg.Destination.Server,
 	}
 	buf := []string{}
 	syncWindows := v1alpha1.SyncWindows{}
-	for _, w := range config.SyncWindows {
+	for _, w := range cfg.SyncWindows {
 		apps := []string{"*"}
 		if len(w.Apps) > 0 {
 			apps = w.Apps
@@ -104,7 +104,7 @@ func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *
 		})
 	}
 	accessEntries := []v1alpha1.AccessEntry{}
-	for _, w := range config.ClusterResourceWhitelist {
+	for _, w := range cfg.ClusterResourceWhitelist {
 		accessEntries = append(accessEntries, v1alpha1.AccessEntry{
 			Kind:  w.Kind,
 			Group: w.Group,
@@ -113,10 +113,10 @@ func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *
 
 	appProjectNs := ""
 	appProjectDestination := applicationDestination
-	if config.Destination.Namespace != nil {
-		appProjectNs = *config.Destination.Namespace
-	} else if config.Destination.AppProjectNamespace != nil {
-		appProjectNs = *config.Destination.AppProjectNamespace
+	if cfg.Destination.Namespace != nil {
+		appProjectNs = *cfg.Destination.Namespace
+	} else if cfg.Destination.AppProjectNamespace != nil {
+		appProjectNs = *cfg.Destination.AppProjectNamespace
 	}
 	appProjectDestination.Namespace = appProjectNs
 
@@ -141,13 +141,13 @@ func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *
 	} else {
 		buf = append(buf, string(content))
 	}
-	ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(config.IgnoreDifferences))
-	for index, value := range config.IgnoreDifferences {
+	ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(cfg.IgnoreDifferences))
+	for index, value := range cfg.IgnoreDifferences {
 		ignoreDifferences[index] = v1alpha1.ResourceIgnoreDifferences(value)
 	}
-	syncOptions := config.SyncOptions
+	syncOptions := cfg.SyncOptions
 	for _, appData := range appsData {
-		appManifest, err := RenderAppEnv(gitUrl, gitBranch, config.ApplicationAnnotations, info, appData, applicationDestination, ignoreDifferences, syncOptions)
+		appManifest, err := RenderAppEnv(gitUrl, gitBranch, cfg.ApplicationAnnotations, info, appData, applicationDestination, ignoreDifferences, syncOptions)
 		if err != nil {
 			return nil, err
 		}

@@ -349,7 +349,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 			expectedDeployments:             []Deployment{},
-			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\""},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\" (23514)"},
 		},
 		{
 			name: "should prevent creating deployments with no release version",
@@ -381,7 +381,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 			expectedDeployments:             []Deployment{},
-			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\""},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: new row for relation \"deployments\" violates check constraint \"releaseversion_not_null\" (23514)"},
 		},
 		{
 			name: "should prevent creatings deployments with a non-existing release",
@@ -410,7 +410,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 			expectedDeployments:             []Deployment{},
-			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\""},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\" (23503)"},
 		},
 		{
 			name: "should preventing creating deployments if the app name is mismatched between deployment and release",
@@ -439,7 +439,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				},
 			},
 			expectedDeployments:             []Deployment{},
-			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\""},
+			expectedDeploymentCreationError: errMatcher{msg: "could not write deployment into DB. Error: pq: insert or update on table \"deployments\" violates foreign key constraint \"fk_releases_deployments\" (23503)"},
 		},
 	}
 
@@ -6531,6 +6531,150 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 	}
 }
 
+func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
+	type Action struct {
+		AppStateChange         AppStateChange
+		AppWithTeam            map[types.AppName]string
+		ExpectedAppTeamHistory []AppWithTeam
+	}
+	tcs := []struct {
+		Name    string
+		Actions []Action
+	}{
+		{
+			Name: "should update and fetch apps_teams_history table correctly",
+			Actions: []Action{
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app1": "team1"},
+					ExpectedAppTeamHistory: []AppWithTeam{
+						{
+							AppName:  "app1",
+							TeamName: "team1",
+						},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app2": "team2"},
+					ExpectedAppTeamHistory: []AppWithTeam{
+						{
+							AppName:  "app1",
+							TeamName: "team1",
+						},
+						{
+							AppName:  "app2",
+							TeamName: "team2",
+						},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app3": "team3"},
+					ExpectedAppTeamHistory: []AppWithTeam{
+						{
+							AppName:  "app1",
+							TeamName: "team1",
+						},
+						{
+							AppName:  "app2",
+							TeamName: "team2",
+						},
+						{
+							AppName:  "app3",
+							TeamName: "team3",
+						},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeUpdate,
+					AppWithTeam:    map[types.AppName]string{"app1": "team1-updated"},
+					ExpectedAppTeamHistory: []AppWithTeam{
+						{
+							AppName:  "app1",
+							TeamName: "team1-updated",
+						},
+						{
+							AppName:  "app2",
+							TeamName: "team2",
+						},
+						{
+							AppName:  "app3",
+							TeamName: "team3",
+						},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeDelete,
+					AppWithTeam:    map[types.AppName]string{"app2": "team2"},
+					ExpectedAppTeamHistory: []AppWithTeam{
+						{
+							AppName:  "app1",
+							TeamName: "team1-updated",
+						},
+						{
+							AppName:  "app3",
+							TeamName: "team3",
+						},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app4": "team4"},
+					ExpectedAppTeamHistory: []AppWithTeam{
+						{
+							AppName:  "app1",
+							TeamName: "team1-updated",
+						},
+						{
+							AppName:  "app3",
+							TeamName: "team3",
+						},
+						{
+							AppName:  "app4",
+							TeamName: "team4",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, action := range tc.Actions {
+					for appName, teamName := range action.AppWithTeam {
+						err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, action.AppStateChange, DBAppMetaData{
+							Team: teamName,
+						})
+						if err != nil {
+							return fmt.Errorf("error while writing app: %w", err)
+						}
+					}
+
+					appsWithTeam, err := dbHandler.DBSelectLatestAppsTeamsHistory(ctx, transaction)
+					if err != nil {
+						return fmt.Errorf("error while selecting apps teams history: %w", err)
+					}
+
+					if diff := cmp.Diff(action.ExpectedAppTeamHistory, appsWithTeam); diff != "" {
+						return fmt.Errorf("apps teams history mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+		})
+	}
+}
+
 func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 	tcs := []struct {
 		Name                            string
@@ -6888,7 +7032,8 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 	if err != nil {
 		return fmt.Errorf("DBInsertRelease unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		insertQuery,
 		*now,
 		*release.ReleaseNumbers.Version,

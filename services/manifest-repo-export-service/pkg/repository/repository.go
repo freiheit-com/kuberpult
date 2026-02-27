@@ -201,8 +201,6 @@ func openOrCreate(path string) (*git.Repository, error) {
 }
 
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
-	logger := logger.FromContext(ctx)
-
 	if cfg.Branch == "" {
 		cfg.Branch = "master"
 	}
@@ -223,7 +221,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	var certificates *certificateStore
 	var err error
 	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
-		logger.Debug("git url indicates a local directory. Ignoring credentials and certificates.")
+		logger.FromContext(ctx).Debug("git url indicates a local directory. Ignoring credentials and certificates.")
 	} else {
 		credentials, err = cfg.Credentials.load()
 		if err != nil {
@@ -257,7 +255,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			//exhaustruct:ignore
 			RemoteCallbacks := git.RemoteCallbacks{
 				UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-					logger.Debug("git.fetched",
+					logger.FromContext(ctx).Debug("git.fetched",
 						zap.String("refname", refname),
 						zap.String("revision.new", b.String()),
 					)
@@ -525,22 +523,22 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 	ddSpan, _ := tracer.StartSpanFromContext(ctx, "WriteAllCommitEvents")
 	defer ddSpan.Finish()
-	fs := s.Filesystem
+	filesystem := s.Filesystem
 	allCommitsPath := "commits"
-	commitPrefixes, err := fs.ReadDir(allCommitsPath)
+	commitPrefixes, err := filesystem.ReadDir(allCommitsPath)
 	if err != nil {
 		return fmt.Errorf("could not read commits dir: %s - error: %w", allCommitsPath, err)
 	}
 	for _, currentPrefix := range commitPrefixes {
-		currentpath := fs.Join(allCommitsPath, currentPrefix.Name())
-		commitSuffixes, err := fs.ReadDir(currentpath)
+		currentpath := filesystem.Join(allCommitsPath, currentPrefix.Name())
+		commitSuffixes, err := filesystem.ReadDir(currentpath)
 		if err != nil {
 			return fmt.Errorf("could not read commit directory '%s': %w", currentpath, err)
 		}
 		for _, currentSuffix := range commitSuffixes {
 			commitID := strings.Join([]string{currentPrefix.Name(), currentSuffix.Name()}, "")
-			currentpath := fs.Join(fs.Join(currentpath, currentSuffix.Name(), "events"))
-			potentialEventDirs, err := fs.ReadDir(currentpath)
+			currentpath := filesystem.Join(filesystem.Join(currentpath, currentSuffix.Name(), "events"))
+			potentialEventDirs, err := filesystem.ReadDir(currentpath)
 			if err != nil {
 				return fmt.Errorf("could not read events directory '%s': %w", currentpath, err)
 			}
@@ -549,13 +547,13 @@ func (s *State) WriteAllCommitEvents(ctx context.Context, transaction *sql.Tx, d
 				if oneEventDir.IsDir() {
 					fileName := oneEventDir.Name()
 
-					eType, err := readFile(fs, fs.Join(fs.Join(currentpath, fileName), "eventType"))
+					eType, err := readFile(filesystem, filesystem.Join(filesystem.Join(currentpath, fileName), "eventType"))
 
 					if err != nil {
-						return fmt.Errorf("could not read event type '%s': %w", fs.Join(currentpath, fileName), err)
+						return fmt.Errorf("could not read event type '%s': %w", filesystem.Join(currentpath, fileName), err)
 					}
 
-					fsEvent, err := event.Read(fs, fs.Join(currentpath, fileName))
+					fsEvent, err := event.Read(filesystem, filesystem.Join(currentpath, fileName))
 					if err != nil {
 						return fmt.Errorf("could not read events %w", err)
 					}
@@ -771,11 +769,10 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "FetchAndReset")
 	defer span.Finish()
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
-	logger := logger.FromContext(ctx)
 	//exhaustruct:ignore
 	RemoteCallbacks := git.RemoteCallbacks{
 		UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-			logger.Debug("git.fetched",
+			logger.FromContext(ctx).Debug("git.fetched",
 				zap.String("refname", refname),
 				zap.String("revision.new", b.String()),
 			)
@@ -950,8 +947,8 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	return errorGroup.Wait()
 }
 
-func isAAEnv(config config.EnvironmentConfig) bool {
-	return config.ArgoCdConfigs != nil
+func isAAEnv(cfg config.EnvironmentConfig) bool {
+	return cfg.ArgoCdConfigs != nil
 }
 
 func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time, fsMutex *sync.Mutex) (err error) {
@@ -1072,34 +1069,34 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 	return writeArgoCdManifestsSynced(ctx, state.Filesystem, info, manifests, fsMutex)
 }
 
-func writeArgoCdManifestsSynced(ctx context.Context, fs billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte, fsMutex *sync.Mutex) error {
+func writeArgoCdManifestsSynced(ctx context.Context, filesystem billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte, fsMutex *sync.Mutex) error {
 	span, _, _ := tracing.StartSpanFromContext(ctx, "writeArgoCdManifestsSynced") // We have a separate span here to see how long we wait for the mutex
 	defer span.Finish()
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
-	return writeArgoCdManifests(ctx, fs, info, manifests)
+	return writeArgoCdManifests(ctx, filesystem, info, manifests)
 }
 
-func writeArgoCdManifests(ctx context.Context, fs billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte) error {
+func writeArgoCdManifests(ctx context.Context, filesystem billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte) error {
 	span, _, onErr := tracing.StartSpanFromContext(ctx, "writeArgoCdManifests")
 	defer span.Finish()
 	for apiVersion, content := range manifests {
-		if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+		if err := filesystem.MkdirAll(filesystem.Join("argocd", string(apiVersion)), 0777); err != nil {
 			return onErr(err)
 		}
-		target := getArgoCdAAEnvFileName(fs, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
-		if err := util.WriteFile(fs, target, content, 0666); err != nil {
+		target := getArgoCdAAEnvFileName(filesystem, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
+		if err := util.WriteFile(filesystem, target, content, 0666); err != nil {
 			return onErr(err)
 		}
 	}
 	return nil
 }
 
-func getArgoCdAAEnvFileName(fs billy.Filesystem, commonEnvPrefix, parentEnvironmentName, concreteEnvironmentName types.EnvName, isAAEnv bool) string {
+func getArgoCdAAEnvFileName(filesystem billy.Filesystem, commonEnvPrefix, parentEnvironmentName, concreteEnvironmentName types.EnvName, isAAEnv bool) string {
 	if !isAAEnv {
-		return fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(parentEnvironmentName)))
+		return filesystem.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(parentEnvironmentName)))
 	}
-	return fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(commonEnvPrefix)+"-"+string(parentEnvironmentName)+"-"+string(concreteEnvironmentName)))
+	return filesystem.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(commonEnvPrefix)+"-"+string(parentEnvironmentName)+"-"+string(concreteEnvironmentName)))
 }
 
 func (r *repository) State() *State {
@@ -1187,8 +1184,8 @@ func (s *State) GetTeamNameFromManifest(application string) (string, error) {
 	}
 }
 
-func decodeJsonFile(fs billy.Filesystem, path string, out interface{}) error {
-	if file, err := fs.Open(path); err != nil {
+func decodeJsonFile(filesystem billy.Filesystem, path string, out interface{}) error {
+	if file, err := filesystem.Open(path); err != nil {
 		return wrapFileError(err, path, "could not decode json file")
 	} else {
 		defer func() { _ = file.Close() }()
@@ -1643,7 +1640,7 @@ func (s *State) GetEnvironmentLocksFromManifest(environment types.EnvName) (map[
 	}
 }
 
-func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
+func readLock(filesystem billy.Filesystem, lockDir string) (*Lock, error) {
 	lock := &Lock{
 		Message: "",
 		CreatedBy: Actor{
@@ -1653,7 +1650,7 @@ func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 		CreatedAt: time.Time{},
 	}
 
-	if cnt, err := readFile(fs, fs.Join(lockDir, "message")); err != nil {
+	if cnt, err := readFile(filesystem, filesystem.Join(lockDir, "message")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
@@ -1661,7 +1658,7 @@ func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 		lock.Message = string(cnt)
 	}
 
-	if cnt, err := readFile(fs, fs.Join(lockDir, "created_by_email")); err != nil {
+	if cnt, err := readFile(filesystem, filesystem.Join(lockDir, "created_by_email")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
@@ -1669,7 +1666,7 @@ func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 		lock.CreatedBy.Email = string(cnt)
 	}
 
-	if cnt, err := readFile(fs, fs.Join(lockDir, "created_by_name")); err != nil {
+	if cnt, err := readFile(filesystem, filesystem.Join(lockDir, "created_by_name")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
@@ -1677,7 +1674,7 @@ func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 		lock.CreatedBy.Name = string(cnt)
 	}
 
-	if cnt, err := readFile(fs, fs.Join(lockDir, "created_at")); err != nil {
+	if cnt, err := readFile(filesystem, filesystem.Join(lockDir, "created_at")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
@@ -1964,14 +1961,14 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 	return result, nil
 }
 
-func (s *State) GetLastRelease(ctx context.Context, fs billy.Filesystem, application string) (types.ReleaseNumbers, error) {
+func (s *State) GetLastRelease(ctx context.Context, filesystem billy.Filesystem, application string) (types.ReleaseNumbers, error) {
 	var err error
-	releasesDir := releasesDirectory(fs, application)
-	err = fs.MkdirAll(releasesDir, 0777)
+	releasesDir := releasesDirectory(filesystem, application)
+	err = filesystem.MkdirAll(releasesDir, 0777)
 	if err != nil {
 		return types.MakeEmptyReleaseNumbers(), err
 	}
-	if entries, err := fs.ReadDir(releasesDir); err != nil {
+	if entries, err := filesystem.ReadDir(releasesDir); err != nil {
 		return types.MakeEmptyReleaseNumbers(), err
 	} else {
 		var lastRelease types.ReleaseNumbers
@@ -2197,11 +2194,11 @@ func (s *State) readSymlink(environment types.EnvName, application string, symli
 }
 
 func (s *State) GetTeamName(application string) (string, error) {
-	fs := s.Filesystem
+	filesystem := s.Filesystem
 
-	teamFilePath := fs.Join("applications", application, "team")
+	teamFilePath := filesystem.Join("applications", application, "team")
 
-	if teamName, err := util.ReadFile(fs, teamFilePath); err != nil {
+	if teamName, err := util.ReadFile(filesystem, teamFilePath); err != nil {
 		return "", err
 	} else {
 		return string(teamName), nil
@@ -2251,13 +2248,12 @@ func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, t
 }
 
 func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transaction *sql.Tx) (map[types.EnvName]config.EnvironmentConfig, error) {
-	logger := logger.FromContext(ctx)
 	envConfigs, err := s.GetAllEnvironmentConfigsFromManifest()
 	if err != nil {
 		return nil, err
 	}
 	if len(envConfigs) == 0 {
-		logger.Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
+		logger.FromContext(ctx).Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
 	}
 	for envName, env := range envConfigs {
 		if env.Upstream == nil || env.Upstream.Environment == "" {
@@ -2265,7 +2261,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		}
 		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
-			logger.Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
+			logger.FromContext(ctx).Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
 		}
 	}
 	envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
@@ -2273,7 +2269,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		grpDist := group.Environments[0].DistanceToUpstream
 		for _, env := range group.Environments {
 			if env.DistanceToUpstream != grpDist {
-				logger.Warn(fmt.Sprintf("The environment group '%s' has multiple environments setup with different distances to upstream", group.EnvironmentGroupName))
+				logger.FromContext(ctx).Warn(fmt.Sprintf("The environment group '%s' has multiple environments setup with different distances to upstream", group.EnvironmentGroupName))
 			}
 		}
 	}
@@ -2341,8 +2337,8 @@ type Release struct {
 	Version  uint64
 	Revision uint64
 	/**
-	"UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
-	It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
+	  "UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
+	  It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
 	*/
 	UndeployVersion bool
 	SourceAuthor    string
@@ -2352,8 +2348,8 @@ type Release struct {
 	DisplayVersion  string
 	IsMinor         bool
 	/**
-	"IsPrepublish=true" is used at the start of the merge pipeline to create a pre-publish release which can't be deployed.
-	The goal is to get 100% of the commits even if the pipeline fails.
+	  "IsPrepublish=true" is used at the start of the merge pipeline to create a pre-publish release which can't be deployed.
+	  The goal is to get 100% of the commits even if the pipeline fails.
 	*/
 	IsPrepublish bool
 	Environments []string
@@ -2529,8 +2525,8 @@ func (s *State) GetApplicationSourceRepoUrl(application string) (string, error) 
 	}
 }
 
-func names(fs billy.Filesystem, path string) ([]string, error) {
-	files, err := fs.ReadDir(path)
+func names(filesystem billy.Filesystem, path string) ([]string, error) {
+	files, err := filesystem.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -2541,8 +2537,8 @@ func names(fs billy.Filesystem, path string) ([]string, error) {
 	return result, nil
 }
 
-func readFile(fs billy.Filesystem, path string) ([]byte, error) {
-	if file, err := fs.Open(path); err != nil {
+func readFile(filesystem billy.Filesystem, path string) ([]byte, error) {
+	if file, err := filesystem.Open(path); err != nil {
 		return nil, err
 	} else {
 		defer func() { _ = file.Close() }()
@@ -2553,7 +2549,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 // ProcessQueue checks if there is something in the queue
 // deploys if necessary
 // deletes the queue
-func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, environment types.EnvName, application string) (string, error) {
+func (s *State) ProcessQueue(ctx context.Context, transaction *sql.Tx, filesystem billy.Filesystem, environment types.EnvName, application string) (string, error) {
 	queuedVersion, err := s.GetQueuedVersionFromManifest(environment, application)
 	queueDeploymentMessage := ""
 	if err != nil {

@@ -45,11 +45,11 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
-func TestEnsureCustomMigrationApplied(t *testing.T) {
+func TestEnsureGit2DBMigrationApplied(t *testing.T) {
 	type TestCase struct {
 		name                      string
 		requestedKuberpultVersion *api.KuberpultVersion
-		expectedResponse          *api.EnsureCustomMigrationAppliedResponse
+		expectedResponse          *api.EnsureGit2DBMigrationAppliedResponse
 		expectedError             error
 	}
 
@@ -57,7 +57,7 @@ func TestEnsureCustomMigrationApplied(t *testing.T) {
 		{
 			name:                      "empty migrations should succeed",
 			requestedKuberpultVersion: migrations.CreateKuberpultVersion(0, 1, 2),
-			expectedResponse:          &api.EnsureCustomMigrationAppliedResponse{MigrationsApplied: true},
+			expectedResponse:          &api.EnsureGit2DBMigrationAppliedResponse{MigrationsApplied: true},
 			expectedError:             nil,
 		},
 		{
@@ -88,9 +88,9 @@ func TestEnsureCustomMigrationApplied(t *testing.T) {
 				KuberpultVersion: migrations.CreateKuberpultVersion(0, 1, 2),
 			}
 
-			response, err := migrationServer.EnsureCustomMigrationApplied(
+			response, err := migrationServer.EnsureGit2DBMigrationApplied(
 				ctx,
-				&api.EnsureCustomMigrationAppliedRequest{Version: tc.requestedKuberpultVersion},
+				&api.EnsureGit2DBMigrationAppliedRequest{Version: tc.requestedKuberpultVersion},
 			)
 
 			if diff := cmp.Diff(tc.expectedResponse, response, protocmp.Transform()); diff != "" {
@@ -107,11 +107,11 @@ func TestMigrationDetails(t *testing.T) {
 	type TestCase struct {
 		name                       string
 		configuredKuberpultVersion *api.KuberpultVersion // this is what is usually configured as env var
-		requestedKuberpultVersion  *api.KuberpultVersion // how we call the function EnsureCustomMigrationApplied
+		requestedKuberpultVersion  *api.KuberpultVersion // how we call the function EnsureGit2DBMigrationApplied
 		allMigrations              []*Migration
 		dbVersions                 []*api.KuberpultVersion // all versions that are written to db before the test
 		expectedDbVersions         []*api.KuberpultVersion // all versions that are written to db before the test
-		expectedResponse           *api.EnsureCustomMigrationAppliedResponse
+		expectedResponse           *api.EnsureGit2DBMigrationAppliedResponse
 		expectedError              error
 		expectedWasRun             bool
 	}
@@ -136,7 +136,7 @@ func TestMigrationDetails(t *testing.T) {
 					},
 				},
 			},
-			expectedResponse: &api.EnsureCustomMigrationAppliedResponse{MigrationsApplied: true},
+			expectedResponse: &api.EnsureGit2DBMigrationAppliedResponse{MigrationsApplied: true},
 			expectedError:    nil,
 			expectedWasRun:   true,
 			expectedDbVersions: []*api.KuberpultVersion{
@@ -160,7 +160,7 @@ func TestMigrationDetails(t *testing.T) {
 					},
 				},
 			},
-			expectedResponse:   &api.EnsureCustomMigrationAppliedResponse{MigrationsApplied: true},
+			expectedResponse:   &api.EnsureGit2DBMigrationAppliedResponse{MigrationsApplied: true},
 			expectedError:      nil,
 			expectedWasRun:     false,
 			expectedDbVersions: []*api.KuberpultVersion{},
@@ -196,8 +196,8 @@ func TestMigrationDetails(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			response, err := migrationServer.EnsureCustomMigrationApplied(ctx,
-				&api.EnsureCustomMigrationAppliedRequest{Version: tc.requestedKuberpultVersion})
+			response, err := migrationServer.EnsureGit2DBMigrationApplied(ctx,
+				&api.EnsureGit2DBMigrationAppliedRequest{Version: tc.requestedKuberpultVersion})
 
 			if diff := cmp.Diff(tc.expectedResponse, response, protocmp.Transform()); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)

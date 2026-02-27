@@ -114,11 +114,11 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		handleGRPCError(req.Context(), w, err)
 		return
 	}
-	json, err := json.Marshal(response.Results[0].GetReleaseTrain())
+	jsonStr, err := json.Marshal(response.Results[0].GetReleaseTrain())
 	if err != nil {
 		return
 	}
-	w.Write(json) //nolint:errcheck
+	w.Write(jsonStr) //nolint:errcheck
 }
 
 func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.Request, target string, TargetType api.ReleaseTrainRequest_TargetType) {
@@ -204,11 +204,11 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 		handleGRPCError(req.Context(), w, err)
 		return
 	}
-	json, err := json.Marshal(response.Results[0].GetReleaseTrain())
+	jsonStr, err := json.Marshal(response.Results[0].GetReleaseTrain())
 	if err != nil {
 		return
 	}
-	w.Write(json) //nolint:errcheck
+	w.Write(jsonStr) //nolint:errcheck
 }
 
 // IsTagEqual compares too tags, ignoring the "refs/tags/" prefix
@@ -240,12 +240,12 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 		handleGRPCError(req.Context(), w, err)
 		return
 	}
-	json, err := json.Marshal(response.EnvsPrognoses)
+	jsonStr, err := json.Marshal(response.EnvsPrognoses)
 	if err != nil {
 		_, _ = fmt.Fprintf(w, "error while serializing response, error: %v", err.Error())
 		return
 	}
-	w.Write(json) //nolint:errcheck
+	w.Write(jsonStr) //nolint:errcheck
 }
 
 func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {

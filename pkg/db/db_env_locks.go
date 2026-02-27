@@ -413,17 +413,12 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 // actual changes in tables
 
 func (h *DBHandler) upsertEnvLockRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "upsertEnvLockRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO environment_locks (created, lockId, envname, metadata)
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(envname, lockid)
 		DO UPDATE SET created = excluded.created, lockid = excluded.lockid, metadata = excluded.metadata, envname = excluded.envname;
 	`)
-	span.SetTag("query", upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -433,7 +428,8 @@ func (h *DBHandler) upsertEnvLockRow(ctx context.Context, transaction *sql.Tx, l
 	if err != nil {
 		return fmt.Errorf("upsertEnvLockRow unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		lockID,
@@ -451,15 +447,11 @@ func (h *DBHandler) upsertEnvLockRow(ctx context.Context, transaction *sql.Tx, l
 }
 
 func (h *DBHandler) deleteEnvLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName) (err error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "deleteEnvLockRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	deleteQuery := h.AdaptQuery(`
 		DELETE FROM environment_locks
 		WHERE lockId=? AND envname=?;`)
-	span.SetTag("query", deleteQuery)
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		deleteQuery,
 		lockId,
 		environment,
@@ -475,15 +467,10 @@ func (h *DBHandler) deleteEnvLockRow(ctx context.Context, transaction *sql.Tx, l
 }
 
 func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "insertEnvLockHistoryRow")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	upsertQuery := h.AdaptQuery(`
 		INSERT INTO environment_locks_history (created, lockId, envname, metadata, deleted, deletionMetadata)
 		VALUES (?, ?, ?, ?, ?, ?);
 	`)
-	span.SetTag("query", upsertQuery)
 	jsonToInsert, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("could not marshal json data: %w", err)
@@ -497,7 +484,8 @@ func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sq
 	if err != nil {
 		return fmt.Errorf("insertEnvLockHistoryRow unable to get transaction timestamp: %w", err)
 	}
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(
+		ctx,
 		upsertQuery,
 		*now,
 		lockID,
@@ -570,11 +558,6 @@ func (h *DBHandler) processEnvLockRows(ctx context.Context, err error, rows *sql
 }
 
 func (h *DBHandler) processAllEnvLocksRows(ctx context.Context, err error, rows *sql.Rows) ([]string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "processAllEnvLocksRows")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
 	if err != nil {
 		return nil, fmt.Errorf("could not query all environment locks table from DB. Error: %w", err)
 	}

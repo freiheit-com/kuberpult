@@ -444,14 +444,14 @@ service VersionService {
 }
 
 service MigrationService {
-  rpc EnsureCustomMigrationApplied (EnsureCustomMigrationAppliedRequest) returns (EnsureCustomMigrationAppliedResponse) {}
+  rpc EnsureGit2DBMigrationApplied (EnsureGit2DBMigrationAppliedRequest) returns (EnsureGit2DBMigrationAppliedResponse) {}
 }
 
-message EnsureCustomMigrationAppliedRequest {
+message EnsureGit2DBMigrationAppliedRequest {
   KuberpultVersion version = 1;
 }
 
-message EnsureCustomMigrationAppliedResponse {
+message EnsureGit2DBMigrationAppliedResponse {
   bool migrations_applied = 1;
 }
 

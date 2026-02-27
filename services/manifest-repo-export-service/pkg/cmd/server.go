@@ -166,11 +166,11 @@ func Run(ctx context.Context) error {
 	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
-	checkCustomMigrationsString, err := valid.ReadEnvVar("KUBERPULT_CHECK_CUSTOM_MIGRATIONS")
+	checkGit2DBMigrationsString, err := valid.ReadEnvVar("KUBERPULT_CHECK_GIT2DB_MIGRATIONS")
 	if err != nil {
 		log.Info("datadog metrics are disabled")
 	}
-	checkCustomMigrations := checkCustomMigrationsString == "true"
+	checkGit2DBMigrations := checkGit2DBMigrationsString == "true"
 	minimizeExportedData, err := valid.ReadEnvVarBool("KUBERPULT_MINIMIZE_EXPORTED_DATA")
 	if err != nil {
 		return err
@@ -349,7 +349,17 @@ func Run(ctx context.Context) error {
 	if migErr != nil {
 		logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 	}
-	logger.FromContext(ctx).Info("Finished with basic database migration.")
+	logger.FromContext(ctx).Info("Finished with SQL migration.")
+
+	// the custom migrations that we also want to run on startup
+	logger.FromContext(ctx).Info("Running custom migrations")
+	err = dbHandler.RunCustomMigrations(ctx)
+	if err != nil {
+		logger.FromContext(ctx).Fatal("error running custom migrations", zap.Error(err))
+	}
+	logger.FromContext(ctx).Info("Finished custom migrations")
+
+	// the custom migrations that we only want to run on startup if the flag is enabled
 	kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
 	if err != nil {
 		return err
@@ -357,22 +367,37 @@ func Run(ctx context.Context) error {
 	migrationServer := &service.MigrationServer{
 		KuberpultVersion: kuberpultVersion,
 		DBHandler:        dbHandler,
-		Migrations:       getAllMigrations(dbHandler, repo),
+		Migrations:       getGit2DBMigrations(dbHandler, repo),
 	}
-	if shouldRunCustomMigrations(checkCustomMigrations, minimizeExportedData) {
-		log.Infof("Running Custom Migrations")
+	if shouldRunGit2DBMigrations(checkGit2DBMigrations, minimizeExportedData) {
+		logger.FromContext(ctx).Info("Running Git2DB Migrations")
 
-		_, err = migrationServer.EnsureCustomMigrationApplied(ctx, &api.EnsureCustomMigrationAppliedRequest{
+		_, err = migrationServer.EnsureGit2DBMigrationApplied(ctx, &api.EnsureGit2DBMigrationAppliedRequest{
 			Version: kuberpultVersion,
 		})
 		if err != nil {
-			return fmt.Errorf("error running custom migrations: %w", err)
+			return fmt.Errorf("error running Git2DB migrations: %w", err)
 		}
-		log.Infof("Finished Custom Migrations successfully")
+		logger.FromContext(ctx).Info("Finished Git2DB Migrations successfully")
 	} else {
-		logger.FromContext(ctx).Sugar().Infof("Custom Migrations skipped. Kuberpult only runs custom Migrations if " +
-			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_CUSTOM_MIGRATIONS=true.")
+		logger.FromContext(ctx).Info("Git2DB Migrations skipped. Kuberpult only runs Git2DB Migrations if " +
+			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_GIT2DB_MIGRATIONS=true.")
 	}
+
+	if dbOutdatedDeploymentsCleaningEnabled {
+		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
+		if err != nil {
+			logger.FromContext(ctx).Error("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false'", zap.Error(err))
+		}
+	}
+
+	if resetGitSyncStatusEnabled {
+		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)
+		if err != nil {
+			logger.FromContext(ctx).Error("error cleaning git sync status - you can disable this cleaning operation with 'db.resetGitSyncStatus.enabled:false'", zap.Error(err))
+		}
+	}
+
 	if dbGitTimestampMigrationEnabled {
 		err := dbHandler.RunCustomMigrationReleasesTimestamp(ctx, repo.State().GetAppsAndTeams, repo.State().FixReleasesTimestamp)
 		if err != nil {
@@ -418,19 +443,6 @@ func Run(ctx context.Context) error {
 	}
 	allArgoProjectNames.ActiveActiveEnvironments = ParseEnvironmentOverrides(ctx, rawStringMapAAEnvironments, existingEnvsFullName)
 	allArgoProjectNames.Environments = ParseEnvironmentOverrides(ctx, rawStringMapEnvironments, existingEnvsFullName)
-
-	if dbOutdatedDeploymentsCleaningEnabled {
-		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
-		if err != nil {
-			logger.FromContext(ctx).Error("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false'", zap.Error(err))
-		}
-	}
-	if resetGitSyncStatusEnabled {
-		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)
-		if err != nil {
-			logger.FromContext(ctx).Error("error cleaning git sync status - you can disable this cleaning operation with 'db.resetGitSyncStatus.enabled:false'", zap.Error(err))
-		}
-	}
 
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -529,9 +541,9 @@ func ParseEnvironmentOverrides(ctx context.Context, configuredArgoNamesPerEnv va
 	return &result
 }
 
-func getAllMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
+func getGit2DBMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
 	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrations(
+		return dbHandler.RunGit2DBMigrations(
 			ctx,
 			repo.State().GetAppsAndTeams,
 			repo.State().WriteCurrentlyDeployed,
@@ -935,6 +947,6 @@ func checkReleaseVersionLimit(limit uint) error {
 	return nil
 }
 
-func shouldRunCustomMigrations(checkCustomMigrations, minimizeGitData bool) bool {
-	return checkCustomMigrations && !minimizeGitData //If `minimizeGitData` is enabled we can't make sure we have all the information on the repository to perform all the migrations
+func shouldRunGit2DBMigrations(checkGit2DBMigrations, minimizeGitData bool) bool {
+	return checkGit2DBMigrations && !minimizeGitData //If `minimizeGitData` is enabled we can't make sure we have all the information on the repository to perform all the migrations
 }

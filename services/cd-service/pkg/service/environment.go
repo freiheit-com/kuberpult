@@ -37,17 +37,17 @@ func (o *EnvironmentServiceServer) GetEnvironmentConfig(
 	in *api.GetEnvironmentConfigRequest) (*api.GetEnvironmentConfigResponse, error) {
 	state := o.Repository.State()
 
-	config, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
+	cfg, err := db.WithTransactionT(state.DBHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*config.EnvironmentConfig, error) {
 		return state.GetEnvironmentConfigFromDB(ctx, transaction, types.EnvName(in.Environment))
 	})
 	if err != nil {
 		return nil, err
 	}
-	if config == nil {
+	if cfg == nil {
 		return nil, fmt.Errorf("could not find environment configuration for env: %q", in.Environment)
 	}
 	var out api.GetEnvironmentConfigResponse
-	out.Config = TransformEnvironmentConfigToApi(*config)
+	out.Config = TransformEnvironmentConfigToApi(*cfg)
 	return &out, nil
 }
 

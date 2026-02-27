@@ -20,8 +20,8 @@ import classNames from 'classnames';
 import { useApi } from '../../utils/GrpcApi';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { removeFromFailedEsls, showSnackbarError, showSnackbarSuccess } from '../../utils/store';
-import SkipNextIcon from '@material-ui/icons/SkipNext';
-import CachedIcon from '@material-ui/icons/Cached';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
+import CachedIcon from '@mui/icons-material/Cached';
 
 type RetryButtonProps = {
     eslVersion: number;
