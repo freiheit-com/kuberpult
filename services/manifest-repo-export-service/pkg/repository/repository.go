@@ -1028,12 +1028,19 @@ func (r *repository) processApp(
 	return err
 }
 
+func appTeamsToMap(appTeams []db.AppWithTeam) map[types.AppName]string {
+	result := map[types.AppName]string{}
+	for _, appTeam := range appTeams {
+		result[appTeam.AppName] = appTeam.TeamName
+	}
+	return result
+}
+
 func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time, fsMutex *sync.Mutex) error {
 	_, appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp)
 	if err != nil {
 		return err
 	}
-	// TODO SU: here we ALSO need the bracket
 	spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 	defer spanCollectData.Finish()
 	appData := []argocd.AppData{}
@@ -1041,21 +1048,65 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 	if err != nil {
 		return err
 	}
-	for _, appWithTeam := range appTeams {
-		appName := appWithTeam.AppName
-		teamName := appWithTeam.TeamName
-		deployment, ok := deploymentsPerApp[appName]
-		if !ok {
-			// nothing was deployed here at that time, skip:
-			continue
+	allBrackets, err := db.DBSelectBracketHistoryByTimestamp(state.DBHandler, ctx, transaction, &timestamp)
+	if err != nil {
+		return fmt.Errorf("could not find bracket at %v: %w", timestamp, err)
+	}
+	bracketMap := map[types.ArgoBracketName]db.AppNames{}
+	if allBrackets == nil || allBrackets.AllBracketsJsonBlob.BracketMap == nil {
+		// if there are no brackets, we assume each appName==bracketName
+		for _, appTeam := range appTeams {
+			bracketMap[types.ArgoBracketName(appTeam.AppName)] = db.AppNames{appTeam.AppName}
 		}
-		if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
-			// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
-			continue
+	} else {
+		bracketMap = allBrackets.AllBracketsJsonBlob.BracketMap
+	}
+
+	// TODO SU: here we ALSO need the bracket
+	appToTeamMap := appTeamsToMap(appTeams)
+	for bracketName, appNames := range bracketMap {
+		appsInBracket := []types.AppName{}
+		bracketTeamName := ""
+		for _, appName := range appNames {
+			appsTeamName, ok := appToTeamMap[appName]
+			if !ok {
+				// apps without a team are valid, not an error
+				appsTeamName = ""
+			}
+			if bracketTeamName == "" {
+				bracketTeamName = appsTeamName
+			} else {
+				if bracketTeamName != appsTeamName {
+					// previous team name is different
+					logger.FromContext(ctx).Error(
+						"bracket/team inconsistency detected",
+						zap.String("bracket", string(bracketName)),
+						zap.Any("apps", appNames),
+						zap.String("conflictingTeamA", bracketTeamName),
+						zap.String("conflictingTeamB", appsTeamName),
+						zap.String("conclusion", fmt.Sprintf("all 'apps' in this bracket will be rendered in Argo CD with team '%s'", bracketTeamName)),
+					)
+				}
+			}
+
+			if appsTeamName != bracketTeamName {
+				bracketTeamName = appsTeamName
+			}
+			deployment, ok := deploymentsPerApp[appName]
+			if !ok {
+				// nothing was deployed here at that time, skip:
+				continue
+			}
+			if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
+				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
+				continue
+			}
+			appsInBracket = append(appsInBracket, appName)
 		}
 		appData = append(appData, argocd.AppData{
-			AppName:  string(appName),
-			TeamName: teamName,
+			ArgoAppName:    string(bracketName),
+			TeamName:       bracketTeamName,
+			ReferencedApps: appsInBracket,
 		})
 	}
 	spanCollectData.Finish()

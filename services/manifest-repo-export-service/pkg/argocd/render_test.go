@@ -20,11 +20,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	godebug "github.com/kylelemons/godebug/diff"
+
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd/v1alpha1"
-	"github.com/google/go-cmp/cmp"
-	godebug "github.com/kylelemons/godebug/diff"
 )
 
 func TestRender(t *testing.T) {
@@ -261,7 +262,7 @@ spec:
 				gitBranch   = "main"
 
 				appData = AppData{
-					AppName: "app1",
+					ArgoAppName: "app1",
 				}
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
@@ -385,7 +386,7 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName: "app1",
+					ArgoAppName: "app1",
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -441,7 +442,7 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName: "app1",
+					ArgoAppName: "app1",
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -565,8 +566,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName:  "app1",
-					TeamName: "some-team",
+					ArgoAppName: "app1",
+					TeamName:    "some-team",
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -622,8 +623,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName:  "app1",
-					TeamName: "some-team",
+					ArgoAppName: "app1",
+					TeamName:    "some-team",
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
