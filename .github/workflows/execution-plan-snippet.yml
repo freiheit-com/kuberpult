@@ -6,6 +6,10 @@ on:
         required: true
         type: string
         description: "The trigger which calls the workflow, one of [pull-request, main, tag]"
+      ref:
+        required: true
+        type: string
+        description: "with the starting 'v'"
 
 jobs:
   execution_plan:
@@ -15,6 +19,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: "${{ inputs.ref }}"
       - uses: google-github-actions/auth@v2
         name: "Authenticate to Google Cloud"
         with:
@@ -79,6 +84,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: "${{ inputs.ref }}"
       - name: Set version pr/main
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
@@ -141,6 +147,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: "${{ inputs.ref }}"
       - name: Install Buf
         uses: bufbuild/buf-action@v1
         with:
