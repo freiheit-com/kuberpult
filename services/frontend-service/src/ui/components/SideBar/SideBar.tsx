@@ -30,12 +30,12 @@ import {
     useLocksSimilarTo,
     useRelease,
     useLocksConflictingWithActions,
-    invalidateAppDetailsForApp,
     useApplications,
     useAppDetails,
     AppDetailsResponse,
-    InvalidateAppLocks,
+    invalidateAppLocks,
     useFrontendConfig,
+    getAppDetails,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -569,15 +569,15 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 lockId: string;
             }
             setShowSpinner(true);
-            const appNamesToInvalidate: string[] = [];
+            const appNamesToUpdate: string[] = [];
             const appLocksToInvalidate: LocksToInvalidate[] = [];
             const lockId = randomLockId();
             for (const action of actions) {
                 if (action.action?.$case === 'deleteEnvFromApp') {
-                    appNamesToInvalidate.push(action.action.deleteEnvFromApp.application);
+                    appNamesToUpdate.push(action.action.deleteEnvFromApp.application);
                 }
                 if (action.action?.$case === 'deploy') {
-                    appNamesToInvalidate.push(action.action.deploy.application);
+                    appNamesToUpdate.push(action.action.deploy.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentApplicationLock') {
                     appLocksToInvalidate.push({
@@ -585,14 +585,14 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                         appName: action.action.deleteEnvironmentApplicationLock.application,
                         lockId: action.action.deleteEnvironmentApplicationLock.lockId,
                     });
-                    appNamesToInvalidate.push(action.action.deleteEnvironmentApplicationLock.application);
+                    appNamesToUpdate.push(action.action.deleteEnvironmentApplicationLock.application);
                 }
                 if (action.action?.$case === 'deleteEnvironmentTeamLock') {
                     const team = action.action.deleteEnvironmentTeamLock.team;
-                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNamesToInvalidate.push(app.name));
+                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNamesToUpdate.push(app.name));
                 }
                 if (action.action?.$case === 'createEnvironmentApplicationLock') {
-                    appNamesToInvalidate.push(action.action.createEnvironmentApplicationLock.application);
+                    appNamesToUpdate.push(action.action.createEnvironmentApplicationLock.application);
                     action.action.createEnvironmentApplicationLock.lockId = lockId;
                 }
                 if (action.action?.$case === 'createEnvironmentLock') {
@@ -601,7 +601,7 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 if (action.action?.$case === 'createEnvironmentTeamLock') {
                     const team = action.action.createEnvironmentTeamLock.team;
                     action.action.createEnvironmentTeamLock.lockId = lockId;
-                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNamesToInvalidate.push(app.name));
+                    allApps.filter((elem) => elem.team !== team).forEach((app) => appNamesToUpdate.push(app.name));
                 }
             }
             api.batchService()
@@ -624,8 +624,8 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     );
                 })
                 .finally(() => {
-                    appNamesToInvalidate.forEach((appName) => invalidateAppDetailsForApp(appName));
-                    appLocksToInvalidate.forEach((lock) => InvalidateAppLocks(lock.envName, lock.appName, lock.lockId));
+                    appNamesToUpdate.forEach((appName) => getAppDetails(appName, authHeader));
+                    appLocksToInvalidate.forEach((lock) => invalidateAppLocks(lock.envName, lock.appName, lock.lockId));
                     setShowSpinner(false);
                 });
             setDialogState({ showConfirmationDialog: false });
