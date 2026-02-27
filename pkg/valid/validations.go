@@ -38,6 +38,10 @@ const (
 	EnvNameRegExp                  = AppNameRegExp
 	SHA1CommitIDLength             = 40
 	commitIDPrefixRegExp           = `^[0-9a-fA-F]*$`
+
+	ArgoBracketNameRegExp    = AppNameRegExp
+	MaxArgoBracketNameLength = 63
+	MinArgoBracketNameLength = 1
 )
 
 var (
@@ -45,6 +49,7 @@ var (
 	teamNameRx        = regexp.MustCompile(TeamNameRegExp)
 	envNameRx         = regexp.MustCompile(EnvNameRegExp)
 	groupNameRx       = regexp.MustCompile(EnvNameRegExp)
+	ArgoBracketNameRx = regexp.MustCompile(ArgoBracketNameRegExp)
 	commitIDPrefixRx  = regexp.MustCompile(commitIDPrefixRegExp)
 	MaxAppNameLen     = setupMaxAppNameLen()
 )
@@ -67,6 +72,10 @@ func GroupName(env string) bool {
 }
 func ApplicationName(name types.AppName) bool {
 	return len(name) <= MaxAppNameLen && applicationNameRx.MatchString(string(name))
+}
+
+func ArgoBracketName(name types.ArgoBracketName) bool {
+	return len(name) <= MaxArgoBracketNameLength && len(name) >= MinArgoBracketNameLength && ArgoBracketNameRx.MatchString(string(name))
 }
 
 func TeamName(name string) bool {

@@ -467,7 +467,7 @@ func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 				for _, app := range tc.given.setupApps {
 					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, app, AppStateChangeCreate, DBAppMetaData{
 						Team: "team",
-					})
+					}, "")
 					if err != nil {
 						return fmt.Errorf("error while creating application, error: %w", err)
 					}
@@ -4231,7 +4231,7 @@ func TestReadWriteAllApplications(t *testing.T) {
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, appname := range tc.AllAppsToWrite {
-					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appname, AppStateChangeCreate, DBAppMetaData{})
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appname, AppStateChangeCreate, DBAppMetaData{}, "mybracket")
 					if err != nil {
 						return err
 					}
@@ -4255,6 +4255,69 @@ func TestReadWriteAllApplications(t *testing.T) {
 			}
 			if diff := cmp.Diff(*allAppsEntry, tc.ExpectedEntry); diff != "" {
 				t.Fatalf("the received entry is different from expected\n  expected: %v\n  received: %v\n  diff: %s", tc.ExpectedEntry, *allAppsEntry, diff)
+			}
+		})
+	}
+}
+
+func TestReadWriteArgoBracket(t *testing.T) {
+	type AppWithBracket struct {
+		AppName types.AppName
+		Bracket types.ArgoBracketName
+	}
+	type TestCase struct {
+		Name           string
+		AllAppsToWrite []AppWithBracket
+		ExpectedEntry  map[types.AppName]types.ArgoBracketName
+	}
+
+	testCases := []TestCase{
+		{
+			Name: "overwriting brackets is possible",
+			AllAppsToWrite: []AppWithBracket{
+				{"foo", "b1"},
+				{"bar", "b2"},
+				{"foo", "b3"}},
+			ExpectedEntry: map[types.AppName]types.ArgoBracketName{
+				"foo": "b3",
+				"bar": "b2",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, app := range tc.AllAppsToWrite {
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, app.AppName, AppStateChangeCreate, DBAppMetaData{}, app.Bracket)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for writing all applications %v to the database, error: %v", tc.AllAppsToWrite, err)
+			}
+
+			_, err = WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]types.AppName, error) {
+				for appName, expectedBracket := range tc.ExpectedEntry {
+					appData, err := dbHandler.DBSelectApp(ctx, transaction, appName)
+					if err != nil {
+						return nil, fmt.Errorf("error while selecting application entry, error: %w", err)
+					}
+					if diff := testutil.CmpDiff(expectedBracket, appData.ArgoBracket); diff != "" {
+						t.Fatalf("expected: %v\n  received: %v\n  diff: %s", expectedBracket, appData.ArgoBracket, diff)
+					}
+				}
+				return nil, nil
+			})
+			if err != nil {
+				t.Fatalf("error while running the transaction for select apps: %v", err)
 			}
 		})
 	}
@@ -6732,7 +6795,7 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 				for appName, teamName := range tc.Teams {
 					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, AppStateChangeUpdate, DBAppMetaData{
 						Team: teamName,
-					})
+					}, "")
 					if err != nil {
 						return nil, fmt.Errorf("error while writing app: %w", err)
 					}

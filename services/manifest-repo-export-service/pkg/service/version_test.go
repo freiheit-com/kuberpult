@@ -26,11 +26,6 @@ import (
 	"testing"
 	gotime "time"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
@@ -39,6 +34,10 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/event"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
 
@@ -227,7 +226,7 @@ func TestVersion(t *testing.T) {
 				}
 				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "test")
 				if err != nil {
 					return err
 				}
@@ -455,13 +454,13 @@ func TestGetManifests(t *testing.T) {
 				}
 				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(appName), db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, types.ArgoBracketName(appName))
 				if err != nil {
 					return err
 				}
 				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(appNameOther), db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, types.ArgoBracketName(appName))
 				if err != nil {
 					return err
 				}

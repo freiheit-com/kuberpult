@@ -270,6 +270,7 @@ message CreateReleaseRequest {
   bool is_prepublish = 13;
   repeated string deploy_to_downstream_environments = 14;
   uint64 revision = 15;
+  string argoBracket = 16;
 }
 
 message CreateReleaseResponseSuccess {
@@ -749,6 +750,7 @@ message Application {
   string team = 4;
   UndeploySummary undeploy_summary = 5;
   repeated Warning warnings = 8;
+  string argoBracket = 9;
 }
 
 message Actor {

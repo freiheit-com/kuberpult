@@ -191,7 +191,7 @@ func TestGenerateManifest(t *testing.T) {
 				}
 
 				for _, release := range tc.SetupReleases {
-					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, release.App, db.AppStateChangeCreate, db.DBAppMetaData{})
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, release.App, db.AppStateChangeCreate, db.DBAppMetaData{}, types.ArgoBracketName(release.App))
 					if err != nil {
 						return err
 					}

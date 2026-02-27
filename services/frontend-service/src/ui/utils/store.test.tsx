@@ -1385,6 +1385,7 @@ describe('Test Calculate Release Difference', () => {
                             sourceRepoUrl: '',
                             team: '',
                             warnings: [],
+                            argoBracket: '',
                             releases: [
                                 {
                                     version: 10,
@@ -1471,6 +1472,7 @@ describe('Test Calculate Release Difference', () => {
                             sourceRepoUrl: '',
                             team: '',
                             warnings: [],
+                            argoBracket: '',
                             releases: [
                                 {
                                     version: 10,
@@ -1573,6 +1575,7 @@ describe('Test Calculate Release Difference', () => {
                             sourceRepoUrl: '',
                             team: '',
                             warnings: [],
+                            argoBracket: '',
                             releases: [
                                 {
                                     version: 10,
@@ -1659,6 +1662,7 @@ describe('Test Calculate Release Difference', () => {
                             sourceRepoUrl: '',
                             team: '',
                             warnings: [],
+                            argoBracket: '',
                             releases: [
                                 {
                                     version: 10,

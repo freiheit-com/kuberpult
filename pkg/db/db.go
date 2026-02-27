@@ -854,8 +854,9 @@ func processAllCommitEventRow(ctx context.Context, rows *sql.Rows, err error) ([
 		if err != nil {
 			return nil, err
 		}
-
-		result = append(result, *row)
+		if row != nil {
+			result = append(result, *row)
+		}
 	}
 	err = rows.Err()
 	if err != nil {
@@ -1398,7 +1399,8 @@ func (h *DBHandler) runCustomMigrationApps(ctx context.Context, transaction *sql
 	}()
 
 	for app, team := range *appsMap {
-		err := h.DBInsertOrUpdateApplication(ctx, transaction, app, AppStateChangeMigrate, DBAppMetaData{Team: team})
+		const argoBracket = "" // this function is part of a migration from git, so we do not have argoBrackets yet
+		err := h.DBInsertOrUpdateApplication(ctx, transaction, app, AppStateChangeMigrate, DBAppMetaData{Team: team}, argoBracket)
 		if err != nil {
 			return fmt.Errorf("could not write dbApp %s: %v", app, err)
 		}
@@ -1774,9 +1776,6 @@ func (h *DBHandler) DBSkipFailedEslEvent(ctx context.Context, tx *sql.Tx, transf
 }
 
 func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) (*time.Time, error) {
-	if h == nil {
-		return nil, nil
-	}
 	if tx == nil {
 		return nil, fmt.Errorf("attempting to read transaction timestamp without a transaction")
 	}

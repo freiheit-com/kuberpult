@@ -34,6 +34,7 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 
@@ -393,6 +394,7 @@ type CreateApplicationVersion struct {
 	IsPrepublish                   bool                     `json:"isPrepublish"`
 	DeployToDownstreamEnvironments []types.EnvName          `json:"deployToDownstreamEnvironments"`
 	Revision                       uint64                   `json:"revision"`
+	ArgoBracket                    types.ArgoBracketName    `json:"argoBracket"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -496,6 +498,10 @@ func (c *CreateApplicationVersion) CheckPreconditions(ctx context.Context) error
 	if c.CiLink != "" && !isValidLink(c.CiLink, c.AllowedDomains) {
 		return GetCreateReleaseGeneralFailure(fmt.Errorf("provided CI Link: %s is not valid or does not match any of the allowed domain", c.CiLink))
 	}
+	if err := CheckParameterMaxLength("argoBracket", string(c.ArgoBracket), valid.MaxArgoBracketNameLength); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -505,6 +511,8 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
+	logger.FromContext(ctx).Warn("CreateApplicationVersion",
+		zap.Any("transformer", c), zap.String("ArgoBracket", string(c.ArgoBracket)))
 	version, err := c.calculateVersion(ctx, transaction, state)
 	if err != nil {
 		return "", err
@@ -520,6 +528,14 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	if allApps == nil {
 		allApps = []types.AppName{}
+	}
+	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
+	}
+	err = db.HandleBracketsUpdate(state.DBHandler, ctx, transaction, c.Application, c.ArgoBracket, *now)
+	if err != nil {
+		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update brackets: %w", err))
 	}
 
 	if !slices.Contains(allApps, c.Application) {
@@ -539,6 +555,7 @@ func (c *CreateApplicationVersion) Transform(
 			c.Application,
 			db.AppStateChangeCreate,
 			db.DBAppMetaData{Team: c.Team},
+			c.ArgoBracket,
 		)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app: %v", err))
@@ -561,6 +578,7 @@ func (c *CreateApplicationVersion) Transform(
 				c.Application,
 				db.AppStateChangeUpdate,
 				newMeta,
+				c.ArgoBracket,
 			)
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update app: %v", err))
@@ -620,10 +638,6 @@ func (c *CreateApplicationVersion) Transform(
 	manifestsToKeep := c.Manifests
 	if c.IsPrepublish {
 		manifestsToKeep = make(map[types.EnvName]string)
-	}
-	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
-	if err != nil {
-		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 	}
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
@@ -1183,13 +1197,25 @@ func (u *UndeployApplication) Transform(
 	if err != nil {
 		return "", fmt.Errorf("UndeployApplication: could not select app '%s': %v", u.Application, err)
 	}
-	err = state.DBHandler.DBInsertOrUpdateApplication(ctx, transaction, dbApp.App, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team})
+	if dbApp == nil {
+		return "", fmt.Errorf("UndeployApplication: app '%s' not found", u.Application)
+	}
+	err = state.DBHandler.DBInsertOrUpdateApplication(ctx, transaction, dbApp.App, db.AppStateChangeDelete, db.DBAppMetaData{Team: dbApp.Metadata.Team}, dbApp.ArgoBracket)
 	if err != nil {
 		return "", fmt.Errorf("UndeployApplication: could not insert app '%s': %v", u.Application, err)
 	}
 
-	err = state.DBHandler.DBClearReleases(ctx, transaction, u.Application)
+	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("UndeployApplication: could not get timestamp: %w", err)
+	}
 
+	err = db.HandleBracketsDeletion(state.DBHandler, ctx, transaction, u.Application, dbApp.ArgoBracket, *now)
+	if err != nil {
+		return "", fmt.Errorf("UndeployApplication: could not handle bracket deletion for app '%s': %v", u.Application, err)
+	}
+
+	err = state.DBHandler.DBClearReleases(ctx, transaction, u.Application)
 	if err != nil {
 		return "", fmt.Errorf("UndeployApplication: could not clear releases for app '%s': %v", u.Application, err)
 	}

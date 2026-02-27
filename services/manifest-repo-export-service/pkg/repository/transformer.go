@@ -801,6 +801,7 @@ type CreateApplicationVersion struct {
 	PreviousCommit        string                   `json:"previousCommit"`
 	TransformerEslVersion db.TransformerID         `json:"-"`
 	CreationTimestamp     time.Time                `json:"-"`
+	ArgoBracket           types.ArgoBracketName    `json:"argoBracket"`
 }
 
 func (c *CreateApplicationVersion) GetCreationTimestamp() time.Time {

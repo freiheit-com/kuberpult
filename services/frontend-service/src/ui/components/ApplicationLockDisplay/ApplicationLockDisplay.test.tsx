@@ -44,6 +44,7 @@ describe('ApplicationLockDisplay', () => {
         sourceRepoUrl: 'http://bar.com',
         undeploySummary: UndeploySummary.NORMAL,
         warnings: [],
+        argoBracket: '',
     };
     const testEnv1: Environment = {
         name: 'dev',

@@ -869,7 +869,7 @@ func SetupDB(t *testing.T) *db.DBHandler {
 		if err1 != nil {
 			return err1
 		}
-		err1 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{})
+		err1 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{}, "foo")
 		if err1 != nil {
 			return err1
 		}
