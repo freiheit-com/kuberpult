@@ -14,7 +14,7 @@ jobs:
   execution-plan:
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
-      trigger: tag
+      trigger: main
       ref: "v13.44.0"
     secrets: inherit
   rebuild:
