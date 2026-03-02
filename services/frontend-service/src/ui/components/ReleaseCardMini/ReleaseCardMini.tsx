@@ -15,11 +15,12 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import classNames from 'classnames';
 import React from 'react';
-import { useOpenReleaseDialog, useReleaseOrLog } from '../../utils/store';
+import { useOpenReleaseDialog, useReleaseOrGet } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { undeployTooltipExplanation } from '../ReleaseDialog/ReleaseDialog';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
+import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export type ReleaseCardMiniProps = {
     className?: string;
@@ -31,16 +32,13 @@ export type ReleaseCardMiniProps = {
 export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
     const { className, app, version, revision } = props;
     // the ReleaseCardMini only displays actual releases, so we can assume that it exists here:
-    const firstRelease = useReleaseOrLog(app, version, revision);
     const openReleaseDialog = useOpenReleaseDialog(app, version, revision);
-    const release = useReleaseOrLog(app, version, revision);
-    if (!firstRelease) {
-        return null;
-    }
+    const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
+    const release = useReleaseOrGet(app, version, revision, authHeader, authReady);
     if (!release) {
         return null;
     }
-    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor } = firstRelease;
+    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor } = release;
     const displayedMessage = undeployVersion ? 'Undeploy Version' : sourceMessage + (isMinor ? '💤' : '');
     const displayedTitle = undeployVersion ? undeployTooltipExplanation : '';
     return (

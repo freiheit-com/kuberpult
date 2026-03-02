@@ -1513,7 +1513,7 @@ export const invalidateAppDetailsForApp = (appName: string): void => {
     updateAppDetails.set(details);
 };
 
-export const InvalidateAppLocks = (envName: string, appName: string, lockId: string): void => {
+export const invalidateAppLocks = (envName: string, appName: string, lockId: string): void => {
     const appLockDetails = UpdateAllApplicationLocks.get();
 
     appLockDetails[envName].appLocks[appName].locks = appLockDetails[envName].appLocks[appName].locks.filter(
