@@ -55,7 +55,11 @@ func fromJson(data []byte) (BracketJsonBlob, error) {
 	return result, err
 }
 
-func HandleBracketsUpdate(h *DBHandler, ctx context.Context, tx *sql.Tx, app types.AppName, newBracketName types.ArgoBracketName, now time.Time) error {
+func HandleBracketsUpdate(h *DBHandler, ctx context.Context, tx *sql.Tx, app types.AppName, bracketName types.ArgoBracketName, now time.Time) error {
+	newBracketName := bracketName
+	if newBracketName == "" {
+		newBracketName = types.ArgoBracketName(app)
+	}
 	bracketRow, err := DBSelectBracketHistoryByTimestamp(h, ctx, tx, &now)
 	if err != nil {
 		return fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
