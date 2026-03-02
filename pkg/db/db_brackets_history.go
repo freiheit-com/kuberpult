@@ -159,7 +159,7 @@ func DBSelectBracketHistoryByTimestamp(h *DBHandler, ctx context.Context, tx *sq
 		SELECT created_at, all_brackets
 		FROM ` + bracketsHistoryTable + `
 		` + whereQuery + `
-		ORDER BY created_at DESC -- but only get the newest row
+		ORDER BY esl_id DESC -- but only get the newest row
 		LIMIT 1
 	;`)
 	rows, err := tx.QueryContext(

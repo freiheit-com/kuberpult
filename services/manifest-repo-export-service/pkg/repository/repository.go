@@ -1053,7 +1053,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		return fmt.Errorf("could not find bracket at %v: %w", timestamp, err)
 	}
 	bracketMap := map[types.ArgoBracketName]db.AppNames{}
-	if allBrackets == nil || allBrackets.AllBracketsJsonBlob.BracketMap == nil {
+	if allBrackets == nil || allBrackets.AllBracketsJsonBlob.BracketMap == nil || len(allBrackets.AllBracketsJsonBlob.BracketMap) == 0 {
 		// if there are no brackets, we assume each appName==bracketName
 		for _, appTeam := range appTeams {
 			bracketMap[types.ArgoBracketName(appTeam.AppName)] = db.AppNames{appTeam.AppName}
