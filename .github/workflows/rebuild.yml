@@ -23,14 +23,15 @@ jobs:
             exit 1
           fi
   execution-plan:
+    name: Rebuild all the images for Kuberpult with the specific Ref
     needs: [validate]
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       trigger: main
       ref: "v13.44.0"
     secrets: inherit
-  rebuild:
-    name: Release Kuberpult with an old semantic version
+  release:
+    name: Release Kuberpult with the specific Ref
     runs-on: ubuntu-latest
     needs: [execution-plan]
     steps:
@@ -42,9 +43,9 @@ jobs:
         run: |
           echo "The provided ref is: v13.44.0"
           echo "The current checked-out SHA is: $(git rev-parse HEAD)"
-      # - name: Run helm chart tests
-      #   run: |
-      #     make -C charts/kuberpult test-helm
+      - name: Run helm chart tests
+        run: |
+          make -C charts/kuberpult test-helm
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
