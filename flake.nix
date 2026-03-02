@@ -38,6 +38,9 @@
         packages = [
           # general build setup
           pkgs.gnumake
+          
+          # git
+          pkgs.git
 
           # libgit
           libgit-pkgs.libgit2
