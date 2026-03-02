@@ -34,7 +34,6 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
-	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 
@@ -511,8 +510,6 @@ func (c *CreateApplicationVersion) Transform(
 	t TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	logger.FromContext(ctx).Warn("CreateApplicationVersion",
-		zap.Any("transformer", c), zap.String("ArgoBracket", string(c.ArgoBracket)))
 	version, err := c.calculateVersion(ctx, transaction, state)
 	if err != nil {
 		return "", err

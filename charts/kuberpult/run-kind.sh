@@ -94,11 +94,11 @@ then
   echo warning: file already exists: "$gpgFile"
   if "$LOCAL_EXECUTION"
   then
-#    echo "is it ok to delete the file? Press enter twice to delete"
+    echo "is it ok to delete the file? Press enter twice to delete"
     # shellcheck disable=SC2162
-#    read
+    read
     # shellcheck disable=SC2162
-#    read
+    read
     rm "$gpgFile"
   else
     echo "this file should not exist on the ci"
@@ -320,11 +320,7 @@ argocd_adminpw=$(kubectl -n default get secret argocd-initial-admin-secret -o js
 echo "$argocd_adminpw"
 echo "$argocd_adminpw" > argocd_adminpw.txt
 
-#argocd login --port-forward --username admin --password "$argocd_adminpw"
-#token=$(argocd account generate-token --port-forward --account kuberpult)
-
 argocd login localhost:8080 --username admin --password "$argocd_adminpw" --insecure
-
 token=$(argocd account generate-token --server localhost:8080 --account kuberpult --insecure)
 
 echo "argocd token: $token"
@@ -354,8 +350,6 @@ portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
 waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
 print "connection to frontend service successful"
-#waitForDeployment "default" "app=kuberpult-rollout-service"
-#print "connection to rollout service successful"
 
 kubectl get deployment
 kubectl get pods
