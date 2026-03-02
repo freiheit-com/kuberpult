@@ -25,6 +25,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd/v1alpha1"
 )
 
@@ -42,7 +43,7 @@ func TestRender(t *testing.T) {
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
@@ -93,7 +94,7 @@ spec:
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
@@ -144,7 +145,7 @@ spec:
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
@@ -196,7 +197,7 @@ spec:
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: AA-dev-dev-1
@@ -243,7 +244,6 @@ spec:
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var (
@@ -262,7 +262,8 @@ spec:
 				gitBranch   = "main"
 
 				appData = AppData{
-					ArgoAppName: "app1",
+					ArgoAppName:    "app1",
+					ReferencedApps: []types.AppName{"app1"},
 				}
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
