@@ -16,14 +16,14 @@ jobs:
         with:
           fetch-depth: 0
           ref: "${{ inputs.ref }}"
-      - name: Validate SemVer tag
+      - name: Validate Ref parameter
         run: |
           INPUT_REF="${{ inputs.ref }}"
           if [[ ! $INPUT_REF =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
             echo "'$INPUT_REF' is not a valid SemVer (e.g., v1.0.0)."
             exit 1
           fi
-      - name: Output the Ref Parameter
+      - name: Output the Ref parameter
         run: |
           echo "The provided ref is: ${{ inputs.ref }}"
           echo "The current checked-out SHA is: $(git rev-parse HEAD)"
