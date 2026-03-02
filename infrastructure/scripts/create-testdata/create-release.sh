@@ -90,6 +90,49 @@ data:
   random: "${randomValue}"
   releaseVersion: "${release_version[@]}"
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: $name-sleep-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: $name-sleep
+  template:
+    metadata:
+      labels:
+        app: $name-sleep
+    spec:
+      containers:
+      - name: $name-sleep-container
+        image: alpine:latest
+        # We use 'trap' so the container handles termination signals gracefully
+        command: ["/bin/sh", "-c", "trap 'exit 0' SIGTERM; while true; do sleep 30; done"]
+        # Readiness Probe: Tells K8s when the pod is ready to bridge traffic
+        readinessProbe:
+          exec:
+            command:
+            - ls
+            - /
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        # Liveness Probe: Tells K8s if the container needs a restart
+        livenessProbe:
+          exec:
+            command:
+            - ps
+            - aux
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+          requests:
+            cpu: "10m"
+            memory: "32Mi"
+---
 EOF
   manifests+=("--form" "manifests[${env}]=@${file}")
 done
@@ -120,7 +163,6 @@ curl http://localhost:${FRONTEND_PORT}/api/release \
   -H "author-name:${AUTHOR}=" \
   "${inputs[@]}" \
   "${release_version[@]}" \
-  "${revision[@]}" \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
