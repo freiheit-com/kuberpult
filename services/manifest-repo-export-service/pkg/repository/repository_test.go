@@ -866,6 +866,34 @@ spec:
   - server: development
   sourceRepos:
   - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests;
+    com.freiheit.kuberpult/aa-parent-environment: production
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: production
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: production-test
+spec:
+  destination:
+    server: development
+  project: production
+  source:
+    path: environments/production/applications/test/manifests
+    repoURL: test
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
 `),
 						},
 					},
@@ -898,7 +926,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests;
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
@@ -999,6 +1027,34 @@ spec:
   - server: development
   sourceRepos:
   - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests;
+    com.freiheit.kuberpult/aa-parent-environment: production
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: production
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: production-test
+spec:
+  destination:
+    server: development
+  project: production
+  source:
+    path: environments/production/applications/test/manifests
+    repoURL: test
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
 `),
 						},
 					},
@@ -1039,7 +1095,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests;
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
@@ -1136,7 +1192,6 @@ spec:
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
@@ -1179,7 +1234,7 @@ spec:
 					t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
 				}
 				if err := verifyContent(state.Filesystem, currentStep.ExpectedFiles); err != nil {
-					t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
+					t.Fatalf("[%d] Error while verifying content: %v.\nFilesystem content:\n%s", si, err, strings.Join(listFiles(state.Filesystem), "\n"))
 				}
 			}
 		})
