@@ -11,14 +11,21 @@ on:
         description: "The SemVer tag to rebuild (e.g., v1.0.0)"
 
 jobs:
+  execution-plan:
+    uses: ./.github/workflows/execution-plan-snippet.yml
+    with:
+      trigger: tag
+      ref: "v13.44.0"
+    secrets: inherit
   rebuild:
-    name: Rebuild Kuberpult with an old semantic version
+    name: Release Kuberpult with an old semantic version
     runs-on: ubuntu-latest
+    needs: [execution-plan]
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: "${{ inputs.ref }}"
+          ref: "v13.44.0"
       - name: Validate Ref parameter
         run: |
           INPUT_REF="v13.44.0"
@@ -28,7 +35,7 @@ jobs:
           fi
       - name: Output the Ref parameter
         run: |
-          echo "The provided ref is: ${{ inputs.ref }}"
+          echo "The provided ref is: v13.44.0"
           echo "The current checked-out SHA is: $(git rev-parse HEAD)"
       # - name: Run helm chart tests
       #   run: |
