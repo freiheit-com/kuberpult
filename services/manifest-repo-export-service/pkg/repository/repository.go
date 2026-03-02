@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1060,54 +1061,84 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		}
 	} else {
 		bracketMap = allBrackets.AllBracketsJsonBlob.BracketMap
+		// even if there are brackets, they may not be complete
+		// in this case we fill the apps:
+		for _, appTeam := range appTeams {
+			key := types.ArgoBracketName(appTeam.AppName)
+			value, ok := bracketMap[key]
+			if !ok {
+				bracketMap[key] = db.AppNames{appTeam.AppName}
+			} else {
+				// value exists, now we need to check if the app is already there:
+				if !slices.Contains(value, appTeam.AppName) {
+					value = append(value, appTeam.AppName)
+					bracketMap[key] = value
+				}
+			}
+		}
 	}
 
 	// TODO SU: here we ALSO need the bracket
 	appToTeamMap := appTeamsToMap(appTeams)
 	for bracketName, appNames := range bracketMap {
-		appsInBracket := []types.AppName{}
-		bracketTeamName := ""
-		for _, appName := range appNames {
+		if len(appNames) == 1 {
+			appName := appNames[0]
 			appsTeamName, ok := appToTeamMap[appName]
 			if !ok {
 				// apps without a team are valid, not an error
 				appsTeamName = ""
 			}
-			if bracketTeamName == "" {
-				bracketTeamName = appsTeamName
-			} else {
-				if bracketTeamName != appsTeamName {
-					// previous team name is different
-					logger.FromContext(ctx).Error(
-						"bracket/team inconsistency detected",
-						zap.String("bracket", string(bracketName)),
-						zap.Any("apps", appNames),
-						zap.String("conflictingTeamA", bracketTeamName),
-						zap.String("conflictingTeamB", appsTeamName),
-						zap.String("conclusion", fmt.Sprintf("all 'apps' in this bracket will be rendered in Argo CD with team '%s'", bracketTeamName)),
-					)
+			appData = append(appData, argocd.AppData{
+				ArgoAppName:    string(appName),
+				TeamName:       appsTeamName,
+				ReferencedApps: []types.AppName{appName},
+			})
+		} else {
+			// TODO SU bracketName=""
+			appsInBracket := []types.AppName{}
+			bracketTeamName := ""
+			for _, appName := range appNames {
+				appsTeamName, ok := appToTeamMap[appName]
+				if !ok {
+					// apps without a team are valid, not an error
+					appsTeamName = ""
 				}
-			}
+				if bracketTeamName == "" {
+					bracketTeamName = appsTeamName
+				} else {
+					if bracketTeamName != appsTeamName {
+						// previous team name is different
+						logger.FromContext(ctx).Error(
+							"bracket/team inconsistency detected",
+							zap.String("bracket", string(bracketName)),
+							zap.Any("apps", appNames),
+							zap.String("conflictingTeamA", bracketTeamName),
+							zap.String("conflictingTeamB", appsTeamName),
+							zap.String("conclusion", fmt.Sprintf("all 'apps' in this bracket will be rendered in Argo CD with team '%s'", bracketTeamName)),
+						)
+					}
+				}
 
-			if appsTeamName != bracketTeamName {
-				bracketTeamName = appsTeamName
+				if appsTeamName != bracketTeamName {
+					bracketTeamName = appsTeamName
+				}
+				deployment, ok := deploymentsPerApp[appName]
+				if !ok {
+					// nothing was deployed here at that time, skip:
+					continue
+				}
+				if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
+					// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
+					continue
+				}
+				appsInBracket = append(appsInBracket, appName)
 			}
-			deployment, ok := deploymentsPerApp[appName]
-			if !ok {
-				// nothing was deployed here at that time, skip:
-				continue
-			}
-			if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
-				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
-				continue
-			}
-			appsInBracket = append(appsInBracket, appName)
+			appData = append(appData, argocd.AppData{
+				ArgoAppName:    string(bracketName),
+				TeamName:       bracketTeamName,
+				ReferencedApps: appsInBracket,
+			})
 		}
-		appData = append(appData, argocd.AppData{
-			ArgoAppName:    string(bracketName),
-			TeamName:       bracketTeamName,
-			ReferencedApps: appsInBracket,
-		})
 	}
 	spanCollectData.Finish()
 
