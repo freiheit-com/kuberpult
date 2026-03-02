@@ -94,6 +94,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: $name-sleep-deployment
+  namespace: "$env"
 spec:
   replicas: 1
   selector:
@@ -136,6 +137,8 @@ spec:
 EOF
   manifests+=("--form" "manifests[${env}]=@${file}")
 done
+
+echo "manifest is in $file"
 
 FRONTEND_PORT=8081 # see docker-compose.yml
 
