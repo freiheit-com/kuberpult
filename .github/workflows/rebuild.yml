@@ -22,8 +22,9 @@ jobs:
           ref: "${{ inputs.ref }}"
       - name: Validate Ref parameter
         run: |
-          if [[ ! ${{ inputs.ref }} =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
-            echo "'${{ inputs.ref }}' is not a valid SemVer (e.g., v1.0.0)."
+          INPUT_REF="${{ inputs.ref }}"
+          if [[ ! $INPUT_REF =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "'$INPUT_REF' is not a valid SemVer (e.g., v1.0.0)."
             exit 1
           fi
       - name: Output the Ref parameter
