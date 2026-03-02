@@ -660,8 +660,15 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 		return nil, applyErr
 	}
 
-	if r.shouldCreateNewCommit(commitMsg) {
-		if err := r.afterTransform(ctx, transaction, *state, transformer.GetCreationTimestamp(), result.CalculateChangedEnvironments()); err != nil {
+	shouldCreateCommit := r.shouldCreateNewCommit(commitMsg)
+	changedEnvs := result.CalculateChangedEnvironments()
+	logger.FromContext(ctx).Info("new-commit-decision",
+		zap.Bool("shouldCreateNewCommit", shouldCreateCommit),
+		zap.Any("commitMsg", commitMsg),
+		zap.Any("changedEnvs", changedEnvs),
+	)
+	if shouldCreateCommit {
+		if err := r.afterTransform(ctx, transaction, *state, transformer.GetCreationTimestamp(), changedEnvs); err != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 		}
 
@@ -1044,7 +1051,6 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 	}
 	spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
 	defer spanCollectData.Finish()
-	appData := []argocd.AppData{}
 	deploymentsPerApp, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, state.DBHandler, transaction, info.ParentEnvironmentName, timestamp)
 	if err != nil {
 		return err
@@ -1053,6 +1059,26 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 	if err != nil {
 		return fmt.Errorf("could not find bracket at %v: %w", timestamp, err)
 	}
+	appData := CalculateAppDataWithBrackets(ctx, allBrackets, appTeams, deploymentsPerApp)
+	spanCollectData.Finish()
+
+	spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+	defer spanRenderAndWrite.Finish()
+	manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, info, appData)
+	if err != nil {
+		return err
+	}
+	return writeArgoCdManifestsSynced(ctx, state.Filesystem, info, manifests, fsMutex)
+}
+
+// CalculateAppDataWithBrackets returns the list of AppData that needs to be rendered in render.go
+func CalculateAppDataWithBrackets(
+	ctx context.Context,
+	allBrackets *db.BracketRow,
+	appTeams []db.AppWithTeam,
+	deploymentsPerApp db_history.DeploymentMap,
+) []argocd.AppData {
+	appData := []argocd.AppData{}
 	bracketMap := map[types.ArgoBracketName]db.AppNames{}
 	if allBrackets == nil || allBrackets.AllBracketsJsonBlob.BracketMap == nil || len(allBrackets.AllBracketsJsonBlob.BracketMap) == 0 {
 		// if there are no brackets, we assume each appName==bracketName
@@ -1064,15 +1090,19 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 		// even if there are brackets, they may not be complete
 		// in this case we fill the apps:
 		for _, appTeam := range appTeams {
-			key := types.ArgoBracketName(appTeam.AppName)
-			value, ok := bracketMap[key]
-			if !ok {
-				bracketMap[key] = db.AppNames{appTeam.AppName}
+			if isAppInBracket(bracketMap, appTeam.AppName) {
+				// app is already in there
+				continue
+			}
+			// is is nowhere to be found, so we add it under its own bucket:
+			newKey := types.ArgoBracketName(appTeam.AppName)
+			val, ok := bracketMap[newKey]
+			if ok {
+				val = append(val, appTeam.AppName)
+				bracketMap[newKey] = val
 			} else {
-				// value exists, now we need to check if the app is already there:
-				if !slices.Contains(value, appTeam.AppName) {
-					value = append(value, appTeam.AppName)
-					bracketMap[key] = value
+				bracketMap[newKey] = []types.AppName{
+					appTeam.AppName,
 				}
 			}
 		}
@@ -1140,15 +1170,19 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 			})
 		}
 	}
-	spanCollectData.Finish()
+	slices.SortFunc(appData, func(a, b argocd.AppData) int {
+		return strings.Compare(a.ArgoAppName, b.ArgoAppName)
+	})
+	return appData
+}
 
-	spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-	defer spanRenderAndWrite.Finish()
-	manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, info, appData)
-	if err != nil {
-		return err
+func isAppInBracket(bracketMap map[types.ArgoBracketName]db.AppNames, name types.AppName) bool {
+	for _, value := range bracketMap {
+		if slices.Contains(value, name) {
+			return true
+		}
 	}
-	return writeArgoCdManifestsSynced(ctx, state.Filesystem, info, manifests, fsMutex)
+	return false
 }
 
 func writeArgoCdManifestsSynced(ctx context.Context, filesystem billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte, fsMutex *sync.Mutex) error {

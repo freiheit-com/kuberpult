@@ -6651,7 +6651,7 @@ func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
 					for appName, teamName := range action.AppWithTeam {
 						err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, action.AppStateChange, DBAppMetaData{
 							Team: teamName,
-						})
+						}, "")
 						if err != nil {
 							return fmt.Errorf("error while writing app: %w", err)
 						}

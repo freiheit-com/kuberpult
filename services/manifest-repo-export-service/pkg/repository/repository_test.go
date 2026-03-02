@@ -41,11 +41,219 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db_history"
 )
 
 var versionZero = uint64(0)
 var versionOne = uint64(1)
-var versionTwo = uint64(2)
+
+func TestCalculateAppDatWithBrackets(t *testing.T) {
+	makeBracketMap := func(m map[types.ArgoBracketName]db.AppNames) *db.BracketRow {
+		return &db.BracketRow{
+			AllBracketsJsonBlob: db.BracketJsonBlob{
+				BracketMap: m,
+			},
+		}
+	}
+	makeDeploymentMap := func(appNames []types.AppName) db_history.DeploymentMap {
+		result := db_history.DeploymentMap{}
+		for _, appName := range appNames {
+			v := uint64(1)
+			result[appName] = db.Deployment{
+				App: appName,
+				Env: "dontcare",
+				ReleaseNumbers: types.ReleaseNumbers{
+					Version:  &v,
+					Revision: 1,
+				},
+			}
+		}
+		return result
+	}
+	tcs := []struct {
+		Name               string
+		InputBrackets      *db.BracketRow
+		InputTeams         []db.AppWithTeam
+		InputDeploymentMap db_history.DeploymentMap
+		ExpectedAppData    []argocd.AppData
+	}{
+		{
+			Name:               "All inputs empty",
+			InputBrackets:      nil,
+			InputTeams:         nil,
+			InputDeploymentMap: nil,
+			ExpectedAppData:    []argocd.AppData{},
+		},
+		{
+			Name:          "one app without bracket data",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "new1", // app that was not in a bracket
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"new1"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "new1", // since it's the only app in the bracket, we use the app name here
+					TeamName:       "t1",
+					ReferencedApps: []types.AppName{"new1"},
+				},
+			},
+		},
+		{
+			// This case is about introducing the brackets table initially. Not all apps will be part of the brackets_history table yet
+			Name: "one app with bracket data, one app without bracket data",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "new1", // app that was not in a bracket
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "new1"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "foo1", // since it's the only app in the bracket, we use the app name here
+					TeamName:       "t1",
+					ReferencedApps: []types.AppName{"foo1"},
+				},
+				{
+					ArgoAppName:    "new1", // since it's the only app in the bracket, we use the app name here
+					TeamName:       "t1",
+					ReferencedApps: []types.AppName{"new1"},
+				},
+			},
+		},
+		{
+			Name: "1 app, 1 team, 1 bracket",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "foo1", // since it's the only app in the bracket, we use the app name here
+					TeamName:       "t1",
+					ReferencedApps: []types.AppName{"foo1"},
+				},
+			},
+		},
+		{
+			Name: "2 apps, 1 team, 1 bracket",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1", "foo2"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "foo2",
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "foo2"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "f1", // since it's the only app in the bracket, we use the app name here
+					TeamName:       "t1",
+					ReferencedApps: []types.AppName{"foo1", "foo2"},
+				},
+			},
+		},
+		{
+			Name: "2 apps, 2 teams, 2 brackets",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1"},
+				"p1": {"pow1"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "pow1",
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "pow1"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "foo1", // since it's the only app in the bracket, we use the app name here
+					TeamName:       "t1",
+					ReferencedApps: []types.AppName{"foo1"},
+				},
+				{
+					ArgoAppName:    "pow1", // since it's the only app in the bracket, we use the app name here
+					TeamName:       "t1",
+					ReferencedApps: []types.AppName{"pow1"},
+				},
+			},
+		},
+		{
+			Name: "4 apps, 2 teams, 2 brackets",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1", "foo2"},
+				"p1": {"pow1", "pow2"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "foo2",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "pow1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "pow2",
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "foo2", "pow1", "pow2"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "f1",
+					TeamName:       "t1",
+					ReferencedApps: []types.AppName{"foo1", "foo2"},
+				},
+				{
+					ArgoAppName:    "p1",
+					TeamName:       "t1",
+					ReferencedApps: []types.AppName{"pow1", "pow2"},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			actualAppData := CalculateAppDataWithBrackets(context.Background(), tc.InputBrackets, tc.InputTeams, tc.InputDeploymentMap)
+			testutil.DiffOrFail(t, "", tc.ExpectedAppData, actualAppData)
+		})
+	}
+}
 
 func TestRetrySsh(t *testing.T) {
 	tcs := []struct {
