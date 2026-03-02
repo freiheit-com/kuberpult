@@ -166,6 +166,7 @@ curl http://localhost:${FRONTEND_PORT}/api/release \
   -H "author-name:${AUTHOR}=" \
   "${inputs[@]}" \
   "${release_version[@]}" \
+  "${revision[@]}" \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \

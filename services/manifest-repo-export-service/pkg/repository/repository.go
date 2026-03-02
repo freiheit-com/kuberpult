@@ -1108,7 +1108,6 @@ func CalculateAppDataWithBrackets(
 		}
 	}
 
-	// TODO SU: here we ALSO need the bracket
 	appToTeamMap := appTeamsToMap(appTeams)
 	for bracketName, appNames := range bracketMap {
 		if len(appNames) == 1 {
@@ -1124,7 +1123,6 @@ func CalculateAppDataWithBrackets(
 				ReferencedApps: []types.AppName{appName},
 			})
 		} else {
-			// TODO SU bracketName=""
 			appsInBracket := []types.AppName{}
 			bracketTeamName := ""
 			for _, appName := range appNames {
