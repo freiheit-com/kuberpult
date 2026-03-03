@@ -25,7 +25,6 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd/v1alpha1"
 )
 
@@ -47,11 +46,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   name: dev-app1
 spec:
   destination: {}
@@ -100,11 +99,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   name: dev-app1
 spec:
   destination: {}
@@ -153,11 +152,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   name: dev-app1
 spec:
   destination:
@@ -207,11 +206,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: AA-dev-dev-1
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   name: AA-dev-dev-1-app1
 spec:
   destination:
@@ -271,7 +270,7 @@ spec:
 
 				appData = AppData{
 					ArgoAppName:    "app1",
-					ReferencedApps: []types.AppName{"app1"},
+					ReferencedApps: []AppTeam{{"app1", ""}},
 				}
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
@@ -396,7 +395,7 @@ spec:
 			appData: []AppData{
 				{
 					ArgoAppName:    "app1",
-					ReferencedApps: []types.AppName{"app1"},
+					ReferencedApps: []AppTeam{{"app1", ""}},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -418,11 +417,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   name: test-env-app1
 spec:
   destination:
@@ -455,7 +454,7 @@ spec:
 			appData: []AppData{
 				{
 					ArgoAppName:    "app1",
-					ReferencedApps: []types.AppName{"app1"},
+					ReferencedApps: []AppTeam{{"app1", ""}},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -477,11 +476,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   name: test-env-app1
 spec:
   destination: {}
@@ -582,8 +581,7 @@ spec:
 			appData: []AppData{
 				{
 					ArgoAppName:    "app1",
-					TeamName:       "some-team",
-					ReferencedApps: []types.AppName{"app1"},
+					ReferencedApps: []AppTeam{{"app1", "some-team"}},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -605,11 +603,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team;
   name: test-env-app1
 spec:
   destination: {}
@@ -642,8 +640,7 @@ spec:
 			appData: []AppData{
 				{
 					ArgoAppName:    "app1",
-					TeamName:       "some-team",
-					ReferencedApps: []types.AppName{"app1"},
+					ReferencedApps: []AppTeam{{"app1", "some-team"}},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -665,11 +662,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: AA-test-env-dev-1
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team;
   name: AA-test-env-dev-1-app1
 spec:
   destination: {}

@@ -862,7 +862,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests;
+    argocd.argoproj.io/manifest-generate-paths: ""
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
@@ -870,7 +870,7 @@ metadata:
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: production-test
 spec:
   destination:
@@ -878,10 +878,6 @@ spec:
   project: production
   source:
     repoURL: ""
-  sources:
-  - path: environments/production/applications/test/manifests
-    repoURL: test
-    targetRevision: master
   syncPolicy:
     automated:
       allowEmpty: true
@@ -923,11 +919,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   name: production-test
 spec:
   destination:
@@ -1027,15 +1023,15 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests;
+    argocd.argoproj.io/manifest-generate-paths: ""
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: production-test
 spec:
   destination:
@@ -1043,10 +1039,6 @@ spec:
   project: production
   source:
     repoURL: ""
-  sources:
-  - path: environments/production/applications/test/manifests
-    repoURL: test
-    targetRevision: master
   syncPolicy:
     automated:
       allowEmpty: true
@@ -1096,11 +1088,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ;
   name: production-test
 spec:
   destination:
