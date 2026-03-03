@@ -1,8 +1,5 @@
 name: Rebuild Kuberpult with an old semantic version
 on:
-  push:
-    branches:
-      - db-rebuild-image
   workflow_dispatch:
     inputs:
       ref:
