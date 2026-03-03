@@ -34,9 +34,6 @@ build-pr: build publish
 	docker push $(IMAGENAME_VERSIONED_PR)
 
 build-main: build publish
-	echo "Building on main"
-	echo "rebuilding image:"
-	echo "yes/no? $(REBUILD_IMAGE)"
 	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_MAIN)
 	docker push $(IMAGENAME_VERSIONED_MAIN)
 ifndef REBUILD_IMAGE
