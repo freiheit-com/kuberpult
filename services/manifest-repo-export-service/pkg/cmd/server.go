@@ -39,7 +39,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -214,11 +213,6 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	gitTimestampMigrationEnabledString, err := valid.ReadEnvVar("KUBERPULT_GIT_TIMESTAMP_MIGRATIONS_ENABLED")
-	if err != nil {
-		return err
-	}
-	dbGitTimestampMigrationEnabled := gitTimestampMigrationEnabledString == "true"
 
 	dbOutdatedDeploymentsCleaningEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED", false)
 
@@ -285,7 +279,6 @@ func Run(ctx context.Context) error {
 			DbPassword:     dbPassword,
 			DbUser:         dbUserName,
 			MigrationsPath: dbMigrationLocation,
-			WriteEslOnly:   false,
 			SSLMode:        sslMode,
 
 			MaxIdleConnections: dbMaxIdle,
@@ -355,16 +348,6 @@ func Run(ctx context.Context) error {
 	logger.FromContext(ctx).Info("Finished custom migrations")
 
 	// the custom migrations that we only want to run on startup if the flag is enabled
-	kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
-	if err != nil {
-		return err
-	}
-	migrationServer := &service.MigrationServer{
-		KuberpultVersion: kuberpultVersion,
-		DBHandler:        dbHandler,
-		Migrations:       getGit2DBMigrations(dbHandler, repo),
-	}
-
 	if dbOutdatedDeploymentsCleaningEnabled {
 		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
 		if err != nil {
@@ -376,17 +359,6 @@ func Run(ctx context.Context) error {
 		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)
 		if err != nil {
 			logger.FromContext(ctx).Error("error cleaning git sync status - you can disable this cleaning operation with 'db.resetGitSyncStatus.enabled:false'", zap.Error(err))
-		}
-	}
-
-	if dbGitTimestampMigrationEnabled {
-		err := dbHandler.RunCustomMigrationReleasesTimestamp(ctx, repo.State().GetAppsAndTeams, repo.State().FixReleasesTimestamp)
-		if err != nil {
-			return fmt.Errorf("error running migrations for fixing releases timestamp: %w", err)
-		}
-		err = repo.FixCommitsTimestamp(ctx, *repo.State())
-		if err != nil {
-			return fmt.Errorf("error fixing commit timestamps: %w", err)
 		}
 	}
 
@@ -474,7 +446,6 @@ func Run(ctx context.Context) error {
 						Team:       dexRbacTeam,
 					},
 				})
-				api.RegisterMigrationServiceServer(srv, migrationServer)
 				reflection.Register(srv)
 			},
 		},
@@ -520,52 +491,6 @@ func ParseEnvironmentOverrides(ctx context.Context, configuredArgoNamesPerEnv va
 		}
 	}
 	return &result
-}
-
-func getGit2DBMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
-	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
-		return dbHandler.RunGit2DBMigrations(
-			ctx,
-			repo.State().GetAppsAndTeams,
-			repo.State().WriteCurrentlyDeployed,
-			repo.State().WriteAllReleases,
-			repo.State().WriteCurrentEnvironmentLocks,
-			repo.State().WriteCurrentApplicationLocks,
-			repo.State().WriteCurrentTeamLocks,
-			repo.State().GetAllEnvironments,
-			repo.State().WriteAllQueuedAppVersions,
-			repo.State().WriteAllCommitEvents,
-		)
-	}
-
-	migrateReleases := func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrationReleaseEnvironments(ctx)
-	}
-	migrateEnvApps := func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
-	}
-
-	// Migrations here must be IN ORDER, oldest first:
-	return []*service.Migration{
-		{
-			// This first migration is actually a list of migrations that are done in one step:
-			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
-			Migration: migrationFunc,
-		},
-		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 1),
-			Migration: migrateReleases,
-		},
-		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 2),
-			Migration: migrateEnvApps,
-		},
-		// New migrations should be added here:
-		// {
-		//   Version: ...
-		//   Migration: ...
-		// }
-	}
 }
 
 func processEsls(

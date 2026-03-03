@@ -118,7 +118,6 @@ func Run(ctx context.Context) error {
 		DbPassword:     dbPassword,
 		DbUser:         dbUserName,
 		MigrationsPath: "",
-		WriteEslOnly:   false,
 		SSLMode:        sslMode,
 
 		MaxIdleConnections: dbMaxIdle,

@@ -147,7 +147,7 @@ db:
   location: "127.0.0.1"
   authProxyPort: 5432
 # k8sServiceAccountName is required.
-# k8sServiceAccountName is the name of the kubernetes service account that is enables access to CloudSQL. 
+# k8sServiceAccountName is the name of the kubernetes service account that enables access to CloudSQL. 
   k8sServiceAccountName: "kp-k8s-service-account"
   cloudSqlProxyEnabled: false
   dbConnectionName: "connectioname"
@@ -179,10 +179,6 @@ db:
     reposerver:
       maxOpen: 5
       maxIdle: 2
-  # TODO(ccrc): Validate that this flag really just affects the GIT->DB migration and remove if so.
-  # This option migrates all the timestamps in the git repo to the databases
-  gitTimestampMigrations:
-    enabled: false
   # In the past, Kuberpult had a bug which wrote invalid deployment records to the database.
   # i.e., These records point to nil releases version or the releases which do not have any manifests for the environment they are deployed to.
   # Or they point to environments that do not exist anymore.

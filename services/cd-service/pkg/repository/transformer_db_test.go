@@ -306,7 +306,7 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()
-			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
+			repo, _ := SetupRepositoryTestWithDBOptions(t)
 			r := repo.(*repository)
 			row := &db.EslEventRow{}
 			err = repo.Apply(ctx, setupTransformers...)

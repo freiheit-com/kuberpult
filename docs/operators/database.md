@@ -1,9 +1,10 @@
 # Database
 
 ## The Database feature is now required
-All current users of Kuberpult have fully switched to the Kuberpult version that uses the database and all
-new users will immediately start using Kuberpult with the database. As a result, the options to use Kuberpult
-without a database will be removed from future versions.
+We expect that all Kuberpult users have fully switched to the Kuberpult version that uses the database at this point. 
+The option to use Kuberpult without a database will be removed from future versions and support for 
+migrations from older Kuberpult versions that do not use the database towards Kuberpult versions that use the database 
+will only be possible in versions `v13.43.3` or earlier.
 
 ## Background
 
@@ -22,10 +23,7 @@ Git will still be used as an *output* of kuberpult, but not as the source of tru
 
 ## Recommendations
 
-Enable the Database with `db.dbOption: "postgreSQL"`.
-This requires kuberpult version <= 10.3.10.
-
-Kuberpult will read and write from the database, so the database is the (only) source of truth.
+Kuberpult reads and writes from the database, so the database is the (only) source of truth.
 The manifest repository is only an "export", which is handled by the new `manifest-repo-export-service`.
 It is recommended to *not* push into the manifest repo, since kuberpult will not take these changes into account.
 However, in an urgent case, you can push files into it, including manifests for Argo CD. Each push will slow down the manifest-repo-export a little bit, because it needs to pull the changes again. This is why we recommend against pushing into it on a regular basis.

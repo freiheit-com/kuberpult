@@ -5500,7 +5500,7 @@ func setupDB(t *testing.T) *DBHandler {
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
 
-	dbConfig, err := ConnectToPostgresContainer(ctx, t, dir, false, t.Name())
+	dbConfig, err := ConnectToPostgresContainer(ctx, t, dir, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
@@ -5528,7 +5528,7 @@ func SetupRepositoryTestWithDB(t *testing.T, runMigrations bool) (*DBHandler, *D
 
 func SetupRepositoryTestWithDBMigrationPath(t *testing.T, migrationsPath string, runMigrations bool) (*DBHandler, *DBConfig) {
 	ctx := context.Background()
-	dbConfig, err := ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := ConnectToPostgresContainer(ctx, t, migrationsPath, t.Name())
 	if err != nil {
 		t.Fatalf("error connceting %v", err)
 		return nil, nil

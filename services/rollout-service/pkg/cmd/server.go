@@ -253,7 +253,6 @@ func runServer(ctx context.Context, config Config) error {
 				DbPassword:     config.DbUserPassword,
 				DbUser:         config.DbUserName,
 				MigrationsPath: config.DbMigrationsLocation,
-				WriteEslOnly:   false,
 				SSLMode:        config.DbSslMode,
 
 				MaxIdleConnections: config.DbMaxIdleConnections,
