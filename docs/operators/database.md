@@ -27,7 +27,9 @@ This requires kuberpult version <= 10.3.10.
 
 Kuberpult will read and write from the database, so the database is the (only) source of truth.
 The manifest repository is only an "export", which is handled by the new `manifest-repo-export-service`.
-It is recommended to *never* push into the repo manually, since kuberpult will not take these changes into account.
+It is recommended to *not* push into the manifest repo, since kuberpult will not take these changes into account.
+However, in an urgent case, you can push files into it, including manifests for Argo CD. Each push will slow down the manifest-repo-export a little bit, because it needs to pull the changes again. This is why we recommend against pushing into it on a regular basis.
+Note that if you do push manifests into it, the manifest-repo-export will override them when that service is deployed next time.
 
 ### Monitoring
 Create alerts and backups for the database itself.
