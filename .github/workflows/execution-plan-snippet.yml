@@ -95,6 +95,10 @@ jobs:
         if: inputs.trigger == 'tag'
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
+      - name: Set rebuild flag
+        if: inputs.ref != ''
+        run: |
+          echo "REBUILD_IMAGE=true" >> $GITHUB_ENV
       - name: Add credentials file
         run: |
           cat > credential.json << EOF
@@ -166,6 +170,10 @@ jobs:
         if: inputs.trigger == 'tag'
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
+      - name: Set rebuild flag
+        if: inputs.ref != ''
+        run: |
+          echo "REBUILD_IMAGE=true" >> $GITHUB_ENV
       - name: Add credentials file
         run: |
           cat > credential.json << EOF

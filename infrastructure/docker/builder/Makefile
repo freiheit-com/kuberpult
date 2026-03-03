@@ -37,8 +37,10 @@ build-main: build publish
 	echo "Building on main"
 	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_MAIN)
 	docker push $(IMAGENAME_VERSIONED_MAIN)
+ifndef REBUILD_IMAGE
 	docker tag $(IMAGENAME) $(IMAGENAME_UNVERSIONED_MAIN)
 	docker push $(IMAGENAME_UNVERSIONED_MAIN)
+endif
 
 .PHONY: cleanup-pr
 cleanup-pr:
