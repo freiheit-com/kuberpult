@@ -178,12 +178,11 @@ type RepositoryConfig struct {
 	ReleaseVersionsLimit uint
 	StorageBackend       StorageBackend
 	// the url to the git repo, like the browser requires it (https protocol)
-	DogstatsdEvents       bool
-	WriteCommitData       bool
-	WebhookResolver       WebhookResolver
-	MaximumCommitsPerPush uint
-	MaximumQueueSize      uint
-	MaxNumThreads         uint
+	DogstatsdEvents  bool
+	WriteCommitData  bool
+	WebhookResolver  WebhookResolver
+	MaximumQueueSize uint
+	MaxNumThreads    uint
 	// Extend maximum AppName length
 	AllowLongAppNames bool
 
@@ -207,10 +206,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	}
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
-	}
-	if cfg.MaximumCommitsPerPush == 0 {
-		cfg.MaximumCommitsPerPush = 1
-
 	}
 	if cfg.MaximumQueueSize == 0 {
 		cfg.MaximumQueueSize = 5

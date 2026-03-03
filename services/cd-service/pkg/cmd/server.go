@@ -96,9 +96,8 @@ type Config struct {
 	GitBranch          string
 	GitWriteCommitData bool
 
-	GitNetworkTimeout        time.Duration
-	GitMaximumCommitsPerPush uint
-	ReleaseVersionsLimit     uint
+	GitNetworkTimeout    time.Duration
+	ReleaseVersionsLimit uint
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
 	CheckGit2DBMigrations bool
@@ -174,10 +173,6 @@ func parseEnvVars() (_ *Config, err error) {
 	c.GitBranch = valid.ReadEnvVarWithDefault("KUBERPULT_GIT_BRANCH", "master")
 	c.GitWriteCommitData = valid.ReadEnvVarBoolWithDefault("KUBERPULT_GIT_WRITE_COMMIT_DATA", false)
 	c.GitNetworkTimeout, err = valid.ReadEnvVarDurationWithDefault("KUBERPULT_GIT_NETWORK_TIMEOUT", time.Minute)
-	if err != nil {
-		return nil, err
-	}
-	c.GitMaximumCommitsPerPush, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH", 1)
 	if err != nil {
 		return nil, err
 	}
@@ -341,11 +336,6 @@ func RunServer() {
 				zap.String("url", c.GitUrl),
 				zap.String("details", "https is not supported for git communication, only ssh is supported"))
 		}
-		if c.GitMaximumCommitsPerPush == 0 {
-			logger.FromContext(ctx).Fatal("git.config",
-				zap.String("details", "the maximum number of commits per push must be at least 1"),
-			)
-		}
 		if c.MaximumQueueSize < 2 || c.MaximumQueueSize > 100 {
 			logger.FromContext(ctx).Fatal("cd.config",
 				zap.String("details", "the size of the queue must be between 2 and 100"),
@@ -398,21 +388,20 @@ func RunServer() {
 		}
 
 		cfg := repository.RepositoryConfig{
-			WebhookResolver:       nil,
-			URL:                   c.GitUrl,
-			MinorRegexes:          minorRegexes,
-			MaxNumThreads:         c.MaxNumberOfThreads,
-			Branch:                c.GitBranch,
-			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
-			StorageBackend:        c.storageBackend(),
-			NetworkTimeout:        c.GitNetworkTimeout,
-			DogstatsdEvents:       c.EnableMetrics,
-			WriteCommitData:       c.GitWriteCommitData,
-			MaximumCommitsPerPush: c.GitMaximumCommitsPerPush,
-			MaximumQueueSize:      c.MaximumQueueSize,
-			AllowLongAppNames:     c.AllowLongAppNames,
-			ArgoCdGenerateFiles:   c.ArgoCdGenerateFiles,
-			DBHandler:             dbHandler,
+			WebhookResolver:      nil,
+			URL:                  c.GitUrl,
+			MinorRegexes:         minorRegexes,
+			MaxNumThreads:        c.MaxNumberOfThreads,
+			Branch:               c.GitBranch,
+			ReleaseVersionsLimit: c.ReleaseVersionsLimit,
+			StorageBackend:       c.storageBackend(),
+			NetworkTimeout:       c.GitNetworkTimeout,
+			DogstatsdEvents:      c.EnableMetrics,
+			WriteCommitData:      c.GitWriteCommitData,
+			MaximumQueueSize:     c.MaximumQueueSize,
+			AllowLongAppNames:    c.AllowLongAppNames,
+			ArgoCdGenerateFiles:  c.ArgoCdGenerateFiles,
+			DBHandler:            dbHandler,
 		}
 
 		repo, err := repository.New(ctx, cfg)
