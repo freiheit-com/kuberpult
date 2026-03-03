@@ -1717,6 +1717,140 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				types.MakeReleaseNumberVersion(5),
 			},
 		},
+		{
+			Name:                "should remove old versions on multiple environments 2",
+			ReleaseVersionLimit: 3,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     1,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     2,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     3,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     4,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     5,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+			},
+			ExpectedActiveReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(4),
+				types.MakeReleaseNumberVersion(5),
+			},
+		},
+		{
+			Name:                "should not remove old versions when ReleaseVersionLimit > number of versions",
+			ReleaseVersionLimit: 6,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     1,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     2,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     3,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     4,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     5,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+			},
+			ExpectedActiveReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(1),
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(4),
+				types.MakeReleaseNumberVersion(5),
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
