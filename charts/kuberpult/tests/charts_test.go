@@ -242,9 +242,6 @@ pgp:
   keyRing: ""
 ingress:
   domainName: "kuberpult-example.com"
-
-environment_configs:
-  environment_configs_json: "{}"
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -767,16 +764,6 @@ ingress:
   domainName: "kuberpult-example.com"
 argocd:
   sendWebhooks: true
-`},
-		{
-			Name: "Test Bootstrap_mode being set to true",
-			Values: `
-git:
-  url:  "checkThisValue"
-ingress:
-  domainName: "kuberpult-example.com"
-environment_configs:
-  bootstrap_mode: true
 `},
 	}
 

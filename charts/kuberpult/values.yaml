@@ -466,11 +466,6 @@ dogstatsdMetrics:
   # send metrics:
   enabled: false
 
-  # TODO(ccrc): Check if used. If not, remove.
-  # sends additional events for each deployments:
-  # dogstatsdMetrics.enabled must be true for this to have an effect.
-  eventsEnabled: false
-
   #  dogstatsD listens on port udp:8125 by default.
   #  https://docs.datadoghq.com/developers/dogstatsd/?tab=hostagent#agent
   #  datadog.dogstatsd.socketPath -- Path to the DogStatsD socket
@@ -478,7 +473,6 @@ dogstatsdMetrics:
   # datadog.dogstatsd.hostSocketPath -- Host path to the DogStatsD socket
   hostSocketPath: /var/run/datadog
 
-# TODO(ccrc): Clarify what this is and if it may be visible in a Helm-Chart.
 imagePullSecrets: []
 
 gke:
@@ -501,19 +495,6 @@ gke:
   # gcloud projects list --filter="$(gcloud config get-value project)" --format="value(PROJECT_NUMBER)"
   # ```
   project_number: ""
-
-# TODO(ccrc): Check if used and remove if not.
-environment_configs:
-  # environment_configs_json: |
-  #   {
-  #     "production": {
-  #       "upstream": {
-  #           "latest": true
-  #        },
-  #        "argocd" :{}
-  #     }
-  #   }
-  environment_configs_json: null
 
 auth:
   azureAuth:

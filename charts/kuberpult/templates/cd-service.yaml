@@ -200,8 +200,6 @@ spec:
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: KUBERPULT_ENABLE_METRICS
           value: "{{ .Values.dogstatsdMetrics.enabled }}"
-        - name: KUBERPULT_ENABLE_EVENTS
-          value: "{{ .Values.dogstatsdMetrics.eventsEnabled }}"
         - name: KUBERPULT_DOGSTATSD_ADDR
           value: "{{ .Values.dogstatsdMetrics.address }}"
 {{- end }}
@@ -221,9 +219,6 @@ spec:
           value: "{{ .Values.auth.azureAuth.enabled }}"
         - name: KUBERPULT_DEX_ENABLED
           value: "{{ .Values.auth.dexAuth.enabled }}"
-{{- if .Values.environment_configs.bootstrap_mode }}
-        {{ fail "Values.environment_configs.bootstrap_mode cannot be used anymore. For more information [See environment.md/Environment Creation for how to create and edit environments](https://github.com/freiheit-com/kuberpult/blob/main/docs/environment.md) "}}
-{{- end }}
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
