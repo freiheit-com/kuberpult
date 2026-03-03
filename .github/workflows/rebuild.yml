@@ -45,7 +45,7 @@ jobs:
           echo "The current checked-out SHA is: $(git rev-parse HEAD)"
       - name: Run helm chart tests
         run: |
-          make -C charts/kuberpult test-helm
+          IMAGE_TAG_KUBERPULT="main-$(make version)" make -C charts/kuberpult test-helm
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
