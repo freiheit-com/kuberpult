@@ -98,8 +98,7 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			ExpectedAppData: []argocd.AppData{
 				{
 					ArgoAppName:    "new1", // since it's the only app in the bracket, we use the app name here
-					TeamName:       "t1",
-					ReferencedApps: []types.AppName{"new1"},
+					ReferencedApps: []argocd.AppTeam{{"new1", "t1"}},
 				},
 			},
 		},
@@ -122,14 +121,12 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "new1"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "foo1", // since it's the only app in the bracket, we use the app name here
-					TeamName:       "t1",
-					ReferencedApps: []types.AppName{"foo1"},
+					ArgoAppName:    "f1",
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}},
 				},
 				{
-					ArgoAppName:    "new1", // since it's the only app in the bracket, we use the app name here
-					TeamName:       "t1",
-					ReferencedApps: []types.AppName{"new1"},
+					ArgoAppName:    "new1", // since it doesn't have a bracket configured, we use the app name here
+					ReferencedApps: []argocd.AppTeam{{"new1", "t1"}},
 				},
 			},
 		},
@@ -147,9 +144,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "foo1", // since it's the only app in the bracket, we use the app name here
-					TeamName:       "t1",
-					ReferencedApps: []types.AppName{"foo1"},
+					ArgoAppName:    "f1",
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}},
 				},
 			},
 		},
@@ -171,9 +167,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "foo2"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "f1", // since it's the only app in the bracket, we use the app name here
-					TeamName:       "t1",
-					ReferencedApps: []types.AppName{"foo1", "foo2"},
+					ArgoAppName:    "f1",
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}, {"foo2", "t1"}},
 				},
 			},
 		},
@@ -190,20 +185,18 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 				},
 				{
 					AppName:  "pow1",
-					TeamName: "t1",
+					TeamName: "t2",
 				},
 			},
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "pow1"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "foo1", // since it's the only app in the bracket, we use the app name here
-					TeamName:       "t1",
-					ReferencedApps: []types.AppName{"foo1"},
+					ArgoAppName:    "f1",
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}},
 				},
 				{
-					ArgoAppName:    "pow1", // since it's the only app in the bracket, we use the app name here
-					TeamName:       "t1",
-					ReferencedApps: []types.AppName{"pow1"},
+					ArgoAppName:    "p1",
+					ReferencedApps: []argocd.AppTeam{{"pow1", "t2"}},
 				},
 			},
 		},
@@ -224,24 +217,22 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 				},
 				{
 					AppName:  "pow1",
-					TeamName: "t1",
+					TeamName: "t2",
 				},
 				{
 					AppName:  "pow2",
-					TeamName: "t1",
+					TeamName: "t2",
 				},
 			},
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "foo2", "pow1", "pow2"}),
 			ExpectedAppData: []argocd.AppData{
 				{
 					ArgoAppName:    "f1",
-					TeamName:       "t1",
-					ReferencedApps: []types.AppName{"foo1", "foo2"},
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}, {"foo2", "t1"}},
 				},
 				{
 					ArgoAppName:    "p1",
-					TeamName:       "t1",
-					ReferencedApps: []types.AppName{"pow1", "pow2"},
+					ReferencedApps: []argocd.AppTeam{{"pow1", "t2"}, {"pow2", "t2"}},
 				},
 			},
 		},
@@ -875,7 +866,7 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
@@ -886,7 +877,9 @@ spec:
     server: development
   project: production
   source:
-    path: environments/production/applications/test/manifests
+    repoURL: ""
+  sources:
+  - path: environments/production/applications/test/manifests
     repoURL: test
     targetRevision: master
   syncPolicy:
@@ -941,7 +934,9 @@ spec:
     server: development
   project: production
   source:
-    path: environments/production/applications/test/manifests
+    repoURL: ""
+  sources:
+  - path: environments/production/applications/test/manifests
     repoURL: test
     targetRevision: master
   syncPolicy:
@@ -1047,7 +1042,9 @@ spec:
     server: development
   project: production
   source:
-    path: environments/production/applications/test/manifests
+    repoURL: ""
+  sources:
+  - path: environments/production/applications/test/manifests
     repoURL: test
     targetRevision: master
   syncPolicy:
@@ -1110,7 +1107,9 @@ spec:
     server: development
   project: production
   source:
-    path: environments/production/applications/test/manifests
+    repoURL: ""
+  sources:
+  - path: environments/production/applications/test/manifests
     repoURL: test
     targetRevision: master
   syncPolicy:

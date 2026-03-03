@@ -360,7 +360,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	}
 	form := r.MultipartForm
 
-	const paramArgoBracket = "argoBracket"
+	const paramArgoBracket = "experimentalArgoBracket"
 	if argoBrackets, ok := form.Value[paramArgoBracket]; ok {
 		if !checkParameterCardinality(w, paramArgoBracket, argoBrackets) {
 			return

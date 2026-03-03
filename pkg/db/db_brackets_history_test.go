@@ -30,9 +30,8 @@ import (
 
 func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 	calcTime := func(sec int) time.Time { return time.Date(2000, 1, 1, 0, 0, sec, 0, time.UTC) }
-	timeA := calcTime(1)
-	timeB := calcTime(2)
-	//timeC := calcTime(3)
+	timeFirst := calcTime(1)
+	timeSecond := calcTime(2)
 	tcs := []struct {
 		Name                string
 		PreparedBracketRows []BracketRow
@@ -43,14 +42,14 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 		{
 			Name:                "no data",
 			PreparedBracketRows: []BracketRow{},
-			PreparedTimestamp:   timeA,
+			PreparedTimestamp:   timeFirst,
 			ExpectedBracketRow:  nil,
 		},
 		{
 			Name: "just one result",
 			PreparedBracketRows: []BracketRow{
 				{
-					CreatedAt: timeA,
+					CreatedAt: timeFirst,
 					AllBracketsJsonBlob: BracketJsonBlob{
 						BracketMap: map[types.ArgoBracketName]AppNames{
 							"b1": {"app1", "app2"},
@@ -58,9 +57,9 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 					},
 				},
 			},
-			PreparedTimestamp: timeA,
+			PreparedTimestamp: timeFirst,
 			ExpectedBracketRow: &BracketRow{
-				CreatedAt: timeA,
+				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{
 						"b1": {"app1", "app2"},
@@ -72,7 +71,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 			Name: "two inputs, second wins",
 			PreparedBracketRows: []BracketRow{
 				{
-					CreatedAt: timeA,
+					CreatedAt: timeFirst,
 					AllBracketsJsonBlob: BracketJsonBlob{
 						BracketMap: map[types.ArgoBracketName]AppNames{
 							"b1": {"app1", "app2"},
@@ -80,7 +79,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 					},
 				},
 				{
-					CreatedAt: timeB,
+					CreatedAt: timeSecond,
 					AllBracketsJsonBlob: BracketJsonBlob{
 						BracketMap: map[types.ArgoBracketName]AppNames{
 							"b1": {"app3", "app2"},
@@ -88,9 +87,9 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 					},
 				},
 			},
-			PreparedTimestamp: timeB,
+			PreparedTimestamp: timeSecond,
 			ExpectedBracketRow: &BracketRow{
-				CreatedAt: timeB,
+				CreatedAt: timeSecond,
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{
 						"b1": {"app3", "app2"},
@@ -102,7 +101,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 			Name: "two inputs, first one wins because, we're looking back into history",
 			PreparedBracketRows: []BracketRow{
 				{
-					CreatedAt: timeA,
+					CreatedAt: timeFirst,
 					AllBracketsJsonBlob: BracketJsonBlob{
 						BracketMap: map[types.ArgoBracketName]AppNames{
 							"b1": {"app1", "app2"},
@@ -110,7 +109,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 					},
 				},
 				{
-					CreatedAt: timeB,
+					CreatedAt: timeSecond,
 					AllBracketsJsonBlob: BracketJsonBlob{
 						BracketMap: map[types.ArgoBracketName]AppNames{
 							"b1": {"app3", "app2"},
@@ -118,9 +117,9 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 					},
 				},
 			},
-			PreparedTimestamp: timeA, // This means we look back into history
+			PreparedTimestamp: timeFirst, // This means we look back into history
 			ExpectedBracketRow: &BracketRow{
-				CreatedAt: timeA,
+				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{
 						"b1": {"app1", "app2"},
@@ -138,7 +137,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 
 			for _, bracketRow := range tc.PreparedBracketRows {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := DBInsertBracketHistory(dbHandler, ctx, transaction, bracketRow)
+					err := DBInsertBracketHistory(ctx, dbHandler, transaction, bracketRow)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -150,7 +149,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 			}
 
 			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-				bracketRow, err := DBSelectBracketHistoryByTimestamp(dbHandler, ctx, transaction, &tc.PreparedTimestamp)
+				bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, dbHandler, transaction, &tc.PreparedTimestamp)
 				if err != nil {
 					return err
 				}
@@ -166,9 +165,9 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 
 func TestHandleBracketUpdates(t *testing.T) {
 	calcTime := func(sec int) time.Time { return time.Date(2000, 1, 1, 0, 0, sec, 0, time.UTC) }
-	timeA := calcTime(1)
-	timeB := calcTime(2)
-	timeC := calcTime(3)
+	timeFirst := calcTime(1)
+	timeSecond := calcTime(2)
+	timeThird := calcTime(3)
 	type AppBracketTime struct {
 		App     types.AppName
 		Bracket types.ArgoBracketName
@@ -186,7 +185,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 			Name:               "no data",
 			AddAppBrackets:     []AppBracketTime{},
 			DeleteAppBrackets:  []AppBracketTime{},
-			PreparedTimestamp:  timeA,
+			PreparedTimestamp:  timeFirst,
 			ExpectedBracketRow: nil,
 		},
 		{
@@ -195,13 +194,13 @@ func TestHandleBracketUpdates(t *testing.T) {
 				{
 					App:     types.AppName("app1"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeA,
+					Time:    timeFirst,
 				},
 			},
 			DeleteAppBrackets: []AppBracketTime{},
-			PreparedTimestamp: timeA,
+			PreparedTimestamp: timeFirst,
 			ExpectedBracketRow: &BracketRow{
-				CreatedAt: timeA,
+				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{
 						"b1": {"app1"},
@@ -215,23 +214,23 @@ func TestHandleBracketUpdates(t *testing.T) {
 				{
 					App:     types.AppName("app3"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeA,
+					Time:    timeFirst,
 				},
 				{
 					App:     types.AppName("app2"),
 					Bracket: types.ArgoBracketName("b2"),
-					Time:    timeB,
+					Time:    timeSecond,
 				},
 				{
 					App:     types.AppName("app1"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeC,
+					Time:    timeThird,
 				},
 			},
 			DeleteAppBrackets: []AppBracketTime{},
-			PreparedTimestamp: timeA,
+			PreparedTimestamp: timeFirst,
 			ExpectedBracketRow: &BracketRow{
-				CreatedAt: timeA,
+				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{
 						"b1": {"app1", "app3"},
@@ -246,19 +245,19 @@ func TestHandleBracketUpdates(t *testing.T) {
 				{
 					App:     types.AppName("app1"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeA,
+					Time:    timeFirst,
 				},
 			},
 			DeleteAppBrackets: []AppBracketTime{
 				{
 					App:     types.AppName("app1"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeB,
+					Time:    timeSecond,
 				},
 			},
-			PreparedTimestamp: timeB,
+			PreparedTimestamp: timeSecond,
 			ExpectedBracketRow: &BracketRow{
-				CreatedAt: timeB,
+				CreatedAt: timeSecond,
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{},
 				},
@@ -270,24 +269,24 @@ func TestHandleBracketUpdates(t *testing.T) {
 				{
 					App:     types.AppName("app1"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeA,
+					Time:    timeFirst,
 				},
 				{
 					App:     types.AppName("app2"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeB,
+					Time:    timeSecond,
 				},
 			},
 			DeleteAppBrackets: []AppBracketTime{
 				{
 					App:     types.AppName("app1"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeC,
+					Time:    timeThird,
 				},
 			},
-			PreparedTimestamp: timeC,
+			PreparedTimestamp: timeThird,
 			ExpectedBracketRow: &BracketRow{
-				CreatedAt: timeC,
+				CreatedAt: timeThird,
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{
 						"b1": {"app2"},
@@ -301,19 +300,19 @@ func TestHandleBracketUpdates(t *testing.T) {
 				{
 					App:     types.AppName("app1"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeA,
+					Time:    timeFirst,
 				},
 			},
 			DeleteAppBrackets: []AppBracketTime{
 				{
 					App:     types.AppName("appDoesNotExist"),
 					Bracket: types.ArgoBracketName("b1"),
-					Time:    timeB,
+					Time:    timeSecond,
 				},
 			},
-			PreparedTimestamp: timeB,
+			PreparedTimestamp: timeSecond,
 			ExpectedBracketRow: &BracketRow{
-				CreatedAt: timeA,
+				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{
 						"b1": {"app1"},
@@ -331,7 +330,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 
 			for _, appBracket := range tc.AddAppBrackets {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := HandleBracketsUpdate(dbHandler, ctx, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
+					err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -343,7 +342,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 			}
 			for _, appBracket := range tc.DeleteAppBrackets {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := HandleBracketsDeletion(dbHandler, ctx, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
+					err := HandleDeleteAppFromBracket(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -355,7 +354,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 			}
 
 			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-				bracketRow, err := DBSelectBracketHistoryByTimestamp(dbHandler, ctx, transaction, &tc.PreparedTimestamp)
+				bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, dbHandler, transaction, &tc.PreparedTimestamp)
 				if err != nil {
 					return err
 				}

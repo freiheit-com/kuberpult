@@ -1055,7 +1055,7 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 	if err != nil {
 		return err
 	}
-	allBrackets, err := db.DBSelectBracketHistoryByTimestamp(state.DBHandler, ctx, transaction, &timestamp)
+	allBrackets, err := db.DBSelectBracketHistoryByTimestamp(ctx, state.DBHandler, transaction, &timestamp)
 	if err != nil {
 		return fmt.Errorf("could not find bracket at %v: %w", timestamp, err)
 	}
@@ -1094,7 +1094,7 @@ func CalculateAppDataWithBrackets(
 				// app is already in there
 				continue
 			}
-			// is is nowhere to be found, so we add it under its own bucket:
+			// app is not in any bracket yet, so we add it under its own bracket:
 			newKey := types.ArgoBracketName(appTeam.AppName)
 			val, ok := bracketMap[newKey]
 			if ok {
@@ -1110,63 +1110,31 @@ func CalculateAppDataWithBrackets(
 
 	appToTeamMap := appTeamsToMap(appTeams)
 	for bracketName, appNames := range bracketMap {
-		if len(appNames) == 1 {
-			appName := appNames[0]
+		appsInBracket := []argocd.AppTeam{}
+		for _, appName := range appNames {
 			appsTeamName, ok := appToTeamMap[appName]
 			if !ok {
 				// apps without a team are valid, not an error
 				appsTeamName = ""
 			}
-			appData = append(appData, argocd.AppData{
-				ArgoAppName:    string(appName),
-				TeamName:       appsTeamName,
-				ReferencedApps: []types.AppName{appName},
-			})
-		} else {
-			appsInBracket := []types.AppName{}
-			bracketTeamName := ""
-			for _, appName := range appNames {
-				appsTeamName, ok := appToTeamMap[appName]
-				if !ok {
-					// apps without a team are valid, not an error
-					appsTeamName = ""
-				}
-				if bracketTeamName == "" {
-					bracketTeamName = appsTeamName
-				} else {
-					if bracketTeamName != appsTeamName {
-						// previous team name is different
-						logger.FromContext(ctx).Error(
-							"bracket/team inconsistency detected",
-							zap.String("bracket", string(bracketName)),
-							zap.Any("apps", appNames),
-							zap.String("conflictingTeamA", bracketTeamName),
-							zap.String("conflictingTeamB", appsTeamName),
-							zap.String("conclusion", fmt.Sprintf("all 'apps' in this bracket will be rendered in Argo CD with team '%s'", bracketTeamName)),
-						)
-					}
-				}
-
-				if appsTeamName != bracketTeamName {
-					bracketTeamName = appsTeamName
-				}
-				deployment, ok := deploymentsPerApp[appName]
-				if !ok {
-					// nothing was deployed here at that time, skip:
-					continue
-				}
-				if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
-					// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
-					continue
-				}
-				appsInBracket = append(appsInBracket, appName)
+			deployment, ok := deploymentsPerApp[appName]
+			if !ok {
+				// nothing was deployed here at that time, skip:
+				continue
 			}
-			appData = append(appData, argocd.AppData{
-				ArgoAppName:    string(bracketName),
-				TeamName:       bracketTeamName,
-				ReferencedApps: appsInBracket,
+			if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
+				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
+				continue
+			}
+			appsInBracket = append(appsInBracket, argocd.AppTeam{
+				AppName:  string(appName),
+				TeamName: appsTeamName,
 			})
 		}
+		appData = append(appData, argocd.AppData{
+			ArgoAppName:    string(bracketName),
+			ReferencedApps: appsInBracket,
+		})
 	}
 	slices.SortFunc(appData, func(a, b argocd.AppData) int {
 		return strings.Compare(a.ArgoAppName, b.ArgoAppName)

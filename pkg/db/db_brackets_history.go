@@ -55,12 +55,12 @@ func fromJson(data []byte) (BracketJsonBlob, error) {
 	return result, err
 }
 
-func HandleBracketsUpdate(h *DBHandler, ctx context.Context, tx *sql.Tx, app types.AppName, bracketName types.ArgoBracketName, now time.Time) error {
+func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, bracketName types.ArgoBracketName, now time.Time) error {
 	newBracketName := bracketName
 	if newBracketName == "" {
 		newBracketName = types.ArgoBracketName(app)
 	}
-	bracketRow, err := DBSelectBracketHistoryByTimestamp(h, ctx, tx, &now)
+	bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, h, tx, &now)
 	if err != nil {
 		return fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
 	}
@@ -102,18 +102,18 @@ func HandleBracketsUpdate(h *DBHandler, ctx context.Context, tx *sql.Tx, app typ
 		bracketRow.AllBracketsJsonBlob.BracketMap[newBracketName] = AppNames{app}
 	}
 
-	err = DBInsertBracketHistory(h, ctx, tx, *bracketRow)
+	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow)
 	if err != nil {
-		return fmt.Errorf("HandleBracketsDeletion could not get insert new bracket: %w", err)
+		return fmt.Errorf("HandleDeleteAppFromBracket could not get insert new bracket: %w", err)
 	}
 
 	return nil
 }
 
-func HandleBracketsDeletion(h *DBHandler, ctx context.Context, tx *sql.Tx, app types.AppName, deletionBracketName types.ArgoBracketName, now time.Time) error {
-	bracketRow, err := DBSelectBracketHistoryByTimestamp(h, ctx, tx, &now)
+func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, deletionBracketName types.ArgoBracketName, now time.Time) error {
+	bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, h, tx, &now)
 	if err != nil {
-		return fmt.Errorf("HandleBracketsDeletion could not get newBracketName by timestamp: %w", err)
+		return fmt.Errorf("HandleDeleteAppFromBracket could not get newBracketName by timestamp: %w", err)
 	}
 	if bracketRow == nil {
 		// bracket did not exist, that's odd, but not an error
@@ -140,14 +140,14 @@ func HandleBracketsDeletion(h *DBHandler, ctx context.Context, tx *sql.Tx, app t
 		}
 	}
 
-	err = DBInsertBracketHistory(h, ctx, tx, *bracketRow)
+	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow)
 	if err != nil {
-		return fmt.Errorf("HandleBracketsDeletion could not get insert new bracket: %w", err)
+		return fmt.Errorf("HandleDeleteAppFromBracket could not get insert new bracket: %w", err)
 	}
 	return nil
 }
 
-func DBSelectBracketHistoryByTimestamp(h *DBHandler, ctx context.Context, tx *sql.Tx, optionalTimestamp *time.Time) (result *BracketRow, err error) {
+func DBSelectBracketHistoryByTimestamp(ctx context.Context, h *DBHandler, tx *sql.Tx, optionalTimestamp *time.Time) (result *BracketRow, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryByTimestamp")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -206,7 +206,7 @@ func processBracketHistoryRow(rows *sql.Rows) (*BracketRow, error) {
 	return &result, nil
 }
 
-func DBInsertBracketHistory(h *DBHandler, ctx context.Context, tx *sql.Tx, bracketRow BracketRow) (err error) {
+func DBInsertBracketHistory(ctx context.Context, h *DBHandler, tx *sql.Tx, bracketRow BracketRow) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertBracketHistory")
 	defer func() {
 		span.Finish(tracer.WithError(err))

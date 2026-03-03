@@ -11,8 +11,6 @@ applicationOwnerTeam=${2:-sreteam}
 prev=${3:-""}
 argoBracket=${4:-""}
 
-echo bracket: "${argoBracket}"
-
 function debug() {
     echo "$@" > /dev/stderr
 }

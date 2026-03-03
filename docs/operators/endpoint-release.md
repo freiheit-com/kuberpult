@@ -86,7 +86,9 @@ An example for this can be found [here](https://github.com/freiheit-com/kuberpul
 ### `gitTag`
 Optional query parameter of the git tag to be created in the manifest-repo-export. Note that git tags need to be unique per repository, otherwise git push fails, see `manifestRepoExport.failOnErrorWithGitPushTags`.
 
-### `argoBracket`
+### `experimentalArgoBracket`
+EXPERIMENTAL: This feature is still under construction.
+
 Optional query parameter that tells kuberpult to use this name for the argo-app when generating manifests.
 Only has an effect when using the manifest-repo-export-service.
 

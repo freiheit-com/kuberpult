@@ -67,7 +67,9 @@ spec:
     name: foo
   project: dev
   source:
-    path: environments/dev/applications/app1/manifests
+    repoURL: ""
+  sources:
+  - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
     targetRevision: main
   syncPolicy:
@@ -118,7 +120,9 @@ spec:
     name: foo
   project: dev
   source:
-    path: environments/dev/applications/app1/manifests
+    repoURL: ""
+  sources:
+  - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
     targetRevision: main
   syncPolicy:
@@ -170,7 +174,9 @@ spec:
     name: foo
   project: dev
   source:
-    path: environments/dev/applications/app1/manifests
+    repoURL: ""
+  sources:
+  - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
     targetRevision: main
   syncPolicy:
@@ -222,7 +228,9 @@ spec:
     name: foo
   project: AA-dev-dev-1
   source:
-    path: environments/dev/applications/app1/manifests
+    repoURL: ""
+  sources:
+  - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
     targetRevision: main
   syncPolicy:
@@ -421,7 +429,9 @@ spec:
     namespace: bar2
   project: test-env
   source:
-    path: environments/test-env/applications/app1/manifests
+    repoURL: ""
+  sources:
+  - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
     targetRevision: branch-name
   syncPolicy:
@@ -477,7 +487,9 @@ spec:
   destination: {}
   project: test-env
   source:
-    path: environments/test-env/applications/app1/manifests
+    repoURL: ""
+  sources:
+  - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
     targetRevision: branch-name
   syncPolicy:
@@ -603,7 +615,9 @@ spec:
   destination: {}
   project: test-env
   source:
-    path: environments/test-env/applications/app1/manifests
+    repoURL: ""
+  sources:
+  - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
     targetRevision: branch-name
   syncPolicy:
@@ -661,7 +675,9 @@ spec:
   destination: {}
   project: AA-test-env-dev-1
   source:
-    path: environments/test-env/applications/app1/manifests
+    repoURL: ""
+  sources:
+  - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
     targetRevision: branch-name
   syncPolicy:
