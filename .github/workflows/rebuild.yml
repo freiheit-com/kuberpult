@@ -42,7 +42,7 @@ jobs:
           echo "The current checked-out SHA is: $(git rev-parse HEAD)"
       - name: Run helm chart tests
         run: |
-          make -C charts/kuberpult test-helm
+          IMAGE_TAG_KUBERPULT="main-$(make version)" make -C charts/kuberpult test-helm
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -68,4 +68,4 @@ jobs:
           git fetch --tags # this should have been done by the checkout action before.
           make tag-cli-release-image RELEASE_IMAGE_TAG=$RELEASE_IMAGE_VERSION
         env:
-          RELEASE_IMAGE_VERSION: ${{ inputs.ref }}"
+          RELEASE_IMAGE_VERSION: ${{ inputs.ref }}
