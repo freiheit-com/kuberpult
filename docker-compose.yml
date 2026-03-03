@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 1s
       timeout: 5s
       retries: 3
@@ -36,7 +36,6 @@ services:
       - KUBERPULT_DEX_RBAC_TEAM_PATH=/etc/team.csv
       - KUBERPULT_DEX_MOCK_ROLE=Developer
       - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
-      - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
       - KUBERPULT_ALLOW_LONG_APP_NAMES=true
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
       - KUBERPULT_DB_SSL_MODE=disable
@@ -104,7 +103,11 @@ services:
       - "8444:8443"
     stop_grace_period: 0.5s
     healthcheck:
-      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz" ]
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider localhost:8080/healthz",
+        ]
       interval: 1s
       timeout: 5s
       retries: 50

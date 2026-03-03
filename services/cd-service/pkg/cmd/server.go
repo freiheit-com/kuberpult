@@ -109,7 +109,6 @@ type Config struct {
 
 	GrpcMaxRecvMsgSize int
 	MaxNumberOfThreads uint
-	MaximumQueueSize   uint
 
 	EnableSqlite bool
 	MinorRegexes string
@@ -202,11 +201,6 @@ func parseEnvVars() (_ *Config, err error) {
 	}
 
 	c.GrpcMaxRecvMsgSize, err = valid.ReadEnvVarInt("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE")
-	if err != nil {
-		return nil, err
-	}
-
-	c.MaximumQueueSize, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAXIMUM_QUEUE_SIZE", 5)
 	if err != nil {
 		return nil, err
 	}
@@ -336,11 +330,6 @@ func RunServer() {
 				zap.String("url", c.GitUrl),
 				zap.String("details", "https is not supported for git communication, only ssh is supported"))
 		}
-		if c.MaximumQueueSize < 2 || c.MaximumQueueSize > 100 {
-			logger.FromContext(ctx).Fatal("cd.config",
-				zap.String("details", "the size of the queue must be between 2 and 100"),
-			)
-		}
 		if err := checkReleaseVersionLimit(c.ReleaseVersionsLimit); err != nil {
 			logger.FromContext(ctx).Fatal("cd.config",
 				zap.String("details", err.Error()),
@@ -398,7 +387,6 @@ func RunServer() {
 			NetworkTimeout:       c.GitNetworkTimeout,
 			DogstatsdEvents:      c.EnableMetrics,
 			WriteCommitData:      c.GitWriteCommitData,
-			MaximumQueueSize:     c.MaximumQueueSize,
 			AllowLongAppNames:    c.AllowLongAppNames,
 			ArgoCdGenerateFiles:  c.ArgoCdGenerateFiles,
 			DBHandler:            dbHandler,

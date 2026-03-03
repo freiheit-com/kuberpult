@@ -121,8 +121,6 @@ cd:
     # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. 
     # It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
     timeoutSec: 300  
-    # TODO(ccrc): Evaluate if still in use and remove if not. Otherwise add DEPRECATED.
-    queueSize: 5
   # The maximum message size in megabytes the client can receive or send.
   grpcMaxRecvMsgSize: 4
   resources:

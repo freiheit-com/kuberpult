@@ -230,8 +230,6 @@ spec:
           value: "{{ .Values.git.enableWritingCommitData }}"
         - name: KUBERPULT_ENABLE_PROFILING
           value: "{{ .Values.datadogProfiling.enabled }}"
-        - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
-          value: "{{ .Values.cd.backendConfig.queueSize }}"
         - name: KUBERPULT_MAX_NUMBER_OF_THREADS
           value: "{{ .Values.cd.maxNumberOfThreads }}"
         - name: KUBERPULT_DB_OPTION # { postgreSQL}

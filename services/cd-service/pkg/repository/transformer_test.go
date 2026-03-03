@@ -4663,10 +4663,10 @@ func SetupRepositoryTestWithDB(t *testing.T) Repository {
 }
 
 func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
-	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5)
+	return SetupRepositoryTestWithAllOptions(t, writeEslOnly)
 }
 
-func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint) (Repository, *db.DBHandler) {
+func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -4679,7 +4679,6 @@ func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSiz
 
 	repoCfg := RepositoryConfig{
 		ArgoCdGenerateFiles: true,
-		MaximumQueueSize:    queueSize,
 		MaxNumThreads:       1,
 	}
 
