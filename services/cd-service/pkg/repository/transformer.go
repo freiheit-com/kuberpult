@@ -680,6 +680,8 @@ func (c *CreateApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		envIsConfiguredLatest := hasUpstream && cfg.Upstream.Latest && isLatest
 		downstreamDeploymentRequested := slices.Contains(c.DeployToDownstreamEnvironments, env)
+		fmt.Printf("CreateApplicationVersion for app: %s, env: %s, version: %d\n", string(c.Application), string(env), *version.Version)
+		fmt.Println(envIsConfiguredLatest, downstreamDeploymentRequested, c.IsPrepublish)
 		if (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
@@ -1352,6 +1354,8 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
 		return nil, nil
 	}
+	fmt.Printf("deployments: %v\n", deployments)
+	fmt.Printf("CleanupOldApplicationVersions: %v\n", versions[0:positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)])
 	return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], err
 }
 
