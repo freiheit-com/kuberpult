@@ -21,11 +21,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"go.uber.org/zap"
 	json "google.golang.org/protobuf/encoding/protojson"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 )
 
@@ -43,13 +41,11 @@ func (s Server) handleCommitDeployments(ctx context.Context, w http.ResponseWrit
 		CommitId: commitHash,
 	})
 	if err != nil {
-		logger.FromContext(ctx).Error("failed to get commit deployments from server", zap.Error(err))
 		http.Error(w, fmt.Sprintf("failed to get commit deployments from server: %v", err), http.StatusInternalServerError)
 		return
 	}
 	jsonResponse, err := json.Marshal(resp)
 	if err != nil {
-		logger.FromContext(ctx).Error("failed to get commit deployments from server: failed to marshal response", zap.Error(err))
 		http.Error(w, fmt.Sprintf("failed to marshal response: %v", err), http.StatusInternalServerError)
 		return
 	}

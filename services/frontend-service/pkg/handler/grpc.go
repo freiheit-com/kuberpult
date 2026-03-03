@@ -22,8 +22,6 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 func handleGRPCError(ctx context.Context, w http.ResponseWriter, err error) {
@@ -45,7 +43,6 @@ func handleGRPCError(ctx context.Context, w http.ResponseWriter, err error) {
 	case codes.PermissionDenied:
 		http.Error(w, s.Message(), http.StatusForbidden)
 	default:
-		logger.FromContext(ctx).Error(s.Message())
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
