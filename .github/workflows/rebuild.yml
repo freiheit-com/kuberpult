@@ -71,4 +71,4 @@ jobs:
           git fetch --tags # this should have been done by the checkout action before.
           make tag-cli-release-image RELEASE_IMAGE_TAG=$RELEASE_IMAGE_VERSION
         env:
-          RELEASE_IMAGE_VERSION: v13.44.10"
+          RELEASE_IMAGE_VERSION: v13.44.10
