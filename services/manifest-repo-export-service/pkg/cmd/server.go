@@ -166,11 +166,6 @@ func Run(ctx context.Context) error {
 	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
-	checkGit2DBMigrationsString, err := valid.ReadEnvVar("KUBERPULT_CHECK_GIT2DB_MIGRATIONS")
-	if err != nil {
-		log.Info("datadog metrics are disabled")
-	}
-	checkGit2DBMigrations := checkGit2DBMigrationsString == "true"
 	minimizeExportedData, err := valid.ReadEnvVarBool("KUBERPULT_MINIMIZE_EXPORTED_DATA")
 	if err != nil {
 		return err
@@ -368,20 +363,6 @@ func Run(ctx context.Context) error {
 		KuberpultVersion: kuberpultVersion,
 		DBHandler:        dbHandler,
 		Migrations:       getGit2DBMigrations(dbHandler, repo),
-	}
-	if shouldRunGit2DBMigrations(checkGit2DBMigrations, minimizeExportedData) {
-		logger.FromContext(ctx).Info("Running Git2DB Migrations")
-
-		_, err = migrationServer.EnsureGit2DBMigrationApplied(ctx, &api.EnsureGit2DBMigrationAppliedRequest{
-			Version: kuberpultVersion,
-		})
-		if err != nil {
-			return fmt.Errorf("error running Git2DB migrations: %w", err)
-		}
-		logger.FromContext(ctx).Info("Finished Git2DB Migrations successfully")
-	} else {
-		logger.FromContext(ctx).Info("Git2DB Migrations skipped. Kuberpult only runs Git2DB Migrations if " +
-			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_GIT2DB_MIGRATIONS=true.")
 	}
 
 	if dbOutdatedDeploymentsCleaningEnabled {
@@ -945,8 +926,4 @@ func checkReleaseVersionLimit(limit uint) error {
 		return releaseVersionsLimitError{limit: limit}
 	}
 	return nil
-}
-
-func shouldRunGit2DBMigrations(checkGit2DBMigrations, minimizeGitData bool) bool {
-	return checkGit2DBMigrations && !minimizeGitData //If `minimizeGitData` is enabled we can't make sure we have all the information on the repository to perform all the migrations
 }

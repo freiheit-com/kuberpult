@@ -229,8 +229,6 @@ spec:
           value: "{{ .Values.cd.maxNumberOfThreads }}"
         - name: KUBERPULT_DB_OPTION # { postgreSQL}
           value: {{ .Values.db.dbOption }}
-        - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
-          value: "false"
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
@@ -256,8 +254,6 @@ spec:
           value: "{{ .Values.db.connections.cd.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.cd.maxIdle }}"
-        - name: KUBERPULT_CHECK_GIT2DB_MIGRATIONS
-          value: "{{ .Values.db.checkCustomMigrations }}"
         - name: KUBERPULT_LOCK_TYPE
           value: "{{ .Values.cd.lockType }}"
 {{- end }}

@@ -52,7 +52,6 @@ type DBConfig struct {
 	DriverName     string
 	DbPassword     string
 	MigrationsPath string
-	WriteEslOnly   bool
 	SSLMode        string
 
 	MaxIdleConnections uint
@@ -68,14 +67,6 @@ type DBHandler struct {
 	MigrationsPath string
 	DB             *sql.DB
 	DBDriver       *database.Driver
-
-	/*
-		There are 3 modes:
-		1) DBHandler==nil: do not write anything to the DB
-		2) DBHandler!=nil && WriteEslOnly==true: write only the ESL table to the database. Stores all incoming data in the DB, but does not read the DB.
-		3) DBHandler!=nil && WriteEslOnly==false: write everything to the database.
-	*/
-	WriteEslOnly bool
 }
 
 type EslVersion int64
@@ -88,16 +79,6 @@ const (
 	MaxInsertBatchSize       = 1000
 	MaxDeleteBatchSize       = 20
 )
-
-func (h *DBHandler) ShouldUseEslTable() bool {
-	return h != nil
-}
-
-// ShouldUseOtherTables returns true if the db is enabled and WriteEslOnly=false
-// ShouldUseOtherTables should never be used in the manifest-repo-export-service.
-func (h *DBHandler) ShouldUseOtherTables() bool {
-	return h != nil && !h.WriteEslOnly
-}
 
 func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 	if cfg.DriverName != "postgres" {
@@ -114,7 +95,6 @@ func Connect(ctx context.Context, cfg DBConfig) (*DBHandler, error) {
 		MigrationsPath: cfg.MigrationsPath,
 		DB:             db,
 		DBDriver:       &driver,
-		WriteEslOnly:   cfg.WriteEslOnly,
 	}
 	return handler, nil
 }
