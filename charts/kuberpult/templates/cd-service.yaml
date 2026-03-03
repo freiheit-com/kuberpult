@@ -161,8 +161,6 @@ spec:
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
 {{- if .Values.datadogTracing.enabled }}
-        - name: KUBERPULT_CACHE_TTL_HOURS
-          value: {{ .Values.cd.cacheTtlHours | quote }}
         - name: DD_AGENT_HOST
           valueFrom:
             fieldRef:
