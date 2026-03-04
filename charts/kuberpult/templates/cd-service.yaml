@@ -64,11 +64,11 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- if (.Values.db.k8sServiceAccountName) }}
+{{- if and .Values.db .Values.db.k8sServiceAccountName }}
       serviceAccountName: {{ .Values.db.k8sServiceAccountName }}
 {{- end }}
       containers:
-{{- if .Values.db.cloudSqlProxyEnabled }}
+{{- if and .Values.db .Values.db.cloudSqlProxyEnabled }}
       - name: cloud-sql-proxy
         # It is recommended to use the latest version of the Cloud SQL Auth Proxy
         # Make sure to update on a regular schedule!
