@@ -22,11 +22,12 @@ import (
 	"net/http"
 	"strconv"
 
+	"go.uber.org/zap"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"go.uber.org/zap"
 )
 
 func (s Server) handleApplications(w http.ResponseWriter, req *http.Request, environment, tail string) {
