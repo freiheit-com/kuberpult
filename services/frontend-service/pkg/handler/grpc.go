@@ -46,7 +46,7 @@ func handleGRPCError(ctx context.Context, w http.ResponseWriter, err error) {
 	case codes.PermissionDenied:
 		http.Error(w, s.Message(), http.StatusForbidden)
 	default:
-		logging.Error(ctx, "Error encountered while calling gRPC", zap.String("message", s.Message()))
+		logging.Error(ctx, "Error encountered while calling gRPC", zap.String("message", s.Message()), zap.Int("code", int(s.Code())))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }

@@ -299,11 +299,13 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		return
 	}
 	if len(response.Results) != 1 {
+		logging.Error(ctx, "Mismatching response length", zap.Int("expected", 1), zap.Int("got", len(response.Results)))
 		http.Error(w, "mismatching response length", http.StatusInternalServerError)
 		return
 	}
 	releaseResponse := response.Results[0].GetCreateReleaseResponse()
 	if releaseResponse == nil {
+		logging.Error(ctx, "No create release response found", zap.Any("response", response))
 		http.Error(w, "no create release response found", http.StatusInternalServerError)
 		return
 	}
@@ -499,11 +501,13 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		return
 	}
 	if len(response.Results) != 1 {
+		logging.Error(ctx, "Mismatching response length", zap.Int("expected", 1), zap.Int("got", len(response.Results)))
 		http.Error(w, "mismatching response length", http.StatusInternalServerError)
 		return
 	}
 	releaseResponse := response.Results[0].GetCreateReleaseResponse()
 	if releaseResponse == nil {
+		logging.Error(ctx, "No create release response found", zap.Any("response", response))
 		http.Error(w, "no create release response found", http.StatusInternalServerError)
 		return
 	}
