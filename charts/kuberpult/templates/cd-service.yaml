@@ -18,9 +18,6 @@
 {{- if .Values.cd.tag }}
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
-{{- if not (eq .Values.db.dbOption "postgreSQL") }}
-{{ fail ".Values.db.dbOption does not contain a valid value (Only postgreSQL is allowed from now on)."}}
-{{ end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -67,11 +64,11 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.db.k8sServiceAccountName)) }}
+{{- if and .Values.db .Values.db.k8sServiceAccountName }}
       serviceAccountName: {{ .Values.db.k8sServiceAccountName }}
 {{- end }}
       containers:
-{{- if .Values.db.cloudSqlProxyEnabled }}
+{{- if and .Values.db .Values.db.cloudSqlProxyEnabled }}
       - name: cloud-sql-proxy
         # It is recommended to use the latest version of the Cloud SQL Auth Proxy
         # Make sure to update on a regular schedule!
@@ -161,8 +158,6 @@ spec:
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
 {{- if .Values.datadogTracing.enabled }}
-        - name: KUBERPULT_CACHE_TTL_HOURS
-          value: {{ .Values.cd.cacheTtlHours | quote }}
         - name: DD_AGENT_HOST
           valueFrom:
             fieldRef:
@@ -202,8 +197,6 @@ spec:
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: KUBERPULT_ENABLE_METRICS
           value: "{{ .Values.dogstatsdMetrics.enabled }}"
-        - name: KUBERPULT_ENABLE_EVENTS
-          value: "{{ .Values.dogstatsdMetrics.eventsEnabled }}"
         - name: KUBERPULT_DOGSTATSD_ADDR
           value: "{{ .Values.dogstatsdMetrics.address }}"
 {{- end }}
@@ -223,30 +216,18 @@ spec:
           value: "{{ .Values.auth.azureAuth.enabled }}"
         - name: KUBERPULT_DEX_ENABLED
           value: "{{ .Values.auth.dexAuth.enabled }}"
-{{- if .Values.environment_configs.bootstrap_mode }}
-        {{ fail "Values.environment_configs.bootstrap_mode cannot be used anymore. For more information [See environment.md/Environment Creation for how to create and edit environments](https://github.com/freiheit-com/kuberpult/blob/main/docs/environment.md) "}}
-{{- end }}
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
           value: "{{ .Values.git.enableWritingCommitData }}"
         - name: KUBERPULT_ENABLE_PROFILING
           value: "{{ .Values.datadogProfiling.enabled }}"
-        - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
-          value: "{{ .Values.cd.backendConfig.queueSize }}"
         - name: KUBERPULT_MAX_NUMBER_OF_THREADS
           value: "{{ .Values.cd.maxNumberOfThreads }}"
-        - name: KUBERPULT_DB_OPTION # { postgreSQL}
-          value: {{ .Values.db.dbOption }}
-        - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
-          value: "false"
-{{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
           value: /migrations/postgres
-{{- end }}
-{{- if eq .Values.db.dbOption "postgreSQL" }}
         - name: KUBERPULT_DB_NAME
           value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
@@ -265,11 +246,8 @@ spec:
           value: "{{ .Values.db.connections.cd.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.cd.maxIdle }}"
-        - name: KUBERPULT_CHECK_GIT2DB_MIGRATIONS
-          value: "{{ .Values.db.checkCustomMigrations }}"
         - name: KUBERPULT_LOCK_TYPE
           value: "{{ .Values.cd.lockType }}"
-{{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
         - name: KUBERPULT_ALLOWED_DOMAINS
@@ -406,7 +384,6 @@ data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
   team.csv: {{ .Values.auth.dexAuth.team_csv| quote}}
 {{- end }}
-{{- if eq .Values.db.dbOption "postgreSQL" }}
 ---
 apiVersion: v1
 kind: Secret
@@ -415,4 +392,3 @@ metadata:
 data:
   username: {{ .Values.db.dbUser | b64enc | quote }}
   password: {{ .Values.db.dbPassword | b64enc | quote }}
-{{- end }}

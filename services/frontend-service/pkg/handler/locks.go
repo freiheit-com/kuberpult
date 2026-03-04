@@ -27,9 +27,10 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
+	"go.uber.org/zap"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 )
 
@@ -290,7 +291,7 @@ func (s Server) handlePutEnvironmentGroupLock(w http.ResponseWriter, req *http.R
 	w.WriteHeader(http.StatusCreated)
 	_, err = w.Write(jsonResponse)
 	if err != nil {
-		logger.FromContext(req.Context()).Error("Failed while sending the response: " + err.Error())
+		logging.Error(req.Context(), "Failed to write create environment group lock response", zap.Error(err))
 	}
 }
 
@@ -326,8 +327,9 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 		}
 		if len(signature) > 0 {
 			if s.KeyRing == nil {
-				logger.FromContext(req.Context()).Warn("NO KEYRING. signature: " + string(signature))
-				http.Error(w, "key ring is not configured", http.StatusNotFound)
+				msg := "no key ring is configured"
+				logging.Error(req.Context(), msg, zap.String("signature", string(signature)))
+				http.Error(w, msg, http.StatusNotFound)
 				return
 			}
 			if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environmentGroup+lockID), bytes.NewReader(signature), nil); err != nil {
@@ -368,7 +370,7 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(jsonResponse)
 	if err != nil {
-		logger.FromContext(req.Context()).Error("Failed while sending the response: " + err.Error())
+		logging.Error(req.Context(), "Failed while sending the response", zap.Error(err))
 	}
 }
 

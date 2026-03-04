@@ -354,7 +354,7 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 		// Usually we call `defer` right after resource allocation (`CreateAnonymous`).
 		// The issue with that is that the `callback` requires the remote, and cannot be cancelled properly.
 		// So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
-		defer logger.LogPanics(true)
+		defer logger.HandlePanic(true)
 		defer remote.Disconnect()
 		errCh <- callback(remote)
 	}()
@@ -1232,26 +1232,6 @@ type State struct {
 	ReleaseVersionsLimit uint
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
-}
-
-func (s *State) GetAppsAndTeams() (map[types.AppName]string, error) {
-	result, err := s.GetApplicationsFromFile()
-	if err != nil {
-		return nil, fmt.Errorf("could not get apps from file: %v", err)
-	}
-	var teamByAppName = map[types.AppName]string{} // key: app, value: team
-	for i := range result {
-		app := types.AppName(result[i])
-
-		team, err := s.GetTeamNameFromManifest(string(app))
-		if err != nil {
-			// some apps do not have teams, that's not an error
-			teamByAppName[app] = ""
-		} else {
-			teamByAppName[app] = team
-		}
-	}
-	return teamByAppName, nil
 }
 
 func (s *State) GetTeamNameFromManifest(application string) (string, error) {

@@ -845,7 +845,7 @@ func SetupDB(t *testing.T) *db.DBHandler {
 	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", migrationsPath)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
-	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}

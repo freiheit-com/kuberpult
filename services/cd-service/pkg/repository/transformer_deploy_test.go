@@ -128,7 +128,7 @@ func TestDeployApplicationVersionPartOne(t *testing.T) {
 			t.Logf("detected dir: %s - err=%v", dir, err)
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()
-			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
+			repo, _ := SetupRepositoryTestWithDBOptions(t)
 			r := repo.(*repository)
 			err = repo.Apply(ctx, setupTransformers...)
 			if err != nil {
@@ -262,7 +262,7 @@ func TestDeployApplicationVersionPartTwo(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()
-			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
+			repo, _ := SetupRepositoryTestWithDBOptions(t)
 			r := repo.(*repository)
 			err := repo.Apply(ctx, setupTransformers...)
 			if err != nil {
@@ -415,7 +415,7 @@ func TestDeployApplicationVersionWithRevision(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()
-			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
+			repo, _ := SetupRepositoryTestWithDBOptions(t)
 			r := repo.(*repository)
 			err := repo.Apply(ctx, setupTransformers...)
 			if err != nil {

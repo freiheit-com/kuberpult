@@ -443,18 +443,6 @@ service VersionService {
   rpc GetManifests (GetManifestsRequest) returns (GetManifestsResponse) {}
 }
 
-service MigrationService {
-  rpc EnsureGit2DBMigrationApplied (EnsureGit2DBMigrationAppliedRequest) returns (EnsureGit2DBMigrationAppliedResponse) {}
-}
-
-message EnsureGit2DBMigrationAppliedRequest {
-  KuberpultVersion version = 1;
-}
-
-message EnsureGit2DBMigrationAppliedResponse {
-  bool migrations_applied = 1;
-}
-
 message KuberpultVersion {
   int32 major = 1;
   int32 minor = 2;

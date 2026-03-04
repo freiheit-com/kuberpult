@@ -28,7 +28,7 @@ import (
 	"go.uber.org/zap"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 func (s Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req *http.Request, environmentGroup string) {
@@ -99,7 +99,7 @@ func (s Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req *
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Internal error: %s", err), http.StatusInternalServerError)
-		logger.FromContext(ctx).Error("rollout", zap.Error(err))
+		logging.Error(ctx, "Failed to get rollout status", zap.Error(err))
 		return
 	}
 

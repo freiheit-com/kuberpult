@@ -39,7 +39,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -57,7 +56,7 @@ const (
 
 func RunServer() {
 	_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
-		defer logger.LogPanics(true)
+		defer logger.HandlePanic(true)
 		err := Run(ctx)
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Errorf("error in startup: %v %#v", err, err)
@@ -80,10 +79,6 @@ func Run(ctx context.Context) error {
 		return err
 	}
 	dbName, err := valid.ReadEnvVar("KUBERPULT_DB_NAME")
-	if err != nil {
-		return err
-	}
-	dbOption, err := valid.ReadEnvVar("KUBERPULT_DB_OPTION")
 	if err != nil {
 		return err
 	}
@@ -166,11 +161,6 @@ func Run(ctx context.Context) error {
 	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
-	checkGit2DBMigrationsString, err := valid.ReadEnvVar("KUBERPULT_CHECK_GIT2DB_MIGRATIONS")
-	if err != nil {
-		log.Info("datadog metrics are disabled")
-	}
-	checkGit2DBMigrations := checkGit2DBMigrationsString == "true"
 	minimizeExportedData, err := valid.ReadEnvVarBool("KUBERPULT_MINIMIZE_EXPORTED_DATA")
 	if err != nil {
 		return err
@@ -219,11 +209,6 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	gitTimestampMigrationEnabledString, err := valid.ReadEnvVar("KUBERPULT_GIT_TIMESTAMP_MIGRATIONS_ENABLED")
-	if err != nil {
-		return err
-	}
-	dbGitTimestampMigrationEnabled := gitTimestampMigrationEnabledString == "true"
 
 	dbOutdatedDeploymentsCleaningEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED", false)
 
@@ -280,27 +265,21 @@ func Run(ctx context.Context) error {
 
 	}
 
-	var dbCfg db.DBConfig
-	if dbOption == "postgreSQL" {
-		dbCfg = db.DBConfig{
-			DbHost:         dbLocation,
-			DbPort:         dbAuthProxyPort,
-			DriverName:     "postgres",
-			DbName:         dbName,
-			DbPassword:     dbPassword,
-			DbUser:         dbUserName,
-			MigrationsPath: dbMigrationLocation,
-			WriteEslOnly:   false,
-			SSLMode:        sslMode,
+	dbCfg := db.DBConfig{
+		DbHost:         dbLocation,
+		DbPort:         dbAuthProxyPort,
+		DriverName:     "postgres",
+		DbName:         dbName,
+		DbPassword:     dbPassword,
+		DbUser:         dbUserName,
+		MigrationsPath: dbMigrationLocation,
+		SSLMode:        sslMode,
 
-			MaxIdleConnections: dbMaxIdle,
-			MaxOpenConnections: dbMaxOpen,
+		MaxIdleConnections: dbMaxIdle,
+		MaxOpenConnections: dbMaxOpen,
 
-			DatadogServiceName: "kuberpult-manifest-repo-export-service",
-			DatadogEnabled:     enableTraces,
-		}
-	} else {
-		logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")
+		DatadogServiceName: "kuberpult-manifest-repo-export-service",
+		DatadogEnabled:     enableTraces,
 	}
 	dbHandler, err := db.Connect(ctx, dbCfg)
 	if err != nil {
@@ -360,30 +339,6 @@ func Run(ctx context.Context) error {
 	logger.FromContext(ctx).Info("Finished custom migrations")
 
 	// the custom migrations that we only want to run on startup if the flag is enabled
-	kuberpultVersion, err := migrations.ParseKuberpultVersion(kuberpultVersionRaw)
-	if err != nil {
-		return err
-	}
-	migrationServer := &service.MigrationServer{
-		KuberpultVersion: kuberpultVersion,
-		DBHandler:        dbHandler,
-		Migrations:       getGit2DBMigrations(dbHandler, repo),
-	}
-	if shouldRunGit2DBMigrations(checkGit2DBMigrations, minimizeExportedData) {
-		logger.FromContext(ctx).Info("Running Git2DB Migrations")
-
-		_, err = migrationServer.EnsureGit2DBMigrationApplied(ctx, &api.EnsureGit2DBMigrationAppliedRequest{
-			Version: kuberpultVersion,
-		})
-		if err != nil {
-			return fmt.Errorf("error running Git2DB migrations: %w", err)
-		}
-		logger.FromContext(ctx).Info("Finished Git2DB Migrations successfully")
-	} else {
-		logger.FromContext(ctx).Info("Git2DB Migrations skipped. Kuberpult only runs Git2DB Migrations if " +
-			"KUBERPULT_MINIMIZE_EXPORTED_DATA=false and KUBERPULT_CHECK_GIT2DB_MIGRATIONS=true.")
-	}
-
 	if dbOutdatedDeploymentsCleaningEnabled {
 		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
 		if err != nil {
@@ -395,17 +350,6 @@ func Run(ctx context.Context) error {
 		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)
 		if err != nil {
 			logger.FromContext(ctx).Error("error cleaning git sync status - you can disable this cleaning operation with 'db.resetGitSyncStatus.enabled:false'", zap.Error(err))
-		}
-	}
-
-	if dbGitTimestampMigrationEnabled {
-		err := dbHandler.RunCustomMigrationReleasesTimestamp(ctx, repo.State().GetAppsAndTeams, repo.State().FixReleasesTimestamp)
-		if err != nil {
-			return fmt.Errorf("error running migrations for fixing releases timestamp: %w", err)
-		}
-		err = repo.FixCommitsTimestamp(ctx, *repo.State())
-		if err != nil {
-			return fmt.Errorf("error fixing commit timestamps: %w", err)
 		}
 	}
 
@@ -446,13 +390,13 @@ func Run(ctx context.Context) error {
 
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-			defer logger.LogPanics(true)
+			defer logger.HandlePanic(true)
 			return handler(srv, ss)
 		},
 	}
 	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-			defer logger.LogPanics(true)
+			defer logger.HandlePanic(true)
 			return handler(ctx, req)
 		},
 		func(ctx context.Context,
@@ -493,7 +437,6 @@ func Run(ctx context.Context) error {
 						Team:       dexRbacTeam,
 					},
 				})
-				api.RegisterMigrationServiceServer(srv, migrationServer)
 				reflection.Register(srv)
 			},
 		},
@@ -539,52 +482,6 @@ func ParseEnvironmentOverrides(ctx context.Context, configuredArgoNamesPerEnv va
 		}
 	}
 	return &result
-}
-
-func getGit2DBMigrations(dbHandler *db.DBHandler, repo repository.Repository) []*service.Migration {
-	var migrationFunc service.MigrationFunc = func(ctx context.Context) error {
-		return dbHandler.RunGit2DBMigrations(
-			ctx,
-			repo.State().GetAppsAndTeams,
-			repo.State().WriteCurrentlyDeployed,
-			repo.State().WriteAllReleases,
-			repo.State().WriteCurrentEnvironmentLocks,
-			repo.State().WriteCurrentApplicationLocks,
-			repo.State().WriteCurrentTeamLocks,
-			repo.State().GetAllEnvironments,
-			repo.State().WriteAllQueuedAppVersions,
-			repo.State().WriteAllCommitEvents,
-		)
-	}
-
-	migrateReleases := func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrationReleaseEnvironments(ctx)
-	}
-	migrateEnvApps := func(ctx context.Context) error {
-		return dbHandler.RunCustomMigrationEnvironmentApplications(ctx)
-	}
-
-	// Migrations here must be IN ORDER, oldest first:
-	return []*service.Migration{
-		{
-			// This first migration is actually a list of migrations that are done in one step:
-			Version:   migrations.CreateKuberpultVersion(0, 0, 0),
-			Migration: migrationFunc,
-		},
-		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 1),
-			Migration: migrateReleases,
-		},
-		{
-			Version:   migrations.CreateKuberpultVersion(0, 0, 2),
-			Migration: migrateEnvApps,
-		},
-		// New migrations should be added here:
-		// {
-		//   Version: ...
-		//   Migration: ...
-		// }
-	}
 }
 
 func processEsls(
@@ -945,8 +842,4 @@ func checkReleaseVersionLimit(limit uint) error {
 		return releaseVersionsLimitError{limit: limit}
 	}
 	return nil
-}
-
-func shouldRunGit2DBMigrations(checkGit2DBMigrations, minimizeGitData bool) bool {
-	return checkGit2DBMigrations && !minimizeGitData //If `minimizeGitData` is enabled we can't make sure we have all the information on the repository to perform all the migrations
 }

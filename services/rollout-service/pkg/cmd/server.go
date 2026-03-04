@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -66,7 +65,6 @@ type Config struct {
 
 	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
 
-	DbOption             string `default:"NO_DB" split_words:"true"`
 	DbLocation           string `default:"/kp/database" split_words:"true"`
 	DbCloudSqlInstance   string `default:"" split_words:"true"`
 	DbName               string `default:"" split_words:"true"`
@@ -143,7 +141,7 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 func RunServer() {
 	var config Config
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
-		defer logger.LogPanics(true)
+		defer logger.HandlePanic(true)
 		err := envconfig.Process("kuberpult", &config)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
@@ -202,14 +200,14 @@ func runServer(ctx context.Context, config Config) error {
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 		grpc_zap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-			defer logger.LogPanics(true)
+			defer logger.HandlePanic(true)
 			return handler(srv, ss)
 		},
 	}
 	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 		grpc_zap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-			defer logger.LogPanics(true)
+			defer logger.HandlePanic(true)
 			return handler(ctx, req)
 		},
 	}
@@ -241,38 +239,29 @@ func runServer(ctx context.Context, config Config) error {
 		return err
 	}
 
-	var dbHandler *db.DBHandler = nil
-	if config.DbOption != "NO_DB" {
-		var dbCfg db.DBConfig
-		if config.DbOption == "postgreSQL" {
-			dbCfg = db.DBConfig{
-				DbHost:         config.DbLocation,
-				DbPort:         config.DbAuthProxyPort,
-				DriverName:     "postgres",
-				DbName:         config.DbName,
-				DbPassword:     config.DbUserPassword,
-				DbUser:         config.DbUserName,
-				MigrationsPath: config.DbMigrationsLocation,
-				WriteEslOnly:   false,
-				SSLMode:        config.DbSslMode,
+	dbCfg := db.DBConfig{
+		DbHost:         config.DbLocation,
+		DbPort:         config.DbAuthProxyPort,
+		DriverName:     "postgres",
+		DbName:         config.DbName,
+		DbPassword:     config.DbUserPassword,
+		DbUser:         config.DbUserName,
+		MigrationsPath: config.DbMigrationsLocation,
+		SSLMode:        config.DbSslMode,
 
-				MaxIdleConnections: config.DbMaxIdleConnections,
-				MaxOpenConnections: config.DbMaxOpenConnections,
+		MaxIdleConnections: config.DbMaxIdleConnections,
+		MaxOpenConnections: config.DbMaxOpenConnections,
 
-				DatadogEnabled:     config.EnableTracing,
-				DatadogServiceName: "kuberpult-rollout-service",
-			}
-		}
-		dbHandler, err = db.Connect(ctx, dbCfg)
-		if err != nil {
-			logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
-		}
-		pErr := dbHandler.DB.Ping()
-		if pErr != nil {
-			logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
-		}
-	} else {
-		return errors.New("dbOption must be 'postgreSQL'")
+		DatadogEnabled:     config.EnableTracing,
+		DatadogServiceName: "kuberpult-rollout-service",
+	}
+	dbHandler, err := db.Connect(ctx, dbCfg)
+	if err != nil {
+		logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+	}
+	pErr := dbHandler.DB.Ping()
+	if pErr != nil {
+		logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 	}
 
 	logger.FromContext(ctx).Info("argocd.connecting", zap.String("argocd.addr", opts.ServerAddr))

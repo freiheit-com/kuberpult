@@ -18,8 +18,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net/http"
 	"os"
@@ -31,8 +29,6 @@ import (
 	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
@@ -44,7 +40,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -74,7 +69,6 @@ type Config struct {
 	DogstatsdAddr         string
 	DatadogApiKeyLocation string
 
-	DbOption        string
 	DbLocation      string
 	DbAuthProxyPort string
 
@@ -82,7 +76,6 @@ type Config struct {
 	DbUserName           string
 	DbUserPassword       string
 	DbMigrationsLocation string
-	DbWriteEslTableOnly  bool
 	DbSslMode            string
 
 	DbMaxIdleConnections uint
@@ -96,12 +89,10 @@ type Config struct {
 	GitBranch          string
 	GitWriteCommitData bool
 
-	GitNetworkTimeout        time.Duration
-	GitMaximumCommitsPerPush uint
-	ReleaseVersionsLimit     uint
+	GitNetworkTimeout    time.Duration
+	ReleaseVersionsLimit uint
 
 	// the cd-service calls the manifest-export on startup, to run custom migrations:
-	CheckGit2DBMigrations bool
 	MigrationServer       string
 	MigrationServerSecure bool
 
@@ -110,7 +101,6 @@ type Config struct {
 
 	GrpcMaxRecvMsgSize int
 	MaxNumberOfThreads uint
-	MaximumQueueSize   uint
 
 	EnableSqlite bool
 	MinorRegexes string
@@ -139,14 +129,12 @@ func parseEnvVars() (_ *Config, err error) {
 	c.DogstatsdAddr = valid.ReadEnvVarWithDefault("KUBERPULT_DOGSTATSD_ADDR", "127.0.0.1:8125")
 	c.DatadogApiKeyLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DATADOG_API_KEY_LOCATION", "")
 
-	c.DbOption = valid.ReadEnvVarWithDefault("KUBERPULT_DB_OPTION", "NO_DB")
 	c.DbLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_LOCATION", "/kp/database")
 	c.DbAuthProxyPort = valid.ReadEnvVarWithDefault("KUBERPULT_DB_AUTH_PROXY_PORT", "5432")
 	c.DbName = valid.ReadEnvVarWithDefault("KUBERPULT_DB_NAME", "")
 	c.DbUserName = valid.ReadEnvVarWithDefault("KUBERPULT_DB_USER_NAME", "")
 	c.DbUserPassword = valid.ReadEnvVarWithDefault("KUBERPULT_DB_USER_PASSWORD", "")
 	c.DbMigrationsLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_MIGRATIONS_LOCATION", "")
-	c.DbWriteEslTableOnly = valid.ReadEnvVarBoolWithDefault("KUBERPULT_DB_WRITE_ESL_TABLE_ONLY", false)
 	c.DbSslMode = valid.ReadEnvVarWithDefault("KUBERPULT_DB_SSL_MODE", "verify-full")
 
 	c.DbMaxIdleConnections, err = valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_IDLE_CONNECTIONS")
@@ -177,16 +165,11 @@ func parseEnvVars() (_ *Config, err error) {
 	if err != nil {
 		return nil, err
 	}
-	c.GitMaximumCommitsPerPush, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH", 1)
-	if err != nil {
-		return nil, err
-	}
 	c.ReleaseVersionsLimit, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_RELEASE_VERSIONS_LIMIT", 20)
 	if err != nil {
 		return nil, err
 	}
 
-	c.CheckGit2DBMigrations = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CHECK_GIT2DB_MIGRATIONS", false)
 	c.MigrationServer, err = valid.ReadEnvVar("KUBERPULT_MIGRATION_SERVER")
 	if err != nil {
 		return nil, err
@@ -211,11 +194,6 @@ func parseEnvVars() (_ *Config, err error) {
 		return nil, err
 	}
 
-	c.MaximumQueueSize, err = valid.ReadEnvVarUIntWithDefault("KUBERPULT_MAXIMUM_QUEUE_SIZE", 5)
-	if err != nil {
-		return nil, err
-	}
-
 	c.EnableSqlite = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_SQLITE", true)
 	c.MinorRegexes = valid.ReadEnvVarWithDefault("KUBERPULT_MINOR_REGEXES", "")
 
@@ -224,7 +202,7 @@ func parseEnvVars() (_ *Config, err error) {
 
 func RunServer() {
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
-		defer logger.LogPanics(true)
+		defer logger.HandlePanic(true)
 
 		c, err := parseEnvVars()
 		if err != nil {
@@ -289,7 +267,7 @@ func RunServer() {
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 			grpczap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 			func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-				defer logger.LogPanics(true)
+				defer logger.HandlePanic(true)
 				return handler(srv, ss)
 			},
 		}
@@ -297,7 +275,7 @@ func RunServer() {
 			grpczap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 			unaryUserContextInterceptor,
 			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-				defer logger.LogPanics(true)
+				defer logger.HandlePanic(true)
 				return handler(ctx, req)
 			},
 		}
@@ -341,78 +319,57 @@ func RunServer() {
 				zap.String("url", c.GitUrl),
 				zap.String("details", "https is not supported for git communication, only ssh is supported"))
 		}
-		if c.GitMaximumCommitsPerPush == 0 {
-			logger.FromContext(ctx).Fatal("git.config",
-				zap.String("details", "the maximum number of commits per push must be at least 1"),
-			)
-		}
-		if c.MaximumQueueSize < 2 || c.MaximumQueueSize > 100 {
-			logger.FromContext(ctx).Fatal("cd.config",
-				zap.String("details", "the size of the queue must be between 2 and 100"),
-			)
-		}
 		if err := checkReleaseVersionLimit(c.ReleaseVersionsLimit); err != nil {
 			logger.FromContext(ctx).Fatal("cd.config",
 				zap.String("details", err.Error()),
 			)
 		}
 
-		var dbHandler *db.DBHandler = nil
-		if c.DbOption != "NO_DB" {
-			var dbCfg db.DBConfig
-			if c.DbOption == "postgreSQL" {
-				dbCfg = db.DBConfig{
-					DbHost:         c.DbLocation,
-					DbPort:         c.DbAuthProxyPort,
-					DriverName:     "postgres",
-					DbName:         c.DbName,
-					DbPassword:     c.DbUserPassword,
-					DbUser:         c.DbUserName,
-					MigrationsPath: c.DbMigrationsLocation,
-					WriteEslOnly:   c.DbWriteEslTableOnly,
-					SSLMode:        c.DbSslMode,
+		dbCfg := db.DBConfig{
+			DbHost:         c.DbLocation,
+			DbPort:         c.DbAuthProxyPort,
+			DriverName:     "postgres",
+			DbName:         c.DbName,
+			DbPassword:     c.DbUserPassword,
+			DbUser:         c.DbUserName,
+			MigrationsPath: c.DbMigrationsLocation,
+			SSLMode:        c.DbSslMode,
 
-					MaxIdleConnections: c.DbMaxIdleConnections,
-					MaxOpenConnections: c.DbMaxOpenConnections,
+			MaxIdleConnections: c.DbMaxIdleConnections,
+			MaxOpenConnections: c.DbMaxOpenConnections,
 
-					DatadogEnabled:     c.EnableTracing,
-					DatadogServiceName: datadogNameCd,
-				}
-			} else {
-				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
-			}
-			dbHandler, err = db.Connect(ctx, dbCfg)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
-			}
-			pErr := dbHandler.DB.Ping()
-			if pErr != nil {
-				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
-			}
-
-			migErr := db.RunDBMigrations(ctx, dbCfg)
-			if migErr != nil {
-				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
-			}
-			logger.FromContext(ctx).Info("Finished with basic database migration.")
+			DatadogEnabled:     c.EnableTracing,
+			DatadogServiceName: datadogNameCd,
+		}
+		dbHandler, err := db.Connect(ctx, dbCfg)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+		}
+		pErr := dbHandler.DB.Ping()
+		if pErr != nil {
+			logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 		}
 
+		migErr := db.RunDBMigrations(ctx, dbCfg)
+		if migErr != nil {
+			logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
+		}
+		logger.FromContext(ctx).Info("Finished with basic database migration.")
+
 		cfg := repository.RepositoryConfig{
-			WebhookResolver:       nil,
-			URL:                   c.GitUrl,
-			MinorRegexes:          minorRegexes,
-			MaxNumThreads:         c.MaxNumberOfThreads,
-			Branch:                c.GitBranch,
-			ReleaseVersionsLimit:  c.ReleaseVersionsLimit,
-			StorageBackend:        c.storageBackend(),
-			NetworkTimeout:        c.GitNetworkTimeout,
-			DogstatsdEvents:       c.EnableMetrics,
-			WriteCommitData:       c.GitWriteCommitData,
-			MaximumCommitsPerPush: c.GitMaximumCommitsPerPush,
-			MaximumQueueSize:      c.MaximumQueueSize,
-			AllowLongAppNames:     c.AllowLongAppNames,
-			ArgoCdGenerateFiles:   c.ArgoCdGenerateFiles,
-			DBHandler:             dbHandler,
+			WebhookResolver:      nil,
+			URL:                  c.GitUrl,
+			MinorRegexes:         minorRegexes,
+			MaxNumThreads:        c.MaxNumberOfThreads,
+			Branch:               c.GitBranch,
+			ReleaseVersionsLimit: c.ReleaseVersionsLimit,
+			StorageBackend:       c.storageBackend(),
+			NetworkTimeout:       c.GitNetworkTimeout,
+			DogstatsdEvents:      c.EnableMetrics,
+			WriteCommitData:      c.GitWriteCommitData,
+			AllowLongAppNames:    c.AllowLongAppNames,
+			ArgoCdGenerateFiles:  c.ArgoCdGenerateFiles,
+			DBHandler:            dbHandler,
 		}
 
 		repo, err := repository.New(ctx, cfg)
@@ -425,60 +382,6 @@ func RunServer() {
 				Repository: repo,
 			}
 		grpcMsgSizeBytes := c.GrpcMaxRecvMsgSize * megaBytes
-
-		if dbHandler.ShouldUseOtherTables() && c.CheckGit2DBMigrations {
-			//Check for migrations -> for pulling
-			logger.FromContext(ctx).Sugar().Warnf("checking if migrations are required...")
-
-			var migrationClient api.MigrationServiceClient = nil
-			if c.MigrationServer == "" {
-				logger.FromContext(ctx).Fatal("MigrationServer required when KUBERPULT_CHECK_GIT2DB_MIGRATIONS is enabled")
-			}
-			var cred = insecure.NewCredentials()
-			if c.MigrationServerSecure {
-				systemRoots, err := x509.SystemCertPool()
-				if err != nil {
-					return fmt.Errorf("failed to read CA certificates")
-				}
-				//exhaustruct:ignore
-				cred = credentials.NewTLS(&tls.Config{
-					RootCAs: systemRoots,
-				})
-			}
-			grpcClientOpts := []grpc.DialOption{
-				grpc.WithTransportCredentials(cred),
-				grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(grpcMsgSizeBytes)),
-			}
-
-			rolloutCon, err := grpc.NewClient(c.MigrationServer, grpcClientOpts...)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.MigrationServer))
-			}
-			migrationClient = api.NewMigrationServiceClient(rolloutCon)
-
-			kuberpultVersion, err := migrations.ParseKuberpultVersion(c.Version)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("env.parse.error", zap.Error(err), zap.String("version", c.Version))
-			}
-
-			response, migErr := migrationClient.EnsureGit2DBMigrationApplied(ctx, &api.EnsureGit2DBMigrationAppliedRequest{
-				Version: kuberpultVersion,
-			})
-
-			if migErr != nil {
-				logger.FromContext(ctx).Fatal("Error ensuring Git2DB migrations are applied", zap.Error(migErr))
-			}
-			if response == nil {
-				logger.FromContext(ctx).Sugar().Fatal("Git2DB migrations returned nil response")
-			}
-			if !response.MigrationsApplied {
-				logger.FromContext(ctx).Sugar().Fatalf("Git2DB migrations where not applied: %v", response)
-			}
-
-			logger.FromContext(ctx).Sugar().Warnf("finished running Git2DB migrations")
-		} else {
-			logger.FromContext(ctx).Sugar().Warnf("Skipping Git2DB migrations, because KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=%t and KUBERPULT_CHECK_GIT2DB_MIGRATIONS=%t", dbHandler.ShouldUseOtherTables(), c.CheckGit2DBMigrations)
-		}
 
 		span.Finish()
 

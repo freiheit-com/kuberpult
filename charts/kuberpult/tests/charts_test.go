@@ -215,10 +215,6 @@ ingress:
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "postgreSQL",
-				},
-				{
 					Name:  "KUBERPULT_MIGRATION_SERVER",
 					Value: "kuberpult-manifest-repo-export-service:8443",
 				},
@@ -242,9 +238,6 @@ pgp:
   keyRing: ""
 ingress:
   domainName: "kuberpult-example.com"
-
-environment_configs:
-  environment_configs_json: "{}"
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -456,17 +449,12 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 db:
-  dbOption: postgreSQL
   location: "127.0.0.1"
   dbName: dbName
   dbUser: dbUser
   dbPassword: dbPassword
 `,
 			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "postgreSQL",
-				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
 					Value: "127.0.0.1",
@@ -495,17 +483,12 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 db:
-  dbOption: postgreSQL
   location: /kp/database
   dbName: does
   dbUser: username
   dbPassword: password
 `,
 			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "postgreSQL",
-				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
 					Value: "/kp/database",
@@ -519,50 +502,6 @@ db:
 				{
 					Name:  "KUBERPULT_DB_USER_PASSWORD",
 					Value: "password",
-				},
-			},
-		},
-		{
-			Name: "Database writeEslTableOnly=false ",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: postgreSQL
-  location: /kp/database
-  dbName: does
-  dbUser: not
-  dbPassword: matter
-  writeEslTableOnly: false
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "postgreSQL",
-				},
-				{
-					Name:  "KUBERPULT_DB_LOCATION",
-					Value: "/kp/database",
-				},
-				{
-					Name:  "KUBERPULT_DB_WRITE_ESL_TABLE_ONLY",
-					Value: "false",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_NAME",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "does",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "not",
 				},
 			},
 		},
@@ -605,8 +544,6 @@ ingress:
 git:
   url: "testURL"
   releaseVersionsLimit: 15
-db:
-  dbOption: postgreSQL
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -623,7 +560,6 @@ git:
   url: "testURL"
   releaseVersionsLimit: 15
 db:
-  dbOption: postgreSQL
   sslMode: prefer
 `,
 			ExpectedEnvs: []core.EnvVar{
@@ -666,7 +602,6 @@ ingress:
 cd:
   allowedDomains: freiheit.com, github.com
 db:
-  dbOption: "postgreSQL"
   connections:
     cd:
       maxOpen: 777
@@ -680,44 +615,6 @@ db:
 				{
 					Name:  "KUBERPULT_DB_MAX_IDLE_CONNECTIONS",
 					Value: "321",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Check for custom Migrations",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  checkCustomMigrations: false
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_CHECK_GIT2DB_MIGRATIONS",
-					Value: "false",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Check for custom Migrations",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  checkCustomMigrations: true
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_CHECK_GIT2DB_MIGRATIONS",
-					Value: "true",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -768,16 +665,6 @@ ingress:
 argocd:
   sendWebhooks: true
 `},
-		{
-			Name: "Test Bootstrap_mode being set to true",
-			Values: `
-git:
-  url:  "checkThisValue"
-ingress:
-  domainName: "kuberpult-example.com"
-environment_configs:
-  bootstrap_mode: true
-`},
 	}
 
 	for _, tc := range tcs {
@@ -806,9 +693,6 @@ git:
   url:  "checkThisValue"
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -827,9 +711,6 @@ ingress:
   domainName: "kuberpult-example.com"
 argocd:
   generateFiles: false
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -852,9 +733,6 @@ ingress:
   domainName: "kuberpult-example.com"
 argocd:
   generateFiles: true
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -877,9 +755,6 @@ ingress:
   domainName: "kuberpult-example.com"
 dataDogTracing:
   enabled: false
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -923,9 +798,6 @@ ingress:
   domainName: "kuberpult-example.com"
 datadogTracing:
   enabled: true
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -963,18 +835,12 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 db:
-  dbOption: postgreSQL
   location: "127.0.0.1"
   dbName: dbName
   dbUser: dbUser
   dbPassword: dbPassword
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "postgreSQL",
-				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
 					Value: "127.0.0.1",
@@ -994,18 +860,12 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 db:
-  dbOption: postgreSQL
   location: /kp/database
   dbName: does
   dbUser: username
   dbPassword: password
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "postgreSQL",
-				},
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
 					Value: "/kp/database",
@@ -1029,9 +889,6 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: postgreSQL
-  writeEslTableOnly: false
 
 manifestRepoExport:
   eslProcessingIdleTimeSeconds: 5
@@ -1050,9 +907,6 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: postgreSQL
-  writeEslTableOnly: false
 `,
 			ExpectedMissing: []core.EnvVar{
 				{
@@ -1069,9 +923,6 @@ git:
   releaseVersionsLimit: 15
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: postgreSQL
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -1087,9 +938,6 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: postgreSQL
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -1105,9 +953,6 @@ git:
   url:  "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -1124,9 +969,6 @@ git:
   url:  "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
 manifestRepoExport:
   networkTimeoutSeconds: 300
 `,
@@ -1147,8 +989,6 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
   sslMode: disable
 `,
 			ExpectedEnvs: []core.EnvVar{
@@ -1167,8 +1007,6 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
   sslMode: disable
 `,
 			ExpectedEnvs: []core.EnvVar{
@@ -1187,8 +1025,6 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
   sslMode: disable
 `,
 			ExpectedEnvs: []core.EnvVar{
@@ -1207,8 +1043,6 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
   sslMode: prefer
 `,
 			ExpectedEnvs: []core.EnvVar{
@@ -1227,8 +1061,6 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
   sslMode: prefer
   connections:
     manifestRepoExport:
@@ -1561,7 +1393,6 @@ manifestRepoExport:
 argocd:
   server: https://argo:1090
 db:
-  dbOption: "postgreSQL"
   connections:
     rollout:
       maxOpen: 777
@@ -1824,7 +1655,6 @@ git:
 reposerver:
   enabled: true
 db:
-  dbOption: "postgreSQL"
   connections:
     reposerver:
       maxOpen: 777
@@ -2087,8 +1917,6 @@ manifestRepoExport:
   enabled: true
   experimentalRolloutWithManifest:
     enabled: true
-db:
-  dbOption: postgreSQL
 argocd:
   server: https://argo:1090
 datadogTracing:
@@ -2137,7 +1965,6 @@ rollout:
       test-key: test-value4
       secondKey: secondValue4
 db:
-  dbOption: postgreSQL
 argocd:
   server: https://argo:1090
 `,
@@ -2189,8 +2016,6 @@ rollout:
       secondKey: secondValue4
 datadogTracing:
   enabled: true
-db:
-  dbOption: postgreSQL
 argocd:
   server: https://argo:1090
 `,
@@ -2247,8 +2072,6 @@ rollout:
 ingress:
   iap:
     enabled: true
-db:
-  dbOption: postgreSQL
 argocd:
   server: https://argo:1090
 `,
@@ -2442,9 +2265,6 @@ git:
   url:  "checkThisValue"
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
 manifestRepoExport:
   enabled: false
 `,
@@ -2457,9 +2277,6 @@ git:
   url:  "checkThisValue"
 ingress:
   domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  writeEslTableOnly: false
 manifestRepoExport:
   enabled: true
 `,
@@ -2500,8 +2317,6 @@ git:
   url: "testURL"
 reposerver:
   enabled: false
-db:
-  dbOption: "postgreSQL"
 `,
 			ShouldExist: false,
 		},
@@ -2512,8 +2327,6 @@ git:
   url: "testURL"
 reposerver:
   enabled: true
-db:
-  dbOption: "postgreSQL"
 `,
 			ShouldExist: true,
 		},

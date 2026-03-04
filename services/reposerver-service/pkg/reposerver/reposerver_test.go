@@ -182,7 +182,7 @@ func TestGenerateManifest(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name+"_with_db", func(t *testing.T) {
-			dbHandler := SetupRepositoryTestWithDBOptions(t, false)
+			dbHandler := SetupRepositoryTestWithDBOptions(t)
 			ctx := testutilauth.MakeTestContext()
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteEnvironment(ctx, transaction, tc.SetupEnv.Name, tc.SetupEnv.Config)
@@ -258,13 +258,13 @@ func TestGetRevisionMetadata(t *testing.T) {
 	}
 }
 
-func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) *db.DBHandler {
+func SetupRepositoryTestWithDBOptions(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(5)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}

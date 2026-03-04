@@ -56,7 +56,7 @@ func CreateMigrationsPath(numDirs int) (string, error) {
 	return "/kp" + subDir, nil
 }
 
-func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPath string, writeEslOnly bool, rawNewDbName string) (*DBConfig, error) {
+func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPath string, rawNewDbName string) (*DBConfig, error) {
 	dbConfig := &DBConfig{
 		// the options here must be the same as provided by docker-compose-unittest.yml
 		DbHost:     "kuberpult-test-postgres",
@@ -68,7 +68,6 @@ func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPat
 		SSLMode:    "disable",
 
 		MigrationsPath: migrationsPath,
-		WriteEslOnly:   writeEslOnly,
 
 		MaxIdleConnections: 0,
 		MaxOpenConnections: 0,

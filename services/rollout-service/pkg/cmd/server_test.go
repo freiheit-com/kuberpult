@@ -61,7 +61,6 @@ func TestService(t *testing.T) {
 				ArgocdServer:    "http://127.0.0.1:32761",
 				DbLocation:      "kuberpult-test-postgres",
 				DbAuthProxyPort: "5432",
-				DbOption:        "postgreSQL",
 				DbUserPassword:  "mypassword",
 				DbUserName:      "postgres",
 				DbName:          "kuberpult",

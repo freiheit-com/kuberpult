@@ -33,7 +33,7 @@ import (
 	"go.uber.org/zap"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 )
@@ -70,7 +70,7 @@ func isAuthor(value string) bool {
 func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byte, err error, status int) {
 	ctx := r.Context()
 	if err != nil {
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in json.Marshal of /release: %s", err.Error()))
+		logging.Error(ctx, "Failed to marshal response of /release", zap.Error(err))
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
@@ -199,10 +199,10 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
 		} else {
-			logger.FromContext(ctx).Sugar().Warnf("commit id not valid: '%s'", sourceCommitId)
+			logging.Warn(ctx, "source_commit_id is not valid", zap.Any("source_commit_id", sourceCommitId))
 		}
 	} else {
-		logger.FromContext(ctx).Sugar().Warnf("commit id not found: '%s'", sourceCommitId)
+		logging.Warn(ctx, "source_commit_id is not found", zap.Any("source_commit_id", sourceCommitId))
 	}
 
 	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
@@ -301,20 +301,20 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 	if len(response.Results) != 1 {
 		msg := "mismatching response length"
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		logging.Error(ctx, msg, zap.Int("expected", 1), zap.Int("got", len(response.Results)))
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 	releaseResponse := response.Results[0].GetCreateReleaseResponse()
 	if releaseResponse == nil {
-		msg := "mismatching response length"
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		msg := "no create release response found"
+		logging.Error(ctx, msg, zap.Any("response", response))
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 
 	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
-	logger.FromContext(ctx).Warn("warning: The /release endpoint will be deprecated in the future, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.\n")
+	logging.Warn(ctx, "The /release endpoint will be deprecated in the future, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.")
 }
 
 func checkParameterCardinality(w http.ResponseWriter, paramName string, paramValues []string) bool {
@@ -373,7 +373,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 			return
 		}
 	}
-	logger.FromContext(ctx).Warn("argoBracket detected", zap.String("argoBracket", tf.ArgoBracket))
+	logging.Warn(ctx, "argoBracket detected", zap.String("argoBracket", tf.ArgoBracket))
 
 	if !checkParameterCardinality(w, "application", form.Value["application"]) {
 		return
@@ -459,7 +459,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	}
 
 	if sourceRepoUrls, ok := form.Value["source_repo_url"]; ok {
-		logger.FromContext(ctx).Sugar().Warnf("ignoring deprecated parameter source_repo_url with value '%v'", sourceRepoUrls)
+		logging.Warn(ctx, "source_repo_url is deprecated and should not be used anymore", zap.Strings("source_repo_url", sourceRepoUrls))
 	}
 
 	if versionStrs, ok := form.Value["version"]; ok {
@@ -523,14 +523,14 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	}
 	if len(response.Results) != 1 {
 		msg := "mismatching response length"
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		logging.Error(ctx, msg, zap.Int("expected", 1), zap.Int("got", len(response.Results)))
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 	releaseResponse := response.Results[0].GetCreateReleaseResponse()
 	if releaseResponse == nil {
-		msg := "mismatching response length"
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		msg := "no create release response found"
+		logging.Error(ctx, msg, zap.Any("response", response))
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
@@ -581,10 +581,8 @@ func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *h
 		}
 	default:
 		{
-			msg := "unknown response type"
 			jsonBlob, err := json.Marshal(releaseResponse)
-			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
-			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: ,response: %s", msg, jsonBlob)), err, http.StatusInternalServerError)
+			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: ,response: %s", "unknown response type", jsonBlob)), err, http.StatusInternalServerError)
 		}
 	}
 }

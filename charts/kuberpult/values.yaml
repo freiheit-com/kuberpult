@@ -20,7 +20,6 @@
 git:
   # The git url of the manifest repository (git protocol)
   url:  # git@github.com/.../...
-  webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
   branch: "master"
@@ -45,9 +44,13 @@ git:
     name: local.user@example.com
     email: defaultUser
 
-  # Timeout used for network operations
+  # Timeout used for network operations.
+  # Refer to `docs/operators/timeouts.md` for details.
   networkTimeout: 1m
 
+  # DEPRECATED: The information that can be written `/commit` directory when this flag is enabled is now written
+  # to the kuberpult database by default. This flag and the corresponding functionality will be removed in future releases.
+  # When migrating to the kuberpult version that uses the database, data from `/commit` within your repo will not be synchronized.
   # If enabled, write data to the `/commit` directory in the manifest repo on every release.
   # Disabling this option does not delete the `/commit` directory.
   # In order to make use of this feature, the commit hashes provided to kuberpult (via the /release endpoint)
@@ -60,8 +63,6 @@ git:
   # Kuberpult tries to reduce the number of pushes and can bundle concurrent commits into a single push.
   # This can reduce the time it takes to process requests ariving at the same time and improve throughput.
   # The correct number largely depends on the performance of the git host and repository size. For small to medium sized deployments the default is good.
-  # We recommend values between 1 and 20.
-  maximumCommitsPerPush: 5
 
   # The maximum number of application release versions to keep a history of. The value must be within the limit: 5 <= n <= 30.
   # Values outside of the range will fail the service during startup.
@@ -76,26 +77,32 @@ git:
   emptyDirSize: 30Gi
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
+
+# Only relevant when using the ingress.
+# When using the ingress, selecting `kubernetesEngine: "GKE"` will set the ingressClassName to "gce-private".
 kubernetesEngine: "GKE"
 
 log:
   # Possible values are "gcp" for a gcp-optimized format and "default" for json
   format: ""
-  # Other possible values are "DEBUG", "INFO", "ERROR"
+  # Possible values are "DEBUG", "INFO", "WARN", "ERROR"
   level: "WARN"
 cd:
   image: kuberpult-cd-service
-# By default, kuberpult allows names of apps to be max 39 characters.
-# This is usually enough. If you want to extend the length to up to 70 characters,
-# You need to ensure that ArgoCD has no issue with this. Set the Argo CD helm parameter:
-# `configs.cm.application.resourceTrackingMethod: annotation+label`
-# Note that there is no simple way in kuberpult to rename an app.
+  # By default, kuberpult allows names of apps to be max 39 characters.
+  # This is usually enough. If you want to extend the length to up to 70 characters,
+  # You need to ensure that ArgoCD has no issue with this. Set the Argo CD helm parameter:
+  # `configs.cm.application.resourceTrackingMethod: annotation+label`
+  # Note that there is no simple way in kuberpult to rename an app.
   allowLongAppNames: false
-# List of allowed domains that the links provided in releases, release trains and locks must match
+  # List of allowed domains that the links provided in releases, release trains and locks must match
+  # The API will return an error if a link is provide that does not match one of the allowedDomains
   allowedDomains: ""
-  cacheTtlHours: 24
+  # `maxNumberOfThreads` determines how many release train operations can run concurrently when using a
+  # releaste train with an environment group destination.
   maxNumberOfThreads: 3
 
+  # DEPRECATED: `lockType` will be removed in future releases.
   # The lockType option is EXPERIMENTAL and may be removed or changed without a breaking change.
   # By default, (lockType: "go") the cd-service uses in-memory go-locks to make sure that
   # destructive actions like deleting an app are only run by one transaction at a time.
@@ -109,10 +116,12 @@ cd:
   pod:
     annotations: {}
   backendConfig:
-    create: false   # Add backend config for health checks on GKE only
-    timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
-    queueSize: 5
-  # The maximum message size in megabytes the client can receive or send:
+    # Add backend config for health checks on GKE only.
+    create: false   
+    # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. 
+    # It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoints.
+    timeoutSec: 300  
+  # The maximum message size in megabytes the client can receive or send.
   grpcMaxRecvMsgSize: 4
   resources:
     limits:
@@ -137,12 +146,9 @@ cd:
 db:
   location: "127.0.0.1"
   authProxyPort: 5432
-# The Database feature is now required:
-  dbOption: "postgreSQL"
 # k8sServiceAccountName is required.
-# k8sServiceAccountName is the name of the kubernetes service account.
+# k8sServiceAccountName is the name of the kubernetes service account that enables access to CloudSQL. 
   k8sServiceAccountName: "kp-k8s-service-account"
-# cloudSqlProxyEnabled enables the cloudsql proxy.
   cloudSqlProxyEnabled: false
   dbConnectionName: "connectioname"
   dbName: "databaseName"
@@ -154,8 +160,9 @@ db:
   requests:
     cpu: "100m"
     memory: "200Mi"
-  connections:    # You need to ensure that your sql server can handle at least
-    # `cd.maxOpen + manifestRepoExport.maxOpen` connections in parallel.
+  # You need to ensure that your sql server can handle at least
+  # `cd.maxOpen + manifestRepoExport.maxOpen` connections in parallel.
+  connections: 
     cd:
       # The cd-service may need to respond to many parallel requests,
       # most notably depending on how often the /release endpoint is called
@@ -172,14 +179,6 @@ db:
     reposerver:
       maxOpen: 5
       maxIdle: 2
-  # Kuberpult only checks for Git2DB migrations if this flag is enabled. Otherwise, it skips them entirely, assuming
-  # that there is no information we want to migrate from an existing manifest repository to the database.
-  # You should only enable this flag, if you want to do a one-step upgrade of kuberpult from a (relatively old) version that still uses git as storage.
-  # If you are already using the database, ignore this flag.
-  checkCustomMigrations: false
-  # This option migrates all the timestamps in the git repo to the databases
-  gitTimestampMigrations:
-    enabled: false
   # In the past, Kuberpult had a bug which wrote invalid deployment records to the database.
   # i.e., These records point to nil releases version or the releases which do not have any manifests for the environment they are deployed to.
   # Or they point to environments that do not exist anymore.
@@ -227,7 +226,8 @@ manifestRepoExport:
   # Maximum time to wait is 600sec (cannot be changed).
   # Once the maximum time is reached, the service prints an error and exits.
   eslProcessingIdleTimeSeconds: 5
-  # Timeout in seconds used for network operations
+  # Timeout in seconds used for network operations.
+  # For details, view `docs/operators/timeouts.md`
   networkTimeoutSeconds: 120
 
   # This flag only applies when the "gitTag" query parameter in the release train api is used.
@@ -275,6 +275,7 @@ frontend:
   maxWaitDuration: 10m
   batchClient:
     # This value needs to be higher than the network timeout for git
+    # For details, view `docs/operators/timeouts.md`
     timeout: 2m
   # The maximum message size in megabytes the client can receive.
   grpcMaxRecvMsgSize: 4
@@ -455,10 +456,6 @@ dogstatsdMetrics:
   # send metrics:
   enabled: false
 
-  # sends additional events for each deployments:
-  # dogstatsdMetrics.enabled must be true for this to have an effect.
-  eventsEnabled: false
-
   #  dogstatsD listens on port udp:8125 by default.
   #  https://docs.datadoghq.com/developers/dogstatsd/?tab=hostagent#agent
   #  datadog.dogstatsd.socketPath -- Path to the DogStatsD socket
@@ -488,18 +485,6 @@ gke:
   # gcloud projects list --filter="$(gcloud config get-value project)" --format="value(PROJECT_NUMBER)"
   # ```
   project_number: ""
-
-environment_configs:
-  # environment_configs_json: |
-  #   {
-  #     "production": {
-  #       "upstream": {
-  #           "latest": true
-  #        },
-  #        "argocd" :{}
-  #     }
-  #   }
-  environment_configs_json: null
 
 auth:
   azureAuth:

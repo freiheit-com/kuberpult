@@ -26,9 +26,11 @@ import (
 	"strings"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"go.uber.org/zap"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
@@ -188,7 +190,7 @@ func (s *PublicApiServer) setCorsHeaders(w http.ResponseWriter) {
 
 var _ publicapi.ServerInterface = &PublicApiServer{} //exhaustruct:ignore
 
-func (s *PublicApiServer) GetPublicApiSchema(w http.ResponseWriter, _ *http.Request) {
+func (s *PublicApiServer) GetPublicApiSchema(w http.ResponseWriter, r *http.Request) {
 	specFile := "api.yaml" // Or openapi.json
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -209,7 +211,7 @@ func (s *PublicApiServer) GetPublicApiSchema(w http.ResponseWriter, _ *http.Requ
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(content)
 	if err != nil {
-		fmt.Printf("Error writing response: %v", err)
+		logging.Error(r.Context(), "Error writing response: %v", zap.Error(err))
 	}
 }
 

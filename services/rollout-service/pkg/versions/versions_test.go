@@ -1101,7 +1101,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}

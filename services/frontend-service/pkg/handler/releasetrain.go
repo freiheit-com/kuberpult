@@ -27,9 +27,10 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
+	"go.uber.org/zap"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Request, target string) {
@@ -156,7 +157,7 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 					commitHash = value.CommitId // tag found, but we just need to the commitID
 				}
 			} else {
-				logger.FromContext(req.Context()).Sugar().Warnf("invalid tag response [%d]", key)
+				logging.Warn(req.Context(), "Invalid git tag response", zap.Int("key", key))
 			}
 		}
 		if commitHash == "" {
