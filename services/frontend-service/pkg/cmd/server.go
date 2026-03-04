@@ -119,9 +119,10 @@ func readPgpKeyRing(c config.ServerConfig) (openpgp.KeyRing, error) {
 }
 
 func RunServer() {
-	err := logger.Wrap(context.Background(), runServer)
+	ctx := context.Background()
+	err := logger.Wrap(ctx, runServer)
 	if err != nil {
-		fmt.Printf("error: %v %#v", err, err)
+		logging.Fatal(ctx, "Failed to start server", zap.Error(err))
 	}
 }
 
