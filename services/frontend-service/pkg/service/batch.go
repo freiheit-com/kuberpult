@@ -21,11 +21,9 @@ import (
 	"errors"
 	"time"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 type BatchServiceWithDefaultTimeout struct {
@@ -43,14 +41,5 @@ func (b *BatchServiceWithDefaultTimeout) ProcessBatch(ctx context.Context, req *
 	}
 
 	response, err := b.Inner.ProcessBatch(ctx, req, options...)
-
-	if ctx.Err() != nil {
-		if context.Cause(ctx) == kuberpultTimeoutError {
-			logger.FromContext(ctx).Warn("ProcessBatch context cancelled due to kuberpult timeout error", zap.Error(kuberpultTimeoutError))
-		} else {
-			logger.FromContext(ctx).Warn("ProcessBatch context cancelled NOT due to kuberpult timeout.", zap.Error(context.Cause(ctx)))
-		}
-	}
-
 	return response, err
 }

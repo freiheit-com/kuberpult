@@ -23,9 +23,10 @@ import (
 	"strconv"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"go.uber.org/zap"
 )
 
 func (s Server) handleApplications(w http.ResponseWriter, req *http.Request, environment, tail string) {
@@ -174,7 +175,7 @@ func (s Server) handleApplicationReleaseManifests(w http.ResponseWriter, req *ht
 	}
 	encoded, err := json.Marshal(resp)
 	if err != nil {
-		logger.FromContext(req.Context()).Error("GetManifests: encoding response")
+		logging.Error(req.Context(), "Failed to marshal manifest response", zap.Error(err))
 		http.Error(w, "GetManifests: encoding response", http.StatusInternalServerError)
 		return
 	}
@@ -182,7 +183,7 @@ func (s Server) handleApplicationReleaseManifests(w http.ResponseWriter, req *ht
 	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(encoded)
 	if err != nil {
-		logger.FromContext(req.Context()).Error("GetManifests: writing response")
+		logging.Error(req.Context(), "Failed to write manifest response", zap.Error(err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
@@ -214,14 +215,14 @@ func (s Server) handleAPIEnvironmentApplicationCommit(w http.ResponseWriter, req
 	}
 	encoded, err := json.Marshal(resp)
 	if err != nil {
-		logger.FromContext(req.Context()).Error("GetDeploymentCommitInfo: encoding response")
+		logging.Error(req.Context(), "Failed to marshal deployment commit info response", zap.Error(err))
 		http.Error(w, "GetDeploymentCommitInfo: encoding response", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "applications/json")
 	_, err = w.Write(encoded)
 	if err != nil {
-		logger.FromContext(req.Context()).Error("GetDeploymentCommitInfo: writing response")
+		logging.Error(req.Context(), "Failed to write deployment commit info response", zap.Error(err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }

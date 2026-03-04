@@ -33,7 +33,6 @@ import (
 	"go.uber.org/zap"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
@@ -198,10 +197,10 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
 		} else {
-			logger.FromContext(ctx).Sugar().Warnf("commit id not valid: '%s'", sourceCommitId)
+			logging.Warn(ctx, "source_commit_id is not valid", zap.String("source_commit_id", sourceCommitId[0]))
 		}
 	} else {
-		logger.FromContext(ctx).Sugar().Warnf("commit id not found: '%s'", sourceCommitId)
+		logging.Warn(ctx, "source_commit_id is not found", zap.String("source_commit_id", sourceCommitId[0]))
 	}
 
 	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
@@ -440,7 +439,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	}
 
 	if sourceRepoUrls, ok := form.Value["source_repo_url"]; ok {
-		logger.FromContext(ctx).Sugar().Warnf("ignoring deprecated parameter source_repo_url with value '%v'", sourceRepoUrls)
+		logging.Warn(ctx, "source_repo_url is deprecated and should not be used anymore", zap.Strings("source_repo_url", sourceRepoUrls))
 	}
 
 	if versionStrs, ok := form.Value["version"]; ok {

@@ -62,12 +62,12 @@ const megaBytes int = 1024 * 1024
 
 func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 	if c.GKEBackendServiceID == "" && c.GKEBackendServiceName == "" {
-		logger.FromContext(ctx).Warn("gke environment variables are not set up correctly! missing backend_service_id or backend_service_name")
+		logging.Warn(ctx, "GKE environment variables are not set up correctly! missing backend_service_id or backend_service_name")
 		return ""
 	}
 
 	if c.GKEBackendServiceID != "" && c.GKEBackendServiceName != "" {
-		logger.FromContext(ctx).Warn("gke environment variables are not set up correctly! backend_service_id and backend_service_name cannot be set simultaneously")
+		logging.Warn(ctx, "GKE environment variables are not set up correctly! backend_service_id and backend_service_name cannot be set simultaneously")
 		return ""
 	}
 
@@ -76,17 +76,17 @@ func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 	}
 	regex, err := regexp.Compile(c.GKEBackendServiceName)
 	if err != nil {
-		logger.FromContext(ctx).Warn("Error compiling regex for backend_service_name: %v", zap.Error(err))
+		logging.Warn(ctx, "Failed to compile regex for backend_service_name", zap.Error(err))
 		return ""
 	}
 	computeService, err := compute.NewService(ctx)
 	if err != nil {
-		logger.FromContext(ctx).Warn("Failed to create Compute Service client: %v", zap.Error(err))
+		logging.Warn(ctx, "Failed to create Compute Service client", zap.Error(err))
 		return ""
 	}
 	backendServices, err := computeService.BackendServices.List(c.GKEProjectNumber).Do()
 	if err != nil {
-		logger.FromContext(ctx).Warn("Failed to get backend service: %v", zap.Error(err))
+		logging.Warn(ctx, "Failed to get backend service", zap.Error(err))
 		return ""
 	}
 
@@ -97,7 +97,7 @@ func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 		}
 	}
 	if serviceId == "" {
-		logger.FromContext(ctx).Warn("No backend services found matching:", zap.String("pattern", c.GKEBackendServiceName))
+		logging.Warn(ctx, "No backend services found matching", zap.String("pattern", c.GKEBackendServiceName))
 	}
 	return serviceId
 }
@@ -606,14 +606,14 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, c *config.ServerConfig, 
 	}
 
 	if c.GKEBackendServiceID == "" {
-		logger.FromContext(ctx).Warn("Failed to get backend_service_id! Author information will be lost. Make sure gke environment variables are set up correctly.")
+		logging.Warn(ctx, "Failed to get backend_service_id! Author information will be lost. Make sure gke environment variables are set up correctly.")
 		return nil
 	}
 
 	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
-		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
+		logging.Warn(ctx, "iap.idtoken.validate", zap.Error(err))
 		return nil
 	}
 
@@ -666,7 +666,7 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 		dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
 		dexAuthContext := getUserFromDex(r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
 		if dexAuthContext == nil {
-			logging.Warn(ctx, "No role assigned for Dex user", zap.Any("user", user))
+			logging.Info(ctx, "No role assigned for Dex user", zap.Any("user", user))
 		} else {
 			if user == nil {
 				user = &p.DefaultUser
@@ -694,15 +694,15 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 }
 
 func getUserFromDex(req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
-	httpCtx, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
+	_, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
 	if err != nil {
-		logger.FromContext(httpCtx).Sugar().Infof("could not get context from dex: %v", err)
+		logging.Info(req.Context(), "could not get context from dex", zap.Error(err))
 		return nil
 	}
 	headerRole64 := req.Header.Get(auth.HeaderUserRole)
 	headerRole, err := auth.Decode64(headerRole64)
 	if err != nil {
-		logger.FromContext(httpCtx).Sugar().Infof("could not decode user role %s: %v", headerRole64, err)
+		logging.Info(req.Context(), "could not decode user role", zap.String("headerRole64", headerRole64), zap.Error(err))
 		return nil
 	}
 	return &auth.DexAuthContext{Role: strings.Split(headerRole, ",")}
