@@ -199,7 +199,6 @@ func runServer(ctx context.Context) error {
 
 	c, err = parseEnvVars()
 	if err != nil {
-		logger.FromContext(ctx).Error("parseEnvVars", zap.Error(err))
 		return err
 	}
 	logging.Info(ctx, "Parsed configurations", zap.Any("config", *c))
@@ -943,7 +942,6 @@ func (p *GrpcProxy) GetStatus(ctx context.Context, in *api.GetStatusRequest) (*a
 
 func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.ReleaseTrainRequest) (*api.GetReleaseTrainPrognosisResponse, error) {
 	if p.ReleaseTrainPrognosisClient == nil {
-		logger.FromContext(ctx).Error("release train prognosis service received a request when it is not configured")
 		return nil, status.Error(codes.Internal, "release train prognosis service not configured")
 	}
 	return p.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(ctx, in)
