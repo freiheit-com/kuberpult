@@ -197,10 +197,10 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
 		} else {
-			logging.Warn(ctx, "source_commit_id is not valid", zap.String("source_commit_id", sourceCommitId[0]))
+			logging.Warn(ctx, "source_commit_id is not valid", zap.Any("source_commit_id", sourceCommitId))
 		}
 	} else {
-		logging.Warn(ctx, "source_commit_id is not found", zap.String("source_commit_id", sourceCommitId[0]))
+		logging.Warn(ctx, "source_commit_id is not found", zap.Any("source_commit_id", sourceCommitId))
 	}
 
 	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
