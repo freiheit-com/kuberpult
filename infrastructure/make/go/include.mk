@@ -63,7 +63,9 @@ release:
 
 release-main:
 	@echo "Tagging the PR image as main image"
-	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
+	ifndef SKIP_UNVERSIONED_BUILDS
+		test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
+	endif
 
 retag-main: IMAGE_TAG=pr-$(VERSION)
 retag-main:
