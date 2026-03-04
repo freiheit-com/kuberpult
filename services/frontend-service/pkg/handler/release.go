@@ -65,7 +65,9 @@ func isAuthor(value string) bool {
 }
 
 func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byte, err error, status int) {
+	ctx := r.Context()
 	if err != nil {
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in json.Marshal of /release: %s", err.Error()))
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
@@ -295,12 +297,16 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		return
 	}
 	if len(response.Results) != 1 {
-		http.Error(w, "error in parsing response of /release: mismatching response length", http.StatusInternalServerError)
+		msg := "mismatching response length"
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 	releaseResponse := response.Results[0].GetCreateReleaseResponse()
 	if releaseResponse == nil {
-		http.Error(w, "error in parsing response of /release: mismatching response length", http.StatusInternalServerError)
+		msg := "mismatching response length"
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 
@@ -495,12 +501,16 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		return
 	}
 	if len(response.Results) != 1 {
-		http.Error(w, "error in parsing response of /release: mismatching response length", http.StatusInternalServerError)
+		msg := "mismatching response length"
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 	releaseResponse := response.Results[0].GetCreateReleaseResponse()
 	if releaseResponse == nil {
-		http.Error(w, "error in parsing response of /release: mismatching response length", http.StatusInternalServerError)
+		msg := "mismatching response length"
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
@@ -549,7 +559,11 @@ func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *h
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
 		}
 	default:
-		jsonBlob, err := json.Marshal(releaseResponse)
-		writeReleaseResponse(w, r, []byte(fmt.Sprintf("unknown response type: %s", jsonBlob)), err, http.StatusInternalServerError)
+		{
+			msg := "unknown response type"
+			jsonBlob, err := json.Marshal(releaseResponse)
+			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
+			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: ,response: %s", msg, jsonBlob)), err, http.StatusInternalServerError)
+		}
 	}
 }

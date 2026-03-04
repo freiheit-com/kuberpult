@@ -22,7 +22,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"go.uber.org/zap"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 type ProcessDelayRestResponse struct {
@@ -44,7 +47,9 @@ func (s Server) handleProcessDelay(ctx context.Context, w http.ResponseWriter, r
 
 	resp, err := s.ManifestRepoGitClient.GetGitSyncStatus(ctx, &api.GetGitSyncStatusRequest{})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get commit deployments from server: %v", err), http.StatusInternalServerError)
+		msg := "failed to get commit deployments from server"
+		logger.FromContext(ctx).Error(msg, zap.Error(err))
+		http.Error(w, fmt.Sprintf("%s: %v", msg, err), http.StatusInternalServerError)
 		return
 	}
 	jsonResponse := ProcessDelayRestResponse{
@@ -53,7 +58,9 @@ func (s Server) handleProcessDelay(ctx context.Context, w http.ResponseWriter, r
 	}
 	jsonResponseBytes, err := json.Marshal(jsonResponse)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get commit deployments from server: failed to marshal response: %v", err), http.StatusInternalServerError)
+		msg := "failed to get commit deployments from server: failed to marshal response"
+		logger.FromContext(ctx).Error(msg, zap.Error(err))
+		http.Error(w, fmt.Sprintf("%s: %v", msg, err), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
