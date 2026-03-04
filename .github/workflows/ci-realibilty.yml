@@ -38,7 +38,8 @@ jobs:
           git push origin --delete $SOURCE_BRANCH || true
 
           # create testing branch with changes
-          git checkout -b $SOURCE_BRANCH $BASE_BRANCH
+          git checkout $BASE_BRANCH
+          git checkout -b $SOURCE_BRANCH
 
           echo "\nfunc TestCIRealibility() {}\n" >> services/cd-service/cmd/server/main.go
           git add services/cd-service/cmd/server/main.go
