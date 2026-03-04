@@ -212,11 +212,6 @@ func runServer(ctx context.Context) error {
 		}
 	}
 
-	logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
-	logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
-	logger.FromContext(ctx).Info("config.gke_backend_service_name: " + c.GKEBackendServiceName + "\n")
-	logger.FromContext(ctx).Info(fmt.Sprintf("config.grpc_max_recv_msg_size: %d", c.GrpcMaxRecvMsgSize*megaBytes))
-
 	if c.GKEProjectNumber != "" {
 		c.GKEBackendServiceID = getBackendServiceId(*c, ctx)
 	}
@@ -606,7 +601,6 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, c *config.ServerConfig, 
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
 	if iapJWT == "" {
 		// not using iap (local), default user
-		logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
 		return nil
 	}
 
@@ -671,13 +665,12 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 		dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
 		dexAuthContext := getUserFromDex(r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
 		if dexAuthContext == nil {
-			logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
+			logger.Warn(ctx, "No role assigned for Dex user", zap.Any("user", user))
 		} else {
 			if user == nil {
 				user = &p.DefaultUser
 			}
 			user.DexAuthContext = dexAuthContext
-			logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
 		}
 	}
 	if user != nil {

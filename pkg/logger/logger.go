@@ -121,12 +121,12 @@ func Panic(exitOnPanic bool) {
 	}
 }
 
-func Warn(ctx context.Context, msg string, fields ...zap.Field) {
-	FromContext(ctx).Warn(msg, fields...)
-}
-
 func Error(ctx context.Context, msg string, fields ...zap.Field) {
 	FromContext(ctx).Error(msg, fields...)
+}
+
+func Warn(ctx context.Context, msg string, fields ...zap.Field) {
+	FromContext(ctx).Warn(msg, fields...)
 }
 
 func Info(ctx context.Context, msg string, fields ...zap.Field) {
