@@ -21,11 +21,19 @@ jobs:
           ref: automated/ci-realibility/cd-service
       - name: Open Pull Request
         run: |
+          BASE_BRANCH=main
+          SOURCE_BRANCH=automated/ci-realibility/cd-service
+
+          PR_URL=$(gh pr list --head $SOURCE_BRANCH --base $BASE_BRANCH --json url --jq '.[0].url')
+          if [ -n "$PR_URL" ]; then
+            echo "The PR already exists. Close the current PR before creating a new one."
+            gh pr close $PR_URL
+          fi
           gh pr create \
-            --head automated/ci-realibility/cd-service \
-            --base main \
-            --title "Automated: Testing CI realibility for cd-service" \
-            --body "This is an automated PR to test the CI realibility." \
+            --head $SOURCE_BRANCH \
+            --base $BASE_BRANCH \
+            --title "Automated: Test CI realibility for $SOURCE_BRANCH" \
+            --body "This is an PR automatically created to test the CI realibility." \
             --draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
