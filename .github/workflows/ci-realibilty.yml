@@ -1,4 +1,4 @@
-name: ci-realibilty
+name: Test CI Realibility
 
 on:
   schedule:
@@ -9,18 +9,23 @@ on:
       - db-prtest
 
 jobs:
-  create-pr:
+  open-pr:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
-      - name: Create PR
-        uses: peter-evans/create-pull-request@v8
         with:
-          title: "DO NOT MERGE: Testing CI realibility for cd-service"
-          commit-message: "Testing CI realibility for cd-service"
-          branch: "automated/ci-realibility/cd-service"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: true
-          delete-branch: false
+          ref: automated/ci-realibility/cd-service
+      - name: Open Pull Request
+        run: |
+          gh pr create \
+            --head automated/ci-realibility/cd-service \
+            --base main \
+            --title "Automated: Testing CI realibility for cd-service" \
+            --draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
         
