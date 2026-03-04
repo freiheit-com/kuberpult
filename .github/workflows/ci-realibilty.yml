@@ -10,6 +10,7 @@ on:
 
 jobs:
   open-pr:
+    name: Open Pull Request
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
