@@ -34,11 +34,12 @@ build-pr: build publish
 	docker push $(IMAGENAME_VERSIONED_PR)
 
 build-main: build publish
-	echo "Building on main"
 	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_MAIN)
 	docker push $(IMAGENAME_VERSIONED_MAIN)
+ifndef SKIP_UNVERSIONED_BUILDS
 	docker tag $(IMAGENAME) $(IMAGENAME_UNVERSIONED_MAIN)
 	docker push $(IMAGENAME_UNVERSIONED_MAIN)
+endif
 
 .PHONY: cleanup-pr
 cleanup-pr:
