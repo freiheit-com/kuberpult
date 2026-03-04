@@ -69,7 +69,7 @@ func isAuthor(value string) bool {
 func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byte, err error, status int) {
 	ctx := r.Context()
 	if err != nil {
-		logging.Error(ctx, "Failed to marsahl response of /release", zap.Error(err))
+		logging.Error(ctx, "Failed to marshal response of /release", zap.Error(err))
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
