@@ -41,7 +41,7 @@ jobs:
           git checkout $BASE_BRANCH
           git checkout -b $SOURCE_BRANCH
 
-          echo "\nfunc TestCIRealibility() {}\n" >> services/cd-service/cmd/server/main.go
+          echo -e "\nfunc TestCIRealibility() {}\n" >> services/cd-service/cmd/server/main.go
           git add services/cd-service/cmd/server/main.go
 
           git config user.name "github-actions[bot]"
