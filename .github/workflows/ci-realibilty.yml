@@ -16,6 +16,7 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
       - name: Open Pull Request
         run: |
           BASE_BRANCH=main
@@ -50,6 +51,7 @@ jobs:
       checks: read
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
       - name: Check CI status
         run: |
           exit_code=$(gh pr checks "${{ env.PR_URL }}" --watch --fail-fast)
