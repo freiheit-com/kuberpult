@@ -26,7 +26,7 @@ jobs:
     with:
       trigger: main
       ref: "${{ inputs.ref }}"
-      rebuild_images: true
+      skip_unversioned_builds: true
     secrets: inherit
   release:
     name: Release Kuberpult with the specific Ref

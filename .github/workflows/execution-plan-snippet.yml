@@ -11,11 +11,11 @@ on:
         default: ""
         type: string
         description: "The ref to use for the checkout"
-      rebuild_images:
+      skip_unversioned_builds:
         required: false
         default: false
         type: boolean
-        description: "Rebuild the images"
+        description: "Skip unversioned builds"
 
 jobs:
   execution_plan:
@@ -101,7 +101,7 @@ jobs:
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
       - name: Set skip unversioned builds
-        if: inputs.rebuild_images == true
+        if: inputs.skip_unversioned_builds == true
         run: |
           echo "SKIP_UNVERSIONED_BUILDS=true" >> $GITHUB_ENV
       - name: Add credentials file
@@ -176,7 +176,7 @@ jobs:
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
       - name: Set skip unversioned builds
-        if: inputs.rebuild_images
+        if: inputs.skip_unversioned_builds
         run: |
           echo "SKIP_UNVERSIONED_BUILDS=true" >> $GITHUB_ENV
       - name: Add credentials file
