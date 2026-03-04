@@ -60,5 +60,6 @@ jobs:
             exit 1
           fi
           echo "CI checks passed."
-
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
