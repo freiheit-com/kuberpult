@@ -68,11 +68,11 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- if (and (eq .Values.db.dbOption "postgreSQL") (.Values.db.k8sServiceAccountName)) }}
+{{- if and .Values.db .Values.db.k8sServiceAccountName }}
       serviceAccountName: {{ .Values.db.k8sServiceAccountName }}
 {{- end }}
       containers:
-{{- if .Values.db.cloudSqlProxyEnabled }}
+{{- if and .Values.db .Values.db.cloudSqlProxyEnabled }}
       - name: cloud-sql-proxy
         # It is recommended to use the latest version of the Cloud SQL Auth Proxy
         # Make sure to update on a regular schedule!
@@ -231,8 +231,6 @@ spec:
           value: {{ .Values.revolution.dora.dryRun | quote }}
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.rollout.grpcMaxRecvMsgSize }}"
-        - name: KUBERPULT_DB_OPTION
-          value: {{ .Values.db.dbOption }} # { postgreSQL}
         - name: KUBERPULT_PERSIST_ARGO_EVENTS
           value: "{{ .Values.rollout.persistArgoEvents }}"
 {{- if .Values.rollout.persistArgoEvents }}
@@ -249,7 +247,6 @@ spec:
           value: "{{ .Values.rollout.metrics.argoEventsMetricsEnabled }}"
         - name: KUBERPULT_KUBERPULT_EVENTS_METRICS_ENABLED
           value: "{{ .Values.rollout.metrics.kuberpultEventsMetricsEnabled }}"
-{{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
         - name: KUBERPULT_DB_NAME
@@ -270,7 +267,6 @@ spec:
           value: "{{ .Values.db.connections.rollout.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.rollout.maxIdle }}"
-{{- end }}
         volumeMounts:
         # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
         - name: tmp

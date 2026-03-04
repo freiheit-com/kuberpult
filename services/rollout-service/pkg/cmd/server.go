@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -66,7 +65,6 @@ type Config struct {
 
 	GrpcMaxRecvMsgSize int `default:"4" split_words:"true"`
 
-	DbOption             string `default:"NO_DB" split_words:"true"`
 	DbLocation           string `default:"/kp/database" split_words:"true"`
 	DbCloudSqlInstance   string `default:"" split_words:"true"`
 	DbName               string `default:"" split_words:"true"`
@@ -241,37 +239,29 @@ func runServer(ctx context.Context, config Config) error {
 		return err
 	}
 
-	var dbHandler *db.DBHandler = nil
-	if config.DbOption != "NO_DB" {
-		var dbCfg db.DBConfig
-		if config.DbOption == "postgreSQL" {
-			dbCfg = db.DBConfig{
-				DbHost:         config.DbLocation,
-				DbPort:         config.DbAuthProxyPort,
-				DriverName:     "postgres",
-				DbName:         config.DbName,
-				DbPassword:     config.DbUserPassword,
-				DbUser:         config.DbUserName,
-				MigrationsPath: config.DbMigrationsLocation,
-				SSLMode:        config.DbSslMode,
+	dbCfg := db.DBConfig{
+		DbHost:         config.DbLocation,
+		DbPort:         config.DbAuthProxyPort,
+		DriverName:     "postgres",
+		DbName:         config.DbName,
+		DbPassword:     config.DbUserPassword,
+		DbUser:         config.DbUserName,
+		MigrationsPath: config.DbMigrationsLocation,
+		SSLMode:        config.DbSslMode,
 
-				MaxIdleConnections: config.DbMaxIdleConnections,
-				MaxOpenConnections: config.DbMaxOpenConnections,
+		MaxIdleConnections: config.DbMaxIdleConnections,
+		MaxOpenConnections: config.DbMaxOpenConnections,
 
-				DatadogEnabled:     config.EnableTracing,
-				DatadogServiceName: "kuberpult-rollout-service",
-			}
-		}
-		dbHandler, err = db.Connect(ctx, dbCfg)
-		if err != nil {
-			logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
-		}
-		pErr := dbHandler.DB.Ping()
-		if pErr != nil {
-			logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
-		}
-	} else {
-		return errors.New("dbOption must be 'postgreSQL'")
+		DatadogEnabled:     config.EnableTracing,
+		DatadogServiceName: "kuberpult-rollout-service",
+	}
+	dbHandler, err := db.Connect(ctx, dbCfg)
+	if err != nil {
+		logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+	}
+	pErr := dbHandler.DB.Ping()
+	if pErr != nil {
+		logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 	}
 
 	logger.FromContext(ctx).Info("argocd.connecting", zap.String("argocd.addr", opts.ServerAddr))
