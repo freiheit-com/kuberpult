@@ -19,7 +19,7 @@ package main
 
 import "github.com/freiheit-com/kuberpult/services/cd-service/pkg/cmd"
 
-// this line is added for the purpose of testing the CI build
 func main() {
+	// this line is added for the purpose of testing the CI build
 	cmd.RunServer()
 }
