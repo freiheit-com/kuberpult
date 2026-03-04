@@ -15,9 +15,12 @@ jobs:
       pull-requests: write
       contents: read
     runs-on: ubuntu-latest
+    outputs:
+      pr_url: ${{ steps.open-pr.outputs.pr_url }}
     steps:
       - uses: actions/checkout@v6
       - name: Open Pull Request
+        id: open-pr
         run: |
           BASE_BRANCH=main
           SOURCE_BRANCH=automated/ci-realibility/cd-service
@@ -40,7 +43,7 @@ jobs:
             exit 1
           fi
           echo "Created new PR: $PR_URL"
-          echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+          echo "PR_URL=$PR_URL" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   check-ci:
@@ -54,7 +57,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Check CI status
         run: |
-          exit_code=$(gh pr checks "${{ env.PR_URL }}" --watch --fail-fast)
+          exit_code=$(gh pr checks "${{ needs.open-pr.outputs.pr_url }}" --watch --fail-fast)
           if [ $exit_code -ne 0 ]; then
             echo "CI checks failed."
             exit 1
