@@ -11,14 +11,11 @@ on:
 jobs:
   open-pr:
     name: Open Pull Request
-    runs-on: ubuntu-latest
     permissions:
       pull-requests: write
       contents: read
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: automated/ci-realibility/cd-service
       - name: Open Pull Request
         run: |
           BASE_BRANCH=main
@@ -29,13 +26,37 @@ jobs:
             echo "The PR already exists. Close the current PR before creating a new one."
             gh pr close $PR_URL
           fi
+
           gh pr create \
             --head $SOURCE_BRANCH \
             --base $BASE_BRANCH \
             --title "Automated: Test CI realibility for $SOURCE_BRANCH" \
             --body "This is an PR automatically created to test the CI realibility." \
             --draft
+          PR_URL=$(gh pr list --head $SOURCE_BRANCH --base $BASE_BRANCH --json url --jq '.[0].url')
+          if [ -z "$PR_URL" ]; then
+            echo "The PR cannot be created."
+            exit 1
+          fi
+          echo "Created new PR: $PR_URL"
+          echo "PR_URL=$PR_URL" >> $GITHUB_ENV
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  check-ci:
+    timeout-minutes: 30
+    needs: open-pr
+    name: Check CI status
+    permissions:
+      checks: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI status
+        run: |
+          exit_code=$(gh pr checks "${{ env.PR_URL }}" --watch --fail-fast)
+          if [ $exit_code -ne 0 ]; then
+            echo "CI checks failed."
+            exit 1
+          fi
+          echo "CI checks passed."
 
         
