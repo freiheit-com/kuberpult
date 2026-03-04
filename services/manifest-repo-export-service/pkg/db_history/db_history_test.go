@@ -288,7 +288,7 @@ func setupDB(t *testing.T) *db.DBHandler {
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
 
-	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, dir, false, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, dir, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}

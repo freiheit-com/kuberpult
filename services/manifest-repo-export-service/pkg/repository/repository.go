@@ -1151,26 +1151,6 @@ type State struct {
 	DBHandler *db.DBHandler
 }
 
-func (s *State) GetAppsAndTeams() (map[types.AppName]string, error) {
-	result, err := s.GetApplicationsFromFile()
-	if err != nil {
-		return nil, fmt.Errorf("could not get apps from file: %v", err)
-	}
-	var teamByAppName = map[types.AppName]string{} // key: app, value: team
-	for i := range result {
-		app := types.AppName(result[i])
-
-		team, err := s.GetTeamNameFromManifest(string(app))
-		if err != nil {
-			// some apps do not have teams, that's not an error
-			teamByAppName[app] = ""
-		} else {
-			teamByAppName[app] = team
-		}
-	}
-	return teamByAppName, nil
-}
-
 func (s *State) GetTeamNameFromManifest(application string) (string, error) {
 	fileSys := s.Filesystem
 

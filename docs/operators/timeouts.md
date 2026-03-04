@@ -5,21 +5,16 @@ There are a couple different timeouts that can be configured in kuberpult.
 
 ### `git.networkTimeout`
 
-This is used for the git operations `fetch` and `push` in the cd-service.
+This is used for the git operations `fetch` and `push` in the manifest-export-service.
 
-Pushing to a remote git repo is currently the biggest bottleneck for kuberpult.
+Pushing to a remote git repo is currently a bottleneck for kuberpult.
 
 Note that for big repositories, it can take over a minute to push!
-
-In the future this will be improved by use a [database](./database.md).
-
 
 ### `frontend.batchClient.timeout`
 
 This is the time the frontend-service waits for the cd-service.
 Must be `>= git.networkTimeout`.
-
-
 
 ### `cd.backendConfig.timeoutSec`
 

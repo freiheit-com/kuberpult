@@ -1,6 +1,10 @@
 # Database
 
 ## The Database feature is now required
+We expect that all Kuberpult users have fully switched to the Kuberpult version that uses the database at this point. 
+The option to use Kuberpult without a database will be removed from future versions and support for 
+migrations from older Kuberpult versions that do not use the database towards Kuberpult versions that use the database 
+will only be possible in versions `v13.43.3` or earlier.
 
 ## Background
 
@@ -17,20 +21,16 @@ Therefore, we will use a database and not rely on git anymore in the future.
 
 Git will still be used as an *output* of kuberpult, but not as the source of truth.
 
-## Preparation
+## Recommendations
 
-Our recommendation is to enable the database mode in 2 steps:
+Kuberpult reads and writes from the database, so the database is the (only) source of truth.
+The manifest repository is only an "export", which is handled by the new `manifest-repo-export-service`.
+It is recommended to *not* push into the manifest repo, since kuberpult will not take these changes into account.
+However, in an urgent case, you can push files into it, including manifests for Argo CD. Each push will slow down the manifest-repo-export a little bit, because it needs to pull the changes again. This is why we recommend against pushing into it on a regular basis.
+Note that if you do push manifests into it, the manifest-repo-export will override them when that service is deployed next time.
 
-### Step 1: writeEslTableOnly=true
-
-Enable the Database with `db.dbOption: "postgreSQL"` and `db.writeEslTableOnly: true`.
-This requires kuberpult version <= 10.3.10.
-This means that kuberpult will connect to the DB, but only write one table.
-Kuberpult will not read from the database in this state,
-so the manifest-repository is still considered the source of truth.
-You can use this option as a proof of concept that the database connection works.
-
-This is also a good time to create alerts and backups for the database itself.
+### Monitoring
+Create alerts and backups for the database itself.
 If you are using datadog (`datadogTracing.enabled: true`), then it can also be helpful
 to inspect some traces/spans, to see how long operations take with the database.
 Kuberpult generates spans for each database query. These should generally take
@@ -38,9 +38,6 @@ only a few milliseconds (10-20), otherwise the database needs more resources.
 
 Apart from the general Database monitors that every database should have,
 we also recommend setting up alerts for these kuberpult specific metrics.
-
-Note that these metrics only work if the database is fully rolled out, so only after 
-"Step 2: writeEslTableOnly=false".
 
 #### Monitoring Push Failures
 
@@ -50,7 +47,6 @@ It measures 0 if there are currently no failures, and 1 if there are.
 
 This metric is allways written, even if there is nothing for kuberpult to push.
 In case kuberpult has nothing to push this metric writes 0 every `manifestRepoExport.eslProcessingIdleTimeSeconds` seconds.
-
 
 #### Monitoring Processing Delay
 
@@ -65,35 +61,12 @@ this may be significant.
 
 Consider alerting when this value is >= 10 minutes.
 
-
-### Step 2: writeEslTableOnly=false
-Enable the Database with `db.dbOption: "postgreSQL"` and  `db.writeEslTableOnly: false`.
-Kuberpult will now read and write from the database,
-so the database is the (only) source of truth.
-The manifest repository is now only an "export", which is handled by the new `manifest-repo-export-service`.
-On the first startup with this option, it will read the manifest repo and insert all needed data
-into the database (about 25 tables). This process can take a few minutes,
-depending on the size of your repository and the resources you provide to both the database and Kuberpult's cd-service.
-We tested this with hundreds of apps and dozens of environments,
-and the migration was done in about 5-10 minutes.
-
-
-## Pushing to the manifest repo
-With the database option fully enabled, it is recommended to *never* push into the repo manually,
-since kuberpult will not take these changes into account.
-
-
 ## Database Variants
 
 For all database operations, kuberpult uses [PostgreSQL](https://www.postgresql.org/),
 e.g. [Cloud SQL on GCP](https://cloud.google.com/sql?hl=en).
 
-
 ## Best Practice (Dev Notes)
-
-To implement the database modes correctly,
-we must use the functions `ShouldUseEslTable` before writing to the ESL table,
-and `ShouldUseOtherTables` before writing to any other table.
 
 ## Custom Migrations
 If you've deleted the custom migrations cutoff table and you want to bring it back you can run:

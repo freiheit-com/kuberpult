@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 1s
       timeout: 5s
       retries: 3
@@ -27,7 +27,6 @@ services:
       - KUBERPULT_DB_USER_PASSWORD=mypassword
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/migrations/postgres
       - KUBERPULT_DB_OPTION=postgreSQL
-      - KUBERPULT_DB_WRITE_ESL_TABLE_ONLY=false
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_NETWORK_TIMEOUT=120s
       - KUBERPULT_DEX_MOCK=false
@@ -36,7 +35,6 @@ services:
       - KUBERPULT_DEX_RBAC_TEAM_PATH=/etc/team.csv
       - KUBERPULT_DEX_MOCK_ROLE=Developer
       - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
-      - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
       - KUBERPULT_ALLOW_LONG_APP_NAMES=true
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
       - KUBERPULT_DB_SSL_MODE=disable
@@ -47,7 +45,6 @@ services:
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=4
       - KUBERPULT_MIGRATION_SERVER_SECURE=false
       - KUBERPULT_VERSION=v0.1.2
-      - KUBERPULT_CHECK_GIT2DB_MIGRATIONS=false
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -83,8 +80,6 @@ services:
       - KUBERPULT_DB_MAX_IDLE_CONNECTIONS=1
       - KUBERPULT_MINIMIZE_EXPORTED_DATA=true
       - KUBERPULT_VERSION=v0.1.2
-      - KUBERPULT_CHECK_GIT2DB_MIGRATIONS=false
-      - KUBERPULT_GIT_TIMESTAMP_MIGRATIONS_ENABLED=false
       - KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED=true
       - KUBERPULT_RESET_GIT_SYNC_STATUS_ENABLED=false
       - KUBERPULT_ESL_PROCESSING_BACKOFF=1
@@ -104,7 +99,11 @@ services:
       - "8444:8443"
     stop_grace_period: 0.5s
     healthcheck:
-      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:8080/healthz" ]
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider localhost:8080/healthz",
+        ]
       interval: 1s
       timeout: 5s
       retries: 50

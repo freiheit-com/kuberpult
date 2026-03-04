@@ -224,8 +224,6 @@ spec:
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: KUBERPULT_ENABLE_METRICS
           value: "{{ .Values.dogstatsdMetrics.enabled }}"
-        - name: KUBERPULT_ENABLE_EVENTS
-          value: "{{ .Values.dogstatsdMetrics.eventsEnabled }}"
         - name: KUBERPULT_DOGSTATSD_ADDR
           value: "{{ .Values.dogstatsdMetrics.address }}"
 {{- end }}
@@ -245,16 +243,8 @@ spec:
           value: "{{ .Values.git.releaseVersionsLimit }}"
         - name: KUBERPULT_MINIMIZE_EXPORTED_DATA
           value: "{{ .Values.git.minimizeExportedData }}"
-        - name: KUBERPULT_CHECK_GIT2DB_MIGRATIONS
-          value: "{{ .Values.db.checkCustomMigrations }}"
         - name: KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS
           value: {{ .Values.manifestRepoExport.failOnErrorWithGitPushTags | quote }}
-
-{{- if (and (.Values.db.gitTimestampMigrations.enabled) (not (.Values.reposerver.enabled))) }}
-{{ fail "If gitTimestampMigrations is enabled the reposerver should also be enabled" }}
-{{- end }}
-        - name: KUBERPULT_GIT_TIMESTAMP_MIGRATIONS_ENABLED
-          value: "{{ .Values.db.gitTimestampMigrations.enabled }}"
         - name: KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED
           value: "{{ .Values.db.outdatedDeploymentsCleaning.enabled }}"
         - name: KUBERPULT_RESET_GIT_SYNC_STATUS_ENABLED

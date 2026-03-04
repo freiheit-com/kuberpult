@@ -1134,7 +1134,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			ctx := testutilauth.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var err error = nil
-			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
+			repo, dbHandler := SetupRepositoryTestWithDBOptions(t)
 			var lastTransformerId db.TransformerID = -1
 			for index, transformer := range tc.Transformers {
 				_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
@@ -4658,28 +4658,27 @@ func ReleaseTrainTestSetup(releaseTrainTransformer Transformer) []Transformer {
 }
 
 func SetupRepositoryTestWithDB(t *testing.T) Repository {
-	r, _ := SetupRepositoryTestWithDBOptions(t, false)
+	r, _ := SetupRepositoryTestWithDBOptions(t)
 	return r
 }
 
-func SetupRepositoryTestWithDBOptions(t *testing.T, writeEslOnly bool) (Repository, *db.DBHandler) {
-	return SetupRepositoryTestWithAllOptions(t, writeEslOnly, 5)
+func SetupRepositoryTestWithDBOptions(t *testing.T) (Repository, *db.DBHandler) {
+	return SetupRepositoryTestWithAllOptions(t)
 }
 
-func SetupRepositoryTestWithAllOptions(t *testing.T, writeEslOnly bool, queueSize uint) (Repository, *db.DBHandler) {
+func SetupRepositoryTestWithAllOptions(t *testing.T) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, writeEslOnly, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
 
 	repoCfg := RepositoryConfig{
 		ArgoCdGenerateFiles: true,
-		MaximumQueueSize:    queueSize,
 		MaxNumThreads:       1,
 	}
 
@@ -4900,7 +4899,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
+			repo, _ := SetupRepositoryTestWithDBOptions(t)
 			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -4994,7 +4993,7 @@ func TestDeleteLocks(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
+			repo, _ := SetupRepositoryTestWithDBOptions(t)
 			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -5145,7 +5144,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _ := SetupRepositoryTestWithDBOptions(t, false)
+			repo, _ := SetupRepositoryTestWithDBOptions(t)
 			ctx := testutilauth.MakeTestContext()
 			r := repo.(*repository)
 			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -5786,7 +5785,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			ctx := testutilauth.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
 			var err error
-			repo, dbHandler := SetupRepositoryTestWithDBOptions(t, false)
+			repo, dbHandler := SetupRepositoryTestWithDBOptions(t)
 
 			var commitHashes []string
 			for idx, steps := range tc.SetupStages {

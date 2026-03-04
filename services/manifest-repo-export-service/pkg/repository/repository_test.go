@@ -227,7 +227,7 @@ func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *Reposi
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
-	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
@@ -1878,7 +1878,7 @@ func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}
 
-	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, false, fmt.Sprintf("%s_%d", t.Name(), t.N))
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, fmt.Sprintf("%s_%d", t.Name(), t.N))
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}

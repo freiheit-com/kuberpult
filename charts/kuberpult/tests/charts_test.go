@@ -242,9 +242,6 @@ pgp:
   keyRing: ""
 ingress:
   domainName: "kuberpult-example.com"
-
-environment_configs:
-  environment_configs_json: "{}"
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -523,50 +520,6 @@ db:
 			},
 		},
 		{
-			Name: "Database writeEslTableOnly=false ",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: postgreSQL
-  location: /kp/database
-  dbName: does
-  dbUser: not
-  dbPassword: matter
-  writeEslTableOnly: false
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "postgreSQL",
-				},
-				{
-					Name:  "KUBERPULT_DB_LOCATION",
-					Value: "/kp/database",
-				},
-				{
-					Name:  "KUBERPULT_DB_WRITE_ESL_TABLE_ONLY",
-					Value: "false",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_NAME",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_NAME",
-					Value: "does",
-				},
-				{
-					Name:  "KUBERPULT_DB_USER_PASSWORD",
-					Value: "not",
-				},
-			},
-		},
-		{
 			Name: "Test default releaseVersionsLimit",
 			Values: `
 git:
@@ -684,44 +637,6 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
-		{
-			Name: "Check for custom Migrations",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  checkCustomMigrations: false
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_CHECK_GIT2DB_MIGRATIONS",
-					Value: "false",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Check for custom Migrations",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  dbOption: "postgreSQL"
-  checkCustomMigrations: true
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_CHECK_GIT2DB_MIGRATIONS",
-					Value: "true",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
 	}
 
 	for _, tc := range tcs {
@@ -767,16 +682,6 @@ ingress:
   domainName: "kuberpult-example.com"
 argocd:
   sendWebhooks: true
-`},
-		{
-			Name: "Test Bootstrap_mode being set to true",
-			Values: `
-git:
-  url:  "checkThisValue"
-ingress:
-  domainName: "kuberpult-example.com"
-environment_configs:
-  bootstrap_mode: true
 `},
 	}
 

@@ -233,8 +233,6 @@ spec:
           value: "{{ .Values.rollout.grpcMaxRecvMsgSize }}"
         - name: KUBERPULT_DB_OPTION
           value: {{ .Values.db.dbOption }} # { postgreSQL}
-        - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
-          value: "false"
         - name: KUBERPULT_PERSIST_ARGO_EVENTS
           value: "{{ .Values.rollout.persistArgoEvents }}"
 {{- if .Values.rollout.persistArgoEvents }}

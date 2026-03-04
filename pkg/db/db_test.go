@@ -1107,53 +1107,6 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 	}
 }
 
-func TestHelperFunctions(t *testing.T) {
-	tcs := []struct {
-		Name                string
-		inputHandler        *DBHandler
-		expectedEslTable    bool
-		expectedOtherTables bool
-	}{
-		{
-			Name:                "nil handler",
-			inputHandler:        nil,
-			expectedEslTable:    false,
-			expectedOtherTables: false,
-		},
-		{
-			Name: "esl only",
-			inputHandler: &DBHandler{
-				WriteEslOnly: true,
-			},
-			expectedEslTable:    true,
-			expectedOtherTables: false,
-		},
-		{
-			Name: "other tables",
-			inputHandler: &DBHandler{
-				WriteEslOnly: false,
-			},
-			expectedEslTable:    true,
-			expectedOtherTables: true,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-
-			actualEslTable := tc.inputHandler.ShouldUseEslTable()
-			if diff := cmp.Diff(tc.expectedEslTable, actualEslTable); diff != "" {
-				t.Errorf("response mismatch (-want, +got):\n%s", diff)
-			}
-			actualOtherTables := tc.inputHandler.ShouldUseOtherTables()
-			if diff := cmp.Diff(tc.expectedOtherTables, actualOtherTables); diff != "" {
-				t.Errorf("response mismatch (-want, +got):\n%s", diff)
-			}
-		})
-	}
-}
-
 func version(v int) *int64 {
 	var result = int64(v)
 	return &result
@@ -5547,7 +5500,7 @@ func setupDB(t *testing.T) *DBHandler {
 	t.Logf("directory for DB migrations: %s", dir)
 	t.Logf("tmp dir for DB data: %s", tmpDir)
 
-	dbConfig, err := ConnectToPostgresContainer(ctx, t, dir, false, t.Name())
+	dbConfig, err := ConnectToPostgresContainer(ctx, t, dir, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
 	}
@@ -5575,7 +5528,7 @@ func SetupRepositoryTestWithDB(t *testing.T, runMigrations bool) (*DBHandler, *D
 
 func SetupRepositoryTestWithDBMigrationPath(t *testing.T, migrationsPath string, runMigrations bool) (*DBHandler, *DBConfig) {
 	ctx := context.Background()
-	dbConfig, err := ConnectToPostgresContainer(ctx, t, migrationsPath, false, t.Name())
+	dbConfig, err := ConnectToPostgresContainer(ctx, t, migrationsPath, t.Name())
 	if err != nil {
 		t.Fatalf("error connceting %v", err)
 		return nil, nil

@@ -161,8 +161,6 @@ spec:
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
 {{- if .Values.datadogTracing.enabled }}
-        - name: KUBERPULT_CACHE_TTL_HOURS
-          value: {{ .Values.cd.cacheTtlHours | quote }}
         - name: DD_AGENT_HOST
           valueFrom:
             fieldRef:
@@ -202,8 +200,6 @@ spec:
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: KUBERPULT_ENABLE_METRICS
           value: "{{ .Values.dogstatsdMetrics.enabled }}"
-        - name: KUBERPULT_ENABLE_EVENTS
-          value: "{{ .Values.dogstatsdMetrics.eventsEnabled }}"
         - name: KUBERPULT_DOGSTATSD_ADDR
           value: "{{ .Values.dogstatsdMetrics.address }}"
 {{- end }}
@@ -223,23 +219,16 @@ spec:
           value: "{{ .Values.auth.azureAuth.enabled }}"
         - name: KUBERPULT_DEX_ENABLED
           value: "{{ .Values.auth.dexAuth.enabled }}"
-{{- if .Values.environment_configs.bootstrap_mode }}
-        {{ fail "Values.environment_configs.bootstrap_mode cannot be used anymore. For more information [See environment.md/Environment Creation for how to create and edit environments](https://github.com/freiheit-com/kuberpult/blob/main/docs/environment.md) "}}
-{{- end }}
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
           value: "{{ .Values.git.enableWritingCommitData }}"
         - name: KUBERPULT_ENABLE_PROFILING
           value: "{{ .Values.datadogProfiling.enabled }}"
-        - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
-          value: "{{ .Values.cd.backendConfig.queueSize }}"
         - name: KUBERPULT_MAX_NUMBER_OF_THREADS
           value: "{{ .Values.cd.maxNumberOfThreads }}"
         - name: KUBERPULT_DB_OPTION # { postgreSQL}
           value: {{ .Values.db.dbOption }}
-        - name: KUBERPULT_DB_WRITE_ESL_TABLE_ONLY
-          value: "false"
 {{- if (eq .Values.db.dbOption "postgreSQL") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
@@ -265,8 +254,6 @@ spec:
           value: "{{ .Values.db.connections.cd.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.cd.maxIdle }}"
-        - name: KUBERPULT_CHECK_GIT2DB_MIGRATIONS
-          value: "{{ .Values.db.checkCustomMigrations }}"
         - name: KUBERPULT_LOCK_TYPE
           value: "{{ .Values.cd.lockType }}"
 {{- end }}
