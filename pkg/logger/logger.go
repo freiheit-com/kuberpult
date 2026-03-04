@@ -104,7 +104,7 @@ func DisableLogging() []grpc_zap.Option {
 	}
 }
 
-func LogPanics(exitOnPanic bool) {
+func Panic(exitOnPanic bool) {
 	if r := recover(); r != nil {
 		var err error
 		var ok bool
