@@ -241,10 +241,12 @@ spec:
           value: "{{ .Values.git.minimizeExportedData }}"
         - name: KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS
           value: {{ .Values.manifestRepoExport.failOnErrorWithGitPushTags | quote }}
+{{- if .Values.db }}
         - name: KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED
           value: "{{ .Values.db.outdatedDeploymentsCleaning.enabled }}"
         - name: KUBERPULT_RESET_GIT_SYNC_STATUS_ENABLED
           value: "{{ .Values.db.resetGitSyncStatus.enabled }}"
+{{- end }}
         - name: KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED
           value: "{{ .Values.manifestRepoExport.experimentalRolloutWithManifest.enabled }}"
         - name: KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENVIRONMENTS

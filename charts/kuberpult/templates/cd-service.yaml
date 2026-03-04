@@ -392,5 +392,7 @@ kind: Secret
 metadata:
   name: kuberpult-db
 data:
+{{- if .Values.db }}
   username: {{ .Values.db.dbUser | b64enc | quote }}
   password: {{ .Values.db.dbPassword | b64enc | quote }}
+{{- end }}
