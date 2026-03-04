@@ -33,6 +33,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 var (
@@ -311,7 +312,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
-	logger.Warn(ctx, "The /release endpoint will be deprecated in the future, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.")
+	logging.Warn(ctx, "The /release endpoint will be deprecated in the future, use /api/release instead. Check https://github.com/freiheit-com/kuberpult/blob/main/docs/endpoint-release.md for more information.")
 }
 
 func checkParameterCardinality(w http.ResponseWriter, paramName string, paramValues []string) bool {

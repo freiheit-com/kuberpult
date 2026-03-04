@@ -47,6 +47,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
@@ -201,7 +202,7 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Error("parseEnvVars", zap.Error(err))
 		return err
 	}
-	logger.Info(ctx, "Parsed configurations", zap.Any("config", *c))
+	logging.Info(ctx, "Parsed configurations", zap.Any("config", *c))
 
 	var jwks *keyfunc.JWKS = nil
 	if c.AzureEnableAuth {
@@ -665,7 +666,7 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 		dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
 		dexAuthContext := getUserFromDex(r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
 		if dexAuthContext == nil {
-			logger.Warn(ctx, "No role assigned for Dex user", zap.Any("user", user))
+			logging.Warn(ctx, "No role assigned for Dex user", zap.Any("user", user))
 		} else {
 			if user == nil {
 				user = &p.DefaultUser
