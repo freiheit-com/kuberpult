@@ -46,7 +46,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "Automated: Test CI realibility for $SOURCE_BRANCH\n\nrequest-checks: true"
+          git commit -m $'Automated: Test CI realibility for $SOURCE_BRANCH\n\nrequest-checks: true'
           git push origin $SOURCE_BRANCH
 
           # create PR
