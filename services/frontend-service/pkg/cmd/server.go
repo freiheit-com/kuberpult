@@ -637,7 +637,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return p.serveHTTPInner(ctx, w, r)
 	})
 	if err != nil {
-		fmt.Printf("error: %v %#v", err, err)
+		logging.Error(r.Context(), "Failed to serve HTTP", zap.Error(err))
 	}
 }
 
