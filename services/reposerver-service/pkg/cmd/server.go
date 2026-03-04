@@ -49,7 +49,7 @@ import (
 
 func RunServer() {
 	_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
-		defer logger.LogPanics(true)
+		defer logger.HandlePanic(true)
 		err := Run(ctx)
 		if err != nil {
 			logger.FromContext(ctx).Sugar().Errorf("error in startup: %v %#v", err, err)
@@ -134,13 +134,13 @@ func Run(ctx context.Context) error {
 
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-			defer logger.LogPanics(true)
+			defer logger.HandlePanic(true)
 			return handler(srv, ss)
 		},
 	}
 	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-			defer logger.LogPanics(true)
+			defer logger.HandlePanic(true)
 			return handler(ctx, req)
 		},
 	}

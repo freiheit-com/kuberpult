@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 )
 
@@ -58,7 +58,7 @@ func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tai
 	case "locks":
 		s.handleEnvironmentLocks(w, req, environment, tail)
 	case "releasetrain":
-		logger.FromContext(req.Context()).Warn("This endpoint is deprecated, Use /api/environments/${targetEnvironment}/releasetrain or /api/environment-groups/${targetEnvironmentGroup}/releasetrain instead")
+		logging.Warn(req.Context(), "This endpoint is deprecated. Use /api/environments/${targetEnvironment}/releasetrain or /api/environment-groups/${targetEnvironmentGroup}/releasetrain instead.")
 		s.handleReleaseTrain(w, req, environment, tail)
 	case "":
 		if tail == "/" && req.Method == http.MethodPost {

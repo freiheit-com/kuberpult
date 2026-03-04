@@ -47,6 +47,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/publicapi"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
@@ -61,12 +62,12 @@ const megaBytes int = 1024 * 1024
 
 func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 	if c.GKEBackendServiceID == "" && c.GKEBackendServiceName == "" {
-		logger.FromContext(ctx).Warn("gke environment variables are not set up correctly! missing backend_service_id or backend_service_name")
+		logging.Warn(ctx, "GKE environment variables are not set up correctly! missing backend_service_id or backend_service_name")
 		return ""
 	}
 
 	if c.GKEBackendServiceID != "" && c.GKEBackendServiceName != "" {
-		logger.FromContext(ctx).Warn("gke environment variables are not set up correctly! backend_service_id and backend_service_name cannot be set simultaneously")
+		logging.Warn(ctx, "GKE environment variables are not set up correctly! backend_service_id and backend_service_name cannot be set simultaneously")
 		return ""
 	}
 
@@ -75,17 +76,17 @@ func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 	}
 	regex, err := regexp.Compile(c.GKEBackendServiceName)
 	if err != nil {
-		logger.FromContext(ctx).Warn("Error compiling regex for backend_service_name: %v", zap.Error(err))
+		logging.Warn(ctx, "Failed to compile regex for backend_service_name", zap.Error(err))
 		return ""
 	}
 	computeService, err := compute.NewService(ctx)
 	if err != nil {
-		logger.FromContext(ctx).Warn("Failed to create Compute Service client: %v", zap.Error(err))
+		logging.Warn(ctx, "Failed to create Compute Service client", zap.Error(err))
 		return ""
 	}
 	backendServices, err := computeService.BackendServices.List(c.GKEProjectNumber).Do()
 	if err != nil {
-		logger.FromContext(ctx).Warn("Failed to get backend service: %v", zap.Error(err))
+		logging.Warn(ctx, "Failed to get backend service", zap.Error(err))
 		return ""
 	}
 
@@ -96,7 +97,7 @@ func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 		}
 	}
 	if serviceId == "" {
-		logger.FromContext(ctx).Warn("No backend services found matching:", zap.String("pattern", c.GKEBackendServiceName))
+		logging.Warn(ctx, "No backend services found matching", zap.String("pattern", c.GKEBackendServiceName))
 	}
 	return serviceId
 }
@@ -118,9 +119,10 @@ func readPgpKeyRing(c config.ServerConfig) (openpgp.KeyRing, error) {
 }
 
 func RunServer() {
-	err := logger.Wrap(context.Background(), runServer)
+	ctx := context.Background()
+	err := logger.Wrap(ctx, runServer)
 	if err != nil {
-		fmt.Printf("error: %v %#v", err, err)
+		logging.Fatal(ctx, "Failed to start server", zap.Error(err))
 	}
 }
 
@@ -192,30 +194,24 @@ func parseEnvVars() (*config.ServerConfig, error) {
 }
 
 func runServer(ctx context.Context) error {
-	defer logger.LogPanics(true)
+	defer logger.HandlePanic(true)
 	var err error
 	var c *config.ServerConfig
 
 	c, err = parseEnvVars()
 	if err != nil {
-		logger.FromContext(ctx).Error("parseEnvVars", zap.Error(err))
 		return err
 	}
-	logger.FromContext(ctx).Info("parsedConfig", zap.Any("config", *c))
+	logging.Info(ctx, "Parsed configurations", zap.Any("config", *c))
 
 	var jwks *keyfunc.JWKS = nil
 	if c.AzureEnableAuth {
 		jwks, err = auth.JWKSInitAzure(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("Unable to initialize jwks for azure auth")
+			logging.Fatal(ctx, "Unable to initialize jwks for azure auth")
 			return err
 		}
 	}
-
-	logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
-	logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
-	logger.FromContext(ctx).Info("config.gke_backend_service_name: " + c.GKEBackendServiceName + "\n")
-	logger.FromContext(ctx).Info(fmt.Sprintf("config.grpc_max_recv_msg_size: %d", c.GrpcMaxRecvMsgSize*megaBytes))
 
 	if c.GKEProjectNumber != "" {
 		c.GKEBackendServiceID = getBackendServiceId(*c, ctx)
@@ -301,21 +297,21 @@ func runServer(ctx context.Context) error {
 		// Registers Dex handlers.
 		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, c.DexFullNameOverride, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
+			logging.Fatal(ctx, "error registering dex handlers: ", zap.Error(err))
 		}
 		policy, err = auth.ReadRbacPolicy(true, c.DexRbacPolicyPath)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("error getting RBAC policy: ", zap.Error(err))
+			logging.Fatal(ctx, "error getting RBAC policy: ", zap.Error(err))
 		}
 	}
 
 	pgpKeyRing, err := readPgpKeyRing(*c)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
+		logging.Fatal(ctx, "pgp.read.error", zap.Error(err))
 		return err
 	}
 	if c.AzureEnableAuth && pgpKeyRing == nil {
-		logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
+		logging.Fatal(ctx, "azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
 		return err
 	}
 
@@ -326,14 +322,14 @@ func runServer(ctx context.Context) error {
 	)
 	cdCon, err := grpc.NewClient(c.CdServer, grpcClientOpts...)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
+		logging.Fatal(ctx, "grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
 
 	var manifestRepoGitClient api.ManifestExportGitServiceClient = nil
 	if c.ManifestExportServer != "" {
 		exportCon, err := grpc.NewClient(c.ManifestExportServer, grpcClientOpts...)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
+			logging.Fatal(ctx, "grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
 		}
 		manifestRepoGitClient = api.NewManifestExportGitServiceClient(exportCon)
 	}
@@ -342,7 +338,7 @@ func runServer(ctx context.Context) error {
 	if c.RolloutServer != "" {
 		rolloutCon, err := grpc.NewClient(c.RolloutServer, grpcClientOpts...)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.RolloutServer))
+			logging.Fatal(ctx, "grpc.dial.error", zap.Error(err), zap.String("addr", c.RolloutServer))
 		}
 		rolloutClient = api.NewRolloutServiceClient(rolloutCon)
 	}
@@ -606,19 +602,18 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, c *config.ServerConfig, 
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
 	if iapJWT == "" {
 		// not using iap (local), default user
-		logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
 		return nil
 	}
 
 	if c.GKEBackendServiceID == "" {
-		logger.FromContext(ctx).Warn("Failed to get backend_service_id! Author information will be lost. Make sure gke environment variables are set up correctly.")
+		logging.Warn(ctx, "Failed to get backend_service_id! Author information will be lost. Make sure gke environment variables are set up correctly.")
 		return nil
 	}
 
 	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
-		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
+		logging.Warn(ctx, "iap.idtoken.validate", zap.Error(err))
 		return nil
 	}
 
@@ -642,7 +637,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return p.serveHTTPInner(ctx, w, r)
 	})
 	if err != nil {
-		fmt.Printf("error: %v %#v", err, err)
+		logging.Error(r.Context(), "Failed to serve HTTP", zap.Error(err))
 	}
 }
 
@@ -671,13 +666,12 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 		dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
 		dexAuthContext := getUserFromDex(r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
 		if dexAuthContext == nil {
-			logger.FromContext(ctx).Info(fmt.Sprintf("No role assigned from Dex user: %v", user))
+			logging.Info(ctx, "No role assigned for Dex user", zap.Any("user", user))
 		} else {
 			if user == nil {
 				user = &p.DefaultUser
 			}
 			user.DexAuthContext = dexAuthContext
-			logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
 		}
 	}
 	if user != nil {
@@ -700,15 +694,15 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 }
 
 func getUserFromDex(req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
-	httpCtx, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
+	_, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
 	if err != nil {
-		logger.FromContext(httpCtx).Sugar().Infof("could not get context from dex: %v", err)
+		logging.Info(req.Context(), "could not get context from dex", zap.Error(err))
 		return nil
 	}
 	headerRole64 := req.Header.Get(auth.HeaderUserRole)
 	headerRole, err := auth.Decode64(headerRole64)
 	if err != nil {
-		logger.FromContext(httpCtx).Sugar().Infof("could not decode user role %s: %v", headerRole64, err)
+		logging.Info(req.Context(), "could not decode user role", zap.String("headerRole64", headerRole64), zap.Error(err))
 		return nil
 	}
 	return &auth.DexAuthContext{Role: strings.Split(headerRole, ",")}
@@ -850,7 +844,7 @@ func (p *GrpcProxy) StreamGitSyncStatus(
 }
 
 func (p *GrpcProxy) listenGitSyncStatus(in *api.GetGitSyncStatusRequest, stream api.ManifestExportGitService_StreamGitSyncStatusServer, c chan *api.GetGitSyncStatusResponse, errCh chan error, gitClient api.ManifestExportGitServiceClient) {
-	defer logger.LogPanics(true)
+	defer logger.HandlePanic(true)
 	if resp, err := gitClient.StreamGitSyncStatus(stream.Context(), in); err != nil {
 		errCh <- err
 	} else {
@@ -949,7 +943,6 @@ func (p *GrpcProxy) GetStatus(ctx context.Context, in *api.GetStatusRequest) (*a
 
 func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.ReleaseTrainRequest) (*api.GetReleaseTrainPrognosisResponse, error) {
 	if p.ReleaseTrainPrognosisClient == nil {
-		logger.FromContext(ctx).Error("release train prognosis service received a request when it is not configured")
 		return nil, status.Error(codes.Internal, "release train prognosis service not configured")
 	}
 	return p.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(ctx, in)

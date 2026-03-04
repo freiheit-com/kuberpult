@@ -141,7 +141,7 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 func RunServer() {
 	var config Config
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
-		defer logger.LogPanics(true)
+		defer logger.HandlePanic(true)
 		err := envconfig.Process("kuberpult", &config)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
@@ -200,14 +200,14 @@ func runServer(ctx context.Context, config Config) error {
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 		grpc_zap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-			defer logger.LogPanics(true)
+			defer logger.HandlePanic(true)
 			return handler(srv, ss)
 		},
 	}
 	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 		grpc_zap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-			defer logger.LogPanics(true)
+			defer logger.HandlePanic(true)
 			return handler(ctx, req)
 		},
 	}

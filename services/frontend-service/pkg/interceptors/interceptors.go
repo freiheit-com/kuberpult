@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/MicahParks/keyfunc/v2"
+	"go.uber.org/zap"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -29,7 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 // authorize returns an error when the authentication failed
@@ -137,7 +138,7 @@ func DexLoginInterceptor(
 ) {
 	httpCtx, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
 	if err != nil {
-		logger.FromContext(req.Context()).Warn(fmt.Sprintf("Error verifying token for Dex: %s", err))
+		logging.Info(req.Context(), "Error verifying Dex token", zap.Error(err))
 		// If user is not authenticated redirect to the login page.
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 		return
@@ -158,7 +159,7 @@ func DexAPIInterceptor(
 ) {
 	httpCtx, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
 	if err != nil {
-		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
+		logging.Info(req.Context(), "Error verifying Dex token", zap.Error(err))
 		// If user is not authenticated respond with unauthorized
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
