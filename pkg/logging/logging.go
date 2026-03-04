@@ -3,8 +3,9 @@ package logging
 import (
 	"context"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"go.uber.org/zap"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 func Fatal(ctx context.Context, msg string, fields ...zap.Field) {
