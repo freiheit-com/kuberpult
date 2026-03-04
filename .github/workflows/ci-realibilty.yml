@@ -24,6 +24,7 @@ jobs:
             --head automated/ci-realibility/cd-service \
             --base main \
             --title "Automated: Testing CI realibility for cd-service" \
+            --body "This is an automated PR to test the CI realibility." \
             --draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
