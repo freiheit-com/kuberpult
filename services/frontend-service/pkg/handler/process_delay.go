@@ -47,8 +47,9 @@ func (s Server) handleProcessDelay(ctx context.Context, w http.ResponseWriter, r
 
 	resp, err := s.ManifestRepoGitClient.GetGitSyncStatus(ctx, &api.GetGitSyncStatusRequest{})
 	if err != nil {
-		logging.Error(ctx, "Failed to get git sync status", zap.Error(err))
-		http.Error(w, fmt.Sprintf("failed to get git sync status: %v", err), http.StatusInternalServerError)
+		msg := "failed to get git sync status"
+		logging.Error(ctx, msg, zap.Error(err))
+		http.Error(w, fmt.Sprintf("%s: %v", msg, err), http.StatusInternalServerError)
 		return
 	}
 	jsonResponse := ProcessDelayRestResponse{
@@ -57,8 +58,9 @@ func (s Server) handleProcessDelay(ctx context.Context, w http.ResponseWriter, r
 	}
 	jsonResponseBytes, err := json.Marshal(jsonResponse)
 	if err != nil {
-		logging.Error(ctx, "Failed to marshal response of git sync status", zap.Error(err))
-		http.Error(w, fmt.Sprintf("failed to marshal response of git sync status: %v", err), http.StatusInternalServerError)
+		msg := "failed to marshal response of git sync status"
+		logging.Error(ctx, msg, zap.Error(err))
+		http.Error(w, fmt.Sprintf("%s: %v", msg, err), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
