@@ -82,10 +82,6 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	dbOption, err := valid.ReadEnvVar("KUBERPULT_DB_OPTION")
-	if err != nil {
-		return err
-	}
 	dbUserName, err := valid.ReadEnvVar("KUBERPULT_DB_USER_NAME")
 	if err != nil {
 		return err
@@ -269,26 +265,21 @@ func Run(ctx context.Context) error {
 
 	}
 
-	var dbCfg db.DBConfig
-	if dbOption == "postgreSQL" {
-		dbCfg = db.DBConfig{
-			DbHost:         dbLocation,
-			DbPort:         dbAuthProxyPort,
-			DriverName:     "postgres",
-			DbName:         dbName,
-			DbPassword:     dbPassword,
-			DbUser:         dbUserName,
-			MigrationsPath: dbMigrationLocation,
-			SSLMode:        sslMode,
+	dbCfg := db.DBConfig{
+		DbHost:         dbLocation,
+		DbPort:         dbAuthProxyPort,
+		DriverName:     "postgres",
+		DbName:         dbName,
+		DbPassword:     dbPassword,
+		DbUser:         dbUserName,
+		MigrationsPath: dbMigrationLocation,
+		SSLMode:        sslMode,
 
-			MaxIdleConnections: dbMaxIdle,
-			MaxOpenConnections: dbMaxOpen,
+		MaxIdleConnections: dbMaxIdle,
+		MaxOpenConnections: dbMaxOpen,
 
-			DatadogServiceName: "kuberpult-manifest-repo-export-service",
-			DatadogEnabled:     enableTraces,
-		}
-	} else {
-		logger.FromContext(ctx).Fatal("Cannot start without DB configuration was provided.")
+		DatadogServiceName: "kuberpult-manifest-repo-export-service",
+		DatadogEnabled:     enableTraces,
 	}
 	dbHandler, err := db.Connect(ctx, dbCfg)
 	if err != nil {

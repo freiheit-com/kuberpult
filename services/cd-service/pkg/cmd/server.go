@@ -69,7 +69,6 @@ type Config struct {
 	DogstatsdAddr         string
 	DatadogApiKeyLocation string
 
-	DbOption        string
 	DbLocation      string
 	DbAuthProxyPort string
 
@@ -130,7 +129,6 @@ func parseEnvVars() (_ *Config, err error) {
 	c.DogstatsdAddr = valid.ReadEnvVarWithDefault("KUBERPULT_DOGSTATSD_ADDR", "127.0.0.1:8125")
 	c.DatadogApiKeyLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DATADOG_API_KEY_LOCATION", "")
 
-	c.DbOption = valid.ReadEnvVarWithDefault("KUBERPULT_DB_OPTION", "NO_DB")
 	c.DbLocation = valid.ReadEnvVarWithDefault("KUBERPULT_DB_LOCATION", "/kp/database")
 	c.DbAuthProxyPort = valid.ReadEnvVarWithDefault("KUBERPULT_DB_AUTH_PROXY_PORT", "5432")
 	c.DbName = valid.ReadEnvVarWithDefault("KUBERPULT_DB_NAME", "")
@@ -327,44 +325,36 @@ func RunServer() {
 			)
 		}
 
-		var dbHandler *db.DBHandler = nil
-		if c.DbOption != "NO_DB" {
-			var dbCfg db.DBConfig
-			if c.DbOption == "postgreSQL" {
-				dbCfg = db.DBConfig{
-					DbHost:         c.DbLocation,
-					DbPort:         c.DbAuthProxyPort,
-					DriverName:     "postgres",
-					DbName:         c.DbName,
-					DbPassword:     c.DbUserPassword,
-					DbUser:         c.DbUserName,
-					MigrationsPath: c.DbMigrationsLocation,
-					SSLMode:        c.DbSslMode,
+		dbCfg := db.DBConfig{
+			DbHost:         c.DbLocation,
+			DbPort:         c.DbAuthProxyPort,
+			DriverName:     "postgres",
+			DbName:         c.DbName,
+			DbPassword:     c.DbUserPassword,
+			DbUser:         c.DbUserName,
+			MigrationsPath: c.DbMigrationsLocation,
+			SSLMode:        c.DbSslMode,
 
-					MaxIdleConnections: c.DbMaxIdleConnections,
-					MaxOpenConnections: c.DbMaxOpenConnections,
+			MaxIdleConnections: c.DbMaxIdleConnections,
+			MaxOpenConnections: c.DbMaxOpenConnections,
 
-					DatadogEnabled:     c.EnableTracing,
-					DatadogServiceName: datadogNameCd,
-				}
-			} else {
-				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
-			}
-			dbHandler, err = db.Connect(ctx, dbCfg)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
-			}
-			pErr := dbHandler.DB.Ping()
-			if pErr != nil {
-				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
-			}
-
-			migErr := db.RunDBMigrations(ctx, dbCfg)
-			if migErr != nil {
-				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
-			}
-			logger.FromContext(ctx).Info("Finished with basic database migration.")
+			DatadogEnabled:     c.EnableTracing,
+			DatadogServiceName: datadogNameCd,
 		}
+		dbHandler, err := db.Connect(ctx, dbCfg)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+		}
+		pErr := dbHandler.DB.Ping()
+		if pErr != nil {
+			logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
+		}
+
+		migErr := db.RunDBMigrations(ctx, dbCfg)
+		if migErr != nil {
+			logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
+		}
+		logger.FromContext(ctx).Info("Finished with basic database migration.")
 
 		cfg := repository.RepositoryConfig{
 			WebhookResolver:      nil,

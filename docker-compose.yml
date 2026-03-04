@@ -26,7 +26,6 @@ services:
       - KUBERPULT_DB_USER_NAME=postgres
       - KUBERPULT_DB_USER_PASSWORD=mypassword
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/migrations/postgres
-      - KUBERPULT_DB_OPTION=postgreSQL
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_NETWORK_TIMEOUT=120s
       - KUBERPULT_DEX_MOCK=false
@@ -62,7 +61,6 @@ services:
       - LOG_LEVEL=INFO
       - KUBERPULT_DB_LOCATION=postgres
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/migrations/postgres
-      - KUBERPULT_DB_OPTION=postgreSQL
       - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_DB_NAME=kuberpult
       - KUBERPULT_DB_USER_NAME=postgres
