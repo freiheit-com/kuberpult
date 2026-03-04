@@ -8,18 +8,23 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
+func fromContext(ctx context.Context) *zap.Logger {
+	// serves as a proxy for logger.FromContext(ctx)
+	return logger.FromContext(ctx)
+}
+
 func Fatal(ctx context.Context, msg string, fields ...zap.Field) {
-	logger.FromContext(ctx).Fatal(msg, fields...)
+	fromContext(ctx).Fatal(msg, fields...)
 }
 
 func Error(ctx context.Context, msg string, fields ...zap.Field) {
-	logger.FromContext(ctx).Error(msg, fields...)
+	fromContext(ctx).Error(msg, fields...)
 }
 
 func Warn(ctx context.Context, msg string, fields ...zap.Field) {
-	logger.FromContext(ctx).Warn(msg, fields...)
+	fromContext(ctx).Warn(msg, fields...)
 }
 
 func Info(ctx context.Context, msg string, fields ...zap.Field) {
-	logger.FromContext(ctx).Info(msg, fields...)
+	fromContext(ctx).Info(msg, fields...)
 }

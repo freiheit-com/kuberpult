@@ -208,7 +208,7 @@ func runServer(ctx context.Context) error {
 	if c.AzureEnableAuth {
 		jwks, err = auth.JWKSInitAzure(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("Unable to initialize jwks for azure auth")
+			logging.Fatal(ctx, "Unable to initialize jwks for azure auth")
 			return err
 		}
 	}
@@ -297,21 +297,21 @@ func runServer(ctx context.Context) error {
 		// Registers Dex handlers.
 		dexClient, err = auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, c.DexFullNameOverride, auth.ReadScopes(c.DexScopes), c.DexUseClusterInternalCommunication)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
+			logging.Fatal(ctx, "error registering dex handlers: ", zap.Error(err))
 		}
 		policy, err = auth.ReadRbacPolicy(true, c.DexRbacPolicyPath)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("error getting RBAC policy: ", zap.Error(err))
+			logging.Fatal(ctx, "error getting RBAC policy: ", zap.Error(err))
 		}
 	}
 
 	pgpKeyRing, err := readPgpKeyRing(*c)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
+		logging.Fatal(ctx, "pgp.read.error", zap.Error(err))
 		return err
 	}
 	if c.AzureEnableAuth && pgpKeyRing == nil {
-		logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
+		logging.Fatal(ctx, "azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
 		return err
 	}
 
@@ -322,14 +322,14 @@ func runServer(ctx context.Context) error {
 	)
 	cdCon, err := grpc.NewClient(c.CdServer, grpcClientOpts...)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
+		logging.Fatal(ctx, "grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
 
 	var manifestRepoGitClient api.ManifestExportGitServiceClient = nil
 	if c.ManifestExportServer != "" {
 		exportCon, err := grpc.NewClient(c.ManifestExportServer, grpcClientOpts...)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
+			logging.Fatal(ctx, "grpc.dial.error", zap.Error(err), zap.String("addr", c.ManifestExportServer))
 		}
 		manifestRepoGitClient = api.NewManifestExportGitServiceClient(exportCon)
 	}
@@ -338,7 +338,7 @@ func runServer(ctx context.Context) error {
 	if c.RolloutServer != "" {
 		rolloutCon, err := grpc.NewClient(c.RolloutServer, grpcClientOpts...)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.RolloutServer))
+			logging.Fatal(ctx, "grpc.dial.error", zap.Error(err), zap.String("addr", c.RolloutServer))
 		}
 		rolloutClient = api.NewRolloutServiceClient(rolloutCon)
 	}
