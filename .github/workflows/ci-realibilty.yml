@@ -13,29 +13,46 @@ jobs:
     name: Open Pull Request
     permissions:
       pull-requests: write
-      contents: read
+      contents: write
     runs-on: ubuntu-latest
     outputs:
       pr_url: ${{ steps.open-pr.outputs.pr_url }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Open Pull Request
         id: open-pr
         run: |
           BASE_BRANCH=main
           SOURCE_BRANCH=automated/ci-realibility/cd-service
 
+          # close existing PR
           PR_URL=$(gh pr list --head $SOURCE_BRANCH --base $BASE_BRANCH --json url --jq '.[0].url')
           if [ -n "$PR_URL" ]; then
             echo "The PR already exists. Close the current PR before creating a new one."
             gh pr close $PR_URL
           fi
 
+          # delete existing testing branch
+          git push origin --delete $SOURCE_BRANCH || true
+
+          # create testing branch with changes
+          git checkout -b $SOURCE_BRANCH $BASE_BRANCH
+
+          echo "\nfunc TestCIRealibility() {}\n" >> services/cd-service/cmd/server/main.go
+          git add services/cd-service/cmd/server/main.go
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Automated: Test CI realibility for $SOURCE_BRANCH"
+          git push origin $SOURCE_BRANCH
+
+          # create PR
           gh pr create \
             --head $SOURCE_BRANCH \
             --base $BASE_BRANCH \
-            --title "Automated: Test CI realibility for $SOURCE_BRANCH" \
-            --body "This is an PR automatically created to test the CI realibility." \
+            --fill-first \
             --draft
           PR_URL=$(gh pr list --head $SOURCE_BRANCH --base $BASE_BRANCH --json url --jq '.[0].url')
           if [ -z "$PR_URL" ]; then
@@ -57,7 +74,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Check CI status
         run: |
-          exit_code=$(gh pr checks "${{ needs.open-pr.outputs.pr_url }}" --watch --fail-fast)
+          exit_code=$(gh pr checks "${{ needs.open-pr.outputs.pr_url }}" --watch)
           if [ $exit_code -ne 0 ]; then
             echo "CI checks failed."
             exit 1
