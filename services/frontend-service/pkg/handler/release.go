@@ -30,6 +30,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
+	"go.uber.org/zap"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -68,7 +69,7 @@ func isAuthor(value string) bool {
 func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byte, err error, status int) {
 	ctx := r.Context()
 	if err != nil {
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in json.Marshal of /release: %s", err.Error()))
+		logging.Error(ctx, "Failed to marsahl response of /release", zap.Error(err))
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
@@ -298,16 +299,12 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		return
 	}
 	if len(response.Results) != 1 {
-		msg := "mismatching response length"
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
-		http.Error(w, msg, http.StatusInternalServerError)
+		http.Error(w, "mismatching response length", http.StatusInternalServerError)
 		return
 	}
 	releaseResponse := response.Results[0].GetCreateReleaseResponse()
 	if releaseResponse == nil {
-		msg := "mismatching response length"
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
-		http.Error(w, msg, http.StatusInternalServerError)
+		http.Error(w, "no create release response found", http.StatusInternalServerError)
 		return
 	}
 
@@ -502,16 +499,12 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		return
 	}
 	if len(response.Results) != 1 {
-		msg := "mismatching response length"
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
-		http.Error(w, msg, http.StatusInternalServerError)
+		http.Error(w, "mismatching response length", http.StatusInternalServerError)
 		return
 	}
 	releaseResponse := response.Results[0].GetCreateReleaseResponse()
 	if releaseResponse == nil {
-		msg := "mismatching response length"
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
-		http.Error(w, msg, http.StatusInternalServerError)
+		http.Error(w, "no create release response found", http.StatusInternalServerError)
 		return
 	}
 	writeCorrespondingResponse(ctx, w, r, releaseResponse, err)
@@ -561,10 +554,8 @@ func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *h
 		}
 	default:
 		{
-			msg := "unknown response type"
 			jsonBlob, err := json.Marshal(releaseResponse)
-			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
-			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: ,response: %s", msg, jsonBlob)), err, http.StatusInternalServerError)
+			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: ,response: %s", "unknown response type", jsonBlob)), err, http.StatusInternalServerError)
 		}
 	}
 }
