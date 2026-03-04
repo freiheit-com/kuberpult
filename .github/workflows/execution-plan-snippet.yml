@@ -11,6 +11,11 @@ on:
         default: ""
         type: string
         description: "The ref to use for the checkout"
+      rebuild_images:
+        required: false
+        default: false
+        type: boolean
+        description: "Rebuild the images"
 
 jobs:
   execution_plan:
@@ -95,10 +100,10 @@ jobs:
         if: inputs.trigger == 'tag'
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
-      - name: Set rebuild flag
-        if: inputs.ref != ''
+      - name: Set skip unversioned builds
+        if: inputs.rebuild_images == true
         run: |
-          echo "REBUILD_IMAGE=true" >> $GITHUB_ENV
+          echo "SKIP_UNVERSIONED_BUILDS=true" >> $GITHUB_ENV
       - name: Add credentials file
         run: |
           cat > credential.json << EOF
@@ -170,10 +175,10 @@ jobs:
         if: inputs.trigger == 'tag'
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
-      - name: Set rebuild flag
-        if: inputs.ref != ''
+      - name: Set skip unversioned builds
+        if: inputs.rebuild_images
         run: |
-          echo "REBUILD_IMAGE=true" >> $GITHUB_ENV
+          echo "SKIP_UNVERSIONED_BUILDS=true" >> $GITHUB_ENV
       - name: Add credentials file
         run: |
           cat > credential.json << EOF

@@ -36,7 +36,7 @@ build-pr: build publish
 build-main: build publish
 	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_MAIN)
 	docker push $(IMAGENAME_VERSIONED_MAIN)
-ifndef REBUILD_IMAGE
+ifndef SKIP_UNVERSIONED_BUILDS
 	docker tag $(IMAGENAME) $(IMAGENAME_UNVERSIONED_MAIN)
 	docker push $(IMAGENAME_UNVERSIONED_MAIN)
 endif
