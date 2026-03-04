@@ -201,7 +201,7 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Error("parseEnvVars", zap.Error(err))
 		return err
 	}
-	logger.FromContext(ctx).Info("parsedConfig", zap.Any("config", *c))
+	logger.Info(ctx, "Parsed configurations", zap.Any("config", *c))
 
 	var jwks *keyfunc.JWKS = nil
 	if c.AzureEnableAuth {
