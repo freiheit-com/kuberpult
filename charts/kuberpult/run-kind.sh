@@ -220,10 +220,6 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   cm:
     accounts.kuberpult: apiKey
     timeout.reconciliation: 0s
-  params:
-    controller.repo.server.plaintext: "true"
-    server.repo.server.plaintext: "true"
-    repo.server: kuberpult-reposerver-service:8443
   rbac:
     policy.csv: |
       p, role:kuberpult, applications, get, */*, allow
@@ -238,6 +234,10 @@ helm install argocd argo-cd/argo-cd --values argocd-values.yml --version 5.36.0
 
 print applying app...
 
+waitForDeployment "default" "app.kubernetes.io/name=argocd-repo-server"
+waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
+portForwardAndWait "default" service/argocd-server 8080 443
+
 # For now, we are only creating development here
 # This means argo cd will only handle development, including the rollout-status
 kubectl apply -f - <<EOF
@@ -245,6 +245,20 @@ apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: development
+  namespace: ${ARGO_NAMESPACE}
+spec:
+  description: test-env
+  destinations:
+  - name: "dest1"
+    namespace: '*'
+    server: https://kubernetes.default.svc
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dev
   namespace: ${ARGO_NAMESPACE}
 spec:
   description: test-env
@@ -292,25 +306,22 @@ spec:
   destination:
     namespace: ${ARGO_NAMESPACE}
     server: https://kubernetes.default.svc
-  project: test-env
+  project: dev
   source:
     path: argocd/v1alpha1
     repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
-    targetRevision: HEAD
+    targetRevision: main
   syncPolicy:
     automated: {}
 EOF
 
-waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
-portForwardAndWait "default" service/argocd-server 8080 443
 print "admin password:"
 argocd_adminpw=$(kubectl -n default get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
 echo "$argocd_adminpw"
 echo "$argocd_adminpw" > argocd_adminpw.txt
 
-argocd login --port-forward --username admin --password "$argocd_adminpw"
-
-token=$(argocd account generate-token --port-forward --account kuberpult)
+argocd login localhost:8080 --username admin --password "$argocd_adminpw" --insecure
+token=$(argocd account generate-token --server localhost:8080 --account kuberpult --insecure)
 
 echo "argocd token: $token"
 
@@ -339,8 +350,6 @@ portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
 waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
 print "connection to frontend service successful"
-waitForDeployment "default" "app=kuberpult-rollout-service"
-print "connection to rollout service successful"
 
 kubectl get deployment
 kubectl get pods

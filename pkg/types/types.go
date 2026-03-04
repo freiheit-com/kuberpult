@@ -31,6 +31,8 @@ type EnvName string
 
 type AppName string
 
+type ArgoBracketName string
+
 type ArgoProjectName string
 
 func EnvNamesToStrings(a []EnvName) []string {
@@ -60,9 +62,8 @@ func StringPtr(a EnvName) *string {
 	return &result
 }
 
-func EnvNamePtr(a string) *EnvName {
-	var result = EnvName(a)
-	return &result
+func Ptr[T any](v T) *T {
+	return &v
 }
 
 func EnvMapToStringMap[T comparable](a map[EnvName]T) map[string]T {

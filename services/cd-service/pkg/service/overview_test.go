@@ -25,20 +25,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
-	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type mockOverviewService_StreamOverviewServer struct {
@@ -214,7 +214,8 @@ func TestOverviewAndAppDetails(t *testing.T) {
 								Environments:   []string{"development"},
 							},
 						},
-						Warnings: []*api.Warning{},
+						Warnings:    []*api.Warning{},
+						ArgoBracket: "test",
 					},
 					Deployments: map[string]*api.Deployment{
 						"development": {
@@ -255,7 +256,8 @@ func TestOverviewAndAppDetails(t *testing.T) {
 								Environments:   []string{"development"},
 							},
 						},
-						Warnings: []*api.Warning{},
+						Warnings:    []*api.Warning{},
+						ArgoBracket: "test-with-team",
 					},
 					Deployments: map[string]*api.Deployment{
 						"development": {
@@ -306,6 +308,7 @@ func TestOverviewAndAppDetails(t *testing.T) {
 								},
 							},
 						},
+						ArgoBracket: "test-with-incorrect-pr-number",
 					},
 					Deployments: map[string]*api.Deployment{
 						"development": {
@@ -333,7 +336,8 @@ func TestOverviewAndAppDetails(t *testing.T) {
 								Environments:   []string{"development"},
 							},
 						},
-						Warnings: []*api.Warning{},
+						Warnings:    []*api.Warning{},
+						ArgoBracket: "test-with-only-pr-number",
 					},
 					Deployments: map[string]*api.Deployment{
 						"development": {
@@ -2103,8 +2107,9 @@ func TestDeploymentAttemptsGetAppDetails(t *testing.T) {
 								Environments:   []string{"development"},
 							},
 						},
-						Team:     "test-team",
-						Warnings: []*api.Warning{},
+						Team:        "test-team",
+						Warnings:    []*api.Warning{},
+						ArgoBracket: "test",
 					},
 					Deployments: map[string]*api.Deployment{
 						"development": {

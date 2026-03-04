@@ -146,7 +146,7 @@ describe('ArgoAppLink', () => {
         },
     ];
     describe.each(cases)('Renders properly', (testcase) => {
-        const getNode = () => <ArgoAppLink app={testcase.app} />;
+        const getNode = () => <ArgoAppLink linkTarget={testcase.app} />;
         const getWrapper = () => render(getNode());
         it(testcase.name, () => {
             //given

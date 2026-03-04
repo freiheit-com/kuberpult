@@ -112,16 +112,19 @@ export const ArgoTeamLink: React.FC<{ team: string | undefined }> = (props): JSX
     );
 };
 
-export const ArgoAppLink: React.FC<{ app: string }> = (props): JSX.Element => {
-    const { app } = props;
+// LinkTarget can be either the app name or the bracket name
+export const ArgoAppLink: React.FC<{ linkTarget: string }> = (props): JSX.Element => {
+    const { linkTarget } = props;
     const argoBaseUrl = useArgoCdBaseUrl();
     if (!argoBaseUrl) {
         // just render as text, because we do not have a base url:
-        return <span>{app}</span>;
+        return <span>{linkTarget}</span>;
     }
     return (
-        <a title={'Opens this app in ArgoCd for all environments'} href={deriveArgoAppLink(argoBaseUrl, app)}>
-            {app}
+        <a
+            title={'Opens this app/bracket in ArgoCd for all environments'}
+            href={deriveArgoAppLink(argoBaseUrl, linkTarget)}>
+            {linkTarget}
         </a>
     );
 };

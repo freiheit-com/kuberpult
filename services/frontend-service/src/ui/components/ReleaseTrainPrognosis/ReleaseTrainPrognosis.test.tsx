@@ -265,6 +265,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                             team: 'some team',
                             undeploySummary: UndeploySummary.UNRECOGNIZED,
                             warnings: [],
+                            argoBracket: '',
                             releases: [
                                 {
                                     version: 1,
@@ -298,6 +299,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                             team: 'some team',
                             undeploySummary: UndeploySummary.UNRECOGNIZED,
                             warnings: [],
+                            argoBracket: '',
                             releases: [
                                 {
                                     version: 1,
@@ -331,6 +333,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                     team: 'some team',
                     undeploySummary: UndeploySummary.UNRECOGNIZED,
                     warnings: [],
+                    argoBracket: '',
                     releases: [
                         {
                             version: 1,
@@ -354,6 +357,7 @@ describe('ReleaseTrain component renders release train prognosis when the respon
                     team: 'some team',
                     undeploySummary: UndeploySummary.UNRECOGNIZED,
                     warnings: [],
+                    argoBracket: '',
                     releases: [
                         {
                             version: 1,

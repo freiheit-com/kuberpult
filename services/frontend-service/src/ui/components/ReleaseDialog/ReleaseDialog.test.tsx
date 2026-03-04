@@ -225,6 +225,7 @@ describe('Release Dialog', () => {
                             team: 'example',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         appLocks: {
                             production: {
@@ -331,6 +332,7 @@ describe('Release Dialog', () => {
                             team: 'example',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         appLocks: {
                             production: {
@@ -465,6 +467,7 @@ describe('Release Dialog', () => {
                             team: 'example',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         appLocks: {
                             production: {
@@ -623,6 +626,7 @@ describe('Release Dialog', () => {
                             team: 'example',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         appLocks: {},
                         teamLocks: {},
@@ -897,6 +901,7 @@ describe('Release Dialog CI Links', () => {
                             team: 'example',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         appLocks: {
                             production: {
@@ -1063,6 +1068,7 @@ describe('Rollout Status for AA environments', () => {
                             team: 'example',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         appLocks: {},
                         teamLocks: {},

@@ -41,11 +41,210 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db_history"
 )
 
 var versionZero = uint64(0)
 var versionOne = uint64(1)
-var versionTwo = uint64(2)
+
+func TestCalculateAppDatWithBrackets(t *testing.T) {
+	makeBracketMap := func(m map[types.ArgoBracketName]db.AppNames) *db.BracketRow {
+		return &db.BracketRow{
+			AllBracketsJsonBlob: db.BracketJsonBlob{
+				BracketMap: m,
+			},
+		}
+	}
+	makeDeploymentMap := func(appNames []types.AppName) db_history.DeploymentMap {
+		result := db_history.DeploymentMap{}
+		for _, appName := range appNames {
+			v := uint64(1)
+			result[appName] = db.Deployment{
+				App: appName,
+				Env: "dontcare",
+				ReleaseNumbers: types.ReleaseNumbers{
+					Version:  &v,
+					Revision: 1,
+				},
+			}
+		}
+		return result
+	}
+	tcs := []struct {
+		Name               string
+		InputBrackets      *db.BracketRow
+		InputTeams         []db.AppWithTeam
+		InputDeploymentMap db_history.DeploymentMap
+		ExpectedAppData    []argocd.AppData
+	}{
+		{
+			Name:               "All inputs empty",
+			InputBrackets:      nil,
+			InputTeams:         nil,
+			InputDeploymentMap: nil,
+			ExpectedAppData:    []argocd.AppData{},
+		},
+		{
+			Name:          "one app without bracket data",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "new1", // app that was not in a bracket
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"new1"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "new1", // since it's the only app in the bracket, we use the app name here
+					ReferencedApps: []argocd.AppTeam{{"new1", "t1"}},
+				},
+			},
+		},
+		{
+			// This case is about introducing the brackets table initially. Not all apps will be part of the brackets_history table yet
+			Name: "one app with bracket data, one app without bracket data",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "new1", // app that was not in a bracket
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "new1"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "f1",
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}},
+				},
+				{
+					ArgoAppName:    "new1", // since it doesn't have a bracket configured, we use the app name here
+					ReferencedApps: []argocd.AppTeam{{"new1", "t1"}},
+				},
+			},
+		},
+		{
+			Name: "1 app, 1 team, 1 bracket",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "f1",
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}},
+				},
+			},
+		},
+		{
+			Name: "2 apps, 1 team, 1 bracket",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1", "foo2"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "foo2",
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "foo2"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "f1",
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}, {"foo2", "t1"}},
+				},
+			},
+		},
+		{
+			Name: "2 apps, 2 teams, 2 brackets",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1"},
+				"p1": {"pow1"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "pow1",
+					TeamName: "t2",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "pow1"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "f1",
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}},
+				},
+				{
+					ArgoAppName:    "p1",
+					ReferencedApps: []argocd.AppTeam{{"pow1", "t2"}},
+				},
+			},
+		},
+		{
+			Name: "4 apps, 2 teams, 2 brackets",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1", "foo2"},
+				"p1": {"pow1", "pow2"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "foo2",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "pow1",
+					TeamName: "t2",
+				},
+				{
+					AppName:  "pow2",
+					TeamName: "t2",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "foo2", "pow1", "pow2"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:    "f1",
+					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}, {"foo2", "t1"}},
+				},
+				{
+					ArgoAppName:    "p1",
+					ReferencedApps: []argocd.AppTeam{{"pow1", "t2"}, {"pow2", "t2"}},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			actualAppData := CalculateAppDataWithBrackets(context.Background(), tc.InputBrackets, tc.InputTeams, tc.InputDeploymentMap)
+			testutil.DiffOrFail(t, "", tc.ExpectedAppData, actualAppData)
+		})
+	}
+}
 
 func TestRetrySsh(t *testing.T) {
 	tcs := []struct {
@@ -658,6 +857,32 @@ spec:
   - server: development
   sourceRepos:
   - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: ""
+    com.freiheit.kuberpult/aa-parent-environment: production
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: production
+    com.freiheit.kuberpult/teams: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/teams: ""
+  name: production-test
+spec:
+  destination:
+    server: development
+  project: production
+  source:
+    repoURL: ""
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
 `),
 						},
 					},
@@ -690,22 +915,24 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests;
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: _
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: _
   name: production-test
 spec:
   destination:
     server: development
   project: production
   source:
-    path: environments/production/applications/test/manifests
+    repoURL: ""
+  sources:
+  - path: environments/production/applications/test/manifests
     repoURL: test
     targetRevision: master
   syncPolicy:
@@ -791,6 +1018,32 @@ spec:
   - server: development
   sourceRepos:
   - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: ""
+    com.freiheit.kuberpult/aa-parent-environment: production
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: production
+    com.freiheit.kuberpult/teams: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/teams: ""
+  name: production-test
+spec:
+  destination:
+    server: development
+  project: production
+  source:
+    repoURL: ""
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
 `),
 						},
 					},
@@ -831,22 +1084,24 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/test/manifests;
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: _
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: _
   name: production-test
 spec:
   destination:
     server: development
   project: production
   source:
-    path: environments/production/applications/test/manifests
+    repoURL: ""
+  sources:
+  - path: environments/production/applications/test/manifests
     repoURL: test
     targetRevision: master
   syncPolicy:
@@ -928,7 +1183,6 @@ spec:
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
@@ -971,7 +1225,7 @@ spec:
 					t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
 				}
 				if err := verifyContent(state.Filesystem, currentStep.ExpectedFiles); err != nil {
-					t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
+					t.Fatalf("[%d] Error while verifying content: %v.\nFilesystem content:\n%s", si, err, strings.Join(listFiles(state.Filesystem), "\n"))
 				}
 			}
 		})
@@ -1064,7 +1318,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1110,7 +1364,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1149,7 +1403,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1195,7 +1449,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1257,7 +1511,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1309,7 +1563,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1409,7 +1663,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1485,7 +1739,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1551,7 +1805,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1593,7 +1847,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1658,7 +1912,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1748,7 +2002,7 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 			databasePopulation: func(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler) error {
 				err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "test", db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team",
-				})
+				}, "")
 				if err != nil {
 					return err
 				}
@@ -1953,7 +2207,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 		}
 		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{
 			Team: "team-123",
-		})
+		}, "")
 		if err != nil {
 			return err
 		}

@@ -45,9 +45,14 @@ type Application struct {
 	Spec            ApplicationSpec `json:"spec"`
 }
 
+// ApplicationSources contains list of required information about the sources of an application
+type ApplicationSources []ApplicationSource
+
 type ApplicationSpec struct {
 	// Source is a reference to the location ksonnet application definition
 	Source ApplicationSource `json:"source" protobuf:"bytes,1,opt,name=source"`
+	// Sources is a reference to the location of the application's manifests or chart
+	Sources ApplicationSources `json:"sources,omitempty" protobuf:"bytes,8,opt,name=sources"`
 	// Destination overrides the kubernetes server and namespace defined in the environment ksonnet app.yaml
 	Destination ApplicationDestination `json:"destination" protobuf:"bytes,2,name=destination"`
 	// Project is a application project name. Empty name means that application belongs to 'default' project.

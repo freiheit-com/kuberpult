@@ -88,6 +88,7 @@ describe('Release Card', () => {
                             sourceRepoUrl: '',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         deployments: {},
                         appLocks: {},
@@ -146,6 +147,7 @@ describe('Release Card', () => {
                             sourceRepoUrl: '',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         deployments: {},
                         appLocks: {},
@@ -204,6 +206,7 @@ describe('Release Card', () => {
                             sourceRepoUrl: '',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         deployments: {
                             foo: {
@@ -275,6 +278,7 @@ describe('Release Card', () => {
                             sourceRepoUrl: '',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         deployments: {
                             foo: {
@@ -346,6 +350,7 @@ describe('Release Card', () => {
                             sourceRepoUrl: '',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         deployments: {
                             foo: {
@@ -417,6 +422,7 @@ describe('Release Card', () => {
                             sourceRepoUrl: '',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         deployments: {
                             foo: {
@@ -527,6 +533,7 @@ const commonAppDetails: { [key: string]: AppDetailsResponse } = {
                 sourceRepoUrl: '',
                 undeploySummary: UndeploySummary.NORMAL,
                 warnings: [],
+                argoBracket: '',
             },
             deployments: {
                 development: {
