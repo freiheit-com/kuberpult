@@ -22,3 +22,5 @@ import "github.com/freiheit-com/kuberpult/services/cd-service/pkg/cmd"
 func main() {
 	cmd.RunServer()
 }
+
+// this line is for the purpose of testing the CI build
