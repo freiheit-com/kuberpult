@@ -162,6 +162,7 @@ spec:
         - name: DD_API_KEY_LOCATION
           value: "/etc/datadog/api-key"
 {{- end }}
+{{- if .Values.db }}
         - name: KUBERPULT_DB_LOCATION
           value: "{{ .Values.db.location }}"
         - name: KUBERPULT_DB_NAME
@@ -184,6 +185,7 @@ spec:
           value: "{{ .Values.db.connections.reposerver.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.reposerver.maxIdle }}"
+{{- end }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_TRACE_DEBUG
           value: "{{ .Values.datadogTracing.debugging }}"
