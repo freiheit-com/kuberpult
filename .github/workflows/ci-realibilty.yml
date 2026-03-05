@@ -18,11 +18,14 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    outputs:
+      source_branch: ${{ steps.introduce-changes.outputs.source_branch }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Introduce changes
+        id: introduce-changes
         run: |
           # delete existing testing branch
           git push origin --delete $SOURCE_BRANCH || true
@@ -38,6 +41,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "Automated: Test CI realibility for $SOURCE_BRANCH"
           git push origin $SOURCE_BRANCH
+
+          echo "SOURCE_BRANCH=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   trigger-ci:
@@ -46,7 +51,7 @@ jobs:
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       trigger: pull-request
-      ref: ${{ env.SOURCE_BRANCH }}
+      ref: ${{ needs.introduce-changes.outputs.source_branch }}
       skip_unversioned_builds: true
     secrets: inherit
         
