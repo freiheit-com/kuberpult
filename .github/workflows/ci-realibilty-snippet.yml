@@ -100,7 +100,7 @@ jobs:
   #   secrets: inherit
   check-built-image:
     name: "Check built image on registry"
-    needs: [trigger-ci]
+    # needs: [trigger-ci]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
