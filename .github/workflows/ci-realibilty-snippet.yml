@@ -125,7 +125,7 @@ jobs:
         run: |
           IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service"
           MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
-          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
 
           echo "Main image digest: $MAIN_IMAGE_DIGEST"
           echo "New image digest: $NEW_IMAGE_DIGEST"
@@ -143,7 +143,7 @@ jobs:
         run: |
           IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service"
           MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
-          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
 
           if [[ ${{ inputs.check_new_image_frontend_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
             FAILED_RESULTS="$FAILED_RESULTS\nfrontend-service must not be built"
@@ -158,7 +158,7 @@ jobs:
         run: |
           IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service"
           MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
-          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
 
           if [[ ${{ inputs.check_new_image_export_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
             FAILED_RESULTS="$FAILED_RESULTS\nmanifest-repo-export-service must not be built"
