@@ -45,6 +45,10 @@ on:
         required: false
         default: false
         type: boolean
+    outputs:
+      failed_results:
+        description: "Failed results"
+        value: ${{ jobs.check-new-images.outputs.failed_results }}
 
 jobs:
   introduce-changes:
@@ -98,8 +102,8 @@ jobs:
       ref: ${{ inputs.source_branch }}
       skip_unversioned_builds: true
     secrets: inherit
-  check-new-image:
-    name: "Check newly built image on registry"
+  check-new-images:
+    name: "Check newly built images on registry"
     needs: [trigger-ci]
     runs-on: ubuntu-latest
     outputs:
