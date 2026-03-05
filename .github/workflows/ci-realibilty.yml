@@ -46,7 +46,7 @@ jobs:
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       trigger: pull-request
-      ref: $SOURCE_BRANCH
+      ref: ${{ env.SOURCE_BRANCH }}
       skip_unversioned_builds: true
     secrets: inherit
         
