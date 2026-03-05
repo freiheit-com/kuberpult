@@ -132,12 +132,38 @@ jobs:
             FAILED_RESULTS="$FAILED_RESULTS\ncd-service must be built"
             echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
           fi
+      - name: Check newly built image for frontend-service
+        run: |
+          IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service"
+          MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null)"
+
+          if [[ ${{ inputs.check_new_image_frontend_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\nfrontend-service must not be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
+
+          if [[ ${{ inputs.check_new_image_frontend_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\nfrontend-service must be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
+      - name: Check newly built image for manifest-repo-export-service
+        run: |
+          IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service"
+          MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null)"
+
+          if [[ ${{ inputs.check_new_image_export_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\nmanifest-repo-export-service must not be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
+
+          if [[ ${{ inputs.check_new_image_export_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\nmanifest-repo-export-service must be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
       - name: Collect failed results
         id: collect-failed-results
         run: |
           echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_OUTPUT
           echo -e "Failed results: $FAILED_RESULTS"
-          
-        
-          
-        
