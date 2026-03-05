@@ -127,6 +127,9 @@ jobs:
           MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
           NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null)"
 
+          echo "Main image digest: $MAIN_IMAGE_DIGEST"
+          echo "New image digest: $NEW_IMAGE_DIGEST"
+
           if [[ ${{ inputs.check_new_image_cd_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
             FAILED_RESULTS="$FAILED_RESULTS\ncd-service must not be built"
             echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
