@@ -15,5 +15,5 @@ jobs:
     with:
       source_branch: automated/ci-realibility/cd-service
       modify_cd_service: true
-      check_image_cd_service: true
+      check_new_image_cd_service: true
     secrets: inherit

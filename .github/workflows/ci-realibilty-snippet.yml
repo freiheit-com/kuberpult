@@ -32,16 +32,16 @@ on:
         default: false
         type: boolean
       
-      # enable image checks for services
-      check_image_cd_service:
+      # enable checks: verify if new images is built for services
+      check_new_image_cd_service:
         required: false
         default: false
         type: boolean
-      check_image_frontend_service:
+      check_new_image_frontend_service:
         required: false
         default: false
         type: boolean
-      check_image_export_service:
+      check_new_image_export_service:
         required: false
         default: false
         type: boolean
@@ -98,12 +98,12 @@ jobs:
   #     ref: ${{ inputs.source_branch }}
   #     skip_unversioned_builds: true
   #   secrets: inherit
-  check-built-image:
-    name: "Check built image on registry"
+  check-new-image:
+    name: "Check newly built image on registry"
     # needs: [trigger-ci]
     runs-on: ubuntu-latest
     outputs:
-      aggreated_errors: ${{ steps.aggregate-errors.outputs.AGGREGATED_ERRORS }}
+      failed_results: ${{ steps.collect-failed-results.outputs.failed_results }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -117,8 +117,7 @@ jobs:
           IMAGE_TAG="pr-$(make version)"
           echo "Published image tag: $IMAGE_TAG"
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-      - name: Check built image for cd-service
-        id: check-built-image-cd-service
+      - name: Check newly built image for cd-service
         run: |
           #IMAGE_TAG="pr-v13.44.13-1-gbc6b7947"
           IMAGE_TAG="main"
@@ -126,18 +125,20 @@ jobs:
           MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
           NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null)"
 
-          if [[ ${{ inputs.check_image_cd_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-            echo "ERRORS=cd-service must not be built" >> $GITHUB_OUTPUT
+          if [[ ${{ inputs.check_new_image_cd_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\ncd-service must not be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
           fi
 
-          if [[ ${{ inputs.check_image_cd_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
-            echo "ERRORS=cd-service must be built" >> $GITHUB_OUTPUT
+          if [[ ${{ inputs.check_new_image_cd_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\ncd-service must be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
           fi
-      - name: Aggreate errors
+      - name: Collect failed results
+        id: collect-failed-results
         run: |
-          AGGREGATED_ERRORS="${{ steps.check-built-image-cd-service.outputs.errors }}"
-          echo $AGGREGATED_ERRORS
-          echo "AGGREGATED_ERRORS=$AGGREGATED_ERRORS" >> $GITHUB_OUTPUT
+          echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_OUTPUT
+          echo "Failed results: $FAILED_RESULTS"
           
         
           
