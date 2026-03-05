@@ -120,7 +120,7 @@ jobs:
           IMAGE_TAG="pr-v13.44.13-1-gbc6b7947"
           IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service"
           MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
-          NEW_IMAGE_DIGEST=$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG)"
 
           echo "Main image digest: $MAIN_IMAGE_DIGEST"
           echo "New image digest: $NEW_IMAGE_DIGEST"
