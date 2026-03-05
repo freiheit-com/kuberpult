@@ -9,29 +9,29 @@ on:
       - db-prtest
 
 jobs:
-  prtest-1:
+  ci-test-1:
     name: Test CI realibility for cd-service
     uses: ./.github/workflows/ci-realibilty-snippet.yml
     with:
-      source_branch: automated/ci-realibility/prtest-1
+      source_branch: automated/ci-realibility/ci-test-1
       modify_cd_service: true
       check_new_image_cd_service: true
     secrets: inherit
-  prtest-2:
+  ci-test-2:
     name: Test CI realibility for frontend-service and manifest-repo-export-service
     uses: ./.github/workflows/ci-realibilty-snippet.yml
     with:
-      source_branch: automated/ci-realibility/prtest-2
+      source_branch: automated/ci-realibility/ci-test-2
       modify_frontend_service: true
       modify_export_service: true
       check_new_image_frontend_service: true
       check_new_image_export_service: true
     secrets: inherit
-  prtest-3:
+  ci-test-3:
     name: Test CI realibility for all services
     uses: ./.github/workflows/ci-realibilty-snippet.yml
     with:
-      source_branch: automated/ci-realibility/prtest-3
+      source_branch: automated/ci-realibility/ci-test-3
       modify_pkg: true
       check_new_image_cd_service: true
       check_new_image_frontend_service: true
@@ -39,11 +39,11 @@ jobs:
     secrets: inherit
   notify-results:
     name: Notify results
-    needs: [prtest-1, prtest-2, prtest-3]
+    needs: [ci-test-1, ci-test-2, ci-test-3]
     runs-on: ubuntu-latest
     steps:
       - name: Notify results
         run: |
-          echo "Failed results for prtest-1: ${{ needs.prtest-1.outputs.failed_results }}"
-          echo "Failed results for prtest-2: ${{ needs.prtest-2.outputs.failed_results }}"
-          echo "Failed results for prtest-3: ${{ needs.prtest-3.outputs.failed_results }}"
+          echo "Failed results for ci-test-1: ${{ needs.ci-test-1.outputs.failed_results }}"
+          echo "Failed results for ci-test-2: ${{ needs.ci-test-2.outputs.failed_results }}"
+          echo "Failed results for ci-test-3: ${{ needs.ci-test-3.outputs.failed_results }}"
