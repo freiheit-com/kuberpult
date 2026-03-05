@@ -18,7 +18,6 @@ jobs:
       check_new_image_cd_service: true
     secrets: inherit
   prtest-2:
-    needs: [prtest-1]
     name: Test CI realibility for frontend-service and manifest-repo-export-service
     uses: ./.github/workflows/ci-realibilty-snippet.yml
     with:
@@ -29,7 +28,6 @@ jobs:
       check_new_image_export_service: true
     secrets: inherit
   prtest-3:
-    needs: [prtest-2]
     name: Test CI realibility for all services
     uses: ./.github/workflows/ci-realibilty-snippet.yml
     with:
