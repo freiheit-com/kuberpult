@@ -1,0 +1,104 @@
+name: Test CI Realibility
+
+on:
+  schedule:
+    # Run on workdays at 8:00 AM
+    - cron: '0 8 * * 1-5'
+  workflow_call:
+    inputs:
+      base_branch:
+        required: false
+        default: main
+        type: string
+      source_branch:
+        required: true
+        type: string
+
+      # enable services to be modified
+      modify_cd_service:
+        required: false
+        default: false
+        type: boolean
+      modify_frontend_service:
+        required: false
+        default: false
+        type: boolean
+      modify_export_service:
+        required: false
+        default: false
+        type: boolean
+      modify_pkg:
+        required: false
+        default: false
+        type: boolean
+      
+      # enable image checks for services
+      check_image_cd_service:
+        required: false
+        default: false
+        type: boolean
+      check_image_frontend_service:
+        required: false
+        default: false
+        type: boolean
+      check_image_export_service:
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  introduce-changes:
+    name: Introduce changes
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Introduce changes
+        id: introduce-changes
+        run: |
+          # delete existing testing branch
+          git push origin --delete ${{ inputs.source_branch }} || true
+
+          # create testing branch with changes
+          git checkout ${{ inputs.base_branch }}
+          git checkout -b ${{ inputs.source_branch }}
+
+          echo -e "\nfunc TestCIRealibility_$(date +%s%6N)() {}" >> services/cd-service/cmd/server/main.go
+          git add services/cd-service/cmd/server/main.go
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Automated: Test CI realibility for ${{ inputs.source_branch }}"
+          git push origin ${{ inputs.source_branch }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  identify-image-tag:
+    name: "Identify image tag"
+    needs: [introduce-changes]
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.identify-image-tag.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.source_branch }}
+      - name: Identify image tag
+        id: identify-image-tag
+        run: |
+          IMAGE_TAG="pr-$(make version)"
+          echo "Image tag: $IMAGE_TAG"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
+  trigger-ci:
+    name: Trigger CI build with specific ref
+    needs: [introduce-changes]
+    uses: ./.github/workflows/execution-plan-snippet.yml
+    with:
+      trigger: pull-request
+      ref: ${{ inputs.source_branch }}
+      skip_unversioned_builds: true
+    secrets: inherit
+        

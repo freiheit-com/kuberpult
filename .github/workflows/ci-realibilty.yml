@@ -8,69 +8,13 @@ on:
     branches:
       - db-prtest
 
-env:
-  BASE_BRANCH: main
-  SOURCE_BRANCH: automated/ci-realibility/cd-service
-
 jobs:
-  introduce-changes:
-    name: Introduce changes
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    outputs:
-      source_branch: ${{ steps.introduce-changes.outputs.source_branch }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Introduce changes
-        id: introduce-changes
-        run: |
-          # delete existing testing branch
-          git push origin --delete $SOURCE_BRANCH || true
-
-          # create testing branch with changes
-          git checkout $BASE_BRANCH
-          git checkout -b $SOURCE_BRANCH
-
-          echo -e "\nfunc TestCIRealibility_$(date +%s%6N)() {}" >> services/cd-service/cmd/server/main.go
-          git add services/cd-service/cmd/server/main.go
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "Automated: Test CI realibility for $SOURCE_BRANCH"
-          git push origin $SOURCE_BRANCH
-
-          echo "SOURCE_BRANCH=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  identify-image-tag:
-    name: "Identify image tag"
-    needs: [introduce-changes]
-    runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.identify-image-tag.outputs.image_tag }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          ref: ${{ needs.introduce-changes.outputs.source_branch }}
-      - name: Identify image tag
-        id: identify-image-tag
-        run: |
-          IMAGE_TAG="pr-$(make version)"
-          echo "Image tag: $IMAGE_TAG"
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  trigger-ci:
-    name: Trigger CI build with specific ref
-    needs: [introduce-changes]
-    uses: ./.github/workflows/execution-plan-snippet.yml
+  test-cd-service:
+    name: Test CI realibility for cd-service
+    uses: ./.github/workflows/ci-realibilty-snippet.yml
     with:
-      trigger: pull-request
-      ref: ${{ needs.introduce-changes.outputs.source_branch }}
-      skip_unversioned_builds: true
+      source_branch: automated/ci-realibility/cd-service
+      modify_cd_service: true
+      check_image_cd_service: true
     secrets: inherit
         
