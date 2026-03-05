@@ -126,11 +126,11 @@ jobs:
           MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
           NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null)"
 
-          if [[ ${{ inputs.check_image_cd_service == false && $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST }} ]]; then
+          if [[ ${{ inputs.check_image_cd_service == false ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]] ]]; then
             echo "ERRORS=cd-service must not be built" >> $GITHUB_OUTPUT
           fi
 
-          if [[ ${{ inputs.check_image_cd_service == true && $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST }} ]]; then
+          if [[ ${{ inputs.check_image_cd_service == true ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
             echo "ERRORS=cd-service must be built" >> $GITHUB_OUTPUT
           fi
       - name: Aggreate errors
