@@ -56,8 +56,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Introduce changes
-        id: introduce-changes
+      - name: Prepare testing branch
         run: |
           # delete existing testing branch
           git push origin --delete ${{ inputs.source_branch }} || true
@@ -65,12 +64,27 @@ jobs:
           # create testing branch with changes
           git checkout ${{ inputs.base_branch }}
           git checkout -b ${{ inputs.source_branch }}
-
+      - name: Modify pkg
+        if: inputs.modify_pkg == true
+        run: |
+          echo -e "\nfunc TestCIRealibility_$(date +%s%6N)() {}" >> pkg/api/api.go
+      - name: Modify cd-service
+        if: inputs.modify_cd_service == true
+        run: |
           echo -e "\nfunc TestCIRealibility_$(date +%s%6N)() {}" >> services/cd-service/cmd/server/main.go
-          git add services/cd-service/cmd/server/main.go
-
+      - name: Modify frontend-service
+        if: inputs.modify_frontend_service == true
+        run: |
+          echo -e "\nfunc TestCIRealibility_$(date +%s%6N)() {}" >> services/frontend-service/cmd/server/main.go
+      - name: Modify export-service
+        if: inputs.modify_export_service == true
+        run: |
+          echo -e "\nfunc TestCIRealibility_$(date +%s%6N)() {}" >> services/manifest-repo-export-service/cmd/server/main.go
+      - name: Commit changes
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
           git commit -m "Automated: Test CI realibility for ${{ inputs.source_branch }}"
           git push origin ${{ inputs.source_branch }}
         env:

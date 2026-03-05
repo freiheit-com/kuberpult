@@ -17,4 +17,3 @@ jobs:
       modify_cd_service: true
       check_image_cd_service: true
     secrets: inherit
-        
