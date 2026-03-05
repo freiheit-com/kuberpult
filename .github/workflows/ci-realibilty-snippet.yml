@@ -102,6 +102,8 @@ jobs:
     name: "Check built image on registry"
     # needs: [trigger-ci]
     runs-on: ubuntu-latest
+    outputs:
+      aggreated_errors: ${{ steps.aggregate-errors.outputs.AGGREGATED_ERRORS }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -116,16 +118,26 @@ jobs:
           echo "Published image tag: $IMAGE_TAG"
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
       - name: Check built image for cd-service
+        id: check-built-image-cd-service
         run: |
-          IMAGE_TAG="pr-v13.44.13-1-gbc6b7947"
+          #IMAGE_TAG="pr-v13.44.13-1-gbc6b7947"
+          IMAGE_TAG="main"
           IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service"
           MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
-          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null)"
 
-          echo "Main image digest: $MAIN_IMAGE_DIGEST"
-          echo "New image digest: $NEW_IMAGE_DIGEST"
+          if [[ ${{ inputs.check_image_cd_service == false && $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST }} ]]; then
+            echo "ERRORS=cd-service must not be built" >> $GITHUB_OUTPUT
+          fi
 
-          # [[ "${MAIN_IMAGE_DIGEST}" == "$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG)" ]] && echo "Identical" || echo "Different"
+          if [[ ${{ inputs.check_image_cd_service == true && $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST }} ]]; then
+            echo "ERRORS=cd-service must be built" >> $GITHUB_OUTPUT
+          fi
+      - name: Aggreate errors
+        run: |
+          AGGREGATED_ERRORS="${{ steps.check-built-image-cd-service.outputs.errors }}"
+          echo $AGGREGATED_ERRORS
+          echo "AGGREGATED_ERRORS=$AGGREGATED_ERRORS" >> $GITHUB_OUTPUT
           
         
           
