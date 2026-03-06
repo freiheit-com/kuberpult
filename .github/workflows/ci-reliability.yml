@@ -31,7 +31,7 @@ jobs:
             EMOJI_RESULT_OVERALL="❌"
           fi
 
-          MSG="*CIReliability Test $EMOJI_RESULT_OVERALL CI*"
+          MSG="*CI Reliability Test $EMOJI_RESULT_OVERALL*"
           MSG+="\n\n*Test:* \`ci-test-1\` $EMOJI_RESULT_CI_TEST_1 (cd-service)"
           if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
             MSG+="\n\`\`\`${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
