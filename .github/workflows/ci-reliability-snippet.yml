@@ -143,5 +143,5 @@ jobs:
       - name: Collect validation errors
         id: collect-validation-errors
         run: |
-          VALIDATION_ERRORS=${{ steps.check-manifest-repo-export-service.outputs.validation_errors }}
+          VALIDATION_ERRORS="${{ steps.check-manifest-repo-export-service.outputs.validation_errors }}"
           echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_OUTPUT
