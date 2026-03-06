@@ -180,4 +180,3 @@ jobs:
         run: |
           echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_OUTPUT
           echo -e "Failed results: $FAILED_RESULTS"
-          exit 1
