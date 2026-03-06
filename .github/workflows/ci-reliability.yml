@@ -11,8 +11,8 @@ jobs:
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       source_branch: automated/ci-reliability/ci-test-1
-      modify_cd_service: false
-      check_new_image_cd_service: false
+      modify_cd_service: true
+      check_new_image_cd_service: true
     secrets: inherit
   notify-results:
     name: Notify results
