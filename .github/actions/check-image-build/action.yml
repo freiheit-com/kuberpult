@@ -1,0 +1,46 @@
+name: "Check Image Build"
+description: "Compare main image digest vs new tag image digest of a service"
+inputs:
+  service_name:
+    description: "Service name"
+    required: true
+  expect_new_image:
+    description: "Expect that the image is newly built"
+    required: true
+  previous_validation_errors:
+    description: "The input contains validation errors from previous actions. The current action appends its own errors and outputs the result to outputs.validation_errors. Finally, notify-results picks up the final list to send the alert."
+    required: false
+    default: ""
+
+outputs:
+  validation_errors:
+    description: "Updated validation errors"
+    value: ${{ steps.compare.outputs.validation_errors }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Compare Digests
+      id: compare
+      shell: bash
+      run: |
+        IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-${{ inputs.service_name }}"
+        IMAGE_TAG="pr-$(make version)"
+
+        MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
+        NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
+        
+        echo "Main image digest: $MAIN_IMAGE_DIGEST"
+        echo "New image digest: $NEW_IMAGE_DIGEST"
+
+        VALIDATION_ERRORS="${{ inputs.previous_validation_errors }}"
+
+        if [[ ${{ inputs.expect_new_image }} == false ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must not be built."
+        fi
+
+        if [[ ${{ inputs.expect_new_image }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must be newly built."
+        fi
+        
+        echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_OUTPUT
