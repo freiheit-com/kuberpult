@@ -4,8 +4,8 @@ inputs:
   service_name:
     description: "Service name"
     required: true
-  should_be_new:
-    description: "Should the image be newly built"
+  expect_new_image:
+    description: "Expect that the image is newly built"
     required: true
   current_failed_results:
     description: "Current failed results of previous steps"
@@ -35,11 +35,11 @@ runs:
 
         FAILED_RESULTS="${{ inputs.current_failed_results }}"
 
-        if [[ ${{ inputs.should_be_new }} == false ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+        if [[ ${{ inputs.expect_new_image }} == false ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
           FAILED_RESULTS="$FAILED_RESULTS\n${{ inputs.service_name }} must not be built."
         fi
 
-        if [[ ${{ inputs.should_be_new }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+        if [[ ${{ inputs.expect_new_image }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
           FAILED_RESULTS="$FAILED_RESULTS\n${{ inputs.service_name }} must be newly built."
         fi
         

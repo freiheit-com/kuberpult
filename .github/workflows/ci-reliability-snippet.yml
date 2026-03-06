@@ -10,6 +10,7 @@ on:
       source_branch:
         required: true
         type: string
+        description: "The source branch must follow this format: automated/ci-reliability/ci-test-<no>"
 
       # enable services to be modified
       modify_cd_service:
