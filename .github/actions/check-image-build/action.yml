@@ -1,0 +1,46 @@
+name: "Check Image Build"
+description: "Compare main image digest vs new tag image digest of a service"
+inputs:
+  service_name:
+    description: "Service name"
+    required: true
+  should_be_new:
+    description: "Should the image be newly built"
+    required: true
+  current_failed_results:
+    description: "Current failed results of previous steps"
+    required: false
+    default: ""
+
+outputs:
+  failed_results:
+    description: "Updated failed results"
+    value: ${{ steps.compare.outputs.failed_results }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Compare Digests
+      id: compare
+      shell: bash
+      run: |
+        IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-${{ inputs.service_name }}"
+        IMAGE_TAG="pr-$(make version)"
+
+        MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
+        NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
+        
+        echo "Main image digest: $MAIN_IMAGE_DIGEST"
+        echo "New image digest: $NEW_IMAGE_DIGEST"
+
+        FAILED_RESULTS="${{ inputs.current_failed_results }}"
+
+        if [[ ${{ inputs.should_be_new }} == false ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+          FAILED_RESULTS="$FAILED_RESULTS\n${{ inputs.service_name }} must not be built."
+        fi
+
+        if [[ ${{ inputs.should_be_new }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+          FAILED_RESULTS="$FAILED_RESULTS\n${{ inputs.service_name }} must be newly built."
+        fi
+        
+        echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_OUTPUT
