@@ -26,18 +26,24 @@ jobs:
         run: |
           echo "Failed results for ci-test-1: ${{ needs.ci-test-1.outputs.failed_results }}"
 
-          EMOJI_RESULT_CI_TEST_1="✅"
-          if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then EMOJI_RESULT_CI_TEST_1="🚨"; fi
+          EMOJI_RESULT_OVERALL=":check-mark:"
+          EMOJI_RESULT_CI_TEST_1=":check-mark:"
+          if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
+            EMOJI_RESULT_CI_TEST_1=":x:"
+            EMOJI_RESULT_OVERALL=":x:"
+          fi
 
           MSG="*CI Realibility Test Results*"
-          MSG+="\nTest: \`ci-test-1\` (cd-service) - $EMOJI_RESULT_CI_TEST_1"
+          MSG+="\n*Test:* \`ci-test-1\` (cd-service) - $EMOJI_RESULT_CI_TEST_1"
           if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
-            MSG+="\nFailed results: \n\`\`\`\n${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
+            MSG+="\n*Failed Results:* \n\`\`\`${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
           fi
+
+          JSON_PAYLOAD=$(jq -n --arg text "$MSG" '{text: $text}')
 
           curl \
             --request POST \
             --header "Content-Type: application/json" \
-            --data '{"text": "${MSG}"}' \
+            --data "$JSON_PAYLOAD" \
             --fail \
             "${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}"
