@@ -1,4 +1,4 @@
-name: Test CI Realibility
+name: Test CI Reliability
 
 on:
   schedule:
@@ -10,10 +10,10 @@ on:
 
 jobs:
   ci-test-1:
-    name: Test CI realibility for cd-service
-    uses: ./.github/workflows/ci-realibilty-snippet.yml
+    name: Test CI Reliability for cd-service
+    uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
-      source_branch: automated/ci-realibility/ci-test-1
+      source_branch: automated/ci-reliability/ci-test-1
       modify_cd_service: false
       check_new_image_cd_service: false
     secrets: inherit
@@ -24,8 +24,6 @@ jobs:
     steps:
       - name: Notify results
         run: |
-          echo "Failed results for ci-test-1: ${{ needs.ci-test-1.outputs.failed_results }}"
-
           EMOJI_RESULT_OVERALL="✅"
           EMOJI_RESULT_CI_TEST_1="✅"
           if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
@@ -33,8 +31,8 @@ jobs:
             EMOJI_RESULT_OVERALL="❌"
           fi
 
-          MSG="*$EMOJI_RESULT_OVERALL Realibility Test Results*"
-          MSG+="\n\n*Test:* $EMOJI_RESULT_CI_TEST_1 \`ci-test-1\` (cd-service)"
+          MSG="*CIReliability Test $EMOJI_RESULT_OVERALL CI*"
+          MSG+="\n\n*Test:* \`ci-test-1\` $EMOJI_RESULT_CI_TEST_1 (cd-service)"
           if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
             MSG+="\n\`\`\`${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
           fi

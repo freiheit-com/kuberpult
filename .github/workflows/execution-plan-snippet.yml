@@ -65,7 +65,6 @@ jobs:
             artifacts/stage.b.tmp.json
             artifacts/execution-plan.json
             artifacts/github-convertor.json
-          overwrite: true
       - name: Split up plan into individual parts
         id: print-split-plan
         run: |
