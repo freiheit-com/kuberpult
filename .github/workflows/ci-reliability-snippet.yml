@@ -118,7 +118,7 @@ jobs:
           version: latest
       - name: Check newly built image for cd-service
         id: check-cd-service
-        uses: ./.github/actions/check-image-build/action.yml
+        uses: ./.github/actions/check-image-build
         with:
           service_name: "cd-service"
           should_be_new: ${{ inputs.check_new_image_cd_service }}
