@@ -109,6 +109,12 @@ jobs:
     outputs:
       failed_results: ${{ steps.collect-failed-results.outputs.failed_results }}
     steps:
+      # this step should be removed when we merge this PR
+      - name: Checkout Actions
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions/check-image-build
+          ref: db-prtest
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
