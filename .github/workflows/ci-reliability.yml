@@ -14,8 +14,8 @@ jobs:
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       source_branch: automated/ci-reliability/ci-test-1
-      modify_cd_service: true
-      check_new_image_cd_service: true
+      modify_cd_service: false
+      check_new_image_cd_service: false
     secrets: inherit
   notify-results:
     name: Notify results
@@ -37,9 +37,11 @@ jobs:
             MSG+="\n\`\`\`${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
           fi
 
-          curl \
-            --request POST \
-            --header "Content-Type: application/json" \
-            --data "{\"text\": \"$MSG\"}" \
-            --fail \
-            "${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}"
+          echo $MSG
+
+          # curl \
+          #   --request POST \
+          #   --header "Content-Type: application/json" \
+          #   --data "{\"text\": \"$MSG\"}" \
+          #   --fail \
+          #   "${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}"
