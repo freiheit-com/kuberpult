@@ -33,17 +33,15 @@ jobs:
             EMOJI_RESULT_OVERALL=":x:"
           fi
 
-          MSG="*CI Realibility Test Results*"
+          MSG="*CI Realibility Test Results - $EMOJI_RESULT_OVERALL*"
           MSG+="\n*Test:* \`ci-test-1\` (cd-service) - $EMOJI_RESULT_CI_TEST_1"
           if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
             MSG+="\n*Failed Results:* \n\`\`\`${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
           fi
 
-          JSON_PAYLOAD=$(jq -n --arg text "$MSG" '{text: $text}')
-
           curl \
             --request POST \
             --header "Content-Type: application/json" \
-            --data "$JSON_PAYLOAD" \
+            --data "{\"text\": \"$MSG\"}" \
             --fail \
             "${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}"
