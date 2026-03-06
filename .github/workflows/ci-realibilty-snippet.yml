@@ -130,12 +130,12 @@ jobs:
           echo "Main image digest: $MAIN_IMAGE_DIGEST"
           echo "New image digest: $NEW_IMAGE_DIGEST"
 
-          if [[ ${{ inputs.check_new_image_cd_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
+          if [[ ${{ inputs.check_new_image_cd_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
             FAILED_RESULTS="$FAILED_RESULTS\ncd-service must not be built"
             echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
           fi
 
-          if [[ ${{ inputs.check_new_image_cd_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
+          if [[ ${{ inputs.check_new_image_cd_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
             FAILED_RESULTS="$FAILED_RESULTS\ncd-service must be built"
             echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
           fi

@@ -14,8 +14,8 @@ jobs:
     uses: ./.github/workflows/ci-realibilty-snippet.yml
     with:
       source_branch: automated/ci-realibility/ci-test-1
-      modify_cd_service: true
-      check_new_image_cd_service: true
+      modify_cd_service: false
+      check_new_image_cd_service: false
     secrets: inherit
   notify-results:
     name: Notify results
@@ -25,3 +25,19 @@ jobs:
       - name: Notify results
         run: |
           echo "Failed results for ci-test-1: ${{ needs.ci-test-1.outputs.failed_results }}"
+
+          EMOJI_RESULT_CI_TEST_1="✅"
+          if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then EMOJI_RESULT_CI_TEST_1="🚨"; fi
+
+          MSG="*CI Realibility Test Results*"
+          MSG+="\nTest: \`ci-test-1\` (cd-service) - $EMOJI_RESULT_CI_TEST_1"
+          if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
+            MSG+="\nFailed results: \n\`\`\`\n${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
+          fi
+
+          curl \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --data '{"text": "${MSG}"}' \
+            --fail \
+            "${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}"
