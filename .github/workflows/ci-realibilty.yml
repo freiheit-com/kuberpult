@@ -33,10 +33,10 @@ jobs:
             EMOJI_RESULT_OVERALL="❌"
           fi
 
-          MSG="*Realibility Test Results $EMOJI_RESULT_OVERALL CI*"
-          MSG+="\n\n*Test:* \`ci-test-1\` $EMOJI_RESULT_CI_TEST_1 (cd-service)"
+          MSG="*$EMOJI_RESULT_OVERALL Realibility Test Results*"
+          MSG+="\n\n*Test:* $EMOJI_RESULT_CI_TEST_1 \`ci-test-1\` (cd-service)"
           if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
-            MSG+="\n*Failed Results:* \n\`\`\`${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
+            MSG+="\n\`\`\`${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
           fi
 
           curl \
