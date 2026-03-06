@@ -7,15 +7,15 @@ inputs:
   expect_new_image:
     description: "Expect that the image is newly built"
     required: true
-  current_failed_results:
-    description: "Current failed results of previous steps"
+  previous_validation_errors:
+    description: "The input contains validation errors from previous actions. The current action appends its own errors and outputs the result to outputs.validation_errors. Finally, notify-results picks up the final list to send the alert."
     required: false
     default: ""
 
 outputs:
-  failed_results:
-    description: "Updated failed results"
-    value: ${{ steps.compare.outputs.failed_results }}
+  validation_errors:
+    description: "Updated validation errors"
+    value: ${{ steps.compare.outputs.validation_errors }}
 
 runs:
   using: "composite"
@@ -33,14 +33,14 @@ runs:
         echo "Main image digest: $MAIN_IMAGE_DIGEST"
         echo "New image digest: $NEW_IMAGE_DIGEST"
 
-        FAILED_RESULTS="${{ inputs.current_failed_results }}"
+        VALIDATION_ERRORS="${{ inputs.previous_validation_errors }}"
 
         if [[ ${{ inputs.expect_new_image }} == false ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-          FAILED_RESULTS="$FAILED_RESULTS\n${{ inputs.service_name }} must not be built."
+          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must not be built."
         fi
 
         if [[ ${{ inputs.expect_new_image }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-          FAILED_RESULTS="$FAILED_RESULTS\n${{ inputs.service_name }} must be newly built."
+          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must be newly built."
         fi
         
-        echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_OUTPUT
+        echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_OUTPUT

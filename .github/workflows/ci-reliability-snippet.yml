@@ -44,9 +44,9 @@ on:
         default: false
         type: boolean
     outputs:
-      failed_results:
-        description: "Failed results"
-        value: ${{ jobs.check-new-images.outputs.failed_results }}
+      validation_errors:
+        description: "Validation errors"
+        value: ${{ jobs.check-new-images.outputs.validation_errors }}
 
 jobs:
   introduce-changes:
@@ -105,7 +105,7 @@ jobs:
     needs: [trigger-ci]
     runs-on: ubuntu-latest
     outputs:
-      failed_results: ${{ steps.collect-failed-results.outputs.failed_results }}
+      validation_errors: ${{ steps.collect-failed-results.outputs.validation_errors }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -129,13 +129,13 @@ jobs:
           echo "New image digest: $NEW_IMAGE_DIGEST"
 
           if [[ ${{ inputs.check_new_image_cd_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
-            FAILED_RESULTS="$FAILED_RESULTS\ncd-service must not be built"
-            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+            VALIDATION_ERRORS="$VALIDATION_ERRORS\ncd-service must not be built"
+            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
           fi
 
           if [[ ${{ inputs.check_new_image_cd_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-            FAILED_RESULTS="$FAILED_RESULTS\ncd-service must be built"
-            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+            VALIDATION_ERRORS="$VALIDATION_ERRORS\ncd-service must be built"
+            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
           fi
       - name: Check newly built image for frontend-service
         run: |
@@ -147,13 +147,13 @@ jobs:
           echo "New image digest: $NEW_IMAGE_DIGEST"
 
           if [[ ${{ inputs.check_new_image_frontend_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
-            FAILED_RESULTS="$FAILED_RESULTS\nfrontend-service must not be built"
-            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+            VALIDATION_ERRORS="$VALIDATION_ERRORS\nfrontend-service must not be built"
+            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
           fi
 
           if [[ ${{ inputs.check_new_image_frontend_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-            FAILED_RESULTS="$FAILED_RESULTS\nfrontend-service must be built"
-            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+            VALIDATION_ERRORS="$VALIDATION_ERRORS\nfrontend-service must be built"
+            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
           fi
       - name: Check newly built image for manifest-repo-export-service
         run: |
@@ -165,16 +165,16 @@ jobs:
           echo "New image digest: $NEW_IMAGE_DIGEST"
 
           if [[ ${{ inputs.check_new_image_export_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
-            FAILED_RESULTS="$FAILED_RESULTS\nmanifest-repo-export-service must not be built"
-            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+            VALIDATION_ERRORS="$VALIDATION_ERRORS\nmanifest-repo-export-service must not be built"
+            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
           fi
 
           if [[ ${{ inputs.check_new_image_export_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-            FAILED_RESULTS="$FAILED_RESULTS\nmanifest-repo-export-service must be built"
-            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+            VALIDATION_ERRORS="$VALIDATION_ERRORS\nmanifest-repo-export-service must be built"
+            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
           fi
       - name: Collect failed results
         id: collect-failed-results
         run: |
-          echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_OUTPUT
-          echo -e "Failed results: $FAILED_RESULTS"
+          echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_OUTPUT
+          echo -e "Validation errors: $VALIDATION_ERRORS"
