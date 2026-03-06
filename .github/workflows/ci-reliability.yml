@@ -20,13 +20,14 @@ jobs:
   notify-results:
     name: Notify results
     needs: [ci-test-1]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Notify results
         run: |
           EMOJI_RESULT_OVERALL="✅"
           EMOJI_RESULT_CI_TEST_1="✅"
-          if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
+          if [[ "${{ needs.ci-test-1.result }}" != "success" ]] || [[ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]]; then
             EMOJI_RESULT_CI_TEST_1="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
