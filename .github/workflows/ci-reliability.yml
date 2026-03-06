@@ -27,18 +27,23 @@ jobs:
         run: |
           EMOJI_RESULT_OVERALL="✅"
           EMOJI_RESULT_CI_TEST_1="✅"
-          if [[ "${{ needs.ci-test-1.result }}" != "success" ]] || [[ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]]; then
+          FAILED_RESULT_CI_TEST_1="${{ needs.ci-test-1.outputs.failed_results }}"
+          if [[ "${{ needs.ci-test-1.result }}" != "success" ]] || [[ -n "$FAILED_RESULT_CI_TEST_1" ]]; then
             EMOJI_RESULT_CI_TEST_1="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
 
-          MSG="*CI Reliability Test $EMOJI_RESULT_OVERALL*"
-          MSG+="\n\n*Test:* \`ci-test-1\` $EMOJI_RESULT_CI_TEST_1 (cd-service)"
-          if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
-            MSG+="\n\`\`\`${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
+          if [[ "${{ needs.ci-test-1.result }}" != "success" ]]; then
+            FAILED_RESULT_CI_TEST_1="Error occurred during CI test"
           fi
 
-          echo $MSG
+          MSG="*CI Reliability Test $EMOJI_RESULT_OVERALL*"
+          MSG+="\n\n*Test:* \`ci-test-1\` $EMOJI_RESULT_CI_TEST_1 (cd-service)"
+          if [ -n "$FAILED_RESULT_CI_TEST_1" ]; then
+            MSG+="\n\`\`\`$FAILED_RESULT_CI_TEST_1\n\`\`\`"
+          fi
+
+          echo -e $MSG
 
           # curl \
           #   --request POST \
