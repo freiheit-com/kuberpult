@@ -554,6 +554,9 @@ dex:
   #       clientSecret: $GOOGLE_CLIENT_SECRET
   #       redirectURI: http://127.0.0.1:5556/callback
   config: {}
+# DEPRECATED: This configuration option will be removed when the rollout service is removed.
+# Revolution integrations, such as DORA metric reporting should be handled independently of Kuberpult in the future,
+# e.g. by direct integration with the actual deployment tool like ArgoCD.
 # Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
 revolution:
   dora:
@@ -570,6 +573,8 @@ revolution:
     dryRun: false
     maxAge: 2h
 
+# DEPRECATED: The rollout service is deprecated and will be removed in future releases of Kuberpult.
+# This configuration option will be removed when the rollout service is removed.
 # Whether the rollout service should self-manage applications
 manageArgoApplications:
   enabled: false
