@@ -26,15 +26,15 @@ jobs:
         run: |
           echo "Failed results for ci-test-1: ${{ needs.ci-test-1.outputs.failed_results }}"
 
-          EMOJI_RESULT_OVERALL=":check-mark:"
-          EMOJI_RESULT_CI_TEST_1=":check-mark:"
+          EMOJI_RESULT_OVERALL="✅"
+          EMOJI_RESULT_CI_TEST_1="✅"
           if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
-            EMOJI_RESULT_CI_TEST_1=":x:"
-            EMOJI_RESULT_OVERALL=":x:"
+            EMOJI_RESULT_CI_TEST_1="❌"
+            EMOJI_RESULT_OVERALL="❌"
           fi
 
-          MSG="*CI Realibility Test Results - $EMOJI_RESULT_OVERALL*"
-          MSG+="\n*Test:* \`ci-test-1\` (cd-service) - $EMOJI_RESULT_CI_TEST_1"
+          MSG="*Realibility Test Results $EMOJI_RESULT_OVERALL CI*"
+          MSG+="\n\n*Test:* \`ci-test-1\` $EMOJI_RESULT_CI_TEST_1 (cd-service)"
           if [ -n "${{ needs.ci-test-1.outputs.failed_results }}" ]; then
             MSG+="\n*Failed Results:* \n\`\`\`${{ needs.ci-test-1.outputs.failed_results }}\n\`\`\`"
           fi
