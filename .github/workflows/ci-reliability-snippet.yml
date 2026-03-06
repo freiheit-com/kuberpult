@@ -116,16 +116,67 @@ jobs:
       - uses: warjiang/setup-skopeo@main
         with:
           version: latest
+      - name: Set image tag
+        run: |
+          IMAGE_TAG="pr-$(make version)"
+          echo "Published image tag: $IMAGE_TAG"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
       - name: Check newly built image for cd-service
-        id: check-cd-service
-        uses: ./.github/actions/check-image-build
-        with:
-          service_name: "cd-service"
-          should_be_new: ${{ inputs.check_new_image_cd_service }}
-          current_failed_results: ""
+        run: |
+          IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service"
+          MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
+
+          echo "Main image digest: $MAIN_IMAGE_DIGEST"
+          echo "New image digest: $NEW_IMAGE_DIGEST"
+
+          if [[ ${{ inputs.check_new_image_cd_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\ncd-service must not be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
+
+          if [[ ${{ inputs.check_new_image_cd_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\ncd-service must be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
+      - name: Check newly built image for frontend-service
+        run: |
+          IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service"
+          MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
+
+          echo "Main image digest: $MAIN_IMAGE_DIGEST"
+          echo "New image digest: $NEW_IMAGE_DIGEST"
+
+          if [[ ${{ inputs.check_new_image_frontend_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\nfrontend-service must not be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
+
+          if [[ ${{ inputs.check_new_image_frontend_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\nfrontend-service must be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
+      - name: Check newly built image for manifest-repo-export-service
+        run: |
+          IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service"
+          MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
+          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
+
+          echo "Main image digest: $MAIN_IMAGE_DIGEST"
+          echo "New image digest: $NEW_IMAGE_DIGEST"
+
+          if [[ ${{ inputs.check_new_image_export_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\nmanifest-repo-export-service must not be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
+
+          if [[ ${{ inputs.check_new_image_export_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
+            FAILED_RESULTS="$FAILED_RESULTS\nmanifest-repo-export-service must be built"
+            echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_ENV
+          fi
       - name: Collect failed results
         id: collect-failed-results
         run: |
-          FAILED_RESULTS="${{ steps.check-cd-service.outputs.failed_results }}"
           echo "FAILED_RESULTS=$FAILED_RESULTS" >> $GITHUB_OUTPUT
           echo -e "Failed results: $FAILED_RESULTS"
