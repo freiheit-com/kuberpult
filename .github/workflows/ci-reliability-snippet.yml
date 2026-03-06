@@ -1,9 +1,6 @@
 name: Test CI Reliability
 
 on:
-  schedule:
-    # Run on workdays at 8:00 AM
-    - cron: '0 8 * * 1-5'
   workflow_call:
     inputs:
       base_branch:
