@@ -14,8 +14,8 @@ jobs:
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       source_branch: automated/ci-reliability/ci-test-1
-      modify_cd_service: true
-      check_new_image_cd_service: true
+      modify_cd_service: false
+      check_new_image_cd_service: false
     secrets: inherit
   notify-results:
     name: Notify results
@@ -42,6 +42,8 @@ jobs:
           if [ -n "$VALIDATION_ERRORS_CI_TEST_1" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_1\n\`\`\`"
           fi
+
+          echo -e "$MSG"
 
           curl \
             --request POST \
