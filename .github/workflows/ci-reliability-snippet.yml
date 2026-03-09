@@ -100,6 +100,7 @@ jobs:
       trigger: pull-request
       ref: ${{ inputs.source_branch }}
       skip_unversioned_builds: true
+      run_id: ${{ inputs.test_id }}
     secrets: inherit
   check-new-images:
     name: "Check newly built images on registry"

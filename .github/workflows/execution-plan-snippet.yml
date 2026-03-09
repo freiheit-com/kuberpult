@@ -16,6 +16,11 @@ on:
         default: false
         type: boolean
         description: "Skip unversioned builds"
+      run_id:
+        required: false
+        default: "0"
+        type: string
+        description: "This unique ID is required when running this workflow in a matrix strategy to prevent duplicate artifact names."
 
 jobs:
   execution_plan:
@@ -59,7 +64,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         name: Upload execution plan
         with:
-          name: execution-plan.zip
+          name: execution-plan-${{ inputs.run_id || '' }}.zip
           path: |
             artifacts/stage.a.tmp.json
             artifacts/stage.b.tmp.json
@@ -131,7 +136,7 @@ jobs:
         if: matrix.data.artifacts != ''
         with:
           if-no-files-found: error
-          name: ${{ matrix.data.artifactName }}
+          name: ${{ matrix.data.artifactName }}-${{ inputs.run_id || '' }}
           path: |
             ${{ matrix.data.artifacts }}
   stageB_build:
@@ -209,6 +214,6 @@ jobs:
         if: matrix.data.artifacts != ''
         with:
           if-no-files-found: error
-          name: ${{ matrix.data.artifactName }}
+          name: ${{ matrix.data.artifactName }}-${{ inputs.run_id || '' }}
           path: |
             ${{ matrix.data.artifacts }}
