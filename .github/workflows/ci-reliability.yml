@@ -1,4 +1,4 @@
-name: Test CI Reliability 1
+name: Test CI Reliability
 
 on:
   schedule:
@@ -26,7 +26,7 @@ jobs:
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       source_branch: automated/ci-reliability/ci-test
-      modify_pkg_service: ${{ matrix.modify_pkg }}
+      modify_pkg: ${{ matrix.modify_pkg }}
       modify_cd_service: ${{ matrix.modify_cd }}
       check_new_image_cd_service: ${{ matrix.check_cd }}
       modify_frontend_service: ${{ matrix.modify_fe }}
@@ -44,7 +44,7 @@ jobs:
         run: |
           echo "Notify results..."
           echo "${{ needs.ci-test.outputs.validation_errors }}"
-          
+
           # EMOJI_RESULT_OVERALL="✅"
           # EMOJI_RESULT_CI_TEST_1="✅"
           # VALIDATION_ERRORS_CI_TEST_1="${{ needs.ci-test.outputs.validation_errors }}"
