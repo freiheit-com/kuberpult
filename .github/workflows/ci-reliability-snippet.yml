@@ -11,7 +11,7 @@ on:
         required: false
         default: main
         type: string
-        description: "The base branch from which source branch is created."
+        description: "The base branch from which the source branch is created."
       source_branch:
         required: true
         type: string
