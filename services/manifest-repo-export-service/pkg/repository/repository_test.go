@@ -876,8 +876,6 @@ spec:
   destination:
     server: development
   project: production
-  source:
-    repoURL: ""
   syncPolicy:
     automated:
       allowEmpty: true
@@ -929,8 +927,6 @@ spec:
   destination:
     server: development
   project: production
-  source:
-    repoURL: ""
   sources:
   - path: environments/production/applications/test/manifests
     repoURL: test
@@ -1037,8 +1033,6 @@ spec:
   destination:
     server: development
   project: production
-  source:
-    repoURL: ""
   syncPolicy:
     automated:
       allowEmpty: true
@@ -1098,8 +1092,6 @@ spec:
   destination:
     server: development
   project: production
-  source:
-    repoURL: ""
   sources:
   - path: environments/production/applications/test/manifests
     repoURL: test

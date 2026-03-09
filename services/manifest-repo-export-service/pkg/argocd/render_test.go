@@ -65,8 +65,6 @@ spec:
     - f
     name: foo
   project: dev
-  source:
-    repoURL: ""
   sources:
   - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
@@ -118,8 +116,6 @@ spec:
     - f
     name: foo
   project: dev
-  source:
-    repoURL: ""
   sources:
   - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
@@ -172,8 +168,6 @@ spec:
     - f
     name: foo
   project: dev
-  source:
-    repoURL: ""
   sources:
   - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
@@ -226,8 +220,6 @@ spec:
     - f
     name: foo
   project: AA-dev-dev-1
-  source:
-    repoURL: ""
   sources:
   - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
@@ -427,8 +419,6 @@ spec:
   destination:
     namespace: bar2
   project: test-env
-  source:
-    repoURL: ""
   sources:
   - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
@@ -485,8 +475,6 @@ metadata:
 spec:
   destination: {}
   project: test-env
-  source:
-    repoURL: ""
   sources:
   - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
@@ -612,8 +600,6 @@ metadata:
 spec:
   destination: {}
   project: test-env
-  source:
-    repoURL: ""
   sources:
   - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
@@ -671,8 +657,6 @@ metadata:
 spec:
   destination: {}
   project: AA-test-env-dev-1
-  source:
-    repoURL: ""
   sources:
   - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
