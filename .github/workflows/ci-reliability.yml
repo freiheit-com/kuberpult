@@ -24,15 +24,15 @@ jobs:
             check_fe: false
             modify_export: false
             check_export: false
-          - id: "2" # test change in frontend-service and manifest-repo-export-service
-            source_branch: automated/ci-reliability/ci-test-2
-            modify_pkg: false
-            modify_cd: false
-            check_cd: false
-            modify_fe: false
-            check_fe: false
-            modify_export: false
-            check_export: false
+          # - id: "2" # test change in frontend-service and manifest-repo-export-service
+          #   source_branch: automated/ci-reliability/ci-test-2
+          #   modify_pkg: false
+          #   modify_cd: false
+          #   check_cd: false
+          #   modify_fe: false
+          #   check_fe: false
+          #   modify_export: false
+          #   check_export: false
           # - id: "3" # test change in pkg
           #   source_branch: automated/ci-reliability/ci-test-3
           #   modify_pkg: true
@@ -44,6 +44,7 @@ jobs:
           #   check_export: true
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
+      test_id: ${{ matrix.id }}
       source_branch: ${{ matrix.source_branch }}
       modify_pkg: ${{ matrix.modify_pkg }}
       modify_cd_service: ${{ matrix.modify_cd }}
@@ -59,16 +60,28 @@ jobs:
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
+      - name: Download validation errors for Test 1
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-1.zip
+          path: validation-errors-1.txt
+      # - name: Download validation errors for Test 2
+      #   uses: actions/download-artifact@v6
+      #   with:
+      #     name: validation-errors-2.zip
+      #     path: validation-errors-2.txt
+      # - name: Download validation errors for Test 3
+      #   uses: actions/download-artifact@v6
+      #   with:
+      #     name: validation-errors-3.zip
+      #     path: validation-errors-3.txt
       - name: Notify results
         run: |
-          echo "Notify results..."
-          # echo "${{ needs.ci-test.outputs }}"
-          # echo "${{ needs.ci-test.outputs['1'] }}"
-          # echo "${{ needs.ci-test.outputs['1'].validation_errors }}"
+          EMOJI_RESULT_OVERALL="✅"
+          EMOJI_RESULT_CI_TEST_1="✅"
+          VALIDATION_ERRORS_CI_TEST_1="$(cat validation-errors-1.txt)"
+          echo "Validation errors 1: $VALIDATION_ERRORS_CI_TEST_1"
 
-          # EMOJI_RESULT_OVERALL="✅"
-          # EMOJI_RESULT_CI_TEST_1="✅"
-          # VALIDATION_ERRORS_CI_TEST_1="${{ needs.ci-test.outputs.validation_errors }}"
           # if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
           #   EMOJI_RESULT_CI_TEST_1="❌"
           #   EMOJI_RESULT_OVERALL="❌"

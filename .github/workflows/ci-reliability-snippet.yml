@@ -3,14 +3,19 @@ name: Test CI Reliability
 on:
   workflow_call:
     inputs:
+      test_id:
+        required: true
+        type: string
+        description: "Unique ID used for naming artifact"
       base_branch:
         required: false
         default: main
         type: string
+        description: "The base branch from which source branch is created."
       source_branch:
         required: true
         type: string
-        description: "The source branch must follow this format: automated/ci-reliability/ci-test-<no>"
+        description: "The source branch must follow this format: automated/ci-reliability/ci-test-<no>."
 
       # enable services to be modified
       modify_cd_service:
@@ -141,7 +146,7 @@ jobs:
         id: upload-validation-errors
         uses: actions/upload-artifact@v6
         with:
-          name: validation-errors
+          name: validation-errors-${{ inputs.test_id }}.zip
           path: validation-errors.txt
         # run: |
         #   VALIDATION_ERRORS="${{ steps.check-manifest-repo-export-service.outputs.validation_errors }}"
