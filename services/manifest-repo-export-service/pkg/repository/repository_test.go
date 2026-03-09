@@ -919,11 +919,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/teams: test
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: test
+    com.freiheit.kuberpult/teams: ""
   name: production-test
 spec:
   destination:
@@ -1088,11 +1088,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/teams: test
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: test
+    com.freiheit.kuberpult/teams: ""
   name: production-test
 spec:
   destination:

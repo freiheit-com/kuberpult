@@ -181,7 +181,7 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 			// see https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#manifest-paths-annotation
 			manifestPathsArgoFormat = "/" + manifestPath + ";" + manifestPathsArgoFormat
 
-			teamNames = append(teamNames, appTeams.AppName)
+			teamNames = append(teamNames, appTeams.TeamName)
 		}
 	}
 	teamsAnnotation := strings.Join(teamNames, "_")
