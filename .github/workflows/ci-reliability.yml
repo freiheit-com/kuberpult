@@ -16,40 +16,40 @@ jobs:
             source_branch: automated/ci-reliability/ci-test-1
             modify_pkg: false
             modify_cd: true
-            check_cd: true
+            expect_cd: true
             modify_fe: false
-            check_fe: false
+            expect_fe: false
             modify_export: false
-            check_export: false
+            expect_export: false
           - id: "2" # test change in frontend-service and manifest-repo-export-service
             source_branch: automated/ci-reliability/ci-test-2
             modify_pkg: false
             modify_cd: false
-            check_cd: false
+            expect_cd: false
             modify_fe: true
-            check_fe: true
+            expect_fe: true
             modify_export: true
-            check_export: true
+            expect_export: true
           - id: "3" # test change in pkg
             source_branch: automated/ci-reliability/ci-test-3
             modify_pkg: true
             modify_cd: false
-            check_cd: true
+            expect_cd: true
             modify_fe: false
-            check_fe: true
+            expect_fe: true
             modify_export: false
-            check_export: true
+            expect_export: true
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       test_id: ${{ matrix.id }}
       source_branch: ${{ matrix.source_branch }}
       modify_pkg: ${{ matrix.modify_pkg }}
       modify_cd_service: ${{ matrix.modify_cd }}
-      check_new_image_cd_service: ${{ matrix.check_cd }}
+      expect_new_image_cd_service: ${{ matrix.expect_cd }}
       modify_frontend_service: ${{ matrix.modify_fe }}
-      check_new_image_frontend_service: ${{ matrix.check_fe }}
+      expect_new_image_frontend_service: ${{ matrix.expect_fe }}
       modify_export_service: ${{ matrix.modify_export }}
-      check_new_image_export_service: ${{ matrix.check_export }}
+      expect_new_image_export_service: ${{ matrix.expect_export }}
     secrets: inherit
   notify-results:
     name: Notify results
