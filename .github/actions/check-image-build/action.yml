@@ -35,12 +35,12 @@ runs:
 
         VALIDATION_ERRORS="${{ inputs.previous_validation_errors }}"
 
-        if [[ ${{ inputs.expect_new_image }} == false ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must not be built."
+        if [[ ${{ inputs.expect_new_image }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
+          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must not be rebuilt."
         fi
 
         if [[ ${{ inputs.expect_new_image }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must be newly built."
+          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must be rebuilt."
         fi
         
         echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_OUTPUT
