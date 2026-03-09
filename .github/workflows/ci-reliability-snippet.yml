@@ -125,24 +125,23 @@ jobs:
         with:
           service_name: "cd-service"
           expect_new_image: ${{ inputs.check_new_image_cd_service }}
-          previous_validation_errors: ""
       - name: Check newly built image for frontend-service
         id: check-frontend-service
         uses: ./.github/actions/check-image-build
         with:
           service_name: "frontend-service"
           expect_new_image: ${{ inputs.check_new_image_frontend_service }}
-          previous_validation_errors: ${{ steps.check-cd-service.outputs.validation_errors }}
       - name: Check newly built image for manifest-repo-export-service
         id: check-manifest-repo-export-service
         uses: ./.github/actions/check-image-build
         with:
           service_name: "manifest-repo-export-service"
           expect_new_image: ${{ inputs.check_new_image_export_service }}
-          previous_validation_errors: ${{ steps.check-frontend-service.outputs.validation_errors }}
       - name: Create validation errors artifact
         run: |
-          echo -e "${{ steps.check-manifest-repo-export-service.outputs.validation_errors }}" > validation-errors.txt
+          echo -e "${{ steps.check-cd-service.outputs.validation_errors }}" >> validation-errors.txt
+          echo -e "${{ steps.check-frontend-service.outputs.validation_errors }}" >> validation-errors.txt
+          echo -e "${{ steps.check-manifest-repo-export-service.outputs.validation_errors }}" >> validation-errors.txt
       - name: Upload validation errors
         id: upload-validation-errors
         uses: actions/upload-artifact@v6

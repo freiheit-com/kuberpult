@@ -7,10 +7,6 @@ inputs:
   expect_new_image:
     description: "Expect that the image is newly built"
     required: true
-  previous_validation_errors:
-    description: "The input contains validation errors from previous actions. The current action appends its own errors and outputs the result to outputs.validation_errors."
-    required: false
-    default: ""
 
 outputs:
   validation_errors:
@@ -33,14 +29,12 @@ runs:
         echo "Main image digest: $MAIN_IMAGE_DIGEST"
         echo "New image digest: $NEW_IMAGE_DIGEST"
 
-        VALIDATION_ERRORS="${{ inputs.previous_validation_errors }}"
-
         if [[ ${{ inputs.expect_new_image }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
-          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must not be rebuilt."
+          VALIDATION_ERRORS="${{ inputs.service_name }} must not be rebuilt."
         fi
 
         if [[ ${{ inputs.expect_new_image }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-          VALIDATION_ERRORS="$VALIDATION_ERRORS\n${{ inputs.service_name }} must be rebuilt."
+          VALIDATION_ERRORS="${{ inputs.service_name }} must be rebuilt."
         fi
         
         echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_OUTPUT
