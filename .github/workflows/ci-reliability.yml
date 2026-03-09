@@ -120,7 +120,9 @@ jobs:
           MSG+="\n\n*Test:* \`ci-test-3\` $EMOJI_RESULT_CI_TEST_3 (all services)"
           if [ -n "$VALIDATION_ERRORS_CI_TEST_3" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_3\n\`\`\`"
-          fi  
+          fi
+
+          MSG +="\n*🔗 View in GitHub Action:* $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
           curl \
             --request POST \
