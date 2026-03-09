@@ -61,16 +61,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download validation errors for Test 1
+        continue-on-error: true
         uses: actions/download-artifact@v6
         with:
           name: validation-errors-1.zip
           path: validation-errors-1
       - name: Download validation errors for Test 2
+        continue-on-error: true
         uses: actions/download-artifact@v6
         with:
           name: validation-errors-2.zip
           path: validation-errors-2
       - name: Download validation errors for Test 3
+        continue-on-error: true
         uses: actions/download-artifact@v6
         with:
           name: validation-errors-3.zip
