@@ -1,0 +1,73 @@
+name: Test CI Reliability 1
+
+on:
+  schedule:
+    # Run on workdays at 8:00 AM
+    - cron: '0 8 * * 1-5'
+  push:
+    branches:
+      - db-citest
+
+jobs:
+  ci-test:
+    name: Test CI Reliability (${{ matrix.test }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: "1"
+            modify_pkg: false
+            modify_cd: true
+            check_cd: true
+            modify_fe: false
+            check_fe: false
+            modify_export: false
+            check_export: false
+    uses: ./.github/workflows/ci-reliability-snippet.yml
+    with:
+      source_branch: automated/ci-reliability/ci-test
+      modify_pkg_service: ${{ matrix.modify_pkg }}
+      modify_cd_service: ${{ matrix.modify_cd }}
+      check_new_image_cd_service: ${{ matrix.check_cd }}
+      modify_frontend_service: ${{ matrix.modify_fe }}
+      check_new_image_frontend_service: ${{ matrix.check_fe }}
+      modify_export_service: ${{ matrix.modify_export }}
+      check_new_image_export_service: ${{ matrix.check_export }}
+    secrets: inherit
+  notify-results:
+    name: Notify results
+    needs: [ci-test]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify results
+        run: |
+          echo "Notify results..."
+          echo "${{ needs.ci-test.outputs.validation_errors }}"
+          
+          # EMOJI_RESULT_OVERALL="✅"
+          # EMOJI_RESULT_CI_TEST_1="✅"
+          # VALIDATION_ERRORS_CI_TEST_1="${{ needs.ci-test.outputs.validation_errors }}"
+          # if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
+          #   EMOJI_RESULT_CI_TEST_1="❌"
+          #   EMOJI_RESULT_OVERALL="❌"
+          # fi
+
+          # if [[ "${{ needs.ci-test.result }}" != "success" ]]; then
+          #   VALIDATION_ERRORS_CI_TEST_1="\nError occurred during CI test"
+          # fi
+
+          # MSG="*CI Reliability Test $EMOJI_RESULT_OVERALL*"
+          # MSG+="\n\n*Test:* \`ci-test-1\` $EMOJI_RESULT_CI_TEST_1 (cd-service)"
+          # if [ -n "$VALIDATION_ERRORS_CI_TEST_1" ]; then
+          #   MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_1\n\`\`\`"
+          # fi
+
+          # echo -e $MSG
+
+          # curl \
+          #   --request POST \
+          #   --header "Content-Type: application/json" \
+          #   --data "{\"text\": \"$MSG\"}" \
+          #   --fail \
+          #   "${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}"
