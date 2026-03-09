@@ -90,7 +90,6 @@ jobs:
           git add .
           git commit -m "Automated: Test CI Reliability for ${{ inputs.source_branch }}" || echo "No changes to commit"
           git push origin ${{ inputs.source_branch }}
-          exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   trigger-ci:
