@@ -138,6 +138,7 @@ describe('Release Card Mini', () => {
                             team: 'example',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         deployments: {
                             other: {

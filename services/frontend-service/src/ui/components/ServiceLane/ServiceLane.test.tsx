@@ -84,6 +84,7 @@ describe('Service Lane', () => {
                         team: 'example',
                         undeploySummary: UndeploySummary.NORMAL,
                         warnings: [],
+                        argoBracket: '',
                     },
                     deployments: {},
                     appLocks: {},
@@ -105,6 +106,7 @@ describe('Service Lane', () => {
             team: 'example',
             undeploySummary: UndeploySummary.NORMAL,
             warnings: [],
+            argoBracket: '',
         };
         const sampleLightWeightApp: OverviewApplication = {
             name: 'test3',
@@ -156,6 +158,7 @@ describe('Service Lane', () => {
                         team: 'example',
                         undeploySummary: UndeploySummary.NORMAL,
                         warnings: [],
+                        argoBracket: '',
                     },
                     deployments: {},
                     appLocks: {},
@@ -178,6 +181,7 @@ describe('Service Lane', () => {
             team: 'example',
             undeploySummary: UndeploySummary.NORMAL,
             warnings: [],
+            argoBracket: '',
         };
         const sampleLightWeightApp: OverviewApplication = {
             name: 'test3',
@@ -234,6 +238,7 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
+                    argoBracket: '',
                 },
                 appLocks: {},
                 teamLocks: {},
@@ -268,6 +273,7 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
+                    argoBracket: '',
                 },
                 appLocks: {},
                 teamLocks: {},
@@ -302,6 +308,7 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
+                    argoBracket: '',
                 },
                 appLocks: {},
                 teamLocks: {},
@@ -337,6 +344,7 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
+                    argoBracket: '',
                 },
                 appLocks: {},
                 teamLocks: {},
@@ -358,6 +366,7 @@ const serviceLaneStates: TestDataServiceLaneState[] = [
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
+                    argoBracket: '',
                 },
                 appLocks: {},
                 teamLocks: {},
@@ -447,6 +456,7 @@ const data: TestDataDiff[] = [
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
+                    argoBracket: '',
                 },
                 appLocks: {},
                 teamLocks: {},
@@ -495,6 +505,7 @@ const data: TestDataDiff[] = [
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
+                    argoBracket: '',
                 },
                 appLocks: {},
                 teamLocks: {},
@@ -543,6 +554,7 @@ const data: TestDataDiff[] = [
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
+                    argoBracket: '',
                 },
                 appLocks: {},
                 teamLocks: {},
@@ -591,6 +603,7 @@ const data: TestDataDiff[] = [
                     sourceRepoUrl: '',
                     undeploySummary: UndeploySummary.MIXED,
                     warnings: [],
+                    argoBracket: '',
                 },
                 appLocks: {},
                 teamLocks: {},
@@ -784,6 +797,7 @@ describe('Service Lane Important Releases', () => {
                 sourceRepoUrl: 'test2',
                 undeploySummary: UndeploySummary.MIXED,
                 warnings: [],
+                argoBracket: '',
             };
             const sampleOverviewApp: OverviewApplication = {
                 name: 'test2',
@@ -896,6 +910,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                 team: 'example',
                 undeploySummary: UndeploySummary.NORMAL,
                 warnings: [],
+                argoBracket: '',
             },
             envs: [
                 {
@@ -921,6 +936,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                 team: 'example',
                 undeploySummary: UndeploySummary.UNDEPLOY,
                 warnings: [],
+                argoBracket: '',
             },
             envs: [
                 {
@@ -1002,6 +1018,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         team: 'example',
         undeploySummary: UndeploySummary.NORMAL,
         warnings: [],
+        argoBracket: '',
     };
     const appWith1AppLock: GetAppDetailsResponse = {
         application: topLevelApp,
@@ -1097,6 +1114,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                     team: 'example',
                     undeploySummary: UndeploySummary.NORMAL,
                     warnings: [],
+                    argoBracket: '',
                 },
                 deployments: {},
                 teamLocks: {},

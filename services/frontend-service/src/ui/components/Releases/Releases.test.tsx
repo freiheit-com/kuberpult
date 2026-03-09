@@ -130,6 +130,7 @@ describe('Release Dialog', () => {
                 team: 'example',
                 undeploySummary: UndeploySummary.NORMAL,
                 warnings: [],
+                argoBracket: '',
             },
             appLocks: {
                 dev: {
@@ -314,6 +315,7 @@ describe('Release Dialog', () => {
                             team: 'example',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         appLocks: {},
                         teamLocks: {},
@@ -394,6 +396,7 @@ describe('Release Dialog', () => {
                             team: 'example',
                             undeploySummary: UndeploySummary.NORMAL,
                             warnings: [],
+                            argoBracket: '',
                         },
                         appLocks: {},
                         teamLocks: {},

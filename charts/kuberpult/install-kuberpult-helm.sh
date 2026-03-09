@@ -45,7 +45,7 @@ frontend:
       memory: 200Mi
       cpu: 0.05
 rollout:
-  enabled: true
+  enabled: false
   grpcMaxRecvMsgSize: 4
   resources:
     limits:

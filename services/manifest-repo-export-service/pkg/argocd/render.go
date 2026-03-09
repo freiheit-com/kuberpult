@@ -35,6 +35,11 @@ type ApiVersion string
 const V1Alpha1 ApiVersion = "v1alpha1"
 
 type AppData struct {
+	ArgoAppName    string
+	ReferencedApps []AppTeam
+}
+
+type AppTeam struct {
 	AppName  string
 	TeamName string
 }
@@ -157,7 +162,7 @@ func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *
 }
 
 func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[string]string, info *EnvironmentInfo, appData AppData, destination v1alpha1.ApplicationDestination, ignoreDifferences []v1alpha1.ResourceIgnoreDifferences, syncOptions v1alpha1.SyncOptions) (string, error) {
-	name := appData.AppName
+	name := appData.ArgoAppName
 	annotations := map[string]string{}
 	labels := map[string]string{}
 	argoProjectName := (types.ArgoProjectName)(info.GetFullyQualifiedName())
@@ -165,19 +170,33 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 		argoProjectName = info.ArgoProjectNameOverride
 	}
 
-	manifestPath := filepath.Join("environments", string(info.ParentEnvironmentName), "applications", name, "manifests")
+	manifestPaths := []string{}
+	manifestPathsArgoFormat := ""
+	teamNames := []string{}
+	if len(appData.ReferencedApps) > 0 {
+		for _, appTeams := range appData.ReferencedApps {
+			manifestPath := filepath.Join("environments", string(info.ParentEnvironmentName), "applications", appTeams.AppName, "manifests")
+			manifestPaths = append(manifestPaths, manifestPath)
+			// manifestPaths must begin with a / and are separated by ";"
+			// see https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#manifest-paths-annotation
+			manifestPathsArgoFormat = "/" + manifestPath + ";" + manifestPathsArgoFormat
+
+			teamNames = append(teamNames, appTeams.TeamName)
+		}
+	}
+	teamsAnnotation := strings.Join(teamNames, "_")
 	for k, v := range applicationAnnotations {
 		annotations[k] = v
 	}
-	annotations["com.freiheit.kuberpult/team"] = appData.TeamName
+	annotations["com.freiheit.kuberpult/teams"] = teamsAnnotation
 	annotations["com.freiheit.kuberpult/application"] = name
 	annotations["com.freiheit.kuberpult/environment"] = info.GetFullyQualifiedName()
 	annotations["com.freiheit.kuberpult/aa-parent-environment"] = string(info.ParentEnvironmentName)
 	// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
 	// It has to start with a "/" to be absolute to the git repo.
 	// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
-	annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
-	labels["com.freiheit.kuberpult/team"] = appData.TeamName
+	annotations["argocd.argoproj.io/manifest-generate-paths"] = manifestPathsArgoFormat
+	labels["com.freiheit.kuberpult/teams"] = teamsAnnotation
 	app := v1alpha1.Application{
 		TypeMeta: v1alpha1.ApplicationTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
@@ -187,12 +206,7 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 			Finalizers:  calculateFinalizers(),
 		},
 		Spec: v1alpha1.ApplicationSpec{
-			Project: string(argoProjectName),
-			Source: v1alpha1.ApplicationSource{
-				RepoURL:        gitUrl,
-				Path:           manifestPath,
-				TargetRevision: gitBranch,
-			},
+			Project:     string(argoProjectName),
 			Destination: destination,
 			SyncPolicy: &v1alpha1.SyncPolicy{
 				Automated: &v1alpha1.SyncPolicyAutomated{
@@ -206,11 +220,26 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 			IgnoreDifferences: ignoreDifferences,
 		},
 	}
-	if content, err := yaml.Marshal(&app); err != nil {
+	app.Spec.Sources = generateSources(gitUrl, gitBranch, manifestPaths)
+	content, err := yaml.Marshal(&app)
+	if err != nil {
 		return "", err
-	} else {
-		return string(content), nil
 	}
+	return string(content), nil
+}
+
+// generateSources returns either one ApplicationSource for backwards compatibility with old argo setups
+// or it returns a slice of sources for bracketing
+func generateSources(gitUrl string, gitBranch string, paths []string) v1alpha1.ApplicationSources {
+	sources := []v1alpha1.ApplicationSource{}
+	for _, path := range paths {
+		sources = append(sources, v1alpha1.ApplicationSource{
+			RepoURL:        gitUrl,
+			Path:           path,
+			TargetRevision: gitBranch,
+		})
+	}
+	return sources
 }
 
 func calculateFinalizers() []string {

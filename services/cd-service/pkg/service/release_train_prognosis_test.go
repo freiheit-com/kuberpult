@@ -552,6 +552,7 @@ func TestReleaseTrainAppSkip(t *testing.T) {
 						app,
 						db.AppStateChangeDelete,
 						db.DBAppMetaData{Team: ""}, // does not matter here for the test
+						"",
 					)
 					if err3 != nil {
 						t.Fatalf("error deleting app: %v", err3)

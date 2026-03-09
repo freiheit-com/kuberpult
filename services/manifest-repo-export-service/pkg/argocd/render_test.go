@@ -20,11 +20,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	godebug "github.com/kylelemons/godebug/diff"
+
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd/v1alpha1"
-	"github.com/google/go-cmp/cmp"
-	godebug "github.com/kylelemons/godebug/diff"
 )
 
 func TestRender(t *testing.T) {
@@ -41,15 +42,15 @@ func TestRender(t *testing.T) {
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination: {}
@@ -64,8 +65,8 @@ spec:
     - f
     name: foo
   project: dev
-  source:
-    path: environments/dev/applications/app1/manifests
+  sources:
+  - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
     targetRevision: main
   syncPolicy:
@@ -92,15 +93,15 @@ spec:
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination: {}
@@ -115,8 +116,8 @@ spec:
     - f
     name: foo
   project: dev
-  source:
-    path: environments/dev/applications/app1/manifests
+  sources:
+  - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
     targetRevision: main
   syncPolicy:
@@ -143,15 +144,15 @@ spec:
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination:
@@ -167,8 +168,8 @@ spec:
     - f
     name: foo
   project: dev
-  source:
-    path: environments/dev/applications/app1/manifests
+  sources:
+  - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
     targetRevision: main
   syncPolicy:
@@ -195,15 +196,15 @@ spec:
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: AA-dev-dev-1
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: AA-dev-dev-1-app1
 spec:
   destination:
@@ -219,8 +220,8 @@ spec:
     - f
     name: foo
   project: AA-dev-dev-1
-  source:
-    path: environments/dev/applications/app1/manifests
+  sources:
+  - path: environments/dev/applications/app1/manifests
     repoURL: example.com/github
     targetRevision: main
   syncPolicy:
@@ -242,7 +243,6 @@ spec:
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var (
@@ -261,7 +261,8 @@ spec:
 				gitBranch   = "main"
 
 				appData = AppData{
-					AppName: "app1",
+					ArgoAppName:    "app1",
+					ReferencedApps: []AppTeam{{"app1", ""}},
 				}
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
@@ -385,7 +386,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName: "app1",
+					ArgoAppName:    "app1",
+					ReferencedApps: []AppTeam{{"app1", ""}},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -403,22 +405,22 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: test-env-app1
 spec:
   destination:
     namespace: bar2
   project: test-env
-  source:
-    path: environments/test-env/applications/app1/manifests
+  sources:
+  - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
     targetRevision: branch-name
   syncPolicy:
@@ -441,7 +443,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName: "app1",
+					ArgoAppName:    "app1",
+					ReferencedApps: []AppTeam{{"app1", ""}},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -459,21 +462,21 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: test-env-app1
 spec:
   destination: {}
   project: test-env
-  source:
-    path: environments/test-env/applications/app1/manifests
+  sources:
+  - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
     targetRevision: branch-name
   syncPolicy:
@@ -565,8 +568,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName:  "app1",
-					TeamName: "some-team",
+					ArgoAppName:    "app1",
+					ReferencedApps: []AppTeam{{"app1", "some-team"}},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -584,21 +587,21 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team
   name: test-env-app1
 spec:
   destination: {}
   project: test-env
-  source:
-    path: environments/test-env/applications/app1/manifests
+  sources:
+  - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
     targetRevision: branch-name
   syncPolicy:
@@ -622,8 +625,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName:  "app1",
-					TeamName: "some-team",
+					ArgoAppName:    "app1",
+					ReferencedApps: []AppTeam{{"app1", "some-team"}},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -641,21 +644,21 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests;
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: AA-test-env-dev-1
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team
   name: AA-test-env-dev-1-app1
 spec:
   destination: {}
   project: AA-test-env-dev-1
-  source:
-    path: environments/test-env/applications/app1/manifests
+  sources:
+  - path: environments/test-env/applications/app1/manifests
     repoURL: https://git.example.com/
     targetRevision: branch-name
   syncPolicy:

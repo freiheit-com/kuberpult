@@ -384,7 +384,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 
 				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, appName)
 				if err != nil {
 					return err
 				}
@@ -452,7 +452,7 @@ func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
 		if data, err := util.ReadFile(fs, contentRequirement.path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.path, err)
 		} else if diff := cmp.Diff(string(data), string(contentRequirement.fileData)); diff != "" {
-			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s", contentRequirement.path, diff)
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nDiff: %s\nActual: %s\n", contentRequirement.path, diff, string(data))
 		}
 	}
 	return nil
@@ -947,7 +947,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 
 				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, appName)
 				if err != nil {
 					return err
 				}
@@ -1138,7 +1138,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 
 				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
 					Team: "team-123",
-				})
+				}, appName)
 				if err != nil {
 					return err
 				}
@@ -1699,7 +1699,7 @@ func TestLocks(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
+						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, types.ArgoBracketName(concreteTransformer.Application))
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2010,7 +2010,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
+						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, types.ArgoBracketName(concreteTransformer.Application))
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -2436,7 +2436,7 @@ func TestUndeployLogic(t *testing.T) {
 					}
 					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
+						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, types.ArgoBracketName(concreteTransformer.Application))
 						if err2 != nil {
 							t.Fatal(err2)
 						}
@@ -3610,7 +3610,7 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 	}
 	if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 		concreteTransformer := tr.(*CreateApplicationVersion)
-		err2 := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team})
+		err2 := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, types.ArgoBracketName(concreteTransformer.Application))
 		if err2 != nil {
 			t.Fatal(err2)
 		}

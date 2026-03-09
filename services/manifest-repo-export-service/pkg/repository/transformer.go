@@ -801,6 +801,7 @@ type CreateApplicationVersion struct {
 	PreviousCommit        string                   `json:"previousCommit"`
 	TransformerEslVersion db.TransformerID         `json:"-"`
 	CreationTimestamp     time.Time                `json:"-"`
+	ArgoBracket           types.ArgoBracketName    `json:"argoBracket"`
 }
 
 func (c *CreateApplicationVersion) GetCreationTimestamp() time.Time {
@@ -1988,7 +1989,7 @@ func removeApplicationFromEnvs(fs billy.Filesystem, application types.AppName, c
 	result := make([]types.EnvName, 0)
 	for env := range *configs {
 		appDir := environmentApplicationDirectory(fs, env, string(application))
-		result := append(result, env)
+		result = append(result, env)
 		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return result, fmt.Errorf("unexpected error application '%v' environment '%v': '%w'", application, env, err)
 		}

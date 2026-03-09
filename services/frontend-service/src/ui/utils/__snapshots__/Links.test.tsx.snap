@@ -40,7 +40,7 @@ exports[`ArgoAppLink Renders properly with url 1`] = `
   <div>
     <a
       href="https://example.com/argo/applications?search=-foo"
-      title="Opens this app in ArgoCd for all environments"
+      title="Opens this app/bracket in ArgoCd for all environments"
     >
       foo
     </a>

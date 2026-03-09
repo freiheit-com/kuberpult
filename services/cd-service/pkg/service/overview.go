@@ -70,6 +70,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			Releases:        []*api.Release{},
 			SourceRepoUrl:   "",
 			Team:            "",
+			ArgoBracket:     "",
 		},
 		AppLocks:    make(map[string]*api.Locks),
 		Deployments: make(map[string]*api.Deployment),
@@ -84,6 +85,19 @@ func (o *OverviewServiceServer) GetAppDetails(
 			Releases:        []*api.Release{},
 			SourceRepoUrl:   "",
 			Team:            "",
+			ArgoBracket:     "",
+		}
+
+		// bracket
+		appWithMetadata, err := o.DBHandler.DBSelectApp(ctx, transaction, types.AppName(appName))
+		if err != nil {
+			return nil, fmt.Errorf("app not found: %s: %w", appName, err)
+		}
+		if appWithMetadata.ArgoBracket == "" {
+			// if there is no bracket, the appname is the bracket
+			result.ArgoBracket = appName
+		} else {
+			result.ArgoBracket = string(appWithMetadata.ArgoBracket)
 		}
 
 		// Releases

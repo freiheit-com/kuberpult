@@ -43,11 +43,11 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: my-private-ssh-repo
-  namespace: default
   labels:
     argocd.argoproj.io/secret-type: repository
   namespace: ${ARGO_NAMESPACE}
 stringData:
+  type: git
   url: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
   sshPrivateKey: |
 $(sed -e "s/^/    /" <"$scratch"/client)
@@ -108,7 +108,7 @@ spec:
         imagePullPolicy: Never
         name: "git-init"
         command: ["/bin/sh","-c"]
-        args: ["ls -l /template/; git init --bare /git/repos/manifests"]
+        args: ["ls -l /template/; git init --bare /git/repos/manifests && git --git-dir=/git/repos/manifests symbolic-ref HEAD refs/heads/main"]
         volumeMounts:
         - mountPath: /git/repos
           name: repos
