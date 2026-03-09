@@ -119,7 +119,7 @@ jobs:
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_3\n\`\`\`"
           fi
 
-          MSG+="\n*🔗 View in GitHub Action:* $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          MSG+="\n\n*🔗 View in GitHub Action:* $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
           curl \
             --request POST \
