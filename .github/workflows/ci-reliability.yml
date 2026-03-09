@@ -104,17 +104,17 @@ jobs:
 
           MSG="*CI Reliability Test $EMOJI_RESULT_OVERALL*"
 
-          MSG+="\n\n*Test:* \`ci-test-1\` $EMOJI_RESULT_CI_TEST_1 (cd-service)"
+          MSG+="\n\n*Test 1:* $EMOJI_RESULT_CI_TEST_1 cd-service change rebuilds only itself"
           if [ -n "$VALIDATION_ERRORS_CI_TEST_1" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_1\n\`\`\`"
           fi
 
-          MSG+="\n\n*Test:* \`ci-test-2\` $EMOJI_RESULT_CI_TEST_2 (frontend-service and manifest-repo-export-service)"
+          MSG+="\n\n*Test 2:* $EMOJI_RESULT_CI_TEST_2 frontend-service and manifest-repo-export-service changes rebuild only themselves"
           if [ -n "$VALIDATION_ERRORS_CI_TEST_2" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_2\n\`\`\`"
           fi
 
-          MSG+="\n\n*Test:* \`ci-test-3\` $EMOJI_RESULT_CI_TEST_3 (all services)"
+          MSG+="\n\n*Test 3:* $EMOJI_RESULT_CI_TEST_3 change in pkg rebuilds all"
           if [ -n "$VALIDATION_ERRORS_CI_TEST_3" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_3\n\`\`\`"
           fi
