@@ -90,6 +90,7 @@ jobs:
           git add .
           git commit -m "Automated: Test CI Reliability for ${{ inputs.source_branch }}" || echo "No changes to commit"
           git push origin ${{ inputs.source_branch }}
+          exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   trigger-ci:
@@ -149,6 +150,3 @@ jobs:
         with:
           name: validation-errors-${{ inputs.test_id }}.zip
           path: validation-errors.txt
-        # run: |
-        #   VALIDATION_ERRORS="${{ steps.check-manifest-repo-export-service.outputs.validation_errors }}"
-        #   echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_OUTPUT
