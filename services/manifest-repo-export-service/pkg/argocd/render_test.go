@@ -46,11 +46,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/teams: _
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: _
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination: {}
@@ -99,11 +99,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/teams: _
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: _
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination: {}
@@ -152,11 +152,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/teams: _
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: _
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination:
@@ -206,11 +206,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: AA-dev-dev-1
-    com.freiheit.kuberpult/teams: _
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: _
+    com.freiheit.kuberpult/teams: ""
   name: AA-dev-dev-1-app1
 spec:
   destination:
