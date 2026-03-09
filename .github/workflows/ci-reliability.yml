@@ -33,15 +33,15 @@ jobs:
             check_fe: false
             modify_export: false
             check_export: false
-          # - id: "3" # test change in pkg
-          #   source_branch: automated/ci-reliability/ci-test-3
-          #   modify_pkg: true
-          #   modify_cd: true
-          #   check_cd: true
-          #   modify_fe: true
-          #   check_fe: true
-          #   modify_export: true
-          #   check_export: true
+          - id: "3" # test change in pkg
+            source_branch: automated/ci-reliability/ci-test-3
+            modify_pkg: true
+            modify_cd: true
+            check_cd: true
+            modify_fe: true
+            check_fe: true
+            modify_export: true
+            check_export: true
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       test_id: ${{ matrix.id }}
@@ -65,26 +65,28 @@ jobs:
         with:
           name: validation-errors-1.zip
           path: validation-errors-1
-      # - name: Download validation errors for Test 2
-      #   uses: actions/download-artifact@v6
-      #   with:
-      #     name: validation-errors-2.zip
-      #     path: validation-errors-2
-      # - name: Download validation errors for Test 3
-      #   uses: actions/download-artifact@v6
-      #   with:
-      #     name: validation-errors-3.zip
-      #     path: validation-errors-3
+      - name: Download validation errors for Test 2
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-2.zip
+          path: validation-errors-2
+      - name: Download validation errors for Test 3
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-3.zip
+          path: validation-errors-3
       - name: Notify results
         run: |
           EMOJI_RESULT_OVERALL="✅"
           EMOJI_RESULT_CI_TEST_1="✅"
           EMOJI_RESULT_CI_TEST_2="✅"
-          
+
           VALIDATION_ERRORS_CI_TEST_1="$(cat validation-errors-1/validation-errors.txt)"
           VALIDATION_ERRORS_CI_TEST_2="$(cat validation-errors-2/validation-errors.txt)"
+          VALIDATION_ERRORS_CI_TEST_3="$(cat validation-errors-3/validation-errors.txt)"
           echo "Validation errors 1: $VALIDATION_ERRORS_CI_TEST_1"
           echo "Validation errors 2: $VALIDATION_ERRORS_CI_TEST_2"
+          echo "Validation errors 3: $VALIDATION_ERRORS_CI_TEST_3"
 
           # if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
           #   EMOJI_RESULT_CI_TEST_1="❌"
