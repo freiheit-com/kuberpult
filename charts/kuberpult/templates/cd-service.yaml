@@ -224,6 +224,7 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_MAX_NUMBER_OF_THREADS
           value: "{{ .Values.cd.maxNumberOfThreads }}"
+{{- if .Values.db }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.db.location }}
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
@@ -246,6 +247,7 @@ spec:
           value: "{{ .Values.db.connections.cd.maxOpen }}"
         - name: KUBERPULT_DB_MAX_IDLE_CONNECTIONS
           value: "{{ .Values.db.connections.cd.maxIdle }}"
+{{- end }}
         - name: KUBERPULT_LOCK_TYPE
           value: "{{ .Values.cd.lockType }}"
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
@@ -390,5 +392,7 @@ kind: Secret
 metadata:
   name: kuberpult-db
 data:
+{{- if .Values.db }}
   username: {{ .Values.db.dbUser | b64enc | quote }}
   password: {{ .Values.db.dbPassword | b64enc | quote }}
+{{- end }}
