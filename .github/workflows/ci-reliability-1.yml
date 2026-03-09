@@ -4,9 +4,6 @@ on:
   schedule:
     # Run on workdays at 8:00 AM
     - cron: '0 8 * * 1-5'
-  push:
-    branches:
-      - db-citest
 
 jobs:
   ci-test-1:
@@ -42,8 +39,6 @@ jobs:
           if [ -n "$VALIDATION_ERRORS_CI_TEST_1" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_1\n\`\`\`"
           fi
-
-          echo -e "$MSG"
 
           curl \
             --request POST \
