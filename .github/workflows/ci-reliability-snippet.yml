@@ -142,7 +142,7 @@ jobs:
           previous_validation_errors: ${{ steps.check-frontend-service.outputs.validation_errors }}
       - name: Create validation errors artifact
         run: |
-          echo ${{ steps.check-manifest-repo-export-service.outputs.validation_errors }} > validation-errors.txt
+          echo -e "${{ steps.check-manifest-repo-export-service.outputs.validation_errors }}" > validation-errors.txt
       - name: Upload validation errors
         id: upload-validation-errors
         uses: actions/upload-artifact@v6
