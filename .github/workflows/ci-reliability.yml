@@ -6,33 +6,120 @@ on:
     - cron: '0 8 * * 1-5'
 
 jobs:
-  ci-test-1:
-    name: Test CI Reliability for cd-service
+  ci-test:
+    name: Test CI Reliability ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: "1" # test change in cd-service
+            source_branch: automated/ci-reliability/ci-test-1
+            modify_pkg: false
+            modify_cd: true
+            expect_cd: true
+            modify_fe: false
+            expect_fe: false
+            modify_export: false
+            expect_export: false
+          - id: "2" # test change in frontend-service and manifest-repo-export-service
+            source_branch: automated/ci-reliability/ci-test-2
+            modify_pkg: false
+            modify_cd: false
+            expect_cd: false
+            modify_fe: true
+            expect_fe: true
+            modify_export: true
+            expect_export: true
+          - id: "3" # test change in pkg
+            source_branch: automated/ci-reliability/ci-test-3
+            modify_pkg: true
+            modify_cd: false
+            expect_cd: true
+            modify_fe: false
+            expect_fe: true
+            modify_export: false
+            expect_export: true
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
-      source_branch: automated/ci-reliability/ci-test-1
-      modify_cd_service: true
-      check_new_image_cd_service: true
+      test_id: ${{ matrix.id }}
+      source_branch: ${{ matrix.source_branch }}
+      modify_pkg: ${{ matrix.modify_pkg }}
+      modify_cd_service: ${{ matrix.modify_cd }}
+      expect_new_image_cd_service: ${{ matrix.expect_cd }}
+      modify_frontend_service: ${{ matrix.modify_fe }}
+      expect_new_image_frontend_service: ${{ matrix.expect_fe }}
+      modify_export_service: ${{ matrix.modify_export }}
+      expect_new_image_export_service: ${{ matrix.expect_export }}
     secrets: inherit
   notify-results:
     name: Notify results
-    needs: [ci-test-1]
+    needs: [ci-test]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
+      - name: Download validation errors for Test 1
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-1.zip
+          path: validation-errors-1
+      - name: Download validation errors for Test 2
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-2.zip
+          path: validation-errors-2
+      - name: Download validation errors for Test 3
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-3.zip
+          path: validation-errors-3
       - name: Notify results
         run: |
           EMOJI_RESULT_OVERALL="✅"
           EMOJI_RESULT_CI_TEST_1="✅"
-          if [ -n "${{ needs.ci-test-1.outputs.validation_errors }}" ]; then
+          EMOJI_RESULT_CI_TEST_2="✅"
+          EMOJI_RESULT_CI_TEST_3="✅"
+
+          # If the validation-errors artifact is not uploaded, it means the CI test failed
+          VALIDATION_ERRORS_CI_TEST_1=$(cat validation-errors-1/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
+          VALIDATION_ERRORS_CI_TEST_2=$(cat validation-errors-2/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
+          VALIDATION_ERRORS_CI_TEST_3=$(cat validation-errors-3/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
+
+          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
             EMOJI_RESULT_CI_TEST_1="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
 
-          MSG="*CI Reliability Test $EMOJI_RESULT_OVERALL*"
-          MSG+="\n\n*Test:* \`ci-test-1\` $EMOJI_RESULT_CI_TEST_1 (cd-service)"
-          if [ -n "${{ needs.ci-test-1.outputs.validation_errors }}" ]; then
-            MSG+="\n\`\`\`${{ needs.ci-test-1.outputs.validation_errors }}\n\`\`\`"
+          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_2" ]]; then
+            EMOJI_RESULT_CI_TEST_2="❌"
+            EMOJI_RESULT_OVERALL="❌"
           fi
+
+          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_3" ]]; then
+            EMOJI_RESULT_CI_TEST_3="❌"
+            EMOJI_RESULT_OVERALL="❌"
+          fi
+
+          MSG="*CI Reliability Test $EMOJI_RESULT_OVERALL*"
+
+          MSG+="\n\n*Test 1:* $EMOJI_RESULT_CI_TEST_1 cd-service change rebuilds only itself"
+          if [ -n "$VALIDATION_ERRORS_CI_TEST_1" ]; then
+            MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_1\n\`\`\`"
+          fi
+
+          MSG+="\n\n*Test 2:* $EMOJI_RESULT_CI_TEST_2 frontend-service and manifest-repo-export-service changes rebuild only themselves"
+          if [ -n "$VALIDATION_ERRORS_CI_TEST_2" ]; then
+            MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_2\n\`\`\`"
+          fi
+
+          MSG+="\n\n*Test 3:* $EMOJI_RESULT_CI_TEST_3 change in pkg rebuilds all"
+          if [ -n "$VALIDATION_ERRORS_CI_TEST_3" ]; then
+            MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_3\n\`\`\`"
+          fi
+
+          MSG+="\n\n*🔗 View in GitHub Action:* $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
           curl \
             --request POST \

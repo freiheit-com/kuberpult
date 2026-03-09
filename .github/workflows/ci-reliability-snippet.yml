@@ -3,50 +3,44 @@ name: Test CI Reliability
 on:
   workflow_call:
     inputs:
+      test_id:
+        required: true
+        type: string
+        description: "Unique ID used for naming artifact"
       base_branch:
         required: false
         default: main
         type: string
+        description: "The base branch from which the source branch is created."
       source_branch:
         required: true
         type: string
-        description: "The source branch must follow this format: automated/ci-reliability/ci-test-<no>"
+        description: "The source branch must follow this format: automated/ci-reliability/ci-test-<no>."
 
       # enable services to be modified
       modify_cd_service:
-        required: false
-        default: false
+        required: true
         type: boolean
       modify_frontend_service:
-        required: false
-        default: false
+        required: true
         type: boolean
       modify_export_service:
-        required: false
-        default: false
+        required: true
         type: boolean
       modify_pkg:
-        required: false
-        default: false
+        required: true
         type: boolean
       
       # enable checks: verify if new images is built for services
-      check_new_image_cd_service:
-        required: false
-        default: false
+      expect_new_image_cd_service:
+        required: true
         type: boolean
-      check_new_image_frontend_service:
-        required: false
-        default: false
+      expect_new_image_frontend_service:
+        required: true
         type: boolean
-      check_new_image_export_service:
-        required: false
-        default: false
+      expect_new_image_export_service:
+        required: true
         type: boolean
-    outputs:
-      validation_errors:
-        description: "Validation errors"
-        value: ${{ jobs.check-new-images.outputs.validation_errors }}
 
 jobs:
   introduce-changes:
@@ -99,13 +93,12 @@ jobs:
       trigger: pull-request
       ref: ${{ inputs.source_branch }}
       skip_unversioned_builds: true
+      run_id: ${{ inputs.test_id }}
     secrets: inherit
   check-new-images:
     name: "Check newly built images on registry"
     needs: [trigger-ci]
     runs-on: ubuntu-latest
-    outputs:
-      validation_errors: ${{ steps.collect-failed-results.outputs.validation_errors }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -120,61 +113,31 @@ jobs:
           echo "Published image tag: $IMAGE_TAG"
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
       - name: Check newly built image for cd-service
-        run: |
-          IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service"
-          MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
-          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
-
-          echo "Main image digest: $MAIN_IMAGE_DIGEST"
-          echo "New image digest: $NEW_IMAGE_DIGEST"
-
-          if [[ ${{ inputs.check_new_image_cd_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
-            VALIDATION_ERRORS="$VALIDATION_ERRORS\ncd-service must not be built"
-            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
-          fi
-
-          if [[ ${{ inputs.check_new_image_cd_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-            VALIDATION_ERRORS="$VALIDATION_ERRORS\ncd-service must be built"
-            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
-          fi
+        id: check-cd-service
+        uses: ./.github/actions/check-image-build
+        with:
+          service_name: "cd-service"
+          expect_new_image: ${{ inputs.expect_new_image_cd_service }}
       - name: Check newly built image for frontend-service
-        run: |
-          IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service"
-          MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
-          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
-
-          echo "Main image digest: $MAIN_IMAGE_DIGEST"
-          echo "New image digest: $NEW_IMAGE_DIGEST"
-
-          if [[ ${{ inputs.check_new_image_frontend_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
-            VALIDATION_ERRORS="$VALIDATION_ERRORS\nfrontend-service must not be built"
-            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
-          fi
-
-          if [[ ${{ inputs.check_new_image_frontend_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-            VALIDATION_ERRORS="$VALIDATION_ERRORS\nfrontend-service must be built"
-            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
-          fi
+        id: check-frontend-service
+        uses: ./.github/actions/check-image-build
+        with:
+          service_name: "frontend-service"
+          expect_new_image: ${{ inputs.expect_new_image_frontend_service }}
       - name: Check newly built image for manifest-repo-export-service
+        id: check-manifest-repo-export-service
+        uses: ./.github/actions/check-image-build
+        with:
+          service_name: "manifest-repo-export-service"
+          expect_new_image: ${{ inputs.expect_new_image_export_service }}
+      - name: Create validation errors artifact
         run: |
-          IMAGE_NAME="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service"
-          MAIN_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:main)"
-          NEW_IMAGE_DIGEST="$(skopeo inspect -f '{{.Digest}}' docker://$IMAGE_NAME:$IMAGE_TAG 2>/dev/null || echo 'not-found')"
-
-          echo "Main image digest: $MAIN_IMAGE_DIGEST"
-          echo "New image digest: $NEW_IMAGE_DIGEST"
-
-          if [[ ${{ inputs.check_new_image_export_service }} == false ]] && [[ $MAIN_IMAGE_DIGEST != $NEW_IMAGE_DIGEST ]]; then
-            VALIDATION_ERRORS="$VALIDATION_ERRORS\nmanifest-repo-export-service must not be built"
-            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
-          fi
-
-          if [[ ${{ inputs.check_new_image_export_service }} == true ]] && [[ $MAIN_IMAGE_DIGEST == $NEW_IMAGE_DIGEST ]]; then
-            VALIDATION_ERRORS="$VALIDATION_ERRORS\nmanifest-repo-export-service must be built"
-            echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_ENV
-          fi
-      - name: Collect failed results
-        id: collect-failed-results
-        run: |
-          echo "VALIDATION_ERRORS=$VALIDATION_ERRORS" >> $GITHUB_OUTPUT
-          echo -e "Validation errors: $VALIDATION_ERRORS"
+          echo "${{ steps.check-cd-service.outputs.validation_errors }}" >> validation-errors.txt
+          echo "${{ steps.check-frontend-service.outputs.validation_errors }}" >> validation-errors.txt
+          echo "${{ steps.check-manifest-repo-export-service.outputs.validation_errors }}" >> validation-errors.txt
+      - name: Upload validation errors
+        id: upload-validation-errors
+        uses: actions/upload-artifact@v6
+        with:
+          name: validation-errors-${{ inputs.test_id }}.zip
+          path: validation-errors.txt
