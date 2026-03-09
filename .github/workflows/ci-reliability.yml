@@ -64,22 +64,22 @@ jobs:
         uses: actions/download-artifact@v6
         with:
           name: validation-errors-1.zip
-          path: validation-errors-1.txt
+          path: validation-errors-1
       # - name: Download validation errors for Test 2
       #   uses: actions/download-artifact@v6
       #   with:
       #     name: validation-errors-2.zip
-      #     path: validation-errors-2.txt
+      #     path: validation-errors-2
       # - name: Download validation errors for Test 3
       #   uses: actions/download-artifact@v6
       #   with:
       #     name: validation-errors-3.zip
-      #     path: validation-errors-3.txt
+      #     path: validation-errors-3
       - name: Notify results
         run: |
           EMOJI_RESULT_OVERALL="✅"
           EMOJI_RESULT_CI_TEST_1="✅"
-          VALIDATION_ERRORS_CI_TEST_1="$(cat validation-errors-1.txt)"
+          VALIDATION_ERRORS_CI_TEST_1="$(cat validation-errors-1/validation-errors.txt)"
           echo "Validation errors 1: $VALIDATION_ERRORS_CI_TEST_1"
 
           # if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
