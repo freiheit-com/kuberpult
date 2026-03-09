@@ -62,9 +62,9 @@ jobs:
       - name: Notify results
         run: |
           echo "Notify results..."
-          echo "${{ needs.ci-test.outputs }}"
-          echo "${{ needs.ci-test.outputs['1'] }}"
-          echo "${{ needs.ci-test.outputs['1'].validation_errors }}"
+          # echo "${{ needs.ci-test.outputs }}"
+          # echo "${{ needs.ci-test.outputs['1'] }}"
+          # echo "${{ needs.ci-test.outputs['1'].validation_errors }}"
 
           # EMOJI_RESULT_OVERALL="✅"
           # EMOJI_RESULT_CI_TEST_1="✅"
