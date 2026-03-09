@@ -10,12 +10,13 @@ on:
 
 jobs:
   ci-test:
-    name: Test CI Reliability (${{ matrix.test }})
+    name: Test CI Reliability (${{ matrix.id }})
     strategy:
       fail-fast: false
       matrix:
         include:
-          - test: "1" # test change in cd-service
+          - id: "1" # test change in cd-service
+            source_branch: automated/ci-reliability/ci-test-1
             modify_pkg: false
             modify_cd: false
             check_cd: false
@@ -23,15 +24,17 @@ jobs:
             check_fe: false
             modify_export: false
             check_export: false
-          # - test: "2" # test change in frontend-service and manifest-repo-export-service
-          #   modify_pkg: false
-          #   modify_cd: false
-          #   check_cd: false
-          #   modify_fe: true
-          #   check_fe: true
-          #   modify_export: true
-          #   check_export: true
-          # - test: "3" # test change in pkg
+          - id: "2" # test change in frontend-service and manifest-repo-export-service
+            source_branch: automated/ci-reliability/ci-test-2
+            modify_pkg: false
+            modify_cd: false
+            check_cd: false
+            modify_fe: false
+            check_fe: false
+            modify_export: false
+            check_export: false
+          # - id: "3" # test change in pkg
+          #   source_branch: automated/ci-reliability/ci-test-3
           #   modify_pkg: true
           #   modify_cd: true
           #   check_cd: true
@@ -41,7 +44,7 @@ jobs:
           #   check_export: true
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
-      source_branch: automated/ci-reliability/ci-test
+      source_branch: ${{ matrix.source_branch }}
       modify_pkg: ${{ matrix.modify_pkg }}
       modify_cd_service: ${{ matrix.modify_cd }}
       check_new_image_cd_service: ${{ matrix.check_cd }}
@@ -59,7 +62,8 @@ jobs:
       - name: Notify results
         run: |
           echo "Notify results..."
-          echo "${{ needs.ci-test.outputs.validation_errors }}"
+          echo "${{ needs.ci-test.outputs }}"
+          echo "${{ needs.ci-test.outputs['1'] }}"
 
           # EMOJI_RESULT_OVERALL="✅"
           # EMOJI_RESULT_CI_TEST_1="✅"

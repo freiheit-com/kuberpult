@@ -8,7 +8,7 @@ inputs:
     description: "Expect that the image is newly built"
     required: true
   previous_validation_errors:
-    description: "The input contains validation errors from previous actions. The current action appends its own errors and outputs the result to outputs.validation_errors. Finally, notify-results picks up the final list to send the alert."
+    description: "The input contains validation errors from previous actions. The current action appends its own errors and outputs the result to outputs.validation_errors."
     required: false
     default: ""
 
