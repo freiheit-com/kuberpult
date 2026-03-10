@@ -210,6 +210,16 @@ jobs:
         uses: ./.github/actions/post-build-action
         with:
           data: ${{ toJSON(matrix.data) }}
+      - name: Create safe artifact name
+        id: safe-artifact-name
+        run: |
+          # Replace all "/" with "_"
+          DIR="${{ matrix.data.directory }}"
+          echo "safe_dir=${DIR//\//_}" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "linting-report-${{ safe-artifact-name.safe_dir }}-${{ inputs.run_id }}.zip"
+          path: ".golangci_lint.log"
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:

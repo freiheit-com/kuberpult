@@ -35,6 +35,7 @@ services/cd-service/repository_checked_out/
 CHANGELOG.tmp.md
 vendor/
 docker.env
+.golangci_lint.log
 
 # local setup
 .direnv
