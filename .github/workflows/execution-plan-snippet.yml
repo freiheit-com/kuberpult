@@ -213,7 +213,7 @@ jobs:
       - name: Create safe artifact name
         id: safe-artifact-name
         run: |
-          # Replace all "/" with "_"
+          # Replace "/" with "_"
           DIR="${{ matrix.data.directory }}"
           echo "safe_dir=${DIR//\//_}" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v4
