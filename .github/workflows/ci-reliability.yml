@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - su-accept-1
+      - su-accept-2-no-pkg
 
 jobs:
   ci-test:
