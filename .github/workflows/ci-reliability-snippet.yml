@@ -172,7 +172,7 @@ jobs:
           echo "CI job ID: ${{ needs.trigger-ci.job_id }}"
           echo "CI job status: ${{ needs.trigger-ci.result }}"
 
-          gh run view --log --job trigger-ci > failure.log
+          gh run view --log --job ${{ needs.trigger-ci.job_id }} > failure.log
           
           echo "--- START OF FAILED LOG ---"
           cat failure.log
