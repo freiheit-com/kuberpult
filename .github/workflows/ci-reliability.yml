@@ -74,6 +74,7 @@ jobs:
           #   expect_fe: false
           #   expect_export: false
           - id: "5" # test linter reliability
+            # this check must have id=5 to make the check-linting-errors work, see ci-reliablity-snippet
             source_branch: automated/ci-reliability/ci-test-5
             modify_pkg: false
             modify_cd: false

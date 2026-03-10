@@ -114,7 +114,7 @@ jobs:
     secrets: inherit
   check-new-images:
     name: "Check newly built images on registry"
-    if: ${{ inputs.check_new_images }} == true
+    if: ${{ inputs.check_new_images == true }}
     needs: [trigger-ci]
     runs-on: ubuntu-latest
     steps:
@@ -160,7 +160,7 @@ jobs:
           name: validation-errors-${{ inputs.test_id }}.zip
           path: validation-errors.txt
   check-linting-errors:
-    # check if the golangci-lint detects the injected linting error
+    # check if the golangci-lint detects the injected linting error in cd-service
     # this check is only run when inputs.inject_linting_error is set to true
     name: "Check linting errors"
     if: ${{ inputs.inject_linting_error == true && always() }}
@@ -175,15 +175,16 @@ jobs:
           echo 'trigger-ci job data: ${{ toJson(needs.trigger-ci) }}'
           echo "github.run_id: ${{ github.run_id }}"
 
+          # this command depends on the fact that the job name that we want to extract logs from is "Test CI Reliability 5 - services/cd-service - Build and Publish"
           JOB_ID=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs \
-            --jq ".jobs[] | select(.name == \"${{ github.job }}\") | .id")
+            --jq ".jobs[] | select (.name == \"Test CI Reliability 5 / Trigger CI build with specific ref / services/cd-service - Build and Publish\") | .id")
           
+          echo "gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs"
           echo "The numeric Job ID is: $JOB_ID"
 
-
-          gh run view --log --job 66441603905 > build-cd-service.log
+          gh run view --log --job $JOB_ID > build-cd-service.log
           echo "--- START OF FAILED LOG ---"
-          #cat build-cd-service.log
+          cat build-cd-service.log
           echo "--- END OF FAILED LOG ---"
 
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
