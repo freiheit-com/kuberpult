@@ -158,27 +158,27 @@ jobs:
           VALIDATION_ERRORS_CI_TEST_4=$(cat validation-errors-4/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
           VALIDATION_ERRORS_CI_TEST_5=$(cat validation-errors-5/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
 
-          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
+          if [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
             EMOJI_RESULT_CI_TEST_1="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
 
-          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_2" ]]; then
+          if [[ -n "$VALIDATION_ERRORS_CI_TEST_2" ]]; then
             EMOJI_RESULT_CI_TEST_2="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
 
-          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_3" ]]; then
+          if [[ -n "$VALIDATION_ERRORS_CI_TEST_3" ]]; then
             EMOJI_RESULT_CI_TEST_3="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
 
-          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_4" ]]; then
+          if [[ -n "$VALIDATION_ERRORS_CI_TEST_4" ]]; then
             EMOJI_RESULT_CI_TEST_4="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
 
-          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_5" ]]; then
+          if [[ -n "$VALIDATION_ERRORS_CI_TEST_5" ]]; then
             EMOJI_RESULT_CI_TEST_5="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
