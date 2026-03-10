@@ -26,6 +26,7 @@ jobs:
           #   modify_export: false
           #   expect_export: false
           #   inject_linting_error: false
+          #   modify_readme: true
           # - id: "2" # test change in frontend-service and manifest-repo-export-service
           #   source_branch: automated/ci-reliability/ci-test-2
           #   modify_pkg: false
@@ -36,6 +37,7 @@ jobs:
           #   modify_export: true
           #   expect_export: true
           #   inject_linting_error: false
+          #   modify_readme: true
           # - id: "3" # test change in pkg
           #   source_branch: automated/ci-reliability/ci-test-3
           #   modify_pkg: true
@@ -46,8 +48,20 @@ jobs:
           #   modify_export: false
           #   expect_export: true
           #   inject_linting_error: false
-          - id: "4" # test linter reliability
-            source_branch: automated/ci-reliability/ci-test-4
+          #   modify_readme: false
+          # - id: "4" # test linter reliability
+          #   source_branch: automated/ci-reliability/ci-test-4
+          #   modify_pkg: false
+          #   modify_cd: false
+          #   expect_cd: false
+          #   modify_fe: false
+          #   expect_fe: false
+          #   modify_export: false
+          #   expect_export: false
+          #   inject_linting_error: true
+          #   modify_readme: false
+          - id: "5" # test change in readme file
+            source_branch: automated/ci-reliability/ci-test-5
             modify_pkg: false
             modify_cd: false
             expect_cd: false
@@ -55,7 +69,8 @@ jobs:
             expect_fe: false
             modify_export: false
             expect_export: false
-            inject_linting_error: true
+            inject_linting_error: false
+            modify_readme: true
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       test_id: ${{ matrix.id }}
@@ -68,6 +83,7 @@ jobs:
       modify_export_service: ${{ matrix.modify_export }}
       expect_new_image_export_service: ${{ matrix.expect_export }}
       inject_linting_error: ${{ matrix.inject_linting_error }}
+      modify_readme: ${{ matrix.modify_readme }}
     secrets: inherit
   notify-results:
     name: Notify results
@@ -93,17 +109,33 @@ jobs:
         with:
           name: validation-errors-3.zip
           path: validation-errors-3
+      - name: Download validation errors for Test 4
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-4.zip
+          path: validation-errors-4
+      - name: Download validation errors for Test 5
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-5.zip
+          path: validation-errors-5          
       - name: Notify results
         run: |
           EMOJI_RESULT_OVERALL="✅"
           EMOJI_RESULT_CI_TEST_1="✅"
           EMOJI_RESULT_CI_TEST_2="✅"
           EMOJI_RESULT_CI_TEST_3="✅"
+          EMOJI_RESULT_CI_TEST_4="✅"
+          EMOJI_RESULT_CI_TEST_5="✅"
 
           # If the validation-errors artifact is not uploaded, it means the CI test failed
           VALIDATION_ERRORS_CI_TEST_1=$(cat validation-errors-1/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
           VALIDATION_ERRORS_CI_TEST_2=$(cat validation-errors-2/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
           VALIDATION_ERRORS_CI_TEST_3=$(cat validation-errors-3/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
+          VALIDATION_ERRORS_CI_TEST_4=$(cat validation-errors-4/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
+          VALIDATION_ERRORS_CI_TEST_5=$(cat validation-errors-5/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
 
           if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
             EMOJI_RESULT_CI_TEST_1="❌"
@@ -117,6 +149,16 @@ jobs:
 
           if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_3" ]]; then
             EMOJI_RESULT_CI_TEST_3="❌"
+            EMOJI_RESULT_OVERALL="❌"
+          fi
+
+          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_4" ]]; then
+            EMOJI_RESULT_CI_TEST_4="❌"
+            EMOJI_RESULT_OVERALL="❌"
+          fi
+
+          if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_5" ]]; then
+            EMOJI_RESULT_CI_TEST_5="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
 
@@ -135,6 +177,16 @@ jobs:
           MSG+="\n\n*Test 3:* $EMOJI_RESULT_CI_TEST_3 change in pkg rebuilds all"
           if [ -n "$VALIDATION_ERRORS_CI_TEST_3" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_3\n\`\`\`"
+          fi
+
+          MSG+="\n\n*Test 4:* $EMOJI_RESULT_CI_TEST_4 linting error in cd-service"
+          if [ -n "$VALIDATION_ERRORS_CI_TEST_4" ]; then
+            MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_4\n\`\`\`"
+          fi
+
+          MSG+="\n\n*Test 5:* $EMOJI_RESULT_CI_TEST_5 change in README does not rebuild any"
+          if [ -n "$VALIDATION_ERRORS_CI_TEST_5" ]; then
+            MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_5\n\`\`\`"
           fi
 
           MSG+="\n\n*🔗 View in GitHub Action:* $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

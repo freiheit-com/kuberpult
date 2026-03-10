@@ -33,6 +33,9 @@ on:
       inject_linting_error:
         required: true
         type: boolean
+      modify_readme:
+        required: true
+        type: boolean
       
       # enable checks: verify if new images is built for services
       expect_new_image_cd_service:
@@ -79,10 +82,14 @@ jobs:
         if: inputs.modify_export_service == true
         run: |
           echo -e "\nfunc TestCIReliability_$(date +%s%6N)() {}" >> services/manifest-repo-export-service/cmd/server/main.go
-      - name: Inject liniting error in pkg
+      - name: Inject liniting error in cd-service
         if: inputs.inject_linting_error == true
         run: |
-          echo -e "\nconst unusedConst = \"\"" >> pkg/api/api.go
+          echo -e "\nconst unusedConst = \"\"" >> services/cd-service/cmd/server/main.go
+      - name: Modify README.md
+        if: inputs.modify_readme == true
+        run: |
+          echo -e "\nTest reliability" >> README.md
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
