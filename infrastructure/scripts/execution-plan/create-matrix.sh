@@ -50,19 +50,19 @@ function createMatrix() {
   debug "grep for linter/make: ${grepOutput}"
 
   # if we have pkg, then build all go services
-#  grepOutput=$(echo "${ALL_FILES}" | grep '^pkg')
-#  # shellcheck disable=SC2181
-#  if [ "$?" -eq 0 ]
-#  then
-#    debug "pkg was touched, therefore we need to build all of stage B as well."
-#    for stageB in $STAGE_B_BUILDS
-#    do
-#      ALL_FILES=$(echo -e "${ALL_FILES}\n${stageB}\n")
-#    done
-#  else
-#    debug "pkg untouched, no need to build all of stage B"
-#  fi
-#  debug "grep for pkg: ${grepOutput}"
+  grepOutput=$(echo "${ALL_FILES}" | grep '^pkg')
+  # shellcheck disable=SC2181
+  if [ "$?" -eq 0 ]
+  then
+    debug "pkg was touched, therefore we need to build all of stage B as well."
+    for stageB in $STAGE_B_BUILDS
+    do
+      ALL_FILES=$(echo -e "${ALL_FILES}\n${stageB}\n")
+    done
+  else
+    debug "pkg untouched, no need to build all of stage B"
+  fi
+  debug "grep for pkg: ${grepOutput}"
 
   # if we have a change in go.mod, we need to rebuild the builder image:
   grepOutput=$(echo "${ALL_FILES}" | grep '^go.mod')
