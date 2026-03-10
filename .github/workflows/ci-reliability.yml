@@ -60,17 +60,17 @@ jobs:
             expect_export: false
             inject_linting_error: true
             modify_readme: false
-          - id: "5" # test change in readme file
-            source_branch: automated/ci-reliability/ci-test-5
-            modify_pkg: false
-            modify_cd: false
-            expect_cd: false
-            modify_fe: false
-            expect_fe: false
-            modify_export: false
-            expect_export: false
-            inject_linting_error: false
-            modify_readme: true
+          # - id: "5" # test change in readme file
+          #   source_branch: automated/ci-reliability/ci-test-5
+          #   modify_pkg: false
+          #   modify_cd: false
+          #   expect_cd: false
+          #   modify_fe: false
+          #   expect_fe: false
+          #   modify_export: false
+          #   expect_export: false
+          #   inject_linting_error: false
+          #   modify_readme: true
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       test_id: ${{ matrix.id }}

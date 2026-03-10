@@ -163,20 +163,24 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: "Print previously failed job"
         run: |
           sleep 5
-          echo "CI Job status: ${{ needs.trigger-ci.result }}"
+          echo "CI job ID: ${{ needs.trigger-ci.job_id }}"
+          echo "CI job status: ${{ needs.trigger-ci.result }}"
 
-          gh run view ${{ github.run_id }} --job build --log > failure.log
+          gh run view --log --job trigger-ci > failure.log
           
           echo "--- START OF FAILED LOG ---"
           cat failure.log
           echo "--- END OF FAILED LOG ---"
-      - name: Upload log as artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: failure-logs
-          path: failure.log
+      # - name: Upload log as artifact
+      #   uses: actions/upload-artifact@v6
+      #   with:
+      #     name: failure-logs
+      #     path: failure.log
     
     
