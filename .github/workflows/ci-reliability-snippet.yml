@@ -100,7 +100,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   trigger-ci:
-    name: Trigger CI build with specific ref
+    name: 'Trigger CI build with specific ref'
     needs: [introduce-changes]
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
@@ -160,8 +160,6 @@ jobs:
     if: ${{ always() }}
     needs: [trigger-ci]
     runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -173,11 +171,18 @@ jobs:
           echo "CI job ID: ${{ needs.trigger-ci.job_id }}"
           echo "CI job status: ${{ needs.trigger-ci.result }}"
 
-          # gh run view --log --job ${{ needs.trigger-ci.job_id }} > failure.log
+          gh run view --log --job 66441603905 > failure.log
+          gh run view --job 66441603905 > failure2.log
           
-          # echo "--- START OF FAILED LOG ---"
-          # cat failure.log
-          # echo "--- END OF FAILED LOG ---"
+          echo "--- START OF FAILED LOG ---"
+          cat failure.log
+          echo "--- END OF FAILED LOG ---"
+          echo "--- START OF FAILED LOG ---"
+          cat failure2.log
+          echo "--- END OF FAILED LOG ---"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # - name: Upload log as artifact
       #   uses: actions/upload-artifact@v6
       #   with:
