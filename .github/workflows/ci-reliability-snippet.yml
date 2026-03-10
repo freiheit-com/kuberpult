@@ -155,38 +155,41 @@ jobs:
         with:
           name: validation-errors-${{ inputs.test_id }}.zip
           path: validation-errors.txt
-  check-errors:
-    name: "Check expected errors"
-    if: ${{ always() }}
+  check-linting-errors:
+    # check if the golangci-lint detects the injected linting error
+    # this check is only run when inputs.inject_linting_error is set to true
+    name: "Check linting errors"
+    if: ${{ inputs.inject_linting_error == true && always() }}
     needs: [trigger-ci]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: "Print previously failed job"
+      - name: "Check linting errors"
         run: |
-          # sleep 5
-          echo '${{ toJson(needs) }}'
-          echo "CI job ID: ${{ needs.trigger-ci.job_id }}"
-          echo "CI job status: ${{ needs.trigger-ci.result }}"
+          echo 'trigger-ci job data: ${{ toJson(needs.trigger-ci) }}'
 
-          gh run view --log --job 66441603905 > failure.log
-          gh run view --job 66441603905 > failure2.log
-          
+          gh run view --log --job 66441603905 > build-cd-service.log
           echo "--- START OF FAILED LOG ---"
-          cat failure.log
+          cat build-cd-service.log
           echo "--- END OF FAILED LOG ---"
-          echo "--- START OF FAILED LOG ---"
-          cat failure2.log
-          echo "--- END OF FAILED LOG ---"
+
+          if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
+            echo "CI build must be failed due to linting error" >> validation-errors.txt
+          else if [[ ! -n $(grep "services/cd-service/cmd/server/main.go" build-cd-service.log | grep "const unusedConst is unused") ]]; then
+            # the injected linting error is not correctly detected: unused const "unusedConst" in main.go file
+            echo "Linting error not detected" >> validation-errors.txt
+          fi
+
+          echo "Linting error is correctly detected" >> validation-errors.txt
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Upload log as artifact
-      #   uses: actions/upload-artifact@v6
-      #   with:
-      #     name: failure-logs
-      #     path: failure.log
+      - name: Upload validation errors
+        id: upload-validation-errors
+        uses: actions/upload-artifact@v6
+        with:
+          name: validation-errors-${{ inputs.test_id }}.zip
+          path: validation-errors.txt
     
     
