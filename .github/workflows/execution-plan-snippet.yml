@@ -218,7 +218,7 @@ jobs:
           echo "safe_dir=${DIR//\//_}" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v4
         with:
-          name: "linting-report-${{ safe-artifact-name.safe_dir }}-${{ inputs.run_id }}.zip"
+          name: "linting-report-${{ steps.safe-artifact-name.outputs.safe_dir }}-${{ inputs.run_id }}.zip"
           path: ".golangci_lint.log"
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
