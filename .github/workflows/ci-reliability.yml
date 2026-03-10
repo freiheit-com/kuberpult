@@ -21,70 +21,89 @@ jobs:
           #   source_branch: automated/ci-reliability/ci-test-1
           #   modify_pkg: false
           #   modify_cd: true
-          #   expect_cd: true
           #   modify_fe: false
-          #   expect_fe: false
           #   modify_export: false
-          #   expect_export: false
+
+          #   modify_readme: false
           #   inject_linting_error: false
-          #   modify_readme: true
+
+          #   check_new_images: true
+          #   expect_cd: true
+          #   expect_fe: false
+          #   expect_export: false
           # - id: "2" # test change in frontend-service and manifest-repo-export-service
           #   source_branch: automated/ci-reliability/ci-test-2
           #   modify_pkg: false
           #   modify_cd: false
-          #   expect_cd: false
           #   modify_fe: true
-          #   expect_fe: true
           #   modify_export: true
-          #   expect_export: true
+
+          #   modify_readme: false
           #   inject_linting_error: false
-          #   modify_readme: true
+
+          #   check_new_images: true
+          #   expect_cd: false
+          #   expect_fe: true
+          #   expect_export: true
           # - id: "3" # test change in pkg
           #   source_branch: automated/ci-reliability/ci-test-3
           #   modify_pkg: true
           #   modify_cd: false
-          #   expect_cd: true
           #   modify_fe: false
-          #   expect_fe: true
           #   modify_export: false
-          #   expect_export: true
-          #   inject_linting_error: false
+
           #   modify_readme: false
-          - id: "4" # test linter reliability
-            source_branch: automated/ci-reliability/ci-test-4
-            modify_pkg: false
-            modify_cd: false
-            expect_cd: false
-            modify_fe: false
-            expect_fe: false
-            modify_export: false
-            expect_export: false
-            inject_linting_error: true
-            modify_readme: false
-          # - id: "5" # test change in readme file
-          #   source_branch: automated/ci-reliability/ci-test-5
+          #   inject_linting_error: false
+
+          #   check_new_images: true
+          #   expect_cd: true
+          #   expect_fe: true
+          #   expect_export: true
+          # - id: "4" # test change in readme file
+          #   source_branch: automated/ci-reliability/ci-test-4
           #   modify_pkg: false
           #   modify_cd: false
-          #   expect_cd: false
           #   modify_fe: false
-          #   expect_fe: false
           #   modify_export: false
-          #   expect_export: false
-          #   inject_linting_error: false
+
           #   modify_readme: true
+          #   inject_linting_error: false
+
+          #   check_new_images: true
+          #   expect_cd: false
+          #   expect_fe: false
+          #   expect_export: false
+          - id: "5" # test linter reliability
+            source_branch: automated/ci-reliability/ci-test-5
+            modify_pkg: false
+            modify_cd: false
+            modify_fe: false
+            modify_export: false
+
+            modify_readme: false
+            inject_linting_error: true
+
+            check_new_images: false
+            expect_cd: false
+            expect_fe: false
+            expect_export: false
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       test_id: ${{ matrix.id }}
       source_branch: ${{ matrix.source_branch }}
+
       modify_pkg: ${{ matrix.modify_pkg }}
       modify_cd_service: ${{ matrix.modify_cd }}
-      expect_new_image_cd_service: ${{ matrix.expect_cd }}
       modify_frontend_service: ${{ matrix.modify_fe }}
-      expect_new_image_frontend_service: ${{ matrix.expect_fe }}
       modify_export_service: ${{ matrix.modify_export }}
-      expect_new_image_export_service: ${{ matrix.expect_export }}
-      inject_linting_error: ${{ matrix.inject_linting_error }}
+      
       modify_readme: ${{ matrix.modify_readme }}
+      inject_linting_error: ${{ matrix.inject_linting_error }}
+
+      check_new_images: ${{ matrix.check_new_images }}
+      expect_new_image_cd_service: ${{ matrix.expect_cd }}
+      expect_new_image_frontend_service: ${{ matrix.expect_fe }}
+      expect_new_image_export_service: ${{ matrix.expect_export }}
     secrets: inherit
   notify-results:
     name: Notify results
@@ -180,12 +199,12 @@ jobs:
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_3\n\`\`\`"
           fi
 
-          MSG+="\n\n*Test 4:* $EMOJI_RESULT_CI_TEST_4 linting error in cd-service"
+          MSG+="\n\n*Test 4:* $EMOJI_RESULT_CI_TEST_4 change in README does not rebuild any"
           if [ -n "$VALIDATION_ERRORS_CI_TEST_4" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_4\n\`\`\`"
           fi
 
-          MSG+="\n\n*Test 5:* $EMOJI_RESULT_CI_TEST_5 change in README does not rebuild any"
+          MSG+="\n\n*Test 5:* $EMOJI_RESULT_CI_TEST_5 linting error in cd-service is detected"
           if [ -n "$VALIDATION_ERRORS_CI_TEST_5" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_5\n\`\`\`"
           fi

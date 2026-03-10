@@ -38,6 +38,9 @@ on:
         type: boolean
       
       # enable checks: verify if new images is built for services
+      check_new_images:
+        required: true
+        type: boolean
       expect_new_image_cd_service:
         required: true
         type: boolean
@@ -111,6 +114,7 @@ jobs:
     secrets: inherit
   check-new-images:
     name: "Check newly built images on registry"
+    if: ${{ inputs.check_new_images }} == true
     needs: [trigger-ci]
     runs-on: ubuntu-latest
     steps:
@@ -184,7 +188,7 @@ jobs:
 
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
             echo "CI build must be failed due to linting error" >> validation-errors.txt
-          else if [[ ! -n $(grep "services/cd-service/cmd/server/main.go" build-cd-service.log | grep "const unusedConst is unused") ]]; then
+          elif [[ ! -n $(grep "services/cd-service/cmd/server/main.go" build-cd-service.log | grep "const unusedConst is unused") ]]; then
             # the injected linting error is not correctly detected: unused const "unusedConst" in main.go file
             echo "Linting error not detected" >> validation-errors.txt
           fi
