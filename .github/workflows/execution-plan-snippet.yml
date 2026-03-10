@@ -21,7 +21,10 @@ on:
         default: "0"
         type: string
         description: "This unique ID is required when running this workflow in a matrix strategy to prevent duplicate artifact names."
-
+    outputs:
+      fullversion:
+        description: "The full unique version being built/tested."
+        value: ${{ jobs.execution_plan.outputs.fullversion }}
 jobs:
   execution_plan:
     runs-on: ubuntu-latest
@@ -43,6 +46,8 @@ jobs:
         run: |
           gcloud auth configure-docker europe-docker.pkg.dev
       - run: mkdir -p artifacts/
+      - id: set_version
+        run: echo "fullversion=$(make version)" >> $GITHUB_ENV
       - name: Set version pr
         if: inputs.trigger == 'pull-request'
         run: |
@@ -78,6 +83,7 @@ jobs:
     outputs:
       stage_a: ${{ steps.splitplan.outputs.stage_a }}
       stage_b: ${{ steps.splitplan.outputs.stage_b }}
+      fullversion: ${{ steps.set_version.outputs.version }}
   stageA_build:
     needs: [execution_plan]
     if: needs.execution_plan.outputs.stage_a != 'null'
@@ -100,7 +106,7 @@ jobs:
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          echo "VERSION=$(make version)" >> $GITHUB_ENV
+          echo "VERSION=${{ needs.execution_plan.outputs.fullversion }}" >> $GITHUB_ENV
       - name: Set version tag
         if: inputs.trigger == 'tag'
         run: |
@@ -175,7 +181,7 @@ jobs:
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          echo "VERSION=$(make version)" >> $GITHUB_ENV
+          echo "VERSION=${{ needs.execution_plan.outputs.fullversion }}" >> $GITHUB_ENV
       - name: Set version tag
         if: inputs.trigger == 'tag'
         run: |

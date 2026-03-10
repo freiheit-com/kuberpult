@@ -15,6 +15,7 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     with:
       trigger: pull-request
+      fullversion: ${{ needs.execution-plan.outputs.fullversion }}
     secrets: inherit
 
   trivy-scan:

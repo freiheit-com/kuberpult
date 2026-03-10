@@ -7,6 +7,10 @@ on:
         required: true
         type: string
         description: 'The trigger which calls the workflow, one of [pull-request, main, tag]'
+      fullversion:
+        required: true
+        type: string
+        description: "The full unique version being built/tested."
 jobs:
   integration-test:
     runs-on: ubuntu-latest
@@ -22,9 +26,9 @@ jobs:
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
         if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
-          echo "IMAGE_TAG_KUBERPULT=pr-$(make version)" >> $GITHUB_ENV
+          echo "IMAGE_TAG_KUBERPULT=pr-${{ inputs.fullversion }}" >> $GITHUB_ENV
         elif [[ ${{ inputs.trigger }} == "main" ]]; then
-          echo "IMAGE_TAG_KUBERPULT=main-$(make version)" >> $GITHUB_ENV
+          echo "IMAGE_TAG_KUBERPULT=main-${{ inputs.fullversion }}" >> $GITHUB_ENV
         fi
     - name: Setup environment
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
