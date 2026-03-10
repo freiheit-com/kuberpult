@@ -152,11 +152,11 @@ jobs:
           EMOJI_RESULT_CI_TEST_5="✅"
 
           # If the validation-errors artifact is not uploaded, it means the CI test failed
-          VALIDATION_ERRORS_CI_TEST_1=$(cat validation-errors-1/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
-          VALIDATION_ERRORS_CI_TEST_2=$(cat validation-errors-2/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
-          VALIDATION_ERRORS_CI_TEST_3=$(cat validation-errors-3/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
-          VALIDATION_ERRORS_CI_TEST_4=$(cat validation-errors-4/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
-          VALIDATION_ERRORS_CI_TEST_5=$(cat validation-errors-5/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI test")
+          VALIDATION_ERRORS_CI_TEST_1=$(cat validation-errors-1/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
+          VALIDATION_ERRORS_CI_TEST_2=$(cat validation-errors-2/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
+          VALIDATION_ERRORS_CI_TEST_3=$(cat validation-errors-3/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
+          VALIDATION_ERRORS_CI_TEST_4=$(cat validation-errors-4/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
+          VALIDATION_ERRORS_CI_TEST_5=$(cat validation-errors-5/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
 
           if [[ "${{ needs.ci-test.result }}" != "success" ]] || [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
             EMOJI_RESULT_CI_TEST_1="❌"

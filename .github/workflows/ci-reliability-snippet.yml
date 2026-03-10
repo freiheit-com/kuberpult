@@ -172,17 +172,13 @@ jobs:
           fetch-depth: 0
       - name: "Check linting errors"
         run: |
-          echo 'trigger-ci job data: ${{ toJson(needs.trigger-ci) }}'
-          echo "github.run_id: ${{ github.run_id }}"
-
           # this command depends on the fact that the job name that we want to extract logs from is "Test CI Reliability 5 - services/cd-service - Build and Publish"
           JOB_ID=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs \
             --jq ".jobs[] | select (.name == \"Test CI Reliability 5 / Trigger CI build with specific ref / services/cd-service - Build and Publish\") | .id")
           
-          echo "gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs"
-          echo "The numeric Job ID is: $JOB_ID"
+          echo "Job ID for building cd-service is: $JOB_ID"
 
-          gh run view --log --job $JOB_ID > build-cd-service.log
+          gh run view --log --job 66478066935 > build-cd-service.log
           echo "--- START OF FAILED LOG ---"
           cat build-cd-service.log
           echo "--- END OF FAILED LOG ---"
@@ -193,8 +189,6 @@ jobs:
             # the injected linting error is not correctly detected: unused const "unusedConst" in main.go file
             echo "Linting error not detected" >> validation-errors.txt
           fi
-
-          echo "Linting error is correctly detected" >> validation-errors.txt
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload validation errors
