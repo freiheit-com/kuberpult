@@ -49,17 +49,17 @@ jobs:
           #   expect_export: true
           #   inject_linting_error: false
           #   modify_readme: false
-          # - id: "4" # test linter reliability
-          #   source_branch: automated/ci-reliability/ci-test-4
-          #   modify_pkg: false
-          #   modify_cd: false
-          #   expect_cd: false
-          #   modify_fe: false
-          #   expect_fe: false
-          #   modify_export: false
-          #   expect_export: false
-          #   inject_linting_error: true
-          #   modify_readme: false
+          - id: "4" # test linter reliability
+            source_branch: automated/ci-reliability/ci-test-4
+            modify_pkg: false
+            modify_cd: false
+            expect_cd: false
+            modify_fe: false
+            expect_fe: false
+            modify_export: false
+            expect_export: false
+            inject_linting_error: true
+            modify_readme: false
           - id: "5" # test change in readme file
             source_branch: automated/ci-reliability/ci-test-5
             modify_pkg: false
