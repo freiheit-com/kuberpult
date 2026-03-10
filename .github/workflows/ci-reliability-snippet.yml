@@ -155,3 +155,28 @@ jobs:
         with:
           name: validation-errors-${{ inputs.test_id }}.zip
           path: validation-errors.txt
+  check-errors:
+    name: "Check expected errors"
+    if: ${{ always() }}
+    needs: [trigger-ci]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: "Print previously failed job"
+        run: |
+          sleep 5
+          echo "CI Job status: ${{ needs.trigger-ci.result }}"
+
+          gh run view ${{ github.run_id }} --job build --log > failure.log
+          
+          echo "--- START OF FAILED LOG ---"
+          cat failure.log
+          echo "--- END OF FAILED LOG ---"
+      - name: Upload log as artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: failure-logs
+          path: failure.log
+    
+    
