@@ -177,12 +177,11 @@ jobs:
             --jq ".jobs[] | select (.name == \"Test CI Reliability 5 / Trigger CI build with specific ref / services/cd-service - Build and Publish\") | .id")
           
           echo "Job ID for building cd-service is: $JOB_ID"
+          echo "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
 
           gh run view --log --job 66478066935 > build-cd-service.log
-          echo "--- START OF FAILED LOG ---"
-          cat build-cd-service.log
-          echo "--- END OF FAILED LOG ---"
-
+          
+          touch validation-errors.txt
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
             echo "CI build must be failed due to linting error" >> validation-errors.txt
           elif [[ ! -n $(grep "services/cd-service/cmd/server/main.go" build-cd-service.log | grep "const unusedConst is unused") ]]; then
@@ -197,5 +196,3 @@ jobs:
         with:
           name: validation-errors-${{ inputs.test_id }}.zip
           path: validation-errors.txt
-    
-    
