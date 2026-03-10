@@ -169,10 +169,17 @@ jobs:
       - name: "Check linting errors"
         run: |
           echo 'trigger-ci job data: ${{ toJson(needs.trigger-ci) }}'
+          echo "github.run_id: ${{ github.run_id }}"
+
+          JOB_ID=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs \
+            --jq ".jobs[] | select(.name == \"${{ github.job }}\") | .id")
+          
+          echo "The numeric Job ID is: $JOB_ID"
+
 
           gh run view --log --job 66441603905 > build-cd-service.log
           echo "--- START OF FAILED LOG ---"
-          cat build-cd-service.log
+          #cat build-cd-service.log
           echo "--- END OF FAILED LOG ---"
 
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
