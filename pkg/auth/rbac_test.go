@@ -19,10 +19,10 @@ package auth
 import (
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 func TestValidateRbacPermission(t *testing.T) {
@@ -190,17 +190,18 @@ func TestCheckUserTeamPermissions(t *testing.T) {
 		action      string
 		team        string
 		WantError   error
-	}{{
-		Name:        "Check user team permission works as expected",
-		user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}, Name: "user", Email: "testmail@example.com"},
-		application: "app1",
-		action:      PermissionCreateLock,
-		rbacConfig: RBACConfig{DexEnabled: true,
-			Team: &RBACTeams{Permissions: map[string][]string{
-				"testmail@example.com": []string{"team"},
-			}}},
-		team: "team",
-	},
+	}{
+		{
+			Name:        "Check user team permission works as expected",
+			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}, Name: "user", Email: "testmail@example.com"},
+			application: "app1",
+			action:      PermissionCreateLock,
+			rbacConfig: RBACConfig{DexEnabled: true,
+				Team: &RBACTeams{Permissions: map[string][]string{
+					"testmail@example.com": []string{"team"},
+				}}},
+			team: "team",
+		},
 		{
 			Name:        "Check user team permission works with multiple teams",
 			user:        &User{DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}, Name: "user", Email: "testmail@example.com"},
