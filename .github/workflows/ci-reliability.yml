@@ -18,62 +18,62 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - id: "1" # test change in cd-service
-          #   source_branch: automated/ci-reliability/ci-test-1
-          #   modify_pkg: false
-          #   modify_cd: true
-          #   modify_fe: false
-          #   modify_export: false
+          - id: "1" # test change in cd-service
+            source_branch: automated/ci-reliability/ci-test-1
+            modify_pkg: false
+            modify_cd: true
+            modify_fe: false
+            modify_export: false
 
-          #   modify_readme: false
-          #   inject_linting_error: false
+            modify_readme: false
+            inject_linting_error: false
 
-          #   check_new_images: true
-          #   expect_cd: true
-          #   expect_fe: false
-          #   expect_export: false
-          # - id: "2" # test change in frontend-service and manifest-repo-export-service
-          #   source_branch: automated/ci-reliability/ci-test-2
-          #   modify_pkg: false
-          #   modify_cd: false
-          #   modify_fe: true
-          #   modify_export: true
+            check_new_images: true
+            expect_cd: true
+            expect_fe: false
+            expect_export: false
+          - id: "2" # test change in frontend-service and manifest-repo-export-service
+            source_branch: automated/ci-reliability/ci-test-2
+            modify_pkg: false
+            modify_cd: false
+            modify_fe: true
+            modify_export: true
 
-          #   modify_readme: false
-          #   inject_linting_error: false
+            modify_readme: false
+            inject_linting_error: false
 
-          #   check_new_images: true
-          #   expect_cd: false
-          #   expect_fe: true
-          #   expect_export: true
-          # - id: "3" # test change in pkg
-          #   source_branch: automated/ci-reliability/ci-test-3
-          #   modify_pkg: true
-          #   modify_cd: false
-          #   modify_fe: false
-          #   modify_export: false
+            check_new_images: true
+            expect_cd: false
+            expect_fe: true
+            expect_export: true
+          - id: "3" # test change in pkg
+            source_branch: automated/ci-reliability/ci-test-3
+            modify_pkg: true
+            modify_cd: false
+            modify_fe: false
+            modify_export: false
 
-          #   modify_readme: false
-          #   inject_linting_error: false
+            modify_readme: false
+            inject_linting_error: false
 
-          #   check_new_images: true
-          #   expect_cd: true
-          #   expect_fe: true
-          #   expect_export: true
-          # - id: "4" # test change in readme file
-          #   source_branch: automated/ci-reliability/ci-test-4
-          #   modify_pkg: false
-          #   modify_cd: false
-          #   modify_fe: false
-          #   modify_export: false
+            check_new_images: true
+            expect_cd: true
+            expect_fe: true
+            expect_export: true
+          - id: "4" # test change in readme file
+            source_branch: automated/ci-reliability/ci-test-4
+            modify_pkg: false
+            modify_cd: false
+            modify_fe: false
+            modify_export: false
 
-          #   modify_readme: true
-          #   inject_linting_error: false
+            modify_readme: true
+            inject_linting_error: false
 
-          #   check_new_images: true
-          #   expect_cd: false
-          #   expect_fe: false
-          #   expect_export: false
+            check_new_images: true
+            expect_cd: false
+            expect_fe: false
+            expect_export: false
           - id: "5" # test linter reliability
             # this check must have id=5 to make the check-linting-errors work, see ci-reliablity-snippet
             source_branch: automated/ci-reliability/ci-test-5
