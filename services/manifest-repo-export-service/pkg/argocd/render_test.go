@@ -668,6 +668,69 @@ spec:
       selfHeal: true
 `,
 		},
+		{
+			name: "duplicate teams removed, even when out of order",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Namespace:            nil,
+						AppProjectNamespace:  conversion.FromString("bar1"),
+						ApplicationNamespace: conversion.FromString("bar2"),
+					},
+				},
+			},
+			appData: []AppData{
+				{
+					ArgoAppName:    "app1",
+					ReferencedApps: []AppTeam{{"app1", "team1"}, {"app2", "team2"}, {"app3", "team1"}},
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - namespace: bar1
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests;/environments/test-env/applications/app2/manifests;/environments/test-env/applications/app3/manifests;
+    com.freiheit.kuberpult/aa-parent-environment: test-env
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/teams: team1_team2
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/teams: team1_team2
+  name: test-env-app1
+spec:
+  destination:
+    namespace: bar2
+  project: test-env
+  sources:
+  - path: environments/test-env/applications/app1/manifests
+    repoURL: https://git.example.com/
+    targetRevision: branch-name
+  - path: environments/test-env/applications/app2/manifests
+    repoURL: https://git.example.com/
+    targetRevision: branch-name
+  - path: environments/test-env/applications/app3/manifests
+    repoURL: https://git.example.com/
+    targetRevision: branch-name
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -179,12 +180,12 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 			manifestPaths = append(manifestPaths, manifestPath)
 			// manifestPaths must begin with a / and are separated by ";"
 			// see https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#manifest-paths-annotation
-			manifestPathsArgoFormat = "/" + manifestPath + ";" + manifestPathsArgoFormat
+			manifestPathsArgoFormat = manifestPathsArgoFormat + "/" + manifestPath + ";"
 
 			teamNames = append(teamNames, appTeams.TeamName)
 		}
 	}
-	teamsAnnotation := strings.Join(teamNames, "_")
+	teamsAnnotation := generateTeamNameAnnotationValue(teamNames)
 	for k, v := range applicationAnnotations {
 		annotations[k] = v
 	}
@@ -226,6 +227,12 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 		return "", err
 	}
 	return string(content), nil
+}
+
+func generateTeamNameAnnotationValue(teamNames []string) string {
+	slices.Sort(teamNames)                // sort both for convenience and to allow Compact to work
+	teamNames = slices.Compact(teamNames) // like "uniq" remove duplicates that are next to each other
+	return strings.Join(teamNames, "_")
 }
 
 // generateSources returns either one ApplicationSource for backwards compatibility with old argo setups
