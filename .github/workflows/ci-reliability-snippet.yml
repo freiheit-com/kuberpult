@@ -92,6 +92,7 @@ jobs:
       - name: Modify README.md
         if: inputs.modify_readme == true
         run: |
+          echo -e "\nfunc TestCIReliability_$(date +%s%6N)() {}" >> pkg/api/api.go
           echo -e "\nTest reliability" >> README.md
       - name: Commit changes
         run: |
