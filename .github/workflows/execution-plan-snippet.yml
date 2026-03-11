@@ -221,7 +221,10 @@ jobs:
         run: |
           # Replace "/" with "_"
           DIR="${{ matrix.data.directory }}"
+          echo "safe_dir=${DIR//\//_}"
           echo "safe_dir=${DIR//\//_}" >> $GITHUB_OUTPUT
+      - name: Display file structure
+        run: find . -maxdepth 2 -not -path '*/.*'
       - uses: actions/upload-artifact@v6
         with:
           if-no-files-found: ignore
