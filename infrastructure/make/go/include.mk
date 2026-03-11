@@ -44,7 +44,7 @@ bench-test:
 
 .PHONY: lint
 lint:
-	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false $(SERVICE_DIR)/... 2>&1 | tee -a /kp/.golangci_lint.log'
+	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'set -o pipefail; GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false $(SERVICE_DIR)/... 2>&1 | tee -a /kp/.golangci_lint.log'
 
 lint-fix:
 	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --fix --timeout=15m -j4 --tests=false $(SERVICE_DIR)/...'
