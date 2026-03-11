@@ -88,10 +88,11 @@ jobs:
       - name: Inject liniting error in cd-service
         if: inputs.inject_linting_error == true
         run: |
-          echo -e "\n\n\n" >> services/cd-service/cmd/server/main.go
+          echo -e "\nconst unusedConst = \"\"" >> services/cd-service/cmd/server/main.go
       - name: Modify README.md
         if: inputs.modify_readme == true
         run: |
+          echo -e "\nfunc TestCIReliability_$(date +%s%6N)() {}" >> pkg/api/api.go
           echo -e "\nTest reliability" >> README.md
       - name: Commit changes
         run: |
