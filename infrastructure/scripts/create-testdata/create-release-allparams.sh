@@ -68,7 +68,7 @@ configuration+=("--form" "team=${applicationOwnerTeam}")
 if [ -z "${argoBracket}" ]; then
   echo "skipping argoBracket"
 else
-  configuration+=("--form" "argoBracket=${argoBracket}")
+  configuration+=("--form" "experimentalArgoBracket=${argoBracket}")
 fi
 
 manifests=()
