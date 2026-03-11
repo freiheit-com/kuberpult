@@ -230,8 +230,9 @@ jobs:
         if: ${{ always() }}
         with:
           if-no-files-found: ignore
+          include-hidden-files: true
           name: linting-report-${{ steps.safe-artifact-name.outputs.safe_dir }}-${{ inputs.run_id }}.zip
-          path: ./.golangci_lint.log
+          path: .golangci_lint.log
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
