@@ -6,11 +6,6 @@ on:
     # Run on workdays at 7:00 AM UTC
     - cron: '0 7 * * 1-5'
 
-  # TODO: remove before merging
-  push:
-    branches:
-      - db-cilinter
-
 jobs:
   ci-test:
     name: Test CI Reliability ${{ matrix.id }}
@@ -93,9 +88,6 @@ jobs:
     with:
       test_id: ${{ matrix.id }}
       source_branch: ${{ matrix.source_branch }}
-
-      # TODO: remove before merging
-      base_branch: db-cilinter
 
       modify_pkg: ${{ matrix.modify_pkg }}
       modify_cd_service: ${{ matrix.modify_cd }}
@@ -216,11 +208,9 @@ jobs:
 
           MSG+="\n\n*🔗 View in GitHub Action:* $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
-          echo -e $MSG
-
-          # curl \
-          #   --request POST \
-          #   --header "Content-Type: application/json" \
-          #   --data "{\"text\": \"$MSG\"}" \
-          #   --fail \
-          #   "${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}"
+          curl \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --data "{\"text\": \"$MSG\"}" \
+            --fail \
+            "${{ secrets.SLACK_WEBHOOK_SRE_ALERTS_INTERNAL }}"
