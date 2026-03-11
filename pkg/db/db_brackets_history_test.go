@@ -320,6 +320,29 @@ func TestHandleBracketUpdates(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "add one entry, delete it by overwriting with ''",
+			AddAppBrackets: []AppBracketTime{
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName("b1"),
+					Time:    timeFirst,
+				},
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName(""),
+					Time:    timeFirst,
+				},
+			},
+			DeleteAppBrackets: []AppBracketTime{},
+			PreparedTimestamp: timeSecond,
+			ExpectedBracketRow: &BracketRow{
+				CreatedAt: timeFirst,
+				AllBracketsJsonBlob: BracketJsonBlob{
+					BracketMap: map[types.ArgoBracketName]AppNames{},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
