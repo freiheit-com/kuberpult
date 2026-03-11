@@ -171,25 +171,16 @@ jobs:
         with:
           fetch-depth: 0
       - name: Download golangci-lint report
-        continue-on-error: true
         uses: actions/download-artifact@v6
         with:
           name: linting-report-services_cd-service-5.zip
-          path: linting-report-services_cd-service
+          path: linting-report
       - name: "Check linting errors"
         run: |
-          # this command depends on the fact that the job name that we want to extract logs from is "Test CI Reliability 5 - services/cd-service - Build and Publish"
-          JOB_ID=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs \
-            --jq ".jobs[] | select (.name == \"Test CI Reliability 5 / Trigger CI build with specific ref / services/cd-service - Build and Publish\") | .id")
-          
-          echo "Job ID for building cd-service is: $JOB_ID"
-
-          gh run view --log --job $JOB_ID > build-cd-service.log
-
           touch validation-errors.txt
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
             echo "CI build must be failed due to linting error" >> validation-errors.txt
-          elif [[ ! -n $(grep "services/cd-service/cmd/server/main.go" build-cd-service.log | grep "const unusedConst is unused") ]]; then
+          elif [[ ! -n $(grep "services/cd-service/cmd/server/main.go" linting-report/.golangci_lint.log | grep "const unusedConst is unused") ]]; then
             # the injected linting error is not correctly detected: unused const "unusedConst" in main.go file
             echo "Linting error not detected" >> validation-errors.txt
           fi
