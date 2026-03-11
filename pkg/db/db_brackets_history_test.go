@@ -339,7 +339,9 @@ func TestHandleBracketUpdates(t *testing.T) {
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
-					BracketMap: map[types.ArgoBracketName]AppNames{},
+					BracketMap: map[types.ArgoBracketName]AppNames{
+						"app1": {"app1"},
+					},
 				},
 			},
 		},
