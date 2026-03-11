@@ -24,7 +24,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 const GoMigration_AppsHistory = "AppsHistory"
@@ -69,7 +69,7 @@ func (h *DBHandler) DBHasGoMigrationCutoff(ctx context.Context, tx *sql.Tx, migr
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Warn("rows could not be closed: %v", zap.Error(err))
+			logging.FromContext(ctx).Error("rows could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	return rows.Next(), nil
