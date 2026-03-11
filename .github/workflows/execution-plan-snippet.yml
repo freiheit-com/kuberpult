@@ -212,20 +212,22 @@ jobs:
           # so we extract everything after the ":"
           TAG=$(echo ${{matrix.data.image}} | cut -d ':' -f 2)
           EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY=true PARENT_CONTAINER=$TAG ARTIFACT_REGISTRY_MIRROR=true IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult ${{ matrix.data.command }}
-          echo $(find . -maxdepth 2)
       - name: Display file structure
+        if: ${{ always() }}
         run: find . -maxdepth 2
       - name: Post build actions
         uses: ./.github/actions/post-build-action
         with:
           data: ${{ toJSON(matrix.data) }}
       - name: Create safe artifact name
+        if: ${{ always() }}
         id: safe-artifact-name
         run: |
           # Replace "/" with "_"
           DIR="${{ matrix.data.directory }}"
           echo "safe_dir=${DIR//\//_}" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v6
+        if: ${{ always() }}
         with:
           if-no-files-found: ignore
           name: linting-report-${{ steps.safe-artifact-name.outputs.safe_dir }}-${{ inputs.run_id }}.zip
