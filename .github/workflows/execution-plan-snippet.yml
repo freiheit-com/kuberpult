@@ -222,7 +222,7 @@ jobs:
           # Replace "/" with "_"
           DIR="${{ matrix.data.directory }}"
           echo "safe_dir=${DIR//\//_}" >> $GITHUB_OUTPUT
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: "linting-report-${{ steps.safe-artifact-name.outputs.safe_dir }}-${{ inputs.run_id }}.zip"
           path: ".golangci_lint.log"

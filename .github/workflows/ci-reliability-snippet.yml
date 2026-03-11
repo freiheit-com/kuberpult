@@ -170,6 +170,12 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Download golangci-lint report
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: linting-report-services_cd-service-5.zip
+          path: linting-report-services_cd-service
       - name: "Check linting errors"
         run: |
           # this command depends on the fact that the job name that we want to extract logs from is "Test CI Reliability 5 - services/cd-service - Build and Publish"
