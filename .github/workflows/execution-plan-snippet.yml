@@ -83,7 +83,7 @@ jobs:
     outputs:
       stage_a: ${{ steps.splitplan.outputs.stage_a }}
       stage_b: ${{ steps.splitplan.outputs.stage_b }}
-      fullversion: ${{ steps.set_version.outputs.version }}
+      fullversion: ${{ steps.set_version.outputs.fullversion }}
   stageA_build:
     needs: [execution_plan]
     if: needs.execution_plan.outputs.stage_a != 'null'
