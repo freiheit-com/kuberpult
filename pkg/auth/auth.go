@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 type ctxMarker struct{}
@@ -133,8 +133,6 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	if err != nil {
 		return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-username in grpc context %s", userName))
 	}
-	logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original mail %s. Decoded: %s", originalEmail, userMail))
-	logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original name %s. Decoded: %s", originalName, userName))
 	u := &User{
 		DexAuthContext: nil,
 		Email:          userMail,
@@ -177,7 +175,7 @@ func useDexDefaultRole(ctx context.Context, dexDefaultRoleEnabled bool, u *User)
 		u.DexAuthContext = &DexAuthContext{
 			Role: []string{"default"},
 		}
-		logger.FromContext(ctx).Info("role undefined but dex is enabled. Default user role enabled. Proceeding with default role.")
+		logging.FromContext(ctx).Info("role undefined but dex is enabled. Default user role enabled. Proceeding with default role.")
 		return u, nil
 	}
 	return nil, grpc.AuthError(ctx, fmt.Errorf("extract: role undefined but dex is enabled"))

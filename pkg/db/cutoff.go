@@ -25,7 +25,7 @@ import (
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, error) {
@@ -40,7 +40,7 @@ func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, e
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("cutoff: row closing error: %v", err)
+			logging.FromContext(ctx).Error("cutoff: row closing error", zap.Error(err))
 		}
 	}(rows)
 
