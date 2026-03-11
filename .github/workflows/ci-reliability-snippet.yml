@@ -103,7 +103,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   trigger-ci:
-    name: 'Trigger CI build with specific ref'
+    name: Trigger CI build with specific ref
     needs: [introduce-changes]
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
