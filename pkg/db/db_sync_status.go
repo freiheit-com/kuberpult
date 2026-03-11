@@ -25,7 +25,7 @@ import (
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
@@ -132,7 +132,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logging.FromContext(ctx).Error("row closing error.", zap.Error(err))
 		}
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
@@ -182,7 +182,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logging.FromContext(ctx).Error("row closing error.", zap.Error(err))
 		}
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
@@ -225,7 +225,6 @@ func (h *DBHandler) DBBulkUpdateUnsyncedApps(ctx context.Context, tx *sql.Tx, id
 		return fmt.Errorf("DBBulkUpdateUnsyncedApps unable to read unsynced apps: %w", err)
 	}
 	if len(allCombs) == 0 {
-		logger.FromContext(ctx).Sugar().Info("Could not update all unsynced apps. Did not find any unsynced apps.")
 		return nil
 	}
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
@@ -253,7 +252,6 @@ func (h *DBHandler) DBBulkUpdateAllApps(ctx context.Context, tx *sql.Tx, newId, 
 		return fmt.Errorf("DBBulkUpdateAllApps unable to read apps: %w", err)
 	}
 	if len(allCombs) == 0 {
-		logger.FromContext(ctx).Sugar().Info("Could not update all apps. Did not find any unsynced apps.")
 		return nil
 	}
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
@@ -311,7 +309,7 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logging.FromContext(ctx).Error("row closing error.", zap.Error(err))
 		}
 	}(rows)
 
@@ -437,7 +435,7 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logging.FromContext(ctx).Error("row closing error.", zap.Error(err))
 		}
 	}(rows)
 
