@@ -69,7 +69,7 @@ func (h *DBHandler) DBHasGoMigrationCutoff(ctx context.Context, tx *sql.Tx, migr
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("rows could not be closed.", zap.Error(err))
+			logging.Error(ctx, "rows could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	return rows.Next(), nil

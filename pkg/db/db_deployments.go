@@ -650,7 +650,7 @@ func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, appName 
 	if err != nil {
 		return fmt.Errorf("could not delete deployment for app '%s' in environment '%s' from DB. Error: %w", appName, envName, err)
 	}
-	logging.FromContext(ctx).Info("deleted outdated deployment.", zap.String("appName", appName), zap.String("envName", envName))
+	logging.Info(ctx, "deleted outdated deployment.", zap.String("appName", appName), zap.String("envName", envName))
 	return nil
 }
 

@@ -40,7 +40,7 @@ func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, e
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("cutoff: row closing error", zap.Error(err))
+			logging.Error(ctx, "cutoff: row closing error", zap.Error(err))
 		}
 	}(rows)
 

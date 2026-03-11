@@ -131,7 +131,6 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 }
 
 func GetConnectionAndDriverWithRetries(ctx context.Context, cfg DBConfig) (*sql.DB, database.Driver, error) {
-	var l = logging.FromContext(ctx)
 	var db *sql.DB
 	var err error
 	var driver database.Driver
@@ -141,7 +140,7 @@ func GetConnectionAndDriverWithRetries(ctx context.Context, cfg DBConfig) (*sql.
 			return db, driver, nil
 		}
 		d := time.Second * 2
-		l.Error("could not connect to db, will try again.", zap.Int("remaining retries", i), zap.Error(err))
+		logging.Error(ctx, "could not connect to db, will try again.", zap.Int("remaining retries", i), zap.Error(err))
 		time.Sleep(d)
 	}
 	return nil, nil, err
@@ -238,7 +237,7 @@ func closeRows(rows *sql.Rows) error {
 func closeRowsAndLog(rows *sql.Rows, ctx context.Context, function string) {
 	err := rows.Close()
 	if err != nil {
-		logging.FromContext(ctx).Error("rows could not be closed.", zap.String("function", function), zap.Error(err))
+		logging.Error(ctx, "rows could not be closed.", zap.String("function", function), zap.Error(err))
 	}
 }
 
@@ -479,9 +478,8 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 }
 
 func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *EslVersion) (*EslEventRow, error) {
-	log := logging.FromContext(ctx)
 	if eslVersion == nil {
-		log.Info("no cutoff found, starting at the beginning of time.")
+		logging.Info(ctx, "no cutoff found, starting at the beginning of time.")
 		// no read cutoff yet, we have to start from the beginning
 		esl, err := h.DBReadEslEventInternal(ctx, transaction, true)
 		if err != nil {
@@ -1025,7 +1023,7 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 		return true, err
 	}
 	if hasRelease {
-		logging.FromContext(ctx).Info("There are already deployments in the DB - skipping migrations.")
+		logging.Info(ctx, "There are already deployments in the DB - skipping migrations.")
 	}
 	return !hasRelease, nil
 }
@@ -1059,7 +1057,7 @@ func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction 
 		return true, err
 	}
 	if hasDeployment {
-		logging.FromContext(ctx).Info("There are already deployments in the DB - skipping migrations.")
+		logging.Info(ctx, "There are already deployments in the DB - skipping migrations.")
 	}
 	return !hasDeployment, nil
 }
@@ -1101,7 +1099,7 @@ func (h *DBHandler) needsEnvLocksMigrations(ctx context.Context, transaction *sq
 		return true, err
 	}
 	if hasEnvLock {
-		logging.FromContext(ctx).Info("There are already environment locks in the DB - skipping migrations.")
+		logging.Info(ctx, "There are already environment locks in the DB - skipping migrations.")
 	}
 	return !hasEnvLock, nil
 }
@@ -1134,7 +1132,7 @@ func (h *DBHandler) needsAppLocksMigrations(ctx context.Context, transaction *sq
 		return true, err
 	}
 	if hasAppLock {
-		logging.FromContext(ctx).Info("There are already application locks in the DB - skipping migrations.")
+		logging.Info(ctx, "There are already application locks in the DB - skipping migrations.")
 	}
 	return !hasAppLock, nil
 }
@@ -1168,7 +1166,7 @@ func (h *DBHandler) needsTeamLocksMigrations(ctx context.Context, transaction *s
 		return true, err
 	}
 	if hasTeamLock {
-		logging.FromContext(ctx).Info("There are already team locks in the DB - skipping migrations.")
+		logging.Info(ctx, "There are already team locks in the DB - skipping migrations.")
 	}
 	return !hasTeamLock, nil
 }
@@ -1203,7 +1201,7 @@ func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction
 		return true, err
 	}
 	if contains {
-		logging.FromContext(ctx).Info("detected migration commit event on the database - skipping migrations.")
+		logging.Info(ctx, "detected migration commit event on the database - skipping migrations.")
 		return false, nil
 	}
 	return true, nil
@@ -1237,7 +1235,7 @@ func (h *DBHandler) NeedsEventSourcingLightMigrations(ctx context.Context, trans
 		return true, err
 	}
 	if eslEvent != nil && eslEvent.EslVersion == 0 { //Check if there is a 0th transformer already
-		logging.FromContext(ctx).Info("Found migrations transformer on database.")
+		logging.Info(ctx, "Found migrations transformer on database.")
 		return false, nil
 	}
 	return true, nil
@@ -1319,7 +1317,7 @@ func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllApp
 func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
 	allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
 	if err != nil {
-		logging.FromContext(ctx).Error("could not get applications from database - assuming the manifest repo is correct.", zap.Error(err))
+		logging.Error(ctx, "could not get applications from database - assuming the manifest repo is correct.", zap.Error(err))
 		return false, err
 	}
 	return len(allAppsDb) == 0, nil
@@ -1468,7 +1466,7 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) (
 			if err != nil {
 				return fmt.Errorf("could not get releases without environments, error: %w", err)
 			}
-			logging.FromContext(ctx).Info("updating releases environments.", zap.Int("count", len(releasesWithoutEnvironments)))
+			logging.Info(ctx, "updating releases environments.", zap.Int("count", len(releasesWithoutEnvironments)))
 			for _, release := range releasesWithoutEnvironments {
 				err = h.DBUpdateOrCreateRelease(ctx, transaction, *release)
 				if err != nil {

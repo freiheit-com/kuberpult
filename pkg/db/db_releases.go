@@ -72,7 +72,7 @@ func (h *DBHandler) DBHasAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepu
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("release: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "release: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	return rows.Next(), nil
@@ -623,7 +623,7 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("releases: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	//exhaustruct:ignore
@@ -703,7 +703,7 @@ func (h *DBHandler) processReleaseEnvironmentRows(ctx context.Context, err error
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Sugar().Warnf("releases: row could not be closed.", zap.Error(err))
+			logging.Warn(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	//exhaustruct:ignore
@@ -746,7 +746,7 @@ func (h *DBHandler) processAppReleaseVersionsRows(ctx context.Context, err error
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("releases: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	result := []types.ReleaseNumbers{}
@@ -775,7 +775,7 @@ func (h *DBHandler) processAppReleaseNumbersRows(ctx context.Context, err error,
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("releases: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	var result []types.ReleaseNumbers
@@ -805,7 +805,7 @@ func (h *DBHandler) processAllAppsReleaseVersionsRows(ctx context.Context, err e
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("releases: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 
@@ -871,7 +871,7 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("releases: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(releasesRows)
 
@@ -963,7 +963,7 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("releases: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(metadataRows)
 	for metadataRows.Next() {

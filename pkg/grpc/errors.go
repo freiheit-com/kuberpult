@@ -23,11 +23,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 func InternalError(ctx context.Context, err error) error {
-	logger.FromContext(ctx).Error("grpc.internal", zap.Error(err))
+	logging.Error(ctx, "grpc.internal", zap.Error(err))
 	return status.Error(codes.Internal, "internal error")
 }
 

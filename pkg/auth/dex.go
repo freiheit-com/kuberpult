@@ -148,7 +148,7 @@ func (a *DexAppClient) registerDexHandlers() {
 func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, request *http.Request) {
 	target, err := url.Parse(serverAddr)
 	if err != nil {
-		logging.FromContext(context.Background()).Error("Could not parse server URL.", zap.Error(err))
+		logging.Error(context.Background(), "Could not parse server URL.", zap.Error(err))
 		return nil
 	}
 
@@ -163,7 +163,7 @@ func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, requ
 			if err != nil {
 				return err
 			}
-			logging.FromContext(context.Background()).Error("Could not parse server URL.", zap.String("error", body))
+			logging.Error(context.Background()), "Could not parse server URL.", zap.String("error", body))
 			resp.Body = io.NopCloser(bytes.NewReader(make([]byte, 0)))
 			return nil
 		}
@@ -395,7 +395,7 @@ func AppendRoleForPolicy(userGroup string, roles []string, policy *RBACPolicies)
 func GetContextFromDex(ctx context.Context, req *http.Request, clientID, baseURL, dexServiceURL string, DexRbacPolicy *RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
 	claimsParsed, err := VerifyToken(ctx, req, clientID, baseURL, dexServiceURL, useClusterInternalCommunication, DexRbacPolicy)
 	if err != nil {
-		logging.FromContext(ctx).Info("Error verifying token for Dex: ", zap.Error(err))
+		logging.Info(ctx, "Error verifying token for Dex: ", zap.Error(err))
 		return ctx, err
 	}
 	httpCtx := ctx

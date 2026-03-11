@@ -132,7 +132,7 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("row closing error.", zap.Error(err))
+			logging.Error(ctx, "row closing error.", zap.Error(err))
 		}
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
@@ -182,7 +182,7 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("row closing error.", zap.Error(err))
+			logging.Error(ctx, "row closing error.", zap.Error(err))
 		}
 	}(rows)
 	allCombinations := make([]EnvApp, 0)
@@ -309,7 +309,7 @@ func processGitSyncStatusRows(ctx context.Context, rows *sql.Rows, err error) ([
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("row closing error.", zap.Error(err))
+			logging.Error(ctx, "row closing error.", zap.Error(err))
 		}
 	}(rows)
 
@@ -435,7 +435,7 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("row closing error.", zap.Error(err))
+			logging.Error(ctx, "row closing error.", zap.Error(err))
 		}
 	}(rows)
 

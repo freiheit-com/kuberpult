@@ -145,7 +145,7 @@ func (h *DBHandler) DBHasAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (boo
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("release: rows could not be closed.", zap.Error(err))
+			logging.Error(ctx, "release: rows could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	return rows.Next(), nil
@@ -278,7 +278,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("team locks: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "team locks: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	teamLocks := make([]TeamLockHistory, 0)
@@ -407,7 +407,7 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	}
 
 	if existingTeamLock == nil {
-		logging.FromContext(ctx).Info("could not delete team lock. The team lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("teamName", teamName), zap.String("environment", environment))
+		logging.Info(ctx, "could not delete team lock. The team lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("teamName", teamName), zap.String("environment", environment))
 		return nil
 	}
 	err = h.deleteTeamLockRow(ctx, tx, lockID, environment, teamName)
@@ -535,7 +535,7 @@ func (h *DBHandler) processTeamLockRows(ctx context.Context, err error, rows *sq
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("releases: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	teamLocks := make([]TeamLock, 0)
@@ -593,7 +593,7 @@ func (h *DBHandler) processAllTeamLocksRows(ctx context.Context, err error, rows
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("releases: row could not be closed.", zap.Error(err))
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	//exhaustruct:ignore

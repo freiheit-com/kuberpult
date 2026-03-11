@@ -34,7 +34,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
 )
 
@@ -172,7 +172,7 @@ func gracefulShutdown(ctx context.Context, s *setup) {
 	for i := len(s.shutdown) - 1; i >= 0; i-- {
 		sd := s.shutdown[i]
 		if err := sd.fn(ctx); err != nil {
-			logger.FromContext(ctx).Error("shutdown.failed", zap.Error(err), zap.String("handler", sd.name))
+			logging.Error(ctx, "shutdown.failed", zap.Error(err), zap.String("handler", sd.name))
 		}
 	}
 }
@@ -184,7 +184,7 @@ func setupGRPC(ctx context.Context, s *setup, config GRPCConfig, cancel context.
 	// Setup a listener for gRPC port
 	grpcL, err := net.Listen("tcp", addrGRPC)
 	if err != nil {
-		logger.FromContext(ctx).Panic("grpc.listen.error", zap.Error(err), zap.String("addr", addrGRPC))
+		logging.Fatal(ctx, "grpc.listen.error", zap.Error(err), zap.String("addr", addrGRPC))
 		return
 	}
 	s.RegisterShutdown("GRPC net listener", func(context.Context) error {
@@ -210,7 +210,7 @@ func serveGRPC(ctx context.Context, grpcS *grpc.Server, grpcL net.Listener, canc
 	defer cancel()
 
 	if err := grpcS.Serve(grpcL); err != nil {
-		logger.FromContext(ctx).Error("grpc.serve.error", zap.Error(err))
+		logging.Error(ctx, "grpc.serve.error", zap.Error(err))
 	}
 }
 
@@ -232,7 +232,7 @@ func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port st
 
 	panicHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer logger.HandlePanic(false)
+			defer logging.HandlePanic(false)
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -272,12 +272,12 @@ var serveHTTP = func(ctx context.Context, httpS *http.Server, port string, cance
 
 	httpL, err := net.Listen("tcp", addr)
 	if err != nil {
-		logger.FromContext(ctx).Panic("http.listen.error", zap.Error(err), zap.String("addr", addr))
+		logging.Fatal(ctx, "http.listen.error", zap.Error(err), zap.String("addr", addr))
 		return
 	}
 
 	if err := httpS.Serve(httpL); err != nil && err != http.ErrServerClosed {
-		logger.FromContext(ctx).Error("http.serve.error", zap.Error(err))
+		logging.Error(ctx, "http.serve.error", zap.Error(err))
 	}
 }
 
@@ -295,16 +295,16 @@ func setupBackgroundTask(ctx context.Context, s *setup, config BackgroundTaskCon
 }
 
 func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel context.CancelFunc, reporter *HealthReporter) {
-	defer logger.HandlePanic(true)
+	defer logging.HandlePanic(true)
 	defer cancel()
 	if err := config.Run(ctx, reporter); err != nil {
-		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))
+		logging.Error(ctx, "background.error", zap.Error(err), zap.String("job", config.Name))
 	} else {
 		select {
 		case <-ctx.Done():
-			logger.FromContext(ctx).Info("Background task terminated with shutdown signal: " + config.Name)
+			logging.Info(ctx, "Background task terminated with shutdown signal: " + config.Name)
 		default:
-			logger.FromContext(ctx).Warn("Background task terminated without error or shutdown signal: " + config.Name)
+			logging.Warn(ctx, "Background task terminated without error or shutdown signal: " + config.Name)
 		}
 	}
 }

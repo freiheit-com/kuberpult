@@ -197,7 +197,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 		}
 		err := rows.Close()
 		if err != nil {
-			logging.FromContext(ctx).Error("row closing error.", zap.Error(err))
+			logging.Error(ctx, "row closing error.", zap.Error(err))
 		}
 	}(rows)
 	//Get the latest change to each lock

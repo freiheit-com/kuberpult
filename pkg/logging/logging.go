@@ -44,3 +44,7 @@ func Warn(ctx context.Context, msg string, fields ...zap.Field) {
 func Info(ctx context.Context, msg string, fields ...zap.Field) {
 	fromContext(ctx).Info(msg, fields...)
 }
+
+func HandlePanic(exitOnPanic bool) {
+	logger.HandlePanic(exitOnPanic)
+}
