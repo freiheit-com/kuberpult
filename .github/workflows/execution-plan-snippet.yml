@@ -47,7 +47,7 @@ jobs:
           gcloud auth configure-docker europe-docker.pkg.dev
       - run: mkdir -p artifacts/
       - id: set_version
-        run: echo "fullversion=$(make version)" >> $GITHUB_ENV
+        run: echo "fullversion=$(make version)" >> $GITHUB_OUTPUT
       - name: Set version pr
         if: inputs.trigger == 'pull-request'
         run: |
@@ -224,6 +224,7 @@ jobs:
           echo "safe_dir=${DIR//\//_}" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v6
         with:
+          if-no-files-found: ignore
           name: "linting-report-${{ steps.safe-artifact-name.outputs.safe_dir }}-${{ inputs.run_id }}.zip"
           path: ".golangci_lint.log"
       - uses: actions/upload-artifact@v4
