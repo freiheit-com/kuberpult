@@ -26,7 +26,7 @@ import (
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
@@ -138,7 +138,7 @@ func (h *DBHandler) DBHasAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (bool
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
+			logging.FromContext(ctx).Error("environment locks: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	return rows.Next(), nil
@@ -269,7 +269,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
+			logging.FromContext(ctx).Error("environment locks: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	envLocks := make([]EnvLockHistory, 0)
@@ -396,7 +396,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	}
 
 	if existingEnvLock == nil {
-		logger.FromContext(ctx).Sugar().Warnf("could not delete enviroment lock. The enviroment lock '%s' on enviroment '%s' does not exist. Continuing anyway.", lockID, environment)
+		logging.FromContext(ctx).Info("could not delete enviroment lock. The enviroment lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("environment", environment))
 		return nil
 	}
 	err = h.deleteEnvLockRow(ctx, tx, lockID, environment)
@@ -512,7 +512,7 @@ func (h *DBHandler) processEnvLockRows(ctx context.Context, err error, rows *sql
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
+			logging.FromContext(ctx).Error("environment locks: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	envLocks := make([]EnvironmentLock, 0)
@@ -564,7 +564,7 @@ func (h *DBHandler) processAllEnvLocksRows(ctx context.Context, err error, rows 
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
+			logging.FromContext(ctx).Error("environment locks: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	//exhaustruct:ignore
