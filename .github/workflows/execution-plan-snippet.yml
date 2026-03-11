@@ -47,7 +47,7 @@ jobs:
           gcloud auth configure-docker europe-docker.pkg.dev
       - run: mkdir -p artifacts/
       - id: set_version
-        run: echo "fullversion=$(make version)" >> $GITHUB_ENV
+        run: echo "fullversion=$(make version)" >> $GITHUB_OUTPUT
       - name: Set version pr
         if: inputs.trigger == 'pull-request'
         run: |
