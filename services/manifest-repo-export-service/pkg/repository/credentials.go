@@ -28,7 +28,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 type Credentials struct {
@@ -81,10 +81,6 @@ func (c *credentialsStore) CredentialsCallback(ctx context.Context) git.Credenti
 		}
 	}
 	return func(url string, username_from_url string, allowed_types git.CredentialType) (*git.Credential, error) {
-		logger.FromContext(ctx).Debug("git.credentialsCallback",
-			zap.String("url", url),
-			zap.String("username", username_from_url),
-		)
 		if c.sshPrivateKey != "" && allowed_types|git.CredTypeSshKey != 0 {
 			return git.NewCredentialSSHKeyFromMemory(username_from_url, c.sshPublicKey, c.sshPrivateKey, "")
 		}

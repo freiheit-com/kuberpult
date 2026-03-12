@@ -28,7 +28,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 type Certificates struct {
@@ -80,16 +80,14 @@ func (store *certificateStore) CertificateCheckCallback(ctx context.Context) fun
 				if bytes.Equal(hsh, cert.Hostkey.HashSHA256[:]) {
 					return nil
 				} else {
-					logger.FromContext(ctx).Error("git.ssh.hostkeyMismatch",
+					logging.Error(ctx, "git.ssh.hostkeyMismatch",
 						zap.String("hostname", hostname),
 						zap.String("hostkey.expected", fmt.Sprintf("%x", hsh)),
 						zap.String("hostkey.actual", fmt.Sprintf("%x", cert.Hostkey.HashSHA256)),
 					)
 				}
 			} else {
-				logger.FromContext(ctx).Error("git.ssh.hostnameUnknown",
-					zap.String("hostname", hostname),
-				)
+				logging.Error(ctx, "git.ssh.hostnameUnknown", zap.String("hostname", hostname))
 			}
 		}
 		return fmt.Errorf("certificates error")

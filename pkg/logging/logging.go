@@ -72,3 +72,7 @@ func ApiDeprecationWarningWithoutReplacement(ctx context.Context, oldEndpoint st
 	allFields = append(allFields, fields...)
 	Warn(ctx, "api deprecation without replacement", allFields...)
 }
+
+func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
+	return logger.Wrap(ctx, inner)
+}

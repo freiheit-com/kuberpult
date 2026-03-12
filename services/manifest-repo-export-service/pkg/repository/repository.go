@@ -48,7 +48,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
@@ -222,7 +222,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	var certificates *certificateStore
 	var err error
 	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
-		logger.FromContext(ctx).Debug("git url indicates a local directory. Ignoring credentials and certificates.")
+		logging.Info(ctx, "git url indicates a local directory. Ignoring credentials and certificates.")
 	} else {
 		credentials, err = cfg.Credentials.load()
 		if err != nil {
@@ -256,10 +256,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			//exhaustruct:ignore
 			RemoteCallbacks := git.RemoteCallbacks{
 				UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-					logger.FromContext(ctx).Debug("git.fetched",
-						zap.String("refname", refname),
-						zap.String("revision.new", b.String()),
-					)
 					return nil
 				},
 				CredentialsCallback:      credentials.CredentialsCallback(ctx),
@@ -354,7 +350,7 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 		// Usually we call `defer` right after resource allocation (`CreateAnonymous`).
 		// The issue with that is that the `callback` requires the remote, and cannot be cancelled properly.
 		// So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
-		defer logger.HandlePanic(true)
+		defer logging.HandlePanic(true)
 		defer remote.Disconnect()
 		errCh <- callback(remote)
 	}()
@@ -425,13 +421,11 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sq
 	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
 	defer span.Finish()
 
-	log := logger.FromContext(ctx).Sugar()
-
 	// Apply the items
 	apply := func() (*TransformerResult, error) {
 		changes, err := r.applyTransformerBatches(ctx, t, true, tx)
 		if err != nil {
-			log.Warnf("rolling back transaction because of %v", err)
+			logging.Info(ctx, "rolling back transaction because of error.", zap.Error(err))
 			return nil, err
 		}
 		return changes, nil
@@ -472,7 +466,7 @@ func (r *repository) PushRepo(ctx context.Context) error {
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			return fmt.Errorf("context error: %w", err)
 		} else {
-			logger.FromContext(ctx).Error(fmt.Sprintf("error while pushing: %s", err))
+			logging.Error(ctx, "error while pushing.", zap.Error(err))
 			return fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)
 		}
 	} else {
@@ -662,7 +656,7 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 
 	shouldCreateCommit := r.shouldCreateNewCommit(commitMsg)
 	changedEnvs := result.CalculateChangedEnvironments()
-	logger.FromContext(ctx).Info("new-commit-decision",
+	logging.Info(ctx, "new-commit-decision",
 		zap.Bool("shouldCreateNewCommit", shouldCreateCommit),
 		zap.Any("commitMsg", commitMsg),
 		zap.Any("changedEnvs", changedEnvs),
@@ -780,10 +774,6 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	//exhaustruct:ignore
 	RemoteCallbacks := git.RemoteCallbacks{
 		UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-			logger.FromContext(ctx).Debug("git.fetched",
-				zap.String("refname", refname),
-				zap.String("revision.new", b.String()),
-			)
 			return nil
 		},
 		CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
@@ -948,7 +938,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 			}
 		}
 	}
-	logger.FromContext(ctx).Info("rendering of environments",
+	logging.Info(ctx, "rendering of environments",
 		zap.Strings("skippedEnvs", types.EnvNamesToStrings(skippedEnvs)),
 		zap.Strings("renderedEnvs", types.EnvNamesToStrings(renderedEnvs)),
 	)
@@ -974,7 +964,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 		}
 	} else {
 		if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
-			logger.FromContext(ctx).Sugar().Warnf("No argo cd configuration found for environment %q.", env)
+			logging.Error(ctx, "No argo cd configuration found for environment.", zap.String("env", string(env)))
 			return nil
 		}
 		var conf *config.EnvironmentConfigArgoCd
@@ -1373,7 +1363,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app t
 
 		if !valid.SHA1CommitID(repoRelease.SourceCommitId) {
 			//If we are about to import an invalid commit ID, simply log it and write an empty commit.
-			logger.FromContext(ctx).Sugar().Warnf("Source commit ID %s is not valid. Skipping migration for release %d of app %s", repoRelease.SourceCommitId, releaseVersion, app)
+			logging.Error(ctx, "Source commit ID is not valid. Skipping migration.", zap.String("sourceCommitId", repoRelease.SourceCommitId), zap.String("releaseVersion", releaseVersion), zap.String("app", app))
 			repoRelease.SourceCommitId = ""
 		}
 
@@ -1439,7 +1429,6 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 			return fmt.Errorf("error getting all envs: %v", err)
 		}
 		for env := range envs {
-			logger.FromContext(ctx).Info(fmt.Sprintf("updating timestamp for %s, %s, %s", app, env, releaseVersion))
 			_, createdAt, err := s.GetDeploymentMetaData(env, string(app))
 			if err != nil {
 				return fmt.Errorf("error getting deployment metadata: %v", err)
@@ -1479,14 +1468,12 @@ func (r *repository) FixCommitsTimestamp(ctx context.Context, state State) error
 		err = revwalk.Iterate(func(commit *git.Commit) bool {
 			commit, err := r.repository.LookupCommit(commit.Id())
 			if err != nil {
-				logger.FromContext(ctx).Sugar().Errorf("failed to lookup commit %s: %v", commit.Id().String(), err)
+				logging.Error(ctx, "failed to lookup commit.", zap.String("commitId", commit.Id().String()), zap.Error(err))
 				return true // continue
 			}
-
-			logger.FromContext(ctx).Sugar().Infof("Commit: %s, Time: %s\n", commit.Id().String(), time.Unix(commit.Committer().When.Unix(), 0))
 			err = dbHandler.DBUpdateCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), commit.Committer().When)
 			if err != nil {
-				logger.FromContext(ctx).Sugar().Errorf("failed to lookup commit %s: %v", commit.Id().String(), err)
+				logging.Error(ctx, "failed to lookup commit.", zap.String("commitId", commit.Id().String()), zap.Error(err))
 				return true
 			}
 
@@ -2033,7 +2020,7 @@ func (s *State) GetLastRelease(ctx context.Context, filesystem billy.Filesystem,
 		var lastRelease types.ReleaseNumbers
 		for _, e := range entries {
 			if curr, err := types.MakeReleaseNumberFromString(e.Name()); err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("Bad name for release: '%s'\n", e.Name())
+				logging.Error(ctx, "Bad name for release.", zap.String("name", e.Name()))
 			} else {
 				if lastRelease.Version == nil || types.Greater(curr, lastRelease) {
 					lastRelease = curr
@@ -2312,7 +2299,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		return nil, err
 	}
 	if len(envConfigs) == 0 {
-		logger.FromContext(ctx).Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
+		logging.Error(ctx, "No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
 	}
 	for envName, env := range envConfigs {
 		if env.Upstream == nil || env.Upstream.Environment == "" {
@@ -2320,7 +2307,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		}
 		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
-			logger.FromContext(ctx).Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
+			logging.Error(ctx, "The environment has an upstream configured which does not exist.", zap.String("envName", string(envName)), zap.String("upstream", upstreamEnv))
 		}
 	}
 	envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
@@ -2328,7 +2315,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		grpDist := group.Environments[0].DistanceToUpstream
 		for _, env := range group.Environments {
 			if env.DistanceToUpstream != grpDist {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("The environment group '%s' has multiple environments setup with different distances to upstream", group.EnvironmentGroupName))
+				logging.Warn(ctx, "The environment group has multiple environments setup with different distances to upstream.", zap.String("environmentGrouo", string(group.EnvironmentGroupName)))
 			}
 		}
 	}
