@@ -164,7 +164,7 @@ func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, requ
 			if err != nil {
 				return err
 			}
-			logging.Error(context.Background(), "Could not parse server URL.", zap.String("error", string(body)))
+			logging.Error(context.Background(), "Could not parse server URL.", zap.String("body", string(body)))
 			resp.Body = io.NopCloser(bytes.NewReader(make([]byte, 0)))
 			return nil
 		}
