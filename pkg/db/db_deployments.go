@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -650,7 +651,7 @@ func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, appName 
 	if err != nil {
 		return fmt.Errorf("could not delete deployment for app '%s' in environment '%s' from DB. Error: %w", appName, envName, err)
 	}
-	logging.Info(ctx, "deleted outdated deployment.", zap.String("appName", appName), zap.String("envName", envName))
+	logging.Info(ctx, "deleted outdated deployment.", zap.String("appName", string(appName)), zap.String("envName", string(envName)))
 	return nil
 }
 

@@ -30,11 +30,12 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
-
-	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 // Extracted information from JWT/Cookie.
@@ -163,7 +164,7 @@ func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, requ
 			if err != nil {
 				return err
 			}
-			logging.Error(context.Background(), "Could not parse server URL.", zap.String("error", body))
+			logging.Error(context.Background(), "Could not parse server URL.", zap.String("error", string(body)))
 			resp.Body = io.NopCloser(bytes.NewReader(make([]byte, 0)))
 			return nil
 		}

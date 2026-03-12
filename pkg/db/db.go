@@ -35,6 +35,7 @@ import (
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	ddsql "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/event"

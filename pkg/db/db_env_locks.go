@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -396,7 +397,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	}
 
 	if existingEnvLock == nil {
-		logging.Info(ctx, "could not delete enviroment lock. The enviroment lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("environment", environment))
+		logging.Info(ctx, "could not delete enviroment lock. The enviroment lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("environment", string(environment)))
 		return nil
 	}
 	err = h.deleteEnvLockRow(ctx, tx, lockID, environment)

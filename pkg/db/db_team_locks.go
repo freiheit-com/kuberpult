@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -407,7 +408,7 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	}
 
 	if existingTeamLock == nil {
-		logging.Info(ctx, "could not delete team lock. The team lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("teamName", teamName), zap.String("environment", environment))
+		logging.Info(ctx, "could not delete team lock. The team lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("teamName", teamName), zap.String("environment", string(environment)))
 		return nil
 	}
 	err = h.deleteTeamLockRow(ctx, tx, lockID, environment, teamName)

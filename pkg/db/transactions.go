@@ -26,6 +26,7 @@ import (
 
 	"github.com/lib/pq"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
