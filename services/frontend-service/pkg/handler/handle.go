@@ -73,7 +73,7 @@ func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
 	group, tail = xpath.Shift(tail)
 	switch group {
 	case "application":
-		s.handleApiApplication(w, req, tail)
+		s.handleApiApplication(w, req, tail) // /release
 	case "environments":
 		s.handleApiEnvironments(w, req, tail)
 	case "environment-groups":
