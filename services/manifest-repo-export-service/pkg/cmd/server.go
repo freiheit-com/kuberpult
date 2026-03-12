@@ -66,8 +66,6 @@ func RunServer() {
 }
 
 func Run(ctx context.Context) error {
-	logging.Info(ctx, "Startup")
-
 	dbLocation, err := valid.ReadEnvVar("KUBERPULT_DB_LOCATION")
 	if err != nil {
 		return err
