@@ -205,8 +205,18 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 	}
 }
 
+// is AAEnv
+// Note that there is also a function IsAAEnv in config.go for a similar type.
+// Keep them in sync.
 func isAAEnv(config *api.EnvironmentConfig) bool {
-	return config.ArgoConfigs != nil && config.ArgoConfigs.CommonEnvPrefix != ""
+	if config.IsActiveActive != nil {
+		return *config.IsActiveActive
+	}
+	// for backwards compatibility:
+	if config.ArgoConfigs == nil {
+		return false
+	}
+	return config.ArgoConfigs.CommonEnvPrefix != ""
 }
 
 func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, ev *v1alpha1.ApplicationWatchEvent) {

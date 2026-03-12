@@ -91,6 +91,42 @@ func (s Server) handleApiCreateEnvironment(w http.ResponseWriter, req *http.Requ
 		http.Error(w, "ArgoCd field is not supported", http.StatusBadRequest)
 		return
 	}
+	if envConfig.IsActiveActive == nil {
+		// do no validation for backwards compatibility
+	} else if *envConfig.IsActiveActive {
+		if envConfig.ArgoConfigs.CommonEnvPrefix == "" {
+			http.Error(w, "CommonEnvPrefix must not be empty with isActiveActive=true", http.StatusBadRequest)
+			return
+		}
+		for index, config := range envConfig.ArgoConfigs.Configs {
+			if config.ConcreteEnvName == "" {
+				http.Error(w,
+					fmt.Sprintf("ConcreteEnvName at index [%d] must not be empty with isActiveActive=true", index),
+					http.StatusBadRequest)
+				return
+			}
+		}
+	} else {
+		if envConfig.ArgoConfigs.CommonEnvPrefix != "" {
+			http.Error(w, "CommonEnvPrefix must be empty with isActiveActive=false", http.StatusBadRequest)
+			return
+		}
+		if len(envConfig.ArgoConfigs.Configs) != 1 {
+			http.Error(w,
+				"Must supply exactly 1 ArgoConfigs.Configs with isActiveActive=false",
+				http.StatusBadRequest)
+			return
+		}
+		for index, config := range envConfig.ArgoConfigs.Configs {
+			if config.ConcreteEnvName != "" {
+				http.Error(w,
+					fmt.Sprintf("ConcreteEnvName at index [%d] must be empty with isActiveActive=false", index),
+					http.StatusBadRequest)
+				return
+			}
+		}
+	}
+
 	_, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_CreateEnvironment{

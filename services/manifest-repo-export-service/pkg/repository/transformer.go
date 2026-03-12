@@ -2209,7 +2209,7 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 	}
 	cfg := configs[d.Environment]
 
-	if isAAEnv(cfg) {
+	if config.IsAAEnv(&cfg) {
 		for _, currentConfig := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
 			if err := deleteAAEnvironment(ctx, fs, d.Environment, types.EnvName(currentConfig.ConcreteEnvName)); err != nil {
 				return "", err
