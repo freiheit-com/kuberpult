@@ -24,6 +24,7 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     with:
       trigger: main
+      fullversion: ${{ needs.execution-plan.outputs.fullversion }}
     secrets: inherit
 
   release:
