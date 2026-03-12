@@ -18,9 +18,10 @@ package db
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/lib/pq"
-	"testing"
 )
 
 func TestIsRetryableError(t *testing.T) {

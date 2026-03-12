@@ -302,9 +302,9 @@ func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel 
 	} else {
 		select {
 		case <-ctx.Done():
-			logging.Info(ctx, "Background task terminated with shutdown signal: " + config.Name)
+			logging.Info(ctx, "Background task terminated with shutdown signal: "+config.Name)
 		default:
-			logging.Warn(ctx, "Background task terminated without error or shutdown signal: " + config.Name)
+			logging.Warn(ctx, "Background task terminated without error or shutdown signal: "+config.Name)
 		}
 	}
 }

@@ -33,9 +33,9 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/lib/pq"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"go.uber.org/zap"
 	ddsql "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/event"

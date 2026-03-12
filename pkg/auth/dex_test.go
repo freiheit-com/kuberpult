@@ -32,7 +32,6 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	jwtV5 "github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -40,6 +39,8 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 )
 
 const (

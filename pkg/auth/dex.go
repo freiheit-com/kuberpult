@@ -30,12 +30,12 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
+
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 // Extracted information from JWT/Cookie.

@@ -19,10 +19,10 @@ package auth
 import (
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/types"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 func TestValidateRbacPermission(t *testing.T) {
