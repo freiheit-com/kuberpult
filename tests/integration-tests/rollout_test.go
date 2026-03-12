@@ -125,10 +125,10 @@ func runArgo(t *testing.T, args ...string) (*exec.Cmd, []byte) {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		t.Fatalf("argocd %q command exited with code %d\nerr: %s\nstderr: %s", strings.Join(args, " "), cmd.ProcessState.ExitCode(), err, stderr.String())
+		t.Fatalf("argocd %q command exited with code %d\nerr: %s\nstderr: %s\ntdout: %s\n", strings.Join(args, " "), cmd.ProcessState.ExitCode(), err, stderr.String(), out.String())
 	}
 	if cmd.ProcessState.ExitCode() != 0 {
-		t.Fatalf("argocd %q command exited with code %d\nstderr: %s", strings.Join(args, " "), cmd.ProcessState.ExitCode(), stderr.String())
+		t.Fatalf("argocd %q command exited with code %d\nstderr: %s\nstdout: %s\n", strings.Join(args, " "), cmd.ProcessState.ExitCode(), stderr.String(), out.String())
 	}
 	return cmd, out.Bytes()
 }
