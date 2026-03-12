@@ -1467,7 +1467,7 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) (
 			if err != nil {
 				return fmt.Errorf("could not get releases without environments, error: %w", err)
 			}
-			logging.Info(ctx, "updating releases environments.", zap.Int("count", len(releasesWithoutEnvironments)))
+			logging.Info(ctx, "updating releases environments.", zap.Int("releasesWithoutEnvironments", len(releasesWithoutEnvironments)))
 			for _, release := range releasesWithoutEnvironments {
 				err = h.DBUpdateOrCreateRelease(ctx, transaction, *release)
 				if err != nil {
