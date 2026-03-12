@@ -88,7 +88,7 @@ jobs:
       - name: Inject liniting error in cd-service
         if: inputs.inject_linting_error == true
         run: |
-          echo -e "\nconst unusedConst = \"\"" >> services/cd-service/cmd/server/main.go
+          echo -e "\n" >> services/cd-service/cmd/server/main.go
       - name: Modify README.md
         if: inputs.modify_readme == true
         run: |
