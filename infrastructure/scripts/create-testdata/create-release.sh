@@ -9,6 +9,7 @@ set -o pipefail
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
 prev=${3:-""}
+useOldApi=false
 
 function debug() {
     echo "$@" > /dev/stderr
@@ -107,15 +108,28 @@ then
   inputs+=(--form-string "previous_commit_id=${prev}")
 fi
 
-curl http://localhost:${FRONTEND_PORT}/api/release \
-  -H "author-email:${EMAIL}" \
-  -H "author-name:${AUTHOR}=" \
-  "${inputs[@]}" \
-  "${release_version[@]}" \
-  "${revision[@]}" \
-  --form-string "display_version=${displayVersion}" \
-  --form "source_message=<${commit_message_file}" \
-  "${configuration[@]}" \
-  "${manifests[@]}"
-
+debug "useOldApi=$useOldApi"
+if $useOldApi; then
+  curl http://localhost:${FRONTEND_PORT}/release \
+    -H "author-email:${EMAIL}" \
+    -H "author-name:${AUTHOR}=" \
+    "${inputs[@]}" \
+    "${release_version[@]}" \
+    "${revision[@]}" \
+    --form-string "display_version=${displayVersion}" \
+    --form "source_message=<${commit_message_file}" \
+    "${configuration[@]}" \
+    "${manifests[@]}"
+else
+  curl http://localhost:${FRONTEND_PORT}/api/release \
+    -H "author-email:${EMAIL}" \
+    -H "author-name:${AUTHOR}=" \
+    "${inputs[@]}" \
+    "${release_version[@]}" \
+    "${revision[@]}" \
+    --form-string "display_version=${displayVersion}" \
+    --form "source_message=<${commit_message_file}" \
+    "${configuration[@]}" \
+    "${manifests[@]}"
+fi
 echo # curl sometimes does not print a trailing \n
