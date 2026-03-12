@@ -38,7 +38,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/backoff"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -55,24 +55,18 @@ const (
 )
 
 func RunServer() {
-	_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
-		defer logger.HandlePanic(true)
+	_ = logging.Wrap(context.Background(), func(ctx context.Context) error {
+		defer logging.HandlePanic(true)
 		err := Run(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Errorf("error in startup: %v %#v", err, err)
-			err2 := logger.FromContext(ctx).Sync()
-			if err2 != nil {
-				panic(errors.Join(err, err2))
-			}
+			logging.Error(ctx, "error in startup.", zap.Error(err))
 		}
 		return nil
 	})
 }
 
 func Run(ctx context.Context) error {
-	log := logger.FromContext(ctx).Sugar()
-
-	logger.FromContext(ctx).Info("Startup")
+	logging.Info(ctx, "Startup")
 
 	dbLocation, err := valid.ReadEnvVar("KUBERPULT_DB_LOCATION")
 	if err != nil {
@@ -125,14 +119,14 @@ func Run(ctx context.Context) error {
 
 	enableMetricsString, err := valid.ReadEnvVar("KUBERPULT_ENABLE_METRICS")
 	if err != nil {
-		log.Info("datadog metrics are disabled")
+		logging.Info(ctx, "datadog metrics are disabled")
 	}
 	enableMetrics := enableMetricsString == "true"
 	dataDogStatsAddr := "127.0.0.1:8125"
 	if enableMetrics {
 		dataDogStatsAddrEnv, err := valid.ReadEnvVar("KUBERPULT_DOGSTATSD_ADDR")
 		if err != nil {
-			log.Infof("using default dogStatsAddr: %s", dataDogStatsAddr)
+			logging.Info(ctx, "using default dogStatsAddr.", zap.String("addr", dataDogStatsAddr))
 		} else {
 			dataDogStatsAddr = dataDogStatsAddrEnv
 		}
@@ -140,7 +134,7 @@ func Run(ctx context.Context) error {
 
 	enableTracesString, err := valid.ReadEnvVar("KUBERPULT_ENABLE_TRACING")
 	if err != nil {
-		log.Info("datadog traces are disabled")
+		logging.Info(ctx, "datadog traces are disabled")
 	}
 	enableTraces := enableTracesString == "true"
 	if enableTraces {
@@ -168,7 +162,7 @@ func Run(ctx context.Context) error {
 
 	var eslProcessingIdleTimeSeconds int64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
-		log.Infof("environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not set, using default backoff of 10 seconds")
+		logging.Info(ctx, "environment variable KUBERPULT_ESL_PROCESSING_BACKOFF is not set, using default backoff of 10 seconds")
 		eslProcessingIdleTimeSeconds = 10
 	} else {
 		eslProcessingIdleTimeSeconds, err = strconv.ParseInt(val, 10, 64)
@@ -182,7 +176,7 @@ func Run(ctx context.Context) error {
 	if eslProcessingIdleTimeSeconds > maxEslProcessingTimeSeconds {
 		return fmt.Errorf("error KUBERPULT_ESL_PROCESSING_BACKOFF must be <=%v but was: %v", maxEslProcessingTimeSeconds, eslProcessingIdleTimeSeconds)
 	}
-	log.Infof("eslProcessingTimeSeconds: %d", eslProcessingIdleTimeSeconds)
+	logging.Info(ctx, "eslProcessingTimeSeconds", zap.Int("eslProcessingTimeSeconds", eslProcessingIdleTimeSeconds))
 
 	networkTimeoutSecondsStr, err := valid.ReadEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
 	if err != nil {
@@ -203,7 +197,7 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	logger.FromContext(ctx).Info("startup", zap.String("kuberpultVersion", kuberpultVersionRaw))
+	logging.Info(ctx, "startup", zap.String("kuberpultVersion", kuberpultVersionRaw))
 
 	dbMigrationLocation, err := valid.ReadEnvVar("KUBERPULT_DB_MIGRATIONS_LOCATION")
 	if err != nil {
@@ -229,10 +223,10 @@ func Run(ctx context.Context) error {
 	var reader auth.GrpcContextReader
 	if dexMock {
 		if !dexEnabled {
-			logger.FromContext(ctx).Fatal("dexEnabled must be true if dexMock is true")
+			logging.Fatal(ctx, "dexEnabled must be true if dexMock is true")
 		}
 		if dexMockRole == "" {
-			logger.FromContext(ctx).Fatal("dexMockRole must be set to a role (e.g 'DEVELOPER' because dexEnabled=true")
+			logging.Fatal(ctx, "dexMockRole must be set to a role (e.g 'DEVELOPER' because dexEnabled=true")
 		}
 		reader = &auth.DummyGrpcContextReader{Role: dexMockRole}
 	} else {
@@ -240,11 +234,11 @@ func Run(ctx context.Context) error {
 	}
 	dexRbacPolicy, err := auth.ReadRbacPolicy(dexEnabled, dexRbacPolicyPath)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+		logging.Fatal(ctx, "dex.read.error", zap.Error(err))
 	}
 	dexRbacTeam, err := auth.ReadRbacTeam(dexEnabled, dexRbacTeamPath)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+		logging.Fatal(ctx, "dex.read.error", zap.Error(err))
 	}
 
 	experimentalRolloutWithManifest := valid.ReadEnvVarBoolWithDefault("KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED", false)
@@ -252,7 +246,7 @@ func Run(ctx context.Context) error {
 	rawStringMapEnvironments := valid.StringMap{}
 	rawStringMapAAEnvironments := valid.StringMap{}
 	if experimentalRolloutWithManifest {
-		logger.FromContext(ctx).Warn("experimental feature KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED enabled")
+		logging.Warn(ctx, "experimental feature KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENABLED enabled")
 
 		rawStringMapEnvironments, err = valid.ReadEnvVarJsonMap("KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_ENVIRONMENTS")
 		if err != nil {
@@ -289,7 +283,7 @@ func Run(ctx context.Context) error {
 	if enableMetrics {
 		ddMetrics, err = statsd.New(dataDogStatsAddr, statsd.WithNamespace("Kuberpult"))
 		if err != nil {
-			logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
+			logging.Fatal(ctx, "datadog.metrics.error", zap.Error(err))
 		}
 	}
 
@@ -322,34 +316,34 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("repository.new failed %v", err)
 	}
 
-	logger.FromContext(ctx).Info("Running SQL Migrations")
+	logging.Info(ctx, "Running SQL Migrations")
 
 	migErr := db.RunDBMigrations(ctx, dbCfg)
 	if migErr != nil {
-		logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
+		logging.Fatal(ctx, "Error running database migrations: ", zap.Error(migErr))
 	}
-	logger.FromContext(ctx).Info("Finished with SQL migration.")
+	logging.Info(ctx, "Finished with SQL migration.")
 
 	// the custom migrations that we also want to run on startup
-	logger.FromContext(ctx).Info("Running custom migrations")
+	logging.Info(ctx, "Running custom migrations")
 	err = dbHandler.RunCustomMigrations(ctx)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("error running custom migrations", zap.Error(err))
+		logging.Fatal(ctx, "error running custom migrations", zap.Error(err))
 	}
-	logger.FromContext(ctx).Info("Finished custom migrations")
+	logging.Info(ctx, "Finished custom migrations")
 
 	// the custom migrations that we only want to run on startup if the flag is enabled
 	if dbOutdatedDeploymentsCleaningEnabled {
 		err := dbHandler.RunCustomMigrationCleanOutdatedDeployments(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Error("error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false'", zap.Error(err))
+			logging.Error(ctx, "error running migrations for cleaning outdated deployments - you can disable this cleaning operation with 'db.outdatedDeploymentsCleaning.enabled:false'", zap.Error(err))
 		}
 	}
 
 	if resetGitSyncStatusEnabled {
 		err := dbHandler.RunCustomMigrationCleanGitSyncStatus(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Error("error cleaning git sync status - you can disable this cleaning operation with 'db.resetGitSyncStatus.enabled:false'", zap.Error(err))
+			logging.Error(ctx, "error cleaning git sync status - you can disable this cleaning operation with 'db.resetGitSyncStatus.enabled:false'", zap.Error(err))
 		}
 	}
 
@@ -390,13 +384,13 @@ func Run(ctx context.Context) error {
 
 	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-			defer logger.HandlePanic(true)
+			defer logging.HandlePanic(true)
 			return handler(srv, ss)
 		},
 	}
 	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-			defer logger.HandlePanic(true)
+			defer logging.HandlePanic(true)
 			return handler(ctx, req)
 		},
 		func(ctx context.Context,
@@ -473,7 +467,7 @@ func ParseEnvironmentOverrides(ctx context.Context, configuredArgoNamesPerEnv va
 		if exists {
 			result[env] = types.ArgoProjectName(argoProjectName)
 		} else {
-			logger.FromContext(ctx).Error("overridden environment does not exist - continuing with default argoProject name",
+			logging.Error(ctx, "overridden environment does not exist - continuing with default argoProject name",
 				zap.String("env", environment),
 				zap.String("existingEnvs", fmt.Sprintf("%v+", existingEnvsInDbMap)),
 				zap.String("helm-parameter", "manifestRepoExport.experimentalRolloutWithManifest"),
@@ -504,7 +498,7 @@ func processEsls(
 			return err
 		}
 		if wantedSleepTime > 0 {
-			measureDelays(ddMetrics, logger.FromContext(ctx).Sugar(), 0, 0)
+			measureDelays(ddMetrics, ctx, 0, 0)
 			time.Sleep(wantedSleepTime)
 		}
 	}
@@ -526,8 +520,6 @@ func ProcessOneEvent(
 	var esl *db.EslEventRow = nil
 	const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
 
-	logging := logger.FromContext(ctx).Sugar()
-
 	// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation.
 	// This means that there is a possibility that two transaction timestamps collide with the same git hash.
 	// As such, before executing any transformer, we get the current commit hash so that we can then compare it with the
@@ -538,7 +530,7 @@ func ProcessOneEvent(
 		if sleepDuration.IsAtMax() {
 			return 0, err
 		}
-		logger.FromContext(ctx).Sugar().Infof("error getting current commid ID, will try again in %v: %v", d, err)
+		logging.Info(ctx, "error getting current commid ID, will try again.", zap.Error(err))
 		return d, nil
 	}
 	err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
@@ -548,10 +540,10 @@ func ProcessOneEvent(
 	})
 	if err != nil {
 		if esl == nil {
-			logging.Errorf("skipping esl event, because we could not construct esl object: %v", err)
+			logging.Error(ctx, "skipping esl event, because we could not construct esl object.", zap.Error(err))
 			return 0, err
 		}
-		logging.Errorf("skipping esl event, because it returned an error: %v", err)
+		logging.Error(ctx, "skipping esl event, because it returned an error.", zapError(err))
 		// after this many tries, we can just skip it:
 		err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, esl, err.Error())
 		if err2 != nil {
@@ -562,11 +554,11 @@ func ProcessOneEvent(
 		if transformer == nil {
 			sleepDuration.Reset()
 			d := sleepDuration.NextBackOff()
-			measureGitPushFailures(ddMetrics, logging, false)
-			logger.FromContext(ctx).Sugar().Debug("event processing skipped, will try again in %v", d)
+			measureGitPushFailures(ddMetrics, ctx, false)
+			logging.Info(ctx, "event processing skipped, will try again in %v", d)
 			return d, nil
 		}
-		logging.Infof("event processed successfully, now writing to cutoff and pushing...")
+		logging.Info(ctx, "event processed successfully, now writing to cutoff and pushing...")
 		err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 			err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
 			if err2 != nil {
@@ -575,12 +567,12 @@ func ProcessOneEvent(
 			err2 = repo.PushRepo(ctx)
 			if err2 != nil {
 				d := sleepDuration.NextBackOff()
-				logger.FromContext(ctx).Sugar().Warnf("error pushing, will try again in %v: %v", d, err2)
-				measureGitPushFailures(ddMetrics, logging, true)
+				logging.Info(ctx, "error pushing, will try again.", zap.Error(err2))
+				measureGitPushFailures(ddMetrics, ctx, true)
 				time.Sleep(d)
 				return err2
 			} else {
-				measureGitPushFailures(ddMetrics, logging, false)
+				measureGitPushFailures(ddMetrics, ctx, false)
 			}
 
 			//Get latest commit. Write esl timestamp and commit hash.
@@ -604,7 +596,7 @@ func ProcessOneEvent(
 				}
 				return nil
 			} else {
-				logger.FromContext(ctx).Warn("no commit was created, tagging skipped", zap.String("gitTag", string(transformer.GetGitTag())))
+				logging.Warn(ctx, "no commit was created, tagging skipped", zap.String("gitTag", string(transformer.GetGitTag())))
 			}
 			return nil
 		})
@@ -613,11 +605,11 @@ func ProcessOneEvent(
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 				return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
 			})
-			logger.FromContext(ctx).Sugar().Errorf("error updating state for ui: %v", err)
+			logging.Error(ctx, "error updating state for ui.", zap.Error(err))
 			err3 := repo.FetchAndReset(ctx)
 			if err3 != nil {
 				d := sleepDuration.NextBackOff()
-				logger.FromContext(ctx).Sugar().Warnf("error fetching repo, will try again in %v", d)
+				logging.Info(ctx, "error fetching repo, will try again.")
 				return d, nil
 			}
 		} else {
@@ -626,7 +618,7 @@ func ProcessOneEvent(
 				return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNCED)
 			})
 			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("Failed writing sync status after successful operation! Repo has been updated, but sync status has not. Error: %v", err)
+				logging.Error(ctx, "Failed writing sync status after successful operation! Repo has been updated, but sync status has not.", zap.Error(err))
 			}
 		}
 	}
@@ -634,7 +626,7 @@ func ProcessOneEvent(
 
 	err = repository.MeasureGitSyncStatus(ctx, ddMetrics, dbHandler)
 	if err != nil {
-		logger.FromContext(ctx).Sugar().Warnf("Failed sending git sync status metrics: %v", err)
+		logging.Error(ctx, "Failed sending git sync status metrics.", zap.Error(err))
 		// if just the metrics fail, we don't want to exit with an error
 	}
 	return 0, nil
@@ -684,30 +676,30 @@ func measureGitTagPushFailures(ctx context.Context, ddMetrics statsd.ClientInter
 		metricName := "manifest_export_tag_push_failures"
 		err := ddMetrics.Gauge(metricName, 1, []string{"kuberpult_tag_name", string(gitTag)}, 1)
 		if err != nil {
-			logger.FromContext(ctx).Error("datadog_metrics_error", zap.Error(err), zap.String("metricName", metricName))
+			logging.Error(ctx, "datadog_metrics_error", zap.Error(err), zap.String("metricName", metricName))
 		}
 	}
 }
 
-func measureGitPushFailures(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, failure bool) {
+func measureGitPushFailures(ddMetrics statsd.ClientInterface, ctx context.Context, failure bool) {
 	if ddMetrics != nil {
 		var value float64 = 0
 		if failure {
 			value = 1
 		}
 		if err := ddMetrics.Gauge("manifest_export_push_failures", value, []string{}, 1); err != nil {
-			log.Error("Error in ddMetrics.Gauge %v", err)
+			logging.Error(ctx, "Error in ddMetrics.Gauge.", zap.Error(err))
 		}
 	}
 }
 
-func measureDelays(ddMetrics statsd.ClientInterface, log *zap.SugaredLogger, delaySeconds float64, delayEvents uint64) {
+func measureDelays(ddMetrics statsd.ClientInterface, ctx context.Context, delaySeconds float64, delayEvents uint64) {
 	if ddMetrics != nil {
 		if err := ddMetrics.Gauge("process_delay_seconds", delaySeconds, []string{}, 1); err != nil {
-			log.Error("Error in ddMetrics.Gauge for delay seconds: %v", err)
+			logging.Error(ctx, "Error in ddMetrics.Gauge for delay seconds.", zap.Error(err))
 		}
 		if err := ddMetrics.Gauge("process_delay_events", float64(delayEvents), []string{}, 1); err != nil {
-			log.Error("Error in ddMetrics.Gauge for delay events: %v", err)
+			logging.Error(ctx, "Error in ddMetrics.Gauge for delay events.", zap.Error(err))
 		}
 	}
 }
@@ -717,14 +709,14 @@ func HandleOneTransformer(ctx context.Context, transaction *sql.Tx, dbHandler *d
 		if err != nil {
 			return nil, nil, fmt.Errorf("error in GetCurrentDelays: %v", err)
 		}
-		measureDelays(ddMetrics, logger.FromContext(ctx).Sugar(), delaySeconds, delayEvents)
+		measureDelays(ddMetrics, ctx, delaySeconds, delayEvents)
 	}
 	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error in DBReadCutoff: %v", err)
 	}
 	if eslVersion == nil {
-		logger.FromContext(ctx).Sugar().Infof("did not find cutoff")
+		logging.Info(ctx, "did not find cutoff")
 	}
 	esl, err := dbHandler.DBReadEslEvent(ctx, transaction, eslVersion)
 	if err != nil {

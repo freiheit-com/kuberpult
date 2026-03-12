@@ -48,3 +48,7 @@ func Info(ctx context.Context, msg string, fields ...zap.Field) {
 func HandlePanic(exitOnPanic bool) {
 	logger.HandlePanic(exitOnPanic)
 }
+
+func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
+	return logger.Wrap(ctx, inner)
+}
