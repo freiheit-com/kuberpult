@@ -1094,7 +1094,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		}
 		if release == nil {
 			majorsCount += 1
-			logging.Error(ctx, "Release not found in database.")
+			logging.Info(ctx, "Release not found in database.")
 		} else if !release.Metadata.IsMinor && !release.Metadata.IsPrepublish {
 			majorsCount += 1
 		}
@@ -1174,7 +1174,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		for _, currentApp := range apps {
 			currentTeamName, err := state.GetTeamName(currentApp)
 			if err != nil {
-				logging.Error(ctx, "CreateEnvironmentTeamLock: Could not find team for application.", zap.String("application", currentApp))
+				logging.Info(ctx, "CreateEnvironmentTeamLock: Could not find team for application.", zap.String("application", currentApp))
 			} else {
 				if c.Team == currentTeamName {
 					foundTeam = true
@@ -2215,7 +2215,7 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 		argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
 		err := fs.Remove(argoCdAppFile)
 		if errors.Is(err, os.ErrNotExist) {
-			logging.Error(ctx, "DeleteEnvironment: environment's argocd app file %q does not exist.", argoCdAppFile)
+			logging.Info(ctx, "DeleteEnvironment: environment's argocd app file %q does not exist.", argoCdAppFile)
 		} else if err != nil {
 			return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
 		}
@@ -2223,7 +2223,7 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 	envDir := fs.Join("environments", string(d.Environment))
 	err = fs.Remove(envDir)
 	if errors.Is(err, os.ErrNotExist) {
-		logging.Error(ctx, "DeleteEnvironment: environment directory does not exist.", zap.String("dir", envDir))
+		logging.Info(ctx, "DeleteEnvironment: environment directory does not exist.", zap.String("dir", envDir))
 	} else if err != nil {
 		return "", fmt.Errorf("error deleting the environment directory %q: %w", envDir, err)
 	}
@@ -2361,7 +2361,7 @@ func deleteAAEnvironment(ctx context.Context, fs billy.Filesystem, env types.Env
 	argoCdAppFile := getArgoCdAAEnvFileName(fs, types.EnvName(*envConfig.ArgoCdConfigs.CommonEnvPrefix), env, concreteEnv, true)
 	err = fs.Remove(argoCdAppFile)
 	if errors.Is(err, os.ErrNotExist) {
-		logging.Error(ctx, "AA environment argocd app file does not exist.", zap.String("argoCdAppFile", argoCdAppFile))
+		logging.Info(ctx, "AA environment argocd app file does not exist.", zap.String("argoCdAppFile", argoCdAppFile))
 	} else if err != nil {
 		return fmt.Errorf("error deleting AA environment's argocd app file %q: %w", argoCdAppFile, err)
 	}
