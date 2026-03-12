@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - db-citest
+      - su-ci-test
 
 jobs:
   ci-test:
