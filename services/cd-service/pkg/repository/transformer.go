@@ -55,7 +55,8 @@ import (
 const (
 	yamlParsingError = "# yaml parsing error"
 	// number of old releases that will ALWAYS be kept in addition to the ones that are deployed:
-	keptVersionsOnCleanup = 20
+	keptVersionsOnCleanup     = 20
+	dummyBracketsHistoryTable = "dummy_brackets_history"
 )
 
 func (s *State) GetEnvironmentLocksCount(ctx context.Context, transaction *sql.Tx, env types.EnvName) (float64, error) {

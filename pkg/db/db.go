@@ -77,6 +77,7 @@ const (
 	MigrationCommitEventHash = "0000000000000000000000000000000000000000"
 	WhereInBatchMax          = 1024
 	MaxInsertBatchSize       = 1000
+	MaxDummyBatchSize        = 1234
 	MaxDeleteBatchSize       = 20
 )
 
