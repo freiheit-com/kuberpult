@@ -24,9 +24,10 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
@@ -145,7 +146,7 @@ func (h *DBHandler) DBHasAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (boo
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("release: row could not be closed: %v", err)
+			logging.Error(ctx, "release: rows could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	return rows.Next(), nil
@@ -278,7 +279,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("team locks: row could not be closed: %v", err)
+			logging.Error(ctx, "team locks: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	teamLocks := make([]TeamLockHistory, 0)
@@ -407,7 +408,7 @@ func (h *DBHandler) DBDeleteTeamLock(ctx context.Context, tx *sql.Tx, environmen
 	}
 
 	if existingTeamLock == nil {
-		logger.FromContext(ctx).Sugar().Warnf("could not delete team lock. The team lock '%s' on team '%s' on environment '%s' does not exist. Continuing anyway.", lockID, teamName, environment)
+		logging.Info(ctx, "could not delete team lock. The team lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("teamName", teamName), zap.String("environment", string(environment)))
 		return nil
 	}
 	err = h.deleteTeamLockRow(ctx, tx, lockID, environment, teamName)
@@ -535,7 +536,7 @@ func (h *DBHandler) processTeamLockRows(ctx context.Context, err error, rows *sq
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	teamLocks := make([]TeamLock, 0)
@@ -593,7 +594,7 @@ func (h *DBHandler) processAllTeamLocksRows(ctx context.Context, err error, rows
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("releases: row could not be closed: %v", err)
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	//exhaustruct:ignore

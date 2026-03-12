@@ -25,9 +25,10 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
@@ -197,7 +198,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 		}
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logging.Error(ctx, "row closing error.", zap.Error(err))
 		}
 	}(rows)
 	//Get the latest change to each lock

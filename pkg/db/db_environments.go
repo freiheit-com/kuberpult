@@ -25,10 +25,11 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
@@ -63,7 +64,7 @@ func (h *DBHandler) DBHasAnyEnvironment(ctx context.Context, tx *sql.Tx) (bool, 
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("environment locks: row could not be closed: %v", err)
+			logging.Error(ctx, "environment locks: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
 	return rows.Next(), nil
@@ -128,7 +129,7 @@ func processEnvironmentRows(ctx context.Context, rows *sql.Rows) (*[]DBEnvironme
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
+			logging.Error(ctx, "error while closing row of environments.", zap.Error(err))
 		}
 	}(rows)
 
@@ -222,7 +223,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row on environments table, error: %w", err)
+			logging.Error(ctx, "error while closing row on environments table.", zap.Error(err))
 		}
 	}(rows)
 
@@ -273,7 +274,7 @@ func (h *DBHandler) DBSelectEnvironmentApplications(ctx context.Context, transac
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row on releases table, error: %w", err)
+			logging.Error(ctx, "error while closing row on releases table.", zap.Error(err))
 		}
 	}(rows)
 
@@ -487,7 +488,7 @@ func (h *DBHandler) processEnvironmentRow(ctx context.Context, rows *sql.Rows) (
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error while closing row of environments, error: %w", err)
+			logging.Error(ctx, "error while closing row of environments.", zap.Error(err))
 		}
 	}(rows)
 

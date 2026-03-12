@@ -32,9 +32,10 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 // Extracted information from JWT/Cookie.
@@ -148,7 +149,7 @@ func (a *DexAppClient) registerDexHandlers() {
 func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, request *http.Request) {
 	target, err := url.Parse(serverAddr)
 	if err != nil {
-		logger.FromContext(context.Background()).Error(fmt.Sprintf("Could not parse server URL with error: %s", err))
+		logging.Error(context.Background(), "Could not parse server URL.", zap.Error(err))
 		return nil
 	}
 
@@ -163,7 +164,7 @@ func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, requ
 			if err != nil {
 				return err
 			}
-			logger.FromContext(context.Background()).Error(fmt.Sprintf("Could not parse server URL with error: %s", string(body)))
+			logging.Error(context.Background(), "Could not parse server URL.", zap.String("body", string(body)))
 			resp.Body = io.NopCloser(bytes.NewReader(make([]byte, 0)))
 			return nil
 		}
@@ -395,7 +396,7 @@ func AppendRoleForPolicy(userGroup string, roles []string, policy *RBACPolicies)
 func GetContextFromDex(ctx context.Context, req *http.Request, clientID, baseURL, dexServiceURL string, DexRbacPolicy *RBACPolicies, useClusterInternalCommunication bool) (context.Context, error) {
 	claimsParsed, err := VerifyToken(ctx, req, clientID, baseURL, dexServiceURL, useClusterInternalCommunication, DexRbacPolicy)
 	if err != nil {
-		logger.FromContext(ctx).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
+		logging.Info(ctx, "Error verifying token for Dex: ", zap.Error(err))
 		return ctx, err
 	}
 	httpCtx := ctx

@@ -21,9 +21,10 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestDBArgoEvent(t *testing.T) {

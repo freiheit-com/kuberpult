@@ -33,13 +33,14 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/lib/pq"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"go.uber.org/zap"
 	ddsql "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 )
@@ -131,7 +132,6 @@ func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
 }
 
 func GetConnectionAndDriverWithRetries(ctx context.Context, cfg DBConfig) (*sql.DB, database.Driver, error) {
-	var l = logger.FromContext(ctx).Sugar()
 	var db *sql.DB
 	var err error
 	var driver database.Driver
@@ -141,7 +141,7 @@ func GetConnectionAndDriverWithRetries(ctx context.Context, cfg DBConfig) (*sql.
 			return db, driver, nil
 		}
 		d := time.Second * 2
-		l.Warnf("could not connect to db, will try again in %v for %d more times, error: %v", d, i, err)
+		logging.Error(ctx, "could not connect to db, will try again.", zap.Int("remaining retries", i), zap.Error(err))
 		time.Sleep(d)
 	}
 	return nil, nil, err
@@ -235,10 +235,10 @@ func closeRows(rows *sql.Rows) error {
 	return nil
 }
 
-func closeRowsAndLog(rows *sql.Rows, ctx context.Context, prefix string) {
+func closeRowsAndLog(rows *sql.Rows, ctx context.Context, function string) {
 	err := rows.Close()
 	if err != nil {
-		logger.FromContext(ctx).Sugar().Warnf("%s: rows could not be closed: %v", prefix, err)
+		logging.Error(ctx, "rows could not be closed.", zap.String("function", function), zap.Error(err))
 	}
 }
 
@@ -479,16 +479,14 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 }
 
 func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *EslVersion) (*EslEventRow, error) {
-	log := logger.FromContext(ctx).Sugar()
 	if eslVersion == nil {
-		log.Warnf("no cutoff found, starting at the beginning of time.")
+		logging.Info(ctx, "no cutoff found, starting at the beginning of time.")
 		// no read cutoff yet, we have to start from the beginning
 		esl, err := h.DBReadEslEventInternal(ctx, transaction, true)
 		if err != nil {
 			return nil, err
 		}
 		if esl == nil {
-			log.Warnf("no esl events found")
 			return nil, nil
 		}
 		return esl, nil
@@ -999,7 +997,6 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 	}()
 
 	return h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		l := logger.FromContext(ctx).Sugar()
 		needsMigrating, err := h.needsReleasesMigrations(ctx, transaction)
 		if err != nil {
 			return err
@@ -1012,13 +1009,10 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 			return err
 		}
 		for app := range allAppsMap {
-			l.Infof("processing app %s ...", app)
-
 			err := writeAllReleasesFun(ctx, transaction, app, h)
 			if err != nil {
 				return fmt.Errorf("could not migrate releases to database: %v", err)
 			}
-			l.Infof("done with app %s", app)
 		}
 		return nil
 	})
@@ -1030,7 +1024,7 @@ func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sq
 		return true, err
 	}
 	if hasRelease {
-		logger.FromContext(ctx).Sugar().Warnf("There are already deployments in the DB - skipping migrations")
+		logging.Info(ctx, "There are already deployments in the DB - skipping migrations.")
 	}
 	return !hasRelease, nil
 }
@@ -1059,13 +1053,12 @@ func (h *DBHandler) RunCustomMigrationDeployments(ctx context.Context, getAllDep
 }
 
 func (h *DBHandler) needsDeploymentsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
 	hasDeployment, err := h.DBHasAnyDeployment(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
 	if hasDeployment {
-		l.Warnf("There are already deployments in the DB - skipping migrations")
+		logging.Info(ctx, "There are already deployments in the DB - skipping migrations.")
 	}
 	return !hasDeployment, nil
 }
@@ -1102,13 +1095,12 @@ func (h *DBHandler) RunCustomMigrationEnvLocks(ctx context.Context, writeAllEnvL
 }
 
 func (h *DBHandler) needsEnvLocksMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
 	hasEnvLock, err := h.DBHasAnyActiveEnvLock(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
 	if hasEnvLock {
-		l.Infof("There are already environment locks in the DB - skipping migrations")
+		logging.Info(ctx, "There are already environment locks in the DB - skipping migrations.")
 	}
 	return !hasEnvLock, nil
 }
@@ -1141,7 +1133,7 @@ func (h *DBHandler) needsAppLocksMigrations(ctx context.Context, transaction *sq
 		return true, err
 	}
 	if hasAppLock {
-		logger.FromContext(ctx).Sugar().Infof("There are already application locks in the DB - skipping migrations")
+		logging.Info(ctx, "There are already application locks in the DB - skipping migrations.")
 	}
 	return !hasAppLock, nil
 }
@@ -1175,7 +1167,7 @@ func (h *DBHandler) needsTeamLocksMigrations(ctx context.Context, transaction *s
 		return true, err
 	}
 	if hasTeamLock {
-		logger.FromContext(ctx).Sugar().Infof("There are already team locks in the DB - skipping migrations")
+		logging.Info(ctx, "There are already team locks in the DB - skipping migrations.")
 	}
 	return !hasTeamLock, nil
 }
@@ -1204,15 +1196,13 @@ func (h *DBHandler) RunCustomMigrationsCommitEvents(ctx context.Context, writeAl
 }
 
 func (h *DBHandler) needsCommitEventsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
-
 	//Checks for 'migration' commit event with hash 0000(...)0000
 	contains, err := h.DBContainsMigrationCommitEvent(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
 	if contains {
-		l.Infof("detected migration commit event on the database - skipping migrations")
+		logging.Info(ctx, "detected migration commit event on the database - skipping migrations.")
 		return false, nil
 	}
 	return true, nil
@@ -1241,13 +1231,12 @@ func (h *DBHandler) RunCustomMigrationsEventSourcingLight(ctx context.Context) e
 type CheckFun = func(handler *DBHandler, ctx context.Context, transaction *sql.Tx) (bool, error)
 
 func (h *DBHandler) NeedsEventSourcingLightMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
 	eslEvent, err := h.DBReadEslEventInternal(ctx, transaction, true) //true sorts by asc
 	if err != nil {
 		return true, err
 	}
 	if eslEvent != nil && eslEvent.EslVersion == 0 { //Check if there is a 0th transformer already
-		l.Infof("Found Migrations transformer on database.")
+		logging.Info(ctx, "Found migrations transformer on database.")
 		return false, nil
 	}
 	return true, nil
@@ -1327,10 +1316,9 @@ func (h *DBHandler) RunAllCustomMigrationsForApps(ctx context.Context, getAllApp
 }
 
 func (h *DBHandler) needsAppsMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	l := logger.FromContext(ctx).Sugar()
 	allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
 	if err != nil {
-		l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+		logging.Error(ctx, "could not get applications from database - assuming the manifest repo is correct.", zap.Error(err))
 		return false, err
 	}
 	return len(allAppsDb) == 0, nil
@@ -1479,7 +1467,7 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) (
 			if err != nil {
 				return fmt.Errorf("could not get releases without environments, error: %w", err)
 			}
-			logger.FromContext(ctx).Sugar().Infof("updating %d releases environments", len(releasesWithoutEnvironments))
+			logging.Info(ctx, "updating releases environments.", zap.Int("releasesWithoutEnvironments", len(releasesWithoutEnvironments)))
 			for _, release := range releasesWithoutEnvironments {
 				err = h.DBUpdateOrCreateRelease(ctx, transaction, *release)
 				if err != nil {

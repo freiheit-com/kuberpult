@@ -22,8 +22,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 )
 
 // For testing purposes only

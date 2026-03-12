@@ -25,7 +25,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"go.uber.org/zap"
+
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
@@ -82,7 +84,7 @@ func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPat
 	}
 
 	var newDbName = fmt.Sprintf("unittest_%s", simpleHash(rawNewDbName))
-	logger.FromContext(ctx).Sugar().Infof("Test '%s' will use database '%s'", rawNewDbName, newDbName)
+	logging.Info(ctx, "Test will use database.", zap.String("rawNewDbName", rawNewDbName), zap.String("newDbName", newDbName))
 	deleteDBQuery := fmt.Sprintf("DROP DATABASE IF EXISTS %s;", newDbName)
 	_, err = dbHandler.DB.ExecContext(
 		ctx,
@@ -101,7 +103,7 @@ func ConnectToPostgresContainer(ctx context.Context, t testing.TB, migrationsPat
 		return nil, fmt.Errorf("failed to create database %s: %w", newDbName, err)
 	}
 	t.Logf("Database %s created successfully", newDbName)
-	logger.FromContext(ctx).Sugar().Infof("Database %s created successfully", newDbName)
+	logging.Info(ctx, "Database created successfully.", zap.String("database", newDbName))
 
 	dbConfig.DbName = newDbName
 	err = dbHandler.DB.Close()
@@ -127,7 +129,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logging.Error(ctx, "row closing error.", zap.Error(err))
 		}
 	}(rows)
 	if !rows.Next() {

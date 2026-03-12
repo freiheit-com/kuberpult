@@ -25,9 +25,10 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
 const (
@@ -128,7 +129,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 		}
 		if IsRetryablePostgresError(e) {
 			duration := 50 * time.Millisecond
-			logger.FromContext(attempt_ctx).Sugar().Warnf("%s transaction failed, will retry in %v: %v", msg, duration, e)
+			logging.Info(attempt_ctx, "Transaction failed, will retry.", zap.String("msg", msg), zap.Error(e))
 			_ = transaction.Rollback()
 			span.Finish(tracer.WithError(e))
 			time.Sleep(duration)
@@ -139,7 +140,7 @@ func withTransactionAllOptions[T any](h *DBHandler, ctx context.Context, opts tr
 				readonly:   opts.readonly,
 			}, f)
 		} else {
-			logger.FromContext(attempt_ctx).Sugar().Warnf("%s transaction failed, will NOT retry error: %v", msg, e)
+			logging.Error(attempt_ctx, "transaction failed, will NOT retry.", zap.String("msg", msg), zap.Error(e))
 		}
 		return nil, e
 	}
