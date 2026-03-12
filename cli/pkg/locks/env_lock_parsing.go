@@ -100,7 +100,6 @@ func convertToCreateEnvironmentLockParams(cmdArgs CreateEnvLockCommandLineArgume
 	rp := CreateEnvironmentLockParameters{
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
-		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
 		Message:              "",
 		CiLink:               nil,
 		SuggestedLifetime:    nil,
@@ -179,7 +178,6 @@ func convertToDeleteEnvironmentLockParams(cmdArgs DeleteEnvLockCommandLineArgume
 	return &DeleteEnvironmentLockParameters{
 		LockId:               cmdArgs.lockId.Values[0],
 		Environment:          cmdArgs.environment.Values[0],
-		UseDexAuthentication: false,
 	}, nil
 }
 

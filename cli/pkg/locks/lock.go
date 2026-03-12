@@ -33,65 +33,57 @@ type LockParameters interface {
 }
 
 type CreateEnvironmentLockParameters struct {
-	Environment          string
-	LockId               string
-	Message              string
-	CiLink               *string
-	UseDexAuthentication bool
-	SuggestedLifetime    *string
+	Environment       string
+	LockId            string
+	Message           string
+	CiLink            *string
+	SuggestedLifetime *string
 }
 
 type DeleteEnvironmentLockParameters struct {
-	Environment          string
-	LockId               string
-	UseDexAuthentication bool
+	Environment string
+	LockId      string
 }
 
 type CreateAppLockParameters struct {
-	Environment          string
-	LockId               string
-	Message              string
-	Application          string
-	CiLink               *string
-	UseDexAuthentication bool
-	SuggestedLifetime    *string
+	Environment       string
+	LockId            string
+	Message           string
+	Application       string
+	CiLink            *string
+	SuggestedLifetime *string
 }
 type DeleteAppLockParameters struct {
-	Environment          string
-	LockId               string
-	Application          string
-	UseDexAuthentication bool
+	Environment string
+	LockId      string
+	Application string
 }
 
 type CreateTeamLockParameters struct {
-	Environment          string
-	LockId               string
-	Message              string
-	Team                 string
-	CiLink               *string
-	SuggestedLifeTime    *string
-	UseDexAuthentication bool
+	Environment       string
+	LockId            string
+	Message           string
+	Team              string
+	CiLink            *string
+	SuggestedLifeTime *string
 }
 
 type DeleteTeamLockParameters struct {
-	Environment          string
-	LockId               string
-	Team                 string
-	UseDexAuthentication bool
+	Environment string
+	LockId      string
+	Team        string
 }
 
 type CreateEnvironmentGroupLockParameters struct {
-	EnvironmentGroup     string
-	LockId               string
-	Message              string
-	CiLink               *string
-	SuggestedLifeTime    *string
-	UseDexAuthentication bool
+	EnvironmentGroup  string
+	LockId            string
+	Message           string
+	CiLink            *string
+	SuggestedLifeTime *string
 }
 type DeleteEnvironmentGroupLockParameters struct {
-	EnvironmentGroup     string
-	LockId               string
-	UseDexAuthentication bool
+	EnvironmentGroup string
+	LockId           string
 }
 
 type LockJsonData struct {
@@ -143,9 +135,6 @@ func (e *CreateEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 		return nil, fmt.Errorf("could not EnvironmentLockParameters data to json: %w", err)
 	}
 	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
 	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
@@ -156,9 +145,6 @@ func (e *CreateEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 
 func (e *DeleteEnvironmentLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
 	return &HttpInfo{
 		jsonData:    []byte{},
 		ContentType: "application/json",
@@ -187,9 +173,6 @@ func (e *CreateAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 		return nil, fmt.Errorf("could not marshal CreateAppLockParameters data to json: %w", err)
 	}
 	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
 	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
@@ -200,9 +183,6 @@ func (e *CreateAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 
 func (e *DeleteAppLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
 	return &HttpInfo{
 		jsonData:    []byte{},
 		ContentType: "application/json",
@@ -229,10 +209,7 @@ func (e *CreateTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal CreateTeamLockParameters data to json: %w", err)
 	}
-	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
+	prefix := "api/environments"
 	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
@@ -242,10 +219,7 @@ func (e *CreateTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
 }
 
 func (e *DeleteTeamLockParameters) FillHttpInfo() (*HttpInfo, error) {
-	prefix := "environments"
-	if e.UseDexAuthentication {
-		prefix = "api/environments"
-	}
+	prefix := "api/environments"
 	return &HttpInfo{
 		jsonData:    []byte{},
 		ContentType: "application/json",
@@ -273,9 +247,6 @@ func (e *CreateEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error)
 		return nil, fmt.Errorf("could not marshal CreateEnvironmentGroupLockParameters data to json: %w", err)
 	}
 	prefix := "environment-groups"
-	if e.UseDexAuthentication {
-		prefix = "api/environment-groups"
-	}
 	return &HttpInfo{
 		jsonData:    jsonData,
 		ContentType: "application/json",
@@ -286,9 +257,6 @@ func (e *CreateEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error)
 
 func (e *DeleteEnvironmentGroupLockParameters) FillHttpInfo() (*HttpInfo, error) {
 	prefix := "environment-groups"
-	if e.UseDexAuthentication {
-		prefix = "api/environment-groups"
-	}
 	return &HttpInfo{
 		jsonData:    []byte{},
 		ContentType: "application/json",

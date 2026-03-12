@@ -128,10 +128,7 @@ func prepareHttpReleaseRequest(url string, authParams kutil.AuthenticationParame
 	if err != nil {
 		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)
 	}
-	path := "release"
-	if parsedArgs.UseDexAuthentication {
-		path = "api/release"
-	}
+	path := "api/release"
 	req, err := http.NewRequest(http.MethodPost, urlStruct.JoinPath(path).String(), form)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)

@@ -100,13 +100,12 @@ func convertToCreateAppLockParams(cmdArgs CreateAppLockCommandLineArguments) (Lo
 	}
 
 	rp := CreateAppLockParameters{
-		LockId:               cmdArgs.lockId.Values[0],
-		Environment:          cmdArgs.environment.Values[0],
-		Application:          cmdArgs.application.Values[0],
-		Message:              "",
-		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
-		CiLink:               nil,
-		SuggestedLifetime:    nil,
+		LockId:            cmdArgs.lockId.Values[0],
+		Environment:       cmdArgs.environment.Values[0],
+		Application:       cmdArgs.application.Values[0],
+		Message:           "",
+		CiLink:            nil,
+		SuggestedLifetime: nil,
 	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
@@ -182,10 +181,9 @@ func convertToDeleteAppLockParams(cmdArgs DeleteAppLockCommandLineArguments) (Lo
 	}
 
 	rp := DeleteAppLockParameters{
-		LockId:               cmdArgs.lockId.Values[0],
-		Environment:          cmdArgs.environment.Values[0],
-		Application:          cmdArgs.application.Values[0],
-		UseDexAuthentication: false,
+		LockId:      cmdArgs.lockId.Values[0],
+		Environment: cmdArgs.environment.Values[0],
+		Application: cmdArgs.application.Values[0],
 	}
 	return &rp, nil
 }

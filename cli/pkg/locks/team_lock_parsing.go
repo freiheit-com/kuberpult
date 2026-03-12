@@ -102,17 +102,20 @@ func convertToCreateTeamLockParams(cmdArgs CreateTeamLockCommandLineArguments) (
 	}
 
 	rp := CreateTeamLockParameters{
-		LockId:               cmdArgs.lockId.Values[0],
-		Environment:          cmdArgs.environment.Values[0],
-		Team:                 cmdArgs.team.Values[0],
-		UseDexAuthentication: true, //For now there is no ambiguity as to which endpoint to use
-		Message:              "",
-		CiLink:               nil,
-		SuggestedLifeTime:    nil,
+		LockId:            cmdArgs.lockId.Values[0],
+		Environment:       cmdArgs.environment.Values[0],
+		Team:              cmdArgs.team.Values[0],
+		Message:           "",
+		CiLink:            nil,
+		SuggestedLifeTime: nil,
 	}
-	if len(cmdArgs.message.Values) != 0 {
-		rp.Message = cmdArgs.message.Values[0]
+	if len(cmdArgs.message.Values) == 0 {
+		return nil, fmt.Errorf("the --message arg is required for lock creation")
 	}
+	if cmdArgs.message.Values[0] == "" {
+		return nil, fmt.Errorf("the --message arg may not be empty for lock creation")
+	}
+	rp.Message = cmdArgs.message.Values[0]
 	if len(cmdArgs.ciLink.Values) == 1 {
 		rp.CiLink = &cmdArgs.ciLink.Values[0]
 	}
@@ -186,10 +189,9 @@ func convertToDeleteTeamLockParams(cmdArgs DeleteTeamLockCommandLineArguments) (
 	}
 
 	rp := DeleteTeamLockParameters{
-		LockId:               cmdArgs.lockId.Values[0],
-		Environment:          cmdArgs.environment.Values[0],
-		Team:                 cmdArgs.team.Values[0],
-		UseDexAuthentication: true,
+		LockId:      cmdArgs.lockId.Values[0],
+		Environment: cmdArgs.environment.Values[0],
+		Team:        cmdArgs.team.Values[0],
 	}
 	return &rp, nil
 }

@@ -57,15 +57,10 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 		return nil, fmt.Errorf("the provided url %s is invalid, error: %w", url, err)
 	}
 
-	prefix := "environments"
-
-	if parameters.UseDexAuthentication {
-		prefix = "api/environments"
-		if parameters.UseEnvGroupTarget {
-			prefix = "api/environment-groups"
-		}
+	prefix := "api/environments"
+	if parameters.UseEnvGroupTarget {
+		prefix = "api/environment-groups"
 	}
-
 	path := fmt.Sprintf("%s/%s/releasetrain", prefix, parameters.TargetEnvironment)
 
 	if parameters.Team != nil {
@@ -87,12 +82,12 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 	}
 
 	req, err := http.NewRequest(http.MethodPut, urlStruct.JoinPath(path).String(), bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
+	}
 
 	if jsonData != nil {
 		req.Header.Set("Content-Type", "application/json")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error creating the HTTP request, error: %w", err)
 	}
 
 	if authParams.IapToken != nil {
