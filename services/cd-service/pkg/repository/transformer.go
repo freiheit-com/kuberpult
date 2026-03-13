@@ -1337,14 +1337,21 @@ func (c *CleanupOldApplicationVersions) GetEslVersion() db.TransformerID {
 }
 
 // Finds old releases for an application
-func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name types.AppName) ([]types.ReleaseNumbers, error) {
+func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, name types.AppName) (_ []types.ReleaseNumbers, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "findOldApplicationVersions")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
 	// 1) get release in each env:
 	versions, err := state.GetAllApplicationReleases(ctx, transaction, name)
 	if err != nil {
 		return nil, err
 	}
+	span.SetTag("numOfReleases", len(versions))
+
 	if len(versions) == 0 {
-		return nil, err
+		return nil, nil
 	}
 	sort.Slice(versions, func(i, j int) bool {
 		return types.Greater(versions[j], versions[i])
@@ -1354,6 +1361,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	if err != nil {
 		return nil, err
 	}
+	span.SetTag("numOfDeployments", len(deployments))
 
 	var oldestDeployedVersion types.ReleaseNumbers
 	deployedVersions := []types.ReleaseNumbers{}
@@ -1367,14 +1375,19 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 	} else {
 		oldestDeployedVersion = slices.MinFunc(deployedVersions, types.CompareReleaseNumbers)
 	}
+	span.SetTag("oldestDeployedVersion", oldestDeployedVersion)
 
 	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
 		return types.GreaterOrEqual(versions[i], oldestDeployedVersion)
 	})
+	span.SetTag("positionOfOldestVersion", positionOfOldestVersion)
+	span.SetTag("releaseVersionsLimit", state.ReleaseVersionsLimit)
 
 	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
 		return nil, nil
 	}
+
+	span.SetTag("numOfOldReleasesToDelete", positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1))
 	return versions[0 : positionOfOldestVersion-(int(state.ReleaseVersionsLimit)-1)], err
 }
 
@@ -1383,7 +1396,12 @@ func (c *CleanupOldApplicationVersions) Transform(
 	state *State,
 	_ TransformerContext,
 	transaction *sql.Tx,
-) (string, error) {
+) (_ string, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "CleanupOldApplicationVersions")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
