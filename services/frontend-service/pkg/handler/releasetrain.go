@@ -34,6 +34,13 @@ import (
 )
 
 func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Request, target string) {
+	logging.ApiDeprecationWarning(req.Context(),
+		req.URL.String(),
+		fmt.Sprintf("/api/environments/%s/releasetrain", target),
+		http.MethodPut,
+		zap.String("details", fmt.Sprintf("alternatively, use /api/environment-groups/%s/releasetrain", target)),
+	)
+
 	if req.Method != http.MethodPut {
 		http.Error(w, fmt.Sprintf("releasetrain only accepts method PUT, got: '%s'", req.Method), http.StatusMethodNotAllowed)
 		return

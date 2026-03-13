@@ -28,6 +28,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 )
 
@@ -36,7 +37,11 @@ const (
 )
 
 func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request, environment, tail string) {
-
+	logging.ApiDeprecationWarning(req.Context(),
+		req.URL.String(),
+		fmt.Sprintf("/api/environments/%s/", environment),
+		http.MethodPost,
+	)
 	if tail != "/" {
 		http.Error(w, fmt.Sprintf("Create Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
