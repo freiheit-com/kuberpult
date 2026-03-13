@@ -32,6 +32,10 @@ import (
 )
 
 func (s Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req *http.Request, environmentGroup string) {
+	logging.ApiDeprecationWarningWithoutReplacement(req.Context(),
+		req.URL.String(),
+		zap.String("details", "rollout status endpoint is deprecated and will not be replaced"),
+	)
 	if s.RolloutClient == nil {
 		http.Error(w, "not implemented", http.StatusNotImplemented)
 		return

@@ -48,3 +48,27 @@ func Info(ctx context.Context, msg string, fields ...zap.Field) {
 func HandlePanic(exitOnPanic bool) {
 	logger.HandlePanic(exitOnPanic)
 }
+
+// ApiDeprecationWarning should be called of the start of each endpoint that is deprecated and will be replaced by a new endpoint in /api/
+// The "oldEndpoint" param should be the currently used URI.
+// The "newEndpoint" param is the corresponding endpoint in the new api (/api/...)
+// The "method" param is assumed to be the same for both new and old
+func ApiDeprecationWarning(ctx context.Context, oldEndpoint string, newEndpoint string, method string, fields ...zap.Field) {
+	allFields := []zap.Field{
+		zap.String("oldEndpoint", oldEndpoint),
+		zap.String("newEndpoint", newEndpoint),
+		zap.String("method", method),
+		zap.String("notes", "the old endpoint is deprecated, it is recommended to use the new endpoint"),
+	}
+	allFields = append(allFields, fields...)
+	Warn(ctx, "api deprecation with replacement", allFields...)
+}
+
+// ApiDeprecationWarningWithoutReplacement should be called for endpoints that have no replacement in /api/
+func ApiDeprecationWarningWithoutReplacement(ctx context.Context, oldEndpoint string, fields ...zap.Field) {
+	allFields := []zap.Field{
+		zap.String("oldEndpoint", oldEndpoint),
+	}
+	allFields = append(allFields, fields...)
+	Warn(ctx, "api deprecation without replacement", allFields...)
+}
