@@ -20,9 +20,11 @@ Environments are also called `stages` - but in Kuberpult we stick to `environmen
 
 The config for an environment is stored in a json file called `config.json`. This file belongs in the environment's directory like this: `environments/development/config.json` (in this example the `config.json` file would dictate the configuration for the `development` environment).
 
-In the `config.json` file there are 3 main fields:
+In the `config.json` file there are these top-level fields:
 - [Upstream](#upstream)  `"upstream"`
-- [Argo CD](#argocd)    `"argocd"`
+- [Argo Configs](#argo-configs)          `"argo_configs"` (replaces "argocd" in new api)
+- [isActiveActive](#is-active-active)    `"is_active_active"` (replaces "argocd" in new api)
+- [Argo CD](#argo-cd)                    `"argocd"` (only in old api)
 - [EnvironmentGroup](#environment-group) `"environmentGroup"`
 
 ### Upstream:
@@ -31,7 +33,26 @@ The `"upstream"` field can have one of the two options (cannot have both):
   - `latest`: can only be set to `true` which means that Kuberpult will deploy the latest version of an application to this environment
   - `environment`: has a string which is the name of another environment. Following the chain of upstream environments would take you to the one with `"latest": true`. This is used in release trains: when a release train is run in an environment, it will pull the version from the environment's upstream environment.
 
+### Argo Configs:
+This field is similar to the field "argocd", but it is an array that allows multiple "active/active" environments to be configured.
+
+It has 2 children:
+
+#### configs
+The config identical to the deprecated "argocd" field.
+
+#### common_env_prefix
+A common prefix for all active-active environments.
+Must be set if `is_active_active==true`.
+Must be empty or omitted if `is_active_active==false`.
+
+### is_active_active:
+Boolean value. Optional for backwards compatibility. We recommend to set this.
+If true, then we expect common_env_prefix != "" and for each argo_configs: concrete_env_name!="" and len(argo_configs) >= 0
+If false, then we expect the opposite: common_env_prefix=="" and for each argo_configs: concrete_env_name=="" and len(argo_configs) == 1
+
 ### Argo CD: 
+This field can only be used in old endpoints (without /api). Not recommended.
 
 The `"argocd"` field has a few subfields:
 - `"accessList"`:  

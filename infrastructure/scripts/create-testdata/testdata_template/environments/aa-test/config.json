@@ -1,4 +1,5 @@
 {
+  "isActiveActive": true,
   "argoConfigs": {
     "commonEnvPrefix": "aa",
     "configs": [

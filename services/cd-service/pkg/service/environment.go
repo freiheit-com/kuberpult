@@ -57,6 +57,7 @@ func TransformEnvironmentConfigToApi(in config.EnvironmentConfig) *api.Environme
 		Argocd:           transformArgoCdToApi(in.ArgoCd),
 		EnvironmentGroup: in.EnvironmentGroup,
 		ArgoConfigs:      transformArgoCdConfigsToApi(in.ArgoCdConfigs),
+		IsActiveActive:   in.IsActiveActive,
 	}
 }
 

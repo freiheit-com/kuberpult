@@ -23,6 +23,7 @@ type EnvironmentConfig struct {
 	ArgoCd           *EnvironmentConfigArgoCd   `json:"argocd,omitempty"`
 	EnvironmentGroup *string                    `json:"environmentGroup,omitempty"`
 	ArgoCdConfigs    *ArgoCDConfigs             `json:"argocdConfigs,omitempty"`
+	IsActiveActive   *bool                      `json:"isActiveActive,omitempty"`
 }
 
 type ArgoCDConfigs struct {
@@ -76,4 +77,18 @@ type ArgoCdIgnoreDifference struct {
 	JSONPointers          []string `json:"jsonPointers,omitempty"`
 	JqPathExpressions     []string `json:"jqPathExpressions,omitempty"`
 	ManagedFieldsManagers []string `json:"managedFieldsManagers,omitempty"`
+}
+
+// IsAAEnv
+// Note that there is also a function isAAEnv in argo.go for a similar type.
+// Keep them in sync.
+func IsAAEnv(config *EnvironmentConfig) bool {
+	if config.IsActiveActive != nil {
+		return *config.IsActiveActive
+	}
+	// for backwards compatibility:
+	if config.ArgoCdConfigs == nil {
+		return false
+	}
+	return config.ArgoCdConfigs.CommonEnvPrefix != nil && *config.ArgoCdConfigs.CommonEnvPrefix != ""
 }

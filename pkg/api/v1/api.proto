@@ -647,6 +647,8 @@ message EnvironmentConfig {
   // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
   optional string environmentGroup = 3; // buf:lint:ignore FIELD_LOWER_SNAKE_CASE
   ArgoConfigs argo_configs = 4;
+
+  optional bool isActiveActive = 5;
 }
 
 

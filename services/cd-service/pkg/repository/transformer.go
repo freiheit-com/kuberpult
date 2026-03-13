@@ -2261,7 +2261,7 @@ func (c *ExtendAAEnvironment) Transform(
 	}
 	if env == nil {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q not found", envName))
-	} else if !isAAEnv(&env.Config) {
+	} else if !config.IsAAEnv(&env.Config) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q is not an Active/Active environment", envName))
 	}
 
@@ -2328,7 +2328,7 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 	}
 	if env == nil {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q not found", envName))
-	} else if !isAAEnv(&env.Config) {
+	} else if !config.IsAAEnv(&env.Config) {
 		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("environment with name %q is not an Active/Active environment", envName))
 	}
 
@@ -2356,10 +2356,6 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 		}
 	}
 	return fmt.Sprintf("Successfully deleted ArgoCD configuration from '%s'", c.Environment), nil
-}
-
-func isAAEnv(cfg *config.EnvironmentConfig) bool {
-	return cfg.ArgoCdConfigs != nil
 }
 
 type QueueApplicationVersion struct {

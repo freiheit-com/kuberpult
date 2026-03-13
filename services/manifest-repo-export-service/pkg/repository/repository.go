@@ -955,10 +955,6 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	return errorGroup.Wait()
 }
 
-func isAAEnv(cfg config.EnvironmentConfig) bool {
-	return cfg.ArgoCdConfigs != nil
-}
-
 func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time, fsMutex *sync.Mutex) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer func() {
@@ -968,7 +964,8 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	if !r.config.ArgoCdGenerateFiles {
 		return nil
 	}
-	if isAAEnv(cfg) {
+
+	if config.IsAAEnv(&cfg) {
 		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
 			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts, fsMutex)
 			if err != nil {

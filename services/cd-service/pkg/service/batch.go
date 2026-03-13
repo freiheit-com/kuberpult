@@ -408,6 +408,7 @@ func (d *BatchServer) processAction(
 			ArgoCd:           argocd,
 			EnvironmentGroup: conf.EnvironmentGroup,
 			ArgoCdConfigs:    configs,
+			IsActiveActive:   conf.IsActiveActive,
 		}
 		if err := ValidateEnvironment(types.EnvName(in.Environment), internalEnvironmentConfig); err != nil {
 			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("processAction: invalid environment. err: %v", err))
