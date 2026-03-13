@@ -1366,7 +1366,7 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app t
 
 		if !valid.SHA1CommitID(repoRelease.SourceCommitId) {
 			//If we are about to import an invalid commit ID, simply log it and write an empty commit.
-			logging.Error(ctx, "Source commit ID is not valid. Skipping migration.", zap.String("sourceCommitId", repoRelease.SourceCommitId), zap.String("releaseVersion", releaseVersion), zap.String("app", app))
+			logging.Error(ctx, "Source commit ID is not valid. Skipping migration.", zap.String("sourceCommitId", repoRelease.SourceCommitId), zap.String("releaseVersion", fmt.Sprintf("%v", releaseVersion)), zap.String("app", string(app)))
 			repoRelease.SourceCommitId = ""
 		}
 
@@ -2310,7 +2310,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		}
 		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
-			logging.Error(ctx, "The environment has an upstream configured which does not exist.", zap.String("envName", string(envName)), zap.String("upstream", upstreamEnv))
+			logging.Error(ctx, "The environment has an upstream configured which does not exist.", zap.String("envName", string(envName)), zap.String("upstream", string(upstreamEnv)))
 		}
 	}
 	envGroups := mapper.MapEnvironmentsToGroups(envConfigs)

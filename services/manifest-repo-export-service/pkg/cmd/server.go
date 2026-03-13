@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -174,7 +173,7 @@ func Run(ctx context.Context) error {
 	if eslProcessingIdleTimeSeconds > maxEslProcessingTimeSeconds {
 		return fmt.Errorf("error KUBERPULT_ESL_PROCESSING_BACKOFF must be <=%v but was: %v", maxEslProcessingTimeSeconds, eslProcessingIdleTimeSeconds)
 	}
-	logging.Info(ctx, "eslProcessingTimeSeconds", zap.Int("eslProcessingTimeSeconds", eslProcessingIdleTimeSeconds))
+	logging.Info(ctx, "eslProcessingTimeSeconds", zap.Int("eslProcessingTimeSeconds", int(eslProcessingIdleTimeSeconds)))
 
 	networkTimeoutSecondsStr, err := valid.ReadEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
 	if err != nil {
@@ -541,7 +540,7 @@ func ProcessOneEvent(
 			logging.Error(ctx, "skipping esl event, because we could not construct esl object.", zap.Error(err))
 			return 0, err
 		}
-		logging.Error(ctx, "skipping esl event, because it returned an error.", zapError(err))
+		logging.Error(ctx, "skipping esl event, because it returned an error.", zap.Error(err))
 		// after this many tries, we can just skip it:
 		err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, esl, err.Error())
 		if err2 != nil {
@@ -553,7 +552,7 @@ func ProcessOneEvent(
 			sleepDuration.Reset()
 			d := sleepDuration.NextBackOff()
 			measureGitPushFailures(ddMetrics, ctx, false)
-			logging.Info(ctx, "event processing skipped, will try again in %v", d)
+			logging.Info(ctx, "event processing skipped, will try again.")
 			return d, nil
 		}
 		logging.Info(ctx, "event processed successfully, now writing to cutoff and pushing...")

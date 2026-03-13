@@ -32,6 +32,7 @@ import (
 
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -1753,7 +1754,7 @@ func (c *DeleteEnvFromApp) Transform(
 		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory"))
 	} else if entries == nil {
 		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
-		logging.Info(ctx, "environment does not exist.", zap.String("application", c.Application), zap.String("environment", c.Environment))
+		logging.Info(ctx, "environment does not exist.", zap.String("application", c.Application), zap.String("environment", string(c.Environment)))
 		return thisSprintf("environment does not exist."), nil
 	}
 
@@ -2050,7 +2051,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil { //Undeploy version does not exist if we minimize git data
 			if errors.Is(err, os.ErrNotExist) {
 				if t.ShouldMaximizeGitData() {
-					logging.Error(ctx, "Maximize git data is enabled but could not find undeploy file.", zap.String("file", undeployFile), zap.String("applicaton", u.Application), zap.String("environment", env))
+					logging.Error(ctx, "Maximize git data is enabled but could not find undeploy file.", zap.String("file", undeployFile), zap.String("applicaton", u.Application), zap.String("environment", string(env)))
 				}
 			} else {
 				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %w", err)
@@ -2215,7 +2216,7 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 		argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
 		err := fs.Remove(argoCdAppFile)
 		if errors.Is(err, os.ErrNotExist) {
-			logging.Info(ctx, "DeleteEnvironment: environment's argocd app file %q does not exist.", argoCdAppFile)
+			logging.Info(ctx, "DeleteEnvironment: environment's argocd app file does not exist.", zap.String("argoCdAppFile", argoCdAppFile))
 		} else if err != nil {
 			return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
 		}
