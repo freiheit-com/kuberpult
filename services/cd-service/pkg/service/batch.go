@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -30,7 +31,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -550,12 +551,12 @@ func (d *BatchServer) ProcessBatch(
 		})
 	} else {
 		if d.Config.LockType == LockTypeNone {
-			logger.FromContext(ctx).Sugar().Warnf("not locking at all")
+			logging.Info(ctx, "not locking at all")
 		}
 		err = d.Repository.Apply(ctx, transformers...)
 	}
 	if err != nil {
-		logger.FromContext(ctx).Sugar().Warnf("error in Repository.Apply: %v", err)
+		logging.Error(ctx, "error in Repository.Apply.", zap.Error(err))
 		var applyErr = repository.UnwrapUntilTransformerBatchApplyError(err)
 		if applyErr != nil {
 			resp, handledErr := d.handleError(applyErr, err)

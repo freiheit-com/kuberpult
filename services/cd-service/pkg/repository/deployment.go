@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -319,14 +321,14 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 			} else {
 				ev := createReplacedByEvent(c.Application, envName, newReleaseCommitId)
 				if oldVersion == nil {
-					logging.Error(ctx, "did not find old version of app - skipping replaced-by event", zap.String("application", c.Application))
+					logging.Error(ctx, "did not find old version of app - skipping replaced-by event", zap.String("application", string(c.Application)))
 				} else {
 					gen := getGenerator(ctx)
 					eventUuid := gen.Generate()
 					v := *oldVersion
 					oldReleaseCommitId := prognosisData.OldReleaseCommitId
 					if oldReleaseCommitId == "" {
-						logging.Warn("could not find commit for release of app - skipping replaced-by event", zap.String("version", fmt.Sprintf("%v", v)), zap.String("application", c.Application))
+						logging.Error(ctx, "could not find commit for release of app - skipping replaced-by event", zap.String("version", fmt.Sprintf("%v", v)), zap.String("application", string(c.Application)))
 					} else {
 						err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
 						if err != nil {

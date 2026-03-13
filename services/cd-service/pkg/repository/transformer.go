@@ -34,6 +34,7 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	diffspan "github.com/hexops/gotextdiff/span"
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 
@@ -43,7 +44,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
@@ -78,17 +79,17 @@ func GaugeGitSyncStatus(ctx context.Context, s *State, transaction *sql.Tx) erro
 	if ddMetrics != nil {
 		numberUnsyncedApps, err := s.DBHandler.DBCountAppsWithStatus(ctx, transaction, db.UNSYNCED)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error getting number of unsynced apps: %v", err)
+			logging.Info(ctx, "error getting number of unsynced apps.", zap.Error(err))
 			return err
 		}
 		numberSyncFailedApps, err := s.DBHandler.DBCountAppsWithStatus(ctx, transaction, db.SYNC_FAILED)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("error getting number of sync failed apps: %v", err)
+			logging.Info(ctx, "error getting number of sync failed apps.", zap.Error(err))
 			return err
 		}
 		err = MeasureGitSyncStatus(numberUnsyncedApps, numberSyncFailedApps)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("could not send git sync status metrics to datadog: %v", err)
+			logging.Info(ctx, "could not send git sync status metrics to datadog.", zap.Error(err))
 			return err
 		}
 
@@ -100,16 +101,12 @@ func GaugeEnvLockMetric(ctx context.Context, s *State, transaction *sql.Tx, env 
 	if ddMetrics != nil {
 		count, err := s.GetEnvironmentLocksCount(ctx, transaction, env)
 		if err != nil {
-			logger.FromContext(ctx).
-				Sugar().
-				Warnf("Error when trying to get the number of environment locks: %w", err)
+			logging.Info(ctx, "Error when trying to get the number of environment locks.", zap.Error(err))
 			return
 		}
 		err = ddMetrics.Gauge("environment_lock_count", count, []string{"kuberpult_environment:" + string(env)}, 1)
 		if err != nil {
-			logger.FromContext(ctx).
-				Sugar().
-				Warnf("Error when trying to send `environment_lock_count` metric to datadog: %w", err)
+			logging.Info(ctx, "Error when trying to send `environment_lock_count` metric to datadog.", zap.Error(err))
 		}
 	}
 }
@@ -117,9 +114,7 @@ func GaugeEnvAppLockMetric(ctx context.Context, appEnvLocksCount int, env types.
 	if ddMetrics != nil {
 		err := ddMetrics.Gauge("application_lock_count", float64(appEnvLocksCount), []string{"kuberpult_environment:" + string(env), "kuberpult_application:" + string(app)}, 1)
 		if err != nil {
-			logger.FromContext(ctx).
-				Sugar().
-				Warnf("Error when trying to send `application_lock_count` metric to datadog: %w", err)
+			logging.Info(ctx, "Error when trying to send `application_lock_count` metric to datadog.", zap.Error(err))
 		}
 	}
 }
@@ -148,7 +143,7 @@ func UpdateDatadogMetrics(ctx context.Context, transaction *sql.Tx, state *State
 	span.SetTag("even", even)
 
 	if state.DBHandler == nil {
-		logger.FromContext(ctx).Sugar().Warn("Tried to update datadog metrics without database")
+		logging.Info(ctx, "Tried to update datadog metrics without database")
 		return nil
 	}
 	err2 := UpdateLockMetrics(ctx, transaction, state, now, even)
@@ -471,7 +466,7 @@ func (c *CreateApplicationVersion) CheckPreconditions(ctx context.Context) error
 
 	// checks for previous commit id (valid.SHA1CommitID already has length check)
 	if c.PreviousCommit != "" && !valid.SHA1CommitID(c.PreviousCommit) {
-		logger.FromContext(ctx).Sugar().Warnf("previous commit ID %s is invalid", c.PreviousCommit)
+		logging.Error(ctx, "previous commit ID is invalid.", zap.String("previousCommitId", c.PreviousCommit))
 	}
 
 	// checks for display version
@@ -893,14 +888,12 @@ func (c *CreateApplicationVersion) sameAsExistingDB(ctx context.Context, transac
 	if c.SourceCommitId != "" {
 		existingSourceCommitIdStr := metadata.Metadata.SourceCommitId
 		if existingSourceCommitIdStr != c.SourceCommitId {
-			logger.FromContext(ctx).Sugar().Warnf("SourceCommitId is different1 '%s'!='%s'", c.SourceCommitId, existingSourceCommitIdStr)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_COMMIT_ID, createUnifiedDiff(existingSourceCommitIdStr, c.SourceCommitId, ""))
 		}
 	}
 	if c.SourceAuthor != "" {
 		existingSourceAuthorStr := metadata.Metadata.SourceAuthor
 		if existingSourceAuthorStr != c.SourceAuthor {
-			logger.FromContext(ctx).Sugar().Warnf("SourceAuthor is different1 '%s'!='%s'", c.SourceAuthor, existingSourceAuthorStr)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_AUTHOR, createUnifiedDiff(existingSourceAuthorStr, c.SourceAuthor, ""))
 		}
 	}
@@ -913,19 +906,16 @@ func (c *CreateApplicationVersion) sameAsExistingDB(ctx context.Context, transac
 	if c.DisplayVersion != "" {
 		existingDisplayVersionStr := metadata.Metadata.DisplayVersion
 		if existingDisplayVersionStr != c.DisplayVersion {
-			logger.FromContext(ctx).Sugar().Warnf("displayVersion is different1 '%s'!='%s'", c.DisplayVersion, metadata.Metadata.DisplayVersion)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DISPLAY_VERSION, createUnifiedDiff(existingDisplayVersionStr, c.DisplayVersion, ""))
 		}
 	}
 	if c.Team != "" {
 		appData, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("team is different1 '%s'!='%s'", c.Team, appData.Metadata.Team)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, "")
 		}
 		existingTeamStr := appData.Metadata.Team
 		if existingTeamStr != c.Team {
-			logger.FromContext(ctx).Sugar().Warnf("team is different2 '%s'!='%s'", c.Team, appData.Metadata.Team)
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
 		}
 	}
@@ -1654,7 +1644,6 @@ func (c *CreateEnvironmentGroupLock) Transform(
 	if err != nil {
 		return "", grpc.PublicError(ctx, err)
 	}
-	logger.FromContext(ctx).Sugar().Warnf("envNamesSorted: %v", envNamesSorted)
 	for index := range envNamesSorted {
 		envName := envNamesSorted[index]
 		x := CreateEnvironmentLock{
@@ -2202,7 +2191,7 @@ func (c *DeleteEnvironment) Transform(
 
 	//Delete env from apps
 	for _, app := range allAppsForEnv {
-		logger.FromContext(ctx).Sugar().Infof("Deleting environment '%s' from '%s'", c.Environment, app)
+		logging.Info(ctx, "Deleting environment.", zap.String("environment", string(c.Environment)), zap.String("application", string(app)))
 		deleteEnvFromAppTransformer := DeleteEnvFromApp{
 			Authentication:        c.Authentication,
 			TransformerEslVersion: c.TransformerEslVersion,

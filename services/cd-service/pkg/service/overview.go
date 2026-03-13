@@ -32,7 +32,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -104,7 +104,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 		result.Name = appName
 		retrievedReleasesOfApp, err := o.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, types.AppName(appName))
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("app without releases: %v", err)
+			logging.Info(ctx, "app without releases.", zap.Error(err))
 		}
 		if retrievedReleasesOfApp != nil {
 			rels = retrievedReleasesOfApp
@@ -530,7 +530,7 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 				// for example if there's an invalid encoding, grpc will just give a generic error like
 				// "error while marshaling: string field contains invalid UTF-8"
 				// but it won't tell us which field has the issue. This is then very hard to debug further.
-				logger.FromContext(stream.Context()).Error("error sending overview response:", zap.Error(err), zap.String("overview", fmt.Sprintf("%+v", ov)))
+				logging.Error(stream.Context(), "error sending overview response.", zap.Error(err), zap.String("overview", fmt.Sprintf("%+v", ov)))
 				return err
 			}
 
@@ -568,9 +568,8 @@ func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
 				ov.ChangedApps[idx] = response
 			}
 
-			logger.FromContext(stream.Context()).Sugar().Infof("Sending changes apps: '%v'\n", changedAppsNames)
 			if err := stream.Send(ov); err != nil {
-				logger.FromContext(stream.Context()).Error("error sending changed apps  response:", zap.Error(err), zap.String("changedAppsNames", fmt.Sprintf("%+v", ov)))
+				logging.Error(stream.Context(), "error sending changed apps.", zap.Error(err), zap.String("changedAppsNames", fmt.Sprintf("%+v", ov)))
 				return err
 			}
 
@@ -589,7 +588,7 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 		<-ch
 		o.update(o.Repository.State())
 		go func() {
-			defer logger.HandlePanic(true)
+			defer logging.HandlePanic(true)
 			defer unsub()
 			for {
 				select {
@@ -613,7 +612,7 @@ func (o *OverviewServiceServer) subscribeChangedApps() (<-chan notify.ChangedApp
 		// This means, we have to wait here until the changedApps are loaded for the first time.
 		<-ch
 		go func() {
-			defer logger.HandlePanic(true)
+			defer logging.HandlePanic(true)
 			defer unsub()
 			for {
 				select {
@@ -637,11 +636,11 @@ func (o *OverviewServiceServer) getAllAppNames(ctx context.Context) ([]types.App
 func (o *OverviewServiceServer) update(s *repository.State) {
 	r, err := o.getOverviewDB(o.Context, s)
 	if err != nil {
-		logger.FromContext(o.Context).Error("error getting overview:", zap.Error(err))
+		logging.Error(o.Context, "error getting overview:", zap.Error(err))
 		return
 	}
 	if r == nil {
-		logger.FromContext(o.Context).Error("overview is nil")
+		logging.Error(o.Context, "overview is nil")
 		return
 	}
 	o.response.Store(r)
@@ -792,7 +791,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 					return err
 				}
 				if fetchRelease == nil {
-					logger.FromContext(ctx).Sugar().Warnf("Could not find information for release %q, skipping deployment of application %q on environment %q!", releaseVersion, appName, envName)
+					logging.Info(o.Context, "Could not find information for release, skipping deployment of application on environment!", zap.Int("releaseVersion", int(releaseVersion)), zap.String("application", string(appName)), zap.String("environment", string(envName)))
 					releaseSourceCommitId = "<no commit hash found>"
 				} else {
 					releaseSourceCommitId = fetchRelease.Metadata.SourceCommitId
