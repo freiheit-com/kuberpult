@@ -320,6 +320,67 @@ func TestHandleBracketUpdates(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "add one entry, delete it by overwriting with ''",
+			AddAppBrackets: []AppBracketTime{
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName("b1"),
+					Time:    timeFirst,
+				},
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName(""),
+					Time:    timeFirst,
+				},
+			},
+			DeleteAppBrackets: []AppBracketTime{},
+			PreparedTimestamp: timeSecond,
+			ExpectedBracketRow: &BracketRow{
+				CreatedAt: timeFirst,
+				AllBracketsJsonBlob: BracketJsonBlob{
+					BracketMap: map[types.ArgoBracketName]AppNames{
+						"app1": {"app1"},
+					},
+				},
+			},
+		},
+		{
+			Name: "add two brackets, then update one of them",
+			AddAppBrackets: []AppBracketTime{
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName("b1"),
+					Time:    timeFirst,
+				},
+				{
+					App:     types.AppName("app2"),
+					Bracket: types.ArgoBracketName("foo"),
+					Time:    timeFirst,
+				},
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName("b2"),
+					Time:    timeFirst,
+				},
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName("b3"),
+					Time:    timeFirst,
+				},
+			},
+			DeleteAppBrackets: []AppBracketTime{},
+			PreparedTimestamp: timeSecond,
+			ExpectedBracketRow: &BracketRow{
+				CreatedAt: timeFirst,
+				AllBracketsJsonBlob: BracketJsonBlob{
+					BracketMap: map[types.ArgoBracketName]AppNames{
+						"b3":  {"app1"},
+						"foo": {"app2"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {

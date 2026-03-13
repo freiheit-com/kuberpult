@@ -83,9 +83,14 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 			}
 			// we found the app but in a different bracket
 			// 1) remove app from old bracket:
-			appNames = slices.Delete(appNames, oldIndex, oldIndex)
-			bracketRow.AllBracketsJsonBlob.BracketMap[oldBracketName] = appNames
-			bracketRow.CreatedAt = now
+			appNames = slices.Delete(appNames, oldIndex, oldIndex+1)
+			if len(appNames) > 0 {
+				bracketRow.AllBracketsJsonBlob.BracketMap[oldBracketName] = appNames
+				bracketRow.CreatedAt = now
+			} else {
+				// if there are no apps, remove the key from the map:
+				delete(bracketRow.AllBracketsJsonBlob.BracketMap, oldBracketName)
+			}
 		}
 	}
 
