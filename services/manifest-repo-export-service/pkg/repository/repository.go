@@ -2315,7 +2315,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		grpDist := group.Environments[0].DistanceToUpstream
 		for _, env := range group.Environments {
 			if env.DistanceToUpstream != grpDist {
-				logging.Warn(ctx, "The environment group has multiple environments setup with different distances to upstream.", zap.String("environmentGrouo", string(group.EnvironmentGroupName)))
+				logging.Warn(ctx, "The environment group has multiple environments setup with different distances to upstream.", zap.String("environmentGroup", group.EnvironmentGroupName))
 			}
 		}
 	}
