@@ -91,7 +91,10 @@ func (o *OverviewServiceServer) GetAppDetails(
 		// bracket
 		appWithMetadata, err := o.DBHandler.DBSelectApp(ctx, transaction, types.AppName(appName))
 		if err != nil {
-			return nil, fmt.Errorf("app not found: %s: %w", appName, err)
+			return nil, fmt.Errorf("error finding app: %s: %w", appName, err)
+		}
+		if appWithMetadata == nil {
+			return nil, fmt.Errorf("app not found: %s", appName)
 		}
 		if appWithMetadata.ArgoBracket == "" {
 			// if there is no bracket, the appname is the bracket
