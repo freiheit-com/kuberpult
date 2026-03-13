@@ -28,6 +28,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
