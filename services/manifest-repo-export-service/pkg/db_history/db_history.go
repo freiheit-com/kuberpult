@@ -24,8 +24,10 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
@@ -70,7 +72,7 @@ func DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx context.Context, h *db.DBHan
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("deployments: row closing error: %v", err)
+			logging.Error(ctx, "deployments: row closing error.", zap.Error(err))
 		}
 	}(rows)
 	return processAllLatestDeploymentsForEnv(ctx, rows)

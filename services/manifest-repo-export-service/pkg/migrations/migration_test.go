@@ -23,14 +23,14 @@ import (
 	"path"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
-	"google.golang.org/protobuf/testing/protocmp"
-
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestMigrationsCutoff(t *testing.T) {

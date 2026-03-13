@@ -39,7 +39,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	eventmod "github.com/freiheit-com/kuberpult/pkg/event"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
@@ -70,7 +70,7 @@ func (s *GitServer) checkUserPermissions(ctx context.Context, permission string)
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	var tags []*api.TagData
-	err := logger.Wrap(ctx, func(ctx context.Context) error {
+	err := logging.Wrap(ctx, func(ctx context.Context) error {
 		var innerError error
 		if s.Config.TagsPath == "" {
 			return fmt.Errorf("tagsPath must not be empty")
@@ -352,7 +352,7 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 				return err
 			}
 			if err := stream.Send(response); err != nil {
-				logger.FromContext(ctx).Error("error git sync status response:", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
+				logging.Error(ctx, "error git sync status response.", zap.Error(err), zap.String("StreamGitSyncStatus", fmt.Sprintf("%+v", response)))
 				return err
 			}
 		case <-done:
@@ -404,7 +404,7 @@ func (s *GitServer) RetryFailedEvent(ctx context.Context, in *api.RetryFailedEve
 		}
 		err = repository.MeasureGitSyncStatus(ctx, s.Config.DDMetrics, dbHandler)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("Could not send git sync status metrics to datadog. Error: %v", err)
+			logging.Info(ctx, "Could not send git sync status metrics to datadog", zap.Error(err))
 		}
 
 		return nil

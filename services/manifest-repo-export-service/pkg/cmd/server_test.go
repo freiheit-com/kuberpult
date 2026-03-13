@@ -21,13 +21,22 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os/exec"
+	"path"
+	"testing"
+	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/backoff"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	errs "github.com/freiheit-com/kuberpult/pkg/errorMatcher"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -35,14 +44,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/service"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/protobuf/testing/protocmp"
-
-	"os/exec"
-	"path"
-	"testing"
-	"time"
 )
 
 func TestParseEnvironmentOverrides(t *testing.T) {
@@ -537,7 +538,7 @@ func DBReadGitSyncStatusAll(ctx context.Context, h *db.DBHandler, tx *sql.Tx, id
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("row closing error: %v", err)
+			logging.Error(ctx, "row closing error.", zap.Error(err))
 		}
 	}(rows)
 	allCombinations := make([]GitSyncStatusRow, 0)
