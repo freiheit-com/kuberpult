@@ -551,7 +551,7 @@ func ProcessOneEvent(
 		if transformer == nil {
 			sleepDuration.Reset()
 			d := sleepDuration.NextBackOff()
-			measureGitPushFailures(ddMetrics, ctx, false)
+			measureGitPushFailures(ctx, ddMetrics, false)
 			logging.Info(ctx, "event processing skipped, will try again.")
 			return d, nil
 		}
@@ -565,11 +565,11 @@ func ProcessOneEvent(
 			if err2 != nil {
 				d := sleepDuration.NextBackOff()
 				logging.Info(ctx, "error pushing, will try again.", zap.Error(err2))
-				measureGitPushFailures(ddMetrics, ctx, true)
+				measureGitPushFailures(ctx, ddMetrics, true)
 				time.Sleep(d)
 				return err2
 			} else {
-				measureGitPushFailures(ddMetrics, ctx, false)
+				measureGitPushFailures(ctx, ddMetrics, false)
 			}
 
 			//Get latest commit. Write esl timestamp and commit hash.
@@ -678,7 +678,7 @@ func measureGitTagPushFailures(ctx context.Context, ddMetrics statsd.ClientInter
 	}
 }
 
-func measureGitPushFailures(ddMetrics statsd.ClientInterface, ctx context.Context, failure bool) {
+func measureGitPushFailures(ctx context.Context, ddMetrics statsd.ClientInterface, failure bool) {
 	if ddMetrics != nil {
 		var value float64 = 0
 		if failure {
