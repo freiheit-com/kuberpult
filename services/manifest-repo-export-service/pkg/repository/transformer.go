@@ -1753,8 +1753,6 @@ func (c *DeleteEnvFromApp) Transform(
 	if entries, err := fs.ReadDir(envAppDir); err != nil {
 		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory"))
 	} else if entries == nil {
-		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
-		logging.Info(ctx, "environment does not exist.", zap.String("application", c.Application), zap.String("environment", string(c.Environment)))
 		return thisSprintf("environment does not exist."), nil
 	}
 
