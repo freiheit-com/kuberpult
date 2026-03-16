@@ -530,7 +530,7 @@ func (c *CreateApplicationVersion) Transform(
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 	}
-	err = db.HandleBracketsUpdate(ctx, state.DBHandler, transaction, c.Application, c.ArgoBracket, *now)
+	actualBracketName, err := db.HandleBracketsUpdate(ctx, state.DBHandler, transaction, c.Application, c.ArgoBracket, *now)
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update brackets: %w", err))
 	}
@@ -552,7 +552,7 @@ func (c *CreateApplicationVersion) Transform(
 			c.Application,
 			db.AppStateChangeCreate,
 			db.DBAppMetaData{Team: c.Team},
-			c.ArgoBracket,
+			actualBracketName,
 		)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not write new app: %v", err))
@@ -575,7 +575,7 @@ func (c *CreateApplicationVersion) Transform(
 				c.Application,
 				db.AppStateChangeUpdate,
 				newMeta,
-				c.ArgoBracket,
+				actualBracketName,
 			)
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update app: %v", err))
