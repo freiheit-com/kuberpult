@@ -356,9 +356,8 @@ func TestParseArgsDeleteEnvLock(t *testing.T) {
 			name:    "with environment and lockID and message",
 			cmdArgs: []string{"--environment", "development", "--lockID", "my-lock"},
 			expectedParams: &DeleteEnvironmentLockParameters{
-				Environment:          "development",
-				LockId:               "my-lock",
-				UseDexAuthentication: false,
+				Environment: "development",
+				LockId:      "my-lock",
 			},
 		},
 	}
