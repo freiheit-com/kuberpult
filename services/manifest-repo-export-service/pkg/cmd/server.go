@@ -495,7 +495,7 @@ func processEsls(
 			return err
 		}
 		if wantedSleepTime > 0 {
-			measureDelays(ddMetrics, ctx, 0, 0)
+			measureDelays(ctx, ddMetrics, 0, 0)
 			time.Sleep(wantedSleepTime)
 		}
 	}
@@ -690,7 +690,7 @@ func measureGitPushFailures(ctx context.Context, ddMetrics statsd.ClientInterfac
 	}
 }
 
-func measureDelays(ddMetrics statsd.ClientInterface, ctx context.Context, delaySeconds float64, delayEvents uint64) {
+func measureDelays(ctx context.Context, ddMetrics statsd.ClientInterface, delaySeconds float64, delayEvents uint64) {
 	if ddMetrics != nil {
 		if err := ddMetrics.Gauge("process_delay_seconds", delaySeconds, []string{}, 1); err != nil {
 			logging.Error(ctx, "Error in ddMetrics.Gauge for delay seconds.", zap.Error(err))
@@ -706,7 +706,7 @@ func HandleOneTransformer(ctx context.Context, transaction *sql.Tx, dbHandler *d
 		if err != nil {
 			return nil, nil, fmt.Errorf("error in GetCurrentDelays: %v", err)
 		}
-		measureDelays(ddMetrics, ctx, delaySeconds, delayEvents)
+		measureDelays(ctx, ddMetrics, delaySeconds, delayEvents)
 	}
 	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
