@@ -302,50 +302,37 @@ func TestParseArgsCreateTeamLock(t *testing.T) {
 			name:    "with environment and lockID and message",
 			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--message", "message"},
 			expectedParams: &CreateTeamLockParameters{
-				Environment:          "development",
-				LockId:               "my-lock",
-				Message:              "message",
-				Team:                 "my-team",
-				UseDexAuthentication: true,
+				Environment: "development",
+				LockId:      "my-lock",
+				Message:     "message",
+				Team:        "my-team",
 			},
 		},
 		{
-			name:    "with environment, app and lockID and no message",
-			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock"},
-			expectedParams: &CreateTeamLockParameters{
-				Environment:          "development",
-				LockId:               "my-lock",
-				Message:              "",
-				Team:                 "my-team",
-				UseDexAuthentication: true,
-			},
+			name:           "with environment, app and lockID and no message",
+			cmdArgs:        []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock"},
+			expectedParams: nil,
+			expectedError:  errMatcher{"error while creating parameters for team lock, error: the --message arg is required for lock creation"},
 		},
 		{
 			name:    "with environment and lockID and multi word message message",
 			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--message", "this is a very long message"},
 			expectedParams: &CreateTeamLockParameters{
-				Environment:          "development",
-				LockId:               "my-lock",
-				Team:                 "my-team",
-				Message:              "this is a very long message",
-				UseDexAuthentication: true,
+				Environment: "development",
+				LockId:      "my-lock",
+				Team:        "my-team",
+				Message:     "this is a very long message",
 			},
 		},
 		{
-			name:    "with environment, lockID, team and ciLink",
-			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--ci_link", "https://localhost:8000"},
-			expectedParams: &CreateTeamLockParameters{
-				Environment:          "development",
-				LockId:               "my-lock",
-				Team:                 "my-team",
-				UseDexAuthentication: true,
-				CiLink:               strPtr("https://localhost:8000"),
-			},
+			name:           "with environment, lockID, team and ciLink",
+			cmdArgs:        []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock", "--ci_link", "https://localhost:8000"},
+			expectedParams: nil,
+			expectedError:  errMatcher{"error while creating parameters for team lock, error: the --message arg is required for lock creation"},
 		},
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -376,10 +363,9 @@ func TestParseArgsDeleteTeamLock(t *testing.T) {
 			name:    "with environment and lockID and team",
 			cmdArgs: []string{"--environment", "development", "--team", "my-team", "--lockID", "my-lock"},
 			expectedParams: &DeleteTeamLockParameters{
-				Environment:          "development",
-				LockId:               "my-lock",
-				Team:                 "my-team",
-				UseDexAuthentication: true,
+				Environment: "development",
+				LockId:      "my-lock",
+				Team:        "my-team",
 			},
 		},
 	}

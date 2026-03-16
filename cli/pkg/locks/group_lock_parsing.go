@@ -98,12 +98,11 @@ func convertToCreateGroupLockParams(cmdArgs CreateEnvGroupLockCommandLineArgumen
 	}
 
 	rp := CreateEnvironmentGroupLockParameters{
-		LockId:               cmdArgs.lockId.Values[0],
-		EnvironmentGroup:     cmdArgs.environmentGroup.Values[0],
-		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
-		Message:              "",
-		CiLink:               nil,
-		SuggestedLifeTime:    nil,
+		LockId:            cmdArgs.lockId.Values[0],
+		EnvironmentGroup:  cmdArgs.environmentGroup.Values[0],
+		Message:           "",
+		CiLink:            nil,
+		SuggestedLifeTime: nil,
 	}
 	if len(cmdArgs.message.Values) != 0 {
 		rp.Message = cmdArgs.message.Values[0]
@@ -178,9 +177,8 @@ func convertToDeleteGroupLockParams(cmdArgs DeleteEnvGroupLockCommandLineArgumen
 	}
 
 	rp := DeleteEnvironmentGroupLockParameters{
-		LockId:               cmdArgs.lockId.Values[0],
-		EnvironmentGroup:     cmdArgs.environmentGroup.Values[0],
-		UseDexAuthentication: false, //For now there is no ambiguity as to which endpoint to use
+		LockId:           cmdArgs.lockId.Values[0],
+		EnvironmentGroup: cmdArgs.environmentGroup.Values[0],
 	}
 	return &rp, nil
 }
