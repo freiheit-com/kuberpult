@@ -54,7 +54,7 @@ const (
 )
 
 func RunServer() {
-	_ = logging.Wrap(context.Background(), func(ctx context.Context) error {
+	logging.Wrap(context.Background(), func(ctx context.Context) error {
 		defer logging.HandlePanic(true)
 		err := Run(ctx)
 		if err != nil {

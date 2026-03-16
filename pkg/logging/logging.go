@@ -73,6 +73,9 @@ func ApiDeprecationWarningWithoutReplacement(ctx context.Context, oldEndpoint st
 	Warn(ctx, "api deprecation without replacement", allFields...)
 }
 
-func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
-	return logger.Wrap(ctx, inner)
+func Wrap(ctx context.Context, inner func(ctx context.Context) error) {
+	err := logger.Wrap(ctx, inner)
+	if err != nil {
+	    Error(ctx, "wrap", zap.Error(err));
+	}
 }

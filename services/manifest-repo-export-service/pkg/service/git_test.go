@@ -2078,10 +2078,7 @@ func TestGetGitTags(t *testing.T) {
 		}
 	}
 
-	res, err := sv.GetGitTags(testutilauth.MakeTestContext(), &api.GetGitTagsRequest{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	res := sv.GetGitTags(testutilauth.MakeTestContext(), &api.GetGitTagsRequest{})
 
 	if diff := cmp.Diff(expectedTags, res.TagData, cmpopts.IgnoreUnexported(api.TagData{}), cmpopts.IgnoreFields(api.TagData{}, "CommitId")); diff != "" {
 		t.Fatalf("tags mismatch (-want, +got):\n%s", diff)

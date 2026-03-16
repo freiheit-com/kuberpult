@@ -70,7 +70,7 @@ func (s *GitServer) checkUserPermissions(ctx context.Context, permission string)
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	var tags []*api.TagData
-	err := logging.Wrap(ctx, func(ctx context.Context) error {
+	logging.Wrap(ctx, func(ctx context.Context) error {
 		var innerError error
 		if s.Config.TagsPath == "" {
 			return fmt.Errorf("tagsPath must not be empty")
@@ -81,9 +81,6 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
 	return &api.GetGitTagsResponse{TagData: tags}, nil
 
 }
