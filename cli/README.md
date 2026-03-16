@@ -54,7 +54,7 @@ export KUBERPULT_IAP_TOKEN=<YOUR_IAP_TOKEN>
 If you have enabled the Dex feature on the server side, you will need to provide a Dex token in order to perform any action.
 You can do so by providing it as an environment variable like:
 ```bash
-export KUBERPULT_DEX_TOKEN=<YOUR_DEX_TOKEN>
+export KUBERPULT_DEX_ACCESS_TOKEN=<YOUR_DEX_TOKEN>
 ```
 
 
