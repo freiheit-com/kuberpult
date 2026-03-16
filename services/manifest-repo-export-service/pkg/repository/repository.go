@@ -2298,9 +2298,6 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 	if err != nil {
 		return nil, err
 	}
-	if len(envConfigs) == 0 {
-		logging.Error(ctx, "No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
-	}
 	for envName, env := range envConfigs {
 		if env.Upstream == nil || env.Upstream.Environment == "" {
 			continue
