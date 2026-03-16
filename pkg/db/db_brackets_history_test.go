@@ -264,6 +264,30 @@ func TestHandleBracketUpdates(t *testing.T) {
 			},
 		},
 		{
+			Name: "add one entry without bracket, delete same entry",
+			AddAppBrackets: []AppBracketTime{
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName(""),
+					Time:    timeFirst,
+				},
+			},
+			DeleteAppBrackets: []AppBracketTime{
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName(""),
+					Time:    timeSecond,
+				},
+			},
+			PreparedTimestamp: timeSecond,
+			ExpectedBracketRow: &BracketRow{
+				CreatedAt: timeSecond,
+				AllBracketsJsonBlob: BracketJsonBlob{
+					BracketMap: map[types.ArgoBracketName]AppNames{},
+				},
+			},
+		},
+		{
 			Name: "add two entries, delete first entry",
 			AddAppBrackets: []AppBracketTime{
 				{

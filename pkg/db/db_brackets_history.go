@@ -125,22 +125,25 @@ func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, a
 		return nil
 	}
 
-	// find the old bracketName of the app and remove it:
-	for oldBracketName, appNames := range bracketRow.AllBracketsJsonBlob.BracketMap {
-		oldIndex := slices.Index(appNames, app)
-		if oldIndex >= 0 { // found the app
-			if deletionBracketName == oldBracketName {
-				bracketRow.CreatedAt = now
-				// we found the app, now remove it:
-				appNames = slices.Delete(appNames, oldIndex, oldIndex+1)
-				if len(appNames) == 0 {
-					// last app in the bracket, delete the bracket:
-					delete(bracketRow.AllBracketsJsonBlob.BracketMap, oldBracketName)
-				} else {
-					// there are other apps, keep them:
-					bracketRow.AllBracketsJsonBlob.BracketMap[oldBracketName] = appNames
+	toBeDeletedBrackets := []types.ArgoBracketName{deletionBracketName, types.ArgoBracketName(app)}
+	for _, currentBracketName := range toBeDeletedBrackets {
+		// find the old bracketName of the app and remove it:
+		for oldBracketName, appNames := range bracketRow.AllBracketsJsonBlob.BracketMap {
+			oldIndex := slices.Index(appNames, app)
+			if oldIndex >= 0 { // found the app
+				if currentBracketName == oldBracketName {
+					bracketRow.CreatedAt = now
+					// we found the app, now remove it:
+					appNames = slices.Delete(appNames, oldIndex, oldIndex+1)
+					if len(appNames) == 0 {
+						// last app in the bracket, delete the bracket:
+						delete(bracketRow.AllBracketsJsonBlob.BracketMap, oldBracketName)
+					} else {
+						// there are other apps, keep them:
+						bracketRow.AllBracketsJsonBlob.BracketMap[oldBracketName] = appNames
+					}
+					break
 				}
-				break
 			}
 		}
 	}
