@@ -415,7 +415,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 
 			for _, appBracket := range tc.AddAppBrackets {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
+					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}

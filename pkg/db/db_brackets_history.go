@@ -127,6 +127,7 @@ func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, a
 		return nil
 	}
 
+	// find the old bracketName of the app and remove it:
 	for oldBracketName, appNames := range bracketRow.AllBracketsJsonBlob.BracketMap {
 		oldIndex := slices.Index(appNames, app)
 		if oldIndex >= 0 { // found the app
