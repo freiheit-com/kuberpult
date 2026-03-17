@@ -383,7 +383,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 
 		err := group.Wait()
 		if err != nil {
-			logging.Error(ctx, "waitgroup.error", zap.Error(err))
+			logging.Error(parentCtx, "waitgroup.error", zap.Error(err))
 		}
 		close(prognosisResultChannel)
 		spanSpawnAll.Finish(tracer.WithError(err))
@@ -711,7 +711,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		} else if upstreamLatest {
 			l := len(allLatestReleases[appName])
 			if allLatestReleases == nil || allLatestReleases[appName] == nil || l == 0 {
-				logging.Info("app appears to have no releases on env, so it is skipped.", zap.String("application", appName), zap.String("environment", string(envName)))
+				logging.Info(ctx, "app appears to have no releases on env, so it is skipped.", zap.String("application", string(appName)), zap.String("environment", string(envName)))
 				continue
 			}
 			versionToDeploy = allLatestReleases[appName][0] //Releases come ordered version DESC, revision DESC (also garanteed to have at least 1 element)
@@ -754,7 +754,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 
 		if appLocks, ok := prefetchedAppLocks[appName]; !ok {
-			logging.Info(ctx, "app locks were not prefetched.", zap.String("application", appName), zap.String("environment", string(envName)))
+			logging.Info(ctx, "app locks were not prefetched.", zap.String("application", string(appName)), zap.String("environment", string(envName)))
 		} else if len(appLocks) > 0 {
 			appLocksMap := map[string]*api.Lock{}
 			sortedKeys := sorting.SortKeys(appLocks)
@@ -841,7 +841,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			}
 
 			if teamLocks, ok := prefetchedTeamLocks[teamName]; !ok {
-				logging.Info(ctx, "team locks were not prefetched.", zap.String("teamName", teamName), zap.String("environment", envName))
+				logging.Info(ctx, "team locks were not prefetched.", zap.String("teamName", teamName), zap.String("environment", string(envName)))
 			} else if len(teamLocks) > 0 {
 				teamLocksMap := map[string]*api.Lock{}
 				sortedKeys := sorting.SortKeys(teamLocks)
@@ -933,7 +933,7 @@ func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t Tra
 
 	d, err := state.DBHandler.DBSelectLatestDeployment(ctx, tx, appName, srcEnvName)
 	if err != nil || d == nil || d.ReleaseNumbers.Version == nil {
-		logging.Error(ctx, "Could not find skipped Deployment.", zap.String("application", appName), zap.String("srcEnvName", string(srcEnvName))
+		logging.Error(ctx, "Could not find skipped Deployment.", zap.String("application", string(appName)), zap.String("srcEnvName", string(srcEnvName)))
 		return
 	}
 	version := *d.ReleaseNumbers.Version
@@ -944,7 +944,7 @@ func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t Tra
 	}
 	_, err = q.Transform(ctx, state, t, tx)
 	if err != nil {
-		logging.Error(ctx, "Could not record skipped Deployment.", zap.String("application", appName), zap.String("destEnvName", destEnvName))
+		logging.Error(ctx, "Could not record skipped Deployment.", zap.String("application", string(appName)), zap.String("destEnvName", string(destEnvName)))
 	}
 }
 

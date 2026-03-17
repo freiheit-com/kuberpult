@@ -22,12 +22,14 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 )
@@ -211,7 +213,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 				}
 				ev := createLockPreventedDeploymentEvent(c.Application, envName, lockMsg, lockType)
 				if prognosisData.NewReleaseCommitId == "" {
-					logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+					logging.Info(ctx, "could not write event data - continuing.", zap.Error(err))
 				} else {
 					gen := getGenerator(ctx)
 					eventUuid := gen.Generate()
@@ -298,10 +300,10 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		newReleaseCommitId := prognosisData.NewReleaseCommitId
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
 		if newReleaseCommitId == "" {
-			logger.FromContext(ctx).Sugar().Warnf("could not write event data - continuing. %v", fmt.Errorf("getCommitIDFromReleaseDir %v", err))
+			logging.Info(ctx, "could not write event data - continuing.", zap.Error(err))
 		} else {
 			if !valid.SHA1CommitID(newReleaseCommitId) {
-				logger.FromContext(ctx).Sugar().Warnf("skipping event because commit id was not found")
+				logging.Info(ctx, "skipping event because commit id was not found")
 			} else {
 				gen := getGenerator(ctx)
 				eventUuid := gen.Generate()
@@ -315,20 +317,18 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
 			if !valid.SHA1CommitID(newReleaseCommitId) {
-				logger.FromContext(ctx).Sugar().Infof(
-					"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
-					newReleaseCommitId)
+				logging.Info(ctx, "The source commit ID is not a valid/complete SHA1 hash, event cannot be stored.", zap.String("newReleaseCommitId", newReleaseCommitId))
 			} else {
 				ev := createReplacedByEvent(c.Application, envName, newReleaseCommitId)
 				if oldVersion == nil {
-					logger.FromContext(ctx).Sugar().Errorf("did not find old version of app %s - skipping replaced-by event", c.Application)
+					logging.Error(ctx, "did not find old version of app - skipping replaced-by event", zap.String("application", string(c.Application)))
 				} else {
 					gen := getGenerator(ctx)
 					eventUuid := gen.Generate()
 					v := *oldVersion
 					oldReleaseCommitId := prognosisData.OldReleaseCommitId
 					if oldReleaseCommitId == "" {
-						logger.FromContext(ctx).Sugar().Warnf("could not find commit for release %d of app %s - skipping replaced-by event", v, c.Application)
+						logging.Error(ctx, "could not find commit for release of app - skipping replaced-by event", zap.String("version", fmt.Sprintf("%v", v)), zap.String("application", string(c.Application)))
 					} else {
 						err = state.DBHandler.DBWriteReplacedByEvent(ctx, transaction, c.TransformerEslVersion, eventUuid, oldReleaseCommitId, ev)
 						if err != nil {
@@ -339,8 +339,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 			}
 
 		} else {
-			logger.FromContext(ctx).Sugar().Infof(
-				"Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
+			logging.Info(ctx, "Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
 		}
 	}
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
