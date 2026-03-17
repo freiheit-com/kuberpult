@@ -30,6 +30,7 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	backoff "github.com/cenkalti/backoff/v4"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -37,7 +38,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -197,7 +198,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	if ddMetricsFromCtx != nil {
 		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
 	} else {
-		logger.FromContext(ctx).Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
+		logging.Info(ctx, "could not load ddmetrics from context - running without datadog metrics")
 	}
 
 	if cfg.StorageBackend == DefaultBackend {
@@ -267,7 +268,6 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				}
 				return nil, nil, nil, &applyErr
 			}
-			logger.FromContext(ctx).Info("writing esl event...")
 			user, readUserErr := auth.ReadUserFromContext(ctx)
 
 			if readUserErr != nil {
@@ -320,7 +320,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				changedEnvApps := make([]db.EnvApp, 0)
 				for _, currentResult := range subChanges.ChangedApps {
 					if currentResult.App == "" || currentResult.Env == "" {
-						logger.FromContext(ctx).Sugar().Warnf("empty changed app or environment: app='%s', env='%s'", currentResult.App, currentResult.Env)
+						logging.Info(ctx, "empty changed app or environment.", zap.String("application", string(currentResult.App)), zap.String("environment", string(currentResult.Env)))
 						continue
 					}
 					changedEnvApps = append(changedEnvApps, db.EnvApp{
@@ -338,7 +338,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 
 				for _, currentResult := range subChanges.DeletedApps {
 					if currentResult.App == "" || currentResult.Env == "" {
-						logger.FromContext(ctx).Sugar().Warnf("empty delete app or environment: app='%s', env='%s'", currentResult.App, currentResult.Env)
+						logging.Info(ctx, "empty delete app or environment.", zap.String("application", string(currentResult.App)), zap.String("environment", string(currentResult.Env)))
 						continue
 					}
 					err = state.DBHandler.DBDeleteSyncStatusOnAppAndEnv(ctx, transaction, currentResult.App, currentResult.Env)
@@ -350,7 +350,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 					}
 				}
 
-				logger.FromContext(ctx).Sugar().Infof("Transformer modified %d app/envs", len(changedEnvApps))
+				logging.Info(ctx, "Transformer modified app/envs.", zap.Int("modifiedCount", len(changedEnvApps)))
 			}
 		}
 		return commitMsg, state, changes, nil
@@ -734,20 +734,16 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 	if err != nil {
 		return nil, err
 	}
-	if len(envConfigs) == 0 {
-		logger.FromContext(ctx).Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
-	}
-
 	for envName, env := range envConfigs {
 		if env.ArgoCdConfigs != nil && env.ArgoCd != nil {
-			logger.FromContext(ctx).Error(fmt.Sprintf("The environment '%s' has both ArgoCdConfigs and ArgoCd configured. This is not supported", envName))
+			logging.Error(ctx, "The environment has both ArgoCdConfigs and ArgoCd configured. This is not supported.", zap.String("environment", string(envName)))
 		}
 		if env.Upstream == nil || env.Upstream.Environment == "" {
 			continue
 		}
 		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
-			logger.FromContext(ctx).Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
+			logging.Error(ctx, "The environment has upstream configured, but the environment does not exist.", zap.String("environment", string(envName)), zap.String("upstream", string(upstreamEnv)))
 		}
 	}
 	envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
@@ -755,7 +751,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context, transactio
 		grpDist := group.Environments[0].DistanceToUpstream
 		for _, env := range group.Environments {
 			if env.DistanceToUpstream != grpDist {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("The environment group '%s' has multiple environments setup with different distances to upstream", group.EnvironmentGroupName))
+				logging.Error(ctx, "The environment group has multiple environments setup with different distances to upstream", zap.String("environmentGroup", group.EnvironmentGroupName))
 			}
 
 		}

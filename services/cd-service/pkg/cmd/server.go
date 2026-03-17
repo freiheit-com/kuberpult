@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"regexp"
@@ -26,7 +25,6 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -39,7 +37,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -201,33 +199,33 @@ func parseEnvVars() (_ *Config, err error) {
 }
 
 func RunServer() {
-	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
-		defer logger.HandlePanic(true)
+	logging.Wrap(context.Background(), func(ctx context.Context) error {
+		defer logging.HandlePanic(true)
 
 		c, err := parseEnvVars()
 		if err != nil {
-			logger.FromContext(ctx).Fatal("parsing environment variables", zap.Error(err))
+			logging.Fatal(ctx, "parsing environment variables", zap.Error(err))
 		}
 
 		var lockType service.LockType
 		lockType, err = service.ParseLockType(c.LockType)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("config.parse.error.lock", zap.Error(err))
+			logging.Fatal(ctx, "config.parse.error.lock", zap.Error(err))
 		}
 
 		if c.EnableProfiling {
 			ddFilename := c.DatadogApiKeyLocation
 			if ddFilename == "" {
-				logger.FromContext(ctx).Fatal("config.profiler.apikey.notfound", zap.Error(err))
+				logging.Fatal(ctx, "config.profiler.apikey.notfound", zap.Error(err))
 			}
 			fileContentBytes, err := os.ReadFile(ddFilename)
 			if err != nil {
-				logger.FromContext(ctx).Fatal("config.profiler.apikey.file", zap.Error(err))
+				logging.Fatal(ctx, "config.profiler.apikey.file", zap.Error(err))
 			}
 			fileContent := string(fileContentBytes)
 			err = profiler.Start(profiler.WithAPIKey(fileContent), profiler.WithService(datadogNameCd))
 			if err != nil {
-				logger.FromContext(ctx).Fatal("config.profiler.error", zap.Error(err))
+				logging.Fatal(ctx, "config.profiler.error", zap.Error(err))
 			}
 			defer profiler.Stop()
 		}
@@ -235,10 +233,10 @@ func RunServer() {
 		var reader auth.GrpcContextReader
 		if c.DexMock {
 			if !c.DexEnabled {
-				logger.FromContext(ctx).Fatal("dexEnabled must be true if dexMock is true")
+				logging.Fatal(ctx, "dexEnabled must be true if dexMock is true")
 			}
 			if c.DexMockRole == "" {
-				logger.FromContext(ctx).Fatal("dexMockRole must be set to a role (e.g 'DEVELOPER' because dexEnabled=true")
+				logging.Fatal(ctx, "dexMockRole must be set to a role (e.g 'DEVELOPER' because dexEnabled=true")
 			}
 			reader = &auth.DummyGrpcContextReader{Role: c.DexMockRole}
 		} else {
@@ -246,15 +244,12 @@ func RunServer() {
 		}
 		dexRbacPolicy, err := auth.ReadRbacPolicy(c.DexEnabled, c.DexRbacPolicyPath)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+			logging.Fatal(ctx, "dex.read.error", zap.Error(err))
 		}
 		dexRbacTeam, err := auth.ReadRbacTeam(c.DexEnabled, c.DexRbacTeamPath)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+			logging.Fatal(ctx, "dex.read.error", zap.Error(err))
 		}
-
-		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
-		httpServerLogger := logger.FromContext(ctx).Named("http_server")
 
 		// Unary interceptor. Only parses the Role information if Dex is enabled.
 		unaryUserContextInterceptor := func(ctx context.Context,
@@ -265,17 +260,15 @@ func RunServer() {
 		}
 
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
-			grpczap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 			func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-				defer logger.HandlePanic(true)
+				defer logging.HandlePanic(true)
 				return handler(srv, ss)
 			},
 		}
 		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
-			grpczap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 			unaryUserContextInterceptor,
 			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-				defer logger.HandlePanic(true)
+				defer logging.HandlePanic(true)
 				return handler(ctx, req)
 			},
 		}
@@ -295,7 +288,7 @@ func RunServer() {
 		if c.EnableMetrics {
 			ddMetrics, err := statsd.New(c.DogstatsdAddr, statsd.WithNamespace("Kuberpult"))
 			if err != nil {
-				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
+				logging.Fatal(ctx, "datadog.metrics.error", zap.Error(err))
 			}
 			ctx = context.WithValue(ctx, repository.DdMetricsKey, ddMetrics)
 		}
@@ -304,7 +297,7 @@ func RunServer() {
 			for _, minorRegexStr := range strings.Split(c.MinorRegexes, ",") {
 				regex, err := regexp.Compile(minorRegexStr)
 				if err != nil {
-					logger.FromContext(ctx).Sugar().Warnf("Invalid regex input: %s", minorRegexStr)
+					logging.Error(ctx, "Invalid regex input.", zap.String("minorRegexStr", minorRegexStr))
 					continue
 				}
 				minorRegexes = append(minorRegexes, regex)
@@ -315,12 +308,12 @@ func RunServer() {
 		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
 
 		if strings.HasPrefix(c.GitUrl, "https") {
-			logger.FromContext(ctx).Fatal("git.url.protocol.unsupported",
+			logging.Fatal(ctx, "git.url.protocol.unsupported",
 				zap.String("url", c.GitUrl),
 				zap.String("details", "https is not supported for git communication, only ssh is supported"))
 		}
 		if err := checkReleaseVersionLimit(c.ReleaseVersionsLimit); err != nil {
-			logger.FromContext(ctx).Fatal("cd.config",
+			logging.Fatal(ctx, "cd.config",
 				zap.String("details", err.Error()),
 			)
 		}
@@ -343,18 +336,18 @@ func RunServer() {
 		}
 		dbHandler, err := db.Connect(ctx, dbCfg)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+			logging.Fatal(ctx, "Error establishing DB connection: ", zap.Error(err))
 		}
 		pErr := dbHandler.DB.Ping()
 		if pErr != nil {
-			logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
+			logging.Fatal(ctx, "Error pinging DB: ", zap.Error(pErr))
 		}
 
 		migErr := db.RunDBMigrations(ctx, dbCfg)
 		if migErr != nil {
-			logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
+			logging.Fatal(ctx, "Error running database migrations: ", zap.Error(migErr))
 		}
-		logger.FromContext(ctx).Info("Finished with basic database migration.")
+		logging.Info(ctx, "Finished with basic database migration.")
 
 		cfg := repository.RepositoryConfig{
 			WebhookResolver:      nil,
@@ -374,7 +367,7 @@ func RunServer() {
 
 		repo, err := repository.New(ctx, cfg)
 		if err != nil {
-			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
+			logging.Fatal(ctx, "repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}
 
 		repositoryService :=
@@ -394,12 +387,14 @@ func RunServer() {
 					Shutdown:  nil,
 					Port:      "8080",
 					Register: func(mux *http.ServeMux) {
-						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
 						if c.EnableTracing {
-							handler = httptrace.WrapHandler(handler, datadogNameCd, "/")
+							wrappedHandler := repositoryService
+							handler := httptrace.WrapHandler(wrappedHandler, datadogNameCd, "/")
+							mux.Handle("/", handler)
+						} else {
+							handler := repositoryService
+							mux.Handle("/", handler)
 						}
-
-						mux.Handle("/", handler)
 					},
 				},
 			},
@@ -472,12 +467,8 @@ func RunServer() {
 				return nil
 			},
 		})
-
 		return nil
 	})
-	if err != nil {
-		fmt.Printf("error in logger.wrap: %v %#v", err, err)
-	}
 }
 
 func checkReleaseVersionLimit(limit uint) error {
