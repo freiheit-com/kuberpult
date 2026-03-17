@@ -264,6 +264,30 @@ func TestHandleBracketUpdates(t *testing.T) {
 			},
 		},
 		{
+			Name: "add one entry without bracket, delete same entry",
+			AddAppBrackets: []AppBracketTime{
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName(""), // this will be stored in the DB as bracket "app1"
+					Time:    timeFirst,
+				},
+			},
+			DeleteAppBrackets: []AppBracketTime{
+				{
+					App:     types.AppName("app1"),
+					Bracket: types.ArgoBracketName("app1"), // therefore this will be called with the bracketname "app1"
+					Time:    timeSecond,
+				},
+			},
+			PreparedTimestamp: timeSecond,
+			ExpectedBracketRow: &BracketRow{
+				CreatedAt: timeSecond,
+				AllBracketsJsonBlob: BracketJsonBlob{
+					BracketMap: map[types.ArgoBracketName]AppNames{},
+				},
+			},
+		},
+		{
 			Name: "add two entries, delete first entry",
 			AddAppBrackets: []AppBracketTime{
 				{
@@ -391,7 +415,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 
 			for _, appBracket := range tc.AddAppBrackets {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
+					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}

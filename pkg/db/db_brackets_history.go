@@ -55,14 +55,16 @@ func fromJson(data []byte) (BracketJsonBlob, error) {
 	return result, err
 }
 
-func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, bracketName types.ArgoBracketName, now time.Time) error {
+// HandleBracketsUpdate returns the actual bracket name. The actual name is the same as the parameter bracketName,
+// unless it's "", then we use the app name as bracket name.
+func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, bracketName types.ArgoBracketName, now time.Time) (types.ArgoBracketName, error) {
 	newBracketName := bracketName
 	if newBracketName == "" {
 		newBracketName = types.ArgoBracketName(app)
 	}
 	bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, h, tx, &now)
 	if err != nil {
-		return fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
+		return "", fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
 	}
 	if bracketRow == nil {
 		bracketRow = &BracketRow{
@@ -79,7 +81,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 		if oldIndex >= 0 { // found the app
 			if newBracketName == oldBracketName {
 				// same bracket, nothing to do
-				return nil
+				return "", nil
 			}
 			// we found the app but in a different bracket
 			// 1) remove app from old bracket:
@@ -109,10 +111,10 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 
 	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow)
 	if err != nil {
-		return fmt.Errorf("HandleDeleteAppFromBracket could not get insert new bracket: %w", err)
+		return "", fmt.Errorf("HandleBracketsUpdate could not insert new bracket: %w", err)
 	}
 
-	return nil
+	return newBracketName, nil
 }
 
 func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, deletionBracketName types.ArgoBracketName, now time.Time) error {
@@ -147,7 +149,7 @@ func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, a
 
 	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow)
 	if err != nil {
-		return fmt.Errorf("HandleDeleteAppFromBracket could not get insert new bracket: %w", err)
+		return fmt.Errorf("HandleDeleteAppFromBracket could not insert new bracket: %w", err)
 	}
 	return nil
 }

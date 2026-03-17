@@ -689,6 +689,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				Metadata: db.DBAppMetaData{
 					Team: "t1",
 				},
+				ArgoBracket: types.ArgoBracketName(appName),
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
 				types.MakeReleaseNumbers(10, 2),
@@ -727,6 +728,7 @@ func TestCreateApplicationVersionDBRevisions(t *testing.T) {
 				Metadata: db.DBAppMetaData{
 					Team: "t1",
 				},
+				ArgoBracket: types.ArgoBracketName(appName),
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
 				types.MakeReleaseNumbers(10, 2),
@@ -802,6 +804,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				Metadata: db.DBAppMetaData{
 					Team: "",
 				},
+				ArgoBracket: types.ArgoBracketName(appName),
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
 				types.MakeReleaseNumbers(10000, 0),
@@ -837,6 +840,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				Metadata: db.DBAppMetaData{
 					Team: "noteam",
 				},
+				ArgoBracket: types.ArgoBracketName(appName),
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
 				types.MakeReleaseNumberVersion(10),
@@ -4795,6 +4799,7 @@ func TestTransaction(t *testing.T) {
 				Metadata: db.DBAppMetaData{
 					Team: "",
 				},
+				ArgoBracket: types.ArgoBracketName(appName),
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
 				{
@@ -4833,6 +4838,7 @@ func TestTransaction(t *testing.T) {
 				Metadata: db.DBAppMetaData{
 					Team: "noteam",
 				},
+				ArgoBracket: types.ArgoBracketName(appName),
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
 				types.MakeReleaseNumberVersion(10),
