@@ -268,14 +268,14 @@ func TestHandleBracketUpdates(t *testing.T) {
 			AddAppBrackets: []AppBracketTime{
 				{
 					App:     types.AppName("app1"),
-					Bracket: types.ArgoBracketName(""),
+					Bracket: types.ArgoBracketName(""), // this will be stored in the DB as bracket "app1"
 					Time:    timeFirst,
 				},
 			},
 			DeleteAppBrackets: []AppBracketTime{
 				{
 					App:     types.AppName("app1"),
-					Bracket: types.ArgoBracketName(""),
+					Bracket: types.ArgoBracketName("app1"), // therefore this will be called with the bracketname "app1"
 					Time:    timeSecond,
 				},
 			},
