@@ -32,6 +32,7 @@ import (
 
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -43,7 +44,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -848,11 +849,9 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 
-	var checkForInvalidCommitId = func(commitId, helperText string) {
+	var checkForInvalidCommitId = func(commitId, commitKind string) {
 		if !valid.SHA1CommitID(commitId) {
-			logger.FromContext(ctx).
-				Sugar().
-				Warnf("%s commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s", commitId, helperText)
+			logging.Error(ctx, "Commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F].", zap.String(commitKind, commitId))
 		}
 	}
 
@@ -1018,8 +1017,7 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 	otherCommitDir := commitDirectory(fs, otherCommitId)
 
 	if _, err := fs.Stat(otherCommitDir); err != nil {
-		logger.FromContext(ctx).Sugar().Warnf(
-			"Could not find the previous commit while trying to create a new release for commit %s and application %s. This is expected when `git.enableWritingCommitData` was just turned on, however it should not happen multiple times.", otherCommitId, application, otherCommitDir)
+		logging.Error(ctx, "Could not find the previous commit while trying to create a new release. This is expected when `git.enableWritingCommitData` was just turned on, however it should not happen multiple times.", zap.String("otherCommitId", otherCommitId), zap.String("application", application))
 		return nil
 	}
 
@@ -1097,7 +1095,7 @@ func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state 
 		}
 		if release == nil {
 			majorsCount += 1
-			logger.FromContext(ctx).Warn("Release not found in database")
+			logging.Info(ctx, "Release not found in database.")
 		} else if !release.Metadata.IsMinor && !release.Metadata.IsPrepublish {
 			majorsCount += 1
 		}
@@ -1177,7 +1175,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		for _, currentApp := range apps {
 			currentTeamName, err := state.GetTeamName(currentApp)
 			if err != nil {
-				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s", currentApp)
+				logging.Info(ctx, "CreateEnvironmentTeamLock: Could not find team for application.", zap.String("application", currentApp))
 			} else {
 				if c.Team == currentTeamName {
 					foundTeam = true
@@ -1755,10 +1753,7 @@ func (c *DeleteEnvFromApp) Transform(
 	if entries, err := fs.ReadDir(envAppDir); err != nil {
 		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory"))
 	} else if entries == nil {
-		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
-		msg := thisSprintf("environment does not exist.")
-		logger.FromContext(ctx).Warn(msg)
-		return msg, nil
+		return thisSprintf("environment does not exist."), nil
 	}
 
 	appLocksDir := fs.Join(envAppDir, "locks")
@@ -2054,7 +2049,7 @@ func (u *UndeployApplication) Transform(
 		if err != nil { //Undeploy version does not exist if we minimize git data
 			if errors.Is(err, os.ErrNotExist) {
 				if t.ShouldMaximizeGitData() {
-					logger.FromContext(ctx).Sugar().Warnf("Maximize git data is enabled but could not find undeploy file %q for application %q on environment %q.", undeployFile, u.Application, env)
+					logging.Error(ctx, "Maximize git data is enabled but could not find undeploy file.", zap.String("file", undeployFile), zap.String("applicaton", u.Application), zap.String("environment", string(env)))
 				}
 			} else {
 				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %w", err)
@@ -2219,7 +2214,7 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 		argoCdAppFile := fs.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", d.Environment))
 		err := fs.Remove(argoCdAppFile)
 		if errors.Is(err, os.ErrNotExist) {
-			logger.FromContext(ctx).Sugar().Warnf("DeleteEnvironment: environment's argocd app file %q does not exist.", argoCdAppFile)
+			logging.Info(ctx, "DeleteEnvironment: environment's argocd app file does not exist.", zap.String("argoCdAppFile", argoCdAppFile))
 		} else if err != nil {
 			return "", fmt.Errorf("error deleting the environment's argocd app file %q: %w", argoCdAppFile, err)
 		}
@@ -2227,7 +2222,7 @@ func (d *DeleteEnvironment) Transform(ctx context.Context, state *State, t Trans
 	envDir := fs.Join("environments", string(d.Environment))
 	err = fs.Remove(envDir)
 	if errors.Is(err, os.ErrNotExist) {
-		logger.FromContext(ctx).Sugar().Warnf("DeleteEnvironment: environment directory %q does not exist.", envDir)
+		logging.Info(ctx, "DeleteEnvironment: environment directory does not exist.", zap.String("dir", envDir))
 	} else if err != nil {
 		return "", fmt.Errorf("error deleting the environment directory %q: %w", envDir, err)
 	}
@@ -2365,7 +2360,7 @@ func deleteAAEnvironment(ctx context.Context, fs billy.Filesystem, env types.Env
 	argoCdAppFile := getArgoCdAAEnvFileName(fs, types.EnvName(*envConfig.ArgoCdConfigs.CommonEnvPrefix), env, concreteEnv, true)
 	err = fs.Remove(argoCdAppFile)
 	if errors.Is(err, os.ErrNotExist) {
-		logger.FromContext(ctx).Sugar().Warnf("AA environment argocd app file %q does not exist.", argoCdAppFile)
+		logging.Info(ctx, "AA environment argocd app file does not exist.", zap.String("argoCdAppFile", argoCdAppFile))
 	} else if err != nil {
 		return fmt.Errorf("error deleting AA environment's argocd app file %q: %w", argoCdAppFile, err)
 	}

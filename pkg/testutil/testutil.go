@@ -33,7 +33,7 @@ import (
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 )
@@ -192,13 +192,10 @@ func WrapTestRoutine(t *testing.T, ctx context.Context, logLevel string, inner f
 	if err != nil {
 		t.Fatalf("failed to set LOG_LEVEL: %v", err)
 	}
-	err = logger.Wrap(ctx, func(ctx context.Context) error {
+	logging.Wrap(ctx, func(ctx context.Context) error {
 		inner(ctx)
 		return nil
 	})
-	if err != nil {
-		t.Fatalf("failed to wrap logger: %v", err)
-	}
 }
 
 // CmpDiff is exactly like cmp.Diff but with type safety

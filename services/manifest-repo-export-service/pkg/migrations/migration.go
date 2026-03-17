@@ -22,9 +22,11 @@ import (
 	"errors"
 	"fmt"
 
+	"go.uber.org/zap"
+
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 )
@@ -53,7 +55,7 @@ LIMIT 1;`)
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("migration_cutoff: row closing error: %v", err)
+			logging.Error(ctx, "migration_cutoff: row closing error.", zap.Error(err))
 		}
 	}(rows)
 
