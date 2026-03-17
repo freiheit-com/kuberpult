@@ -794,7 +794,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 					return err
 				}
 				if fetchRelease == nil {
-					logging.Info(o.Context, "Could not find information for release, skipping deployment of application on environment!", zap.Int("releaseVersion", int(releaseVersion)), zap.String("application", string(appName)), zap.String("environment", string(envName)))
+					logging.Info(o.Context, "Could not find information for release, skipping deployment of application on environment!", zap.Int("releaseVersion", int(releaseVersion)), zap.String("application", string(appName)), zap.String("environment", envName))
 					releaseSourceCommitId = "<no commit hash found>"
 				} else {
 					releaseSourceCommitId = fetchRelease.Metadata.SourceCommitId
