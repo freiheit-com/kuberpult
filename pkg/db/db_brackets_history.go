@@ -55,7 +55,7 @@ func fromJson(data []byte) (BracketJsonBlob, error) {
 	return result, err
 }
 
-// HandleBracketsUpdate returns the actual bracket name. It's usually the same as the parameter bracketName,
+// HandleBracketsUpdate returns the actual bracket name. The actual name is the same as the parameter bracketName,
 // unless it's "", then we use the app name as bracket name.
 func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, bracketName types.ArgoBracketName, now time.Time) (types.ArgoBracketName, error) {
 	newBracketName := bracketName
@@ -111,7 +111,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 
 	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow)
 	if err != nil {
-		return "", fmt.Errorf("HandleDeleteAppFromBracket could not get insert new bracket: %w", err)
+		return "", fmt.Errorf("HandleBracketsUpdate could not insert new bracket: %w", err)
 	}
 
 	return newBracketName, nil
@@ -149,7 +149,7 @@ func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, a
 
 	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow)
 	if err != nil {
-		return fmt.Errorf("HandleDeleteAppFromBracket could not get insert new bracket: %w", err)
+		return fmt.Errorf("HandleDeleteAppFromBracket could not insert new bracket: %w", err)
 	}
 	return nil
 }
