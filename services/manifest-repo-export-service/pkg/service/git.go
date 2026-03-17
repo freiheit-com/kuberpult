@@ -70,19 +70,14 @@ func (s *GitServer) checkUserPermissions(ctx context.Context, permission string)
 
 func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	var tags []*api.TagData
-	logging.Wrap(ctx, func(ctx context.Context) error {
-		var innerError error
-		if s.Config.TagsPath == "" {
-			return fmt.Errorf("tagsPath must not be empty")
-		}
-		tags, innerError = repository.GetTags(ctx, s.DBHandler, s.Config, s.Config.TagsPath)
-		if innerError != nil {
-			return fmt.Errorf("unable to get tags from repository: %v", innerError)
-		}
-		return nil
-	})
+	if s.Config.TagsPath == "" {
+		return nil, fmt.Errorf("tagsPath must not be empty")
+	}
+	tags, err := repository.GetTags(ctx, s.DBHandler, s.Config, s.Config.TagsPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
+	}
 	return &api.GetGitTagsResponse{TagData: tags}, nil
-
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
