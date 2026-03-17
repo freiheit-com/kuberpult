@@ -339,7 +339,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 			}
 
 		} else {
-			logging.Info(ctx, "Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
+			logging.Info(ctx, "Release to replace detected, but could not retrieve new commit information. Replaced-by event not stored.")
 		}
 	}
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
