@@ -524,7 +524,7 @@ func EnvironmentFromRow(_ context.Context, row *DBEnvironmentRow) (*DBEnvironmen
 		return nil, fmt.Errorf("unable to unmarshal the JSON in the database, JSON: %s, error: %w", row.Applications, err)
 	}
 	// If the env is not "A/A" then we set the old field anyway
-	if !config.IsAAEnv(&parsedConfig) {
+	if !config.IsAAEnv(&parsedConfig) && parsedConfig.ArgoCdConfigs != nil && len(parsedConfig.ArgoCdConfigs.ArgoCdConfigurations) >= 1 {
 		parsedConfig.ArgoCd = parsedConfig.ArgoCdConfigs.ArgoCdConfigurations[0]
 	}
 	return &DBEnvironment{
