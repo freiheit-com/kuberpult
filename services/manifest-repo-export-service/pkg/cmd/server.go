@@ -65,7 +65,6 @@ func RunServer() {
 }
 
 func Run(ctx context.Context) error {
-	// TODO Delete this comment
 	dbLocation, err := valid.ReadEnvVar("KUBERPULT_DB_LOCATION")
 	if err != nil {
 		return err
