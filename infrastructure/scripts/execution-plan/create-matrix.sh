@@ -2,7 +2,7 @@
 ## create-matrix.sh MAKE_TARGET
 ## create-matrix.sh creates the matrix data for github actions.
 ## It requires the git diff as input, and decides what to build and prints that as json.
-## It also tells you why id decided to build something and prints that to stderr.
+## It also tells you why it decided to build something and prints that to stderr.
 
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
@@ -20,6 +20,7 @@ function sanitizeArtifactName() {
 }
 
 function createMatrix() {
+  wasAnyImageRebuilt=false
   makeTarget=${1}
   ALL_FILES="$(cat)"
   if [ "${makeTarget}" = "build-main" ]
@@ -120,6 +121,7 @@ function createMatrix() {
     do
       ALL_FILES=$(echo -e "${ALL_FILES}\n${stageB}\n")
     done
+    wasAnyImageRebuilt=true
   fi
 
   stageA=$(jq -n --argjson steps "[$stageArray]" \
@@ -140,6 +142,7 @@ function createMatrix() {
                     --arg artifactName "Artifact_$(sanitizeArtifactName "${stageBDirectory}")" \
                     '$ARGS.named'
       )
+      wasAnyImageRebuilt=true
     else
       debug "adding ${stageBDirectory} to the list, despite no change, in order to tag the main image."
       inner=$(jq -n --arg directory "${stageBDirectory}" \
@@ -163,6 +166,7 @@ function createMatrix() {
 
   root=$(jq -n --argjson stage_a "$stageA" \
                --argjson stage_b "$stageB" \
+               --argjson wasAnyImageRebuilt "$wasAnyImageRebuilt" \
                 '$ARGS.named'
   )
   echo "$root"
