@@ -20,7 +20,7 @@ function sanitizeArtifactName() {
 }
 
 function createMatrix() {
-  wasAnyImageRebuilt=false
+  atLeastOneImageRebuilt=false
   makeTarget=${1}
   ALL_FILES="$(cat)"
   if [ "${makeTarget}" = "build-main" ]
@@ -121,7 +121,7 @@ function createMatrix() {
     do
       ALL_FILES=$(echo -e "${ALL_FILES}\n${stageB}\n")
     done
-    wasAnyImageRebuilt=true
+    atLeastOneImageRebuilt=true
   fi
 
   stageA=$(jq -n --argjson steps "[$stageArray]" \
@@ -142,7 +142,7 @@ function createMatrix() {
                     --arg artifactName "Artifact_$(sanitizeArtifactName "${stageBDirectory}")" \
                     '$ARGS.named'
       )
-      wasAnyImageRebuilt=true
+      atLeastOneImageRebuilt=true
     else
       debug "adding ${stageBDirectory} to the list, despite no change, in order to tag the main image."
       inner=$(jq -n --arg directory "${stageBDirectory}" \
@@ -166,7 +166,7 @@ function createMatrix() {
 
   root=$(jq -n --argjson stage_a "$stageA" \
                --argjson stage_b "$stageB" \
-               --argjson wasAnyImageRebuilt "$wasAnyImageRebuilt" \
+               --argjson atLeastOneImageRebuilt "$atLeastOneImageRebuilt" \
                 '$ARGS.named'
   )
   echo "$root"
