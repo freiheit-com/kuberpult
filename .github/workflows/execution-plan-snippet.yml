@@ -64,8 +64,11 @@ jobs:
         run: |
           echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" >> $GITHUB_OUTPUT
           echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" >> $GITHUB_OUTPUT
+          echo "wasAnyImageRebuilt=$(cat artifacts/github-convertor.json | jq '.wasAnyImageRebuilt' -c)" >> $GITHUB_OUTPUT
+
           echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" > artifacts/stage.a.tmp.json
           echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" > artifacts/stage.b.tmp.json
+          echo "wasAnyImageRebuilt=$(cat artifacts/github-convertor.json | jq '.wasAnyImageRebuilt' -c)" > artifacts/stage.wasAnyImageRebuilt.tmp.json
       - uses: actions/upload-artifact@v4
         name: Upload execution plan
         with:
@@ -73,6 +76,7 @@ jobs:
           path: |
             artifacts/stage.a.tmp.json
             artifacts/stage.b.tmp.json
+            artifacts/stage.wasAnyImageRebuilt.tmp.json
             artifacts/execution-plan.json
             artifacts/github-convertor.json
       - name: Split up plan into individual parts
@@ -80,9 +84,11 @@ jobs:
         run: |
           echo "A: ${{ steps.splitplan.outputs.stage_a }} "
           echo "B: ${{ steps.splitplan.outputs.stage_b }} "
+          echo "wasAnyImageRebuilt: ${{ steps.splitplan.outputs.wasAnyImageRebuilt }} "
     outputs:
       stage_a: ${{ steps.splitplan.outputs.stage_a }}
       stage_b: ${{ steps.splitplan.outputs.stage_b }}
+      wasAnyImageRebuilt: ${{ steps.splitplan.outputs.wasAnyImageRebuilt }}
       fullversion: ${{ steps.set_version.outputs.fullversion }}
   stageA_build:
     needs: [execution_plan]
