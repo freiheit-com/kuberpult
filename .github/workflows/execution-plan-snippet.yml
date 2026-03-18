@@ -79,7 +79,7 @@ jobs:
             artifacts/stage.wasAnyImageRebuilt.tmp.json
             artifacts/execution-plan.json
             artifacts/github-convertor.json
-      - name: Split up plan into individual parts
+      - name: Print individual parts of the plan
         id: print-split-plan
         run: |
           echo "A: ${{ steps.splitplan.outputs.stage_a }} "
