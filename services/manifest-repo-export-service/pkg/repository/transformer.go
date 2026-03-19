@@ -65,10 +65,6 @@ const (
 	keptVersionsOnCleanup = 20
 )
 
-const (
-	fieldTeam = "team"
-)
-
 type ctxMarkerGenerateUuid struct{}
 
 var (
@@ -477,40 +473,6 @@ func (c *CreateEnvironmentLock) Transform(
 	return GetNoOpMessage(c)
 }
 
-func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, authorName, authorEmail, created string) error {
-	locksDir := "locks"
-	if err := fs.MkdirAll(locksDir, 0777); err != nil {
-		return err
-	}
-
-	// create lock dir
-	newLockDir := fs.Join(locksDir, lockId)
-	if err := fs.MkdirAll(newLockDir, 0777); err != nil {
-		return err
-	}
-
-	// write message
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldMessage), []byte(message), 0666); err != nil {
-		return err
-	}
-
-	// write email
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedByEmail), []byte(authorEmail), 0666); err != nil {
-		return err
-	}
-
-	// write name
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedByName), []byte(authorName), 0666); err != nil {
-		return err
-	}
-
-	// write date in iso format
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedAt), []byte(created), 0666); err != nil {
-		return err
-	}
-	return nil
-}
-
 type DeleteEnvironmentLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
@@ -715,7 +677,6 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	slices.Sort(allEnvsOfThisApp)
 
-
 	deploymentsMap, err := state.DBHandler.MapEnvNamesToDeployment(ctx, transaction, c.TransformerEslVersion)
 	if err != nil {
 		return "", err
@@ -750,75 +711,6 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	return GetNoOpMessage(c)
-}
-
-func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, previousCommitId string, state *State) error {
-	fs := state.Filesystem
-	if !valid.SHA1CommitID(sourceCommitId) {
-		return nil
-	}
-	commitDir := commitDirectory(fs, sourceCommitId)
-	if err := fs.MkdirAll(commitDir, 0777); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-
-	if previousCommitId != "" && valid.SHA1CommitID(previousCommitId) {
-		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, app, fs); err != nil {
-			return GetCreateReleaseGeneralFailure(err)
-		}
-	}
-
-	commitAppDir := commitApplicationDirectory(fs, sourceCommitId, app)
-	if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-	if err := util.WriteFile(fs, fs.Join(commitDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
-		return err
-	}
-	if err := util.WriteFile(fs, fs.Join(commitDir, "source_message"), []byte(sourceMessage), 0666); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-
-	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-	return nil
-}
-
-func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId string, fieldSource string, application string, fs billy.Filesystem) error {
-
-	otherCommitId = strings.ToLower(otherCommitId)
-	sourceCommitDir := commitDirectory(fs, sourceCommitId)
-
-	otherCommitDir := commitDirectory(fs, otherCommitId)
-
-	if _, err := fs.Stat(otherCommitDir); err != nil {
-		logging.Error(ctx, "Could not find the previous commit while trying to create a new release. This is expected when `git.enableWritingCommitData` was just turned on, however it should not happen multiple times.", zap.String("otherCommitId", otherCommitId), zap.String("application", application))
-		return nil
-	}
-
-	if err := util.WriteFile(fs, fs.Join(sourceCommitDir, fieldSource), []byte(otherCommitId), 0666); err != nil {
-		return err
-	}
-	fieldOther := ""
-	if otherCommitId != "" {
-
-		if fieldSource == fieldPreviousCommitId {
-			fieldOther = fieldNextCommidId
-		} else {
-			fieldOther = fieldPreviousCommitId
-		}
-
-		//This is a workaround. util.WriteFile does NOT truncate file contents, so we simply delete the file before writing.
-		if err := fs.Remove(fs.Join(otherCommitDir, fieldOther)); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-
-		if err := util.WriteFile(fs, fs.Join(otherCommitDir, fieldOther), []byte(sourceCommitId), 0666); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
