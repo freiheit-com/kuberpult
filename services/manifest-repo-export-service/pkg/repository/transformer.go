@@ -710,7 +710,11 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 
-	return GetNoOpMessage(c)
+	if len(deploymentsMap) == 0 {
+		return GetNoOpMessage(c)
+	}
+
+	return fmt.Sprintf("created version %v of %q", version, c.Application), nil
 }
 
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
