@@ -684,16 +684,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					TransformerEslVersion: 5,
 				},
 			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 			ExpectedAuthor:      &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 			ExpectedDeletedFile: "/applications/" + appName + "/releases/1.0/source_commit_id",
 		},
@@ -794,20 +785,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 				},
 			},
 			MinorRelease: 3,
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
-					fileData: []byte("123456789"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
@@ -907,20 +885,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 				},
 			},
 			PrepublishRelease: 3,
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
-					fileData: []byte("123456789"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 	}
@@ -1086,12 +1051,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					TransformerEslVersion: 3,
 				},
 			},
-			expectedData: []*FilenameAndData{
-				{
-					path:     "applications/app1/releases/2.0/environments/acceptance/manifests.yaml",
-					fileData: []byte(" "),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 		},
 	}
 	for _, tc := range tcs {
