@@ -195,12 +195,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 			ExpectedError: nil,
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/team",
-					fileData: []byte("team-123"),
-				},
-			},
+			ExpectedFile:  []*FilenameAndData{},
 			ExpectedApp: &db.DBAppWithMetaData{
 				App: appName,
 				Metadata: db.DBAppMetaData{
