@@ -700,8 +700,6 @@ func (c *CreateApplicationVersion) Transform(
 	version := types.MakeReleaseNumbers(c.Version, c.Revision)
 	fs := state.Filesystem
 
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
-
 	var checkForInvalidCommitId = func(commitId, commitKind string) {
 		if !valid.SHA1CommitID(commitId) {
 			logging.Error(ctx, "Commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F].", zap.String(commitKind, commitId))
@@ -1519,8 +1517,6 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		return "", fmt.Errorf("cannot undeploy application '%v'", c.Application)
 	}
 	nextReleaseNumber = lastRelease[0].ReleaseNumbers
-
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, nextReleaseNumber)
 
 	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
