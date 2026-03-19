@@ -698,7 +698,6 @@ func (c *CreateApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	version := types.MakeReleaseNumbers(c.Version, c.Revision)
-	fs := state.Filesystem
 
 	var checkForInvalidCommitId = func(commitId, commitKind string) {
 		if !valid.SHA1CommitID(commitId) {
@@ -1507,7 +1506,6 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	fs := state.Filesystem
 	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, types.AppName(c.Application), false)
 	if err != nil {
 		return "", fmt.Errorf("could not get last relase for app '%v': %v", c.Application, err)
