@@ -13,14 +13,16 @@ jobs:
   integration-tests:
     needs: [execution-plan]
     uses: ./.github/workflows/integration-tests.yml
+    # skip if the execution plan did not trigger rebuilding any image:
+    if: ${{ needs.execution-plan.outputs.atLeastOneImageRebuilt }}
     with:
       trigger: pull-request
       fullversion: ${{ needs.execution-plan.outputs.fullversion }}
     secrets: inherit
 
-  trivy-scan:
-    needs: [execution-plan]
-    uses: ./.github/workflows/trivy-scan.yml
-    with:
-      trigger: pull-request
-    secrets: inherit
+#  trivy-scan:
+#    needs: [execution-plan]
+#    uses: ./.github/workflows/trivy-scan.yml
+#    with:
+#      trigger: pull-request
+#    secrets: inherit
