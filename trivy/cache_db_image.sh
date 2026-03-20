@@ -1,4 +1,4 @@
-##!/bin/sh
+#!/bin/sh
 #
 #i=0
 #status=1
