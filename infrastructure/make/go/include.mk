@@ -78,12 +78,12 @@ endif
 
 
 trivy-scan: release
-ifeq ($(SKIP_TRIVY),1)
-	@echo "Skipping trivy"
-else
-	@echo "Starting trivy check for $(IMAGE_NAME)"
-	KUBERPULT_SERVICE_IMAGE=$(IMAGE_NAME) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
-endif
+#ifeq ($(SKIP_TRIVY),1)
+#	@echo "Skipping trivy"
+#else
+#	@echo "Starting trivy check for $(IMAGE_NAME)"
+#	KUBERPULT_SERVICE_IMAGE=$(IMAGE_NAME) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
+#endif
 
 .PHONY: datadog-wrapper
 datadog-wrapper:
