@@ -81,6 +81,10 @@ func HandleReleaseDiff(kpClientParams kutil.RequestParameters, args kutil.Authen
 		log.Printf("error on getting manifests, error: %v", err)
 		return ReturnCodeFailure
 	}
+	if len(body) == 0 {
+		fmt.Printf("No previous version.\n")
+		return ReturnCodeSuccess // no previous version, allow this to pass
+	}
 
 	var resp = &GetManifestsResponse{
 		Manifests: nil,
