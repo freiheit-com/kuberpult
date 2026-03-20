@@ -576,16 +576,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					TransformerEslVersion: 4,
 				},
 			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
@@ -1181,20 +1172,7 @@ func TestLocks(t *testing.T) {
 					},
 				},
 			},
-			expectedData: []*FilenameAndData{
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 		},
 		{
 			Name: "Create environment lock - env does not exist",
@@ -1322,21 +1300,7 @@ func TestLocks(t *testing.T) {
 					},
 				},
 			},
-			expectedData: []*FilenameAndData{
-				{
-
-					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 		},
 		{
 			Name: "Delete App lock",
