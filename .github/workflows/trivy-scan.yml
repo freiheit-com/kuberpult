@@ -20,51 +20,51 @@ jobs:
       with:
         fetch-depth: 0 # fetch all
         fetch-tags: true # we need tags for make version
-    - name: "Authenticate to Google Cloud"
-      uses: google-github-actions/auth@v2
-      with:
-          credentials_json: '${{ secrets.FDC_DEV_ENV_CI_IMAGE_READER }}'
-          create_credentials_file: true
-          export_environment_variables: true
-    - name: Add credentials file
-      run: |
-        cat > credential.json << EOF
-        ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
-        EOF
-    - name: Login to Google Artifact Registry
-      uses: docker/login-action@v3
-      with:
-        registry: europe-west3-docker.pkg.dev
-        username: _json_key
-        password: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
-
-    - name: Setup Image tag
-      if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
-      run: |
-        if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
-          echo "IMAGE_TAG_KUBERPULT=pr-$(make version)" >> $GITHUB_ENV
-        elif [[ ${{ inputs.trigger }} == "main" ]]; then
-          echo "IMAGE_TAG_KUBERPULT=main-$(make version)" >> $GITHUB_ENV
-        fi
-    - name: Log image name that trivy will check
-      run: |
-        echo "IMAGE_TAG_KUBERPULT: ${IMAGE_TAG_KUBERPULT}"
-        echo "git tag: "
-        git describe --always --long --tags
-    - name: Run and build trivy base image
-      if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
-      run: |
-       VERSION=$IMAGE_TAG_KUBERPULT make -C trivy build-base-image
-       VERSION=$IMAGE_TAG_KUBERPULT make -C trivy push-base-image
-    - name: Run trivy scan
-      run: |
-        if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
-          echo "Skipping trivy in PR, because this is done in `make build-pr` now."
-        elif [[ ${{ inputs.trigger }} == "main" ]]; then
-          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make -C trivy scan-all
-        fi
-    - name: Archive reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: vulnerability-report
-        path: trivy/kuberpult*.tar.gz
+#    - name: "Authenticate to Google Cloud"
+#      uses: google-github-actions/auth@v2
+#      with:
+#          credentials_json: '${{ secrets.FDC_DEV_ENV_CI_IMAGE_READER }}'
+#          create_credentials_file: true
+#          export_environment_variables: true
+#    - name: Add credentials file
+#      run: |
+#        cat > credential.json << EOF
+#        ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
+#        EOF
+#    - name: Login to Google Artifact Registry
+#      uses: docker/login-action@v3
+#      with:
+#        registry: europe-west3-docker.pkg.dev
+#        username: _json_key
+#        password: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
+#
+#    - name: Setup Image tag
+#      if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
+#      run: |
+#        if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
+#          echo "IMAGE_TAG_KUBERPULT=pr-$(make version)" >> $GITHUB_ENV
+#        elif [[ ${{ inputs.trigger }} == "main" ]]; then
+#          echo "IMAGE_TAG_KUBERPULT=main-$(make version)" >> $GITHUB_ENV
+#        fi
+#    - name: Log image name that trivy will check
+#      run: |
+#        echo "IMAGE_TAG_KUBERPULT: ${IMAGE_TAG_KUBERPULT}"
+#        echo "git tag: "
+#        git describe --always --long --tags
+#    - name: Run and build trivy base image
+#      if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
+#      run: |
+#       VERSION=$IMAGE_TAG_KUBERPULT make -C trivy build-base-image
+#       VERSION=$IMAGE_TAG_KUBERPULT make -C trivy push-base-image
+#    - name: Run trivy scan
+#      run: |
+#        if [[ ${{ inputs.trigger }} == "pull-request" ]]; then
+#          echo "Skipping trivy in PR, because this is done in `make build-pr` now."
+#        elif [[ ${{ inputs.trigger }} == "main" ]]; then
+#          GCP_CREDENTIALS_PATH=$GOOGLE_APPLICATION_CREDENTIALS VERSION=$IMAGE_TAG_KUBERPULT make -C trivy scan-all
+#        fi
+#    - name: Archive reports
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: vulnerability-report
+#        path: trivy/kuberpult*.tar.gz
