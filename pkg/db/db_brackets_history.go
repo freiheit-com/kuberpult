@@ -62,7 +62,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 	if newBracketName == "" {
 		newBracketName = types.ArgoBracketName(app)
 	}
-	bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, h, tx, &now)
+	bracketRow, err := DBSelectBracketHistoryById(ctx, h, tx, &now)
 	if err != nil {
 		return "", fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
 	}
@@ -118,7 +118,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 }
 
 func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, deletionBracketName types.ArgoBracketName, now time.Time) error {
-	bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, h, tx, &now)
+	bracketRow, err := DBSelectBracketHistoryById(ctx, h, tx, &now)
 	if err != nil {
 		return fmt.Errorf("HandleDeleteAppFromBracket could not get newBracketName by timestamp: %w", err)
 	}
@@ -154,23 +154,17 @@ func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, a
 	return nil
 }
 
-func DBSelectBracketHistoryByTimestamp(ctx context.Context, h *DBHandler, tx *sql.Tx, optionalTimestamp *time.Time) (result *BracketRow, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryByTimestamp")
+func DBSelectBracketHistoryById(ctx context.Context, h *DBHandler, tx *sql.Tx, eslVersion TransformerID) (result *BracketRow, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryById")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
-	whereQuery := ""
-	args := []any{}
-	if optionalTimestamp != nil {
-		whereQuery = `WHERE created_at <= (?) -- get the rows that existed at the given time`
-		args = append(args, optionalTimestamp)
-	}
+	args := []any{eslVersion}
 	selectQuery := h.AdaptQuery(`
 		SELECT created_at, all_brackets
 		FROM ` + bracketsHistoryTable + `
-		` + whereQuery + `
-		ORDER BY esl_id DESC -- but only get the newest row
+		WHERE esl_id = (?) -- get the rows that existed at the given time
 		LIMIT 1
 	;`)
 	rows, err := tx.QueryContext(

@@ -149,7 +149,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 			}
 
 			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-				bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, dbHandler, transaction, &tc.PreparedTimestamp)
+				bracketRow, err := DBSelectBracketHistoryById(ctx, dbHandler, transaction, &tc.PreparedTimestamp)
 				if err != nil {
 					return err
 				}
@@ -439,7 +439,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 			}
 
 			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-				bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, dbHandler, transaction, &tc.PreparedTimestamp)
+				bracketRow, err := DBSelectBracketHistoryById(ctx, dbHandler, transaction, &tc.PreparedTimestamp)
 				if err != nil {
 					return err
 				}

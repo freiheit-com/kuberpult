@@ -662,7 +662,7 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 		zap.Any("changedEnvs", changedEnvs),
 	)
 	if shouldCreateCommit {
-		if err := r.afterTransform(ctx, transaction, *state, transformer.GetCreationTimestamp(), changedEnvs); err != nil {
+		if err := r.afterTransform(ctx, transaction, *state, transformer.GetCreationTimestamp(), transformer.GetEslVersion(), changedEnvs); err != nil {
 			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 		}
 
@@ -908,7 +908,7 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 	return nil
 }
 
-func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time, changedEnvironments map[types.EnvName]struct{}) (err error) {
+func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, state State, ts time.Time, eslVersion db.TransformerID, changedEnvironments map[types.EnvName]struct{}) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -929,7 +929,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 			if envHasChanged {
 				errorGroup.Go(func() error {
 					return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
-						return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, &fsMutex)
+						return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, eslVersion, &fsMutex)
 					})
 				})
 				renderedEnvs = append(renderedEnvs, env)
@@ -945,7 +945,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	return errorGroup.Wait()
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time, fsMutex *sync.Mutex) (err error) {
+func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time, eslVersion db.TransformerID, fsMutex *sync.Mutex) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer func() {
 		span.Finish(tracer.WithError(err))
@@ -957,7 +957,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 
 	if config.IsAAEnv(&cfg) {
 		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
-			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts, fsMutex)
+			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts, eslVersion, fsMutex)
 			if err != nil {
 				return err
 			}
@@ -975,7 +975,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			conf = cfg.ArgoCd
 		}
 
-		err := r.processApp(ctx, transaction, state, env, nil, conf, false, ts, fsMutex)
+		err := r.processApp(ctx, transaction, state, env, nil, conf, false, ts, eslVersion, eslVersion, fsMutex)
 
 		if err != nil {
 			return err
@@ -993,6 +993,7 @@ func (r *repository) processApp(
 	currentArgoCdConfiguration *config.EnvironmentConfigArgoCd,
 	isAAEnv bool,
 	ts time.Time,
+	eslVersion db.TransformerID,
 	fsMutex *sync.Mutex,
 ) error {
 	prefix := ""
@@ -1019,7 +1020,7 @@ func (r *repository) processApp(
 			environmentInfo.ArgoProjectNameOverride = ""
 		}
 	}
-	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo, ts, fsMutex)
+	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo, ts, eslVersion, fsMutex)
 	return err
 }
 
@@ -1031,7 +1032,7 @@ func appTeamsToMap(appTeams []db.AppWithTeam) map[types.AppName]string {
 	return result
 }
 
-func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time, fsMutex *sync.Mutex) error {
+func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time, eslVersion db.TransformerID, fsMutex *sync.Mutex) error {
 	_, appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp)
 	if err != nil {
 		return err
@@ -1042,9 +1043,9 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 	if err != nil {
 		return err
 	}
-	allBrackets, err := db.DBSelectBracketHistoryByTimestamp(ctx, state.DBHandler, transaction, &timestamp)
+	allBrackets, err := db.DBSelectBracketHistoryById(ctx, state.DBHandler, transaction, eslVersion)
 	if err != nil {
-		return fmt.Errorf("could not find bracket at %v: %w", timestamp, err)
+		return fmt.Errorf("could not find bracket at %v: %w", eslVersion, err)
 	}
 	appData := CalculateAppDataWithBrackets(ctx, allBrackets, appTeams, deploymentsPerApp)
 	spanCollectData.Finish()
