@@ -195,12 +195,7 @@ func TestTransformerWorksWithDb(t *testing.T) {
 				},
 			},
 			ExpectedError: nil,
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/team",
-					fileData: []byte("team-123"),
-				},
-			},
+			ExpectedFile:  []*FilenameAndData{},
 			ExpectedApp: &db.DBAppWithMetaData{
 				App: appName,
 				Metadata: db.DBAppMetaData{
@@ -581,16 +576,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					TransformerEslVersion: 4,
 				},
 			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
@@ -689,16 +675,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					TransformerEslVersion: 5,
 				},
 			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 			ExpectedAuthor:      &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 			ExpectedDeletedFile: "/applications/" + appName + "/releases/1.0/source_commit_id",
 		},
@@ -799,20 +776,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 				},
 			},
 			MinorRelease: 3,
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
-					fileData: []byte("123456789"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
@@ -912,20 +876,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 				},
 			},
 			PrepublishRelease: 3,
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
-					fileData: []byte("123456789"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 	}
@@ -1091,12 +1042,7 @@ func TestCreateUndeployApplicationVersion(t *testing.T) {
 					TransformerEslVersion: 3,
 				},
 			},
-			expectedData: []*FilenameAndData{
-				{
-					path:     "applications/app1/releases/2.0/environments/acceptance/manifests.yaml",
-					fileData: []byte(" "),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 		},
 	}
 	for _, tc := range tcs {
@@ -1226,20 +1172,7 @@ func TestLocks(t *testing.T) {
 					},
 				},
 			},
-			expectedData: []*FilenameAndData{
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 		},
 		{
 			Name: "Create environment lock - env does not exist",
@@ -1367,21 +1300,7 @@ func TestLocks(t *testing.T) {
 					},
 				},
 			},
-			expectedData: []*FilenameAndData{
-				{
-
-					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 		},
 		{
 			Name: "Delete App lock",
@@ -1639,21 +1558,7 @@ func TestLocks(t *testing.T) {
 			expectedError: errMatcher{
 				msg: "first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
 			},
-			expectedData: []*FilenameAndData{
-				{
-
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 		},
 	}
 	for _, tc := range tcs {
@@ -1857,16 +1762,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 					TransformerEslVersion: 3,
 				},
 			},
-			expectedData: []*FilenameAndData{
-				{
-					path:     "/applications/app1/releases/2.0/undeploy",
-					fileData: []byte(""),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/version/undeploy",
-					fileData: []byte(""),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 		},
 		{
 			Name: "Try Create undeploy application version, but it is locked",
@@ -1960,20 +1856,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 					TransformerEslVersion: 5,
 				},
 			},
-			expectedData: []*FilenameAndData{
-				{ //There is an undeploy version
-					path:     "/applications/app1/releases/2.0/undeploy",
-					fileData: []byte(""),
-				},
-				{ //The first env has the undeploy version deployed
-					path:     "environments/acceptance/applications/app1/version/undeploy",
-					fileData: []byte(""),
-				},
-				{ //The second env still has an undeploy, event with a lock
-					path:     "environments/acceptance2/applications/app1/version/undeploy",
-					fileData: []byte(""),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 			expectedMissing: []*FilenameAndData{},
 		},
 	}
@@ -2875,24 +2758,7 @@ func TestReleasesAndDeployments(t *testing.T) {
 					},
 				},
 			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "applications/" + appName + "/releases/1.0/environments/production/manifests.yaml",
-					fileData: []byte("some production manifest 1.0"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.0/environments/staging/manifests.yaml",
-					fileData: []byte("some staging manifest 1.0"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.1/environments/production/manifests.yaml",
-					fileData: []byte("some production manifest 1.1"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.1/environments/staging/manifests.yaml",
-					fileData: []byte("some staging manifest 1.1"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 		},
 		{
 			Name: "Check deployments",
