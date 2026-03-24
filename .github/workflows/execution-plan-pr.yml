@@ -16,7 +16,7 @@ jobs:
     with:
       trigger: pull-request
       fullversion: ${{ needs.execution-plan.outputs.fullversion }}
-      runTest: ${{ needs.execution-plan.outputs.atLeastOneImageRebuilt == 'true'}}
+      runTest: ${{ needs.execution-plan.outputs.atLeastOneImageRebuilt == 'true' }}
     secrets: inherit
 
 #  trivy-scan:
