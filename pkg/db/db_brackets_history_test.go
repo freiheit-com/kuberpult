@@ -33,17 +33,17 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 	timeFirst := calcTime(1)
 	timeSecond := calcTime(2)
 	tcs := []struct {
-		Name                string
-		PreparedBracketRows []BracketRow
-		PreparedTimestamp   time.Time
-		ExpectedBracketRow  *BracketRow
-		ExpectedErr         error
+		Name                   string
+		PreparedBracketRows    []BracketRow
+		TransformerIndexToTest TransformerID
+		ExpectedBracketRow     *BracketRow
+		ExpectedErr            error
 	}{
 		{
-			Name:                "no data",
-			PreparedBracketRows: []BracketRow{},
-			PreparedTimestamp:   timeFirst,
-			ExpectedBracketRow:  nil,
+			Name:                   "no data",
+			PreparedBracketRows:    []BracketRow{},
+			TransformerIndexToTest: 1,
+			ExpectedBracketRow:     nil,
 		},
 		{
 			Name: "just one result",
@@ -57,7 +57,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 					},
 				},
 			},
-			PreparedTimestamp: timeFirst,
+			TransformerIndexToTest: 1,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -87,7 +87,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 					},
 				},
 			},
-			PreparedTimestamp: timeSecond,
+			TransformerIndexToTest: 2,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeSecond,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -117,7 +117,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 					},
 				},
 			},
-			PreparedTimestamp: timeFirst, // This means we look back into history
+			TransformerIndexToTest: 1, // This means we look back into history
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -149,7 +149,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 			}
 
 			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-				bracketRow, err := DBSelectBracketHistoryById(ctx, dbHandler, transaction, &tc.PreparedTimestamp)
+				bracketRow, err := DBSelectBracketHistoryById(ctx, dbHandler, transaction, tc.TransformerIndexToTest)
 				if err != nil {
 					return err
 				}

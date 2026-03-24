@@ -62,7 +62,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 	if newBracketName == "" {
 		newBracketName = types.ArgoBracketName(app)
 	}
-	bracketRow, err := DBSelectBracketHistoryById(ctx, h, tx, &now)
+	bracketRow, err := DBSelectBracketHistoryLatest(ctx, h, tx)
 	if err != nil {
 		return "", fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
 	}
@@ -118,7 +118,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 }
 
 func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, deletionBracketName types.ArgoBracketName, now time.Time) error {
-	bracketRow, err := DBSelectBracketHistoryById(ctx, h, tx, &now)
+	bracketRow, err := DBSelectBracketHistoryLatest(ctx, h, tx)
 	if err != nil {
 		return fmt.Errorf("HandleDeleteAppFromBracket could not get newBracketName by timestamp: %w", err)
 	}
@@ -152,6 +152,39 @@ func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, a
 		return fmt.Errorf("HandleDeleteAppFromBracket could not insert new bracket: %w", err)
 	}
 	return nil
+}
+
+func DBSelectBracketHistoryLatest(ctx context.Context, h *DBHandler, tx *sql.Tx) (result *BracketRow, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryLatest")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	selectQuery := h.AdaptQuery(`
+		SELECT created_at, all_brackets
+		FROM ` + bracketsHistoryTable + `
+		ORDER BY esl_id DESC 	-- order by id
+		LIMIT 1 				-- take only latest entry
+	;`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query cutoff table from DB. Error: %w", err)
+	}
+	if rows.Next() {
+		result, err = processBracketHistoryRow(rows)
+		if err != nil {
+			err2 := closeRows(rows)
+			return nil, errors.Join(err, err2)
+		}
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func DBSelectBracketHistoryById(ctx context.Context, h *DBHandler, tx *sql.Tx, eslVersion TransformerID) (result *BracketRow, err error) {
