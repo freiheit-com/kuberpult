@@ -174,19 +174,22 @@ func TestHandleBracketUpdates(t *testing.T) {
 		Time    time.Time
 	}
 	tcs := []struct {
-		Name               string
-		AddAppBrackets     []AppBracketTime
-		DeleteAppBrackets  []AppBracketTime
-		PreparedTimestamp  time.Time
+		Name string
+		// Given
+		AddAppBrackets    []AppBracketTime
+		DeleteAppBrackets []AppBracketTime
+		// When
+		TransformerIndexToTest TransformerID
+		// Then
 		ExpectedBracketRow *BracketRow
 		ExpectedErr        error
 	}{
 		{
-			Name:               "no data",
-			AddAppBrackets:     []AppBracketTime{},
-			DeleteAppBrackets:  []AppBracketTime{},
-			PreparedTimestamp:  timeFirst,
-			ExpectedBracketRow: nil,
+			Name:                   "no data",
+			AddAppBrackets:         []AppBracketTime{},
+			DeleteAppBrackets:      []AppBracketTime{},
+			TransformerIndexToTest: 1,
+			ExpectedBracketRow:     nil,
 		},
 		{
 			Name: "one entry",
@@ -197,8 +200,8 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeFirst,
 				},
 			},
-			DeleteAppBrackets: []AppBracketTime{},
-			PreparedTimestamp: timeFirst,
+			DeleteAppBrackets:      []AppBracketTime{},
+			TransformerIndexToTest: 1,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -227,8 +230,8 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeThird,
 				},
 			},
-			DeleteAppBrackets: []AppBracketTime{},
-			PreparedTimestamp: timeFirst,
+			DeleteAppBrackets:      []AppBracketTime{},
+			TransformerIndexToTest: 3,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -255,7 +258,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeSecond,
 				},
 			},
-			PreparedTimestamp: timeSecond,
+			TransformerIndexToTest: 2,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeSecond,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -279,7 +282,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeSecond,
 				},
 			},
-			PreparedTimestamp: timeSecond,
+			TransformerIndexToTest: 2,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeSecond,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -308,7 +311,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeThird,
 				},
 			},
-			PreparedTimestamp: timeThird,
+			TransformerIndexToTest: 3,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeThird,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -334,7 +337,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeSecond,
 				},
 			},
-			PreparedTimestamp: timeSecond,
+			TransformerIndexToTest: 2,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -358,8 +361,8 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeFirst,
 				},
 			},
-			DeleteAppBrackets: []AppBracketTime{},
-			PreparedTimestamp: timeSecond,
+			DeleteAppBrackets:      []AppBracketTime{},
+			TransformerIndexToTest: 2,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -393,8 +396,8 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeFirst,
 				},
 			},
-			DeleteAppBrackets: []AppBracketTime{},
-			PreparedTimestamp: timeSecond,
+			DeleteAppBrackets:      []AppBracketTime{},
+			TransformerIndexToTest: 4,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -439,7 +442,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 			}
 
 			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
-				bracketRow, err := DBSelectBracketHistoryById(ctx, dbHandler, transaction, &tc.PreparedTimestamp)
+				bracketRow, err := DBSelectBracketHistoryById(ctx, dbHandler, transaction, tc.TransformerIndexToTest)
 				if err != nil {
 					return err
 				}
