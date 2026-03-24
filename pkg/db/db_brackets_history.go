@@ -62,7 +62,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 	if newBracketName == "" {
 		newBracketName = types.ArgoBracketName(app)
 	}
-	bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, h, tx, &now)
+	bracketRow, err := DBSelectBracketHistoryLatest(ctx, h, tx)
 	if err != nil {
 		return "", fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
 	}
@@ -118,7 +118,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 }
 
 func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, deletionBracketName types.ArgoBracketName, now time.Time) error {
-	bracketRow, err := DBSelectBracketHistoryByTimestamp(ctx, h, tx, &now)
+	bracketRow, err := DBSelectBracketHistoryLatest(ctx, h, tx)
 	if err != nil {
 		return fmt.Errorf("HandleDeleteAppFromBracket could not get newBracketName by timestamp: %w", err)
 	}
@@ -154,24 +154,51 @@ func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, a
 	return nil
 }
 
-func DBSelectBracketHistoryByTimestamp(ctx context.Context, h *DBHandler, tx *sql.Tx, optionalTimestamp *time.Time) (result *BracketRow, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryByTimestamp")
+func DBSelectBracketHistoryLatest(ctx context.Context, h *DBHandler, tx *sql.Tx) (result *BracketRow, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryLatest")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
-	whereQuery := ""
-	args := []any{}
-	if optionalTimestamp != nil {
-		whereQuery = `WHERE created_at <= (?) -- get the rows that existed at the given time`
-		args = append(args, optionalTimestamp)
-	}
 	selectQuery := h.AdaptQuery(`
 		SELECT created_at, all_brackets
 		FROM ` + bracketsHistoryTable + `
-		` + whereQuery + `
-		ORDER BY esl_id DESC -- but only get the newest row
-		LIMIT 1
+		ORDER BY esl_id DESC 	-- order by id
+		LIMIT 1 				-- take only latest entry
+	;`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query cutoff table from DB. Error: %w", err)
+	}
+	if rows.Next() {
+		result, err = processBracketHistoryRow(rows)
+		if err != nil {
+			err2 := closeRows(rows)
+			return nil, errors.Join(err, err2)
+		}
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func DBSelectBracketHistoryById(ctx context.Context, h *DBHandler, tx *sql.Tx, eslVersion TransformerID) (result *BracketRow, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryById")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	args := []any{eslVersion}
+	selectQuery := h.AdaptQuery(`
+		SELECT created_at, all_brackets
+		FROM ` + bracketsHistoryTable + `
+		WHERE esl_id = (?) -- get the row that existed at the given transformer ID
+		LIMIT 1            -- there can only be one row per transform ID
 	;`)
 	rows, err := tx.QueryContext(
 		ctx,
