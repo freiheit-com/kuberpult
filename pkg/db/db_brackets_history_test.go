@@ -456,6 +456,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 	}
 }
 
+// TestHandleBracketDoubleDeletion is about the case where 2 apps are deleted at the same time - within one transaction
 func TestHandleBracketDoubleDeletion(t *testing.T) {
 	calcTime := func(sec int) time.Time { return time.Date(2000, 1, 1, 0, 0, sec, 0, time.UTC) }
 	timeFirst := calcTime(1)

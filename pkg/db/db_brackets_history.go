@@ -197,8 +197,8 @@ func DBSelectBracketHistoryById(ctx context.Context, h *DBHandler, tx *sql.Tx, e
 	selectQuery := h.AdaptQuery(`
 		SELECT created_at, all_brackets
 		FROM ` + bracketsHistoryTable + `
-		WHERE esl_id = (?) -- get the rows that existed at the given time
-		LIMIT 1
+		WHERE esl_id = (?) -- get the row that existed at the given transformer ID
+		LIMIT 1            -- there can only be one row per transform ID
 	;`)
 	rows, err := tx.QueryContext(
 		ctx,
