@@ -975,7 +975,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			conf = cfg.ArgoCd
 		}
 
-		err := r.processApp(ctx, transaction, state, env, nil, conf, false, ts, eslVersion, eslVersion, fsMutex)
+		err := r.processApp(ctx, transaction, state, env, nil, conf, false, ts, eslVersion, fsMutex)
 
 		if err != nil {
 			return err
