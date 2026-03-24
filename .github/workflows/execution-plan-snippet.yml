@@ -25,6 +25,9 @@ on:
       fullversion:
         description: "The full unique version being built/tested."
         value: ${{ jobs.execution_plan.outputs.fullversion }}
+      atLeastOneImageRebuilt:
+        description: "True if the change detection decided that we need to build at least one image."
+        value: ${{ jobs.execution_plan.outputs.atLeastOneImageRebuilt }}
 jobs:
   execution_plan:
     runs-on: ubuntu-latest
