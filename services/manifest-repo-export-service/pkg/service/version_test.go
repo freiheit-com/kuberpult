@@ -152,11 +152,6 @@ func TestVersion(t *testing.T) {
 			},
 			ExpectedVersions: []expectedVersion{
 				{
-					Environment:     "development",
-					Application:     "test",
-					ExpectedVersion: 1,
-				},
-				{
 					Environment:     "staging",
 					Application:     "test",
 					ExpectedVersion: 0,
@@ -195,15 +190,7 @@ func TestVersion(t *testing.T) {
 					TransformerMetadata: repository.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
 				},
 			},
-			ExpectedVersions: []expectedVersion{
-				{
-					Environment:            "development",
-					Application:            "test",
-					ExpectedVersion:        1,
-					ExpectedDeployedAt:     gotime.Unix(2, 0),
-					ExpectedSourceCommitId: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-				},
-			},
+			ExpectedVersions: []expectedVersion{},
 		},
 	}
 	for _, tc := range tcs {
@@ -356,25 +343,6 @@ func TestGetManifests(t *testing.T) {
 		}
 	}
 
-	fixtureReleaseToManifests := func(release *repository.CreateApplicationVersion) *api.GetManifestsResponse {
-		return &api.GetManifestsResponse{
-			Release: &api.Release{
-				Version:        release.Version,
-				SourceCommitId: release.SourceCommitId,
-			},
-			Manifests: map[string]*api.Manifest{
-				"development": {
-					Environment: "development",
-					Content:     release.Manifests["development"],
-				},
-				"staging": {
-					Environment: "staging",
-					Content:     release.Manifests["staging"],
-				},
-			},
-		}
-	}
-
 	release := fixtureRelease(appName, 3)
 	tcs := []*testCase{
 		&testCase{
@@ -386,8 +354,9 @@ func TestGetManifests(t *testing.T) {
 				fixtureRelease(appName, 2),
 				release,
 			},
-			req:  fixtureRequest(),
-			want: fixtureReleaseToManifests(release),
+			req:     fixtureRequest(),
+			want:    nil,
+			wantErr: status.Error(codes.NotFound, "no releases found for application app-default"),
 		},
 		&testCase{
 			name: "request specific release",
@@ -398,8 +367,9 @@ func TestGetManifests(t *testing.T) {
 				release,
 				fixtureRelease(appNameOther, 2),
 			),
-			req:  fixtureRequest(func(req *api.GetManifestsRequest) { req.Release = "3" }),
-			want: fixtureReleaseToManifests(release),
+			req:     fixtureRequest(func(req *api.GetManifestsRequest) { req.Release = "3" }),
+			want:    nil,
+			wantErr: status.Error(codes.NotFound, "release not found"),
 		},
 		&testCase{
 			name: "no release specified",

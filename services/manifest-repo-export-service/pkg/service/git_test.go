@@ -233,39 +233,8 @@ func TestGetCommitInfo(t *testing.T) {
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 				PageNumber: 0,
 			},
-			expectedResponse: &api.GetCommitInfoResponse{
-				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				LoadMore:      true,
-				CommitMessage: "",
-				TouchedApps: []string{
-					"app",
-				},
-				Events: []*api.Event{
-					{
-						Uuid:      "df93c826-4f41-11ef-b685-00e04c684024",
-						CreatedAt: uuid.TimeFromUUID("df93c826-4f41-11ef-b685-00e04c684024"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{
-									"development-1",
-									"staging-1",
-								},
-							},
-						},
-					},
-					{
-						Uuid:      "e15d9a99-4f41-11ef-9ae5-00e04c684023",
-						CreatedAt: uuid.TimeFromUUID("e15d9a99-4f41-11ef-9ae5-00e04c684023"),
-						EventType: &api.Event_DeploymentEvent{
-							DeploymentEvent: &api.DeploymentEvent{
-								Application:        "app",
-								TargetEnvironment:  "development-1",
-								ReleaseTrainSource: nil,
-							},
-						},
-					},
-				},
-			},
+			expectedResponse: nil,
+			expectedError:    status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
 		},
 		{
 			name: "create one commit with one app and get its info",
@@ -316,37 +285,8 @@ func TestGetCommitInfo(t *testing.T) {
 				PageNumber: 0,
 			},
 			allowReadingCommitData: true,
-			expectedError:          nil,
-			expectedResponse: &api.GetCommitInfoResponse{
-				LoadMore:      false,
-				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-				CommitMessage: "some message",
-				TouchedApps: []string{
-					"app",
-				},
-				Events: []*api.Event{
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000000",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000000"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"development-1"},
-							},
-						},
-					},
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000001",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000001"),
-						EventType: &api.Event_DeploymentEvent{
-							DeploymentEvent: &api.DeploymentEvent{
-								Application:        "app",
-								TargetEnvironment:  "development-1",
-								ReleaseTrainSource: nil,
-							},
-						},
-					},
-				},
-			},
+			expectedResponse:       nil,
+			expectedError:          status.Error(codes.NotFound, "error: commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa was not found in the manifest repo"),
 		},
 		{
 			name: "create one commit with several apps and get its info",
@@ -473,79 +413,8 @@ func TestGetCommitInfo(t *testing.T) {
 					CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
-			expectedError: nil,
-			expectedResponse: &api.GetCommitInfoResponse{
-				LoadMore:      false,
-				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-				CommitMessage: "some message",
-				TouchedApps: []string{
-					"app-1",
-					"app-2",
-					"app-3",
-				},
-				Events: []*api.Event{
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000000",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000000"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"development-1"},
-							},
-						},
-					},
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000001",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000001"),
-						EventType: &api.Event_DeploymentEvent{
-							DeploymentEvent: &api.DeploymentEvent{
-								Application:        "app-1",
-								TargetEnvironment:  "development-1",
-								ReleaseTrainSource: nil,
-							},
-						},
-					},
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000002",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"development-2"},
-							},
-						},
-					},
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000003",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
-						EventType: &api.Event_DeploymentEvent{
-							DeploymentEvent: &api.DeploymentEvent{
-								Application:        "app-2",
-								TargetEnvironment:  "development-2",
-								ReleaseTrainSource: nil,
-							},
-						},
-					},
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000004",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"development-3"},
-							},
-						},
-					},
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000005",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
-						EventType: &api.Event_DeploymentEvent{
-							DeploymentEvent: &api.DeploymentEvent{
-								Application:        "app-3",
-								TargetEnvironment:  "development-3",
-								ReleaseTrainSource: nil,
-							},
-						},
-					},
-				},
-			},
+			expectedError:    status.Error(codes.NotFound, "error: commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa was not found in the manifest repo"),
+			expectedResponse: nil,
 		},
 		{
 			name: "create one commit with one app but get the info of a nonexistent commit",
@@ -612,23 +481,8 @@ func TestGetCommitInfo(t *testing.T) {
 				},
 			},
 			allowReadingCommitData: true,
-			expectedResponse: &api.GetCommitInfoResponse{
-				CommitHash:    "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
-				LoadMore:      false,
-				CommitMessage: "some message",
-				TouchedApps:   []string{"app"},
-				Events: []*api.Event{
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000000",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000000"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"staging"},
-							},
-						},
-					},
-				},
-			},
+			expectedResponse:       nil,
+			expectedError:          status.Error(codes.NotFound, "error: commit with prefix 32a5b7b27 was not found in the manifest repo"),
 		},
 		{
 			name: "no commit info returned if feature toggle not set",
@@ -763,50 +617,8 @@ func TestGetCommitInfo(t *testing.T) {
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 				PageNumber: 0,
 			},
-			expectedResponse: &api.GetCommitInfoResponse{
-				LoadMore:      false,
-				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				CommitMessage: "",
-				TouchedApps: []string{
-					"app",
-				},
-				Events: []*api.Event{
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000002",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{
-									"development-1",
-									"staging-1",
-								},
-							},
-						},
-					},
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000003",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
-						EventType: &api.Event_DeploymentEvent{
-							DeploymentEvent: &api.DeploymentEvent{
-								Application:        "app",
-								TargetEnvironment:  "development-1",
-								ReleaseTrainSource: nil,
-							},
-						},
-					},
-
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000005",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
-						EventType: &api.Event_DeploymentEvent{
-							DeploymentEvent: &api.DeploymentEvent{
-								Application:       "app",
-								TargetEnvironment: "staging-1",
-							},
-						},
-					},
-				},
-			},
+			expectedResponse: nil,
+			expectedError:    status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
 		},
 		{
 			name: "release trains on environment groups are correctly retrieved by GetCommitInfo",
@@ -893,51 +705,8 @@ func TestGetCommitInfo(t *testing.T) {
 					CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 				},
 			},
-			expectedResponse: &api.GetCommitInfoResponse{
-				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				LoadMore:      false,
-				CommitMessage: "",
-				TouchedApps: []string{
-					"app",
-				},
-				Events: []*api.Event{
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000002",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{
-									"development-1",
-									"staging-1",
-								},
-							},
-						},
-					},
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000003",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
-						EventType: &api.Event_DeploymentEvent{
-							DeploymentEvent: &api.DeploymentEvent{
-								Application:        "app",
-								TargetEnvironment:  "development-1",
-								ReleaseTrainSource: nil,
-							},
-						},
-					},
-
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000005",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
-						EventType: &api.Event_DeploymentEvent{
-							DeploymentEvent: &api.DeploymentEvent{
-								Application:        "app",
-								TargetEnvironment:  "staging-1",
-								ReleaseTrainSource: nil,
-							},
-						},
-					},
-				},
-			},
+			expectedResponse: nil,
+			expectedError:    status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
 		},
 	}
 

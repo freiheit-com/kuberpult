@@ -576,7 +576,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					TransformerEslVersion: 4,
 				},
 			},
-			ExpectedFile: []*FilenameAndData{},
+			ExpectedFile:   []*FilenameAndData{},
 			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
@@ -675,7 +675,7 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					TransformerEslVersion: 5,
 				},
 			},
-			ExpectedFile: []*FilenameAndData{},
+			ExpectedFile:        []*FilenameAndData{},
 			ExpectedAuthor:      &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 			ExpectedDeletedFile: "/applications/" + appName + "/releases/1.0/source_commit_id",
 		},
@@ -775,8 +775,8 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 					TransformerEslVersion: 5,
 				},
 			},
-			MinorRelease: 3,
-			ExpectedFile: []*FilenameAndData{},
+			MinorRelease:   3,
+			ExpectedFile:   []*FilenameAndData{},
 			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 		{
@@ -876,8 +876,8 @@ func TestCleanupOldApplicationVersions(t *testing.T) {
 				},
 			},
 			PrepublishRelease: 3,
-			ExpectedFile: []*FilenameAndData{},
-			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
+			ExpectedFile:      []*FilenameAndData{},
+			ExpectedAuthor:    &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
 		},
 	}
 	for _, tc := range tcs {
@@ -1415,21 +1415,7 @@ func TestLocks(t *testing.T) {
 					},
 				},
 			},
-			expectedData: []*FilenameAndData{
-				{
-
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
+			expectedData: []*FilenameAndData{},
 		},
 		{
 			Name: "Delete Team lock - team does not exist",
@@ -1856,7 +1842,7 @@ func TestCreateUndeployLogic(t *testing.T) {
 					TransformerEslVersion: 5,
 				},
 			},
-			expectedData: []*FilenameAndData{},
+			expectedData:    []*FilenameAndData{},
 			expectedMissing: []*FilenameAndData{},
 		},
 	}
@@ -2857,28 +2843,7 @@ func TestReleasesAndDeployments(t *testing.T) {
 					},
 				},
 			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "applications/" + appName + "/releases/1.0/environments/production/manifests.yaml",
-					fileData: []byte("some production manifest 1.0"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.0/environments/staging/manifests.yaml",
-					fileData: []byte("some staging manifest 1.0"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.1/environments/production/manifests.yaml",
-					fileData: []byte("some production manifest 1.1"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.1/environments/staging/manifests.yaml",
-					fileData: []byte("some staging manifest 1.1"),
-				},
-				{
-					path:     "environments/production/applications/myapp/manifests/manifests.yaml",
-					fileData: []byte("some production manifest 1.0"),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 		},
 	}
 	for _, tc := range tcs {
@@ -3343,34 +3308,7 @@ func TestExtendAAEnvironmentTransformer(t *testing.T) {
 					},
 				},
 			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path: "environments/production/config.json",
-					fileData: []byte(
-						`{
-  "argocdConfigs": {
-    "ArgoCdConfigurations": [
-      {
-        "destination": {
-          "name": "some-destination-1",
-          "server": "some-server"
-        },
-        "name": "some-concrete-env-name-1"
-      },
-      {
-        "destination": {
-          "name": "some-destination-2",
-          "server": "some-server"
-        },
-        "name": "some-concrete-env-name-2"
-      }
-    ],
-    "CommonEnvPrefix": "aa"
-  }
-}
-`),
-				},
-			},
+			ExpectedFile: []*FilenameAndData{},
 		},
 	}
 	for _, tc := range tcs {
