@@ -2,7 +2,7 @@ FROM alpine/k8s:1.30.14 AS kube_deps
 RUN wget -O "/usr/bin/argocd" https://github.com/argoproj/argo-cd/releases/download/v2.8.0/argocd-linux-amd64 && \
     echo "ba81b8e5c11d99be33fc16dcaecdd749a4b6e9ecda085fb1034c9da07cddce25  /usr/bin/argocd" | sha256sum -c - && \
     chmod +x "/usr/bin/argocd"
-FROM golang:1.25-bookworm
+FROM golang:1.25.8-bookworm
 RUN apt update && apt install --auto-remove -y curl gpg gpg-agent gettext bash git golang netcat-openbsd docker.io postgresql-client
 ARG GO_TEST_ARGS=""
 ENV KUBECONFIG=/kp/kubeconfig.yaml

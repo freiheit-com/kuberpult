@@ -34,17 +34,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref || '' }}
-      - uses: google-github-actions/auth@v2
-        name: "Authenticate to Google Cloud"
-        with:
-          credentials_json: ${{ secrets.FDC_DEV_ENV_CI_IMAGE_READER }}
-      - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v2'
-        with:
-          version: '>= 363.0.0'
-      - name: gcloud authorize
-        run: |
-          gcloud auth configure-docker europe-docker.pkg.dev
       - run: mkdir -p artifacts/
       - id: set_version
         run: echo "fullversion=$(make version)" >> $GITHUB_OUTPUT
@@ -64,8 +53,11 @@ jobs:
         run: |
           echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" >> $GITHUB_OUTPUT
           echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" >> $GITHUB_OUTPUT
+          echo "atLeastOneImageRebuilt=$(cat artifacts/github-convertor.json | jq '.atLeastOneImageRebuilt' -c)" >> $GITHUB_OUTPUT
+
           echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" > artifacts/stage.a.tmp.json
           echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" > artifacts/stage.b.tmp.json
+          echo "atLeastOneImageRebuilt=$(cat artifacts/github-convertor.json | jq '.atLeastOneImageRebuilt' -c)" > artifacts/stage.atLeastOneImageRebuilt.tmp.json
       - uses: actions/upload-artifact@v4
         name: Upload execution plan
         with:
@@ -73,16 +65,19 @@ jobs:
           path: |
             artifacts/stage.a.tmp.json
             artifacts/stage.b.tmp.json
+            artifacts/stage.atLeastOneImageRebuilt.tmp.json
             artifacts/execution-plan.json
             artifacts/github-convertor.json
-      - name: Split up plan into individual parts
+      - name: Print individual parts of the plan
         id: print-split-plan
         run: |
           echo "A: ${{ steps.splitplan.outputs.stage_a }} "
           echo "B: ${{ steps.splitplan.outputs.stage_b }} "
+          echo "atLeastOneImageRebuilt: ${{ steps.splitplan.outputs.atLeastOneImageRebuilt }} "
     outputs:
       stage_a: ${{ steps.splitplan.outputs.stage_a }}
       stage_b: ${{ steps.splitplan.outputs.stage_b }}
+      atLeastOneImageRebuilt: ${{ steps.splitplan.outputs.atLeastOneImageRebuilt }}
       fullversion: ${{ steps.set_version.outputs.fullversion }}
   stageA_build:
     needs: [execution_plan]

@@ -35,6 +35,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/backoff"
+	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -356,7 +357,7 @@ func Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if dbEnv.Config.ArgoCdConfigs != nil {
+			if config.IsAAEnv(&dbEnv.Config) {
 				cfgs := dbEnv.Config.ArgoCdConfigs.ArgoCdConfigurations
 				prefix := ""
 				if dbEnv.Config.ArgoCdConfigs.CommonEnvPrefix != nil {

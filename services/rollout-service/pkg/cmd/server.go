@@ -334,6 +334,9 @@ func runServer(ctx context.Context, config Config) error {
 	}
 
 	if config.ArgocdRefreshEnabled {
+		if config.ArgocdToken == "" {
+			logger.FromContext(ctx).Sugar().Error("ArgocdToken must be set when refresh is enabled")
+		}
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Shutdown: nil,
 			Name:     "refresh argocd",

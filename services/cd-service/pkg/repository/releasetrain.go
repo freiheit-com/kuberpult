@@ -35,7 +35,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
@@ -326,7 +326,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 
 	var prognosisResultChannel = make(chan *ChannelData, maxThreads)
 	go func() {
-		defer logger.HandlePanic(true)
+		defer logging.HandlePanic(true)
 		spanSpawnAll, ctxSpawnAll := tracer.StartSpanFromContext(parentCtx, "Spawn Go Routines")
 		spanSpawnAll.SetTag("numEnvironments", len(envNames))
 		group, ctxRoutines := errgroup.WithContext(ctxSpawnAll)
@@ -383,7 +383,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 
 		err := group.Wait()
 		if err != nil {
-			logger.FromContext(parentCtx).Sugar().Error("waitgroup.error", zap.Error(err))
+			logging.Error(parentCtx, "waitgroup.error", zap.Error(err))
 		}
 		close(prognosisResultChannel)
 		spanSpawnAll.Finish(tracer.WithError(err))
@@ -570,7 +570,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 		targetCommitIDByApp, err = state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, targetVersionByApp)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("could not get all target commits for apps to deploy: %v", err)
+			logging.Error(ctx, "could not get all target commits for apps to deploy.", zap.Error(err))
 		}
 	}
 
@@ -588,7 +588,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 		upstreamCommitIDByApp, err = state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, upstreamVersionByApp)
 		if err != nil {
-			logger.FromContext(ctx).Sugar().Warnf("could not get all upstream commits for apps to deploy: %v", err)
+			logging.Error(ctx, "could not get all upstream commits for apps to deploy.", zap.Error(err))
 		}
 	}
 
@@ -711,7 +711,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		} else if upstreamLatest {
 			l := len(allLatestReleases[appName])
 			if allLatestReleases == nil || allLatestReleases[appName] == nil || l == 0 {
-				logger.FromContext(ctx).Sugar().Warnf("app %s appears to have no releases on env=%s, so it is skipped", appName, envName)
+				logging.Info(ctx, "app appears to have no releases on env, so it is skipped.", zap.String("application", string(appName)), zap.String("environment", string(envName)))
 				continue
 			}
 			versionToDeploy = allLatestReleases[appName][0] //Releases come ordered version DESC, revision DESC (also garanteed to have at least 1 element)
@@ -754,7 +754,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 
 		if appLocks, ok := prefetchedAppLocks[appName]; !ok {
-			logger.FromContext(ctx).Sugar().Warnf("app locks for app=%s and env=%s were not prefetched", appName, envName)
+			logging.Info(ctx, "app locks were not prefetched.", zap.String("application", string(appName)), zap.String("environment", string(envName)))
 		} else if len(appLocks) > 0 {
 			appLocksMap := map[string]*api.Lock{}
 			sortedKeys := sorting.SortKeys(appLocks)
@@ -841,7 +841,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			}
 
 			if teamLocks, ok := prefetchedTeamLocks[teamName]; !ok {
-				logger.FromContext(ctx).Sugar().Warnf("team locks for team=%s and env=%s were not prefetched", teamName, envName)
+				logging.Info(ctx, "team locks were not prefetched.", zap.String("teamName", teamName), zap.String("environment", string(envName)))
 			} else if len(teamLocks) > 0 {
 				teamLocksMap := map[string]*api.Lock{}
 				sortedKeys := sorting.SortKeys(teamLocks)
@@ -933,7 +933,7 @@ func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t Tra
 
 	d, err := state.DBHandler.DBSelectLatestDeployment(ctx, tx, appName, srcEnvName)
 	if err != nil || d == nil || d.ReleaseNumbers.Version == nil {
-		logger.FromContext(ctx).Sugar().Warnf("Could not find skipped Deployment %s on %s.", appName, srcEnvName)
+		logging.Error(ctx, "Could not find skipped Deployment.", zap.String("application", string(appName)), zap.String("srcEnvName", string(srcEnvName)))
 		return
 	}
 	version := *d.ReleaseNumbers.Version
@@ -944,7 +944,7 @@ func RecordQueuedAppVersion(ctx context.Context, state *State, tx *sql.Tx, t Tra
 	}
 	_, err = q.Transform(ctx, state, t, tx)
 	if err != nil {
-		logger.FromContext(ctx).Sugar().Warnf("Could not record skipped Deployment %s on %s.", appName, destEnvName)
+		logging.Error(ctx, "Could not record skipped Deployment.", zap.String("application", string(appName)), zap.String("destEnvName", string(destEnvName)))
 	}
 }
 
