@@ -168,3 +168,14 @@ check-secrets:
 	cp $< $@
 
 kuberpult: .git/hooks/pre-commit .git/hooks/commit-msg
+
+.PHONY: lint lint-fix
+lint: $(addsuffix /lint,$(MAKEDIRS))
+
+$(addsuffix /lint,$(MAKEDIRS)):
+	make -C $(dir $@) lint
+
+lint-fix: $(addsuffix /lint-fix,$(MAKEDIRS))
+
+$(addsuffix /lint-fix,$(MAKEDIRS)):
+	make -C $(dir $@) lint-fix
