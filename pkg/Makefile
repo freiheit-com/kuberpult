@@ -34,7 +34,7 @@ PKG_VOLUME=
 all: gen lint test
 test: gen unit-test
 
-.PHONY: lint
+.PHONY: lint lint-fix
 lint: gen
 ifeq ($(PKG_WITHOUT_DOCKER),1)
 	@echo "Running without docker"
@@ -42,6 +42,15 @@ ifeq ($(PKG_WITHOUT_DOCKER),1)
 else
 	@echo "Running in docker"
 	docker run --rm -w /kp/ -v "$(shell pwd)/..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false ./pkg/...'
+endif
+
+lint-fix: gen
+ifeq ($(PKG_WITHOUT_DOCKER),1)
+	@echo "Running without docker"
+	GOFLAGS="-buildvcs=false" golangci-lint run --fix -c ../.golangci.yml --timeout=15m -j4 --tests=false ./...
+else
+	@echo "Running in docker"
+	docker run --rm -w /kp/ -v "$(shell pwd)/..:/kp/" $(BUILDER_IMAGE) sh -c 'GOFLAGS="-buildvcs=false" golangci-lint run --fix --timeout=15m -j4 --tests=false ./pkg/...'
 endif
 
 gen: grpc-api-gen publicapi

@@ -168,3 +168,20 @@ check-secrets:
 	cp $< $@
 
 kuberpult: .git/hooks/pre-commit .git/hooks/commit-msg
+
+.PHONY: lint lint-fix
+lint:
+	make -C pkg lint
+	make -C services/cd-service lint
+	make -C services/frontend-service lint
+	make -C services/reposerver-service lint
+	make -C services/manifest-repo-export-service lint
+	make -C cli lint
+
+lint-fix:
+	make -C pkg lint-fix
+	make -C services/cd-service lint-fix
+	make -C services/frontend-service lint-fix
+	make -C services/reposerver-service lint-fix
+	make -C services/manifest-repo-export-service lint-fix
+	make -C cli lint-fix
