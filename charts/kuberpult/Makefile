@@ -75,3 +75,9 @@ release-tag: $(TGZ_FILE)
 test-helm: $(TGZ_FILE) Chart.yaml
 
 all: Chart.yaml
+
+.PHONY: lint lint-fix
+
+lint:
+
+lint-fix:
