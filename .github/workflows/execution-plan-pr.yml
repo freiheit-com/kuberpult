@@ -13,11 +13,10 @@ jobs:
   integration-tests:
     needs: [execution-plan]
     uses: ./.github/workflows/integration-tests.yml
-    # skip if the execution plan did not trigger rebuilding any image:
-    if: ${{ needs.execution-plan.outputs.atLeastOneImageRebuilt }}
     with:
       trigger: pull-request
       fullversion: ${{ needs.execution-plan.outputs.fullversion }}
+      runTest: ${{ needs.execution-plan.outputs.atLeastOneImageRebuilt == 'true' }}
     secrets: inherit
 
 #  trivy-scan:
@@ -26,3 +25,29 @@ jobs:
 #    with:
 #      trigger: pull-request
 #    secrets: inherit
+
+  gatekeeper:
+    name: "All Checks Passed"
+    runs-on: ubuntu-latest
+    # List EVERY job that must pass before merging here:
+    needs:
+      - execution-plan
+      - integration-tests
+      # - trivy-scan  (if you uncomment this later, add it here!)
+
+    # always() ensures this job runs even if a previous job fails or is skipped.
+    # Without this, a failed upstream job would cause the gatekeeper to be "skipped",
+    # which leaves the PR hanging in "Expected" status.
+    if: always()
+
+    steps:
+      - name: Evaluate Job Results
+        run: |
+          # If any job failed or was cancelled, we fail the Gatekeeper.
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "❌ One or more required jobs failed or were cancelled."
+            exit 1
+          else
+            echo "✅ All required jobs succeeded or were intentionally skipped."
+            exit 0
+          fi

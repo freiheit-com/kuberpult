@@ -25,6 +25,9 @@ on:
       fullversion:
         description: "The full unique version being built/tested."
         value: ${{ jobs.execution_plan.outputs.fullversion }}
+      atLeastOneImageRebuilt:
+        description: "True if the change detection decided that we need to build at least one image."
+        value: ${{ jobs.execution_plan.outputs.atLeastOneImageRebuilt }}
 jobs:
   execution_plan:
     runs-on: ubuntu-latest
@@ -97,6 +100,10 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref || '' }}
+      - name: DEBUG LOG
+        run: |
+          echo "atLeastOneImageRebuilt=${{ needs.execution_plan.outputs.atLeastOneImageRebuilt }}"
+          echo "fullversion=${{ needs.execution_plan.outputs.fullversion }}"
       - name: Set version pr/main
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
