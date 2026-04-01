@@ -18,11 +18,9 @@ package repository
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/http"
 	"regexp"
 	"sort"
 	"sync"
@@ -146,28 +144,6 @@ type repository struct {
 	DB *db.DBHandler
 }
 
-type WebhookResolver interface {
-	Resolve(insecure bool, req *http.Request) (*http.Response, error)
-}
-
-type DefaultWebhookResolver struct{}
-
-func (r DefaultWebhookResolver) Resolve(insecure bool, req *http.Request) (*http.Response, error) {
-	//exhaustruct:ignore
-	TLSClientConfig := &tls.Config{
-		InsecureSkipVerify: insecure,
-	}
-	//exhaustruct:ignore
-	tr := &http.Transport{
-		TLSClientConfig: TLSClientConfig,
-	}
-	//exhaustruct:ignore
-	client := &http.Client{
-		Transport: tr,
-	}
-	return client.Do(req)
-}
-
 type RepositoryConfig struct {
 	// the URL used for git checkout, (ssh protocol)
 	URL string
@@ -181,7 +157,6 @@ type RepositoryConfig struct {
 	// the url to the git repo, like the browser requires it (https protocol)
 	DogstatsdEvents bool
 	WriteCommitData bool
-	WebhookResolver WebhookResolver
 	MaxNumThreads   uint
 	// Extend maximum AppName length
 	AllowLongAppNames bool

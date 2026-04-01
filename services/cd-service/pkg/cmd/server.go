@@ -350,7 +350,6 @@ func RunServer() {
 		logging.Info(ctx, "Finished with basic database migration.")
 
 		cfg := repository.RepositoryConfig{
-			WebhookResolver:      nil,
 			URL:                  c.GitUrl,
 			MinorRegexes:         minorRegexes,
 			MaxNumThreads:        c.MaxNumberOfThreads,

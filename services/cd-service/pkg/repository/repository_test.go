@@ -21,8 +21,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -184,24 +182,6 @@ func getTransformer(i int) (Transformer, error) {
 	// 	return &InvalidJsonTransformer{}, InvalidJson
 	// }
 	// return &ErrorTransformer{}, TransformerError
-}
-
-type TestWebhookResolver struct {
-	t        *testing.T
-	rec      *httptest.ResponseRecorder
-	requests chan *http.Request
-}
-
-func (resolver TestWebhookResolver) Resolve(insecure bool, req *http.Request) (*http.Response, error) {
-	testhandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resolver.t.Logf("called with request: %v", *r)
-		resolver.requests <- req
-		close(resolver.requests)
-	})
-	testhandler.ServeHTTP(resolver.rec, req)
-	response := resolver.rec.Result()
-	resolver.t.Logf("responded with: %v", response)
-	return response, nil
 }
 
 type nilTransformer struct {
