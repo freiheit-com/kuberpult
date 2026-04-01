@@ -76,7 +76,7 @@ type TransformerID EslVersion
 const (
 	MigrationCommitEventUUID = "00000000-0000-0000-0000-000000000000"
 	MigrationCommitEventHash = "0000000000000000000000000000000000000000"
-	WhereInBatchMax          = 1024
+	WhereInBatchMax          = 124
 	MaxInsertBatchSize       = 1000
 	MaxDeleteBatchSize       = 20
 )
