@@ -25,6 +25,7 @@ jobs:
     with:
       trigger: main
       fullversion: ${{ needs.execution-plan.outputs.fullversion }}
+      runTest: true # always run integration test on main
     secrets: inherit
 
   release:
