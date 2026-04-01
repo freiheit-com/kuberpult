@@ -11,8 +11,12 @@ on:
         required: true
         type: string
         description: "The full unique version being built/tested."
+      runTest:
+        required: true
+        type: boolean
+        description: "Should the tests run, or be skipped?"
 jobs:
-  integration-test:
+  integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env: 
@@ -53,5 +57,11 @@ jobs:
         echo Using tag: $IMAGE_TAG_KUBERPULT
         echo PR tag: $(make version)
     - name: Run integration tests
+      shell: bash
       run: |
-        make integration-test   
+        if [[ "${{ inputs.runTest }}" == "true" ]]; then
+          echo "🚀 Running integration tests..."
+          make integration-test
+        else
+          echo "⏭️ Skipping tests because runTest is false. Marking as successful."
+        fi
