@@ -1615,26 +1615,34 @@ func (u *ReleaseTrain) Transform(
 		if isEnvGroup {
 			trainGroup = conversion.FromString(targetGroupName)
 		}
-		if err := t.Execute(loopCtx, &DeployApplicationVersion{
-			Authentication:      u.Authentication,
-			TransformerMetadata: u.TransformerMetadata,
-			Environment:         currentDeployment.Env,
-			Application:         string(currentDeployment.App),
-			Version:             *currentDeployment.ReleaseNumbers.Version,
-			LockBehaviour:       api.LockBehavior_RECORD,
-			WriteCommitData:     u.WriteCommitData,
-			SourceTrain: &DeployApplicationVersionSource{
-				Upstream:    string(upstreamEnvName),
-				TargetGroup: trainGroup,
-			},
-			TransformerEslVersion: u.TransformerEslVersion,
-			Author:                "",
-			Revision:              currentDeployment.ReleaseNumbers.Revision,
+		if currentDeployment.ReleaseNumbers.Version != nil {
+			if err := t.Execute(loopCtx, &DeployApplicationVersion{
+				Authentication:      u.Authentication,
+				TransformerMetadata: u.TransformerMetadata,
+				Environment:         currentDeployment.Env,
+				Application:         string(currentDeployment.App),
+				Version:             *currentDeployment.ReleaseNumbers.Version,
+				LockBehaviour:       api.LockBehavior_RECORD,
+				WriteCommitData:     u.WriteCommitData,
+				SourceTrain: &DeployApplicationVersionSource{
+					Upstream:    string(upstreamEnvName),
+					TargetGroup: trainGroup,
+				},
+				TransformerEslVersion: u.TransformerEslVersion,
+				Author:                "",
+				Revision:              currentDeployment.ReleaseNumbers.Revision,
 
-			AllEnvironmentsPreloaded: allEnvironmentConfigs,
-		}, transaction); err != nil {
-			loopSpan.Finish()
-			return "", err
+				AllEnvironmentsPreloaded: allEnvironmentConfigs,
+			}, transaction); err != nil {
+				loopSpan.Finish()
+				return "", err
+			}
+		} else {
+			logging.Warn(ctx, "release_train_skipped_app",
+				zap.String("target", u.Target),
+				zap.String("targetType", u.TargetType),
+				zap.String("app", string(currentDeployment.App)),
+			)
 		}
 		loopSpan.Finish()
 	}
