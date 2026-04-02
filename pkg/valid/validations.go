@@ -229,7 +229,7 @@ func ReadEnvVarJsonMap(envName string) (StringMap, error) {
 	var resultJson = StringMap{}
 	err = json.Unmarshal(([]byte)(envValue), &resultJson)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read env var '%s', not a valid string-map", envName)
+		return nil, fmt.Errorf("failed to read env var '%s', not a valid", envName)
 	}
 	return resultJson, nil
 }
