@@ -122,7 +122,7 @@ func RunServer() {
 	ctx := context.Background()
 	err := logger.Wrap(ctx, runServer)
 	if err != nil {
-		logging.Fatal(ctx, "Failed to start server", zap.Error(err))
+		logging.Fatal(ctx, "Failed to start server...............", zap.Error(err))
 	}
 }
 

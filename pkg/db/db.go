@@ -203,7 +203,7 @@ func (h *DBHandler) AdaptQuery(query string) string {
 	panic(fmt.Errorf("AdaptQuery: invalid driver: %s", h.DriverName))
 }
 
-// SqliteToPostgresQuery just replaces all "?" into "$1", "$2", etc
+// SqliteToPostgresQuery just replaces all "?" into "$1", "$2", etc.............
 func SqliteToPostgresQuery(query string) string {
 	var q = query
 	var i = 1
