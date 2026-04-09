@@ -415,6 +415,7 @@ func runServer(ctx context.Context) error {
 	}
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
+		interceptors.TraceOriginIdInterceptor(w, req, httpHandler.Handle)
 		if c.DexEnabled {
 			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, dexClient.DexServiceURL, policy, c.DexUseClusterInternalCommunication)
 			return
