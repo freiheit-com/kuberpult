@@ -31,6 +31,7 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/metadata"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -294,6 +295,10 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		}
 	}
 
+	if clientUUID, ok := ctx.Value("client.uuid").(string); ok {
+		md := metadata.Pairs("x-client-uuid", clientUUID)
+		ctx = metadata.NewIncomingContext(ctx, md)
+	}
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
 			Action: &api.BatchAction_CreateRelease{
@@ -514,6 +519,11 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 
 	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
 		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
+	}
+
+	if clientUUID, ok := ctx.Value("client.uuid").(string); ok {
+		md := metadata.Pairs("x-client-uuid", clientUUID)
+		ctx = metadata.NewIncomingContext(ctx, md)
 	}
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
