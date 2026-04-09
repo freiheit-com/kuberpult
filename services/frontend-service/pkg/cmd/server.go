@@ -434,6 +434,8 @@ func runServer(ctx context.Context) error {
 	// api is only accessible via IAP for now unless explicitly disabled
 	restApiHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
+		interceptors.TraceOriginIdInterceptor(w, req, httpHandler.HandleAPI)
+
 		if c.ApiEnableDespiteNoAuth {
 			httpHandler.HandleAPI(w, req)
 			return

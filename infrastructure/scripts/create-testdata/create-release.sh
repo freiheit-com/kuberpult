@@ -11,6 +11,9 @@ applicationOwnerTeam=${2:-sreteam}
 prev=${3:-""}
 useOldApi=false
 
+# for testing the trace origin ID
+clientUUID="12345678-1234-1234-1234-123456789012"
+
 function debug() {
     echo "$@" > /dev/stderr
 }
@@ -124,6 +127,7 @@ else
   curl http://localhost:${FRONTEND_PORT}/api/release \
     -H "author-email:${EMAIL}" \
     -H "author-name:${AUTHOR}=" \
+    -H "X-Client-UUID:${clientUUID}" \
     "${inputs[@]}" \
     "${release_version[@]}" \
     "${revision[@]}" \
