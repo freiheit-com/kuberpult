@@ -27,6 +27,7 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
@@ -269,6 +270,16 @@ func RunServer() {
 			unaryUserContextInterceptor,
 			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 				defer logging.HandlePanic(true)
+
+				md, ok := metadata.FromIncomingContext(ctx)
+				if ok {
+					clientUUIDs := md.Get("x-client-uuid")
+					if len(clientUUIDs) > 0 && clientUUIDs[0] != "" {
+						logging.Warn(ctx, "client uuid", zap.String("client.uuid", clientUUIDs[0]))
+						ctx = context.WithValue(ctx, "client.uuid", clientUUIDs[0])
+					}
+				}
+
 				return handler(ctx, req)
 			},
 		}

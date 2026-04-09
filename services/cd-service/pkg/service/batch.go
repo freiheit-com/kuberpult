@@ -484,6 +484,7 @@ func (d *BatchServer) ProcessBatch(
 		span.Finish(tracer.WithError(err))
 	}()
 
+	logging.Warn(ctx, "what context is having: %v", zap.Any("context", ctx))
 	span.SetTag("BatchActions", len(in.GetActions()))
 
 	user, err := auth.ReadUserFromContext(ctx)
