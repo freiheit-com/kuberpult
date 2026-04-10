@@ -272,9 +272,9 @@ func RunServer() {
 				defer logging.HandlePanic(true)
 				md, ok := metadata.FromIncomingContext(ctx)
 				if ok {
-					clientUUIDs := md.Get(auth.HeaderClientUUID)
+					clientUUIDs := md.Get("client-uuid")
 					if len(clientUUIDs) > 0 && clientUUIDs[0] != "" {
-						ctx = context.WithValue(ctx, auth.HeaderClientUUID, clientUUIDs[0])
+						ctx = context.WithValue(ctx, "client-uuid", clientUUIDs[0])
 					}
 				}
 				return handler(ctx, req)

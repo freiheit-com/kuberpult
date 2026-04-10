@@ -416,13 +416,13 @@ func runServer(ctx context.Context) error {
 
 	traceOriginIdHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			clientUUID := r.Header.Get(auth.HeaderClientUUID)
+			clientUUID := r.Header.Get("client-uuid")
 			// set client UUID for current datadog span
 			if span, ok := tracer.SpanFromContext(r.Context()); ok && clientUUID != "" {
 				span.SetTag("client.uuid", clientUUID)
 			}
 			// add client UUID to current http context, logger will need it
-			ctx := context.WithValue(r.Context(), auth.HeaderClientUUID, clientUUID)
+			ctx := context.WithValue(r.Context(), "client-uuid", clientUUID)
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		})
@@ -704,7 +704,7 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 			ctx = auth.WriteUserRoleToGrpcContext(ctx, role)
 		}
 	}
-	clientUUID := r.Header.Get(auth.HeaderClientUUID)
+	clientUUID := r.Header.Get("client-uuid")
 	if clientUUID != "" {
 		ctx = auth.WriteClientUUIDToGrpcContext(ctx, clientUUID)
 	}
