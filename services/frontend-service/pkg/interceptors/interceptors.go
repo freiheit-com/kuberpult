@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/MicahParks/keyfunc/v2"
 	"go.uber.org/zap"
 	"google.golang.org/api/idtoken"
@@ -166,22 +165,5 @@ func DexAPIInterceptor(
 		return
 	}
 	req = req.WithContext(httpCtx)
-	httpHandler(w, req)
-}
-
-func TraceOriginIdInterceptor(
-	w http.ResponseWriter,
-	req *http.Request,
-	httpHandler http.HandlerFunc,
-) {
-	clientUUID := req.Header.Get("X-Client-UUID")
-
-	// set client UUID for current datadog span
-	if span, ok := tracer.SpanFromContext(req.Context()); ok && clientUUID != "" {
-		span.SetTag("client.uuid", clientUUID)
-	}
-	// add client UUID to current http context, logger will need it
-	ctx := context.WithValue(req.Context(), "client.uuid", clientUUID)
-	req = req.WithContext(ctx)
 	httpHandler(w, req)
 }

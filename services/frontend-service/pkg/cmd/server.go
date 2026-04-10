@@ -413,9 +413,23 @@ func runServer(ctx context.Context) error {
 		AzureAuth: c.AzureEnableAuth,
 		User:      defaultUser,
 	}
+
+	traceOriginIdHandler := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			clientUUID := r.Header.Get("X-Client-UUID")
+			// set client UUID for current datadog span
+			if span, ok := tracer.SpanFromContext(r.Context()); ok && clientUUID != "" {
+				span.SetTag("client.uuid", clientUUID)
+			}
+			// add client UUID to current http context, logger will need it
+			ctx := context.WithValue(r.Context(), "client.uuid", clientUUID)
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
-		interceptors.TraceOriginIdInterceptor(w, req, httpHandler.Handle)
 		if c.DexEnabled {
 			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL, dexClient.DexServiceURL, policy, c.DexUseClusterInternalCommunication)
 			return
@@ -429,13 +443,12 @@ func runServer(ctx context.Context) error {
 		"/environment-groups/",
 		"/release",
 	} {
-		mux.Handle(endpoint, restHandler)
+		mux.Handle(endpoint, traceOriginIdHandler(restHandler))
 	}
 
 	// api is only accessible via IAP for now unless explicitly disabled
 	restApiHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
-		interceptors.TraceOriginIdInterceptor(w, req, httpHandler.HandleAPI)
 
 		if c.ApiEnableDespiteNoAuth {
 			httpHandler.HandleAPI(w, req)
@@ -453,11 +466,12 @@ func runServer(ctx context.Context) error {
 		}
 		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, c.GKEBackendServiceID, c.GKEProjectNumber)
 	})
+
 	for _, endpoint := range []string{
 		"/api",
 		"/api/",
 	} {
-		mux.Handle(endpoint, restApiHandler)
+		mux.Handle(endpoint, traceOriginIdHandler(restApiHandler))
 	}
 
 	dexHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
