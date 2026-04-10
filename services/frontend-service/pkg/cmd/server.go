@@ -706,6 +706,10 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 			ctx = auth.WriteUserRoleToGrpcContext(ctx, role)
 		}
 	}
+	clientUUID := r.Header.Get("X-Client-UUID")
+	if clientUUID != "" {
+		ctx = auth.WriteClientUUIDToGrpcContext(ctx, clientUUID)
+	}
 	p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 	return nil
 }

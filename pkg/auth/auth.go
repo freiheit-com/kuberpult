@@ -77,6 +77,10 @@ func WriteUserToGrpcContext(ctx context.Context, u User) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, HeaderUserEmail, Encode64(u.Email), HeaderUserName, Encode64(u.Name))
 }
 
+func WriteClientUUIDToGrpcContext(ctx context.Context, clientUUID string) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, "client.uuid", clientUUID)
+}
+
 // WriteUserRoleToGrpcContext adds the user role to the GRPC context.
 // Only used when RBAC is enabled.
 func WriteUserRoleToGrpcContext(ctx context.Context, userRole string) context.Context {

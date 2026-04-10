@@ -28,7 +28,6 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/metadata"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -110,12 +109,7 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		CiLink:     request.CiLink,
 	}
 
-	ctx := req.Context()
-	if clientUUID, ok := ctx.Value("client.uuid").(string); ok {
-		md := metadata.Pairs("x-client-uuid", clientUUID)
-		ctx = metadata.NewIncomingContext(ctx, md)
-	}
-	response, err := s.BatchClient.ProcessBatch(ctx,
+	response, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{
 				Action: &api.BatchAction_ReleaseTrain{
@@ -125,7 +119,7 @@ func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Req
 		},
 		})
 	if err != nil {
-		handleGRPCError(ctx, w, err)
+		handleGRPCError(req.Context(), w, err)
 		return
 	}
 	jsonStr, err := json.Marshal(response.Results[0].GetReleaseTrain())
@@ -207,12 +201,7 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 		}
 	}
 
-	ctx := req.Context()
-	if clientUUID, ok := ctx.Value("client.uuid").(string); ok {
-		md := metadata.Pairs("x-client-uuid", clientUUID)
-		ctx = metadata.NewIncomingContext(ctx, md)
-	}
-	response, err := s.BatchClient.ProcessBatch(ctx,
+	response, err := s.BatchClient.ProcessBatch(req.Context(),
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_ReleaseTrain{
 				ReleaseTrain: tf,
@@ -220,7 +209,7 @@ func (s Server) handleAPIReleaseTrainExecution(w http.ResponseWriter, req *http.
 		},
 		})
 	if err != nil {
-		handleGRPCError(ctx, w, err)
+		handleGRPCError(req.Context(), w, err)
 		return
 	}
 	jsonStr, err := json.Marshal(response.Results[0].GetReleaseTrain())
