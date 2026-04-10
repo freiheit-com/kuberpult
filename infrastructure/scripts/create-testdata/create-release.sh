@@ -127,7 +127,7 @@ else
   curl http://localhost:${FRONTEND_PORT}/api/release \
     -H "author-email:${EMAIL}" \
     -H "author-name:${AUTHOR}=" \
-    -H "X-Client-UUID:${clientUUID}" \
+    -H "client-uuid:${clientUUID}" \
     "${inputs[@]}" \
     "${release_version[@]}" \
     "${revision[@]}" \

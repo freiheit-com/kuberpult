@@ -280,13 +280,13 @@ func RunServer() {
 					return nil
 				})
 				if ok {
-					clientUUIDs := md.Get("x-client-uuid")
+					clientUUIDs := md.Get(auth.HeaderClientUUID)
 					_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
 						logger.FromContext(ctx).Error("clientUUIDs", zap.Any("clientUUIDs", clientUUIDs))
 						return nil
 					})
 					if len(clientUUIDs) > 0 && clientUUIDs[0] != "" {
-						ctx = context.WithValue(ctx, "client.uuid", clientUUIDs[0])
+						ctx = context.WithValue(ctx, auth.HeaderClientUUID, clientUUIDs[0])
 					}
 				}
 
