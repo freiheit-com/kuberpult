@@ -151,6 +151,10 @@ func prepareHttpReleaseRequest(url string, authParams kutil.AuthenticationParame
 		req.Header.Add("author-email", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorEmail)))
 	}
 
+	if authParams.ClientUUID != nil {
+		req.Header.Add("client-uuid", *authParams.ClientUUID)
+	}
+
 	return req, nil
 }
 

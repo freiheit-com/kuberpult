@@ -56,6 +56,7 @@ func handleRelease(kpClientParams kuberpultClientParameters, args []string) Retu
 		DexToken:    kpClientParams.dexToken,
 		AuthorName:  kpClientParams.authorName,
 		AuthorEmail: kpClientParams.authorEmail,
+		ClientUUID:  kpClientParams.clientUUID,
 	}
 
 	requestParameters := kutil.RequestParameters{
@@ -124,6 +125,7 @@ func handleReleaseTrain(kpClientParams kuberpultClientParameters, args []string)
 		DexToken:    kpClientParams.dexToken,
 		AuthorName:  kpClientParams.authorName,
 		AuthorEmail: kpClientParams.authorEmail,
+		ClientUUID:  kpClientParams.clientUUID,
 	}
 
 	requestParameters := kutil.RequestParameters{

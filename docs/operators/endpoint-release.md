@@ -17,6 +17,7 @@ The `/release` endpoint accepts several parameters:
 * `source_author` git author of the new change.
 * `source_message` git commit message of the new change.
 * `author-email` and `author-name` are base64 encoded http headers. They define the `git author` that pushes to the manifest repository.
+* `client-uuid` is an optional header that is used to identify the client that is making the request. It is used to trace requests in datadog and in the logs while debugging.
 * `version` (required)
   It is required to set this to a unique number, for example the number of commits in your git main branch.
   This way, if you have parallel executions of `/release` for the same service, Kuberpult will sort them in the right order, while keeping idempotency.

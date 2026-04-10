@@ -27,6 +27,7 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
@@ -35,6 +36,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -269,6 +271,13 @@ func RunServer() {
 			unaryUserContextInterceptor,
 			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 				defer logging.HandlePanic(true)
+				md, ok := metadata.FromIncomingContext(ctx)
+				if ok {
+					clientUUIDs := md.Get(auth.HeaderClientUUID)
+					if len(clientUUIDs) > 0 && clientUUIDs[0] != "" {
+						ctx = context.WithValue(ctx, ctxkeys.CtxClientUUIDKey, clientUUIDs[0])
+					}
+				}
 				return handler(ctx, req)
 			},
 		}

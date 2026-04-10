@@ -35,6 +35,7 @@ type kuberpultClientParameters struct {
 	retries     uint64
 	authorName  *string
 	authorEmail *string
+	clientUUID  *string
 	iapToken    *string
 	dexToken    *string
 	timeout     uint64

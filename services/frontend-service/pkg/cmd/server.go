@@ -45,6 +45,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
 	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -413,6 +414,21 @@ func runServer(ctx context.Context) error {
 		AzureAuth: c.AzureEnableAuth,
 		User:      defaultUser,
 	}
+
+	traceOriginIdHandler := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			clientUUID := r.Header.Get(auth.HeaderClientUUID)
+			// set client UUID for current datadog span
+			if span, ok := tracer.SpanFromContext(r.Context()); ok && clientUUID != "" {
+				span.SetTag("client.uuid", clientUUID)
+			}
+			// add client UUID to current http context, logger will need it
+			ctx := context.WithValue(r.Context(), ctxkeys.CtxClientUUIDKey, clientUUID)
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
@@ -428,7 +444,7 @@ func runServer(ctx context.Context) error {
 		"/environment-groups/",
 		"/release",
 	} {
-		mux.Handle(endpoint, restHandler)
+		mux.Handle(endpoint, traceOriginIdHandler(restHandler))
 	}
 
 	// api is only accessible via IAP for now unless explicitly disabled
@@ -454,7 +470,7 @@ func runServer(ctx context.Context) error {
 		"/api",
 		"/api/",
 	} {
-		mux.Handle(endpoint, restApiHandler)
+		mux.Handle(endpoint, traceOriginIdHandler(restApiHandler))
 	}
 
 	dexHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -688,6 +704,10 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 		for _, role := range user.DexAuthContext.Role {
 			ctx = auth.WriteUserRoleToGrpcContext(ctx, role)
 		}
+	}
+	clientUUID := r.Header.Get(auth.HeaderClientUUID)
+	if clientUUID != "" {
+		ctx = auth.WriteClientUUIDToGrpcContext(ctx, clientUUID)
 	}
 	p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 	return nil

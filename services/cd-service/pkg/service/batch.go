@@ -29,6 +29,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
+	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -479,6 +480,10 @@ func (d *BatchServer) ProcessBatch(
 	in *api.BatchRequest,
 ) (_ *api.BatchResponse, err error) {
 	parentSpan, parentSpanExisted := tracer.SpanFromContext(ctx)
+	if clientUUID, ok := ctx.Value(ctxkeys.CtxClientUUIDKey).(string); ok && parentSpanExisted {
+		parentSpan.SetTag("client.uuid", clientUUID)
+	}
+
 	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessBatch")
 	defer func() {
 		span.Finish(tracer.WithError(err))
