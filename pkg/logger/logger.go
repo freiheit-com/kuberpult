@@ -29,13 +29,14 @@ import (
 	"os"
 
 	"github.com/blendle/zapdriver"
-	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
 )
 
 func FromContext(ctx context.Context) *zap.Logger {
