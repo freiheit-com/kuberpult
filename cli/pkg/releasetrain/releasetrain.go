@@ -106,5 +106,9 @@ func createHttpRequest(url string, authParams kutil.AuthenticationParameters, pa
 		req.Header.Add("author-email", base64.StdEncoding.EncodeToString([]byte(*authParams.AuthorEmail)))
 	}
 
+	if authParams.ClientUUID != nil {
+		req.Header.Add("client-uuid", *authParams.ClientUUID)
+	}
+
 	return req, nil
 }

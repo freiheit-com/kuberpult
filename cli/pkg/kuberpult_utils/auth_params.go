@@ -21,4 +21,5 @@ type AuthenticationParameters struct {
 	DexToken    *string
 	AuthorName  *string
 	AuthorEmail *string
+	ClientUUID  *string
 }

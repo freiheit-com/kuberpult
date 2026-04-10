@@ -135,6 +135,24 @@ func TestParseArgs(t *testing.T) {
 			},
 		},
 		{
+			name:    "--url and --client_uuid are provided with some tail",
+			cmdArgs: "--url something.somewhere --client_uuid 123456-1234-1234-1234-123456789012 subcommand --arg1 val1 etc etc",
+			expectedParams: &kuberpultClientParameters{
+				url:        "something.somewhere",
+				clientUUID: ptrStr("123456-1234-1234-1234-123456789012"),
+				retries:    DefaultRetries,
+				timeout:    180,
+			},
+			expectedOther: []string{"subcommand", "--arg1", "val1", "etc", "etc"},
+		},
+		{
+			name:    "--client_uuid is provided twice",
+			cmdArgs: "--url something.somewhere --client_uuid 123456-1234-1234-1234-123456789012 --client_uuid 123456-1234-1234-1234-123456789012 subcommand --arg1 val1 etc etc",
+			expectedError: errMatcher{
+				msg: "error while creating kuberpult client parameters, error: the --client_uuid arg must be set at most once",
+			},
+		},
+		{
 			name:    "default retries",
 			cmdArgs: "--url something.somewhere potato --tomato",
 			expectedParams: &kuberpultClientParameters{

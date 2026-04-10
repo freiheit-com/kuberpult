@@ -30,6 +30,7 @@ type commandLineArguments struct {
 	url         cli_utils.RepeatedString
 	authorEmail cli_utils.RepeatedString
 	authorName  cli_utils.RepeatedString
+	clientUUID  cli_utils.RepeatedString
 	retries     cli_utils.RepeatedInt
 	timeout     cli_utils.RepeatedInt
 }
@@ -42,6 +43,7 @@ func readArgs(args []string) (*commandLineArguments, []string, error) {
 	fs.Var(&cmdArgs.url, "url", "the URL of the Kuberpult instance (must be set exactly once)")
 	fs.Var(&cmdArgs.authorName, "author_name", "the name of the git author who eventually will write to the manifest repo (must be set at most once)")
 	fs.Var(&cmdArgs.authorEmail, "author_email", "the email of the git author who eventially will write to the manifest repo (must be set at most once)")
+	fs.Var(&cmdArgs.clientUUID, "client_uuid", "the unique client id, used for debugging purpose (must be set at most once)")
 	fs.Var(&cmdArgs.retries, "retries", "number of times the cli will retry http requests to kuberpult upon failure (must be set at most once) - default=3")
 	fs.Var(&cmdArgs.timeout, "timeout", "requests timeout seconds (must be set at most once) - default=180")
 
@@ -63,6 +65,9 @@ func argsValid(cmdArgs *commandLineArguments) (bool, string) {
 	}
 	if len(cmdArgs.authorEmail.Values) > 1 {
 		return false, "the --author_email arg must be set at most once"
+	}
+	if len(cmdArgs.clientUUID.Values) > 1 {
+		return false, "the --client_uuid arg must be set at most once"
 	}
 	if len(cmdArgs.retries.Values) > 1 {
 		return false, "the --retries arg must be set at most once"
@@ -89,6 +94,10 @@ func convertToParams(cmdArgs *commandLineArguments) (*kuberpultClientParameters,
 
 	if len(cmdArgs.authorEmail.Values) == 1 {
 		params.authorEmail = &cmdArgs.authorEmail.Values[0]
+	}
+
+	if len(cmdArgs.clientUUID.Values) == 1 {
+		params.clientUUID = &cmdArgs.clientUUID.Values[0]
 	}
 
 	if len(cmdArgs.retries.Values) == 1 {
