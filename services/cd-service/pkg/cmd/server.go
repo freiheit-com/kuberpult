@@ -269,6 +269,7 @@ func RunServer() {
 		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 			unaryUserContextInterceptor,
 			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+				defer logging.HandlePanic(true)
 				md, ok := metadata.FromIncomingContext(ctx)
 				if ok {
 					clientUUIDs := md.Get(auth.HeaderClientUUID)
