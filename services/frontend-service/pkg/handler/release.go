@@ -515,7 +515,6 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	if deployToDownstreamEnvironments, ok := form.Value["deploy_to_downstream_environments"]; ok {
 		tf.DeployToDownstreamEnvironments = deployToDownstreamEnvironments
 	}
-
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
 			Action: &api.BatchAction_CreateRelease{
