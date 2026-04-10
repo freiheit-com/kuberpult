@@ -38,7 +38,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
@@ -271,25 +270,12 @@ func RunServer() {
 			unaryUserContextInterceptor,
 			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 				md, ok := metadata.FromIncomingContext(ctx)
-				defer logging.HandlePanic(true)
-				_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
-					logger.FromContext(ctx).Error("grpcUnaryInterceptors")
-					logger.FromContext(ctx).Error("ok", zap.Bool("ok", ok))
-					logger.FromContext(ctx).Error("metadata", zap.Any("metadata", md))
-
-					return nil
-				})
 				if ok {
 					clientUUIDs := md.Get(auth.HeaderClientUUID)
-					_ = logger.Wrap(context.Background(), func(ctx context.Context) error {
-						logger.FromContext(ctx).Error("clientUUIDs", zap.Any("clientUUIDs", clientUUIDs))
-						return nil
-					})
 					if len(clientUUIDs) > 0 && clientUUIDs[0] != "" {
 						ctx = context.WithValue(ctx, auth.HeaderClientUUID, clientUUIDs[0])
 					}
 				}
-
 				return handler(ctx, req)
 			},
 		}

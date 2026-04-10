@@ -449,7 +449,6 @@ func runServer(ctx context.Context) error {
 	// api is only accessible via IAP for now unless explicitly disabled
 	restApiHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
-
 		if c.ApiEnableDespiteNoAuth {
 			httpHandler.HandleAPI(w, req)
 			return
@@ -466,7 +465,6 @@ func runServer(ctx context.Context) error {
 		}
 		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, c.GKEBackendServiceID, c.GKEProjectNumber)
 	})
-
 	for _, endpoint := range []string{
 		"/api",
 		"/api/",

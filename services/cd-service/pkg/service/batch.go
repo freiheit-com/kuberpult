@@ -479,6 +479,10 @@ func (d *BatchServer) ProcessBatch(
 	in *api.BatchRequest,
 ) (_ *api.BatchResponse, err error) {
 	parentSpan, parentSpanExisted := tracer.SpanFromContext(ctx)
+	if clientUUID, ok := ctx.Value("client-uuid").(string); ok && parentSpanExisted {
+		parentSpan.SetTag("client.uuid", clientUUID)
+	}
+
 	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessBatch")
 	defer func() {
 		span.Finish(tracer.WithError(err))
