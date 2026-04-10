@@ -29,6 +29,7 @@ import (
 	"os"
 
 	"github.com/blendle/zapdriver"
+	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
@@ -53,7 +54,7 @@ func FromContext(ctx context.Context) *zap.Logger {
 			zap.String("dd.version", version),
 		)
 
-		if clientUUID, ok := ctx.Value("client-uuid").(string); ok {
+		if clientUUID, ok := ctx.Value(ctxkeys.CtxClientUUIDKey).(string); ok {
 			l = l.With(zap.String("client.uuid", clientUUID))
 		}
 	}

@@ -36,6 +36,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -272,9 +273,9 @@ func RunServer() {
 				defer logging.HandlePanic(true)
 				md, ok := metadata.FromIncomingContext(ctx)
 				if ok {
-					clientUUIDs := md.Get("client-uuid")
+					clientUUIDs := md.Get(auth.HeaderClientUUID)
 					if len(clientUUIDs) > 0 && clientUUIDs[0] != "" {
-						ctx = context.WithValue(ctx, "client-uuid", clientUUIDs[0])
+						ctx = context.WithValue(ctx, ctxkeys.CtxClientUUIDKey, clientUUIDs[0])
 					}
 				}
 				return handler(ctx, req)
