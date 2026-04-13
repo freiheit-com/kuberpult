@@ -410,7 +410,7 @@ func (c *DeployApplicationVersion) Transform(
 	if err := fsys.MkdirAll(manifestsDir, 0777); err != nil {
 		return "", err
 	}
-	manifestFilename := fsys.Join(manifestsDir, "manifests.yaml")
+	manifestFilenameApp := fsys.Join(manifestsDir, "manifests.yaml")
 	// note that the manifest is empty here!
 	// but actually it's not quite empty!
 	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
@@ -418,8 +418,11 @@ func (c *DeployApplicationVersion) Transform(
 	if len(manifestContent) == 0 {
 		manifestContent = []byte(" ")
 	}
-	if err := util.WriteFile(fsys, manifestFilename, manifestContent, 0666); err != nil {
-		return "", err
+
+	if state.ArgoRenderOptions.RenderApps {
+		if err := util.WriteFile(fsys, manifestFilenameApp, manifestContent, 0666); err != nil {
+			return "", err
+		}
 	}
 
 	tCtx.AddAppEnv(c.Application, c.Environment)
@@ -431,6 +434,14 @@ func (c *DeployApplicationVersion) Transform(
 	if existingDeployment == nil {
 		return "", nil
 	}
+
+	if state.ArgoRenderOptions.RenderBrackets {
+		s, err := c.writeBracketFiles(ctx, state, transaction, fsys, manifestContent, envName)
+		if err != nil {
+			return s, err
+		}
+	}
+
 	if tCtx.ShouldMaximizeGitData() {
 		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by"), []byte(existingDeployment.Metadata.DeployedByName), 0666); err != nil {
 			return "", err
@@ -463,6 +474,75 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 	return fmt.Sprintf("deployed version %v of %q to %q", types.MakeReleaseNumbers(c.Version, c.Revision), c.Application, c.Environment), nil
+}
+
+func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, manifestContent []byte, envName types.EnvName) (string, error) {
+	app, err := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(c.Application))
+	if err != nil {
+		return "", fmt.Errorf("could not get app %s for deployment: %v", c.Application, err)
+	}
+	if app == nil {
+		return "", fmt.Errorf("got nil app %s for deployment", c.Application)
+	}
+	actualBracket := app.ArgoBracket
+	if app.ArgoBracket == "" {
+		logging.Info(ctx, "bracket empty, using appname")
+		actualBracket = types.ArgoBracketName(app.App)
+	}
+
+	err = c.CleanupBracketFile(ctx, state, transaction, fsys)
+	if err != nil {
+		return "", fmt.Errorf("error in cleanup: %v", err)
+	}
+
+	// then we recreate the current one:
+	dir := argocd.BracketPaths(c.Environment, actualBracket, types.AppName(c.Application))
+	logging.Warn(ctx,
+		"creating path",
+		zap.String("bracketPath", dir.BracketPath),
+		zap.String("bracketDir", dir.BracketDirectory),
+	)
+	if err := fsys.MkdirAll(dir.BracketDirectory, 0777); err != nil {
+		return "", fmt.Errorf("could not create directory %s: %v", dir.BracketDirectory, err)
+	}
+	if err := util.WriteFile(fsys, dir.BracketPath, manifestContent, 0666); err != nil {
+		return "", fmt.Errorf("could not write bracket for deployment of app %s on env %s: %v", c.Application, envName, err)
+	}
+	return "", nil
+}
+
+func (c *DeployApplicationVersion) CleanupBracketFile(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem) error {
+	previousBracketHistory, err := db.DBSelectBracketHistoryLatestBeforeId(ctx, state.DBHandler, transaction, c.GetEslVersion())
+	if err != nil {
+		return err
+	}
+	if previousBracketHistory == nil {
+		// if there is no history, we don't need to do any cleanup
+	} else {
+		logging.Warn(ctx, "bracket history found",
+			zap.Int64("eslVersion", int64(c.GetEslVersion())),
+			zap.Any("brackets", previousBracketHistory.AllBracketsJsonBlob.BracketMap),
+		)
+
+		// we here simple delete all apps of the same name in any the previous bracket.
+		for bracket, bracketsAppNames := range previousBracketHistory.AllBracketsJsonBlob.BracketMap {
+			for _, bracketAppName := range bracketsAppNames {
+				if bracketAppName == types.AppName(c.Application) {
+					dir := argocd.BracketPaths(c.Environment, bracket, types.AppName(c.Application))
+					logging.Warn(ctx,
+						"trying to delete path",
+						zap.String("bracketPath", dir.BracketPath),
+						zap.String("bracketDir", dir.BracketDirectory),
+					)
+					err = fsys.Remove(dir.BracketPath)
+					if err != nil && !errors.Is(err, os.ErrNotExist) {
+						return fmt.Errorf("error removing bracket path %s: %v", dir.BracketPath, err)
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 type CreateEnvironmentLock struct {
@@ -619,6 +699,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		Commit:               nil,
 		Filesystem:           fs,
 		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
+		ArgoRenderOptions:    state.ArgoRenderOptions,
 		DBHandler:            state.DBHandler,
 	}
 	lockDir := s.GetEnvLockDir(envName, c.LockId)

@@ -261,12 +261,13 @@ spec:
 				gitBranch   = "main"
 
 				appData = AppData{
-					ArgoAppName:    "app1",
-					ReferencedApps: []AppTeam{{"app1", ""}},
+					ArgoAppName:        "app1",
+					ReferencedAppTeams: []string{""},
 				}
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
-			actualResult, err := RenderAppEnv(GitUrl, gitBranch, annotations, tc.eInfo, appData, destination, ignoreDifferences, syncOptions)
+			ctx := context.Background()
+			actualResult, err := RenderAppEnv(ctx, GitUrl, gitBranch, annotations, tc.eInfo, appData, destination, ignoreDifferences, syncOptions, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -279,11 +280,12 @@ spec:
 
 func TestRenderV1Alpha1(t *testing.T) {
 	tests := []struct {
-		name    string
-		config  config.EnvironmentConfig
-		appData []AppData
-		want    string
-		wantErr bool
+		name            string
+		config          config.EnvironmentConfig
+		appData         []AppData
+		pointToBrackets bool
+		want            string
+		wantErr         bool
 	}{
 		{
 			name: "without sync window",
@@ -386,8 +388,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					ArgoAppName:    "app1",
-					ReferencedApps: []AppTeam{{"app1", ""}},
+					ArgoAppName:        "app1",
+					ReferencedAppTeams: []string{""},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -443,8 +445,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					ArgoAppName:    "app1",
-					ReferencedApps: []AppTeam{{"app1", ""}},
+					ArgoAppName:        "app1",
+					ReferencedAppTeams: []string{""},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -568,8 +570,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					ArgoAppName:    "app1",
-					ReferencedApps: []AppTeam{{"app1", "some-team"}},
+					ArgoAppName:        "app1",
+					ReferencedAppTeams: []string{"some-team"},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -625,8 +627,8 @@ spec:
 			},
 			appData: []AppData{
 				{
-					ArgoAppName:    "app1",
-					ReferencedApps: []AppTeam{{"app1", "some-team"}},
+					ArgoAppName:        "app1",
+					ReferencedAppTeams: []string{"some-team"},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -679,10 +681,11 @@ spec:
 					},
 				},
 			},
+			pointToBrackets: true,
 			appData: []AppData{
 				{
-					ArgoAppName:    "app1",
-					ReferencedApps: []AppTeam{{"app1", "team1"}, {"app2", "team2"}, {"app3", "team1"}},
+					ArgoAppName:        "app1",
+					ReferencedAppTeams: []string{"team1", "team2", "team1"},
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -700,7 +703,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests;/environments/test-env/applications/app2/manifests;/environments/test-env/applications/app3/manifests;
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/brackets/app1;
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
@@ -715,13 +718,7 @@ spec:
     namespace: bar2
   project: test-env
   sources:
-  - path: environments/test-env/applications/app1/manifests
-    repoURL: https://git.example.com/
-    targetRevision: branch-name
-  - path: environments/test-env/applications/app2/manifests
-    repoURL: https://git.example.com/
-    targetRevision: branch-name
-  - path: environments/test-env/applications/app3/manifests
+  - path: environments/test-env/brackets/app1
     repoURL: https://git.example.com/
     targetRevision: branch-name
   syncPolicy:
@@ -746,7 +743,7 @@ spec:
 				CommonPrefix:          "AA",
 				IsAAEnv:               tt.config.ArgoCd.ConcreteEnvName != "",
 			}
-			got, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, environmentInfo, tt.appData)
+			got, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, environmentInfo, tt.appData, tt.pointToBrackets)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -30,6 +30,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	migrations2 "github.com/freiheit-com/kuberpult/pkg/migrations"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
 
@@ -131,6 +132,7 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 		ArgoCdGenerateFiles:  true,
 		ReleaseVersionLimit:  2,
 		MinimizeExportedData: false,
+		ArgoRenderOptions:    testRenderOptions(),
 	}
 
 	if dbConfig != nil {
@@ -154,4 +156,13 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 		t.Fatal(err)
 	}
 	return repo, remoteDir
+}
+
+// default values for tests
+func testRenderOptions() *argocd.RenderOptions {
+	return &argocd.RenderOptions{
+		RenderApps:      true,
+		RenderBrackets:  false,
+		PointToBrackets: false,
+	}
 }

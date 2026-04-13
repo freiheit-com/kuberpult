@@ -378,7 +378,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 			return
 		}
 	}
-	logging.Warn(ctx, "argoBracket detected", zap.String("argoBracket", tf.ArgoBracket))
+	logging.Info(ctx, "argoBracket detected", zap.String("argoBracket", tf.ArgoBracket))
 
 	if !checkParameterCardinality(w, "application", form.Value["application"]) {
 		return

@@ -38,8 +38,18 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
+
+// default values for tests
+func testRenderOptions() *argocd.RenderOptions {
+	return &argocd.RenderOptions{
+		RenderApps:      true,
+		RenderBrackets:  false,
+		PointToBrackets: false,
+	}
+}
 
 func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	ctx := context.Background()
@@ -75,6 +85,7 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 		ArgoCdGenerateFiles:  true,
 		ReleaseVersionLimit:  2,
 		MinimizeExportedData: false,
+		ArgoRenderOptions:    testRenderOptions(),
 	}
 
 	if dbConfig != nil {
@@ -434,7 +445,6 @@ func TestGetManifests(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc // TODO SRX-SRRONB: Remove after switching to go v1.22
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)

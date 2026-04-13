@@ -877,6 +877,7 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 				Metadata: db.DBAppMetaData{
 					Team: "new",
 				},
+				ArgoBracket: "app1", // default bracket name
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
 				types.MakeReleaseNumberVersion(10),
@@ -885,7 +886,6 @@ func TestCreateApplicationVersionDB(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -4875,6 +4875,7 @@ func TestTransaction(t *testing.T) {
 				Metadata: db.DBAppMetaData{
 					Team: "new",
 				},
+				ArgoBracket: types.ArgoBracketName(appName),
 			},
 			expectedDbReleases: []types.ReleaseNumbers{
 				types.MakeReleaseNumberVersion(10),

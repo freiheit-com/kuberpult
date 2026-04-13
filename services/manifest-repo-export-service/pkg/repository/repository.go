@@ -161,6 +161,7 @@ type RepositoryConfig struct {
 
 	ArgoCdGenerateFiles bool
 	ArgoProjectNames    *argocd.AllArgoProjectNameOverrides
+	ArgoRenderOptions   *argocd.RenderOptions
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
@@ -1052,16 +1053,20 @@ func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.
 
 	spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
 	defer spanRenderAndWrite.Finish()
-	manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, info, appData)
+	manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, info, appData, r.config.ArgoRenderOptions)
 	if err != nil {
 		return err
 	}
-	return writeArgoCdManifestsSynced(ctx, state.Filesystem, info, manifests, fsMutex)
+	err = writeArgoCdRootEnvManifestsSynced(ctx, state.Filesystem, info, manifests, fsMutex)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // CalculateAppDataWithBrackets returns the list of AppData that needs to be rendered in render.go
 func CalculateAppDataWithBrackets(
-	ctx context.Context,
+	_ context.Context,
 	allBrackets *db.BracketRow,
 	appTeams []db.AppWithTeam,
 	deploymentsPerApp db_history.DeploymentMap,
@@ -1098,7 +1103,8 @@ func CalculateAppDataWithBrackets(
 
 	appToTeamMap := appTeamsToMap(appTeams)
 	for bracketName, appNames := range bracketMap {
-		appsInBracket := []argocd.AppTeam{}
+		bracketsTeamNames := []string{}
+		//appsInBracket := []argocd.AppTeam{}
 		for _, appName := range appNames {
 			appsTeamName, ok := appToTeamMap[appName]
 			if !ok {
@@ -1114,14 +1120,12 @@ func CalculateAppDataWithBrackets(
 				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
 				continue
 			}
-			appsInBracket = append(appsInBracket, argocd.AppTeam{
-				AppName:  string(appName),
-				TeamName: appsTeamName,
-			})
+			bracketsTeamNames = append(bracketsTeamNames, appsTeamName)
 		}
+
 		appData = append(appData, argocd.AppData{
-			ArgoAppName:    string(bracketName),
-			ReferencedApps: appsInBracket,
+			ArgoAppName:        string(bracketName),
+			ReferencedAppTeams: bracketsTeamNames,
 		})
 	}
 	slices.SortFunc(appData, func(a, b argocd.AppData) int {
@@ -1139,16 +1143,27 @@ func isAppInBracket(bracketMap map[types.ArgoBracketName]db.AppNames, name types
 	return false
 }
 
-func writeArgoCdManifestsSynced(ctx context.Context, filesystem billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte, fsMutex *sync.Mutex) error {
-	span, _, _ := tracing.StartSpanFromContext(ctx, "writeArgoCdManifestsSynced") // We have a separate span here to see how long we wait for the mutex
+func writeArgoCdRootEnvManifestsSynced(
+	ctx context.Context,
+	filesystem billy.Filesystem,
+	info *argocd.EnvironmentInfo,
+	manifests map[argocd.ApiVersion][]byte,
+	fsMutex *sync.Mutex,
+) error {
+	span, _, _ := tracing.StartSpanFromContext(ctx, "writeArgoCdRootEnvManifestsSynced") // We have a separate span here to see how long we wait for the mutex
 	defer span.Finish()
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
-	return writeArgoCdManifests(ctx, filesystem, info, manifests)
+	return writeArgoCdRootEnvManifests(ctx, filesystem, info, manifests)
 }
 
-func writeArgoCdManifests(ctx context.Context, filesystem billy.Filesystem, info *argocd.EnvironmentInfo, manifests map[argocd.ApiVersion][]byte) error {
-	span, _, onErr := tracing.StartSpanFromContext(ctx, "writeArgoCdManifests")
+func writeArgoCdRootEnvManifests(
+	ctx context.Context,
+	filesystem billy.Filesystem,
+	info *argocd.EnvironmentInfo,
+	manifests map[argocd.ApiVersion][]byte,
+) error {
+	span, _, onErr := tracing.StartSpanFromContext(ctx, "writeArgoCdRootEnvManifests")
 	defer span.Finish()
 	for apiVersion, content := range manifests {
 		if err := filesystem.MkdirAll(filesystem.Join("argocd", string(apiVersion)), 0777); err != nil {
@@ -1188,6 +1203,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Commit:               nil,
 						Filesystem:           fs.NewEmptyTreeBuildFS(r.repository),
 						DBHandler:            r.DB,
+						ArgoRenderOptions:    r.config.ArgoRenderOptions,
 						ReleaseVersionsLimit: r.config.ReleaseVersionLimit,
 					}, nil
 				}
@@ -1210,6 +1226,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Filesystem:           fs.NewTreeBuildFS(r.repository, commit.TreeId()),
 		Commit:               commit,
 		ReleaseVersionsLimit: r.config.ReleaseVersionLimit,
+		ArgoRenderOptions:    r.config.ArgoRenderOptions,
 		DBHandler:            r.DB,
 	}, nil
 }
@@ -1218,6 +1235,7 @@ type State struct {
 	Filesystem           billy.Filesystem
 	Commit               *git.Commit
 	ReleaseVersionsLimit uint
+	ArgoRenderOptions    *argocd.RenderOptions
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
 }

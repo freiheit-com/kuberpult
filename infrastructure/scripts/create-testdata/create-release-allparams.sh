@@ -8,16 +8,17 @@ set -o pipefail
 
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
-prev=${3:-""}
-argoBracket=${4:-""}
+argoBracket=${3:-""}
 
 function debug() {
     echo "$@" > /dev/stderr
 }
 
 # 40 is the length of a full git commit hash.
-commit_id=$(head -c 20 /dev/urandom | sha1sum | awk '{print $1}') # SHA-1 produces 40-character hashes 
+commit_id=$(head -c 20 /dev/urandom | sha1sum | awk '{print $1}') # SHA-1 produces 40-character hashes
 debug "commit id is: ${commit_id}"
+prev_commit_id=$(head -c 20 /dev/urandom | sha1sum | awk '{print $1}') # SHA-1 produces 40-character hashes
+debug "prev_commit_id is: ${prev_commit_id}"
 authors[0]="urbansky"
 authors[1]="Medo"
 authors[2]="Hannes"
@@ -153,11 +154,7 @@ inputs=()
 inputs+=(--form-string "application=$name")
 inputs+=(--form-string "source_commit_id=$commit_id")
 inputs+=(--form-string "source_author=$author")
-
-if [ "$prev" != "" ];
-then
-  inputs+=(--form-string "previous_commit_id=${prev}")
-fi
+inputs+=(--form-string "previous_commit_id=${prev_commit_id}")
 
 curl http://localhost:${FRONTEND_PORT}/api/release \
   -H "author-email:${EMAIL}" \

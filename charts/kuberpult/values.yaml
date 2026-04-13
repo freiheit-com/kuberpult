@@ -117,10 +117,10 @@ cd:
     annotations: {}
   backendConfig:
     # Add backend config for health checks on GKE only.
-    create: false   
-    # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. 
+    create: false
+    # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests.
     # It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoints.
-    timeoutSec: 300  
+    timeoutSec: 300
   # The maximum message size in megabytes the client can receive or send.
   grpcMaxRecvMsgSize: 4
   resources:
@@ -147,7 +147,7 @@ db:
   location: "127.0.0.1"
   authProxyPort: 5432
 # k8sServiceAccountName is required.
-# k8sServiceAccountName is the name of the kubernetes service account that enables access to CloudSQL. 
+# k8sServiceAccountName is the name of the kubernetes service account that enables access to CloudSQL.
   k8sServiceAccountName: "kp-k8s-service-account"
   cloudSqlProxyEnabled: false
   dbConnectionName: "connectioname"
@@ -162,7 +162,7 @@ db:
     memory: "200Mi"
   # You need to ensure that your sql server can handle at least
   # `cd.maxOpen + manifestRepoExport.maxOpen` connections in parallel.
-  connections: 
+  connections:
     cd:
       # The cd-service may need to respond to many parallel requests,
       # most notably depending on how often the /release endpoint is called
@@ -220,6 +220,26 @@ manifestRepoExport:
       timeoutSeconds: 5
       failureThreshold: 10
       initialDelaySeconds: 5
+  rendering:
+
+    # True if the individual apps should be "rendered" (written) into the manifest repo at
+    # /environments/<env>/applications/<app>/manifests/manifests.yaml
+    # Keep the default, unless you already moved to brackets based rendering.
+    experimentalRenderApps: true
+
+    # True if the brackets should be "rendered" (written) into the manifest repo at
+    # /environments/<envName>/brackets/<bracketName>/<appName>.yml
+    # This is only useful if you supply the bracket parameter in the release endpoint,
+    # Using brackets is intended to group apps together to reduce load on Argo CD.
+    # See /docs/operatos/endpoint-release.md.
+    experimentalRenderBrackets: false
+
+    # If true, the root apps under
+    # /argocd/v1alpha1/<env>.yaml
+    # are rendered based on brackets, as opposed to individual apps.
+    # If false, `experimentalRenderApps` must be true.
+    # If true, `experimentalRenderBrackets` must be true.
+    experimentalRootAppsPointToBrackets: false
 
   # The initial time in seconds that this service waits when it does not find esl events to process, before trying again.
   # Time increases exponentially (factor 2.0) if errors occur, depending on the type of error.
@@ -238,7 +258,7 @@ manifestRepoExport:
   # Pushing the *commit* always happens before pushing the tag, and failing to push the commit is always considered an error.
   # Note that if there was no commit created (because the release train did not deploy anything),
   # then we do not attempt to push the tag either, because pushing is a slow operation.
-  # 
+  #
   # Consider setting `dogstatsdMetrics.enabled:true`, then the failings of git push operations are measured in the metric "manifest_export_tag_push_failures".
   failOnErrorWithGitPushTags: true
   # Allows to run the rollout service and the manifest service at the same time.
