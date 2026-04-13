@@ -57,7 +57,10 @@ else
 		sh -c "ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git"
 endif
 
-test-helm: $(TGZ_FILE) Chart.yaml
+check-precondition:
+	@if [ -z "$(IMAGE_TAG_KUBERPULT)" ]; then echo "IMAGE_TAG_KUBERPULT not set, exiting"; exit 1; fi
+
+test-helm: $(TGZ_FILE) Chart.yaml check-precondition
 	docker run --rm -w /kp -v "$(MAKEFILE_DIR)$(TGZ_FILE):/kp/$(TGZ_FILE)" -v "$(MAKEFILE_DIR)Chart.yaml:/kp/Chart.yaml" -v "$(MAKEFILE_DIR)values.yaml:/kp/values.yaml" -v "$(MAKEFILE_DIR)templates:/kp/templates" -v "$(MAKEFILE_DIR)tests:/kp/tests" $(BUILDER_IMAGE) sh -c "helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com && helm dependency build &&  cd tests &&  go mod init test-helm && go mod tidy &&  go test ./..."
 	rm $(MAKEFILE_DIR)tests/go.mod $(MAKEFILE_DIR)tests/go.sum
 
