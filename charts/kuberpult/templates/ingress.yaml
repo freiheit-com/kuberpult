@@ -28,7 +28,7 @@ kind: Ingress
 metadata:
   annotations:
     cert-manager.io/acme-challenge-type: dns01
-    cert-manager.io/cluster-issuer: letsencrypt
+    cert-manager.io/cluster-issuer: {{ required ".ingress.clusterIssuer is required" .Values.ingress.clusterIssuer | quote }}
 {{- if .Values.ingress.annotations }}
 {{ .Values.ingress.annotations | toYaml | indent 4}}
 {{- end }}
