@@ -1553,7 +1553,13 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT created, event_type, json, reason, transformerEslVersion FROM event_sourcing_light_failed ORDER BY created ASC LIMIT (?) OFFSET (?);")
+	query := h.AdaptQuery(`
+		SELECT created, event_type, json, reason, transformerEslVersion
+		FROM event_sourcing_light_failed
+		ORDER BY created desc
+		LIMIT (?)
+		OFFSET (?);
+	`)
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, pageSize+1, pageNumber*pageSize)
 	if err != nil {
