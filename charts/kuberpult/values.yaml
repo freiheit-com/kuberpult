@@ -368,6 +368,7 @@ ingress:
   # set to false, if you want to use your own ingress:
   create: false
   private: true
+  clusterIssuer: "letsencrypt"
   # PathType supports values "Prefix", "Exact", and "ImplementationSpecific"
   # See https://kubernetes.io/docs/concepts/services-networking/ingress/#path-types
   pathType: Prefix
