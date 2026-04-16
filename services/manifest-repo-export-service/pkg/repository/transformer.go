@@ -1330,16 +1330,47 @@ func (c *RenderEnvironment) Transform(
 	ctx context.Context,
 	state *State,
 	tCtx TransformerContext,
-	_ *sql.Tx,
+	tx *sql.Tx,
 ) (_ string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "RenderEnvironment")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	// this leads to the re-rendering of the ArgoCD root app for the environment (under directory: argocd/v1alpha1)
+	// this leads to the re-rendering of the ArgoCD root app in the environment (under directory: argocd/v1alpha1)
 	tCtx.ChangeEnvironment(c.Environment)
 
-	return "Re-render apps for environment " + string(c.Environment), nil
+	// re-render manifests for all the apps in the environment (under directory: environments/<env>/applications/<app>)
+	deployments, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, tx, c.Environment)
+	if err != nil {
+		return "", err
+	}
+
+	for appName, releaseNumbers := range deployments {
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, tx, appName, releaseNumbers, false)
+		if err != nil {
+			return "", err
+		}
+		envManifest, ok := release.Manifests.Manifests[c.Environment]
+		if !ok {
+			return "", fmt.Errorf("no manifests found for app '%s' on env '%s'", appName, c.Environment)
+		}
+
+		// write app manifests to git
+		fs := state.Filesystem
+		envAppDir := environmentApplicationDirectory(fs, c.Environment, string(appName))
+		manifestsDir := fs.Join(envAppDir, "manifests")
+		if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
+			return "", err
+		}
+
+		if err := util.WriteFile(fs, fs.Join(manifestsDir, "manifests.yaml"), []byte(envManifest), 0666); err != nil {
+			return "", err
+		}
+
+		tCtx.AddAppEnv(string(appName), c.Environment)
+	}
+
+	return "re-render apps for environment " + string(c.Environment), nil
 }
 
 type CreateEnvironment struct {
