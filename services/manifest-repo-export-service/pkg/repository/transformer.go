@@ -1294,6 +1294,47 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
 }
 
+type RenderEnvironment struct {
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           types.EnvName    `json:"env"`
+	TransformerEslVersion db.TransformerID `json:"-"`
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *RenderEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *RenderEnvironment) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
+}
+
+func (c *RenderEnvironment) GetDBEventType() db.EventType {
+	return db.EvtRenderEnvironment
+}
+
+func (c *RenderEnvironment) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *RenderEnvironment) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+func (c *RenderEnvironment) GetGitTag() types.GitTag {
+	return ""
+}
+
+func (c *RenderEnvironment) Transform(
+	ctx context.Context,
+	state *State,
+	tCtx TransformerContext,
+	_ *sql.Tx,
+) (string, error) {
+	return "", nil
+}
+
 type CreateEnvironment struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`

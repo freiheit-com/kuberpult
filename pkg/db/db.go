@@ -257,6 +257,7 @@ const (
 	EvtCreateEnvironmentGroupLock       EventType = "CreateEnvironmentGroupLock"
 	EvtDeleteEnvironmentGroupLock       EventType = "DeleteEnvironmentGroupLock"
 	EvtCreateEnvironment                EventType = "CreateEnvironment"
+	EvtRenderEnvironment                EventType = "RenderEnvironment"
 	EvtDeleteEnvironment                EventType = "DeleteEnvironment"
 	EvtCreateEnvironmentApplicationLock EventType = "CreateEnvironmentApplicationLock"
 	EvtDeleteEnvironmentApplicationLock EventType = "DeleteEnvironmentApplicationLock"

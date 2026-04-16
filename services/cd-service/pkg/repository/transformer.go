@@ -1983,6 +1983,28 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
 }
 
+type RenderEnvironment struct {
+	Authentication        `json:"-"`
+	Environment           types.EnvName    `json:"env"`
+	TransformerEslVersion db.TransformerID `json:"-"`
+}
+
+func (c *RenderEnvironment) GetDBEventType() db.EventType {
+	return db.EvtRenderEnvironment
+}
+
+func (c *RenderEnvironment) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *RenderEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *RenderEnvironment) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (string, error) {
+	return "RenderEnvironment transformer performs no operations on the database", nil
+}
+
 // Creates or Update an Environment
 type CreateEnvironment struct {
 	Authentication        `json:"-"`
