@@ -58,7 +58,7 @@ services:
   manifest-repo-export-service:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-manifest-repo-export-service:local
     environment:
-      - LOG_LEVEL=warn
+      - LOG_LEVEL=info
       - KUBERPULT_DB_LOCATION=postgres
       - KUBERPULT_DB_MIGRATIONS_LOCATION=/migrations/postgres
       - KUBERPULT_GIT_NETWORK_TIMEOUT=3s

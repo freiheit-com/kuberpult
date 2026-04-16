@@ -23,7 +23,7 @@
 {{ end -}}
 
 {{- if (and (.Values.manifestRepoExport.rendering.experimentalRenderBrackets) (not (.Values.git.minimizeExportedData))) }}
-{{ fail "Cannot render brackets with minimizeExportedDat=false"}}
+{{ fail "Cannot render brackets with minimizeExportedData=false"}}
 {{ end -}}
 
 

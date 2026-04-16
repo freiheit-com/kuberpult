@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -105,6 +106,21 @@ func releasesDirectoryWithVersion(fs billy.Filesystem, application string, versi
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
 func releasesDirectoryWithVersionNumber(fs billy.Filesystem, application string, version string) string {
 	return fs.Join(releasesDirectory(fs, application), version)
+}
+
+type BracketDirectoryNames struct {
+	BracketDirectory string // just the directory
+	BracketPath      string // complete directory and filename
+}
+
+// BracketPaths returns path related to bracket rendering
+func BracketPaths(env types.EnvName, bracket types.ArgoBracketName, appName types.AppName) *BracketDirectoryNames {
+	dir := filepath.Join("environments", string(env), "brackets", string(bracket))
+	manifestFilename := filepath.Join(dir, fmt.Sprintf("%s.yaml", appName))
+	return &BracketDirectoryNames{
+		BracketDirectory: dir,
+		BracketPath:      manifestFilename,
+	}
 }
 
 func (s *State) checkWhichVersionDirectoryExists(fs billy.Filesystem, application string, version types.ReleaseNumbers) (string, error) {
@@ -496,8 +512,8 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 	}
 
 	// then we recreate the current one:
-	dir := argocd.BracketPaths(c.Environment, actualBracket, types.AppName(c.Application))
-	logging.Warn(ctx,
+	dir := BracketPaths(c.Environment, actualBracket, types.AppName(c.Application))
+	logging.Info(ctx,
 		"creating path",
 		zap.String("bracketPath", dir.BracketPath),
 		zap.String("bracketDir", dir.BracketDirectory),
@@ -518,26 +534,26 @@ func (c *DeployApplicationVersion) CleanupBracketFile(ctx context.Context, state
 	}
 	if previousBracketHistory == nil {
 		// if there is no history, we don't need to do any cleanup
-	} else {
-		logging.Warn(ctx, "bracket history found",
-			zap.Int64("eslVersion", int64(c.GetEslVersion())),
-			zap.Any("brackets", previousBracketHistory.AllBracketsJsonBlob.BracketMap),
-		)
+		return nil
+	}
+	logging.Info(ctx, "bracket history found",
+		zap.Int64("eslVersion", int64(c.GetEslVersion())),
+		zap.Any("brackets", previousBracketHistory.AllBracketsJsonBlob.BracketMap),
+	)
 
-		// we here simple delete all apps of the same name in any the previous bracket.
-		for bracket, bracketsAppNames := range previousBracketHistory.AllBracketsJsonBlob.BracketMap {
-			for _, bracketAppName := range bracketsAppNames {
-				if bracketAppName == types.AppName(c.Application) {
-					dir := argocd.BracketPaths(c.Environment, bracket, types.AppName(c.Application))
-					logging.Warn(ctx,
-						"trying to delete path",
-						zap.String("bracketPath", dir.BracketPath),
-						zap.String("bracketDir", dir.BracketDirectory),
-					)
-					err = fsys.Remove(dir.BracketPath)
-					if err != nil && !errors.Is(err, os.ErrNotExist) {
-						return fmt.Errorf("error removing bracket path %s: %v", dir.BracketPath, err)
-					}
+	// we here simple delete all apps of the same name in any the previous bracket.
+	for bracket, bracketsAppNames := range previousBracketHistory.AllBracketsJsonBlob.BracketMap {
+		for _, bracketAppName := range bracketsAppNames {
+			if bracketAppName == types.AppName(c.Application) {
+				dir := BracketPaths(c.Environment, bracket, types.AppName(c.Application))
+				logging.Info(ctx,
+					"trying to delete path",
+					zap.String("bracketPath", dir.BracketPath),
+					zap.String("bracketDir", dir.BracketDirectory),
+				)
+				err = fsys.Remove(dir.BracketPath)
+				if err != nil && !errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("error removing bracket path %s: %v", dir.BracketPath, err)
 				}
 			}
 		}

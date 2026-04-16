@@ -2222,7 +2222,7 @@ manifestRepoExport:
     experimentalRenderBrackets: true
     experimentalRootAppsPointToBrackets: false
 `,
-			ExpectedError: infixErrMatcher{"Cannot render brackets with minimizeExportedDat=false"},
+			ExpectedError: infixErrMatcher{"Cannot render brackets with minimizeExportedData=false"},
 		},
 	}
 

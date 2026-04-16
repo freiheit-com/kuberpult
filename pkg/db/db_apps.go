@@ -471,7 +471,7 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	defer closeRowsAndLog(rows, ctx, "apps")
 	var row *DBAppWithMetaData
 	if rows.Next() {
-		row, err = h.processOneAppInternal(ctx, rows)
+		row, err = h.processOneAppInternal(rows)
 		if err != nil {
 			return nil, fmt.Errorf("processOneAppInternal: %w", err)
 		}
@@ -485,7 +485,7 @@ func (h *DBHandler) processAppsRow(ctx context.Context, rows *sql.Rows, err erro
 	return row, nil
 }
 
-func (h *DBHandler) processOneAppInternal(_ context.Context, rows *sql.Rows) (*DBAppWithMetaData, error) {
+func (h *DBHandler) processOneAppInternal(rows *sql.Rows) (*DBAppWithMetaData, error) {
 	var metadataStr string
 	rawBracket := sql.NullString{}
 	result := &DBAppWithMetaData{}
@@ -514,7 +514,7 @@ func (h *DBHandler) processAppsRows(ctx context.Context, rows *sql.Rows, err err
 	result := make(map[types.AppName]*DBAppWithMetaData)
 	for rows.Next() {
 		//exhaustruct:ignore
-		row, err := h.processOneAppInternal(ctx, rows)
+		row, err := h.processOneAppInternal(rows)
 		if err != nil {
 			return nil, fmt.Errorf("processOneAppInternal: %w", err)
 		}
