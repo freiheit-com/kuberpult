@@ -1340,7 +1340,7 @@ func (c *RenderEnvironment) Transform(
 	// this leads to the re-rendering of the root app for the environment (under argocd/v1alpha1)
 	tCtx.ChangeEnvironment(c.Environment)
 
-	return "Re-render root app for environment " + string(c.Environment), nil
+	return "Re-render apps for environment " + string(c.Environment), nil
 }
 
 type CreateEnvironment struct {
