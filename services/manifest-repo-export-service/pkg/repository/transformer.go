@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -106,21 +105,6 @@ func releasesDirectoryWithVersion(fs billy.Filesystem, application string, versi
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
 func releasesDirectoryWithVersionNumber(fs billy.Filesystem, application string, version string) string {
 	return fs.Join(releasesDirectory(fs, application), version)
-}
-
-type BracketDirectoryNames struct {
-	BracketDirectory string // just the directory
-	BracketPath      string // complete directory and filename
-}
-
-// BracketPaths returns path related to bracket rendering
-func BracketPaths(env types.EnvName, bracket types.ArgoBracketName, appName types.AppName) *BracketDirectoryNames {
-	dir := filepath.Join("environments", string(env), "brackets", string(bracket))
-	manifestFilename := filepath.Join(dir, fmt.Sprintf("%s.yaml", appName))
-	return &BracketDirectoryNames{
-		BracketDirectory: dir,
-		BracketPath:      manifestFilename,
-	}
 }
 
 func (s *State) checkWhichVersionDirectoryExists(fs billy.Filesystem, application string, version types.ReleaseNumbers) (string, error) {
@@ -512,7 +496,7 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 	}
 
 	// then we recreate the current one:
-	dir := BracketPaths(c.Environment, actualBracket, types.AppName(c.Application))
+	dir := argocd.BracketPaths(c.Environment, actualBracket, types.AppName(c.Application))
 	logging.Info(ctx,
 		"creating path",
 		zap.String("bracketPath", dir.BracketPath),
@@ -545,7 +529,7 @@ func (c *DeployApplicationVersion) CleanupBracketFile(ctx context.Context, state
 	for bracket, bracketsAppNames := range previousBracketHistory.AllBracketsJsonBlob.BracketMap {
 		for _, bracketAppName := range bracketsAppNames {
 			if bracketAppName == types.AppName(c.Application) {
-				dir := BracketPaths(c.Environment, bracket, types.AppName(c.Application))
+				dir := argocd.BracketPaths(c.Environment, bracket, types.AppName(c.Application))
 				logging.Info(ctx,
 					"trying to delete path",
 					zap.String("bracketPath", dir.BracketPath),
