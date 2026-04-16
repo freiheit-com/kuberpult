@@ -1336,8 +1336,7 @@ func (c *RenderEnvironment) Transform(
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	logging.Info(ctx, "RenderEnvironment: Re-rendering environment", zap.String("environment", string(c.Environment)))
-	// this leads to the re-rendering of the root app for the environment (under argocd/v1alpha1)
+	// this leads to the re-rendering of the ArgoCD root app for the environment (under directory: argocd/v1alpha1)
 	tCtx.ChangeEnvironment(c.Environment)
 
 	return "Re-render apps for environment " + string(c.Environment), nil
