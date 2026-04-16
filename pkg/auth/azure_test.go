@@ -55,6 +55,7 @@ func (e prefixErrMatcher) Error() string {
 func (e prefixErrMatcher) Is(err error) bool {
 	return strings.HasPrefix(err.Error(), e.prefix)
 }
+
 func TestValidateTokenStatic(t *testing.T) {
 	tcs := []struct {
 		Name          string

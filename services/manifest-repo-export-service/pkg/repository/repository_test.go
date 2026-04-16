@@ -97,8 +97,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"new1"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "new1", // since it's the only app in the bracket, we use the app name here
-					ReferencedApps: []argocd.AppTeam{{"new1", "t1"}},
+					ArgoAppName:        "new1", // since it's the only app in the bracket, we use the app name here
+					ReferencedAppTeams: []string{"t1"},
 				},
 			},
 		},
@@ -121,12 +121,12 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "new1"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "f1",
-					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}},
+					ArgoAppName:        "f1",
+					ReferencedAppTeams: []string{"t1"},
 				},
 				{
-					ArgoAppName:    "new1", // since it doesn't have a bracket configured, we use the app name here
-					ReferencedApps: []argocd.AppTeam{{"new1", "t1"}},
+					ArgoAppName:        "new1", // since it doesn't have a bracket configured, we use the app name here
+					ReferencedAppTeams: []string{"t1"},
 				},
 			},
 		},
@@ -144,8 +144,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "f1",
-					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}},
+					ArgoAppName:        "f1",
+					ReferencedAppTeams: []string{"t1"},
 				},
 			},
 		},
@@ -167,8 +167,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "foo2"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "f1",
-					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}, {"foo2", "t1"}},
+					ArgoAppName:        "f1",
+					ReferencedAppTeams: []string{"t1", "t1"},
 				},
 			},
 		},
@@ -191,12 +191,12 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "pow1"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "f1",
-					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}},
+					ArgoAppName:        "f1",
+					ReferencedAppTeams: []string{"t1"},
 				},
 				{
-					ArgoAppName:    "p1",
-					ReferencedApps: []argocd.AppTeam{{"pow1", "t2"}},
+					ArgoAppName:        "p1",
+					ReferencedAppTeams: []string{"t2"},
 				},
 			},
 		},
@@ -227,12 +227,12 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "foo2", "pow1", "pow2"}),
 			ExpectedAppData: []argocd.AppData{
 				{
-					ArgoAppName:    "f1",
-					ReferencedApps: []argocd.AppTeam{{"foo1", "t1"}, {"foo2", "t1"}},
+					ArgoAppName:        "f1",
+					ReferencedAppTeams: []string{"t1", "t1"},
 				},
 				{
-					ArgoAppName:    "p1",
-					ReferencedApps: []argocd.AppTeam{{"pow1", "t2"}, {"pow2", "t2"}},
+					ArgoAppName:        "p1",
+					ReferencedAppTeams: []string{"t2", "t2"},
 				},
 			},
 		},
@@ -462,6 +462,7 @@ func SetupRepositoryTestWithDB(t *testing.T) (Repository, *db.DBHandler, *Reposi
 		ArgoCdGenerateFiles: true,
 		DBHandler:           dbHandler,
 		Branch:              "master",
+		ArgoRenderOptions:   testRenderOptions(),
 	}
 	repo, err := New(
 		testutilauth.MakeTestContext(),
@@ -2117,6 +2118,15 @@ func convertToSet(list []types.ReleaseNumbers) map[TestStruct]bool {
 	return set
 }
 
+// default values for tests
+func testRenderOptions() *argocd.RenderOptions {
+	return &argocd.RenderOptions{
+		RenderApps:      true,
+		RenderBrackets:  false,
+		PointToBrackets: false,
+	}
+}
+
 func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
@@ -2152,6 +2162,7 @@ func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 		ArgoCdGenerateFiles:  true,
 		ReleaseVersionLimit:  2,
 		MinimizeExportedData: false,
+		ArgoRenderOptions:    testRenderOptions(),
 	}
 
 	if dbConfig != nil {

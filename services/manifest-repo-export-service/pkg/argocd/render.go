@@ -31,13 +31,18 @@ import (
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd/v1alpha1"
 )
 
+type RenderOptions struct {
+	RenderApps      bool // do we render apps?
+	RenderBrackets  bool // do we render brackets?
+	PointToBrackets bool // do we point the root app to brackets?
+}
 type ApiVersion string
 
 const V1Alpha1 ApiVersion = "v1alpha1"
 
 type AppData struct {
-	ArgoAppName    string
-	ReferencedApps []AppTeam
+	ArgoAppName        string   // name of the bracket if bracket mode is on
+	ReferencedAppTeams []string // names of the teams
 }
 
 type AppTeam struct {
@@ -66,14 +71,17 @@ func (e *EnvironmentInfo) GetFullyQualifiedName() string {
 	return string(e.ParentEnvironmentName)
 }
 
-func Render(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData) (map[ApiVersion][]byte, error) {
+func Render(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData, options *RenderOptions) (map[ApiVersion][]byte, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "Render")
 	defer span.Finish()
+	if options == nil {
+		return nil, fmt.Errorf("no ArgoCd options supplied")
+	}
 	if info.ArgoCDConfig == nil {
 		return nil, fmt.Errorf("no ArgoCd configured for environment %s", info.GetFullyQualifiedName())
 	}
 	result := map[ApiVersion][]byte{}
-	if content, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, info, appsData); err != nil {
+	if content, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, info, appsData, options.PointToBrackets); err != nil {
 		return nil, err
 	} else {
 		result[V1Alpha1] = content
@@ -81,7 +89,7 @@ func Render(ctx context.Context, gitUrl string, gitBranch string, info *Environm
 	return result, nil
 }
 
-func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData) ([]byte, error) {
+func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData, pointToBrackets bool) ([]byte, error) {
 	applicationNs := ""
 	cfg := info.ArgoCDConfig
 	if cfg.Destination.Namespace != nil {
@@ -153,7 +161,7 @@ func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *
 	}
 	syncOptions := cfg.SyncOptions
 	for _, appData := range appsData {
-		appManifest, err := RenderAppEnv(gitUrl, gitBranch, cfg.ApplicationAnnotations, info, appData, applicationDestination, ignoreDifferences, syncOptions)
+		appManifest, err := RenderAppEnv(ctx, gitUrl, gitBranch, cfg.ApplicationAnnotations, info, appData, applicationDestination, ignoreDifferences, syncOptions, pointToBrackets)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +170,20 @@ func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *
 	return ([]byte)(strings.Join(buf, "---\n")), nil
 }
 
-func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[string]string, info *EnvironmentInfo, appData AppData, destination v1alpha1.ApplicationDestination, ignoreDifferences []v1alpha1.ResourceIgnoreDifferences, syncOptions v1alpha1.SyncOptions) (string, error) {
+func RenderAppEnv(
+	ctx context.Context,
+	gitUrl string,
+	gitBranch string,
+	applicationAnnotations map[string]string,
+	info *EnvironmentInfo,
+	appData AppData,
+	destination v1alpha1.ApplicationDestination,
+	ignoreDifferences []v1alpha1.ResourceIgnoreDifferences,
+	syncOptions v1alpha1.SyncOptions,
+	pointToBrackets bool,
+) (
+	string, error,
+) {
 	name := appData.ArgoAppName
 	annotations := map[string]string{}
 	labels := map[string]string{}
@@ -174,15 +195,20 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 	manifestPaths := []string{}
 	manifestPathsArgoFormat := ""
 	teamNames := []string{}
-	if len(appData.ReferencedApps) > 0 {
-		for _, appTeams := range appData.ReferencedApps {
-			manifestPath := filepath.Join("environments", string(info.ParentEnvironmentName), "applications", appTeams.AppName, "manifests")
+	if len(appData.ReferencedAppTeams) > 0 {
+		teamNames = append(teamNames, appData.ReferencedAppTeams...)
+		if pointToBrackets {
+			// in bracket mode we just point to the bracket, we don't even need to know all the app names:
+			paths := BracketPaths(info.ParentEnvironmentName, types.ArgoBracketName(appData.ArgoAppName), "")
+			manifestPathsArgoFormat = manifestPathToArgoFormat(paths.BracketDirectory)
+			manifestPaths = append(manifestPaths, paths.BracketDirectory)
+		} else {
+			if len(appData.ReferencedAppTeams) > 1 {
+				return "", fmt.Errorf("found too many (%d) referenced teams in non-bracket mode", len(appData.ReferencedAppTeams))
+			}
+			manifestPath := filepath.Join("environments", string(info.ParentEnvironmentName), "applications", appData.ArgoAppName, "manifests")
 			manifestPaths = append(manifestPaths, manifestPath)
-			// manifestPaths must begin with a / and are separated by ";"
-			// see https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#manifest-paths-annotation
-			manifestPathsArgoFormat = manifestPathsArgoFormat + "/" + manifestPath + ";"
-
-			teamNames = append(teamNames, appTeams.TeamName)
+			manifestPathsArgoFormat = manifestPathsArgoFormat + manifestPathToArgoFormat(manifestPath)
 		}
 	}
 	teamsAnnotation := generateTeamNameAnnotationValue(teamNames)
@@ -227,6 +253,12 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 		return "", err
 	}
 	return string(content), nil
+}
+
+func manifestPathToArgoFormat(path string) string {
+	// manifestPaths must begin with a / and are separated by ";"
+	// see https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#manifest-paths-annotation
+	return "/" + path + ";"
 }
 
 func generateTeamNameAnnotationValue(teamNames []string) string {

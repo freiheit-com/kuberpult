@@ -14,6 +14,19 @@
 
 # Copyright freiheit.com
 
+{{- if (and (not (.Values.manifestRepoExport.rendering.experimentalRenderApps)) (not (.Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets))) }}
+{{ fail "Cannot point to apps when not rendering apps: Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets=false requires experimentalRenderApps to be true."}}
+{{ end -}}
+
+{{- if (and (not (.Values.manifestRepoExport.rendering.experimentalRenderBrackets)) (.Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets)) }}
+{{ fail "Cannot point to brackets when not rendering brackets: Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets=true requires experimentalRenderBrackets to be true."}}
+{{ end -}}
+
+{{- if (and (.Values.manifestRepoExport.rendering.experimentalRenderBrackets) (not (.Values.git.minimizeExportedData))) }}
+{{ fail "Cannot render brackets with minimizeExportedData=false"}}
+{{ end -}}
+
+
 # the export service is only enabled, if the DB is enabled and the `enabled` flag is true
 {{- if (.Values.manifestRepoExport.enabled)}}
 
@@ -253,6 +266,12 @@ spec:
           value: {{ .Values.manifestRepoExport.experimentalRolloutWithManifest.argoProjectNames.environments | toJson | quote }}
         - name: KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_AA_ENVIRONMENTS
           value: {{ .Values.manifestRepoExport.experimentalRolloutWithManifest.argoProjectNames.aaEnvironments | toJson | quote }}
+        - name: KUBERPULT_RENDERING_RENDER_APPS
+          value: "{{ .Values.manifestRepoExport.rendering.experimentalRenderApps }}"
+        - name: KUBERPULT_RENDERING_RENDER_BRACKETS
+          value: "{{ .Values.manifestRepoExport.rendering.experimentalRenderBrackets }}"
+        - name: KUBERPULT_RENDERING_ROOT_APP_POINTS_TO_BRACKETS
+          value: "{{ .Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets }}"
         volumeMounts:
         - name: repository
           # The repository volume, an emptyDir, is mounted to the kp directory.
