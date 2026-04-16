@@ -1331,8 +1331,16 @@ func (c *RenderEnvironment) Transform(
 	state *State,
 	tCtx TransformerContext,
 	_ *sql.Tx,
-) (string, error) {
-	return "", nil
+) (_ string, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RenderEnvironment")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	logging.Info(ctx, "RenderEnvironment: Re-rendering environment", zap.String("environment", string(c.Environment)))
+	// this leads to the re-rendering of the root app for the environment (under argocd/v1alpha1)
+	tCtx.ChangeEnvironment(c.Environment)
+
+	return "Re-render root app for environment " + string(c.Environment), nil
 }
 
 type CreateEnvironment struct {

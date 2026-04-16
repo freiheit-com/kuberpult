@@ -52,6 +52,17 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
         });
     }, [environment.name]);
 
+    const renderEnvironment = React.useCallback(() => {
+        addAction({
+            action: {
+                $case: 'renderEnvironment',
+                renderEnvironment: {
+                    environment: environment.name,
+                },
+            },
+        });
+    }, [environment.name]);
+
     const popupSelectTeams = React.useCallback(() => {
         setShowTeamSelectionDialog(true);
     }, [setShowTeamSelectionDialog]);
@@ -123,6 +134,12 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         label={'Add Team Lock in ' + environment.name}
                         icon={<Locks />}
                         onClick={popupSelectTeams}
+                        highlightEffect={false}
+                    />
+                    <Button
+                        className="environment-action"
+                        label={'Re-render environment ' + environment.name}
+                        onClick={renderEnvironment}
                         highlightEffect={false}
                     />
                     <Button

@@ -582,7 +582,17 @@ export const addAction = (action: BatchAction): void => {
                 );
                 return;
             }
-
+            break;
+        case 'renderEnvironment':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'renderEnvironment' &&
+                        action.action?.$case === 'renderEnvironment' &&
+                        act.action.renderEnvironment.environment === action.action.renderEnvironment.environment
+                )
+            )
+                isDuplicate = true;
             break;
     }
 

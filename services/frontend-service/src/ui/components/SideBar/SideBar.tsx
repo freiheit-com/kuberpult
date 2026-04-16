@@ -60,6 +60,7 @@ export enum ActionTypes {
     ReleaseTrain,
     DeleteEnvironmentTeamLock,
     CreateEnvironmentTeamLock,
+    RenderEnvironment,
     UNKNOWN,
 }
 
@@ -293,6 +294,15 @@ export const getActionDetails = (
                 tooltip: '',
                 summary: 'Run release train to environment ' + action.releaseTrain.target,
                 environment: action.releaseTrain.target,
+            };
+        case 'renderEnvironment':
+            return {
+                type: ActionTypes.RenderEnvironment,
+                name: 'Re-render Environment',
+                dialogTitle: 'Are you sure you want to re-render this environment?',
+                summary: 'Re-render environment ' + action.renderEnvironment.environment,
+                tooltip: 'This will only re-render manifests of all the apps for this environment in Git.',
+                environment: action.renderEnvironment.environment,
             };
         default:
             return {
