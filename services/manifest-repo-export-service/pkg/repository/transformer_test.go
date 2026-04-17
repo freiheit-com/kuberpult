@@ -2805,6 +2805,7 @@ func TestRerenderEnvironment(t *testing.T) {
 	const appName = "myapp"
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
+	const brokenManifest = "this file is broken now"
 	tcs := []struct {
 		Name                 string
 		Transformers         []Transformer
@@ -2884,7 +2885,7 @@ spec:
 					Application:    appName,
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					Manifests: map[types.EnvName]string{
-						"development": "some development manifest 1.0",
+						"development": "normal manifest",
 					},
 					WriteCommitData:       false,
 					Version:               1,
@@ -2988,7 +2989,7 @@ spec:
 					updatedState := repo.State()
 					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
 
-					if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte("this file is broken now"), 0666); err != nil {
+					if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte(brokenManifest), 0666); err != nil {
 						t.Fatalf("failed to write file: %v path=%s", err, fullPath)
 					}
 
@@ -3002,8 +3003,8 @@ spec:
 						t.Fatalf("failed to read file: %v path=%s", err, fullPath)
 					}
 
-					if !cmp.Equal(string(actualFileData), "this file is broken now") {
-						t.Fatalf("expected '%v', got '%v'", "this file is broken now", string(actualFileData))
+					if !cmp.Equal(string(actualFileData), brokenManifest) {
+						t.Fatalf("expected '%v', got '%v'", brokenManifest, string(actualFileData))
 					}
 				}
 			}

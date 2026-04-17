@@ -1185,6 +1185,8 @@ func getArgoCdAAEnvFileName(filesystem billy.Filesystem, commonEnvPrefix, parent
 	return filesystem.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(commonEnvPrefix)+"-"+string(parentEnvironmentName)+"-"+string(concreteEnvironmentName)))
 }
 
+// this function gets the working directory state at the latest commit on the branch.
+// this is equal to: git stash && git checkout master
 func (r *repository) State() *State {
 	s, err := r.StateAt(nil)
 	if err != nil {
@@ -1194,7 +1196,6 @@ func (r *repository) State() *State {
 }
 
 func (r *repository) StateAt(oid *git.Oid) (*State, error) {
-	//
 	var commit *git.Commit
 	if oid == nil {
 		if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
