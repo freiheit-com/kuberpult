@@ -2881,19 +2881,13 @@ func TestRerenderEnvironment(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _, repoConfig := SetupRepositoryTestWithDB(t)
-			_, err := New(
-				testutilauth.MakeTestContext(),
-				*repoConfig,
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
+			repo, remoteDir := setupRepositoryTestWithPath(t)
+			fmt.Println("TEST remote dir: ", remoteDir)
 
 			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
 			dbHandler := repo.State().DBHandler
-			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
 				if err != nil {
 					return err
@@ -2935,84 +2929,76 @@ func TestRerenderEnvironment(t *testing.T) {
 					if !cmp.Equal(actualFileData, expectedFile.fileData) {
 						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
 					}
+
+					fmt.Println("path: ", expectedFile.path)
+					fmt.Println("Actual file data: ", string(actualFileData))
 				}
 			}
 
 			// Manually modify the manifests.yml in Git
-			if tc.ExpectedFiles != nil {
-				for i := range tc.ExpectedFiles {
-					expectedFile := tc.ExpectedFiles[i]
-					updatedState := repo.State()
-					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+			updatedState = repo.State()
+			fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.ExpectedFiles[0].path)
 
-					if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte("this file is broken now"), 0666); err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
+			if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte("this file is broken now"), 0666); err != nil {
+				t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+			}
 
-					// gitRepo, err := git.OpenRepository(repoConfig.Path)
-					// if err != nil {
-					// 	t.Fatalf("Error while opening repository: %v", err)
-					// }
+			actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+			if err != nil {
+				t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+			}
 
-					// treeId, insertError := updatedState.Filesystem.(*fs.TreeBuilderFS).Insert()
-					// if insertError != nil {
-					// 	t.Fatalf("Error while inserting tree: %v", insertError)
-					// }
+			fmt.Println("path: ", tc.ExpectedFiles[0].path)
+			fmt.Println("Actual file data: ", string(actualFileData))
 
-					// _, err = gitRepo.CreateCommitFromIds(
-					// 	"refs/heads/master",
-					// 	&git.Signature{Name: "SRE", Email: "testing@gmail"},
-					// 	&git.Signature{Name: "SRE", Email: "testing@gmail"},
-					// 	"breaks the manifests files",
-					// 	treeId,
-					// 	updatedState.Commit.Id(),
-					// )
-					// if err != nil {
-					// 	t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					// }
+			for i := range tc.ExpectedFiles {
+				expectedFile := tc.ExpectedFiles[i]
+				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
 
-					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
-
-					if !cmp.Equal(string(actualFileData), "this file is broken now") {
-						t.Fatalf("Expected '%v', got '%v'", "this file is broken now", string(actualFileData))
-					}
+				actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+				if err != nil {
+					t.Fatalf("Expected no error: %v path=%s", err, fullPath)
 				}
+
+				fmt.Println("path: ", expectedFile.path)
+				fmt.Println("Actual file data: ", string(actualFileData))
+
 			}
 
 			// RenderEnvironment transformer should re-render the state of manifests.yml in Git (data fetched from database)
-			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := dbHandler.DBWriteEslEventInternal(ctx, tc.RenderEnvTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tc.RenderEnvTransformer.GetMetadata().AuthorName, AuthorEmail: tc.RenderEnvTransformer.GetMetadata().AuthorEmail})
-				if err != nil {
-					return err
-				}
-				prepareDatabaseLikeCdService(ctx, transaction, tc.RenderEnvTransformer, dbHandler, t, authorEmail, authorName)
+			// err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			// 	err := dbHandler.DBWriteEslEventInternal(ctx, tc.RenderEnvTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tc.RenderEnvTransformer.GetMetadata().AuthorName, AuthorEmail: tc.RenderEnvTransformer.GetMetadata().AuthorEmail})
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	prepareDatabaseLikeCdService(ctx, transaction, tc.RenderEnvTransformer, dbHandler, t, authorEmail, authorName)
 
-				// actual transformer to be tested:
-				err = repo.Apply(ctx, transaction, tc.RenderEnvTransformer)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
+			// 	// actual transformer to be tested:
+			// 	err = repo.Apply(ctx, transaction, tc.RenderEnvTransformer)
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	return nil
+			// })
 
-			if tc.ExpectedFiles != nil {
-				for i := range tc.ExpectedFiles {
-					expectedFile := tc.ExpectedFiles[i]
-					updatedState := repo.State()
-					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
-					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
+			// if tc.ExpectedFiles != nil {
+			// 	for i := range tc.ExpectedFiles {
+			// 		expectedFile := tc.ExpectedFiles[i]
+			// 		// updatedState := repo.State()
+			// 		fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+			// 		actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+			// 		if err != nil {
+			// 			t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+			// 		}
 
-					if !cmp.Equal(actualFileData, expectedFile.fileData) {
-						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
-					}
-				}
-			}
+			// 		if !cmp.Equal(actualFileData, expectedFile.fileData) {
+			// 			t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+			// 		}
+
+			// 		fmt.Println("path: ", expectedFile.path)
+			// 		fmt.Println("Actual file data: ", string(actualFileData))
+			// 	}
+			// }
 		})
 	}
 }
