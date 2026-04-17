@@ -57,7 +57,7 @@ func fromJson(data []byte) (BracketJsonBlob, error) {
 
 // HandleBracketsUpdate returns the actual bracket name. The actual name is the same as the parameter bracketName,
 // unless it's "", then we use the app name as bracket name.
-func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, bracketName types.ArgoBracketName, now time.Time) (types.ArgoBracketName, error) {
+func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, bracketName types.ArgoBracketName, now time.Time, transformerEslId TransformerID) (types.ArgoBracketName, error) {
 	newBracketName := bracketName
 	if newBracketName == "" {
 		newBracketName = types.ArgoBracketName(app)
@@ -81,7 +81,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 		if oldIndex >= 0 { // found the app
 			if newBracketName == oldBracketName {
 				// same bracket, nothing to do
-				return "", nil
+				return oldBracketName, nil
 			}
 			// we found the app but in a different bracket
 			// 1) remove app from old bracket:
@@ -109,7 +109,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 		bracketRow.AllBracketsJsonBlob.BracketMap[newBracketName] = AppNames{app}
 	}
 
-	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow)
+	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow, transformerEslId)
 	if err != nil {
 		return "", fmt.Errorf("HandleBracketsUpdate could not insert new bracket: %w", err)
 	}
@@ -117,7 +117,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 	return newBracketName, nil
 }
 
-func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, deletionBracketName types.ArgoBracketName, now time.Time) error {
+func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, deletionBracketName types.ArgoBracketName, now time.Time, transformerEslId TransformerID) error {
 	bracketRow, err := DBSelectBracketHistoryLatest(ctx, h, tx)
 	if err != nil {
 		return fmt.Errorf("HandleDeleteAppFromBracket could not get newBracketName by timestamp: %w", err)
@@ -147,7 +147,7 @@ func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, a
 		}
 	}
 
-	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow)
+	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow, transformerEslId)
 	if err != nil {
 		return fmt.Errorf("HandleDeleteAppFromBracket could not insert new bracket: %w", err)
 	}
@@ -166,19 +166,27 @@ func DBSelectBracketHistoryLatest(ctx context.Context, h *DBHandler, tx *sql.Tx)
 		ORDER BY esl_id DESC 	-- order by id
 		LIMIT 1 				-- take only latest entry
 	;`)
+	return executeSelectQuery(ctx, tx, selectQuery)
+}
+
+func executeSelectQuery(ctx context.Context, tx *sql.Tx, selectQuery string, args ...interface{}) (*BracketRow, error) {
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
+		args...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query cutoff table from DB. Error: %w", err)
+		return nil, fmt.Errorf("could not query bracket history table from DB. Error: %w", err)
 	}
+	var result *BracketRow
 	if rows.Next() {
 		result, err = processBracketHistoryRow(rows)
 		if err != nil {
 			err2 := closeRows(rows)
 			return nil, errors.Join(err, err2)
 		}
+	} else {
+		return nil, nil
 	}
 	err = closeRows(rows)
 	if err != nil {
@@ -197,29 +205,27 @@ func DBSelectBracketHistoryById(ctx context.Context, h *DBHandler, tx *sql.Tx, e
 	selectQuery := h.AdaptQuery(`
 		SELECT created_at, all_brackets
 		FROM ` + bracketsHistoryTable + `
-		WHERE esl_id = (?) -- get the row that existed at the given transformer ID
-		LIMIT 1            -- there can only be one row per transform ID
+		WHERE source_transformer_esl_id = (?) -- get the row that existed at the given transformer ID
+		LIMIT 1            					  -- there can only be one row per transform ID
 	;`)
-	rows, err := tx.QueryContext(
-		ctx,
-		selectQuery,
-		args...,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not query cutoff table from DB. Error: %w", err)
-	}
-	if rows.Next() {
-		result, err = processBracketHistoryRow(rows)
-		if err != nil {
-			err2 := closeRows(rows)
-			return nil, errors.Join(err, err2)
-		}
-	}
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
+	return executeSelectQuery(ctx, tx, selectQuery, args...)
+}
+
+func DBSelectBracketHistoryLatestBeforeId(ctx context.Context, h *DBHandler, tx *sql.Tx, maxEslVersion TransformerID) (result *BracketRow, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryLatestBeforeId")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	args := []any{maxEslVersion}
+	selectQuery := h.AdaptQuery(`
+		SELECT created_at, all_brackets
+		FROM ` + bracketsHistoryTable + `
+		WHERE source_transformer_esl_id  < (?)   -- get the rows that existed before the given transformer ID
+		ORDER BY source_transformer_esl_id desc  -- sort by biggest(latest) Id first 
+		LIMIT 1                                  -- only take latest Id
+	;`)
+	return executeSelectQuery(ctx, tx, selectQuery, args...)
 }
 
 func processBracketHistoryRow(rows *sql.Rows) (*BracketRow, error) {
@@ -240,15 +246,15 @@ func processBracketHistoryRow(rows *sql.Rows) (*BracketRow, error) {
 	return &result, nil
 }
 
-func DBInsertBracketHistory(ctx context.Context, h *DBHandler, tx *sql.Tx, bracketRow BracketRow) (err error) {
+func DBInsertBracketHistory(ctx context.Context, h *DBHandler, tx *sql.Tx, bracketRow BracketRow, transformerEslId TransformerID) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBInsertBracketHistory")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO ` + bracketsHistoryTable + ` (created_at, all_brackets)
-		VALUES (?, ?)
+		INSERT INTO ` + bracketsHistoryTable + ` (created_at, all_brackets, source_transformer_esl_id)
+		VALUES (?, ?, ?)
 	;`)
 
 	jsonBytes, err := toJson(bracketRow.AllBracketsJsonBlob)
@@ -257,9 +263,10 @@ func DBInsertBracketHistory(ctx context.Context, h *DBHandler, tx *sql.Tx, brack
 		insertQuery,
 		bracketRow.CreatedAt,
 		jsonBytes,
+		transformerEslId,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to insert into '%s'. Error: %w", bracketsHistoryTable, err)
+		return fmt.Errorf("failed to insert into '%s' with transformer id %v. Error: %w", bracketsHistoryTable, transformerEslId, err)
 	}
 	return nil
 }

@@ -97,6 +97,7 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 		ArgoCdGenerateFiles:  true,
 		ReleaseVersionLimit:  2,
 		MinimizeExportedData: false,
+		ArgoRenderOptions:    testRenderOptions(),
 	}
 
 	if dbConfig != nil {

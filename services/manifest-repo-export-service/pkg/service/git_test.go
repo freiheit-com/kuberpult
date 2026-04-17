@@ -1002,6 +1002,7 @@ func TestGetCommitInfo(t *testing.T) {
 				ArgoCdGenerateFiles:  true,
 				DBHandler:            repo.State().DBHandler,
 				MinimizeExportedData: false,
+				ArgoRenderOptions:    testRenderOptions(),
 			}
 			sv := &GitServer{
 				Repository: repo,
@@ -1197,6 +1198,7 @@ func TestGetSyncData(t *testing.T) {
 				ArgoCdGenerateFiles:  true,
 				DBHandler:            repo.State().DBHandler,
 				MinimizeExportedData: false,
+				ArgoRenderOptions:    testRenderOptions(),
 			}
 			sv := &GitServer{
 				Repository: repo,
@@ -1524,6 +1526,7 @@ func TestRetryEvent(t *testing.T) {
 				ArgoCdGenerateFiles:  true,
 				DBHandler:            repo.State().DBHandler,
 				MinimizeExportedData: false,
+				ArgoRenderOptions:    testRenderOptions(),
 			}
 			sv := &GitServer{
 				Repository: repo,
@@ -1785,6 +1788,7 @@ func TestSkipEvent(t *testing.T) {
 				ArgoCdGenerateFiles:  true,
 				DBHandler:            repo.State().DBHandler,
 				MinimizeExportedData: false,
+				ArgoRenderOptions:    testRenderOptions(),
 			}
 			sv := &GitServer{
 				Repository: repo,
@@ -1916,6 +1920,7 @@ func TestRetryEventRbac(t *testing.T) {
 				ArgoCdGenerateFiles:  true,
 				DBHandler:            repo.State().DBHandler,
 				MinimizeExportedData: false,
+				ArgoRenderOptions:    testRenderOptions(),
 			}
 
 			sv := &GitServer{
@@ -1994,6 +1999,7 @@ func TestSkipEventRbac(t *testing.T) {
 				ArgoCdGenerateFiles:  true,
 				DBHandler:            repo.State().DBHandler,
 				MinimizeExportedData: false,
+				ArgoRenderOptions:    testRenderOptions(),
 			}
 
 			sv := &GitServer{
@@ -2037,6 +2043,7 @@ func TestGetGitTags(t *testing.T) {
 		CommitterEmail:       "kuberpult@freiheit.com",
 		CommitterName:        "kuberpult",
 		Branch:               "master",
+		ArgoRenderOptions:    testRenderOptions(),
 	}
 	sv := &GitServer{
 		Repository: repo,
@@ -2122,6 +2129,7 @@ func setupRepositoryTestWithPathAndDB(t *testing.T) (rp.Repository, *db.DBHandle
 		ArgoCdGenerateFiles:  true,
 		ReleaseVersionLimit:  2,
 		MinimizeExportedData: false,
+		ArgoRenderOptions:    testRenderOptions(),
 	}
 
 	if dbConfig != nil {

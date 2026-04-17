@@ -134,10 +134,22 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()
 			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for range 10 {
+					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(nil), ESLMetadata{})
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			for _, bracketRow := range tc.PreparedBracketRows {
+			for index, bracketRow := range tc.PreparedBracketRows {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := DBInsertBracketHistory(ctx, dbHandler, transaction, bracketRow)
+					err := DBInsertBracketHistory(ctx, dbHandler, transaction, bracketRow, TransformerID(1+index))
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -148,7 +160,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 				}
 			}
 
-			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+			err = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 				bracketRow, err := DBSelectBracketHistoryById(ctx, dbHandler, transaction, tc.TransformerIndexToTest)
 				if err != nil {
 					return err
@@ -201,7 +213,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 				},
 			},
 			DeleteAppBrackets:      []AppBracketTime{},
-			TransformerIndexToTest: 1,
+			TransformerIndexToTest: 10,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -231,7 +243,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 				},
 			},
 			DeleteAppBrackets:      []AppBracketTime{},
-			TransformerIndexToTest: 3,
+			TransformerIndexToTest: 12,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -258,7 +270,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeSecond,
 				},
 			},
-			TransformerIndexToTest: 2,
+			TransformerIndexToTest: 20,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeSecond,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -282,7 +294,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeSecond,
 				},
 			},
-			TransformerIndexToTest: 2,
+			TransformerIndexToTest: 20,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeSecond,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -311,7 +323,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeThird,
 				},
 			},
-			TransformerIndexToTest: 3,
+			TransformerIndexToTest: 20,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeThird,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -337,7 +349,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 					Time:    timeSecond,
 				},
 			},
-			TransformerIndexToTest: 2,
+			TransformerIndexToTest: 20,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -362,7 +374,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 				},
 			},
 			DeleteAppBrackets:      []AppBracketTime{},
-			TransformerIndexToTest: 2,
+			TransformerIndexToTest: 11,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -397,7 +409,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 				},
 			},
 			DeleteAppBrackets:      []AppBracketTime{},
-			TransformerIndexToTest: 4,
+			TransformerIndexToTest: 13,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeFirst,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -416,9 +428,22 @@ func TestHandleBracketUpdates(t *testing.T) {
 			ctx := testutilauth.MakeTestContext()
 			dbHandler := setupDB(t)
 
-			for _, appBracket := range tc.AddAppBrackets {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for range 30 {
+					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(nil), ESLMetadata{})
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for index, appBracket := range tc.AddAppBrackets {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
+					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time, TransformerID(10+index))
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -428,9 +453,9 @@ func TestHandleBracketUpdates(t *testing.T) {
 					t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
 				}
 			}
-			for _, appBracket := range tc.DeleteAppBrackets {
+			for index, appBracket := range tc.DeleteAppBrackets {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					err := HandleDeleteAppFromBracket(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
+					err := HandleDeleteAppFromBracket(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time, TransformerID(20+index))
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -441,7 +466,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 				}
 			}
 
-			err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+			err = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 				bracketRow, err := DBSelectBracketHistoryById(ctx, dbHandler, transaction, tc.TransformerIndexToTest)
 				if err != nil {
 					return err
@@ -504,7 +529,7 @@ func TestHandleBracketDoubleDeletion(t *testing.T) {
 					Time:    timeThird, // same as above!
 				},
 			},
-			TransformerIndexToTest: 4,
+			TransformerIndexToTest: 21,
 			ExpectedBracketRow: &BracketRow{
 				CreatedAt: timeThird,
 				AllBracketsJsonBlob: BracketJsonBlob{
@@ -520,9 +545,22 @@ func TestHandleBracketDoubleDeletion(t *testing.T) {
 			ctx := testutilauth.MakeTestContext()
 			dbHandler := setupDB(t)
 
-			for _, appBracket := range tc.Setup {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for range 30 {
+					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(nil), ESLMetadata{})
+					if err != nil {
+						return fmt.Errorf("error while writing release, error: %w", err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for index, appBracket := range tc.Setup {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
+					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time, TransformerID(10+index))
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -532,10 +570,10 @@ func TestHandleBracketDoubleDeletion(t *testing.T) {
 					t.Fatalf("error while running the transaction for writing releases to the database, error: %v", err)
 				}
 			}
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				for _, appBracket := range tc.DeleteAppBracketsOnly1Transaction {
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for index, appBracket := range tc.DeleteAppBracketsOnly1Transaction {
 					t.Logf("app-bracket deletion ongoing: %v", appBracket)
-					err := HandleDeleteAppFromBracket(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time)
+					err := HandleDeleteAppFromBracket(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time, TransformerID(20+index))
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}

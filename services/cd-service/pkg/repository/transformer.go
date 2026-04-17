@@ -525,7 +525,7 @@ func (c *CreateApplicationVersion) Transform(
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 	}
-	actualBracketName, err := db.HandleBracketsUpdate(ctx, state.DBHandler, transaction, c.Application, c.ArgoBracket, *now)
+	actualBracketName, err := db.HandleBracketsUpdate(ctx, state.DBHandler, transaction, c.Application, c.ArgoBracket, *now, c.GetEslVersion())
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update brackets: %w", err))
 	}
@@ -563,7 +563,7 @@ func (c *CreateApplicationVersion) Transform(
 		}
 		newMeta := db.DBAppMetaData{Team: c.Team}
 		// only update the app, if something really changed:
-		if !cmp.Equal(newMeta, existingApp.Metadata) {
+		if !cmp.Equal(newMeta, existingApp.Metadata) || actualBracketName != existingApp.ArgoBracket {
 			err = state.DBHandler.DBInsertOrUpdateApplication(
 				ctx,
 				transaction,
@@ -1197,7 +1197,7 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("UndeployApplication: could not get timestamp: %w", err)
 	}
 
-	err = db.HandleDeleteAppFromBracket(ctx, state.DBHandler, transaction, u.Application, dbApp.ArgoBracket, *now)
+	err = db.HandleDeleteAppFromBracket(ctx, state.DBHandler, transaction, u.Application, dbApp.ArgoBracket, *now, u.GetEslVersion())
 	if err != nil {
 		return "", fmt.Errorf("UndeployApplication: could not handle bracket deletion for app '%s': %v", u.Application, err)
 	}

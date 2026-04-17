@@ -254,7 +254,20 @@ func Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
 
+	renderOptions := argocd.RenderOptions{}
+	renderOptions.RenderApps, err = valid.ReadEnvVarBool("KUBERPULT_RENDERING_RENDER_APPS")
+	if err != nil {
+		return err
+	}
+	renderOptions.RenderBrackets, err = valid.ReadEnvVarBool("KUBERPULT_RENDERING_RENDER_BRACKETS")
+	if err != nil {
+		return err
+	}
+	renderOptions.PointToBrackets, err = valid.ReadEnvVarBool("KUBERPULT_RENDERING_ROOT_APP_POINTS_TO_BRACKETS")
+	if err != nil {
+		return err
 	}
 
 	dbCfg := db.DBConfig{
@@ -307,7 +320,8 @@ func Run(ctx context.Context) error {
 
 		DDMetrics: ddMetrics,
 
-		ArgoProjectNames: &allArgoProjectNames, // note that this is empty here, we'll fill it later
+		ArgoRenderOptions: &renderOptions,
+		ArgoProjectNames:  &allArgoProjectNames, // note that this is empty here, we'll fill it later
 	}
 	repo, err := repository.New(ctx, cfg)
 	if err != nil {
