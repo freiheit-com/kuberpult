@@ -2942,30 +2942,46 @@ func TestRerenderEnvironment(t *testing.T) {
 			}
 
 			// Manually modify the manifests.yml in Git
-			if tc.ExpectedFiles != nil {
-				for i := range tc.ExpectedFiles {
-					expectedFile := tc.ExpectedFiles[i]
-					updatedState := repo.State()
-					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+			// if tc.ExpectedFiles != nil {
+			// 	for i := range tc.ExpectedFiles {
+			// 		expectedFile := tc.ExpectedFiles[i]
+			// 		updatedState := repo.State()
+			// 		fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
 
-					if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte("this file is broken now"), 0666); err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
+			// 		if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte("this file is broken now"), 0666); err != nil {
+			// 			t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+			// 		}
 
-					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
+			// 		actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+			// 		if err != nil {
+			// 			t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+			// 		}
 
-					fmt.Println("path: ", expectedFile.path)
-					fmt.Println("Actual file data: ", string(actualFileData))
-				}
-			}
+			// 		fmt.Println("path: ", expectedFile.path)
+			// 		fmt.Println("Actual file data: ", string(actualFileData))
+			// 	}
+			// }
 
 			expectedFile := tc.ExpectedFiles[0]
-			//updatedState := repo.State()
+			updatedState = repo.State()
 			fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+
+			if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte("this file is broken now"), 0666); err != nil {
+				t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+			}
+
 			actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+			if err != nil {
+				t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+			}
+
+			fmt.Println("path: ", expectedFile.path)
+			fmt.Println("Actual file data: ", string(actualFileData))
+
+			expectedFile = tc.ExpectedFiles[0]
+			//updatedState := repo.State()
+			fullPath = updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+			actualFileData, err = util.ReadFile(updatedState.Filesystem, fullPath)
 			if err != nil {
 				t.Fatalf("Expected no error: %v path=%s", err, fullPath)
 			}
