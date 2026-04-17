@@ -424,10 +424,11 @@ func (c *DeployApplicationVersion) Transform(
 	if err := fsys.MkdirAll(manifestsDir, 0777); err != nil {
 		return "", err
 	}
-	
+
 	if state.ArgoRenderOptions.RenderApps {
-		if err := writeManifests(fsys, manifestFilenameApp, manifestContent); err != nil {
-		return "", err
+		if err := writeManifests(fsys, manifestsDir, manifestContent); err != nil {
+			return "", err
+		}
 	}
 
 	tCtx.AddAppEnv(c.Application, c.Environment)
@@ -441,7 +442,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if state.ArgoRenderOptions.RenderBrackets {
-		s, err := c.writeBracketFiles(ctx, state, transaction, fsys, manifestContent, envName)
+		s, err := c.writeBracketFiles(ctx, state, transaction, fsys, []byte(manifestContent), envName)
 		if err != nil {
 			return s, err
 		}
@@ -1025,7 +1026,10 @@ func (c *CreateApplicationVersion) Transform(
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
-			writeManifests(fs, envDir, man)
+			err = writeManifests(fs, envDir, man)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
 		}
 
 		if _, exists := deploymentsMap[env]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
