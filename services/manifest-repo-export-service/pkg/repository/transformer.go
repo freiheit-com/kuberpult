@@ -97,6 +97,20 @@ func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvN
 	return fs.Join("environments", string(environment), "applications", application)
 }
 
+// writeManifests writes the manifests.yaml file to the given parent path
+func writeManifests(fs billy.Filesystem, parentPath string, envManifest string) error {
+	// When we undeploy applications, the manifests will be empty.
+	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
+	// We work around this unusual behavior by writing a space into the file
+	if envManifest == "" {
+		envManifest = " "
+	}
+	if err := util.WriteFile(fs, fs.Join(parentPath, "manifests.yaml"), []byte(envManifest), 0666); err != nil {
+		return err
+	}
+	return nil
+}
+
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
 func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version types.ReleaseNumbers) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
@@ -387,7 +401,7 @@ func (c *DeployApplicationVersion) Transform(
 	if version == nil {
 		return "", fmt.Errorf("release of app %s with version %v (revision %v) not found", c.Application, c.Version, c.Revision)
 	}
-	var manifestContent = []byte(version.Manifests.Manifests[envName])
+	manifestContent := version.Manifests.Manifests[envName]
 
 	applicationDir := fsys.Join("environments", string(c.Environment), "applications", c.Application)
 	// Create a symlink to the release
@@ -410,15 +424,7 @@ func (c *DeployApplicationVersion) Transform(
 	if err := fsys.MkdirAll(manifestsDir, 0777); err != nil {
 		return "", err
 	}
-	manifestFilename := fsys.Join(manifestsDir, "manifests.yaml")
-	// note that the manifest is empty here!
-	// but actually it's not quite empty!
-	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
-	// We work around this unusual behavior by writing a space into the file
-	if len(manifestContent) == 0 {
-		manifestContent = []byte(" ")
-	}
-	if err := util.WriteFile(fsys, manifestFilename, manifestContent, 0666); err != nil {
+	if err := writeManifests(fsys, manifestsDir, manifestContent); err != nil {
 		return "", err
 	}
 
@@ -939,9 +945,7 @@ func (c *CreateApplicationVersion) Transform(
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
-			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
+			writeManifests(fs, envDir, man)
 		}
 
 		if _, exists := deploymentsMap[env]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
@@ -1363,14 +1367,14 @@ func (c *RenderEnvironment) Transform(
 			return "", err
 		}
 
-		if err := util.WriteFile(fs, fs.Join(manifestsDir, "manifests.yaml"), []byte(envManifest), 0666); err != nil {
+		if err := writeManifests(fs, manifestsDir, envManifest); err != nil {
 			return "", err
 		}
 
 		tCtx.AddAppEnv(string(appName), c.Environment)
 	}
 
-	return "re-render apps for environment " + string(c.Environment), nil
+	return "re-render all deployed apps for environment " + string(c.Environment), nil
 }
 
 type CreateEnvironment struct {
@@ -1956,11 +1960,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
 				return "", err
 			}
-			// note that the manifest is empty here!
-			// but actually it's not quite empty!
-			// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
-			// We work around this unusual behavior by writing a space into the file
-			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
+			if err := writeManifests(fs, envDir, ""); err != nil {
 				return "", err
 			}
 		}

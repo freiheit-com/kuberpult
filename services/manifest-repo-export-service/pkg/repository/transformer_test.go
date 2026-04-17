@@ -34,6 +34,7 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	git "github.com/libgit2/git2go/v34"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -42,6 +43,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/fs"
 )
 
 const (
@@ -2795,6 +2797,188 @@ spec:
 			}
 			if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
 				t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+func TestRerenderEnvironment(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		ExpectedFiles []*FilenameAndData
+		ExpectedError error
+	}{
+		{
+			Name: "should re-render the ArgoCD root app",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"development": "some development manifest 1.0",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
+					fileData: []byte("some development manifest 1.0"),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _, repoConfig := SetupRepositoryTestWithDB(t)
+			gitRepo, err := git.OpenRepository(repoConfig.Path)
+			if err != nil {
+				t.Fatalf("Error while opening repository: %v", err)
+			}
+
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, tr := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+
+			// Verify if the manifests.yml is written correctly with DeployApplicationVersion transformer
+			if tc.ExpectedFiles != nil {
+				for i := range tc.ExpectedFiles {
+					expectedFile := tc.ExpectedFiles[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+				}
+			}
+
+			// Manually modify the manifests.yml in Git
+			if tc.ExpectedFiles != nil {
+				for i := range tc.ExpectedFiles {
+					expectedFile := tc.ExpectedFiles[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+
+					if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte("this file is broken now"), 0666); err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					treeId, _ := updatedState.Filesystem.(*fs.TreeBuilderFS).Insert()
+
+					_, err = gitRepo.CreateCommitFromIds(
+						"refs/heads/master",
+						&git.Signature{Name: "SRE", Email: "testing@gmail"},
+						&git.Signature{Name: "SRE", Email: "testing@gmail"},
+						"breaks the manifests files",
+						treeId,
+						updatedState.Commit.Id(),
+					)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					fmt.Println(fullPath)
+					fmt.Println(string(actualFileData))
+				}
+			}
+
+			// RenderEnvironment transformer should re-render the state of manifests.yml in Git (data fetched from database)
+			if tc.ExpectedFiles != nil {
+				for i := range tc.ExpectedFiles {
+					expectedFile := tc.ExpectedFiles[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+					fmt.Println(fullPath)
+					fmt.Println(string(actualFileData))
+
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+				}
 			}
 		})
 	}

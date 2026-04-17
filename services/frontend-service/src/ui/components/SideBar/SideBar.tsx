@@ -299,7 +299,7 @@ export const getActionDetails = (
             return {
                 type: ActionTypes.RenderEnvironment,
                 name: 'Re-render Environment',
-                dialogTitle: 'Are you sure you want to re-render this environment?',
+                dialogTitle: '',
                 summary: 'Re-render environment ' + action.renderEnvironment.environment,
                 tooltip: 'This will only re-render manifests of all the apps for this environment in Git.',
                 environment: action.renderEnvironment.environment,

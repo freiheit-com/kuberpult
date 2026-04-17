@@ -182,7 +182,7 @@ message BatchAction {
     ExtendAAEnvironmentRequest extend_aa_environment = 17;
     DeleteAAEnvironmentConfigRequest delete_aa_environment_config = 18;
     // this request is used to just re-render the all the manifests for an environment in the manifest git repository
-    // it does not perform any database operations
+    // it does not write to the database
     RenderEnvironmentRequest render_environment = 19;
   }
 }
