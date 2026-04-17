@@ -2874,6 +2874,10 @@ func TestRerenderEnvironment(t *testing.T) {
 					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
 					fileData: []byte("some development manifest 1.0"),
 				},
+				{
+					path:     "/argocd/v1alpha1/development.yaml",
+					fileData: []byte("root manifest for development"),
+				},
 			},
 		},
 	}
@@ -2918,22 +2922,22 @@ func TestRerenderEnvironment(t *testing.T) {
 			}
 			updatedState := repo.State()
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
-				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
 
 			// Verify if the manifests.yml is written correctly with DeployApplicationVersion transformer
 			if tc.ExpectedFiles != nil {
 				for i := range tc.ExpectedFiles {
 					expectedFile := tc.ExpectedFiles[i]
-					updatedState := repo.State()
+					updatedState = repo.State()
 					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
 					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
 					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+						t.Fatalf("failed to read file: %v path=%s", err, fullPath)
 					}
 
 					if !cmp.Equal(actualFileData, expectedFile.fileData) {
-						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+						t.Fatalf("expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
 					}
 				}
 			}
@@ -2946,30 +2950,56 @@ func TestRerenderEnvironment(t *testing.T) {
 					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
 
 					if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte("this file is broken now"), 0666); err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+						t.Fatalf("failed to write file: %v path=%s", err, fullPath)
+					}
+
+					_, _, applyError := repo.CreateCommit(ctx, updatedState, tc.Transformers[i], []string{"broken content"})
+					if applyError != nil {
+						t.Fatalf("failed to create commit: %v", applyError)
 					}
 
 					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
 					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+						t.Fatalf("failed to read file: %v path=%s", err, fullPath)
 					}
 
 					if !cmp.Equal(string(actualFileData), "this file is broken now") {
-						t.Fatalf("Expected '%v', got '%v'", "this file is broken now", string(actualFileData))
+						t.Fatalf("expected '%v', got '%v'", "this file is broken now", string(actualFileData))
 					}
 				}
 			}
 
-			expectedFile2 := tc.ExpectedFiles[0]
-			updatedState2 := repo.State()
-			fullPath2 := updatedState2.Filesystem.Join(updatedState2.Filesystem.Root(), expectedFile2.path)
-			actualFileData2, err2 := util.ReadFile(updatedState2.Filesystem, fullPath2)
-			if err2 != nil {
-				t.Fatalf("Expected no error: %v path=%s", err2, fullPath2)
-			}
+			// RenderEnvironment transformer should re-render the state of manifests.yml in Git (data fetched from database)
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteEslEventInternal(ctx, tc.RenderEnvTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tc.RenderEnvTransformer.GetMetadata().AuthorName, AuthorEmail: tc.RenderEnvTransformer.GetMetadata().AuthorEmail})
+				if err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, tc.RenderEnvTransformer, dbHandler, t, authorEmail, authorName)
 
-			if !cmp.Equal(string(actualFileData2), "this file is broken now") {
-				t.Fatalf("Expected '%v', got '%v'", "this file is broken now", string(actualFileData2))
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.RenderEnvTransformer)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+
+			if tc.ExpectedFiles != nil {
+				for i := range tc.ExpectedFiles {
+					expectedFile := tc.ExpectedFiles[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("failed to read file: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+				}
 			}
 		})
 	}

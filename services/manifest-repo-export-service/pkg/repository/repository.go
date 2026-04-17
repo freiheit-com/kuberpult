@@ -74,6 +74,7 @@ type Repository interface {
 	GetHeadCommitId() (*git.Oid, error)
 	FixCommitsTimestamp(ctx context.Context, state State) error
 	Notify() *notify.Notify
+	CreateCommit(ctx context.Context, state *State, transformer Transformer, commitMsg []string) (_ *git.Oid, _ *git.Oid, resultError *TransformerBatchApplyError)
 }
 
 type TransformerBatchApplyError struct {
@@ -667,7 +668,7 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 			return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 		}
 
-		oldCommitId, newCommitId, applyError := r.createCommit(ctx, state, transformer, commitMsg)
+		oldCommitId, newCommitId, applyError := r.CreateCommit(ctx, state, transformer, commitMsg)
 		if applyError != nil {
 			return nil, applyError
 		}
@@ -684,7 +685,7 @@ func (r *repository) ApplyTransformer(ctx context.Context, transaction *sql.Tx, 
 	return result, nil
 }
 
-func (r *repository) createCommit(ctx context.Context, state *State, transformer Transformer, commitMsg []string) (_ *git.Oid, _ *git.Oid, resultError *TransformerBatchApplyError) {
+func (r *repository) CreateCommit(ctx context.Context, state *State, transformer Transformer, commitMsg []string) (_ *git.Oid, _ *git.Oid, resultError *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "createCommit")
 	defer func() {
 		// Casting our TransformerBatchApplyError to error yields non-nil, even if it was nil.
@@ -1193,6 +1194,7 @@ func (r *repository) State() *State {
 }
 
 func (r *repository) StateAt(oid *git.Oid) (*State, error) {
+	//
 	var commit *git.Commit
 	if oid == nil {
 		if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
