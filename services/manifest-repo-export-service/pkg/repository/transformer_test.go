@@ -34,7 +34,6 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	git "github.com/libgit2/git2go/v34"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -43,7 +42,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/fs"
 )
 
 const (
@@ -2807,10 +2805,11 @@ func TestRerenderEnvironment(t *testing.T) {
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
 	tcs := []struct {
-		Name          string
-		Transformers  []Transformer
-		ExpectedFiles []*FilenameAndData
-		ExpectedError error
+		Name                 string
+		Transformers         []Transformer
+		RenderEnvTransformer Transformer
+		ExpectedFiles        []*FilenameAndData
+		ExpectedError        error
 	}{
 		{
 			Name: "should re-render the ArgoCD root app",
@@ -2861,6 +2860,14 @@ func TestRerenderEnvironment(t *testing.T) {
 					},
 				},
 			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 4,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
 			ExpectedFiles: []*FilenameAndData{
 				{
 					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
@@ -2874,9 +2881,12 @@ func TestRerenderEnvironment(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo, _, repoConfig := SetupRepositoryTestWithDB(t)
-			gitRepo, err := git.OpenRepository(repoConfig.Path)
+			_, err := New(
+				testutilauth.MakeTestContext(),
+				*repoConfig,
+			)
 			if err != nil {
-				t.Fatalf("Error while opening repository: %v", err)
+				t.Fatal(err)
 			}
 
 			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
@@ -2938,31 +2948,55 @@ func TestRerenderEnvironment(t *testing.T) {
 						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
 					}
 
-					treeId, _ := updatedState.Filesystem.(*fs.TreeBuilderFS).Insert()
+					// gitRepo, err := git.OpenRepository(repoConfig.Path)
+					// if err != nil {
+					// 	t.Fatalf("Error while opening repository: %v", err)
+					// }
 
-					_, err = gitRepo.CreateCommitFromIds(
-						"refs/heads/master",
-						&git.Signature{Name: "SRE", Email: "testing@gmail"},
-						&git.Signature{Name: "SRE", Email: "testing@gmail"},
-						"breaks the manifests files",
-						treeId,
-						updatedState.Commit.Id(),
-					)
-					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
+					// treeId, insertError := updatedState.Filesystem.(*fs.TreeBuilderFS).Insert()
+					// if insertError != nil {
+					// 	t.Fatalf("Error while inserting tree: %v", insertError)
+					// }
+
+					// _, err = gitRepo.CreateCommitFromIds(
+					// 	"refs/heads/master",
+					// 	&git.Signature{Name: "SRE", Email: "testing@gmail"},
+					// 	&git.Signature{Name: "SRE", Email: "testing@gmail"},
+					// 	"breaks the manifests files",
+					// 	treeId,
+					// 	updatedState.Commit.Id(),
+					// )
+					// if err != nil {
+					// 	t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					// }
 
 					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
 					if err != nil {
 						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
 					}
 
-					fmt.Println(fullPath)
-					fmt.Println(string(actualFileData))
+					if !cmp.Equal(string(actualFileData), "this file is broken now") {
+						t.Fatalf("Expected '%v', got '%v'", "this file is broken now", string(actualFileData))
+					}
 				}
 			}
 
 			// RenderEnvironment transformer should re-render the state of manifests.yml in Git (data fetched from database)
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteEslEventInternal(ctx, tc.RenderEnvTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tc.RenderEnvTransformer.GetMetadata().AuthorName, AuthorEmail: tc.RenderEnvTransformer.GetMetadata().AuthorEmail})
+				if err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, tc.RenderEnvTransformer, dbHandler, t, authorEmail, authorName)
+
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.RenderEnvTransformer)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+
 			if tc.ExpectedFiles != nil {
 				for i := range tc.ExpectedFiles {
 					expectedFile := tc.ExpectedFiles[i]
@@ -2972,8 +3006,6 @@ func TestRerenderEnvironment(t *testing.T) {
 					if err != nil {
 						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
 					}
-					fmt.Println(fullPath)
-					fmt.Println(string(actualFileData))
 
 					if !cmp.Equal(actualFileData, expectedFile.fileData) {
 						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
