@@ -2833,6 +2833,53 @@ func TestRerenderEnvironment(t *testing.T) {
 						AuthorEmail: authorEmail,
 					},
 				},
+			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 4,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path: "argocd/v1alpha1/development.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: development
+spec:
+  description: development
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+				},
+			},
+		},
+		{
+			Name: "should re-render the application manifest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
 				&CreateApplicationVersion{
 					Application:    appName,
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -2878,20 +2925,6 @@ func TestRerenderEnvironment(t *testing.T) {
 				{
 					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
 					fileData: []byte("some development manifest 1.0"),
-				},
-				{
-					path: "argocd/v1alpha1/development.yaml",
-					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
-kind: AppProject
-metadata:
-  name: development
-spec:
-  description: development
-  destinations:
-  - server: development
-  sourceRepos:
-  - '*'
-`),
 				},
 			},
 		},
