@@ -2925,7 +2925,7 @@ spec:
 			ExpectedFiles: []*FilenameAndData{
 				{
 					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
-					fileData: []byte("some development manifest 1.0"),
+					fileData: []byte("normal manifest"),
 				},
 			},
 		},
