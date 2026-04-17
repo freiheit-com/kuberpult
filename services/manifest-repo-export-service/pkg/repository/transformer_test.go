@@ -2821,6 +2821,11 @@ func TestRerenderEnvironment(t *testing.T) {
 						Upstream: &config.EnvironmentConfigUpstream{
 							Latest: true,
 						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
 					},
 					TransformerEslVersion: 1,
 					TransformerMetadata: TransformerMetadata{
@@ -2875,8 +2880,18 @@ func TestRerenderEnvironment(t *testing.T) {
 					fileData: []byte("some development manifest 1.0"),
 				},
 				{
-					path:     "/argocd/v1alpha1/development.yaml",
-					fileData: []byte("root manifest for development"),
+					path: "argocd/v1alpha1/development.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: development
+spec:
+  description: development
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
 				},
 			},
 		},
@@ -2910,10 +2925,18 @@ func TestRerenderEnvironment(t *testing.T) {
 					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
 				}
 
-				// actual transformer to be tested:
-				err = repo.Apply(ctx, transaction, tc.Transformers...)
-				if err != nil {
-					return err
+				for _, t := range tc.Transformers {
+					err := repo.Apply(ctx, transaction, t)
+					if err != nil {
+						return err
+					}
+					// just for testing, we push each transformer change separately.
+					// if you need to debug this test, you can git clone the repo
+					// and we will only see anything if we push.
+					err = repo.PushRepo(ctx)
+					if err != nil {
+						return err
+					}
 				}
 				return nil
 			})
@@ -2923,23 +2946,6 @@ func TestRerenderEnvironment(t *testing.T) {
 			updatedState := repo.State()
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
 				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
-			}
-
-			// Verify if the manifests.yml is written correctly with DeployApplicationVersion transformer
-			if tc.ExpectedFiles != nil {
-				for i := range tc.ExpectedFiles {
-					expectedFile := tc.ExpectedFiles[i]
-					updatedState = repo.State()
-					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
-					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-					if err != nil {
-						t.Fatalf("failed to read file: %v path=%s", err, fullPath)
-					}
-
-					if !cmp.Equal(actualFileData, expectedFile.fileData) {
-						t.Fatalf("expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
-					}
-				}
 			}
 
 			// Manually modify the manifests.yml in Git
@@ -2977,7 +2983,6 @@ func TestRerenderEnvironment(t *testing.T) {
 				}
 				prepareDatabaseLikeCdService(ctx, transaction, tc.RenderEnvTransformer, dbHandler, t, authorEmail, authorName)
 
-				// actual transformer to be tested:
 				err = repo.Apply(ctx, transaction, tc.RenderEnvTransformer)
 				if err != nil {
 					return err
@@ -2985,21 +2990,9 @@ func TestRerenderEnvironment(t *testing.T) {
 				return nil
 			})
 
-			if tc.ExpectedFiles != nil {
-				for i := range tc.ExpectedFiles {
-					expectedFile := tc.ExpectedFiles[i]
-					updatedState := repo.State()
-					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
-
-					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-					if err != nil {
-						t.Fatalf("failed to read file: %v path=%s", err, fullPath)
-					}
-
-					if !cmp.Equal(actualFileData, expectedFile.fileData) {
-						t.Fatalf("expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
-					}
-				}
+			updatedState = repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
 		})
 	}
