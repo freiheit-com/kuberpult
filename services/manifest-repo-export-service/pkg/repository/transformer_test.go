@@ -2960,16 +2960,16 @@ func TestRerenderEnvironment(t *testing.T) {
 				}
 			}
 
-			expectedFile := tc.ExpectedFiles[0]
-			//updatedState := repo.State()
-			fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
-			actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-			if err != nil {
-				t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+			expectedFile2 := tc.ExpectedFiles[0]
+			updatedState2 := repo.State()
+			fullPath2 := updatedState2.Filesystem.Join(updatedState2.Filesystem.Root(), expectedFile2.path)
+			actualFileData2, err2 := util.ReadFile(updatedState2.Filesystem, fullPath2)
+			if err2 != nil {
+				t.Fatalf("Expected no error: %v path=%s", err2, fullPath2)
 			}
 
-			if !cmp.Equal(string(actualFileData), "this file is broken now") {
-				t.Fatalf("Expected '%v', got '%v'", "this file is broken now", string(actualFileData))
+			if !cmp.Equal(string(actualFileData2), "this file is broken now") {
+				t.Fatalf("Expected '%v', got '%v'", "this file is broken now", string(actualFileData2))
 			}
 		})
 	}
