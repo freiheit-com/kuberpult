@@ -42,6 +42,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
 )
 
 const (
@@ -63,7 +64,7 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
-func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
+func setupRepositoryTestWithPath(t *testing.T, argoRenderOpts ...func(*argocd.RenderOptions)) (Repository, string) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -98,6 +99,10 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 		ReleaseVersionLimit:  2,
 		MinimizeExportedData: false,
 		ArgoRenderOptions:    testRenderOptions(),
+	}
+
+	for _, mod := range argoRenderOpts {
+		mod(repoCfg.ArgoRenderOptions)
 	}
 
 	if dbConfig != nil {
@@ -2812,9 +2817,15 @@ func TestRerenderEnvironment(t *testing.T) {
 		RenderEnvTransformer Transformer
 		ExpectedFiles        []*FilenameAndData
 		ExpectedError        error
+		ArgoRenderOptions    func(*argocd.RenderOptions)
 	}{
 		{
 			Name: "should re-render the ArgoCD root app",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+				opts.PointToBrackets = false
+			},
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "development",
@@ -2862,6 +2873,11 @@ spec:
 		},
 		{
 			Name: "should re-render the application manifest",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+				opts.PointToBrackets = false
+			},
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "development",
@@ -2929,24 +2945,90 @@ spec:
 				},
 			},
 		},
+		{
+			Name: "should re-render bracket manifests",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"development": "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 4,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/myapp/myapp.yaml",
+					fileData: []byte("normal manifest"),
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, _, repoConfig := SetupRepositoryTestWithDB(t)
-			_, err := New(
-				testutilauth.MakeTestContext(),
-				*repoConfig,
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
+			repo, _ := setupRepositoryTestWithPath(t, tc.ArgoRenderOptions)
 
 			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
-
 			dbHandler := repo.State().DBHandler
-			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
 				if err != nil {
 					return err
