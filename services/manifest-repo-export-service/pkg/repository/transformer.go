@@ -1433,6 +1433,8 @@ func (c *RenderEnvironment) Transform(
 		return "", err
 	}
 
+	fs := state.Filesystem
+	appToManifestMap := make(map[types.AppName]string)
 	for appName, releaseNumbers := range deployments {
 		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, tx, appName, releaseNumbers, false)
 		if err != nil {
@@ -1443,8 +1445,9 @@ func (c *RenderEnvironment) Transform(
 			return "", fmt.Errorf("no manifests found for app '%s' on env '%s'", appName, c.Environment)
 		}
 
+		appToManifestMap[appName] = string(envManifest)
+
 		// write app manifests to git
-		fs := state.Filesystem
 		envAppDir := environmentApplicationDirectory(fs, c.Environment, string(appName))
 		manifestsDir := fs.Join(envAppDir, "manifests")
 		if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
@@ -1456,6 +1459,37 @@ func (c *RenderEnvironment) Transform(
 		}
 
 		tCtx.AddAppEnv(string(appName), c.Environment)
+	}
+
+	// re-render brackets for all the apps in the environment (if brackets are enabled)
+	if state.ArgoRenderOptions.RenderBrackets {
+		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, state.DBHandler, tx)
+		if err != nil {
+			return "", err
+		}
+		if bracketRow != nil {
+			for bracketName, appNames := range bracketRow.AllBracketsJsonBlob.BracketMap {
+				for _, appName := range appNames {
+					// the app manifests in /environments/<env>/brackets/<bracketName>/<app>.yaml
+					// and /environments/<env>/applications/<app>/manifests/manifests.yaml
+					// are exactly the same
+					manifestContent, ok := appToManifestMap[appName]
+					if !ok {
+						// app with the bracket not found in current environment, skip it
+						continue
+					}
+
+					bracketPaths := argocd.BracketPaths(c.Environment, bracketName, appName)
+					if err := fs.MkdirAll(bracketPaths.BracketDirectory, 0777); err != nil {
+						return "", fmt.Errorf("could not create directory %s: %v", bracketPaths.BracketDirectory, err)
+					}
+					if err := util.WriteFile(fs, bracketPaths.BracketPath, []byte(manifestContent), 0666); err != nil {
+						return "", fmt.Errorf("could not write bracket for deployment of app %s on env %s: %v", appName, c.Environment, err)
+					}
+				}
+
+			}
+		}
 	}
 
 	return "re-render all deployed apps for environment " + string(c.Environment), nil
