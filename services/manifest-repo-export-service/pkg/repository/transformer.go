@@ -1445,7 +1445,7 @@ func (c *RenderEnvironment) Transform(
 			return "", fmt.Errorf("no manifests found for app '%s' on env '%s'", appName, c.Environment)
 		}
 
-		appToManifestMap[appName] = string(envManifest)
+		appToManifestMap[appName] = envManifest
 
 		// write app manifests to git
 		envAppDir := environmentApplicationDirectory(fs, c.Environment, string(appName))
