@@ -211,6 +211,54 @@ func (h *DBHandler) DBSelectOldestDeploymentForApplication(ctx context.Context, 
 	return processDeployment(rows)
 }
 
+func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp(ctx context.Context, tx *sql.Tx, envName types.EnvName, ts time.Time) (_ map[types.AppName]types.ReleaseNumbers, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	appSelectQuery := h.AdaptQuery(`
+		SELECT DISTINCT appName
+		FROM deployments_history
+		WHERE deployments_history.envName = ? AND deployments_history.created <= ?;
+	`)
+
+	span.SetTag("query", appSelectQuery)
+	rows, err := tx.QueryContext(
+		ctx,
+		appSelectQuery,
+		envName,
+		ts,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment for env %s from DB. Error: %w", envName, err)
+	}
+	defer closeRowsAndLog(rows, ctx, "DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp")
+
+	apps := make([]types.AppName, 0)
+	for rows.Next() {
+		var appName types.AppName
+		if err := rows.Scan(&appName); err != nil {
+			return nil, fmt.Errorf("error scanning apps row from DB. Error: %w", err)
+		}
+		apps = append(apps, appName)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("apps: row has error: %v", err)
+	}
+
+	results := make(map[types.AppName]types.ReleaseNumbers)
+	for _, app := range apps {
+		latestDeployment, err := h.DBSelectLatestDeploymentAtTimestamp(ctx, tx, app, envName, ts)
+		if err != nil {
+			return nil, err
+		}
+		results[app] = latestDeployment.ReleaseNumbers
+	}
+
+	return results, nil
+}
+
 func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName types.EnvName) (_ map[types.AppName]types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsOnEnvironment")
 	defer func() {

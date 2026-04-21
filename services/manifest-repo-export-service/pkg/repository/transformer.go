@@ -1428,7 +1428,7 @@ func (c *RenderEnvironment) Transform(
 	tCtx.ChangeEnvironment(c.Environment)
 
 	// re-render manifests for all the apps in the environment (under directory: /environments/<env>/applications/<app>)
-	deployments, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, tx, c.Environment)
+	deployments, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp(ctx, tx, c.Environment, c.CreationTimestamp)
 	if err != nil {
 		return "", err
 	}
