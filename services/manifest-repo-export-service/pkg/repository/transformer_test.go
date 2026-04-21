@@ -2813,9 +2813,10 @@ func TestRerenderEnvironment(t *testing.T) {
 	const brokenManifest = "this file is broken now"
 	tcs := []struct {
 		Name                 string
-		Transformers         []Transformer
+		SetupTransformers    []Transformer
 		RenderEnvTransformer Transformer
 		ExpectedFiles        []*FilenameAndData
+		UnexpectedFiles      []*FilenameAndData
 		ExpectedError        error
 		ArgoRenderOptions    func(*argocd.RenderOptions)
 	}{
@@ -2826,7 +2827,7 @@ func TestRerenderEnvironment(t *testing.T) {
 				opts.RenderBrackets = false
 				opts.PointToBrackets = false
 			},
-			Transformers: []Transformer{
+			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "development",
 					Config: config.EnvironmentConfig{
@@ -2870,15 +2871,16 @@ spec:
 `),
 				},
 			},
+			UnexpectedFiles: []*FilenameAndData{},
 		},
 		{
-			Name: "should re-render the application manifest",
+			Name: "should re-render the application manifests only",
 			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
 				opts.RenderApps = true
 				opts.RenderBrackets = false
 				opts.PointToBrackets = false
 			},
-			Transformers: []Transformer{
+			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "development",
 					Config: config.EnvironmentConfig{
@@ -2944,15 +2946,21 @@ spec:
 					fileData: []byte("normal manifest"),
 				},
 			},
+			UnexpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/myapp/myapp.yaml",
+					fileData: []byte(""),
+				},
+			},
 		},
 		{
-			Name: "should re-render bracket manifests",
+			Name: "should re-render bracket manifests only",
 			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
-				opts.RenderApps = true
+				opts.RenderApps = false
 				opts.RenderBrackets = true
 				opts.PointToBrackets = true
 			},
-			Transformers: []Transformer{
+			SetupTransformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "development",
 					Config: config.EnvironmentConfig{
@@ -3018,6 +3026,90 @@ spec:
 					fileData: []byte("normal manifest"),
 				},
 			},
+			UnexpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
+					fileData: []byte(""),
+				},
+			},
+		},
+		{
+			Name: "should re-render both application and bracket manifests",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"development": "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 4,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/myapp/myapp.yaml",
+					fileData: []byte("normal manifest"),
+				},
+				{
+					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
+					fileData: []byte("normal manifest"),
+				},
+			},
 		},
 	}
 
@@ -3033,7 +3125,7 @@ spec:
 				if err != nil {
 					return err
 				}
-				for _, tr := range tc.Transformers {
+				for _, tr := range tc.SetupTransformers {
 					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
 					if err != nil {
 						return err
@@ -3041,7 +3133,7 @@ spec:
 					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
 				}
 
-				for _, t := range tc.Transformers {
+				for _, t := range tc.SetupTransformers {
 					err := repo.Apply(ctx, transaction, t)
 					if err != nil {
 						return err
@@ -3075,7 +3167,7 @@ spec:
 						t.Fatalf("failed to write file: %v path=%s", err, fullPath)
 					}
 
-					_, _, applyError := repo.CreateCommit(ctx, updatedState, tc.Transformers[i], []string{"broken content"})
+					_, _, applyError := repo.CreateCommit(ctx, updatedState, tc.SetupTransformers[i], []string{"broken content"})
 					if applyError != nil {
 						t.Fatalf("failed to create commit: %v", applyError)
 					}
@@ -3109,6 +3201,9 @@ spec:
 			updatedState = repo.State()
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
 				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.UnexpectedFiles); err != nil {
+				t.Fatalf("error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
 		})
 	}

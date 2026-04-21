@@ -1447,17 +1447,19 @@ func (c *RenderEnvironment) Transform(
 
 		appToManifestMap[appName] = envManifest
 
-		envAppDir := environmentApplicationDirectory(fs, c.Environment, string(appName))
-		manifestsDir := fs.Join(envAppDir, "manifests")
-		if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
-			return "", fmt.Errorf("could not create directory %s: %v", manifestsDir, err)
-		}
+		if state.ArgoRenderOptions.RenderApps {
+			envAppDir := environmentApplicationDirectory(fs, c.Environment, string(appName))
+			manifestsDir := fs.Join(envAppDir, "manifests")
+			if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
+				return "", fmt.Errorf("could not create directory %s: %v", manifestsDir, err)
+			}
 
-		if err := writeManifests(fs, manifestsDir, envManifest); err != nil {
-			return "", fmt.Errorf("could not write manifests for app '%s' on env '%s': %v", appName, c.Environment, err)
-		}
+			if err := writeManifests(fs, manifestsDir, envManifest); err != nil {
+				return "", fmt.Errorf("could not write manifests for app '%s' on env '%s': %v", appName, c.Environment, err)
+			}
 
-		tCtx.AddAppEnv(string(appName), c.Environment)
+			tCtx.AddAppEnv(string(appName), c.Environment)
+		}
 	}
 
 	// re-render brackets for all the apps in the environment (if brackets are enabled)
