@@ -496,7 +496,7 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 		actualBracket = types.ArgoBracketName(app.App)
 	}
 
-	err = c.CleanupBracketFile(ctx, state, transaction, fsys)
+	err = cleanupBracketFile(ctx, state, transaction, fsys, c.Environment, types.AppName(c.Application), c.TransformerEslVersion)
 	if err != nil {
 		return "", fmt.Errorf("error in cleanup: %v", err)
 	}
@@ -517,8 +517,8 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 	return "", nil
 }
 
-func (c *DeployApplicationVersion) CleanupBracketFile(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem) error {
-	previousBracketHistory, err := db.DBSelectBracketHistoryLatestBeforeId(ctx, state.DBHandler, transaction, c.GetEslVersion())
+func cleanupBracketFile(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, env types.EnvName, app types.AppName, eslVersion db.TransformerID) error {
+	previousBracketHistory, err := db.DBSelectBracketHistoryLatestBeforeId(ctx, state.DBHandler, transaction, eslVersion)
 	if err != nil {
 		return err
 	}
@@ -527,15 +527,15 @@ func (c *DeployApplicationVersion) CleanupBracketFile(ctx context.Context, state
 		return nil
 	}
 	logging.Info(ctx, "bracket history found",
-		zap.Int64("eslVersion", int64(c.GetEslVersion())),
+		zap.Int64("eslVersion", int64(eslVersion)),
 		zap.Any("brackets", previousBracketHistory.AllBracketsJsonBlob.BracketMap),
 	)
 
 	// we here simple delete all apps of the same name in any the previous bracket.
 	for bracket, bracketsAppNames := range previousBracketHistory.AllBracketsJsonBlob.BracketMap {
 		for _, bracketAppName := range bracketsAppNames {
-			if bracketAppName == types.AppName(c.Application) {
-				dir := argocd.BracketPaths(c.Environment, bracket, types.AppName(c.Application))
+			if bracketAppName == app {
+				dir := argocd.BracketPaths(env, bracket, app)
 				logging.Info(ctx,
 					"trying to delete path",
 					zap.String("bracketPath", dir.BracketPath),
@@ -1424,10 +1424,10 @@ func (c *RenderEnvironment) Transform(
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	// this leads to the re-rendering of the ArgoCD root app in the environment (under directory: argocd/v1alpha1)
+	// this leads to the re-rendering of the ArgoCD root app in the environment (under directory: /argocd/v1alpha1)
 	tCtx.ChangeEnvironment(c.Environment)
 
-	// re-render manifests for all the apps in the environment (under directory: environments/<env>/applications/<app>)
+	// re-render manifests for all the apps in the environment (under directory: /environments/<env>/applications/<app>)
 	deployments, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, tx, c.Environment)
 	if err != nil {
 		return "", err
@@ -1447,15 +1447,14 @@ func (c *RenderEnvironment) Transform(
 
 		appToManifestMap[appName] = envManifest
 
-		// write app manifests to git
 		envAppDir := environmentApplicationDirectory(fs, c.Environment, string(appName))
 		manifestsDir := fs.Join(envAppDir, "manifests")
 		if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
-			return "", err
+			return "", fmt.Errorf("could not create directory %s: %v", manifestsDir, err)
 		}
 
 		if err := writeManifests(fs, manifestsDir, envManifest); err != nil {
-			return "", err
+			return "", fmt.Errorf("could not write manifests for app '%s' on env '%s': %v", appName, c.Environment, err)
 		}
 
 		tCtx.AddAppEnv(string(appName), c.Environment)
@@ -1470,6 +1469,12 @@ func (c *RenderEnvironment) Transform(
 		if bracketRow != nil {
 			for bracketName, appNames := range bracketRow.AllBracketsJsonBlob.BracketMap {
 				for _, appName := range appNames {
+					// as an app can be moved to a different bracket,
+					// we have to clean up all old brackes for this app on this env before rendering new brackets
+					if err := cleanupBracketFile(ctx, state, tx, fs, c.Environment, appName, c.TransformerEslVersion); err != nil {
+						return "", fmt.Errorf("error while cleaning up old brackets: %v", err)
+					}
+
 					// the app manifests in /environments/<env>/brackets/<bracketName>/<app>.yaml
 					// and /environments/<env>/applications/<app>/manifests/manifests.yaml
 					// are exactly the same
