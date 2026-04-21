@@ -1436,7 +1436,7 @@ func (c *RenderEnvironment) Transform(
 	fs := state.Filesystem
 	appToManifestMap := make(map[types.AppName]string)
 	for appName, releaseNumbers := range deployments {
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, tx, appName, releaseNumbers, false)
+		release, err := state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, tx, appName, releaseNumbers, false, c.CreationTimestamp)
 		if err != nil {
 			return "", err
 		}
