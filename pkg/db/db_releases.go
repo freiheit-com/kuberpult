@@ -56,6 +56,7 @@ type DBReleaseWithMetaData struct {
 	Manifests      DBReleaseManifests
 	Metadata       DBReleaseMetaData
 	Environments   []types.EnvName
+	Deleted        bool
 }
 
 // SELECTS
@@ -153,7 +154,7 @@ func (h *DBHandler) DBSelectReleaseByVersion(ctx context.Context, tx *sql.Tx, ap
 
 func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx *sql.Tx, app types.AppName, releaseVersion types.ReleaseNumbers, ignorePrepublishes bool, ts time.Time) (*DBReleaseWithMetaData, error) {
 	selectQuery := h.AdaptQuery(`
-		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision
+		SELECT created, appName, metadata, manifests, releaseVersion, environments, revision, deleted
 		FROM releases_history
 		WHERE appName=? AND releaseVersion=? AND revision=? AND created <= (?)
 		ORDER BY version DESC
@@ -167,7 +168,63 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 		releaseVersion.Revision,
 		ts,
 	)
-	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, true)
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logging.Error(ctx, "error while closing row of releases_history.", zap.Error(err))
+		}
+	}(rows)
+
+	if rows.Next() {
+		//exhaustruct:ignore
+		row := &DBReleaseWithMetaData{}
+		var metadataStr string
+		var manifestStr string
+		var environmentsStr sql.NullString
+		err = rows.Scan(&row.Created, &row.App, &metadataStr, &manifestStr, &row.ReleaseNumbers.Version, &environmentsStr, &row.ReleaseNumbers.Revision, &row.Deleted)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning the releases_history table, error: %w", err)
+		}
+
+		var metaData = DBReleaseMetaData{
+			SourceAuthor:    "",
+			SourceCommitId:  "",
+			SourceMessage:   "",
+			DisplayVersion:  "",
+			UndeployVersion: false,
+			IsMinor:         false,
+			CiLink:          "",
+			IsPrepublish:    false,
+		}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("error during json unmarshal of metadata for releases history. Error: %w. Data: %s", err, metadataStr)
+		}
+		row.Metadata = metaData
+
+		// handle manifests
+		var manifestData = DBReleaseManifests{
+			Manifests: map[types.EnvName]string{},
+		}
+		err = json.Unmarshal(([]byte)(manifestStr), &manifestData)
+		if err != nil {
+			return nil, fmt.Errorf("error during json unmarshal of manifests for releases history. Error: %w. Data: %s", err, metadataStr)
+		}
+		row.Manifests = manifestData
+		environments := make([]types.EnvName, 0)
+		if environmentsStr.Valid && environmentsStr.String != "" {
+			err = json.Unmarshal(([]byte)(environmentsStr.String), &environments)
+			if err != nil {
+				return nil, fmt.Errorf("error during json unmarshal of environments for releases history. Error: %w. Data: %s", err, environmentsStr.String)
+			}
+		}
+		row.Environments = environments
+		return row, nil
+	}
+	return nil, nil
 }
 
 type AppVersionEnvironments map[types.AppName]map[string][]types.EnvName // first key is the appName

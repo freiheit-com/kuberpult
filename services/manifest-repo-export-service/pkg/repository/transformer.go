@@ -1448,9 +1448,17 @@ func (c *RenderEnvironment) Transform(
 		if err != nil {
 			return "", err
 		}
+		if release == nil || release.Deleted {
+			// skip if there is no release found matching the version numbers for this app
+			// or if the release has been undeployed
+			continue
+		}
+
 		envManifest, ok := release.Manifests.Manifests[c.Environment]
 		if !ok {
-			return "", fmt.Errorf("no manifests found for app '%s' on env '%s'", appName, c.Environment)
+			// skip an app if it doesn't have any manifests on this environment
+			// this might happen if the app was already undeployed from the environment at the given timestamp
+			continue
 		}
 
 		appToManifestMap[appName] = envManifest
