@@ -3167,7 +3167,7 @@ spec:
 						t.Fatalf("failed to write file: %v path=%s", err, fullPath)
 					}
 
-					_, _, applyError := repo.CreateCommit(ctx, updatedState, tc.SetupTransformers[i], []string{"broken content"})
+					_, _, applyError := repo.createCommit(ctx, updatedState, tc.SetupTransformers[i], []string{"broken content"})
 					if applyError != nil {
 						t.Fatalf("failed to create commit: %v", applyError)
 					}

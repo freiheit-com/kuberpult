@@ -1428,9 +1428,17 @@ func (c *RenderEnvironment) Transform(
 	tCtx.ChangeEnvironment(c.Environment)
 
 	// re-render manifests for all the apps in the environment (under directory: /environments/<env>/applications/<app>)
-	deployments, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp(ctx, tx, c.Environment, c.CreationTimestamp)
+	deployedApps, err := state.DBHandler.DBSelectDeployedAppsSince(ctx, tx, c.Environment, c.CreationTimestamp)
 	if err != nil {
 		return "", err
+	}
+	deployments := make(map[types.AppName]types.ReleaseNumbers)
+	for _, app := range deployedApps {
+		latestDeployment, err := state.DBHandler.DBSelectLatestDeploymentAtTimestamp(ctx, tx, app, c.Environment, c.CreationTimestamp)
+		if err != nil {
+			return "", err
+		}
+		deployments[app] = latestDeployment.ReleaseNumbers
 	}
 
 	fs := state.Filesystem
