@@ -181,6 +181,9 @@ message BatchAction {
     DeleteEnvironmentRequest delete_environment = 16;
     ExtendAAEnvironmentRequest extend_aa_environment = 17;
     DeleteAAEnvironmentConfigRequest delete_aa_environment_config = 18;
+    // this request is used to just re-render the all the manifests for an environment in the manifest git repository
+    // it does not write to the database
+    RenderEnvironmentRequest render_environment = 19;
   }
 }
 
@@ -666,6 +669,10 @@ message ExtendAAEnvironmentRequest {
 message DeleteAAEnvironmentConfigRequest {
   string parent_environment_name = 1;
   string concrete_environment_name = 2;
+}
+
+message RenderEnvironmentRequest {
+  string environment = 1;
 }
 
 message DeleteEnvironmentRequest {

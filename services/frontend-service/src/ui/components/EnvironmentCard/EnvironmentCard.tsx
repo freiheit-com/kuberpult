@@ -52,6 +52,17 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
         });
     }, [environment.name]);
 
+    const renderEnvironment = React.useCallback(() => {
+        addAction({
+            action: {
+                $case: 'renderEnvironment',
+                renderEnvironment: {
+                    environment: environment.name,
+                },
+            },
+        });
+    }, [environment.name]);
+
     const popupSelectTeams = React.useCallback(() => {
         setShowTeamSelectionDialog(true);
     }, [setShowTeamSelectionDialog]);
@@ -125,6 +136,17 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         onClick={popupSelectTeams}
                         highlightEffect={false}
                     />
+                    <span
+                        title={
+                            'Kuberpult generally renders all necessary files automatically.\nRe-rendering is useful if you did manual changes in the manifest repository.'
+                        }>
+                        <Button
+                            className="environment-action"
+                            label={'Re-render environment ' + environment.name}
+                            onClick={renderEnvironment}
+                            highlightEffect={false}
+                        />
+                    </span>
                     <Button
                         className="environment-action service-action--show-config"
                         label={'Show Configuration of environment ' + environment.name}

@@ -42,6 +42,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
 )
 
 const (
@@ -63,7 +64,7 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
-func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
+func setupRepositoryTestWithPath(t *testing.T, argoRenderOpts ...func(*argocd.RenderOptions)) (Repository, string) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -98,6 +99,10 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 		ReleaseVersionLimit:  2,
 		MinimizeExportedData: false,
 		ArgoRenderOptions:    testRenderOptions(),
+	}
+
+	for _, mod := range argoRenderOpts {
+		mod(repoCfg.ArgoRenderOptions)
 	}
 
 	if dbConfig != nil {
@@ -2801,6 +2806,409 @@ spec:
 	}
 }
 
+func TestRerenderEnvironment(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	const brokenManifest = "this file is broken now"
+	tcs := []struct {
+		Name                 string
+		SetupTransformers    []Transformer
+		RenderEnvTransformer Transformer
+		ExpectedFiles        []*FilenameAndData
+		UnexpectedFiles      []*FilenameAndData
+		ExpectedError        error
+		ArgoRenderOptions    func(*argocd.RenderOptions)
+	}{
+		{
+			Name: "should re-render the ArgoCD root app",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+				opts.PointToBrackets = false
+			},
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 4,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path: "argocd/v1alpha1/development.yaml",
+					fileData: []byte(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: development
+spec:
+  description: development
+  destinations:
+  - server: development
+  sourceRepos:
+  - '*'
+`),
+				},
+			},
+			UnexpectedFiles: []*FilenameAndData{},
+		},
+		{
+			Name: "should re-render the application manifests only",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+				opts.PointToBrackets = false
+			},
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"development": "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 4,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
+					fileData: []byte("normal manifest"),
+				},
+			},
+			UnexpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/myapp/myapp.yaml",
+					fileData: []byte(""),
+				},
+			},
+		},
+		{
+			Name: "should re-render bracket manifests only",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"development": "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 4,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/myapp/myapp.yaml",
+					fileData: []byte("normal manifest"),
+				},
+			},
+			UnexpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
+					fileData: []byte(""),
+				},
+			},
+		},
+		{
+			Name: "should re-render both application and bracket manifests",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"development": "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 4,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/myapp/myapp.yaml",
+					fileData: []byte("normal manifest"),
+				},
+				{
+					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
+					fileData: []byte("normal manifest"),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t, tc.ArgoRenderOptions)
+
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, tr := range tc.SetupTransformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+
+				for _, t := range tc.SetupTransformers {
+					err := repo.Apply(ctx, transaction, t)
+					if err != nil {
+						return err
+					}
+					// just for testing, we push each transformer change separately.
+					// if you need to debug this test, you can git clone the repo
+					// and we will only see anything if we push.
+					err = repo.PushRepo(ctx)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+
+			// Manually modify the manifests.yml in Git
+			if tc.ExpectedFiles != nil {
+				for i := range tc.ExpectedFiles {
+					expectedFile := tc.ExpectedFiles[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+
+					if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte(brokenManifest), 0666); err != nil {
+						t.Fatalf("failed to write file: %v path=%s", err, fullPath)
+					}
+
+					_, _, applyError := repo.createCommit(ctx, updatedState, tc.SetupTransformers[i], []string{"broken content"})
+					if applyError != nil {
+						t.Fatalf("failed to create commit: %v", applyError)
+					}
+
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("failed to read file: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(string(actualFileData), brokenManifest) {
+						t.Fatalf("expected '%v', got '%v'", brokenManifest, string(actualFileData))
+					}
+				}
+			}
+
+			// RenderEnvironment transformer should re-render the state of manifests.yml in Git (data fetched from database)
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteEslEventInternal(ctx, tc.RenderEnvTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tc.RenderEnvTransformer.GetMetadata().AuthorName, AuthorEmail: tc.RenderEnvTransformer.GetMetadata().AuthorEmail})
+				if err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, tc.RenderEnvTransformer, dbHandler, t, authorEmail, authorName)
+
+				err = repo.Apply(ctx, transaction, tc.RenderEnvTransformer)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+
+			updatedState = repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.UnexpectedFiles); err != nil {
+				t.Fatalf("error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
 func TestReleasesAndDeployments(t *testing.T) {
 	const appName = "myapp"
 	const authorName = "testAuthorName"
@@ -3611,7 +4019,15 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 	}
 	if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 		concreteTransformer := tr.(*CreateApplicationVersion)
-		err2 := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, types.ArgoBracketName(concreteTransformer.Application))
+		actualBracketName := types.ArgoBracketName(concreteTransformer.Application)
+		if concreteTransformer.GetEslVersion() > 0 {
+			bracketName, bracketError := db.HandleBracketsUpdate(ctx, dbHandler, transaction, types.AppName(concreteTransformer.Application), concreteTransformer.ArgoBracket, *now, concreteTransformer.GetEslVersion())
+			if bracketError != nil {
+				t.Fatal(bracketError)
+			}
+			actualBracketName = bracketName
+		}
+		err2 := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, actualBracketName)
 		if err2 != nil {
 			t.Fatal(err2)
 		}

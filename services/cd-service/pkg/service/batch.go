@@ -467,6 +467,13 @@ func (d *BatchServer) processAction(
 			ConcreteEnvironmentName: types.EnvName(act.ConcreteEnvironmentName),
 			TransformerEslVersion:   0,
 		}, nil, nil
+	case *api.BatchAction_RenderEnvironment:
+		act := action.RenderEnvironment
+		return &repository.RenderEnvironment{
+			Environment:           types.EnvName(act.Environment),
+			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
+			TransformerEslVersion: 0,
+		}, nil, nil
 	}
 
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")

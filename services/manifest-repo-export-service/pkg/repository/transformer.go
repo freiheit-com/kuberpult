@@ -97,6 +97,20 @@ func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvN
 	return fs.Join("environments", string(environment), "applications", application)
 }
 
+// writeManifests writes the manifests.yaml file to the given parent path
+func writeManifests(fs billy.Filesystem, parentPath string, envManifest string) error {
+	// When we undeploy applications, the manifests will be empty.
+	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
+	// We work around this unusual behavior by writing a space into the file
+	if envManifest == "" {
+		envManifest = " "
+	}
+	if err := util.WriteFile(fs, fs.Join(parentPath, "manifests.yaml"), []byte(envManifest), 0666); err != nil {
+		return err
+	}
+	return nil
+}
+
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
 func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version types.ReleaseNumbers) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
@@ -387,7 +401,7 @@ func (c *DeployApplicationVersion) Transform(
 	if version == nil {
 		return "", fmt.Errorf("release of app %s with version %v (revision %v) not found", c.Application, c.Version, c.Revision)
 	}
-	var manifestContent = []byte(version.Manifests.Manifests[envName])
+	manifestContent := version.Manifests.Manifests[envName]
 
 	applicationDir := fsys.Join("environments", string(c.Environment), "applications", c.Application)
 	// Create a symlink to the release
@@ -410,17 +424,9 @@ func (c *DeployApplicationVersion) Transform(
 	if err := fsys.MkdirAll(manifestsDir, 0777); err != nil {
 		return "", err
 	}
-	manifestFilenameApp := fsys.Join(manifestsDir, "manifests.yaml")
-	// note that the manifest is empty here!
-	// but actually it's not quite empty!
-	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
-	// We work around this unusual behavior by writing a space into the file
-	if len(manifestContent) == 0 {
-		manifestContent = []byte(" ")
-	}
 
 	if state.ArgoRenderOptions.RenderApps {
-		if err := util.WriteFile(fsys, manifestFilenameApp, manifestContent, 0666); err != nil {
+		if err := writeManifests(fsys, manifestsDir, manifestContent); err != nil {
 			return "", err
 		}
 	}
@@ -436,7 +442,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if state.ArgoRenderOptions.RenderBrackets {
-		s, err := c.writeBracketFiles(ctx, state, transaction, fsys, manifestContent, envName)
+		s, err := c.writeBracketFiles(ctx, state, transaction, fsys, []byte(manifestContent), envName)
 		if err != nil {
 			return s, err
 		}
@@ -490,7 +496,7 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 		actualBracket = types.ArgoBracketName(app.App)
 	}
 
-	err = c.CleanupBracketFile(ctx, state, transaction, fsys)
+	err = cleanupBracketFile(ctx, state, transaction, fsys, c.Environment, types.AppName(c.Application), c.TransformerEslVersion)
 	if err != nil {
 		return "", fmt.Errorf("error in cleanup: %v", err)
 	}
@@ -511,8 +517,8 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 	return "", nil
 }
 
-func (c *DeployApplicationVersion) CleanupBracketFile(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem) error {
-	previousBracketHistory, err := db.DBSelectBracketHistoryLatestBeforeId(ctx, state.DBHandler, transaction, c.GetEslVersion())
+func cleanupBracketFile(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, env types.EnvName, app types.AppName, eslVersion db.TransformerID) error {
+	previousBracketHistory, err := db.DBSelectBracketHistoryLatestBeforeId(ctx, state.DBHandler, transaction, eslVersion)
 	if err != nil {
 		return err
 	}
@@ -521,15 +527,15 @@ func (c *DeployApplicationVersion) CleanupBracketFile(ctx context.Context, state
 		return nil
 	}
 	logging.Info(ctx, "bracket history found",
-		zap.Int64("eslVersion", int64(c.GetEslVersion())),
+		zap.Int64("eslVersion", int64(eslVersion)),
 		zap.Any("brackets", previousBracketHistory.AllBracketsJsonBlob.BracketMap),
 	)
 
 	// we here simple delete all apps of the same name in any the previous bracket.
 	for bracket, bracketsAppNames := range previousBracketHistory.AllBracketsJsonBlob.BracketMap {
 		for _, bracketAppName := range bracketsAppNames {
-			if bracketAppName == types.AppName(c.Application) {
-				dir := argocd.BracketPaths(c.Environment, bracket, types.AppName(c.Application))
+			if bracketAppName == app {
+				dir := argocd.BracketPaths(env, bracket, app)
 				logging.Info(ctx,
 					"trying to delete path",
 					zap.String("bracketPath", dir.BracketPath),
@@ -1020,7 +1026,8 @@ func (c *CreateApplicationVersion) Transform(
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
-			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
+			err = writeManifests(fs, envDir, man)
+			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
 		}
@@ -1373,6 +1380,134 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	}
 
 	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+}
+
+type RenderEnvironment struct {
+	Authentication        `json:"-"`
+	TransformerMetadata   `json:"metadata"`
+	Environment           types.EnvName    `json:"env"`
+	TransformerEslVersion db.TransformerID `json:"-"`
+	CreationTimestamp     time.Time        `json:"-"`
+}
+
+func (c *RenderEnvironment) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *RenderEnvironment) SetEslVersion(eslVersion db.TransformerID) {
+	c.TransformerEslVersion = eslVersion
+}
+
+func (c *RenderEnvironment) GetDBEventType() db.EventType {
+	return db.EvtRenderEnvironment
+}
+
+func (c *RenderEnvironment) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c *RenderEnvironment) SetCreationTimestamp(ts time.Time) {
+	c.CreationTimestamp = ts
+}
+
+func (c *RenderEnvironment) GetGitTag() types.GitTag {
+	return ""
+}
+
+func (c *RenderEnvironment) Transform(
+	ctx context.Context,
+	state *State,
+	tCtx TransformerContext,
+	tx *sql.Tx,
+) (_ string, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RenderEnvironment")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	// this leads to the re-rendering of the ArgoCD root app in the environment (under directory: /argocd/v1alpha1)
+	tCtx.ChangeEnvironment(c.Environment)
+
+	// re-render manifests for all the apps in the environment (under directory: /environments/<env>/applications/<app>)
+	deployedApps, err := state.DBHandler.DBSelectDeployedAppsSince(ctx, tx, c.Environment, c.CreationTimestamp)
+	if err != nil {
+		return "", err
+	}
+	deployments := make(map[types.AppName]types.ReleaseNumbers)
+	for _, app := range deployedApps {
+		latestDeployment, err := state.DBHandler.DBSelectLatestDeploymentAtTimestamp(ctx, tx, app, c.Environment, c.CreationTimestamp)
+		if err != nil {
+			return "", err
+		}
+		deployments[app] = latestDeployment.ReleaseNumbers
+	}
+
+	fs := state.Filesystem
+	appToManifestMap := make(map[types.AppName]string)
+	for appName, releaseNumbers := range deployments {
+		release, err := state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, tx, appName, releaseNumbers, false, c.CreationTimestamp)
+		if err != nil {
+			return "", err
+		}
+		envManifest, ok := release.Manifests.Manifests[c.Environment]
+		if !ok {
+			return "", fmt.Errorf("no manifests found for app '%s' on env '%s'", appName, c.Environment)
+		}
+
+		appToManifestMap[appName] = envManifest
+
+		if state.ArgoRenderOptions.RenderApps {
+			envAppDir := environmentApplicationDirectory(fs, c.Environment, string(appName))
+			manifestsDir := fs.Join(envAppDir, "manifests")
+			if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
+				return "", fmt.Errorf("could not create directory %s: %v", manifestsDir, err)
+			}
+
+			if err := writeManifests(fs, manifestsDir, envManifest); err != nil {
+				return "", fmt.Errorf("could not write manifests for app '%s' on env '%s': %v", appName, c.Environment, err)
+			}
+
+			tCtx.AddAppEnv(string(appName), c.Environment)
+		}
+	}
+
+	// re-render brackets for all the apps in the environment (if brackets are enabled)
+	if state.ArgoRenderOptions.RenderBrackets {
+		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, state.DBHandler, tx)
+		if err != nil {
+			return "", err
+		}
+		if bracketRow != nil {
+			for bracketName, appNames := range bracketRow.AllBracketsJsonBlob.BracketMap {
+				for _, appName := range appNames {
+					// as an app can be moved to a different bracket,
+					// we have to clean up all old brackes for this app on this env before rendering new brackets
+					if err := cleanupBracketFile(ctx, state, tx, fs, c.Environment, appName, c.TransformerEslVersion); err != nil {
+						return "", fmt.Errorf("error while cleaning up old brackets: %v", err)
+					}
+
+					// the app manifests in /environments/<env>/brackets/<bracketName>/<app>.yaml
+					// and /environments/<env>/applications/<app>/manifests/manifests.yaml
+					// are exactly the same
+					manifestContent, ok := appToManifestMap[appName]
+					if !ok {
+						// app with the bracket not found in current environment, skip it
+						continue
+					}
+
+					bracketPaths := argocd.BracketPaths(c.Environment, bracketName, appName)
+					if err := fs.MkdirAll(bracketPaths.BracketDirectory, 0777); err != nil {
+						return "", fmt.Errorf("could not create directory %s: %v", bracketPaths.BracketDirectory, err)
+					}
+					if err := util.WriteFile(fs, bracketPaths.BracketPath, []byte(manifestContent), 0666); err != nil {
+						return "", fmt.Errorf("could not write bracket for deployment of app %s on env %s: %v", appName, c.Environment, err)
+					}
+				}
+
+			}
+		}
+	}
+
+	return "re-render all deployed apps for environment " + string(c.Environment), nil
 }
 
 type CreateEnvironment struct {
@@ -1958,11 +2093,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
 				return "", err
 			}
-			// note that the manifest is empty here!
-			// but actually it's not quite empty!
-			// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
-			// We work around this unusual behavior by writing a space into the file
-			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
+			if err := writeManifests(fs, envDir, ""); err != nil {
 				return "", err
 			}
 		}

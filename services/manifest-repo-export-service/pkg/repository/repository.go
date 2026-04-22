@@ -74,6 +74,7 @@ type Repository interface {
 	GetHeadCommitId() (*git.Oid, error)
 	FixCommitsTimestamp(ctx context.Context, state State) error
 	Notify() *notify.Notify
+	createCommit(ctx context.Context, state *State, transformer Transformer, commitMsg []string) (_ *git.Oid, _ *git.Oid, resultError *TransformerBatchApplyError)
 }
 
 type TransformerBatchApplyError struct {
@@ -1184,6 +1185,8 @@ func getArgoCdAAEnvFileName(filesystem billy.Filesystem, commonEnvPrefix, parent
 	return filesystem.Join("argocd", string(argocd.V1Alpha1), fmt.Sprintf("%s.yaml", string(commonEnvPrefix)+"-"+string(parentEnvironmentName)+"-"+string(concreteEnvironmentName)))
 }
 
+// this function gets the working directory state at the latest commit on the branch.
+// this is equal to: git stash && git checkout master
 func (r *repository) State() *State {
 	s, err := r.StateAt(nil)
 	if err != nil {
