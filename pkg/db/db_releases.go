@@ -168,6 +168,9 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 		releaseVersion.Revision,
 		ts,
 	)
+	if err != nil {
+		return nil, err
+	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
