@@ -19,6 +19,7 @@ MAKEFLAGS += --no-builtin-rules
 CONTEXT=../..
 # avoid calling docker to run buf:
 PKG_WITHOUT_DOCKER=1
+UNIT_TEST_WITHOUT_DOCKER=1
 MAX_DOCKER_SIZE_MB=43
 include ../../infrastructure/make/go/include.mk
 

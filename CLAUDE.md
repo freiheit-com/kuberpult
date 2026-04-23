@@ -59,23 +59,29 @@ make lint-fix    # auto-fix linting issues
 
 ```bash
 # Generate protobuf / gRPC code (from pkg/)
-# On Apple Silicon (arm64) the builder Docker image won't run — use PKG_WITHOUT_DOCKER=1 instead:
-PKG_WITHOUT_DOCKER=1 make -C pkg gen
+make -C pkg gen
 
 # Generate frontend API client
 make -C services/frontend-service gen-api
 ```
 
 The generated files in `pkg/api/v1/` and `pkg/publicapi/` are required to compile and test
-services locally (e.g. `go test ./...` in `services/frontend-service`). Always run
-`PKG_WITHOUT_DOCKER=1 make -C pkg gen` once after a fresh clone or after `pkg/api/v1/api.proto`
-changes before running tests.
+services locally. They are produced by `make test` / `make -C pkg gen` automatically.
+
+**On Apple Silicon (arm64):** the builder Docker image is amd64-only and cannot run natively.
+Services that need Docker-free builds set `PKG_WITHOUT_DOCKER=1` and `UNIT_TEST_WITHOUT_DOCKER=1`
+in their own Makefile (e.g. `frontend-service` already does this), so `make test` works as-is
+on Mac for those services. For other services, pass the flags manually:
+
+```bash
+PKG_WITHOUT_DOCKER=1 UNIT_TEST_WITHOUT_DOCKER=1 make -C services/<name> test
+```
 
 **Always run the relevant service tests locally before pushing or opening a PR:**
 
 ```bash
-cd services/frontend-service && go test ./...
-cd services/cd-service && go test ./...
+make -C services/frontend-service test
+make -C services/cd-service test
 ```
 
 ## Architecture
