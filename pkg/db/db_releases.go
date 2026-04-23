@@ -178,23 +178,24 @@ func (h *DBHandler) DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctx context
 		span.Finish(tracer.WithError(err))
 	}()
 	query := h.AdaptQuery(`
-	SELECT DISTINCT appname
-	FROM (
-		SELECT DISTINCT ON (appname, releaseversion, revision)
-			appname,
-			releaseVersion,
-			environments,
-			revision,
-			deleted
-		FROM releases_history
-		WHERE created <= ?
-		ORDER BY
+	SELECT DISTINCT
+		ON (
 			appname,
 			releaseversion,
-			revision,
-			version DESC
-	) AS latest_releases
-	WHERE deleted = false;
+			revision
+		) appname,
+		releaseVersion,
+		environments,
+		revision
+	FROM releases_history
+	WHERE
+		deleted = false
+		AND created <= ?
+	ORDER BY
+		appname,
+		releaseversion,
+		revision,
+		version DESC
 	`)
 	rows, err := tx.QueryContext(ctx, query, ts)
 	if err != nil {
