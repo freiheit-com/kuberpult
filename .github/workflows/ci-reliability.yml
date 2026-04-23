@@ -5,6 +5,10 @@ on:
   schedule:
     # Run on workdays at 7:00 AM UTC
     - cron: '0 7 * * 1-5'
+  push:
+    branches:
+      - su-accept-1
+      - su-accept-2-no-pkg
 
 jobs:
   ci-test:
