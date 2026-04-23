@@ -106,6 +106,8 @@ type Config struct {
 
 	EnableSqlite bool
 	MinorRegexes string
+
+	ExperimentalBracketsClusters []string
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -198,6 +200,11 @@ func parseEnvVars() (_ *Config, err error) {
 
 	c.EnableSqlite = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_SQLITE", true)
 	c.MinorRegexes = valid.ReadEnvVarWithDefault("KUBERPULT_MINOR_REGEXES", "")
+
+	c.ExperimentalBracketsClusters, err = valid.ReadEnvVarAsList("KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS", ",")
+	if err != nil {
+		return nil, err
+	}
 
 	return &c, nil
 }

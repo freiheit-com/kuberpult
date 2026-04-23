@@ -631,6 +631,43 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test experimental brackets clusters default (empty) for cd-service",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test experimental brackets clusters with one env enabled for cd-service",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  experimentalBrackets:
+    enabled: true
+    clusters:
+      staging: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "staging",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1618,6 +1655,108 @@ argocd:
 				{
 					Name:  "KUBERPULT_REVOLUTION_DORA_DRY_RUN",
 					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test experimental brackets clusters default (empty)",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test experimental brackets clusters with one env enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  experimentalBrackets:
+    enabled: true
+    clusters:
+      production: true
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "production",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test experimental brackets clusters with multiple envs, some disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  experimentalBrackets:
+    enabled: true
+    clusters:
+      staging: true
+      production: true
+      dev: false
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "production,staging",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test experimental brackets clusters ignored when enabled is false",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  experimentalBrackets:
+    enabled: false
+    clusters:
+      production: true
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},

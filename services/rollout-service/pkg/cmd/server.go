@@ -104,6 +104,8 @@ type Config struct {
 
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
+
+	ExperimentalBracketsClusters []string `split_words:"true" default:""`
 }
 
 func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
