@@ -2446,3 +2446,108 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleApiRelease_YamlValidation(t *testing.T) {
+	makeForm := func(manifestContent string) *multipart.Form {
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		_ = writer.WriteField("application", "my-app")
+		_ = writer.WriteField("version", "1")
+		fw, _ := writer.CreateFormFile("manifests[development]", "manifest.yaml")
+		_, _ = fw.Write([]byte(manifestContent))
+		_ = writer.Close()
+		req := httptest.NewRequest("POST", "/api/release/", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		_ = req.ParseMultipartForm(32 << 20)
+		return req.MultipartForm
+	}
+
+	successBatchResponse := &api.BatchResponse{
+		Results: []*api.BatchResult{
+			{
+				Result: &api.BatchResult_CreateReleaseResponse{
+					CreateReleaseResponse: &api.CreateReleaseResponse{
+						Response: &api.CreateReleaseResponse_Success{
+							Success: &api.CreateReleaseResponseSuccess{},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tcs := []struct {
+		name                  string
+		manifestContent       string
+		yamlValidationEnabled bool
+		batchResponse         *api.BatchResponse
+		expectedStatus        int
+		expectedBodyContains  string
+	}{
+		{
+			name:                  "invalid YAML rejected when validation enabled",
+			manifestContent:       "key: [unclosed",
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML passes through when validation disabled",
+			manifestContent:       "key: [unclosed",
+			yamlValidationEnabled: false,
+			batchResponse:         successBatchResponse,
+			expectedStatus:        201,
+		},
+		{
+			name:                  "valid YAML accepted",
+			manifestContent:       "key: value",
+			yamlValidationEnabled: true,
+			batchResponse:         successBatchResponse,
+			expectedStatus:        201,
+		},
+		{
+			name:                  "multi-document YAML accepted",
+			manifestContent:       "a: 1\n---\nb: 2",
+			yamlValidationEnabled: true,
+			batchResponse:         successBatchResponse,
+			expectedStatus:        201,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			batchClient := &mockBatchClient{response: tc.batchResponse}
+			s := Server{
+				BatchClient: batchClient,
+				Config: config.ServerConfig{
+					ReleaseYamlValidationEnabled: tc.yamlValidationEnabled,
+				},
+			}
+			form := makeForm(tc.manifestContent)
+			req := &http.Request{
+				Method: http.MethodPut,
+				URL:    &url.URL{Path: "/api/release/"},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"application": {"my-app"},
+						"version":     {"1"},
+					},
+					File: form.File,
+				},
+			}
+			w := httptest.NewRecorder()
+			s.HandleAPI(w, req)
+			resp := w.Result()
+			if resp.StatusCode != tc.expectedStatus {
+				body, _ := io.ReadAll(resp.Body)
+				t.Errorf("expected status %d, got %d (body: %s)", tc.expectedStatus, resp.StatusCode, body)
+			}
+			if tc.expectedBodyContains != "" {
+				body, _ := io.ReadAll(resp.Body)
+				if !strings.Contains(string(body), tc.expectedBodyContains) {
+					t.Errorf("expected body to contain %q, got: %s", tc.expectedBodyContains, body)
+				}
+			}
+		})
+	}
+}

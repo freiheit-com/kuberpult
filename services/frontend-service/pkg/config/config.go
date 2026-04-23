@@ -56,6 +56,7 @@ type ServerConfig struct {
 	IapEnabled                         bool          `default:"false" split_words:"true"`
 	GrpcMaxRecvMsgSize                 int           `default:"4" split_words:"true"`
 	RevisionsEnabled                   bool          `default:"false" split_words:"true"`
+	ReleaseYamlValidationEnabled       bool          `default:"true" split_words:"true"`
 }
 
 type FrontendConfig struct {

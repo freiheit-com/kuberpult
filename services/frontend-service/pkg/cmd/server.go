@@ -191,6 +191,7 @@ func parseEnvVars() (*config.ServerConfig, error) {
 		return nil, err
 	}
 	r.RevisionsEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_REVISIONS_ENABLED", false)
+	r.ReleaseYamlValidationEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_RELEASE_YAML_VALIDATION_ENABLED", true)
 	return &r, nil
 }
 
