@@ -26,13 +26,25 @@ export USER_UID := $(shell id -u)
 compile:
 	docker run -w $(SERVICE_DIR) --rm  -v ".:$(SERVICE_DIR)" $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'test -n "$(MAIN_PATH)" || exit 0; cd $(MAIN_PATH) && CGO_ENABLED=$(CGO_ENABLED) GOOS=linux go build -o bin/main . && cd ../.. && if [ "$(CGO_ENABLED)" = "1" ]; then ldd $(MAIN_PATH)/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $(MAIN_PATH)/%; fi'
 
+# Set UNIT_TEST_WITHOUT_DOCKER=1 to run `go test` natively instead of inside the
+# amd64 builder container. Required on Apple Silicon (arm64) where the builder
+# image does not run. Services whose tests need a database should still start
+# the Postgres container via docker-compose; services that don't (e.g.
+# frontend-service) can set this flag in their own Makefile.
+UNIT_TEST_WITHOUT_DOCKER?=0
+
 .PHONY: unit-test
 unit-test::
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
+ifeq ($(UNIT_TEST_WITHOUT_DOCKER),1)
+	@set -e; \
+	go test $(GO_TEST_ARGS) ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html
+else
 	@set -e; \
 	for i in $$(seq 1 2); do \
 		docker run --rm -w $(SERVICE_DIR) --network kuberpult-test-net -v ".:$(SERVICE_DIR)" -v $(MIGRATION_VOLUME) $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html"; \
 	done
+endif
 	$(ROOT_DIR)/infrastructure/coverage/check-coverage-go.sh coverage.out $(MIN_COVERAGE) $(SERVICE)
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
@@ -90,7 +102,7 @@ datadog-wrapper:
 	docker run --rm -v "datadog-init:/datadog-init" datadog/serverless-init:1-alpine
 
 gen-pkg:
-	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) $(MAKE) -C $(ROOT_DIR)/pkg gen
+	IMAGE_TAG=$(IMAGE_TAG_KUBERPULT) PKG_WITHOUT_DOCKER=$(PKG_WITHOUT_DOCKER) $(MAKE) -C $(ROOT_DIR)/pkg gen
 
 test: gen-pkg unit-test
 
