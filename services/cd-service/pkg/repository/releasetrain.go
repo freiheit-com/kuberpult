@@ -268,7 +268,6 @@ func (c *ReleaseTrain) Transform(
 	span.SetTag("environments", len(envNames))
 
 	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction)
-	logging.Info(ctx, "Transform: GetAllLatestReleases", zap.Any("allLatestReleases", allLatestReleases))
 	if err != nil {
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
 	}
@@ -320,7 +319,11 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	}
 	spanManifests, ctxManifests := tracer.StartSpanFromContext(parentCtx, "Load Manifests")
 	var allReleasesEnvironments db.AppVersionEnvironments
-	allReleasesEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctxManifests, transaction)
+	ts, err := state.DBHandler.DBReadCommitHashTransactionTimestamp(parentCtx, transaction, c.CommitHash)
+	if err != nil {
+		return "", err
+	}
+	allReleasesEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctxManifests, transaction, *ts)
 	spanManifests.Finish(tracer.WithError(err))
 	if err != nil {
 		return "", err
@@ -554,21 +557,11 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		return failedPrognosis(err)
 	}
 
-	fmt.Println("===================================")
-	fmt.Println("apps", apps)
-	fmt.Println("overrideVersions", overrideVersions)
-	fmt.Println("commit", c.Parent.CommitHash)
-	fmt.Println("envName", envName)
-	fmt.Println("upstreamLatest", upstreamLatest)
-	fmt.Println("upstreamEnvName", upstreamEnvName)
-	fmt.Println("===================================")
-
 	slices.Sort(apps)
 
 	appsPrognoses := make(map[types.AppName]ReleaseTrainApplicationPrognosis)
 
 	allLatestDeploymentsTargetEnv, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, envName)
-	fmt.Println("allLatestDeploymentsTargetEnv (from deployments table)", allLatestDeploymentsTargetEnv)
 	if err != nil {
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
 	}
@@ -650,19 +643,15 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	if err != nil {
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("error getting timestamp for commit %s: %w", c.Parent.CommitHash, err)))
 	}
-	fmt.Println("timestamp", ts)
 	var allLatestReleaseEnvironments db.AppVersionEnvironments
 	if c.AllLatestReleaseEnvironments == nil {
-		// TODO: should fetch from releases_history table
-		// created_date should be inferred from the git tag time
-		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctx, transaction)
+		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctx, transaction, *ts)
 		if err != nil {
 			return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
 		}
 	} else {
 		allLatestReleaseEnvironments = c.AllLatestReleaseEnvironments
 	}
-	fmt.Println("allLatestReleaseEnvironments (from releases table)", allLatestReleaseEnvironments)
 	span.SetTag("ConsideredApps", len(apps))
 	allTeams, err := state.GetAllApplicationsTeamOwner(ctx, transaction)
 	if err != nil {
@@ -810,11 +799,6 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 
 		releaseEnvs, exists := allLatestReleaseEnvironments[appName][fmt.Sprintf("%v", versionToDeploy)]
-		fmt.Println("-------------------------------------------------------------------------------")
-		fmt.Println("appName", appName)
-		fmt.Println("versionToDeploy", versionToDeploy)
-		fmt.Println("exists", exists)
-		fmt.Println("-------------------------------------------------------------------------------")
 		if !exists {
 			return failedPrognosis(fmt.Errorf("no release found for app %s and versionToDeploy %v", appName, versionToDeploy))
 		}
