@@ -964,12 +964,10 @@ func (c *envReleaseTrain) applyPrognosis(
 	span tracer.Span,
 ) (string, error) {
 	allLatestDeployments := prognosis.AllLatestDeployments
-	fmt.Println("prognosis.AllLatestDeployments", prognosis.AllLatestDeployments)
 
 	renderApplicationSkipCause := c.renderApplicationSkipCause(ctx, allLatestDeployments)
 	renderEnvironmentSkipCause := c.renderEnvironmentSkipCause()
 
-	fmt.Println("prognosis.Error", prognosis.Error)
 	fmt.Println("prognosis.AppsPrognoses", prognosis.AppsPrognoses)
 	if prognosis.Error != nil {
 		return "", prognosis.Error
