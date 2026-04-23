@@ -890,6 +890,14 @@ func (r *repository) PushTag(ctx context.Context, tag types.GitTag) error {
 		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
 		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
 		PushUpdateReferenceCallback: tagPushUpdate(ctx, tag, &pushResult),
+		SidebandProgressCallback: func(str string) error {
+			// str contains data similar to what the git command line prints, e.g. "Enumrating objects: 2 done" etc.
+			if str == "" {
+				return nil
+			}
+			logging.Info(ctx, "git push progress", zap.String("str", str))
+			return nil
+		},
 	}
 	pushOptions := git.PushOptions{
 		PbParallelism: 0,
