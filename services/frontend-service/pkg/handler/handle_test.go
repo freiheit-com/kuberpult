@@ -2448,17 +2448,32 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 }
 
 func TestHandleApiRelease_YamlValidation(t *testing.T) {
+	// makeForm builds a parsed multipart form containing a single manifest file
+	// with the given content, ready to be attached to a test HTTP request.
 	makeForm := func(manifestContent string) *multipart.Form {
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
-		_ = writer.WriteField("application", "my-app")
-		_ = writer.WriteField("version", "1")
-		fw, _ := writer.CreateFormFile("manifests[development]", "manifest.yaml")
-		_, _ = fw.Write([]byte(manifestContent))
-		_ = writer.Close()
+		if err := writer.WriteField("application", "my-app"); err != nil {
+			t.Fatalf("WriteField application: %s", err)
+		}
+		if err := writer.WriteField("version", "1"); err != nil {
+			t.Fatalf("WriteField version: %s", err)
+		}
+		fw, err := writer.CreateFormFile("manifests[development]", "manifest.yaml")
+		if err != nil {
+			t.Fatalf("CreateFormFile: %s", err)
+		}
+		if _, err := fw.Write([]byte(manifestContent)); err != nil {
+			t.Fatalf("Write manifest: %s", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("Close writer: %s", err)
+		}
 		req := httptest.NewRequest("POST", "/api/release/", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
-		_ = req.ParseMultipartForm(32 << 20)
+		if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
+			t.Fatalf("ParseMultipartForm: %s", err)
+		}
 		return req.MultipartForm
 	}
 
@@ -2485,8 +2500,36 @@ func TestHandleApiRelease_YamlValidation(t *testing.T) {
 		expectedBodyContains  string
 	}{
 		{
-			name:                  "invalid YAML rejected when validation enabled",
+			name:                  "invalid YAML: unclosed flow sequence",
 			manifestContent:       "key: [unclosed",
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML: unclosed flow mapping",
+			manifestContent:       "key: {unclosed",
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML: tab character used for indentation",
+			manifestContent:       "key:\n\t- value",
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML: inconsistent indentation",
+			manifestContent:       "a:\n  b: 1\n c: 2",
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML: unclosed quoted string",
+			manifestContent:       `key: "unclosed`,
 			yamlValidationEnabled: true,
 			expectedStatus:        400,
 			expectedBodyContains:  "not valid YAML",
@@ -2538,12 +2581,14 @@ func TestHandleApiRelease_YamlValidation(t *testing.T) {
 			w := httptest.NewRecorder()
 			s.HandleAPI(w, req)
 			resp := w.Result()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("ReadAll response body: %s", err)
+			}
 			if resp.StatusCode != tc.expectedStatus {
-				body, _ := io.ReadAll(resp.Body)
 				t.Errorf("expected status %d, got %d (body: %s)", tc.expectedStatus, resp.StatusCode, body)
 			}
 			if tc.expectedBodyContains != "" {
-				body, _ := io.ReadAll(resp.Body)
 				if !strings.Contains(string(body), tc.expectedBodyContains) {
 					t.Errorf("expected body to contain %q, got: %s", tc.expectedBodyContains, body)
 				}
