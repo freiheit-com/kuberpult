@@ -1449,7 +1449,7 @@ func (c *RenderEnvironment) Transform(
 			return "", err
 		}
 		if release == nil || release.Deleted {
-			logging.Info(ctx, "release not found or is deleted for app", zap.Any("appName", appName), zap.Any("releaseNumbers", releaseNumbers))
+			logging.Info(ctx, "release not found or is deleted for app", zap.Any("appName", appName), zap.Any("releaseNumbers", releaseNumbers), zap.Any("releaseIsNil", release == nil))
 			// skip if there is no release found matching the version numbers for this app
 			// or if the release has been undeployed
 			continue
@@ -1457,7 +1457,7 @@ func (c *RenderEnvironment) Transform(
 
 		envManifest, ok := release.Manifests.Manifests[c.Environment]
 		if !ok {
-			logging.Info(ctx, "app doesn't have any manifests on this environment", zap.Any("appName", appName), zap.Any("env", c.Environment))
+			logging.Info(ctx, "app doesn't have any manifests on this environment", zap.Any("appName", appName), zap.Any("releaseNumbers", releaseNumbers), zap.Any("env", c.Environment))
 			// skip an app if it doesn't have any manifests on this environment
 			// this might happen if the app was already undeployed from the environment at the given timestamp
 			continue
