@@ -172,6 +172,38 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 
 type AppVersionEnvironments map[types.AppName]map[string][]types.EnvName // first key is the appName
 
+func (h *DBHandler) DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctx context.Context, tx *sql.Tx, ts time.Time) (_ AppVersionEnvironments, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironmentsForAllReleasesAtTimestamp")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	query := h.AdaptQuery(`
+	SELECT DISTINCT appname
+	FROM (
+		SELECT DISTINCT ON (appname, releaseversion, revision)
+			appname,
+			releaseVersion,
+			environments,
+			revision,
+			deleted
+		FROM releases_history
+		WHERE created <= ?
+		ORDER BY
+			appname,
+			releaseversion,
+			revision,
+			version DESC
+	) AS latest_releases
+	WHERE deleted = false;
+	`)
+	rows, err := tx.QueryContext(ctx, query, ts)
+	if err != nil {
+		return nil, fmt.Errorf("could not query apps with releases at timestamp: %w", err)
+	}
+
+	return h.processReleaseEnvironmentRows(ctx, err, rows)
+}
+
 func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, tx *sql.Tx) (_ AppVersionEnvironments, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
 	defer func() {
