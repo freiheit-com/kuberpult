@@ -74,12 +74,13 @@ func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, 
 }
 
 type mockApplicationServiceClient struct {
-	Steps     []step
-	Apps      []*ArgoApp
-	current   int
-	t         *testing.T
-	lastEvent chan *ArgoEvent
-	cancel    context.CancelFunc
+	Steps             []step
+	Apps              []*ArgoApp
+	current           int
+	t                 *testing.T
+	lastEvent         chan *ArgoEvent
+	cancel            context.CancelFunc
+	lastUpdateRequest *application.ApplicationUpdateRequest
 	grpc.ClientStream
 }
 
@@ -240,6 +241,7 @@ func (m *mockApplicationServiceClient) Delete(ctx context.Context, req *applicat
 }
 
 func (m *mockApplicationServiceClient) Update(ctx context.Context, req *application.ApplicationUpdateRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
+	m.lastUpdateRequest = req
 	for _, a := range m.Apps {
 		if a.App.Name == req.Application.Name {
 			updateApp := &ArgoApp{App: a.App, LastEvent: "MODIFIED"}
@@ -1564,6 +1566,82 @@ func (a *mockApplicationServiceClient) PopulateApps(appInfo []ArgoAppMetadata) {
 				},
 			},
 			LastEvent: "ADDED",
+		})
+	}
+}
+
+func TestUpdateArgoAppPreservesSyncPolicy(t *testing.T) {
+	tcs := []struct {
+		Name               string
+		ExistingSyncPolicy *v1alpha1.SyncPolicy
+	}{
+		{
+			Name:               "preserves nil SyncPolicy when operator removed auto-sync",
+			ExistingSyncPolicy: nil,
+		},
+		{
+			Name: "preserves custom SyncPolicy set by operator",
+			ExistingSyncPolicy: &v1alpha1.SyncPolicy{
+				Automated: &v1alpha1.SyncPolicyAutomated{
+					Prune:    false,
+					SelfHeal: false,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			testutil.WrapTestRoutine(t, context.Background(), "INFO", func(ctx context.Context) {
+				mockClient := &mockApplicationServiceClient{
+					t:         t,
+					lastEvent: make(chan *ArgoEvent, 10),
+					cancel:    func() {},
+				}
+				argoProcessor := &ArgoAppProcessor{
+					ApplicationClient:     mockClient,
+					ManageArgoAppsEnabled: true,
+					ManageArgoAppsFilter:  []string{"*"},
+					KnownApps:             map[string]map[string]*v1alpha1.Application{},
+				}
+
+				overview := &api.GetOverviewResponse{
+					ManifestRepoUrl: "https://git.example.com/repo",
+					Branch:          "new-branch",
+				}
+				appInfo := &AppInfo{
+					ApplicationName:       "myapp",
+					TeamName:              "myteam",
+					EnvironmentName:       "staging",
+					ParentEnvironmentName: "staging",
+					ArgoEnvironmentConfiguration: &api.ArgoCDEnvironmentConfiguration{
+						Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+							Server: "https://kubernetes.default.svc",
+						},
+					},
+				}
+				// existingApp has a different TargetRevision to trigger an update,
+				// and whatever SyncPolicy the operator set.
+				//exhaustruct:ignore
+				existingApp := &v1alpha1.Application{
+					//exhaustruct:ignore
+					Spec: v1alpha1.ApplicationSpec{
+						//exhaustruct:ignore
+						Source: &v1alpha1.ApplicationSource{
+							TargetRevision: "old-branch",
+						},
+						SyncPolicy: tc.ExistingSyncPolicy,
+					},
+				}
+
+				argoProcessor.UpdateArgoApp(ctx, overview, appInfo, existingApp)
+
+				if mockClient.lastUpdateRequest == nil {
+					t.Fatal("expected Update to be called but it was not")
+				}
+				if diff := cmp.Diff(tc.ExistingSyncPolicy, mockClient.lastUpdateRequest.Application.Spec.SyncPolicy); diff != "" {
+					t.Errorf("SyncPolicy mismatch (-want, +got):\n%s", diff)
+				}
+			})
 		})
 	}
 }

@@ -26,7 +26,6 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -290,6 +289,8 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 
 func (a *ArgoAppProcessor) UpdateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo, existingApp *v1alpha1.Application) {
 	appToUpdate := CreateArgoApplication(overview, appInfo)
+	// Preserve whatever SyncPolicy the operator has set on the live app (e.g. nil when auto-sync was disabled manually).
+	appToUpdate.Spec.SyncPolicy = existingApp.Spec.SyncPolicy
 	appUpdateRequest := &application.ApplicationUpdateRequest{
 		XXX_NoUnkeyedLiteral: struct{}{},
 		XXX_unrecognized:     nil,
@@ -299,12 +300,15 @@ func (a *ArgoAppProcessor) UpdateArgoApp(ctx context.Context, overview *api.GetO
 		Project:              conversion.FromString(appToUpdate.Spec.Project),
 	}
 
-	//We have to exclude the unexported type destination and the syncPolicy
 	//exhaustruct:ignore
 	diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec,
-		cmp.AllowUnexported(v1alpha1.ApplicationDestination{}),
-		cmpopts.IgnoreTypes(v1alpha1.SyncPolicy{}))
+		cmp.AllowUnexported(v1alpha1.ApplicationDestination{}))
 	if diff != "" {
+		logger.FromContext(ctx).Info("UpdateArgoApp",
+			zap.String("diff", diff),
+			zap.Any("newSpec", appUpdateRequest.Application.Spec),
+			zap.Any("existingSpec", existingApp.Spec),
+		)
 		updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
 		updateSpan.SetTag("application", appInfo.ApplicationName)
 		updateSpan.SetTag("environment", appInfo.EnvironmentName)
