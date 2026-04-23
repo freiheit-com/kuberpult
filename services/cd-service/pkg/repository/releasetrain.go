@@ -178,8 +178,7 @@ func (c *ReleaseTrain) Prognosis(
 		}
 	}
 
-	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction)
-	logging.Info(ctx, "Prognosis: GetAllLatestReleases", zap.Any("allLatestReleases", allLatestReleases))
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, c.CommitHash)
 	if err != nil {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err)),
@@ -267,7 +266,7 @@ func (c *ReleaseTrain) Transform(
 	types.Sort(envNames)
 	span.SetTag("environments", len(envNames))
 
-	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction)
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, c.CommitHash)
 	if err != nil {
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
 	}
@@ -319,11 +318,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	}
 	spanManifests, ctxManifests := tracer.StartSpanFromContext(parentCtx, "Load Manifests")
 	var allReleasesEnvironments db.AppVersionEnvironments
-	ts, err := state.DBHandler.DBReadCommitHashTransactionTimestamp(parentCtx, transaction, c.CommitHash)
-	if err != nil {
-		return "", err
-	}
-	allReleasesEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctxManifests, transaction, *ts)
+	allReleasesEnvironments, err = state.GetAllEnvironmentsForAllLatestReleases(ctxManifests, transaction, c.CommitHash)
 	spanManifests.Finish(tracer.WithError(err))
 	if err != nil {
 		return "", err
@@ -639,13 +634,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 	}
 
-	ts, err := state.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, c.Parent.CommitHash)
-	if err != nil {
-		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("error getting timestamp for commit %s: %w", c.Parent.CommitHash, err)))
-	}
 	var allLatestReleaseEnvironments db.AppVersionEnvironments
 	if c.AllLatestReleaseEnvironments == nil {
-		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctx, transaction, *ts)
+		allLatestReleaseEnvironments, err = state.GetAllEnvironmentsForAllLatestReleases(ctx, transaction, c.Parent.CommitHash)
 		if err != nil {
 			return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
 		}

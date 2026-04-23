@@ -679,8 +679,26 @@ func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx
 	return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 }
 
-func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx) (map[types.AppName][]types.ReleaseNumbers, error) {
+func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, commitHash string) (map[types.AppName][]types.ReleaseNumbers, error) {
+	if commitHash != "" { // we want to get latest releases at specific commit hash or tag of the manifest repo
+		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		if err != nil {
+			return nil, err
+		}
+		return s.DBHandler.DBSelectAllReleasesOfAllAppsAtTimestamp(ctx, transaction, *ts)
+	}
 	return s.DBHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
+}
+
+func (s *State) GetAllEnvironmentsForAllLatestReleases(ctx context.Context, transaction *sql.Tx, commitHash string) (_ db.AppVersionEnvironments, err error) {
+	if commitHash != "" {
+		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		if err != nil {
+			return nil, err
+		}
+		return s.DBHandler.DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctx, transaction, *ts)
+	}
+	return s.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctx, transaction)
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) (*uint64, error) {

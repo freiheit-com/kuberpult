@@ -206,7 +206,7 @@ func (h *DBHandler) DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctx context
 }
 
 func (h *DBHandler) DBSelectAllEnvironmentsForAllReleases(ctx context.Context, tx *sql.Tx) (_ AppVersionEnvironments, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllManifestsForAllReleases")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvironmentsForAllReleases")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
@@ -359,6 +359,33 @@ func (h *DBHandler) DBSelectReleasesByVersionsAndRevision(ctx context.Context, t
 		return nil, err
 	}
 	return data, nil
+}
+
+func (h *DBHandler) DBSelectAllReleasesOfAllAppsAtTimestamp(ctx context.Context, tx *sql.Tx, ts time.Time) (_ map[types.AppName][]types.ReleaseNumbers, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfAllApps")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	selectQuery := h.AdaptQuery(`
+	SELECT DISTINCT
+		ON (
+			appname,
+			releaseversion,
+			revision
+		) appname,
+		releaseVersion,
+		revision
+	FROM releases_history
+	WHERE
+		deleted = false
+		AND created <= ?
+	ORDER BY
+		releaseversion DESC,
+		revision DESC;
+	`)
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(ctx, selectQuery, ts)
+	return h.processAllAppsReleaseVersionsRows(ctx, err, rows)
 }
 
 func (h *DBHandler) DBSelectAllReleasesOfAllApps(ctx context.Context, tx *sql.Tx) (_ map[types.AppName][]types.ReleaseNumbers, err error) {
