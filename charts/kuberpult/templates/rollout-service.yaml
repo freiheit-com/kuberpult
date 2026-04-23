@@ -163,6 +163,8 @@ spec:
           value: {{ .Values.manageArgoApplications.enabled | quote }}
         - name: KUBERPULT_MANAGE_ARGO_APPLICATIONS_FILTER
           value: {{ .Values.manageArgoApplications.filter | quote }}
+        - name: KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS
+          value: {{ include "kuberpult.experimentalBracketsClusters" . | quote }}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL

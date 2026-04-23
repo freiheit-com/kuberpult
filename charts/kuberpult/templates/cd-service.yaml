@@ -266,6 +266,8 @@ spec:
           value: "false"
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.cd.grpcMaxRecvMsgSize }}"
+        - name: KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS
+          value: {{ include "kuberpult.experimentalBracketsClusters" . | quote }}
         volumeMounts:
         - name: ssh
           mountPath: /etc/ssh
