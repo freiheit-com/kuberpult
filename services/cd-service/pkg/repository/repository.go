@@ -675,12 +675,19 @@ func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, en
 func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) error {
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
-func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[types.AppName]types.ReleaseNumbers, error) {
+func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName, commitHash string) (map[types.AppName]types.ReleaseNumbers, error) {
+	if commitHash != "" {
+		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		if err != nil {
+			return nil, err
+		}
+		return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp(ctx, transaction, environment, *ts)
+	}
 	return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 }
 
 func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, commitHash string) (map[types.AppName][]types.ReleaseNumbers, error) {
-	if commitHash != "" { // we want to get latest releases at specific commit hash or tag of the manifest repo
+	if commitHash != "" {
 		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
 		if err != nil {
 			return nil, err
