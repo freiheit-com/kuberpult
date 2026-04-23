@@ -2516,7 +2516,7 @@ func TestHandleApiRelease_YamlValidation(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			batchClient := &mockBatchClient{response: tc.batchResponse}
+			batchClient := &mockBatchClient{batchResponse: tc.batchResponse}
 			s := Server{
 				BatchClient: batchClient,
 				Config: config.ServerConfig{
