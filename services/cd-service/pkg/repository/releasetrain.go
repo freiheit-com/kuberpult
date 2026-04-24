@@ -270,7 +270,6 @@ func (c *ReleaseTrain) Transform(
 
 	// TODO: fix -> ok
 	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, c.CommitHash)
-	fmt.Printf("1. allLatestReleases: %v\n", allLatestReleases)
 	if err != nil {
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
 	}
@@ -324,7 +323,6 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	var allReleasesEnvironments db.AppVersionEnvironments
 	// TODO: fix -> ok
 	allReleasesEnvironments, err = state.GetAllEnvironmentsForAllLatestReleases(ctxManifests, transaction, c.CommitHash)
-	fmt.Printf("2. allReleasesEnvironments: %v\n", allReleasesEnvironments)
 	spanManifests.Finish(tracer.WithError(err))
 	if err != nil {
 		return "", err
@@ -577,12 +575,11 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				targetVersionByApp[app] = allLatestDeploymentsTargetEnv[app]
 			}
 		}
-		// TODO: fix
-		targetCommitIDByApp, err = state.GetCommitIdFromAppReleaseVersions(ctx, transaction, targetVersionByApp, c.Parent.CommitHash)
+		// TODO: fix -> ok
+		targetCommitIDByApp, err = state.GetCommitIdFromAppReleaseVersions(ctx, transaction, targetVersionByApp, "")
 		if err != nil {
 			logging.Error(ctx, "could not get all target commits for apps to deploy.", zap.Error(err))
 		}
-		fmt.Printf("targetCommitIDByApp: %v\n", targetCommitIDByApp)
 	}
 
 	// TODO: fix -> ok
@@ -599,11 +596,10 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			}
 		}
 		// TODO: fix
-		upstreamCommitIDByApp, err = state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, upstreamVersionByApp)
+		upstreamCommitIDByApp, err = state.GetCommitIdFromAppReleaseVersions(ctx, transaction, upstreamVersionByApp, c.Parent.CommitHash)
 		if err != nil {
 			logging.Error(ctx, "could not get all upstream commits for apps to deploy.", zap.Error(err))
 		}
-		fmt.Printf("upstreamCommitIDByApp: %v\n", upstreamCommitIDByApp)
 	}
 
 	if len(envLocks) > 0 {
@@ -652,7 +648,6 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	if c.AllLatestReleaseEnvironments == nil {
 		// TODO: fix -> ok
 		allLatestReleaseEnvironments, err = state.GetAllEnvironmentsForAllLatestReleases(ctx, transaction, c.Parent.CommitHash)
-		fmt.Printf("4.1. targetEnv: %v, allLatestReleaseEnvironments: %v\n", envName, allLatestReleaseEnvironments)
 		if err != nil {
 			return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
 		}
@@ -690,7 +685,6 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 	}
 
 	for _, appName := range apps {
-		fmt.Printf("6. targetEnv: %v, processing appName: %v\n", c.Env, appName)
 		if c.Parent.Team != "" {
 			team, ok := allTeams[appName]
 			if !ok {
@@ -912,7 +906,6 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			ExistingDeployment: existingDeployment,
 			OldReleaseCommitId: targetCommitIDByApp[appName],
 		}
-		fmt.Printf("6.1. appsPrognoses processed for app: %v, %v\n", appName, appsPrognoses[appName])
 
 	}
 	return &ReleaseTrainEnvironmentPrognosis{

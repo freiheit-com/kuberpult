@@ -1008,7 +1008,16 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersionsAtTimestamp(ctx context.Co
 	}
 	selectQuery := h.AdaptQuery(`
 		SELECT r.appName, r.metadata
-		FROM releases AS r
+		FROM (
+			SELECT DISTINCT
+				ON (appname, releaseversion, revision) appname,
+				releaseversion,
+				revision,
+				metadata
+			FROM releases_history
+			WHERE
+				created <= ?
+			ORDER BY appname, releaseversion, revision, version DESC) AS r
 		INNER JOIN temp_query_app_releaseversions AS q
 		ON r.appName = q.appName AND r.releaseversion = q.releaseversion AND r.revision = q.revision
 		WHERE q.queryId = ?;
@@ -1016,6 +1025,7 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersionsAtTimestamp(ctx context.Co
 	metadataRows, err := transaction.QueryContext(
 		ctx,
 		selectQuery,
+		ts,
 		queryID,
 	)
 	if err != nil {
