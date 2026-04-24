@@ -76,8 +76,18 @@ builder:
 compose-down:
 	docker compose -f docker-compose.yml -f docker-compose.datadog.yml down
 
-prepare-compose: builder
-	make -C pkg gen
+prepare-git:
+	@if [ ! -d "services/cd-service/repository_remote" ]; then \
+		echo "Initializing bare git repository for local development..."; \
+		git init --bare services/cd-service/repository_remote --initial-branch=master && \
+		git clone services/cd-service/repository_remote services/cd-service/repository_checkedout && \
+		git -C services/cd-service/repository_checkedout commit --allow-empty -m 'initial commit' && \
+		git -C services/cd-service/repository_checkedout push origin master && \
+		rm -rf services/cd-service/repository_checkedout; \
+	fi
+
+prepare-compose: builder prepare-git
+	BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:local make -C pkg gen
 	IMAGE_TAG=local make -C services/cd-service docker
 	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 	IMAGE_TAG=local make -C services/frontend-service docker gen-api
