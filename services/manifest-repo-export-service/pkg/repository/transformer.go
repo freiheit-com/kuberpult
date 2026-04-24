@@ -1450,13 +1450,14 @@ func (c *RenderEnvironment) Transform(
 		}
 
 		if release == nil {
-			logging.Warn(ctx, "release not found or is deleted for app", zap.Any("appName", appName), zap.Any("releaseNumbers", releaseNumbers), zap.Any("releaseIsNil", release == nil))
+			logging.Warn(ctx, "release not found for app", zap.Any("appName", appName), zap.Any("releaseNumbers", releaseNumbers))
 			// skip if there is no release found matching the version numbers for this app
 			// or if the release has been undeployed
 			continue
 		}
 
 		if release.Deleted {
+			// we do not care the deleted releases as they were undeployed from the environment, therefore, no need to render manifests.
 			continue
 		}
 
