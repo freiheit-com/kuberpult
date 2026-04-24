@@ -2232,18 +2232,6 @@ func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transactio
 	return depl.ReleaseNumbers, nil
 }
 
-func (s *State) GetEnvironmentApplicationVersionAtTimestamp(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application string, ts time.Time) (types.ReleaseNumbers, error) {
-	depl, err := s.DBHandler.DBSelectLatestDeploymentAtTimestamp(ctx, transaction, types.AppName(application), environment, ts)
-	if err != nil {
-		return types.MakeEmptyReleaseNumbers(), err
-	}
-	if depl == nil || depl.ReleaseNumbers.Version == nil {
-		return types.MakeEmptyReleaseNumbers(), nil
-	}
-
-	return depl.ReleaseNumbers, nil
-}
-
 func (s *State) GetEnvironmentApplicationVersionFromManifest(environment types.EnvName, application string) (types.ReleaseNumbers, error) {
 	return s.readSymlink(environment, application, "version")
 }

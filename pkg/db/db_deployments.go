@@ -148,7 +148,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAtTimestamp(ctx context.Context, tx 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
 		FROM deployments_history
-		WHERE appName=? AND envName=? AND created <=?
+		WHERE appName=? AND envName=? AND created <=? AND releaseVersion IS NOT NULL
 		ORDER BY version DESC
 		LIMIT 1;
 	`)
