@@ -970,6 +970,90 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 	return releases, nil
 }
 
+func (h *DBHandler) DBSelectCommitIdAppReleaseVersionsAtTimestamp(ctx context.Context, transaction *sql.Tx, versionByApp map[types.AppName]types.ReleaseNumbers, ts time.Time) (_ map[types.AppName]string, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectCommitIdAppReleaseVersions")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	result := make(map[types.AppName]string)
+	if len(versionByApp) < 1 {
+		return result, nil
+	}
+	queryID := rand.IntN(1 << 31) // this function should be called no more than once per transaction, but just to be save ...
+	tableQuery := h.AdaptQuery(`CREATE TEMP TABLE IF NOT EXISTS temp_query_app_releaseversions(queryId INTEGER, appName VARCHAR NOT NULL, releaseVersion INTEGER, revision INTEGER);`)
+	_, err = transaction.ExecContext(ctx, tableQuery)
+	if err != nil {
+		return nil, fmt.Errorf("could not create query app releases table. Error: %w", err)
+	}
+	insertQuery := h.AdaptQuery(`INSERT INTO temp_query_app_releaseversions VALUES (?, ?, ?, ?)` + strings.Repeat(`, (?, ?, ?, ?)`, len(versionByApp)-1) + `;`)
+	args := make([]interface{}, len(versionByApp)*4)
+	i := 0
+	for appName, releaseVersion := range versionByApp {
+		args[i] = queryID
+		i++
+		args[i] = appName
+		i++
+		args[i] = releaseVersion.Version
+		i++
+		args[i] = releaseVersion.Revision
+		i++
+	}
+	_, err = transaction.ExecContext(
+		ctx,
+		insertQuery,
+		args...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not insert into query app releases table. Query: %v, Error: %w", insertQuery, err)
+	}
+	selectQuery := h.AdaptQuery(`
+		SELECT r.appName, r.metadata
+		FROM releases AS r
+		INNER JOIN temp_query_app_releaseversions AS q
+		ON r.appName = q.appName AND r.releaseversion = q.releaseversion AND r.revision = q.revision
+		WHERE q.queryId = ?;
+	`)
+	metadataRows, err := transaction.QueryContext(
+		ctx,
+		selectQuery,
+		queryID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query releases table from DB. Error: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logging.Error(ctx, "releases: row could not be closed.", zap.Error(err))
+		}
+	}(metadataRows)
+	for metadataRows.Next() {
+		var appName types.AppName
+		var metadataStr string
+
+		err := metadataRows.Scan(&appName, &metadataStr)
+		if err != nil {
+			return nil, err
+		}
+		var metaData = DBReleaseMetaData{
+			SourceAuthor:    "",
+			SourceCommitId:  "",
+			SourceMessage:   "",
+			DisplayVersion:  "",
+			UndeployVersion: false,
+			IsMinor:         false,
+			CiLink:          "",
+			IsPrepublish:    false,
+		}
+		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
+		if err != nil {
+			return nil, fmt.Errorf("error during json unmarshal of metadata for releases. Error: %w. Data: %s", err, metadataStr)
+		}
+		result[appName] = metaData.SourceCommitId
+	}
+	return result, nil
+}
+
 func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, transaction *sql.Tx, versionByApp map[types.AppName]types.ReleaseNumbers) (_ map[types.AppName]string, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectCommitIdAppReleaseVersions")
 	defer func() {

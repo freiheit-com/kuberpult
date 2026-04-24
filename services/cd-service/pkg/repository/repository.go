@@ -686,6 +686,17 @@ func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx
 	return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 }
 
+func (s *State) GetCommitIdFromAppReleaseVersions(ctx context.Context, transaction *sql.Tx, appReleaseVersions map[types.AppName]types.ReleaseNumbers, commitHash string) (map[types.AppName]string, error) {
+	if commitHash != "" {
+		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		if err != nil {
+			return nil, err
+		}
+		return s.DBHandler.DBSelectCommitIdAppReleaseVersionsAtTimestamp(ctx, transaction, appReleaseVersions, *ts)
+	}
+	return s.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, appReleaseVersions)
+}
+
 func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, commitHash string) (map[types.AppName][]types.ReleaseNumbers, error) {
 	if commitHash != "" {
 		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
