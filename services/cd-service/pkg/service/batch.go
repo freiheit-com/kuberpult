@@ -32,6 +32,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -559,14 +560,18 @@ func (d *BatchServer) ProcessBatch(
 
 	if d.Config.LockType == LockTypeDb {
 		isShared := !requiresIsolation
-		err = d.DBHandler.WithAdvisoryLock(ctx, isShared, db.LockIsolateTransformers, func(ctx context.Context) error {
-			return d.Repository.Apply(ctx, transformers...)
+		err = logger.Wrap(ctx, func(ctx context.Context) error {
+			return d.DBHandler.WithAdvisoryLock(ctx, isShared, db.LockIsolateTransformers, func(ctx context.Context) error {
+				return d.Repository.Apply(ctx, transformers...)
+			})
 		})
 	} else {
 		if d.Config.LockType == LockTypeNone {
 			logging.Info(ctx, "not locking at all")
 		}
-		err = d.Repository.Apply(ctx, transformers...)
+		err = logger.Wrap(ctx, func(ctx context.Context) error {
+			return d.Repository.Apply(ctx, transformers...)
+		})
 	}
 	if err != nil {
 		logging.Error(ctx, "error in Repository.Apply.", zap.Error(err))
