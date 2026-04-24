@@ -227,6 +227,7 @@ export const ProductVersion: React.FC = () => {
                         },
                     });
                 });
+                setShowReleaseTrainEnvs(false);
                 return;
             }
             if (teams.length > 1) {
