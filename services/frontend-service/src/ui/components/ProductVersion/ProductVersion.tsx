@@ -113,7 +113,6 @@ const splitCombinedGroupName = (envName: string): string[] => {
 const useEnvironmentGroupCombinations = (envGroupResponse: EnvironmentGroup[]): string[] => {
     const envList: string[] = [];
     for (let i = 0; i < envGroupResponse.length; i++) {
-        envList.push(envGroupResponse[i].environmentGroupName);
         for (let j = 0; j < envGroupResponse[i].environments.length; j++) {
             envList.push(envGroupResponse[i].environmentGroupName + '/' + envGroupResponse[i].environments[j].name);
         }
@@ -222,7 +221,7 @@ export const ProductVersion: React.FC = () => {
                                 commitHash: selectedTag,
                                 team: '',
                                 ciLink: '',
-                                targetType: ReleaseTrainRequest_TargetType.UNKNOWN,
+                                targetType: ReleaseTrainRequest_TargetType.ENVIRONMENT,
                                 gitTag: '',
                             },
                         },
@@ -316,7 +315,7 @@ export const ProductVersion: React.FC = () => {
                         </select>
                         <select className="env_drop_down" onChange={changeEnv} value={environment}>
                             <option value="default" disabled>
-                                Select an Environment or Environment Group
+                                Select an Upstream Environment
                             </option>
                             {envList.map((env) => (
                                 <option value={env} key={env}>
