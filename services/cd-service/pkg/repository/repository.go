@@ -1037,12 +1037,25 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 	return app.Metadata.Team, nil
 }
 
-func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx) (map[types.AppName]string, error) {
+func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx, commitHash string) (map[types.AppName]string, error) {
 	result := make(map[types.AppName]string)
-	apps, err := s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
+	var apps map[types.AppName]*db.DBAppWithMetaData
+	var err error
+
+	if commitHash != "" {
+		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		if err != nil {
+			return nil, err
+		}
+		apps, err = s.DBHandler.DBSelectAllAppsMetadataAtTimestamp(ctx, transaction, *ts)
+
+	} else {
+		apps, err = s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
+	}
 	if err != nil {
 		return result, fmt.Errorf("could not get team of all apps: %w", err)
 	}
+
 	for _, app := range apps {
 		result[app.App] = app.Metadata.Team
 	}

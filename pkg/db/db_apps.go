@@ -74,6 +74,26 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName types.A
 	return h.processAppsRow(ctx, rows, err)
 }
 
+func (h *DBHandler) DBSelectAllAppsMetadataAtTimestamp(ctx context.Context, tx *sql.Tx, ts time.Time) (_ map[types.AppName]*DBAppWithMetaData, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadataAtTimestamp")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	selectQuery := h.AdaptQuery(`
+	SELECT DISTINCT
+		ON (appname) appname,
+		stateChange,
+		metadata,
+		argoBracket
+	FROM apps_history
+	WHERE
+		created <= ?;
+	`)
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(ctx, selectQuery, ts)
+	return h.processAppsRows(ctx, rows, err)
+}
+
 func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (_ map[types.AppName]*DBAppWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
 	defer func() {

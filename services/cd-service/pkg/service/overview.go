@@ -482,7 +482,7 @@ func (o *OverviewServiceServer) getOverview(
 		}
 	}
 
-	if appTeams, err := s.GetAllApplicationsTeamOwner(ctx, transaction); err != nil {
+	if appTeams, err := s.GetAllApplicationsTeamOwner(ctx, transaction, ""); err != nil {
 		return nil, err
 	} else {
 		for appName, team := range appTeams {
