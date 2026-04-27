@@ -5776,6 +5776,177 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "A release train with commit hash should revive an undeployed app",
+			SetupStages: [][]Transformer{
+				{
+					// stage 0: deploy v1.0 to staging, and run release train to production
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Latest: true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[types.EnvName]string{
+							"production": "some production manifest v1.0",
+							"staging":    "some staging manifest v1.0",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&ReleaseTrain{
+						Target:          "production",
+						WriteCommitData: true,
+					},
+				},
+				{
+					// stage 1: deploy v2.0 to staging, but then undeploy the app completely
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[types.EnvName]string{
+							"production": "some production manifest v2.0",
+							"staging":    "some staging manifest v2.0",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionTwo),
+					},
+					&UndeployApplication{
+						Application: appName,
+					},
+				},
+			},
+			// when we run a release train to production (commitHash refs to Stage 0)
+			// the app should be revived on the production (but not on upstream envs, i.e., staging)
+			CommitHashIndex: 0,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
+					TransformerID: 7,
+				},
+			},
+		},
+		{
+			Name: "A revived app should work normally (deployable to downstream envs)",
+			SetupStages: [][]Transformer{
+				{
+					// stage 0: deploy v1.0 to development, and run release train to staging
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "development",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "development",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Latest: true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[types.EnvName]string{
+							"production":  "some production manifest v1.0",
+							"staging":     "some staging manifest v1.0",
+							"development": "some development manifest v1.0",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionOne),
+					},
+					&ReleaseTrain{
+						Target:          "staging",
+						WriteCommitData: true,
+					},
+				},
+				{
+					// stage 1: deploy v2.0 to development, but then undeploy the app completely
+					&CreateApplicationVersion{
+						Application:    appName,
+						SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+						Manifests: map[types.EnvName]string{
+							"production":  "some production manifest v2.0",
+							"staging":     "some staging manifest v2.0",
+							"development": "some development manifest v2.0",
+						},
+						WriteCommitData: true,
+						Version:         uint64(versionTwo),
+					},
+					&UndeployApplication{
+						Application: appName,
+					},
+				},
+				{
+					// Stage 2: run release train to staging (commitHash refs to Stage 0)
+					&ReleaseTrain{
+						Target:          "staging",
+						WriteCommitData: true,
+						CommitHash:      strings.Repeat("0", 40),
+					},
+				},
+			},
+			// when we run a release train to production (commitHash refs to Stage 2 -> refs to Stage 0)
+			// the revived app on staging should be deployed normally to production
+			CommitHashIndex: 2,
+			ReleaseTrain: ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+			},
+			ExpectedDeployments: []db.Deployment{
+				{
+					App: "app",
+					Env: "staging",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
+					TransformerID: 8,
+				},
+				{
+					App: "app",
+					Env: "production",
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  &versionOne,
+					},
+					TransformerID: 9,
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
