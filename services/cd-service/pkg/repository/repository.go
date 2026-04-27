@@ -1054,12 +1054,11 @@ func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sq
 	var err error
 
 	if commitHash != "" {
-		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
-		if err != nil {
-			return nil, err
+		ts, tsErr := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		if tsErr != nil {
+			return nil, tsErr
 		}
 		apps, err = s.DBHandler.DBSelectAllAppsMetadataAtTimestamp(ctx, transaction, *ts)
-
 	} else {
 		apps, err = s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
 	}

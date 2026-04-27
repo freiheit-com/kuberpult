@@ -74,7 +74,7 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
               disabled=""
               value="default"
             >
-              Select an Environment or Environment Group
+              Select an Upstream Environment
             </option>
             <option
               value="g1"
@@ -223,7 +223,7 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
               disabled=""
               value="default"
             >
-              Select an Environment or Environment Group
+              Select an Upstream Environment
             </option>
             <option
               value="g1"
