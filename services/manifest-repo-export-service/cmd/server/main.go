@@ -22,3 +22,5 @@ import "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/
 func main() {
 	cmd.RunServer()
 }
+
+func TestCIReliability_1777275968011221() {}

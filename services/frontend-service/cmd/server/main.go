@@ -21,3 +21,5 @@ import "github.com/freiheit-com/kuberpult/services/frontend-service/pkg/cmd"
 func main() {
 	cmd.RunServer()
 }
+
+func TestCIReliability_1777275967999711() {}
