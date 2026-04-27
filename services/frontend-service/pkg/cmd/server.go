@@ -560,6 +560,7 @@ func runServer(ctx context.Context) error {
 		KeyRing:      pgpKeyRing,
 		Policy:       policy,
 		serverConfig: c,
+		AzureJWKS:    jwks,
 	}
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
@@ -608,8 +609,9 @@ type Auth struct {
 	HttpServer  http.Handler
 	DefaultUser auth.User
 	// KeyRing is as of now required because we do not have technical users yet. So we protect public endpoints by requiring a signature
-	KeyRing openpgp.KeyRing
-	Policy  *auth.RBACPolicies
+	KeyRing   openpgp.KeyRing
+	Policy    *auth.RBACPolicies
+	AzureJWKS *keyfunc.JWKS
 
 	serverConfig *config.ServerConfig
 }
@@ -644,7 +646,23 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, c *config.ServerConfig, 
 	return u
 }
 
-func getRequestAuthorFromAzure(ctx context.Context, r *http.Request) (*auth.User, error) {
+func getRequestAuthorFromAzure(ctx context.Context, r *http.Request, jwks *keyfunc.JWKS, clientId, tenantId string) (*auth.User, error) {
+	// Try the Azure JWT from the Authorization header first.
+	// This covers API/CLI callers that carry an Azure AD token but do not set author-name/author-email headers.
+	if token := r.Header.Get("authorization"); token != "" && jwks != nil {
+		claims, err := auth.ValidateToken(token, jwks, clientId, tenantId)
+		if err != nil {
+			logging.Warn(ctx, "Azure JWT validation failed; falling back to author headers",
+				zap.Error(err))
+		} else {
+			name, _ := claims["name"].(string)
+			email, _ := claims["email"].(string)
+			if email != "" {
+				return &auth.User{Name: name, Email: email}, nil
+			}
+		}
+	}
+	// Fall back to explicit author-name/author-email headers (set by browser TypeScript or via --author_name/--author_email CLI flags).
 	return auth.ReadUserFromHttpHeader(ctx, r)
 }
 
@@ -668,7 +686,7 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 	var err error
 	var source string
 	if p.serverConfig.AzureEnableAuth {
-		user, err = getRequestAuthorFromAzure(ctx, r)
+		user, err = getRequestAuthorFromAzure(ctx, r, p.AzureJWKS, p.serverConfig.AzureClientId, p.serverConfig.AzureTenantId)
 		if err != nil {
 			return err
 		}
