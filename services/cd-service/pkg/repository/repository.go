@@ -681,9 +681,6 @@ func (s *State) GetCommitHashTimestamp(ctx context.Context, transaction *sql.Tx,
 	if err != nil {
 		return nil, err
 	}
-	if ts == nil {
-		return nil, fmt.Errorf("no timestamp found for commitHash %q", commitHash)
-	}
 	return ts, nil
 }
 

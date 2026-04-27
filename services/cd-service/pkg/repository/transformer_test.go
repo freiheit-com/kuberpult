@@ -2293,10 +2293,10 @@ func TestReleaseTrainErrors(t *testing.T) {
 				CommitHash: "not-found",
 			},
 			expectedPrognosis: ReleaseTrainPrognosis{
-				Error: status.Error(codes.InvalidArgument, "error: could not get all releases of all apps no timestamp found for commitHash \"not-found\""),
+				Error: status.Error(codes.InvalidArgument, "error: could not get app version for commitHash not-found for acceptance-de: timestamp for the provided commit hash \"not-found\" does not exist"),
 			},
 			expectedError: &TransformerBatchApplyError{
-				TransformerError: status.Error(codes.InvalidArgument, "error: could not get all releases of all apps no timestamp found for commitHash \"not-found\""),
+				TransformerError: status.Error(codes.InvalidArgument, "error: could not get app version for commitHash not-found for acceptance-de: timestamp for the provided commit hash \"not-found\" does not exist"),
 			},
 		},
 	}
