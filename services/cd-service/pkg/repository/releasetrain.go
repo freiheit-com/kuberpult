@@ -122,6 +122,7 @@ type ReleaseTrainApplicationPrognosis struct {
 	Team               string
 	NewReleaseCommitId string
 	ExistingDeployment *db.Deployment
+	// if app is deleted, we revive it using this release data from history
 	DeletedRelease     *db.DBReleaseWithMetaData
 	ArgoBracket        types.ArgoBracketName
 	OldReleaseCommitId string
@@ -887,24 +888,31 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 		var deletedRelease *db.DBReleaseWithMetaData
 		var argoBracket types.ArgoBracketName
-		if c.Parent.CommitHash != "" && existingDeployment == nil {
-			// this happens when the app was deleted from the environment
-			// and we want to run a release train to revive the app
-			ts, err := state.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, c.Parent.CommitHash)
+		if c.Parent.CommitHash != "" {
+			// check if the release still exists for the app
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy, false)
 			if err != nil {
 				return failedPrognosis(err)
 			}
-			deletedRelease, err = state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, appName, versionToDeploy, false, *ts)
-			if err != nil {
-				return failedPrognosis(err)
-			}
+			if release == nil {
+				// this typically happens when the app was deleted completely before
+				// and we want to run a release train to revive the app
+				ts, err := state.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, c.Parent.CommitHash)
+				if err != nil {
+					return failedPrognosis(err)
+				}
+				deletedRelease, err = state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, appName, versionToDeploy, false, *ts)
+				if err != nil {
+					return failedPrognosis(err)
+				}
 
-			// ArgoCD's bracket name can be fetched from apps_history table
-			appMetadata, err := state.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, appName, *ts)
-			if err != nil {
-				return failedPrognosis(err)
+				// ArgoCD's bracket name can be fetched from apps_history table
+				appMetadata, err := state.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, appName, *ts)
+				if err != nil {
+					return failedPrognosis(err)
+				}
+				argoBracket = appMetadata.ArgoBracket
 			}
-			argoBracket = appMetadata.ArgoBracket
 		}
 
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
@@ -1051,14 +1059,8 @@ func (c *envReleaseTrain) applyPrognosis(
 			continue
 		}
 
-		if c.Parent.CommitHash != "" && appPrognosis.ExistingDeployment == nil {
-			// this happens when the app was deleted from the environment
-			// and we want to run a release train to revive the app.
-			// but first, the application release must be created before the release train can proceed
-			if appPrognosis.DeletedRelease == nil {
-				return "", fmt.Errorf("could not find deleted release for %s", appName)
-			}
-
+		if c.Parent.CommitHash != "" && appPrognosis.DeletedRelease != nil {
+			// if the app release was deleted, we need to recreate it before the release train can proceed
 			deletedRelease := appPrognosis.DeletedRelease
 
 			envConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
@@ -1101,7 +1103,6 @@ func (c *envReleaseTrain) applyPrognosis(
 				IsPrepublish:          deletedRelease.Metadata.IsPrepublish,
 				ArgoBracket:           appPrognosis.ArgoBracket,
 			}
-			logging.Info(ctx, "Create new release", zap.Any("newRelease", newRelease))
 			_, err = newRelease.Transform(ctx, state, t, transaction)
 			if err != nil {
 				return "", fmt.Errorf("could not create release for %s: %w", appName, err)
@@ -1136,7 +1137,6 @@ func (c *envReleaseTrain) applyPrognosis(
 			ExistingDeployment: appPrognosis.ExistingDeployment,
 			OldReleaseCommitId: appPrognosis.OldReleaseCommitId,
 		}
-		logging.Info(ctx, "Deploying new deployment", zap.Any("deployment", d), zap.Any("prognosisData", prognosisData))
 		_, err := d.ApplyPrognosis(
 			ctx,
 			state,

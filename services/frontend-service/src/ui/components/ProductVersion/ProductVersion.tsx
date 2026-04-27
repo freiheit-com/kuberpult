@@ -316,7 +316,7 @@ export const ProductVersion: React.FC = () => {
                         </select>
                         <select className="env_drop_down" onChange={changeEnv} value={environment}>
                             <option value="default" disabled>
-                                Select an Upstream Environment
+                                Select an Environment
                             </option>
                             {envList.map((env) => (
                                 <option value={env} key={env}>
