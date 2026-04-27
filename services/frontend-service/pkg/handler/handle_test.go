@@ -2446,3 +2446,153 @@ func TestServer_HandleDeleteAAEnvConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleApiRelease_YamlValidation(t *testing.T) {
+	// makeForm builds a parsed multipart form containing a single manifest file
+	// with the given content, ready to be attached to a test HTTP request.
+	makeForm := func(manifestContent string) *multipart.Form {
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		if err := writer.WriteField("application", "my-app"); err != nil {
+			t.Fatalf("WriteField application: %s", err)
+		}
+		if err := writer.WriteField("version", "1"); err != nil {
+			t.Fatalf("WriteField version: %s", err)
+		}
+		fw, err := writer.CreateFormFile("manifests[development]", "manifest.yaml")
+		if err != nil {
+			t.Fatalf("CreateFormFile: %s", err)
+		}
+		if _, err := fw.Write([]byte(manifestContent)); err != nil {
+			t.Fatalf("Write manifest: %s", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("Close writer: %s", err)
+		}
+		req := httptest.NewRequest("POST", "/api/release/", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
+			t.Fatalf("ParseMultipartForm: %s", err)
+		}
+		return req.MultipartForm
+	}
+
+	successBatchResponse := &api.BatchResponse{
+		Results: []*api.BatchResult{
+			{
+				Result: &api.BatchResult_CreateReleaseResponse{
+					CreateReleaseResponse: &api.CreateReleaseResponse{
+						Response: &api.CreateReleaseResponse_Success{
+							Success: &api.CreateReleaseResponseSuccess{},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tcs := []struct {
+		name                  string
+		manifestContent       string
+		yamlValidationEnabled bool
+		batchResponse         *api.BatchResponse
+		expectedStatus        int
+		expectedBodyContains  string
+	}{
+		{
+			name:                  "invalid YAML: unclosed flow sequence",
+			manifestContent:       "key: [unclosed",
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML: unclosed flow mapping",
+			manifestContent:       "key: {unclosed",
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML: tab character used for indentation",
+			manifestContent:       "key:\n\t- value",
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML: inconsistent indentation",
+			manifestContent:       "a:\n  b: 1\n c: 2",
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML: unclosed quoted string",
+			manifestContent:       `key: "unclosed`,
+			yamlValidationEnabled: true,
+			expectedStatus:        400,
+			expectedBodyContains:  "not valid YAML",
+		},
+		{
+			name:                  "invalid YAML passes through when validation disabled",
+			manifestContent:       "key: [unclosed",
+			yamlValidationEnabled: false,
+			batchResponse:         successBatchResponse,
+			expectedStatus:        201,
+		},
+		{
+			name:                  "valid YAML accepted",
+			manifestContent:       "key: value",
+			yamlValidationEnabled: true,
+			batchResponse:         successBatchResponse,
+			expectedStatus:        201,
+		},
+		{
+			name:                  "multi-document YAML accepted",
+			manifestContent:       "a: 1\n---\nb: 2",
+			yamlValidationEnabled: true,
+			batchResponse:         successBatchResponse,
+			expectedStatus:        201,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			batchClient := &mockBatchClient{batchResponse: tc.batchResponse}
+			s := Server{
+				BatchClient: batchClient,
+				Config: config.ServerConfig{
+					ReleaseYamlValidationEnabled: tc.yamlValidationEnabled,
+				},
+			}
+			form := makeForm(tc.manifestContent)
+			req := &http.Request{
+				Method: http.MethodPut,
+				URL:    &url.URL{Path: "/api/release/"},
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"application": {"my-app"},
+						"version":     {"1"},
+					},
+					File: form.File,
+				},
+			}
+			w := httptest.NewRecorder()
+			s.HandleAPI(w, req)
+			resp := w.Result()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("ReadAll response body: %s", err)
+			}
+			if resp.StatusCode != tc.expectedStatus {
+				t.Errorf("expected status %d, got %d (body: %s)", tc.expectedStatus, resp.StatusCode, body)
+			}
+			if tc.expectedBodyContains != "" {
+				if !strings.Contains(string(body), tc.expectedBodyContains) {
+					t.Errorf("expected body to contain %q, got: %s", tc.expectedBodyContains, body)
+				}
+			}
+		})
+	}
+}

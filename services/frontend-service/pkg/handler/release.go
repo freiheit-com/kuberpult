@@ -31,6 +31,7 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	"go.uber.org/zap"
+	yaml3 "gopkg.in/yaml.v3"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -45,6 +46,19 @@ var (
 	// parses anything that looks like "name <mail@host.com>"
 	authorRx = regexp.MustCompile(`\A[^<\n]+( <[^@\n]+@[^>\n]+>)?\z`)
 )
+
+func isValidYAML(content string) error {
+	decoder := yaml3.NewDecoder(strings.NewReader(content))
+	for {
+		var node yaml3.Node
+		if err := decoder.Decode(&node); err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
+}
 
 func readMultipartFile(hdr *multipart.FileHeader) ([]byte, error) {
 	if file, err := hdr.Open(); err != nil {
@@ -406,6 +420,13 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 			return
 		}
 		tf.Manifests[environmentName] = string(content)
+		if s.Config.ReleaseYamlValidationEnabled {
+			if yamlErr := isValidYAML(string(content)); yamlErr != nil {
+				w.WriteHeader(400)
+				_, _ = fmt.Fprintf(w, "Manifest for environment %q is not valid YAML: %s", environmentName, yamlErr)
+				return
+			}
+		}
 
 	}
 	if len(tf.Manifests) == 0 {

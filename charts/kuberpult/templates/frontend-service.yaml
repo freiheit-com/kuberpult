@@ -143,6 +143,8 @@ spec:
           value: {{ .Values.auth.api.enableDespiteNoAuth | quote }}
         - name: KUBERPULT_REVISIONS_ENABLED
           value: {{ .Values.frontend.enableRevisions | quote }}
+        - name: KUBERPULT_RELEASE_YAML_VALIDATION_ENABLED
+          value: {{ .Values.frontend.release.yamlValidationEnabled | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:

@@ -301,6 +301,9 @@ frontend:
   grpcMaxRecvMsgSize: 4
   # When enabled, the /release endpoint to accept a revision (i.e. 1.0, 1.1, 2.0...), instead of only integers (1,2,3...).
   enableRevisions: false
+  release:
+    # When enabled, the /api/release endpoint rejects manifests that are not valid YAML.
+    yamlValidationEnabled: true
 rollout:
   # DEPRECATED
   # Note that the rollout service is not the recommended way to set up kuberpult.
