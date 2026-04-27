@@ -687,45 +687,29 @@ func (s *State) GetCommitHashTimestamp(ctx context.Context, transaction *sql.Tx,
 	return ts, nil
 }
 
-func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName, commitHash string) (map[types.AppName]types.ReleaseNumbers, error) {
-	if commitHash != "" {
-		ts, err := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
-		if err != nil {
-			return nil, err
-		}
+func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName, ts *time.Time) (map[types.AppName]types.ReleaseNumbers, error) {
+	if ts != nil {
 		return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp(ctx, transaction, environment, *ts)
 	}
 	return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 }
 
-func (s *State) GetCommitIdFromAppReleaseVersions(ctx context.Context, transaction *sql.Tx, appReleaseVersions map[types.AppName]types.ReleaseNumbers, commitHash string) (map[types.AppName]string, error) {
-	if commitHash != "" {
-		ts, err := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
-		if err != nil {
-			return nil, err
-		}
+func (s *State) GetCommitIdFromAppReleaseVersions(ctx context.Context, transaction *sql.Tx, appReleaseVersions map[types.AppName]types.ReleaseNumbers, ts *time.Time) (map[types.AppName]string, error) {
+	if ts != nil {
 		return s.DBHandler.DBSelectCommitIdAppReleaseVersionsAtTimestamp(ctx, transaction, appReleaseVersions, *ts)
 	}
 	return s.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, appReleaseVersions)
 }
 
-func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, commitHash string) (map[types.AppName][]types.ReleaseNumbers, error) {
-	if commitHash != "" {
-		ts, err := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
-		if err != nil {
-			return nil, err
-		}
+func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, ts *time.Time) (map[types.AppName][]types.ReleaseNumbers, error) {
+	if ts != nil {
 		return s.DBHandler.DBSelectAllReleasesOfAllAppsAtTimestamp(ctx, transaction, *ts)
 	}
 	return s.DBHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
 }
 
-func (s *State) GetAllEnvironmentsForAllLatestReleases(ctx context.Context, transaction *sql.Tx, commitHash string) (_ db.AppVersionEnvironments, err error) {
-	if commitHash != "" {
-		ts, err := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
-		if err != nil {
-			return nil, err
-		}
+func (s *State) GetAllEnvironmentsForAllLatestReleases(ctx context.Context, transaction *sql.Tx, ts *time.Time) (_ db.AppVersionEnvironments, err error) {
+	if ts != nil {
 		return s.DBHandler.DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctx, transaction, *ts)
 	}
 	return s.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctx, transaction)
@@ -1060,16 +1044,12 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 	return app.Metadata.Team, nil
 }
 
-func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx, commitHash string) (map[types.AppName]string, error) {
+func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx, ts *time.Time) (map[types.AppName]string, error) {
 	result := make(map[types.AppName]string)
 	var apps map[types.AppName]*db.DBAppWithMetaData
 	var err error
 
-	if commitHash != "" {
-		ts, tsErr := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
-		if tsErr != nil {
-			return nil, tsErr
-		}
+	if ts != nil {
 		apps, err = s.DBHandler.DBSelectAllAppsMetadataAtTimestamp(ctx, transaction, *ts)
 	} else {
 		apps, err = s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
