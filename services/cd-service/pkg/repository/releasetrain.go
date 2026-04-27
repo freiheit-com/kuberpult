@@ -960,9 +960,12 @@ func (c *envReleaseTrain) Transform(
 		span.Finish(tracer.WithError(err))
 	}()
 
-	ts, err := state.GetCommitHashTimestamp(ctx, transaction, c.Parent.CommitHash)
-	if err != nil {
-		return "", err
+	var ts *time.Time
+	if c.Parent != nil && c.Parent.CommitHash != "" {
+		ts, err = state.GetCommitHashTimestamp(ctx, transaction, c.Parent.CommitHash)
+		if err != nil {
+			return "", err
+		}
 	}
 	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache, ts)
 
