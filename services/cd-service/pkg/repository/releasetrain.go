@@ -123,6 +123,7 @@ type ReleaseTrainApplicationPrognosis struct {
 	NewReleaseCommitId string
 	ExistingDeployment *db.Deployment
 	DeletedRelease     *db.DBReleaseWithMetaData
+	ArgoBracket        types.ArgoBracketName
 	OldReleaseCommitId string
 }
 
@@ -885,6 +886,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 
 		var deletedRelease *db.DBReleaseWithMetaData
+		var argoBracket types.ArgoBracketName
 		if c.Parent.CommitHash != "" && existingDeployment == nil {
 			// this happens when the app was deleted from the environment
 			// and we want to run a release train to revive the app
@@ -896,6 +898,13 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			if err != nil {
 				return failedPrognosis(err)
 			}
+
+			// ArgoCD's bracket name can be fetched from apps_history table
+			appMetadata, err := state.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, appName, *ts)
+			if err != nil {
+				return failedPrognosis(err)
+			}
+			argoBracket = appMetadata.ArgoBracket
 		}
 
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
@@ -910,6 +919,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			ExistingDeployment: existingDeployment,
 			OldReleaseCommitId: targetCommitIDByApp[appName],
 			DeletedRelease:     deletedRelease,
+			ArgoBracket:        argoBracket,
 		}
 
 	}
@@ -1050,15 +1060,37 @@ func (c *envReleaseTrain) applyPrognosis(
 			}
 
 			deletedRelease := appPrognosis.DeletedRelease
+
+			envConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+			if err != nil {
+				return "", fmt.Errorf("could not get env configs: %w", err)
+			}
+
+			manifests := make(map[types.EnvName]string)
+			for envName, manifest := range deletedRelease.Manifests.Manifests {
+				// Skip if not deployed to this env. We'll let the
+				envConfig, ok := envConfigs[envName]
+				if !ok { // the env does not exist anymore
+					continue
+				}
+
+				if envConfig.Upstream.Latest {
+					// the app will be deployed automatically to upstream envs with CreateApplicationVersion transformer.
+					// As we only want to deploy to the target env, upstream envs should be skipped
+					continue
+				}
+				manifests[envName] = manifest
+			}
+
 			newRelease := &CreateApplicationVersion{
 				Version:               *deletedRelease.ReleaseNumbers.Version,
 				Revision:              deletedRelease.ReleaseNumbers.Revision,
 				Application:           appName,
-				Manifests:             deletedRelease.Manifests.Manifests,
+				Manifests:             manifests,
 				SourceCommitId:        deletedRelease.Metadata.SourceCommitId,
 				SourceAuthor:          deletedRelease.Metadata.SourceAuthor,
 				SourceMessage:         deletedRelease.Metadata.SourceMessage,
-				PreviousCommit:        "",
+				PreviousCommit:        "", // we don't have previousCommitId for releases in database for now
 				Team:                  appPrognosis.Team,
 				DisplayVersion:        deletedRelease.Metadata.DisplayVersion,
 				Authentication:        c.Parent.Authentication,
@@ -1067,9 +1099,10 @@ func (c *envReleaseTrain) applyPrognosis(
 				AllowedDomains:        c.Parent.AllowedDomains,
 				TransformerEslVersion: c.TransformerEslVersion,
 				IsPrepublish:          deletedRelease.Metadata.IsPrepublish,
-				// ArgoBracket:     deletedRelease.ArgoBracket,
+				ArgoBracket:           appPrognosis.ArgoBracket,
 			}
-			_, err := newRelease.Transform(ctx, state, t, transaction)
+			logging.Info(ctx, "Create new release", zap.Any("newRelease", newRelease))
+			_, err = newRelease.Transform(ctx, state, t, transaction)
 			if err != nil {
 				return "", fmt.Errorf("could not create release for %s: %w", appName, err)
 			}
@@ -1103,7 +1136,7 @@ func (c *envReleaseTrain) applyPrognosis(
 			ExistingDeployment: appPrognosis.ExistingDeployment,
 			OldReleaseCommitId: appPrognosis.OldReleaseCommitId,
 		}
-		logging.Info(ctx, "DeployApplicationVersion", zap.Any("DeployApplicationVersion", d), zap.Any("prognosisData", prognosisData))
+		logging.Info(ctx, "Deploying new deployment", zap.Any("deployment", d), zap.Any("prognosisData", prognosisData))
 		_, err := d.ApplyPrognosis(
 			ctx,
 			state,
