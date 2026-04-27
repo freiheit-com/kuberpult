@@ -19,6 +19,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -29,14 +30,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MicahParks/keyfunc/v2"
+	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
-	"github.com/google/go-cmp/cmp/cmpopts"
-
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestServerHeader(t *testing.T) {
@@ -534,6 +537,187 @@ func TestAuthServeHTTPInner(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tc.ExpectedError) {
 				t.Errorf("expected error to contain %q, got %v", tc.ExpectedError, err)
+			}
+		})
+	}
+}
+
+func makeAzureTestJWKS() (*keyfunc.JWKS, error) {
+	publicKey, err := jwt.ParseRSAPublicKeyFromPEM([]byte(`-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC/oyqURHIPNzx4vcKrUUZYr6Bx
+q2OSD44a63zeIDA1oZkR+sactmkub+8NI49GqrbssWf944v3ZLp8KXMh6i+U9pkS
+dDfvKcQUProQ+Tlm/m0SFXa6h7vq6iVD1uawzN9aQaR7WiKV1TuPGUgE86/l+XTv
+LZ/MbKh0tz9j8JtY4QIDAQAB
+-----END PUBLIC KEY-----`))
+	if err != nil {
+		return nil, err
+	}
+	givenKey := keyfunc.NewGivenRSA(publicKey, keyfunc.GivenKeyOptions{})
+	return keyfunc.NewGiven(map[string]keyfunc.GivenKey{"testKid": givenKey}), nil
+}
+
+func makeAzureTestToken(clientId, tenantId, name, email string) (string, error) {
+	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(`-----BEGIN RSA PRIVATE KEY-----
+MIICXQIBAAKBgQC/oyqURHIPNzx4vcKrUUZYr6Bxq2OSD44a63zeIDA1oZkR+sac
+tmkub+8NI49GqrbssWf944v3ZLp8KXMh6i+U9pkSdDfvKcQUProQ+Tlm/m0SFXa6
+h7vq6iVD1uawzN9aQaR7WiKV1TuPGUgE86/l+XTvLZ/MbKh0tz9j8JtY4QIDAQAB
+AoGBAICNeROq8oSIfjVUvlDkHXeCoPN/kDS74IzoaYQsPYrMk30/J5qatuYiyk6b
+CxLRlBIlU+g5i3vygzKlL4mRqkZuCM4xPbpuW9sdZp61TxWZk7Tm+SYBTStYSGkT
+tPmvnKsYWkUh1WDSkeLJqHkRbQXAZJkAKRMYgLu2F29fWOZBAkEA8P31nm/AiDiD
+dkGSGp4GVQ5BBry3XdP3c6rfzmW8sMElxqoj2watdia72+grf8eVo8vtsTiOrVUD
+ZoS5C5GKKQJBAMuSXXQZrBa4qB7YkGi5ysQRQZoegdYZa44q9L9oBE/iEl/ejR1l
+EKZi+v2greoIruqczGAD7VbEiwT50+npH/kCQQDJgpGvOaK0RQ0oBQw2VYzV8mVN
+TN/HBUcU4PzjiQ6OffMoe3wf2SWSdjD/YNN+tVTa8dp/Jdun9D4zqydQFRKBAkBV
+zlPl5AxNZ3g1yELWYbm9+ygTtlgzznMvcZvIMiffJANqtXv1r+vctkvlLB0iUJap
+/X2H2x/nOuD+L+/K4KDBAkAHcO3Gv7VZsSHfnd/JfDzxtL0MFWerGZyGlaNFmX27
+1dWRXvcS5A0zPMgiBWfvHFx2DpSiceffqnis+UryeE+L
+-----END RSA PRIVATE KEY-----`))
+	if err != nil {
+		return "", fmt.Errorf("could not parse RSA private key: %w", err)
+	}
+	claims := jwt.MapClaims{
+		"aud":   clientId,
+		"tid":   tenantId,
+		"name":  name,
+		"email": email,
+		"exp":   time.Now().Add(10 * time.Minute).Unix(),
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	tok.Header["kid"] = "testKid"
+	return tok.SignedString(privateKey)
+}
+
+func TestGetRequestAuthorFromAzure(t *testing.T) {
+	const (
+		testClientId = "testClientId"
+		testTenantId = "testTenantId"
+		testName     = "Test User"
+		testEmail    = "test.user@example.com"
+	)
+
+	jwks, err := makeAzureTestJWKS()
+	if err != nil {
+		t.Fatalf("failed to create test JWKS: %v", err)
+	}
+	validToken, err := makeAzureTestToken(testClientId, testTenantId, testName, testEmail)
+	if err != nil {
+		t.Fatalf("failed to create test token: %v", err)
+	}
+
+	tcs := []struct {
+		Name          string
+		Authorization string // value for "authorization" header
+		AuthorName    string // base64-encoded value for "author-name" header
+		AuthorEmail   string // base64-encoded value for "author-email" header
+		JWKSNil       bool
+		ClientId      string
+		TenantId      string
+		ExpectedUser  *auth.User
+	}{
+		{
+			Name:         "no headers returns nil",
+			ClientId:     testClientId,
+			TenantId:     testTenantId,
+			ExpectedUser: nil,
+		},
+		{
+			Name:        "author headers only returns user from headers",
+			AuthorName:  auth.Encode64("ci-bot"),
+			AuthorEmail: auth.Encode64("ci@example.com"),
+			ClientId:    testClientId,
+			TenantId:    testTenantId,
+			ExpectedUser: &auth.User{
+				Name:           "ci-bot",
+				Email:          "ci@example.com",
+				DexAuthContext: &auth.DexAuthContext{Role: []string{""}},
+			},
+		},
+		{
+			Name:          "valid JWT returns user from JWT claims",
+			Authorization: validToken,
+			ClientId:      testClientId,
+			TenantId:      testTenantId,
+			ExpectedUser:  &auth.User{Name: testName, Email: testEmail},
+		},
+		{
+			Name:          "valid JWT takes priority over author headers",
+			Authorization: validToken,
+			AuthorName:    auth.Encode64("ci-bot"),
+			AuthorEmail:   auth.Encode64("ci@example.com"),
+			ClientId:      testClientId,
+			TenantId:      testTenantId,
+			ExpectedUser:  &auth.User{Name: testName, Email: testEmail},
+		},
+		{
+			Name:          "nil JWKS skips JWT validation and falls back to author headers",
+			Authorization: validToken,
+			AuthorName:    auth.Encode64("ci-bot"),
+			AuthorEmail:   auth.Encode64("ci@example.com"),
+			JWKSNil:       true,
+			ClientId:      testClientId,
+			TenantId:      testTenantId,
+			ExpectedUser: &auth.User{
+				Name:           "ci-bot",
+				Email:          "ci@example.com",
+				DexAuthContext: &auth.DexAuthContext{Role: []string{""}},
+			},
+		},
+		{
+			Name:          "invalid JWT falls back to author headers",
+			Authorization: "not.a.validtoken",
+			AuthorName:    auth.Encode64("ci-bot"),
+			AuthorEmail:   auth.Encode64("ci@example.com"),
+			ClientId:      testClientId,
+			TenantId:      testTenantId,
+			ExpectedUser: &auth.User{
+				Name:           "ci-bot",
+				Email:          "ci@example.com",
+				DexAuthContext: &auth.DexAuthContext{Role: []string{""}},
+			},
+		},
+		{
+			Name:          "JWT with wrong clientId falls back to author headers",
+			Authorization: validToken,
+			AuthorName:    auth.Encode64("ci-bot"),
+			AuthorEmail:   auth.Encode64("ci@example.com"),
+			ClientId:      "wrongClientId",
+			TenantId:      testTenantId,
+			ExpectedUser: &auth.User{
+				Name:           "ci-bot",
+				Email:          "ci@example.com",
+				DexAuthContext: &auth.DexAuthContext{Role: []string{""}},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			req, err := http.NewRequest(http.MethodPost, "/api/release", nil)
+			if err != nil {
+				t.Fatalf("failed to create request: %v", err)
+			}
+			if tc.Authorization != "" {
+				req.Header.Set("authorization", tc.Authorization)
+			}
+			if tc.AuthorName != "" {
+				req.Header.Set(auth.HeaderUserName, tc.AuthorName)
+			}
+			if tc.AuthorEmail != "" {
+				req.Header.Set(auth.HeaderUserEmail, tc.AuthorEmail)
+			}
+
+			testJWKS := jwks
+			if tc.JWKSNil {
+				testJWKS = nil
+			}
+
+			got, err := getRequestAuthorFromAzure(context.Background(), req, testJWKS, tc.ClientId, tc.TenantId)
+			if diff := cmp.Diff(nil, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("unexpected error (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tc.ExpectedUser, got); diff != "" {
+				t.Errorf("user mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
