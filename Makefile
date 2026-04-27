@@ -82,16 +82,11 @@ prepare-git:
 		git init --bare services/cd-service/repository_remote --initial-branch=master && \
 		git clone services/cd-service/repository_remote services/cd-service/repository_checkedout && \
 		git -C services/cd-service/repository_checkedout commit --allow-empty -m 'initial commit' && \
-		git -C services/cd-service/repository_checkedout push origin master && \
-		rm -rf services/cd-service/repository_checkedout; \
+		git -C services/cd-service/repository_checkedout push origin master; \
 	fi
 
-reset-git:
+cleanup-git:
 	rm -rf services/cd-service/repository_remote
-	git init --bare services/cd-service/repository_remote --initial-branch=master
-	git clone services/cd-service/repository_remote services/cd-service/repository_checkedout
-	git -C services/cd-service/repository_checkedout commit --allow-empty -m 'initial commit'
-	git -C services/cd-service/repository_checkedout push origin master
 	rm -rf services/cd-service/repository_checkedout
 
 prepare-compose: builder
@@ -115,7 +110,7 @@ reset-db: compose-down
 	# This deletes the volume of the default db location:
 	docker volume rm kuberpult_pgdata
 
-kuberpult-freshdb: prepare-compose reset-git compose-down
+kuberpult-freshdb: prepare-compose cleanup-git prepare-git compose-down
 	docker compose up
 
 # Run this before starting the unit tests in your IDE:
