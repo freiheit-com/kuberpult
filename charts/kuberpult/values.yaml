@@ -497,6 +497,7 @@ gke:
   # ```
   # Alternatively, you can set the name of the backend service as regex, and kuberpult will try to get the id of the first matching backend service using google compute SDK.
   # Only one of backend_service_id and backend_service_name should be set. Setting both is not supported and lead to an error.
+  # IMPORTANT: must be a quoted string, not a bare number.
   backend_service_id: ""
   backend_service_name: ""
   #
@@ -505,6 +506,7 @@ gke:
   # ```
   # gcloud projects list --filter="$(gcloud config get-value project)" --format="value(PROJECT_NUMBER)"
   # ```
+  # IMPORTANT: must be a quoted string. Use: project_number: "123456789012"
   project_number: ""
 
 auth:

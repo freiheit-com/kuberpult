@@ -121,12 +121,18 @@ spec:
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
           value: {{ .Values.log.level | quote }}
+        {{- if kindIs "float64" .Values.gke.backend_service_id }}
+          {{- fail "gke.backend_service_id must be a quoted string to preserve all digits (e.g. backend_service_id: \"1234567890123456789\"). When using --set, use --set-string instead." }}
+        {{- end }}
+        {{- if kindIs "float64" .Values.gke.project_number }}
+          {{- fail "gke.project_number must be a quoted string to preserve all digits." }}
+        {{- end }}
         - name: KUBERPULT_GKE_BACKEND_SERVICE_ID
-          value: "{{ .Values.gke.backend_service_id }}"
+          value: {{ .Values.gke.backend_service_id | quote }}
         - name: KUBERPULT_GKE_BACKEND_SERVICE_NAME
-          value: "{{ .Values.gke.backend_service_name }}"
+          value: {{ .Values.gke.backend_service_name | quote }}
         - name: KUBERPULT_GKE_PROJECT_NUMBER
-          value: "{{ .Values.gke.project_number }}"
+          value: {{ .Values.gke.project_number | quote }}
         - name: KUBERPULT_ALLOWED_ORIGINS
           value: "https://{{ .Values.ingress.domainName }}"
         - name: KUBERPULT_GIT_BRANCH
