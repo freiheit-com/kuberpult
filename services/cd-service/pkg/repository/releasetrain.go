@@ -885,8 +885,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		}
 
 		var deletedRelease *db.DBReleaseWithMetaData
-		if existingDeployment == nil {
+		if c.Parent.CommitHash != "" && existingDeployment == nil {
 			// this happens when the app was deleted from the environment
+			// and we want to run a release train to revive the app
 			ts, err := state.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, c.Parent.CommitHash)
 			if err != nil {
 				return failedPrognosis(err)
@@ -1040,12 +1041,12 @@ func (c *envReleaseTrain) applyPrognosis(
 			continue
 		}
 
-		if appPrognosis.ExistingDeployment == nil {
-			// this happens when attempting to run a release train for an application
-			// that has been deleted from the target environment
-			// 1. the application release must be created before the release train can proceed
+		if c.Parent.CommitHash != "" && appPrognosis.ExistingDeployment == nil {
+			// this happens when the app was deleted from the environment
+			// and we want to run a release train to revive the app.
+			// but first, the application release must be created before the release train can proceed
 			if appPrognosis.DeletedRelease == nil {
-				return "", fmt.Errorf("could not find release for %s", appName)
+				return "", fmt.Errorf("could not find deleted release for %s", appName)
 			}
 
 			deletedRelease := appPrognosis.DeletedRelease
