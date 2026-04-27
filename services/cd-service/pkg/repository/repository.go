@@ -675,9 +675,21 @@ func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, en
 func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) error {
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
+
+func (s *State) GetCommitHashTimestamp(ctx context.Context, transaction *sql.Tx, commitHash string) (*time.Time, error) {
+	ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+	if err != nil {
+		return nil, err
+	}
+	if ts == nil {
+		return nil, fmt.Errorf("no timestamp found for commitHash %q", commitHash)
+	}
+	return ts, nil
+}
+
 func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName, commitHash string) (map[types.AppName]types.ReleaseNumbers, error) {
 	if commitHash != "" {
-		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		ts, err := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
 		if err != nil {
 			return nil, err
 		}
@@ -688,7 +700,7 @@ func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx
 
 func (s *State) GetCommitIdFromAppReleaseVersions(ctx context.Context, transaction *sql.Tx, appReleaseVersions map[types.AppName]types.ReleaseNumbers, commitHash string) (map[types.AppName]string, error) {
 	if commitHash != "" {
-		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		ts, err := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
 		if err != nil {
 			return nil, err
 		}
@@ -699,7 +711,7 @@ func (s *State) GetCommitIdFromAppReleaseVersions(ctx context.Context, transacti
 
 func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, commitHash string) (map[types.AppName][]types.ReleaseNumbers, error) {
 	if commitHash != "" {
-		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		ts, err := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
 		if err != nil {
 			return nil, err
 		}
@@ -710,7 +722,7 @@ func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, c
 
 func (s *State) GetAllEnvironmentsForAllLatestReleases(ctx context.Context, transaction *sql.Tx, commitHash string) (_ db.AppVersionEnvironments, err error) {
 	if commitHash != "" {
-		ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		ts, err := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
 		if err != nil {
 			return nil, err
 		}
@@ -1054,7 +1066,7 @@ func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sq
 	var err error
 
 	if commitHash != "" {
-		ts, tsErr := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+		ts, tsErr := s.GetCommitHashTimestamp(ctx, transaction, commitHash)
 		if tsErr != nil {
 			return nil, tsErr
 		}

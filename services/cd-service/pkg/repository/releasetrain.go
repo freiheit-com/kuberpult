@@ -897,9 +897,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			if release == nil {
 				// this typically happens when the app was deleted completely before
 				// and we want to run a release train to revive the app
-				ts, err := state.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, c.Parent.CommitHash)
-				if err != nil {
-					return failedPrognosis(err)
+				ts, tsErr := state.GetCommitHashTimestamp(ctx, transaction, c.Parent.CommitHash)
+				if tsErr != nil {
+					return failedPrognosis(tsErr)
 				}
 				deletedRelease, err = state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, appName, versionToDeploy, false, *ts)
 				if err != nil {
