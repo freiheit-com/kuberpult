@@ -21,6 +21,8 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -51,7 +53,8 @@ type OverviewServiceServer struct {
 	changedAppsStreamingInitFunc sync.Once
 	response                     atomic.Value
 
-	DBHandler *db.DBHandler
+	DBHandler                    *db.DBHandler
+	ExperimentalBracketsClusters []string
 }
 
 func (o *OverviewServiceServer) GetAppDetails(
@@ -568,7 +571,22 @@ func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
 				if err != nil {
 					return err
 				}
+				// Strip bracket-enabled envs from app deployments so the rollout-service
+				// does not track individual apps for those envs.
+				for envName := range response.Deployments {
+					if isBracketEnv(o.ExperimentalBracketsClusters, envName) {
+						delete(response.Deployments, envName)
+					}
+				}
 				ov.ChangedApps[idx] = response
+			}
+
+			if len(o.ExperimentalBracketsClusters) > 0 {
+				changedBrackets, err := o.getChangedBrackets(stream.Context(), changedAppsNames)
+				if err != nil {
+					return err
+				}
+				ov.ChangedBrackets = changedBrackets
 			}
 
 			if err := stream.Send(ov); err != nil {
@@ -634,6 +652,130 @@ func (o *OverviewServiceServer) getAllAppNames(ctx context.Context) ([]types.App
 	return db.WithTransactionMultipleEntriesT(o.DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]types.AppName, error) {
 		return o.Repository.State().GetApplications(ctx, transaction)
 	})
+}
+
+func isBracketEnv(clusters []string, env string) bool {
+	return slices.Contains(clusters, env)
+}
+
+func combineBracketDeployments(sortedAppDetails []*api.GetAppDetailsResponse, bracketEnvs []string) map[string]*api.BracketDeployment {
+	result := make(map[string]*api.BracketDeployment)
+	for _, envName := range bracketEnvs {
+		var versionParts []string
+		var latestTime time.Time
+		var latestDeployment *api.Deployment
+		var latestAppDetails *api.GetAppDetailsResponse
+
+		for _, appDetail := range sortedAppDetails {
+			dep := appDetail.Deployments[envName]
+			if dep == nil {
+				versionParts = append(versionParts, "0")
+				continue
+			}
+			versionParts = append(versionParts, fmt.Sprintf("%d", dep.Version))
+
+			if dep.DeploymentMetaData != nil && dep.DeploymentMetaData.DeployTime != nil {
+				t := dep.DeploymentMetaData.DeployTime.AsTime()
+				if t.After(latestTime) {
+					latestTime = t
+					latestDeployment = dep
+					latestAppDetails = appDetail
+				}
+			}
+		}
+
+		var deployedAt *timestamppb.Timestamp
+		if !latestTime.IsZero() {
+			deployedAt = timestamppb.New(latestTime)
+		}
+
+		var sourceCommitId string
+		if latestDeployment != nil && latestAppDetails != nil {
+			for _, rel := range latestAppDetails.Application.Releases {
+				if rel.Version == latestDeployment.Version {
+					sourceCommitId = rel.SourceCommitId
+					break
+				}
+			}
+		}
+
+		result[envName] = &api.BracketDeployment{
+			Version:        strings.Join(versionParts, ":"),
+			DeployedAt:     deployedAt,
+			SourceCommitId: sourceCommitId,
+		}
+	}
+	return result
+}
+
+func (o *OverviewServiceServer) getBracketDetails(ctx context.Context, bracketName types.ArgoBracketName, appNames db.AppNames) (*api.GetBracketDetailsResponse, error) {
+	sorted := make([]types.AppName, len(appNames))
+	copy(sorted, appNames)
+	sort.Slice(sorted, func(i, j int) bool { return string(sorted[i]) < string(sorted[j]) })
+
+	appDetails := make([]*api.GetAppDetailsResponse, 0, len(sorted))
+	for _, appName := range sorted {
+		detail, err := o.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: string(appName)})
+		if err != nil {
+			return nil, err
+		}
+		appDetails = append(appDetails, detail)
+	}
+
+	return &api.GetBracketDetailsResponse{
+		BracketName: string(bracketName),
+		Deployments: combineBracketDeployments(appDetails, o.ExperimentalBracketsClusters),
+	}, nil
+}
+
+func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedApps []types.AppName) ([]*api.GetBracketDetailsResponse, error) {
+	bracketRow, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, tx *sql.Tx) (*db.BracketRow, error) {
+		return db.DBSelectBracketHistoryLatest(ctx, o.DBHandler, tx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if bracketRow == nil {
+		return nil, nil
+	}
+
+	bracketMap := bracketRow.AllBracketsJsonBlob.BracketMap
+
+	// Determine which brackets to update.
+	var affectedBrackets []types.ArgoBracketName
+	if len(changedApps) == 0 {
+		// Initial load: include all brackets.
+		for bracketName := range bracketMap {
+			affectedBrackets = append(affectedBrackets, bracketName)
+		}
+	} else {
+		// Build app→bracket inverse map and collect affected brackets.
+		seen := make(map[types.ArgoBracketName]bool)
+		for bracketName, apps := range bracketMap {
+			for _, app := range apps {
+				for _, changedApp := range changedApps {
+					if app == changedApp {
+						if !seen[bracketName] {
+							seen[bracketName] = true
+							affectedBrackets = append(affectedBrackets, bracketName)
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+	sort.Slice(affectedBrackets, func(i, j int) bool { return string(affectedBrackets[i]) < string(affectedBrackets[j]) })
+
+	result := make([]*api.GetBracketDetailsResponse, 0, len(affectedBrackets))
+	for _, bracketName := range affectedBrackets {
+		detail, err := o.getBracketDetails(ctx, bracketName, bracketMap[bracketName])
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, detail)
+	}
+	return result, nil
 }
 
 func (o *OverviewServiceServer) update(s *repository.State) {

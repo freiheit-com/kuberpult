@@ -443,11 +443,12 @@ func RunServer() {
 					})
 
 					overviewSrv := &service.OverviewServiceServer{
-						Repository:       repo,
-						RepositoryConfig: cfg,
-						Shutdown:         shutdownCh,
-						Context:          ctx,
-						DBHandler:        dbHandler,
+						Repository:                   repo,
+						RepositoryConfig:             cfg,
+						Shutdown:                     shutdownCh,
+						Context:                      ctx,
+						DBHandler:                    dbHandler,
+						ExperimentalBracketsClusters: c.ExperimentalBracketsClusters,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
 					api.RegisterProductSummaryServiceServer(srv, &service.ProductSummaryServer{State: repo.State()})
