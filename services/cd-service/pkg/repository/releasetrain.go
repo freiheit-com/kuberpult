@@ -122,6 +122,9 @@ type ReleaseTrainApplicationPrognosis struct {
 	Team               string
 	NewReleaseCommitId string
 	ExistingDeployment *db.Deployment
+	// if app is deleted, we revive it using this release data from history
+	DeletedRelease     *db.DBReleaseWithMetaData
+	ArgoBracket        types.ArgoBracketName
 	OldReleaseCommitId string
 }
 
@@ -178,7 +181,14 @@ func (c *ReleaseTrain) Prognosis(
 		}
 	}
 
-	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction)
+	ts, err := state.GetCommitHashTimestamp(ctx, transaction, c.CommitHash)
+	if err != nil {
+		return ReleaseTrainPrognosis{
+			Error:                grpc.PublicError(ctx, fmt.Errorf("could not get commit hash timestamp %w", err)),
+			EnvironmentPrognoses: nil,
+		}
+	}
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, ts)
 	if err != nil {
 		return ReleaseTrainPrognosis{
 			Error:                grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err)),
@@ -212,7 +222,7 @@ func (c *ReleaseTrain) Prognosis(
 			AllLatestReleaseEnvironments: nil,
 		}
 
-		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction, allLatestReleases)
+		envPrognosis := envReleaseTrain.prognosis(ctx, state, transaction, allLatestReleases, ts)
 
 		if envPrognosis.Error != nil {
 			return ReleaseTrainPrognosis{
@@ -266,7 +276,8 @@ func (c *ReleaseTrain) Transform(
 	types.Sort(envNames)
 	span.SetTag("environments", len(envNames))
 
-	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction)
+	ts, err := state.GetCommitHashTimestamp(ctx, transaction, c.CommitHash)
+	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, ts)
 	if err != nil {
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
 	}
@@ -284,7 +295,8 @@ func (c *ReleaseTrain) Transform(
 		allLatestReleases,
 		state,
 		transformerContext,
-		transaction)
+		transaction,
+		ts)
 	if err2 != nil {
 		return s, err2
 	}
@@ -308,6 +320,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	state *State,
 	t TransformerContext,
 	transaction *sql.Tx,
+	ts *time.Time,
 ) (
 	_ string, err error,
 ) {
@@ -318,7 +331,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 	}
 	spanManifests, ctxManifests := tracer.StartSpanFromContext(parentCtx, "Load Manifests")
 	var allReleasesEnvironments db.AppVersionEnvironments
-	allReleasesEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctxManifests, transaction)
+	allReleasesEnvironments, err = state.GetAllEnvironmentsForAllLatestReleases(ctxManifests, transaction, ts)
 	spanManifests.Finish(tracer.WithError(err))
 	if err != nil {
 		return "", err
@@ -358,7 +371,7 @@ func (c *ReleaseTrain) runWithNewGoRoutines(
 					AllLatestReleaseEnvironments: allReleasesEnvironments,
 				}
 
-				prognosis, prognosisErr := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases)
+				prognosis, prognosisErr := train.runEnvPrognosisBackground(ctx, state, envNameLocal, allLatestReleases, ts)
 
 				spanCh, _ := tracer.StartSpanFromContext(ctx, "WriteToChannel")
 				defer func() {
@@ -420,9 +433,10 @@ func (c *envReleaseTrain) runEnvPrognosisBackground(
 	state *State,
 	envName types.EnvName,
 	releases map[types.AppName][]types.ReleaseNumbers,
+	ts *time.Time,
 ) (*ReleaseTrainEnvironmentPrognosis, error) {
 	result, err := db.WithTransactionT(state.DBHandler, ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) (*ReleaseTrainEnvironmentPrognosis, error) {
-		prognosis := c.prognosis(ctx, state, transaction, releases)
+		prognosis := c.prognosis(ctx, state, transaction, releases, ts)
 		return prognosis, nil
 	})
 	if err != nil {
@@ -458,7 +472,7 @@ func (c *envReleaseTrain) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache) *ReleaseTrainEnvironmentPrognosis {
+func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transaction *sql.Tx, allLatestReleases AllLatestReleasesCache, ts *time.Time) *ReleaseTrainEnvironmentPrognosis {
 	span, ctx := tracer.StartSpanFromContext(ctx, "EnvReleaseTrain Prognosis")
 	var err error
 	defer func() {
@@ -556,7 +570,9 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 	appsPrognoses := make(map[types.AppName]ReleaseTrainApplicationPrognosis)
 
-	allLatestDeploymentsTargetEnv, err := state.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, envName)
+	// deployment versions in target env will be compared to the ones in upstream env
+	// we need the current deployments, that is why ts=nil
+	allLatestDeploymentsTargetEnv, err := state.GetAllLatestDeployments(ctx, transaction, envName, nil)
 	if err != nil {
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
 	}
@@ -568,13 +584,13 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				targetVersionByApp[app] = allLatestDeploymentsTargetEnv[app]
 			}
 		}
-		targetCommitIDByApp, err = state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, targetVersionByApp)
+		targetCommitIDByApp, err = state.GetCommitIdFromAppReleaseVersions(ctx, transaction, targetVersionByApp, nil)
 		if err != nil {
 			logging.Error(ctx, "could not get all target commits for apps to deploy.", zap.Error(err))
 		}
 	}
 
-	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName)
+	allLatestDeploymentsUpstreamEnv, err := state.GetAllLatestDeployments(ctx, transaction, upstreamEnvName, ts)
 	if err != nil {
 		return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("could not obtain latest deployments for env %s: %w", envName, err)))
 	}
@@ -586,7 +602,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				upstreamVersionByApp[app] = allLatestDeploymentsUpstreamEnv[app]
 			}
 		}
-		upstreamCommitIDByApp, err = state.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, upstreamVersionByApp)
+		upstreamCommitIDByApp, err = state.GetCommitIdFromAppReleaseVersions(ctx, transaction, upstreamVersionByApp, ts)
 		if err != nil {
 			logging.Error(ctx, "could not get all upstream commits for apps to deploy.", zap.Error(err))
 		}
@@ -636,7 +652,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 
 	var allLatestReleaseEnvironments db.AppVersionEnvironments
 	if c.AllLatestReleaseEnvironments == nil {
-		allLatestReleaseEnvironments, err = state.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctx, transaction)
+		allLatestReleaseEnvironments, err = state.GetAllEnvironmentsForAllLatestReleases(ctx, transaction, ts)
 		if err != nil {
 			return failedPrognosis(grpc.PublicError(ctx, fmt.Errorf("Error getting all releases of all apps: %w", err)))
 		}
@@ -644,7 +660,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		allLatestReleaseEnvironments = c.AllLatestReleaseEnvironments
 	}
 	span.SetTag("ConsideredApps", len(apps))
-	allTeams, err := state.GetAllApplicationsTeamOwner(ctx, transaction)
+	allTeams, err := state.GetAllApplicationsTeamOwner(ctx, transaction, ts)
 	if err != nil {
 		return failedPrognosis(err)
 	}
@@ -882,6 +898,31 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			return failedPrognosis(err)
 		}
 
+		var deletedRelease *db.DBReleaseWithMetaData
+		var argoBracket types.ArgoBracketName
+		if ts != nil {
+			// check if the release still exists for the app
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy, false)
+			if err != nil {
+				return failedPrognosis(err)
+			}
+			if release == nil {
+				// this typically happens when the app was deleted completely before
+				// and we want to run a release train to revive the app
+				deletedRelease, err = state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, appName, versionToDeploy, false, *ts)
+				if err != nil {
+					return failedPrognosis(err)
+				}
+
+				// ArgoCD's bracket name can be fetched from apps_history table
+				appMetadata, err := state.DBHandler.DBSelectAppAtTimestamp(ctx, transaction, appName, *ts)
+				if err != nil {
+					return failedPrognosis(err)
+				}
+				argoBracket = appMetadata.ArgoBracket
+			}
+		}
+
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 			SkipCause: nil,
 			EnvLocks:  nil,
@@ -893,7 +934,10 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			NewReleaseCommitId: upstreamCommitIDByApp[appName],
 			ExistingDeployment: existingDeployment,
 			OldReleaseCommitId: targetCommitIDByApp[appName],
+			DeletedRelease:     deletedRelease,
+			ArgoBracket:        argoBracket,
 		}
+
 	}
 	return &ReleaseTrainEnvironmentPrognosis{
 		SkipCause:            nil,
@@ -915,7 +959,15 @@ func (c *envReleaseTrain) Transform(
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache)
+
+	var ts *time.Time
+	if c.Parent != nil && c.Parent.CommitHash != "" {
+		ts, err = state.GetCommitHashTimestamp(ctx, transaction, c.Parent.CommitHash)
+		if err != nil {
+			return "", err
+		}
+	}
+	prognosis := c.prognosis(ctx, state, transaction, c.AllLatestReleasesCache, ts)
 
 	return c.applyPrognosis(ctx, state, t, transaction, prognosis, span)
 }
@@ -1022,6 +1074,57 @@ func (c *envReleaseTrain) applyPrognosis(
 			RecordQueuedAppVersion(ctx, state, transaction, t, appName, envConfig.Upstream.Environment, c.Env)
 			continue
 		}
+
+		if c.Parent.CommitHash != "" && appPrognosis.DeletedRelease != nil {
+			// if the app release was deleted, we need to recreate it before the release train can proceed
+			deletedRelease := appPrognosis.DeletedRelease
+
+			envConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
+			if err != nil {
+				return "", fmt.Errorf("could not get env configs: %w", err)
+			}
+
+			manifests := make(map[types.EnvName]string)
+			for envName, manifest := range deletedRelease.Manifests.Manifests {
+				envConfig, ok := envConfigs[envName]
+				if !ok {
+					logging.Info(ctx, "tried to revive release, but skipped environment because it does not exist anymore", zap.String("env", string(envName)))
+					continue
+				}
+
+				if envConfig.Upstream.Latest {
+					// the app will be deployed automatically to upstream envs with CreateApplicationVersion transformer.
+					// As we only want to deploy to the target env, upstream envs should be skipped
+					continue
+				}
+				manifests[envName] = manifest
+			}
+
+			newRelease := &CreateApplicationVersion{
+				Version:               *deletedRelease.ReleaseNumbers.Version,
+				Revision:              deletedRelease.ReleaseNumbers.Revision,
+				Application:           appName,
+				Manifests:             manifests,
+				SourceCommitId:        deletedRelease.Metadata.SourceCommitId,
+				SourceAuthor:          deletedRelease.Metadata.SourceAuthor,
+				SourceMessage:         deletedRelease.Metadata.SourceMessage,
+				PreviousCommit:        "", // we don't have previousCommitId for releases in database for now
+				Team:                  appPrognosis.Team,
+				DisplayVersion:        deletedRelease.Metadata.DisplayVersion,
+				Authentication:        c.Parent.Authentication,
+				WriteCommitData:       c.Parent.WriteCommitData,
+				CiLink:                c.Parent.CiLink,
+				AllowedDomains:        c.Parent.AllowedDomains,
+				TransformerEslVersion: c.TransformerEslVersion,
+				IsPrepublish:          deletedRelease.Metadata.IsPrepublish,
+				ArgoBracket:           appPrognosis.ArgoBracket,
+			}
+			_, err = newRelease.Transform(ctx, state, t, transaction)
+			if err != nil {
+				return "", fmt.Errorf("could not revive release %v for app %s: %w", deletedRelease.ReleaseNumbers, appName, err)
+			}
+		}
+
 		d := &DeployApplicationVersion{
 			Environment:     c.Env, // here we deploy to the next env
 			Application:     appName,
