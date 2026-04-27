@@ -677,6 +677,9 @@ func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sq
 }
 
 func (s *State) GetCommitHashTimestamp(ctx context.Context, transaction *sql.Tx, commitHash string) (*time.Time, error) {
+	if commitHash == "" {
+		return nil, nil
+	}
 	ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
 	if err != nil {
 		return nil, err
