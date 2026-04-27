@@ -351,6 +351,16 @@ rollout:
     # If `KuberpultEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding kuberpult events received by the
     # rollout service. Useful for diagnosing possible bottlenecks on rollout service
     kuberpultEventsMetricsEnabled: false
+  experimentalBrackets:
+    # Master switch for bracket rendering in the rollout service.
+    # When false, the clusters parameter is ignored.
+    enabled: false
+    # Switches an environment to bracket mode.
+    # Environments that are not listed here will be handled as normal apps in the rollout service.
+    # Example:
+    #   <env1>: true
+    #   <env2>: true
+    clusters: {}
 # Standalone reposerver service for interacting with argocd
 reposerver:
   # DEPRECATED
