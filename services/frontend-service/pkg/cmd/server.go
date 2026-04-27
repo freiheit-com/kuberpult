@@ -629,7 +629,11 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, c *config.ServerConfig, 
 	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
-		logging.Warn(ctx, "iap.idtoken.validate", zap.Error(err))
+		logging.Warn(ctx, "iap.idtoken.validate: JWT audience mismatch — author will fall back to default git user. Make sure gke environment variables are set up correctly.",
+			zap.String("constructedAudience", aud),
+			zap.String("projectNumber", c.GKEProjectNumber),
+			zap.String("derivedBackendServiceId", c.GKEBackendServiceID),
+			zap.Error(err))
 		return nil
 	}
 
