@@ -1079,32 +1079,11 @@ func (c *envReleaseTrain) applyPrognosis(
 			// if the app release was deleted, we need to recreate it before the release train can proceed
 			deletedRelease := appPrognosis.DeletedRelease
 
-			envConfigs, err := state.GetAllEnvironmentConfigs(ctx, transaction)
-			if err != nil {
-				return "", fmt.Errorf("could not get env configs: %w", err)
-			}
-
-			manifests := make(map[types.EnvName]string)
-			for envName, manifest := range deletedRelease.Manifests.Manifests {
-				envConfig, ok := envConfigs[envName]
-				if !ok {
-					logging.Info(ctx, "tried to revive release, but skipped environment because it does not exist anymore", zap.String("env", string(envName)))
-					continue
-				}
-
-				if envConfig.Upstream.Latest {
-					// the app will be deployed automatically to upstream envs with CreateApplicationVersion transformer.
-					// As we only want to deploy to the target env, upstream envs should be skipped
-					continue
-				}
-				manifests[envName] = manifest
-			}
-
 			newRelease := &CreateApplicationVersion{
 				Version:               *deletedRelease.ReleaseNumbers.Version,
 				Revision:              deletedRelease.ReleaseNumbers.Revision,
 				Application:           appName,
-				Manifests:             manifests,
+				Manifests:             deletedRelease.Manifests.Manifests,
 				SourceCommitId:        deletedRelease.Metadata.SourceCommitId,
 				SourceAuthor:          deletedRelease.Metadata.SourceAuthor,
 				SourceMessage:         deletedRelease.Metadata.SourceMessage,
@@ -1118,8 +1097,9 @@ func (c *envReleaseTrain) applyPrognosis(
 				TransformerEslVersion: c.TransformerEslVersion,
 				IsPrepublish:          deletedRelease.Metadata.IsPrepublish,
 				ArgoBracket:           appPrognosis.ArgoBracket,
+				SkipDeployment:        true,
 			}
-			_, err = newRelease.Transform(ctx, state, t, transaction)
+			_, err := newRelease.Transform(ctx, state, t, transaction)
 			if err != nil {
 				return "", fmt.Errorf("could not revive release %v for app %s: %w", deletedRelease.ReleaseNumbers, appName, err)
 			}

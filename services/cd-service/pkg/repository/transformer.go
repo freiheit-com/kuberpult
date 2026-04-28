@@ -389,6 +389,7 @@ type CreateApplicationVersion struct {
 	DeployToDownstreamEnvironments []types.EnvName          `json:"deployToDownstreamEnvironments"`
 	Revision                       uint64                   `json:"revision"`
 	ArgoBracket                    types.ArgoBracketName    `json:"argoBracket"`
+	SkipDeployment                 bool                     `json:"skipDeployment"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -686,7 +687,7 @@ func (c *CreateApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		envIsConfiguredLatest := hasUpstream && cfg.Upstream.Latest && isLatest
 		downstreamDeploymentRequested := slices.Contains(c.DeployToDownstreamEnvironments, env)
-		if (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
+		if !c.SkipDeployment && (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
