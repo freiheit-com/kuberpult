@@ -118,7 +118,6 @@ if $useOldApi; then
     -H "author-name:${AUTHOR}=" \
     "${inputs[@]}" \
     "${release_version[@]}" \
-    "${revision[@]}" \
     --form-string "display_version=${displayVersion}" \
     --form "source_message=<${commit_message_file}" \
     "${configuration[@]}" \
@@ -130,7 +129,6 @@ else
     -H "client-uuid:${clientUUID}" \
     "${inputs[@]}" \
     "${release_version[@]}" \
-    "${revision[@]}" \
     --form-string "display_version=${displayVersion}" \
     --form "source_message=<${commit_message_file}" \
     "${configuration[@]}" \

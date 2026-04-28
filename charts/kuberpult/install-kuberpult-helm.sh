@@ -45,7 +45,7 @@ frontend:
       memory: 200Mi
       cpu: 0.05
 rollout:
-  enabled: false
+  enabled: true
   grpcMaxRecvMsgSize: 4
   resources:
     limits:
@@ -67,6 +67,7 @@ reposerver:
       memory: 200Mi
       cpu: 0.05
 manifestRepoExport:
+  enabled: false
   eslProcessingIdleTimeSeconds: 10
   resources:
     limits:

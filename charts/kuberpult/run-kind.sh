@@ -96,9 +96,9 @@ then
   then
     echo "is it ok to delete the file? Press enter twice to delete"
     # shellcheck disable=SC2162
-    read
+#    read
     # shellcheck disable=SC2162
-    read
+#    read
     rm "$gpgFile"
   else
     echo "this file should not exist on the ci"
@@ -144,6 +144,8 @@ then
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../infrastructure/docker/builder build
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/cd-service docker
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/manifest-repo-export-service docker
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/reposerver-service docker
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/rollout-service docker
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/frontend-service docker gen-api
 else
   print 'not building services...'
@@ -211,9 +213,18 @@ print "starting argoCd..."
 helm repo add argo-cd https://argoproj.github.io/argo-helm
 
 
+reposerver_service=kuberpult-reposerver-service
+namespace=default
 helm uninstall argocd || echo "did not uninstall argo"
 cat <<YAML > argocd-values.yml
+repoServer:
+  replicas: 0
 configs:
+  params:
+    repo.server: ${reposerver_service}.${namespace}.svc.cluster.local:8443
+    controller.repo.server.plaintext: true
+    server.repo.server.plaintext: true
+    applicationsetcontroller.log.level: warn
   ssh:
     knownHosts: |
 $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
@@ -230,11 +241,14 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
       g, kuberpult, role:kuberpult
 
 YAML
+
+echo installing argocd $(cat ./argocd-values.yml)
+
 helm install argocd argo-cd/argo-cd --values argocd-values.yml --version 5.36.0
 
 print applying app...
 
-waitForDeployment "default" "app.kubernetes.io/name=argocd-repo-server"
+#waitForDeployment "default" "app.kubernetes.io/name=argocd-repo-server"
 waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
 portForwardAndWait "default" service/argocd-server 8080 443
 
@@ -297,22 +311,23 @@ spec:
   sourceRepos:
   - '*'
 ---
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: root
-  namespace: ${ARGO_NAMESPACE}
-spec:
-  destination:
-    namespace: ${ARGO_NAMESPACE}
-    server: https://kubernetes.default.svc
-  project: dev
-  source:
-    path: argocd/v1alpha1
-    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
-    targetRevision: main
-  syncPolicy:
-    automated: {}
+# root app is only necessary and desired if we use git with the manifest-repo-export
+#apiVersion: argoproj.io/v1alpha1
+#kind: Application
+#metadata:
+#  name: root
+#  namespace: ${ARGO_NAMESPACE}
+#spec:
+#  destination:
+#    namespace: ${ARGO_NAMESPACE}
+#    server: https://kubernetes.default.svc
+#  project: dev
+#  source:
+#    path: argocd/v1alpha1
+#    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
+#    targetRevision: main
+#  syncPolicy:
+#    automated: {}
 EOF
 
 print "admin password:"
