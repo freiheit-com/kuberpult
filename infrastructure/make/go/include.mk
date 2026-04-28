@@ -12,7 +12,7 @@ SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
 MAX_DOCKER_SIZE_MB?=1
 CONTEXT?=../../
-SKIP_TRIVY?=0
+SKIP_VULNERABILITY_SCANNING?=0
 SKIP_RETAG_MAIN_AS_PR?=0
 SKIP_BUILDER?=0
 MAKEFLAGS += --no-builtin-rules
@@ -76,12 +76,11 @@ else
 	test -n "$(MAIN_PATH)" || exit 0; docker pull $(MAIN_IMAGE_NAME) && docker tag $(MAIN_IMAGE_NAME) $(IMAGE_NAME) && docker push $(IMAGE_NAME)
 endif
 
-
-trivy-scan: release
-#ifeq ($(SKIP_TRIVY),1)
-#	@echo "Skipping trivy"
+vulnerability-scan: release
+#ifeq ($(SKIP_VULNERABILITY_SCANNING),1)
+#	@echo "Skipping vulnerability scanning"
 #else
-#	@echo "Starting trivy check for $(IMAGE_NAME)"
+#	@echo "Starting vulnerability scanning for $(IMAGE_NAME)"
 #	KUBERPULT_SERVICE_IMAGE=$(IMAGE_NAME) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
 #endif
 
@@ -94,12 +93,12 @@ gen-pkg:
 
 test: gen-pkg unit-test
 
-build-pr-internal: gen-pkg lint unit-test bench-test docker release trivy-scan
+build-pr-internal: gen-pkg lint unit-test bench-test docker release vulnerability-scan
 
 build-pr:
 	IMAGE_TAG=pr-$(VERSION) BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION) $(MAKE) build-pr-internal
 
-build-main-internal: gen-pkg lint unit-test bench-test docker release-main trivy-scan
+build-main-internal: gen-pkg lint unit-test bench-test docker release-main vulnerability-scan
 
 build-main:
 	IMAGE_TAG=main-$(VERSION) $(MAKE) build-main-internal
