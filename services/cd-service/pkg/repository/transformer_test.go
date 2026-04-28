@@ -5914,17 +5914,6 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 				WriteCommitData: true,
 			},
 			ExpectedDeployments: []db.Deployment{
-				// DeleteEnvFromApp transformer does not delete deployments
-				// so we still have deployment from Stage 1 for staging
-				{
-					App: appName,
-					Env: "staging",
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  &versionTwo,
-					},
-					TransformerID: 5,
-				},
 				{
 					App: appName,
 					Env: "production",
