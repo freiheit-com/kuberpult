@@ -354,7 +354,10 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 		// So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
 		defer logging.HandlePanic(true)
 		defer remote.Disconnect()
-		errCh <- callback(remote)
+		start := time.Now()
+		cbErr := callback(remote)
+		logging.Info(ctx, "useRemote callback duration", zap.Duration("elapsed", time.Since(start)), zap.Error(cbErr))
+		errCh <- cbErr
 	}()
 	select {
 	case <-ctx.Done():
@@ -447,6 +450,13 @@ func (r *repository) PushRepo(ctx context.Context) error {
 		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
 		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
 		PushUpdateReferenceCallback: commitPushUpdate(r.config.Branch, &pushSuccess),
+		SidebandProgressCallback: func(str string) error {
+			if str == "" {
+				return nil
+			}
+			logging.Info(ctx, "git push repo progress", zap.String("str", str))
+			return nil
+		},
 	}
 	pushOptions := git.PushOptions{
 		PbParallelism: 0,
@@ -852,7 +862,10 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 		func() error {
 			span, _ := tracer.StartSpanFromContext(ctx, "Push")
 			defer span.Finish()
+			start := time.Now()
 			err := pushAction()
+			elapsed := time.Since(start)
+			logging.Info(ctx, "push attempt duration", zap.Duration("elapsed", elapsed), zap.Error(err))
 			if err != nil {
 				gerr, ok := err.(*git.GitError)
 				if ok && gerr.Code == git.ErrorCodeNonFastForward {
