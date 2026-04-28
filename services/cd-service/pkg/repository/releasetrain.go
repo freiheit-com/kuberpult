@@ -278,6 +278,9 @@ func (c *ReleaseTrain) Transform(
 	span.SetTag("environments", len(envNames))
 
 	ts, err := state.GetCommitHashTimestamp(ctx, transaction, c.CommitHash)
+	if err != nil {
+		return "", grpc.PublicError(ctx, fmt.Errorf("could not get commit hash timestamp %w", err))
+	}
 	allLatestReleases, err := state.GetAllLatestReleases(ctx, transaction, ts)
 	if err != nil {
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not get all releases of all apps %w", err))
@@ -1174,16 +1177,10 @@ func (c *envReleaseTrain) applyPrognosis(
 	}, transaction); err != nil {
 		return "", err
 	}
-	deployedApps := 0
-	for _, checker := range prognosis.AppsPrognoses {
-		if checker.SkipCause != nil {
-			deployedApps += 1
-		}
-	}
 
 	return fmt.Sprintf("Release Train to '%s' environment:\n\n"+
 		"The release train deployed %d services from '%s' to '%s'%s",
-		c.Env, deployedApps, source, c.Env, teamInfo,
+		c.Env, deployCounter, source, c.Env, teamInfo,
 	), nil
 }
 

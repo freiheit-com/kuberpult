@@ -87,7 +87,8 @@ func (h *DBHandler) DBSelectAllAppsMetadataAtTimestamp(ctx context.Context, tx *
 		argoBracket
 	FROM apps_history
 	WHERE
-		created <= ?;
+		created <= ?
+	ORDER BY appname, created DESC;
 	`)
 	span.SetTag("query", selectQuery)
 	rows, err := tx.QueryContext(ctx, selectQuery, ts)
