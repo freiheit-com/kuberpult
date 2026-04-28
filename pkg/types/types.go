@@ -33,6 +33,22 @@ type AppName string
 
 type ArgoBracketName string
 
+// RolloutAppBracketVersion is the deployed version of an app or bracket.
+// For normal apps it is the release number as a decimal string (e.g. "42").
+// For brackets it is the colon-separated release numbers of all sorted apps (e.g. "1:2:3:0").
+type RolloutAppBracketVersion string
+
+func RolloutAppBracketVersionFromUint64(v uint64) RolloutAppBracketVersion {
+	return RolloutAppBracketVersion(fmt.Sprintf("%d", v))
+}
+
+// ToUint64 returns the numeric value and true for single-app versions.
+// Returns 0, false for bracket versions.
+func (v RolloutAppBracketVersion) ToUint64() (uint64, bool) {
+	n, err := strconv.ParseUint(string(v), 10, 64)
+	return n, err == nil
+}
+
 type ArgoProjectName string
 
 func EnvNamesToStrings(a []EnvName) []string {

@@ -20,7 +20,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -60,10 +62,12 @@ type versionClient struct {
 	cache          *lru.Cache
 	ArgoProcessor  argo.ArgoAppProcessor
 	db             db.DBHandler
+
+	experimentalBracketsClusters []string
 }
 
 type VersionInfo struct {
-	Version        uint64
+	Version        types.RolloutAppBracketVersion
 	SourceCommitId string
 	DeployedAt     time.Time
 }
@@ -90,6 +94,14 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	span.SetTag("Environment", environment)
 	span.SetTag("Application", app)
 
+	if slices.Contains(v.experimentalBracketsClusters, environment) {
+		result, err := v.getBracketVersion(ctx, revision, environment, types.ArgoBracketName(app))
+		if err != nil {
+			return nil, onErr(err)
+		}
+		return result, nil
+	}
+
 	releaseVersion, err := strconv.ParseUint(revision, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse GitRevision '%s' for app '%s' in env '%s': %w",
@@ -108,9 +120,57 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			return nil, onErr(fmt.Errorf("no release found for env='%s' and app='%s'", environment, app))
 		}
 		return &VersionInfo{
-			Version:        releaseVersion,
+			Version:        types.RolloutAppBracketVersionFromUint64(releaseVersion),
 			DeployedAt:     deployment.Created,
 			SourceCommitId: release.Metadata.SourceCommitId,
+		}, nil
+	})
+}
+
+func (v *versionClient) getBracketVersion(ctx context.Context, revision, environment string, bracketName types.ArgoBracketName) (*VersionInfo, error) {
+	return db.WithTransactionT[VersionInfo](&v.db, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
+		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, &v.db, tx)
+		if err != nil {
+			return nil, fmt.Errorf("getBracketVersion: could not get bracket history for bracket '%s': %w", bracketName, err)
+		}
+		if bracketRow == nil {
+			return nil, fmt.Errorf("getBracketVersion: no bracket history found for bracket '%s'", bracketName)
+		}
+		appNames := bracketRow.AllBracketsJsonBlob.BracketMap[bracketName]
+		sortedAppNames := make(db.AppNames, len(appNames))
+		copy(sortedAppNames, appNames)
+		slices.SortFunc(sortedAppNames, func(a, b types.AppName) int { return strings.Compare(string(a), string(b)) })
+
+		versionStrs := strings.Split(revision, ":")
+
+		var latestTime time.Time
+		var latestSourceCommitId string
+
+		for i, appName := range sortedAppNames {
+			if i >= len(versionStrs) {
+				break
+			}
+			releaseVersion, err := strconv.ParseUint(versionStrs[i], 10, 64)
+			if err != nil || releaseVersion == 0 {
+				continue
+			}
+			deployment, err := v.db.DBSelectSpecificDeploymentHistory(ctx, tx, appName, environment, releaseVersion)
+			if err != nil || deployment == nil {
+				continue
+			}
+			if deployment.Created.After(latestTime) {
+				latestTime = deployment.Created
+				release, err := v.db.DBSelectReleaseByVersion(ctx, tx, appName, types.ReleaseNumbers{Version: &releaseVersion, Revision: 0}, true)
+				if err == nil && release != nil {
+					latestSourceCommitId = release.Metadata.SourceCommitId
+				}
+			}
+		}
+
+		return &VersionInfo{
+			Version:        types.RolloutAppBracketVersion(revision),
+			DeployedAt:     latestTime,
+			SourceCommitId: latestSourceCommitId,
 		}, nil
 	})
 }
@@ -156,7 +216,7 @@ type key struct {
 
 func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
-	seenVersions := map[key]uint64{}
+	seenVersions := map[key]types.RolloutAppBracketVersion{}
 	environmentGroups := map[key]string{}
 	teams := map[key]string{}
 	return hr.Retry(ctx, func() error {
@@ -231,11 +291,11 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 						// Deployment exists, do not delete it
 						delete(appSeenVersions, env.Name)
-						if hasVersion && deployment.Version == seenVersion {
+						if hasVersion && types.RolloutAppBracketVersionFromUint64(deployment.Version) == seenVersion {
 							continue
 						}
 
-						seenVersions[argoAppKey] = deployment.Version
+						seenVersions[argoAppKey] = types.RolloutAppBracketVersionFromUint64(deployment.Version)
 						environmentGroups[argoAppKey] = envGroup.EnvironmentGroupName
 						teams[argoAppKey] = appDetailsResponse.Application.Team
 
@@ -253,7 +313,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 								Team:              appDetailsResponse.Application.Team,
 								IsProduction:      (envGroup.Priority == api.Priority_PROD || envGroup.Priority == api.Priority_CANARY),
 								Version: &VersionInfo{
-									Version:        deployment.Version,
+									Version:        types.RolloutAppBracketVersionFromUint64(deployment.Version),
 									SourceCommitId: sc,
 									DeployedAt:     dt,
 								},
@@ -272,7 +332,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						EnvironmentGroup: environmentGroups[deletedArgoAppKey],
 						Team:             teams[deletedArgoAppKey],
 						Version: &VersionInfo{
-							Version:        0,
+							Version:        types.RolloutAppBracketVersion(""),
 							SourceCommitId: "",
 							DeployedAt:     time.Time{},
 						},
@@ -280,6 +340,53 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					delete(seenVersions, deletedArgoAppKey)
 					delete(environmentGroups, deletedArgoAppKey)
 					delete(teams, deletedArgoAppKey)
+				}
+			}
+
+			for _, bracketDetails := range changedApps.ChangedBrackets {
+				bracketName := bracketDetails.BracketName
+				for envName, bracketDeployment := range bracketDetails.Deployments {
+					if !slices.Contains(v.experimentalBracketsClusters, envName) {
+						continue
+					}
+					bracketKey := key{Environment: envName, Application: bracketName}
+					seenVersion, hasVersion := seenVersions[bracketKey]
+					bracketVersion := types.RolloutAppBracketVersion(bracketDeployment.Version)
+					if hasVersion && bracketVersion == seenVersion {
+						continue
+					}
+					seenVersions[bracketKey] = bracketVersion
+
+					var dt time.Time
+					if bracketDeployment.DeployedAt != nil {
+						dt = bracketDeployment.DeployedAt.AsTime()
+					}
+
+					isProduction := false
+					envGroup := ""
+					for _, eg := range ov.EnvironmentGroups {
+						for _, env := range eg.Environments {
+							if env.Name == envName {
+								isProduction = eg.Priority == api.Priority_PROD || eg.Priority == api.Priority_CANARY
+								envGroup = eg.EnvironmentGroupName
+							}
+						}
+					}
+
+					l.Info("version.process.bracket", zap.String("bracket", bracketName), zap.String("environment", envName), zap.String("version", bracketDeployment.Version))
+					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+						Application:       bracketName,
+						Environment:       envName,
+						ParentEnvironment: envName,
+						EnvironmentGroup:  envGroup,
+						IsProduction:      isProduction,
+						Team:              "",
+						Version: &VersionInfo{
+							Version:        bracketVersion,
+							SourceCommitId: bracketDeployment.SourceCommitId,
+							DeployedAt:     dt,
+						},
+					})
 				}
 			}
 
@@ -294,13 +401,15 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, dbHandler db.DBHandler, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, dbHandler db.DBHandler, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string) VersionClient {
 	result := &versionClient{
 		cache:          lru.New(20),
 		overviewClient: oclient,
 		versionClient:  vclient,
 		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics),
 		db:             dbHandler,
+		
+		experimentalBracketsClusters: experimentalBracketsClusters,
 	}
 	return result
 }

@@ -291,6 +291,7 @@ func TestVersionClientStream(t *testing.T) {
 		VersionResponses     map[string]mockVersionResponse
 		GetOverviewResponses map[string]*api.GetOverviewResponse
 		ExpectedVersions     []expectedVersion
+		BracketClusters      []string
 	}{
 		{
 			Name: "Retries connections and finishes",
@@ -349,7 +350,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1234,
+								Version:        types.RolloutAppBracketVersionFromUint64(1234),
 								SourceCommitId: "",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -439,7 +440,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1,
+								Version:        types.RolloutAppBracketVersionFromUint64(1),
 								SourceCommitId: "00001",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -518,7 +519,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1,
+								Version:        types.RolloutAppBracketVersionFromUint64(1),
 								SourceCommitId: "00001",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -530,7 +531,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1,
+								Version:        types.RolloutAppBracketVersionFromUint64(1),
 								SourceCommitId: "00001",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -609,7 +610,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1,
+								Version:        types.RolloutAppBracketVersionFromUint64(1),
 								SourceCommitId: "00001",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -651,7 +652,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1,
+								Version:        types.RolloutAppBracketVersionFromUint64(1),
 								SourceCommitId: "00001",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -703,7 +704,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1,
+								Version:        types.RolloutAppBracketVersionFromUint64(1),
 								SourceCommitId: "00001",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -784,7 +785,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1,
+								Version:        types.RolloutAppBracketVersionFromUint64(1),
 								SourceCommitId: "00001",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -871,7 +872,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1,
+								Version:        types.RolloutAppBracketVersionFromUint64(1),
 								SourceCommitId: "00001",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -913,7 +914,7 @@ func TestVersionClientStream(t *testing.T) {
 							EnvironmentGroup:  "not-staging-group",
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        2,
+								Version:        types.RolloutAppBracketVersionFromUint64(2),
 								SourceCommitId: "00002",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -971,7 +972,7 @@ func TestVersionClientStream(t *testing.T) {
 							IsProduction:      true,
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1234,
+								Version:        types.RolloutAppBracketVersionFromUint64(1234),
 								SourceCommitId: "00002",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
@@ -984,12 +985,104 @@ func TestVersionClientStream(t *testing.T) {
 							IsProduction:      true,
 							Team:              "footeam",
 							Version: &VersionInfo{
-								Version:        1234,
+								Version:        types.RolloutAppBracketVersionFromUint64(1234),
 								SourceCommitId: "00002",
 								DeployedAt:     time.Unix(123456789, 0).UTC(),
 							},
 						},
 					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			Name:            "Emits bracket events for bracket clusters",
+			BracketClusters: []string{"bracket-env"},
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedBrackets: []*api.GetBracketDetailsResponse{
+							{
+								BracketName: "my-bracket",
+								Deployments: map[string]*api.BracketDeployment{
+									"bracket-env": {
+										Version:        "5:3",
+										SourceCommitId: "abc123",
+										DeployedAt:     timestamppb.New(time.Unix(123456789, 0)),
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "bracket-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments: []*api.Environment{
+									{Name: "bracket-env"},
+								},
+							},
+						},
+						GitRevision: "1234",
+					},
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:       "bracket-env",
+							ParentEnvironment: "bracket-env",
+							Application:       "my-bracket",
+							EnvironmentGroup:  "bracket-group",
+							IsProduction:      false,
+							Team:              "",
+							Version: &VersionInfo{
+								Version:        types.RolloutAppBracketVersion("5:3"),
+								SourceCommitId: "abc123",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			Name:            "Ignores bracket events for non-bracket clusters",
+			BracketClusters: []string{},
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedBrackets: []*api.GetBracketDetailsResponse{
+							{
+								BracketName: "my-bracket",
+								Deployments: map[string]*api.BracketDeployment{
+									"non-bracket-env": {
+										Version: "5:3",
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "other-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments: []*api.Environment{
+									{Name: "non-bracket-env"},
+								},
+							},
+						},
+						GitRevision: "1234",
+					},
+					ExpectReady:    true,
+					ExpectedEvents: nil,
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
@@ -1010,7 +1103,11 @@ func TestVersionClientStream(t *testing.T) {
 				tc.VersionResponses = map[string]mockVersionResponse{}
 			}
 			mvc := &mockVersionClient{responses: tc.VersionResponses}
-			vc := New(moc, mvc, nil, false, false, false, []string{}, *setupDB(t), 50, 50, nil)
+			bracketClusters := tc.BracketClusters
+			if bracketClusters == nil {
+				bracketClusters = []string{}
+			}
+			vc := New(moc, mvc, nil, false, false, false, []string{}, *setupDB(t), 50, 50, nil, bracketClusters)
 			hs := &setup.HealthServer{}
 			hs.BackOffFactory = func() backoff.BackOff {
 				return backoff.NewConstantBackOff(time.Millisecond)
@@ -1077,8 +1174,8 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 		}
 		//We ignore the timestamp as it is based on test execution. Everything else we check
 
-		if version.Version != ev.DeployedVersion {
-			t.Errorf("expected version %d to be deployed for %s/%s@%s but got %d", ev.DeployedVersion, ev.Environment, ev.Application, ev.Revision, version.Version)
+		if version.Version != types.RolloutAppBracketVersionFromUint64(ev.DeployedVersion) {
+			t.Errorf("expected version %d to be deployed for %s/%s@%s but got %s", ev.DeployedVersion, ev.Environment, ev.Application, ev.Revision, version.Version)
 		}
 
 		if version.SourceCommitId != ev.SourceCommitId {
@@ -1167,4 +1264,115 @@ func setupDB(t *testing.T) *db.DBHandler {
 		t.Fatal(setupErr)
 	}
 	return dbHandler
+}
+
+func TestGetVersion_Bracket(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	migrationsPath, err := db.CreateMigrationsPath(4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("directory for DB migrations: %s", migrationsPath)
+	if err := db.RunDBMigrations(ctx, *dbConfig); err != nil {
+		t.Fatal(err)
+	}
+	dbHandler, err := db.Connect(ctx, *dbConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const bracketEnv = "bracket-env"
+	const bracketName types.ArgoBracketName = "my-bracket"
+	var versionA uint64 = 5
+	var versionB uint64 = 3
+
+	// Use two separate transactions so deployments get distinct transaction timestamps.
+	setupErr := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+		if err := dbHandler.DBWriteMigrationsTransformer(ctx, tx); err != nil {
+			return err
+		}
+		if err := dbHandler.DBWriteEnvironment(ctx, tx, bracketEnv, config.EnvironmentConfig{}); err != nil {
+			return err
+		}
+		for _, appName := range []types.AppName{"app-a", "app-b"} {
+			if err := dbHandler.DBInsertOrUpdateApplication(ctx, tx, appName, db.AppStateChangeCreate, db.DBAppMetaData{}, bracketName); err != nil {
+				return err
+			}
+		}
+		// releases
+		for _, r := range []db.DBReleaseWithMetaData{
+			{
+				ReleaseNumbers: types.ReleaseNumbers{Version: &versionA, Revision: 0},
+				App:            "app-a",
+				Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{bracketEnv: ""}},
+				Metadata:       db.DBReleaseMetaData{SourceCommitId: "commit-a"},
+			},
+			{
+				ReleaseNumbers: types.ReleaseNumbers{Version: &versionB, Revision: 0},
+				App:            "app-b",
+				Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{bracketEnv: ""}},
+				Metadata:       db.DBReleaseMetaData{SourceCommitId: "commit-b"},
+			},
+		} {
+			if err := dbHandler.DBUpdateOrCreateRelease(ctx, tx, r); err != nil {
+				return err
+			}
+		}
+		// deploy app-a in this transaction
+		if err := dbHandler.DBUpdateOrCreateDeployment(ctx, tx, db.Deployment{
+			App: "app-a", Env: bracketEnv,
+			ReleaseNumbers: types.ReleaseNumbers{Version: &versionA, Revision: 0},
+		}); err != nil {
+			return err
+		}
+		// bracket history: my-bracket → [app-a, app-b]
+		return db.DBInsertBracketHistory(ctx, dbHandler, tx, db.BracketRow{
+			CreatedAt: time.Now(),
+			AllBracketsJsonBlob: db.BracketJsonBlob{
+				BracketMap: map[types.ArgoBracketName]db.AppNames{
+					bracketName: {"app-a", "app-b"},
+				},
+			},
+		}, 0)
+	})
+	if setupErr != nil {
+		t.Fatal(setupErr)
+	}
+
+	// Deploy app-b in a separate transaction so it gets a later timestamp.
+	if err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+		return dbHandler.DBUpdateOrCreateDeployment(ctx, tx, db.Deployment{
+			App: "app-b", Env: bracketEnv,
+			ReleaseNumbers: types.ReleaseNumbers{Version: &versionB, Revision: 0},
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	vc := New(nil, nil, nil, false, false, false, []string{}, *dbHandler, 50, 50, nil, []string{bracketEnv})
+
+	version, err := vc.GetVersion(ctx, "5:3", bracketEnv, string(bracketName))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if version == nil {
+		t.Fatal("expected non-nil VersionInfo")
+	}
+	// The revision string is returned as-is as the Version field.
+	if version.Version != types.RolloutAppBracketVersion("5:3") {
+		t.Errorf("expected Version=%q, got %q", "5:3", version.Version)
+	}
+	// DeployedAt must be non-zero since both apps have deployments.
+	if version.DeployedAt.IsZero() {
+		t.Errorf("expected non-zero DeployedAt")
+	}
+	// app-b is deployed later (separate transaction), so its SourceCommitId should be returned.
+	if version.SourceCommitId != "commit-b" {
+		t.Errorf("expected SourceCommitId=%q, got %q", "commit-b", version.SourceCommitId)
+	}
 }

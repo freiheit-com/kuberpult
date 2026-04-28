@@ -26,6 +26,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
@@ -53,7 +54,7 @@ func TestMetric(t *testing.T) {
 						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version:    1,
+							Version:    types.RolloutAppBracketVersionFromUint64(1),
 							DeployedAt: time.Unix(1000, 0),
 						},
 					},
@@ -69,7 +70,7 @@ func TestMetric(t *testing.T) {
 						Application: "foo",
 						Environment: "bar",
 						Version: &versions.VersionInfo{
-							Version: 1,
+							Version: types.RolloutAppBracketVersionFromUint64(1),
 						},
 						HealthStatusCode: health.HealthStatusHealthy,
 						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
@@ -87,7 +88,7 @@ func TestMetric(t *testing.T) {
 						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version:    1,
+							Version:    types.RolloutAppBracketVersionFromUint64(1),
 							DeployedAt: time.Unix(1000, 0),
 						},
 					},
@@ -95,7 +96,7 @@ func TestMetric(t *testing.T) {
 						Application: "foo",
 						Environment: "bar",
 						Version: &versions.VersionInfo{
-							Version: 1,
+							Version: types.RolloutAppBracketVersionFromUint64(1),
 						},
 						HealthStatusCode: health.HealthStatusHealthy,
 						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
@@ -116,7 +117,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version:    2,
+							Version:    types.RolloutAppBracketVersionFromUint64(2),
 							DeployedAt: time.Unix(1000, 0),
 						},
 					},
@@ -124,7 +125,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Application: "foo",
 						Environment: "bar",
 						Version: &versions.VersionInfo{
-							Version: 1,
+							Version: types.RolloutAppBracketVersionFromUint64(1),
 						},
 						HealthStatusCode: health.HealthStatusHealthy,
 						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
@@ -145,7 +146,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version:    2,
+							Version:    types.RolloutAppBracketVersionFromUint64(2),
 							DeployedAt: time.Unix(1000, 0),
 						},
 					},
@@ -153,7 +154,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Application: "foo",
 						Environment: "bar",
 						Version: &versions.VersionInfo{
-							Version: 2,
+							Version: types.RolloutAppBracketVersionFromUint64(2),
 						},
 						HealthStatusCode: health.HealthStatusDegraded,
 						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
@@ -174,7 +175,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version:    2,
+							Version:    types.RolloutAppBracketVersionFromUint64(2),
 							DeployedAt: time.Unix(1000, 0),
 						},
 					},
@@ -182,7 +183,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Application: "foo",
 						Environment: "bar",
 						Version: &versions.VersionInfo{
-							Version: 1,
+							Version: types.RolloutAppBracketVersionFromUint64(1),
 						},
 						HealthStatusCode: health.HealthStatusHealthy,
 						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
@@ -198,7 +199,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version: 0,
+							Version: types.RolloutAppBracketVersionFromUint64(0),
 						},
 					},
 					ExpectedBody: ``,
@@ -214,7 +215,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version:    2,
+							Version:    types.RolloutAppBracketVersionFromUint64(2),
 							DeployedAt: time.Unix(1000, 0),
 						},
 					},
@@ -222,7 +223,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Application: "foo",
 						Environment: "bar",
 						Version: &versions.VersionInfo{
-							Version: 1,
+							Version: types.RolloutAppBracketVersionFromUint64(1),
 						},
 						HealthStatusCode: health.HealthStatusHealthy,
 						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
@@ -238,7 +239,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Environment:      "bar",
 						EnvironmentGroup: "not-buz",
 						Version: &versions.VersionInfo{
-							Version:    3,
+							Version:    types.RolloutAppBracketVersionFromUint64(3),
 							DeployedAt: time.Unix(1500, 0),
 						},
 					},
@@ -258,7 +259,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version:    2,
+							Version:    types.RolloutAppBracketVersionFromUint64(2),
 							DeployedAt: time.Unix(1000, 0),
 						},
 					},
@@ -266,7 +267,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Application: "foo",
 						Environment: "bar",
 						Version: &versions.VersionInfo{
-							Version: 1,
+							Version: types.RolloutAppBracketVersionFromUint64(1),
 						},
 						HealthStatusCode: health.HealthStatusHealthy,
 						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
@@ -289,7 +290,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version:    3,
+							Version:    types.RolloutAppBracketVersionFromUint64(3),
 							DeployedAt: time.Unix(1500, 0),
 						},
 					},

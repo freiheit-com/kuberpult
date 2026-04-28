@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -52,16 +53,20 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 	span, ctx := tracer.StartSpanFromContext(ctx, "GenerateManifest")
 	defer span.Finish()
 
-	var mn []string
-
-	// Extract the env and app from the path.
-	// We expect the path to have this form:
-	// "environments/$env/applications/$app/manifests",
+	// Extract the env and app/bracket from the path.
+	// Normal app:  "environments/$env/applications/$app/manifests" (5 parts)
+	// Bracket app: "environments/$env/brackets/$bracket"           (4 parts)
 	include := req.ApplicationSource.Path
 	split := strings.Split(include, "/")
-	if len(split) != 5 {
+
+	if len(split) == 4 && split[2] == "brackets" {
+		return r.generateBracketManifest(ctx, split, req)
+	}
+	if len(split) != 5 || split[2] != "applications" || split[4] != "manifests" {
 		return nil, fmt.Errorf("unexpected path: '%s'", include)
 	}
+
+	var mn []string
 	envName := types.EnvName(split[1])
 	appName := split[3]
 
@@ -112,6 +117,74 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 		SourceType:           "Directory",
 	}
 	return resp, nil
+}
+
+type bracketResult struct {
+	manifests []string
+	revision  string
+}
+
+func (r *reposerver) generateBracketManifest(ctx context.Context, split []string, req *argorepo.ManifestRequest) (*argorepo.ManifestResponse, error) {
+	envName := types.EnvName(split[1])
+	bracketName := types.ArgoBracketName(split[3])
+
+	result, err := db.WithTransactionT[bracketResult](r.dbHandler, ctx, 3, true, func(ctx context.Context, transaction *sql.Tx) (*bracketResult, error) {
+		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, r.dbHandler, transaction)
+		if err != nil {
+			return nil, fmt.Errorf("generateBracketManifest: could not get bracket history: %w", err)
+		}
+		if bracketRow == nil {
+			return nil, fmt.Errorf("generateBracketManifest: no bracket history found for bracket '%s'", bracketName)
+		}
+		appNames := bracketRow.AllBracketsJsonBlob.BracketMap[bracketName]
+		sortedAppNames := make(db.AppNames, len(appNames))
+		copy(sortedAppNames, appNames)
+		sort.Slice(sortedAppNames, func(i, j int) bool { return sortedAppNames[i] < sortedAppNames[j] })
+
+		var versionParts []string
+		var rawManifests []string
+
+		for _, appName := range sortedAppNames {
+			deployment, err := r.dbHandler.DBSelectLatestDeployment(ctx, transaction, appName, envName)
+			if err != nil {
+				return nil, fmt.Errorf("generateBracketManifest: could not get deployment for app=%s: %w", appName, err)
+			}
+			if deployment == nil || deployment.ReleaseNumbers.Version == nil {
+				continue
+			}
+			release, err := r.dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, deployment.ReleaseNumbers, true)
+			if err != nil {
+				return nil, fmt.Errorf("generateBracketManifest: could not get release for app=%s: %w", appName, err)
+			}
+			if release == nil {
+				continue
+			}
+			manifest := release.Manifests.Manifests[envName]
+			if manifest != "" {
+				rawManifests = append(rawManifests, manifest)
+			}
+			versionParts = append(versionParts, fmt.Sprintf("%d", *deployment.ReleaseNumbers.Version))
+		}
+
+		combinedYAML := strings.Join(rawManifests, "\n---\n")
+		mn, err := splitManifest([]byte(combinedYAML), req)
+		if err != nil {
+			return nil, fmt.Errorf("generateBracketManifest: could not split manifests: %w", err)
+		}
+
+		return &bracketResult{
+			manifests: mn,
+			revision:  strings.Join(versionParts, ":"),
+		}, nil
+	})
+	if err != nil || result == nil {
+		return nil, fmt.Errorf("could not load all data to generate bracket manifests: %w", err)
+	}
+	return &argorepo.ManifestResponse{
+		Manifests:  result.manifests,
+		Revision:   result.revision,
+		SourceType: "Directory",
+	}, nil
 }
 
 type PseudoRevision = string
