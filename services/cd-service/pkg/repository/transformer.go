@@ -390,6 +390,7 @@ type CreateApplicationVersion struct {
 	Revision                       uint64                   `json:"revision"`
 	ArgoBracket                    types.ArgoBracketName    `json:"argoBracket"`
 	SkipDeployment                 bool                     `json:"skipDeployment"`
+	Override                       bool                     `json:"override"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -876,8 +877,8 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 		if err != nil {
 			return types.MakeEmptyReleaseNumbers(), fmt.Errorf("could not calculate version, error: %v", err)
 		}
-		if metaData == nil {
-			// this is the usual success case
+		if metaData == nil || c.Override {
+			// this is the usual success case: release doesn't yet exist, or the override flag is enabled
 			return types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, nil
 		}
 		// check if version differs, if it's the same, that's ok
@@ -1304,6 +1305,11 @@ func (u *DeleteEnvFromApp) Transform(
 				return "", fmt.Errorf("update release: %w", err)
 			}
 		}
+	}
+
+	err = state.DBHandler.DBDeleteDeployment(ctx, transaction, u.Application, envName)
+	if err != nil {
+		return "", fmt.Errorf("could not delete deployment for app %s: %w", u.Application, err)
 	}
 
 	t.DeleteEnvFromApp(u.Application, envName)

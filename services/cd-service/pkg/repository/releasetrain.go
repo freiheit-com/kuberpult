@@ -1093,12 +1093,6 @@ func (c *envReleaseTrain) applyPrognosis(
 		if c.Parent.CommitHash != "" && appPrognosis.RevivedRelease != nil {
 			revivedRelease := appPrognosis.RevivedRelease
 
-			// delete current release if exists, this happens when the app was removed from envs
-			err := state.DBHandler.DBDeleteFromReleases(ctx, transaction, appName, revivedRelease.ReleaseNumbers)
-			if err != nil {
-				return "", fmt.Errorf("could not delete release for app %s: %w", appName, err)
-			}
-
 			newRelease := &CreateApplicationVersion{
 				Version:               *revivedRelease.ReleaseNumbers.Version,
 				Revision:              revivedRelease.ReleaseNumbers.Revision,
@@ -1118,8 +1112,9 @@ func (c *envReleaseTrain) applyPrognosis(
 				IsPrepublish:          revivedRelease.Metadata.IsPrepublish,
 				ArgoBracket:           appPrognosis.ArgoBracket,
 				SkipDeployment:        true,
+				Override:              true,
 			}
-			_, err = newRelease.Transform(ctx, state, t, transaction)
+			_, err := newRelease.Transform(ctx, state, t, transaction)
 			if err != nil {
 				return "", fmt.Errorf("could not revive release %v for app %s: %w", revivedRelease.ReleaseNumbers, appName, err)
 			}
