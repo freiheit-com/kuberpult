@@ -908,17 +908,17 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				return failedPrognosis(err)
 			}
 
-			var recreateRelease = false
+			var reviveRelease = false
 			if release == nil {
 				// this typically happens when the app was deleted completely before
 				// and we want to run a release train to revive the app
-				recreateRelease = true
+				reviveRelease = true
 			} else if _, exists := release.Manifests.Manifests[c.Env]; !exists {
 				// the release exists but the env was removed from the release manifest, we also need to recreate it
-				recreateRelease = true
+				reviveRelease = true
 			}
 
-			if recreateRelease {
+			if reviveRelease {
 				revivedRelease, err = state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, appName, versionToDeploy, false, *ts)
 				if err != nil {
 					return failedPrognosis(err)
