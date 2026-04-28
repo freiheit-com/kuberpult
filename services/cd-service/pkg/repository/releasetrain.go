@@ -122,8 +122,9 @@ type ReleaseTrainApplicationPrognosis struct {
 	Team               string
 	NewReleaseCommitId string
 	ExistingDeployment *db.Deployment
-	// if app is deleted, we revive it using this release data from history
-	DeletedRelease     *db.DBReleaseWithMetaData
+	// if app is deleted or removed from target environment,
+	// we revive it using this release data from history
+	RevivedRelease     *db.DBReleaseWithMetaData
 	ArgoBracket        types.ArgoBracketName
 	OldReleaseCommitId string
 }
@@ -898,7 +899,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			return failedPrognosis(err)
 		}
 
-		var deletedRelease *db.DBReleaseWithMetaData
+		var revivedRelease *db.DBReleaseWithMetaData
 		var argoBracket types.ArgoBracketName
 		if ts != nil {
 			// check if the release still exists for the app
@@ -906,10 +907,19 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			if err != nil {
 				return failedPrognosis(err)
 			}
+
+			var recreateRelease = false
 			if release == nil {
 				// this typically happens when the app was deleted completely before
 				// and we want to run a release train to revive the app
-				deletedRelease, err = state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, appName, versionToDeploy, false, *ts)
+				recreateRelease = true
+			} else if _, exists := release.Manifests.Manifests[c.Env]; !exists {
+				// the release exists but the env was removed from the release manifest, we also need to recreate it
+				recreateRelease = true
+			}
+
+			if recreateRelease {
+				revivedRelease, err = state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, appName, versionToDeploy, false, *ts)
 				if err != nil {
 					return failedPrognosis(err)
 				}
@@ -934,7 +944,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			NewReleaseCommitId: upstreamCommitIDByApp[appName],
 			ExistingDeployment: existingDeployment,
 			OldReleaseCommitId: targetCommitIDByApp[appName],
-			DeletedRelease:     deletedRelease,
+			RevivedRelease:     revivedRelease,
 			ArgoBracket:        argoBracket,
 		}
 
@@ -1075,33 +1085,40 @@ func (c *envReleaseTrain) applyPrognosis(
 			continue
 		}
 
-		if c.Parent.CommitHash != "" && appPrognosis.DeletedRelease != nil {
-			// if the app release was deleted, we need to recreate it before the release train can proceed
-			deletedRelease := appPrognosis.DeletedRelease
+		// if the app release was deleted or removed from envs
+		// we need to recreate it before the release train can proceed
+		if c.Parent.CommitHash != "" && appPrognosis.RevivedRelease != nil {
+			revivedRelease := appPrognosis.RevivedRelease
+
+			// delete current release if exists, this happens when the app was removed from envs
+			err := state.DBHandler.DBDeleteFromReleases(ctx, transaction, appName, revivedRelease.ReleaseNumbers)
+			if err != nil {
+				return "", fmt.Errorf("could not delete release for app %s: %w", appName, err)
+			}
 
 			newRelease := &CreateApplicationVersion{
-				Version:               *deletedRelease.ReleaseNumbers.Version,
-				Revision:              deletedRelease.ReleaseNumbers.Revision,
+				Version:               *revivedRelease.ReleaseNumbers.Version,
+				Revision:              revivedRelease.ReleaseNumbers.Revision,
 				Application:           appName,
-				Manifests:             deletedRelease.Manifests.Manifests,
-				SourceCommitId:        deletedRelease.Metadata.SourceCommitId,
-				SourceAuthor:          deletedRelease.Metadata.SourceAuthor,
-				SourceMessage:         deletedRelease.Metadata.SourceMessage,
+				Manifests:             revivedRelease.Manifests.Manifests,
+				SourceCommitId:        revivedRelease.Metadata.SourceCommitId,
+				SourceAuthor:          revivedRelease.Metadata.SourceAuthor,
+				SourceMessage:         revivedRelease.Metadata.SourceMessage,
 				PreviousCommit:        "", // we don't have previousCommitId for releases in database for now
 				Team:                  appPrognosis.Team,
-				DisplayVersion:        deletedRelease.Metadata.DisplayVersion,
+				DisplayVersion:        revivedRelease.Metadata.DisplayVersion,
 				Authentication:        c.Parent.Authentication,
 				WriteCommitData:       c.Parent.WriteCommitData,
 				CiLink:                c.Parent.CiLink,
 				AllowedDomains:        c.Parent.AllowedDomains,
 				TransformerEslVersion: c.TransformerEslVersion,
-				IsPrepublish:          deletedRelease.Metadata.IsPrepublish,
+				IsPrepublish:          revivedRelease.Metadata.IsPrepublish,
 				ArgoBracket:           appPrognosis.ArgoBracket,
 				SkipDeployment:        true,
 			}
-			_, err := newRelease.Transform(ctx, state, t, transaction)
+			_, err = newRelease.Transform(ctx, state, t, transaction)
 			if err != nil {
-				return "", fmt.Errorf("could not revive release %v for app %s: %w", deletedRelease.ReleaseNumbers, appName, err)
+				return "", fmt.Errorf("could not revive release %v for app %s: %w", revivedRelease.ReleaseNumbers, appName, err)
 			}
 		}
 

@@ -5849,7 +5849,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 			},
 		},
 		{
-			Name: "A release train with commit hash should revive an app with deleted environment",
+			Name: "A release train with commit hash should revive an app that is removed from envs",
 			SetupStages: [][]Transformer{
 				{
 					// stage 0: deploy v1.0 to staging, and run release train to production
