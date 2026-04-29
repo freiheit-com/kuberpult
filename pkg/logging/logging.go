@@ -79,11 +79,3 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) {
 		Error(ctx, "wrap", zap.Error(err))
 	}
 }
-
-func WrapT[T any](ctx context.Context, inner func(ctx context.Context) (*T, error)) (*T, error) {
-	result, err := logger.WrapT(ctx, inner)
-	if err != nil {
-		Error(ctx, "wrapT", zap.Error(err))
-	}
-	return result, err
-}

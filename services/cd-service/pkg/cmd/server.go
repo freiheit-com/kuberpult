@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -39,6 +40,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/interceptors"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
@@ -261,13 +263,16 @@ func RunServer() {
 			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, reader)
 		}
 
+		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
+			grpc_zap.StreamServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 			func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 				defer logging.HandlePanic(true)
 				return handler(srv, ss)
 			},
 		}
 		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
+			grpc_zap.UnaryServerInterceptor(grpcServerLogger, logger.DisableLogging()...),
 			unaryUserContextInterceptor,
 			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 				defer logging.HandlePanic(true)

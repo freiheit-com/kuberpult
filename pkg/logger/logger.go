@@ -77,13 +77,12 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
 	return err
 }
 
-func WrapT[T any](ctx context.Context, inner func(ctx context.Context) (*T, error)) (*T, error) {
+func WrapT[T any](ctx context.Context, inner func(ctx context.Context) (*T, error)) (result *T, err error) {
 	format := os.Getenv("LOG_FORMAT")
 	envLevel := os.Getenv("LOG_LEVEL")
 	var (
-		logger *zap.Logger
-		level  = zapcore.WarnLevel
-		err    error
+		l     *zap.Logger
+		level = zapcore.WarnLevel
 	)
 	if envLevel != "" {
 		err = level.Set(envLevel)
@@ -94,9 +93,9 @@ func WrapT[T any](ctx context.Context, inner func(ctx context.Context) (*T, erro
 	options := []zap.Option{zap.IncreaseLevel(level)}
 	switch format {
 	case "gcp":
-		logger, err = zapdriver.NewProduction(options...)
+		l, err = zapdriver.NewProduction(options...)
 	case "", "default":
-		logger, err = zap.NewProduction(options...)
+		l, err = zap.NewProduction(options...)
 	default:
 		return nil, fmt.Errorf("unknown log_format: %s", format)
 	}
@@ -104,12 +103,13 @@ func WrapT[T any](ctx context.Context, inner func(ctx context.Context) (*T, erro
 		return nil, err
 	}
 	defer func() {
-		syncErr := logger.Sync()
+		syncErr := l.Sync()
 		if err == nil {
 			err = syncErr
 		}
 	}()
-	return inner(WithLogger(ctx, logger))
+	result, err = inner(WithLogger(ctx, l))
+	return
 }
 
 func DisableLogging() []grpc_zap.Option {
