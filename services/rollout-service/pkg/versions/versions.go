@@ -28,6 +28,7 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/util/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"k8s.io/utils/lru"
@@ -93,6 +94,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	span.SetTag("GitRevision", revision)
 	span.SetTag("Environment", environment)
 	span.SetTag("Application", app)
+	logging.Warn(ctx, "getversion called", zap.String("env", environment), zap.String("app", app))
 
 	if slices.Contains(v.experimentalBracketsClusters, environment) {
 		result, err := v.getBracketVersion(ctx, revision, environment, types.ArgoBracketName(app))
@@ -343,10 +345,19 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				}
 			}
 
+			var bracketHistoryRow *db.BracketRow
+			if len(changedApps.ChangedBrackets) > 0 {
+				bracketHistoryRow, _ = db.WithTransactionT[db.BracketRow](&v.db, ctx, 1, true,
+					func(ctx context.Context, tx *sql.Tx) (*db.BracketRow, error) {
+						return db.DBSelectBracketHistoryLatest(ctx, &v.db, tx)
+					})
+			}
+
 			for _, bracketDetails := range changedApps.ChangedBrackets {
 				bracketName := bracketDetails.BracketName
 				for envName, bracketDeployment := range bracketDetails.Deployments {
 					if !slices.Contains(v.experimentalBracketsClusters, envName) {
+						logging.Warn(ctx, "env not in bracketclusters", zap.String("env", envName), zap.Strings("bracketClusters", v.experimentalBracketsClusters))
 						continue
 					}
 					bracketKey := key{Environment: envName, Application: bracketName}
@@ -387,6 +398,9 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							DeployedAt:     dt,
 						},
 					})
+					if bracketHistoryRow != nil {
+						v.addBracketAppsToChange(appsToChange, bracketHistoryRow, types.ArgoBracketName(bracketName), envName, bracketDeployment.Version)
+					}
 				}
 			}
 
@@ -408,7 +422,7 @@ func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, ap
 		versionClient:  vclient,
 		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics),
 		db:             dbHandler,
-		
+
 		experimentalBracketsClusters: experimentalBracketsClusters,
 	}
 	return result
@@ -416,6 +430,73 @@ func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, ap
 
 func (v *versionClient) GetArgoProcessor() *argo.ArgoAppProcessor {
 	return &v.ArgoProcessor
+}
+
+func (v *versionClient) addBracketAppsToChange(
+	appsToChange map[string]*api.GetAppDetailsResponse,
+	bracketRow *db.BracketRow,
+	bracketName types.ArgoBracketName,
+	envName string,
+	versionStr string,
+) {
+	appNames := bracketRow.AllBracketsJsonBlob.BracketMap[bracketName]
+	sortedAppNames := make(db.AppNames, len(appNames))
+	copy(sortedAppNames, appNames)
+	slices.SortFunc(sortedAppNames, func(a, b types.AppName) int {
+		return strings.Compare(string(a), string(b))
+	})
+	versionStrs := strings.Split(versionStr, ":")
+	for i, appName := range sortedAppNames {
+		if i >= len(versionStrs) {
+			break
+		}
+		releaseVersion, err := strconv.ParseUint(versionStrs[i], 10, 64)
+		if err != nil || releaseVersion == 0 {
+			continue
+		}
+		v.addAppDeploymentToChange(appsToChange, string(appName), envName, releaseVersion)
+	}
+}
+
+func (v *versionClient) addAppDeploymentToChange(
+	appsToChange map[string]*api.GetAppDetailsResponse,
+	appName string,
+	envName string,
+	version uint64,
+) {
+	//exhaustruct:ignore
+	newDep := &api.Deployment{Version: version}
+
+	mergeDeployments := func(base map[string]*api.Deployment) map[string]*api.Deployment {
+		result := make(map[string]*api.Deployment, len(base)+1)
+		for k, dep := range base {
+			result[k] = dep
+		}
+		result[envName] = newDep
+		return result
+	}
+
+	if existing, ok := appsToChange[appName]; ok {
+		//exhaustruct:ignore
+		appsToChange[appName] = &api.GetAppDetailsResponse{
+			Application: existing.Application,
+			Deployments: mergeDeployments(existing.Deployments),
+		}
+	} else if cached, ok := v.cache.Get(appName); ok {
+		original := cached.(*api.GetAppDetailsResponse)
+		//exhaustruct:ignore
+		appsToChange[appName] = &api.GetAppDetailsResponse{
+			Application: original.Application,
+			Deployments: mergeDeployments(original.Deployments),
+		}
+	} else {
+		//exhaustruct:ignore
+		appsToChange[appName] = &api.GetAppDetailsResponse{
+			//exhaustruct:ignore
+			Application: &api.Application{Name: appName},
+			Deployments: map[string]*api.Deployment{envName: newDep},
+		}
+	}
 }
 
 func childEnvironments(env *api.Environment) []string {
