@@ -1,0 +1,153 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What is Kuberpult
+
+Kuberpult is a Kubernetes deployment management system that manages *what gets deployed next* across cluster environments (dev, staging, production). It complements ArgoCD (which applies current versions). Think of it as a "catapult" for rolling out microservices.
+
+## Architecture
+
+Five Go microservices plus shared packages:
+
+- **cd-service** — Core logic: release management, deployment, locks, release trains. Exposes gRPC only (HTTP port serves only a `/health` check).
+- **manifest-repo-export-service** — Reads DB state, pushes manifest changes to the git repository that ArgoCD watches.
+- **frontend-service** — REST/gRPC-web adapter backing the React web UI.
+- **rollout-service** — Coordinates direct connection to Argo CD via grpc.
+- **reposerver-service** — Manages repository synchronization, implements Argo CD grpc endpoints.
+- **pkg/** — Shared packages: `api/` (protobuf), `db/`, `auth/`, `logger/`, `metrics/`, `tracing/`, `testutil/`, `migrations/`.
+
+Services communicate via gRPC (port 8443 internal, 8080 HTTP). All service config comes from environment variables. PostgreSQL is the only supported database; migrations run automatically on startup.
+
+## Build & Run
+
+All build targets use Docker + the builder image. The builder image must be built locally before anything else:
+
+```bash
+make builder          # Build local builder image (required first time)
+make kuberpult        # Build everything and start all services via docker-compose
+make kuberpult-freshdb  # Same but with a clean database
+make reset-db         # Delete the postgres volume
+```
+
+Build a single service Docker image:
+```bash
+IMAGE_TAG=local make -C services/cd-service docker
+```
+
+## Testing
+
+Tests run inside Docker using the builder image and connect to a test PostgreSQL instance.
+
+```bash
+make test                          # Run all tests (all services + pkg)
+make -C services/cd-service test   # Test a single service
+make -C pkg test                   # Test shared packages
+```
+
+For IDE/local test runs (without Docker), the test database must be reachable:
+1. Start the test database: `make unit-test-db`
+2. Run tests directly: `go test ./... -v` inside the service directory
+
+Run a single Go test:
+```bash
+go test -run TestFunctionName ./path/to/package -v
+```
+
+Frontend tests (inside `services/frontend-service`):
+```bash
+pnpm test              # Watch mode
+pnpm test-ci           # CI mode (no watch)
+```
+
+## Linting
+
+Go linting runs via golangci-lint inside Docker:
+```bash
+make -C services/cd-service lint      # Lint a service
+make -C services/cd-service lint-fix  # Auto-fix
+```
+
+Enabled linters: `errcheck`, `govet`, `ineffassign`, `unused`, `asciicheck`, `bodyclose`, `copyloopvar`, `staticcheck`, `unconvert`, `gocritic` (importShadow check), `revive` (redundant-import-alias). Generated code in `pkg/publicapi/` is excluded.
+
+Frontend linting (inside `services/frontend-service`):
+```bash
+pnpm lint
+pnpm lint-fix
+```
+
+## Code Coverage Thresholds
+
+Coverage is enforced at test time and the build fails if thresholds are not met:
+- **cd-service overall**: 66.1%
+- **cd-service `releasetrain.go`**: 89.9%
+- **cd-service `deployment.go`**: 87.3%
+- **frontend-service**: 42.0%
+- **pkg** (default): 99.9%
+
+## Go Test Patterns
+
+All Go tests must follow these conventions:
+
+**Table-driven tests:**
+```go
+tcs := []struct {
+    Name string
+    // ...
+}{
+    {Name: "happy path", ...},
+}
+for _, tc := range tcs {
+    t.Run(tc.Name, func(t *testing.T) { ... })
+}
+```
+
+**Assertions with `cmp.Diff`:**
+```go
+if diff := cmp.Diff(expected, actual); diff != "" {
+    t.Errorf("mismatch (-want, +got):\n%s", diff)
+}
+```
+
+**Proto message comparison:**
+```go
+if diff := cmp.Diff(expected, actual, protocmp.Transform()); diff != "" {
+    t.Errorf("mismatch (-want, +got):\n%s", diff)
+}
+```
+
+Do not compare raw JSON strings; always compare Go objects.
+
+## Commit Conventions
+
+This repo uses conventional commits enforced by commitlint:
+- `fix:` → PATCH bump
+- `feat:` → MINOR bump
+- `feat!:` / `fix!:` → MAJOR bump (breaking change)
+
+Types `revert`, `perf`, `docs`, `test`, `refactor`, `style`, `chore`, `build`, `ci` are restricted (not allowed).
+
+## Protobuf / API Generation
+
+Proto definitions live in `pkg/api/`. Regenerate after changes:
+```bash
+make -C pkg gen
+```
+
+For frontend TypeScript types:
+```bash
+make -C services/frontend-service gen-api
+```
+
+## Helm Chart
+
+The Helm chart is in `charts/kuberpult/`. Critical values:
+- `git.url` — manifest repository URL (required)
+- `ssh.identity` — SSH private key for git access (required)
+- `pgp.keyring` — PGP keyring for signature verification (recommended)
+
+
+## Types
+When introducing new fields into structs, consider defining a new custom type as in `pkg/types/types.go`.
+This is especially important for unique concepts, that cannot mix with anything else.
+For example, there is no point in comparing an envName to an appName, so they should be separate types.
