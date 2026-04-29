@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source "$(dirname "$0")/lib.sh"
+
 # prefix every call to "echo" with the name of the script:
 function print() {
   /bin/echo "$0:" "$@"
@@ -7,14 +9,24 @@ function print() {
 
 print 'installing kuberpult helm chart...'
 
-LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
+token=$(argocd account generate-token --server localhost:8080 --account kuberpult --insecure)
+
+echo "argocd token: $token"
+
+
 GIT_NAMESPACE=${GIT_NAMESPACE:-git}
 ARGO_NAMESPACE=${ARGO_NAMESPACE:-default}
-token=${TOKEN:-invalid-i-dont-care}
 VERSION=$(git describe --always --long --tags || echo 0.0.1)
 
 set -eu
 set -o pipefail
+
+#  experimentalBrackets:
+#    enabled: true
+#    clusters:
+#      development: true
+#      staging: false
+
 
 cat <<VALUES > vals.yaml
 auth:
@@ -45,6 +57,11 @@ frontend:
       memory: 200Mi
       cpu: 0.05
 rollout:
+  experimentalBrackets:
+    enabled: true
+    clusters:
+      development: true
+      staging: false
   enabled: true
   grpcMaxRecvMsgSize: 4
   resources:
@@ -122,3 +139,15 @@ make release-tag
 
 helm uninstall kuberpult-local || print kuberpult was not installed
 helm install --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz
+
+
+kubectl get deployment
+kubectl get pods
+
+print "port forwarding to cd service..."
+waitForDeployment "default" "app=kuberpult-cd-service"
+portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
+
+waitForDeployment "default" "app=kuberpult-frontend-service"
+portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
+print "connection to frontend service successful"

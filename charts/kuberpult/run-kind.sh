@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source "$(dirname "$0")/lib.sh"
+
 set -eu
 set -o pipefail
 
@@ -10,10 +12,6 @@ set -o pipefail
 cd "$(dirname "$0")"
 
 
-# prefix every call to "echo" with the name of the script:
-function print() {
-  /bin/echo "$0:" "$@"
-}
 
 cleanup() {
     print "Cleaning stuff up..."
@@ -46,46 +44,46 @@ print installing ssh...
 print installing postgres...
 ./setup-postgres.sh
 
-function waitForDeployment() {
-  ns="$1"
-  label="$2"
-  print "waitForDeployment: $ns/$label"
-  sleep 10
-  until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
-  do
-    sleep 4
-    print "logs:"
-    kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
-    print "describe pod:"
-    kubectl -n "$ns" describe pod -l "$label"
+#function waitForDeployment() {
+#  ns="$1"
+#  label="$2"
+#  print "waitForDeployment: $ns/$label"
+#  sleep 10
+#  until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
+#  do
+#    sleep 4
+#    print "logs:"
+#    kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
+#    print "describe pod:"
+#    kubectl -n "$ns" describe pod -l "$label"
+##    print "describe pod:"
+##    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
+#    print ...
+#  done
+#}
+#
+#function portForwardAndWait() {
+#  ns="$1"
+#  deployment="$2"
+#  portHere="$3"
+#  portThere="$4"
+#  ports="$portHere:$portThere"
+#  print "portForwardAndWait for $ns/$deployment $ports"
+#  kubectl -n "$ns" port-forward "$deployment" "$ports" &
+#  print "portForwardAndWait: waiting until the port forward works..."
+#  sleep 10
+#  until nc -vz localhost "$portHere"
+#  do
+#    sleep 3
+#    print "logs:"
+#    kubectl -n "$ns" logs "$deployment"
+#    print "describe deployment:"
+#    kubectl -n "$ns" describe "$deployment"
 #    print "describe pod:"
 #    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
-    print ...
-  done
-}
-
-function portForwardAndWait() {
-  ns="$1"
-  deployment="$2"
-  portHere="$3"
-  portThere="$4"
-  ports="$portHere:$portThere"
-  print "portForwardAndWait for $ns/$deployment $ports"
-  kubectl -n "$ns" port-forward "$deployment" "$ports" &
-  print "portForwardAndWait: waiting until the port forward works..."
-  sleep 10
-  until nc -vz localhost "$portHere"
-  do
-    sleep 3
-    print "logs:"
-    kubectl -n "$ns" logs "$deployment"
-    print "describe deployment:"
-    kubectl -n "$ns" describe "$deployment"
-    print "describe pod:"
-    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
-    print ...
-  done
-}
+#    print ...
+#  done
+#}
 
 GPG="gpg --keyring trustedkeys-kuberpult.gpg"
 gpgFile=~/.gnupg/trustedkeys-kuberpult.gpg
@@ -146,7 +144,7 @@ then
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/manifest-repo-export-service docker
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/reposerver-service docker
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/rollout-service docker
-  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/frontend-service docker gen-api
+#  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/frontend-service docker gen-api
 else
   print 'not building services...'
 fi
@@ -336,9 +334,7 @@ echo "$argocd_adminpw"
 echo "$argocd_adminpw" > argocd_adminpw.txt
 
 argocd login localhost:8080 --username admin --password "$argocd_adminpw" --insecure
-token=$(argocd account generate-token --server localhost:8080 --account kuberpult --insecure)
 
-echo "argocd token: $token"
 
 
 kubectl create ns development
@@ -349,7 +345,6 @@ kubectl create ns staging
 export GIT_NAMESPACE=${GIT_NAMESPACE}
 export ARGO_NAMESPACE=${ARGO_NAMESPACE}
 export LOCAL_EXECUTION=${LOCAL_EXECUTION}
-export TOKEN=${token}
 
 ./install-kuberpult-helm.sh
 
@@ -358,22 +353,14 @@ print 'checking for pods and waiting for portforwarding to be ready...'
 kubectl get deployment
 kubectl get pods
 
-print "port forwarding to cd service..."
-waitForDeployment "default" "app=kuberpult-cd-service"
-portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
-
-waitForDeployment "default" "app=kuberpult-frontend-service"
-portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
-print "connection to frontend service successful"
-
-kubectl get deployment
-kubectl get pods
-
 (cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
 
-for v in $(seq 1 3)
+for v in $(seq 11 13)
 do
-   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release.sh echo;
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-3 sreteam e
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-4 sreteam e
+
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-3 sreteam f
 done
 
 
