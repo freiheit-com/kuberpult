@@ -950,6 +950,11 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
 			_, envHasChanged := changedEnvironments[env]
 			if envHasChanged {
+				opts := r.config.ArgoRenderOptions
+				if opts != nil && opts.RootAppFiltering.Enabled && !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, env) {
+					skippedEnvs = append(skippedEnvs, env)
+					continue
+				}
 				errorGroup.Go(func() error {
 					return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
 						return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, eslVersion, &fsMutex)

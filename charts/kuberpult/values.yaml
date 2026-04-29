@@ -222,6 +222,13 @@ manifestRepoExport:
       initialDelaySeconds: 5
   rendering:
 
+    experimentalRootAppFilter:
+      # enable these configs - if false render ALL env-root apps normally.
+      enabled: false
+      # key: name of the environment in kuberpult. value:true => render the root app of this environment.
+      # This option has no effect if enabled=false.
+      envs: {}
+
     # True if the individual apps should be "rendered" (written) into the manifest repo at
     # /environments/<env>/applications/<app>/manifests/manifests.yaml
     # Keep the default, unless you already moved to brackets based rendering.
