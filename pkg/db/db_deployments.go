@@ -250,6 +250,37 @@ func (h *DBHandler) DBSelectDeployedAppsSince(ctx context.Context, tx *sql.Tx, e
 	return apps, nil
 }
 
+func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp(ctx context.Context, tx *sql.Tx, envName types.EnvName, ts time.Time) (_ map[types.AppName]types.ReleaseNumbers, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	selectQuery := h.AdaptQuery(`
+	SELECT DISTINCT
+		ON (appName) appname,
+		releaseVersion,
+		revision
+	FROM deployments_history
+	WHERE
+		envname = ?
+		AND created <= ?
+	ORDER BY appname, version DESC;
+	`)
+
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		envName,
+		ts,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment for env %s from DB. Error: %w", envName, err)
+	}
+	defer closeRowsAndLog(rows, ctx, "DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp")
+	return processAllLatestDeployments(rows)
+}
+
 func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Context, tx *sql.Tx, envName types.EnvName) (_ map[types.AppName]types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllLatestDeploymentsOnEnvironment")
 	defer func() {
