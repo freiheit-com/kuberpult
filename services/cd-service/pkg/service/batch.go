@@ -498,86 +498,88 @@ func (d *BatchServer) ProcessBatch(
 
 	span.SetTag("BatchActions", len(in.GetActions()))
 
-	user, err := auth.ReadUserFromContext(ctx)
-	if err != nil {
-		return nil, grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err))
-	}
-	ctx = auth.WriteUserToContext(ctx, *user)
-	if len(in.GetActions()) > maxBatchActions {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
-	}
-
-	results := make([]*api.BatchResult, 0, len(in.GetActions()))
-	transformers := make([]repository.Transformer, 0, maxBatchActions)
-	requiresIsolation := false
-	for _, batchAction := range in.GetActions() {
-		transformer, result, err := d.processAction(batchAction)
+	return logging.WrapT(ctx, func(ctx context.Context) (*api.BatchResponse, error) {
+		user, err := auth.ReadUserFromContext(ctx)
 		if err != nil {
-			// Validation error
+			return nil, grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err))
+		}
+		ctx = auth.WriteUserToContext(ctx, *user)
+		if len(in.GetActions()) > maxBatchActions {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
+		}
+
+		results := make([]*api.BatchResult, 0, len(in.GetActions()))
+		transformers := make([]repository.Transformer, 0, maxBatchActions)
+		requiresIsolation := false
+		for _, batchAction := range in.GetActions() {
+			transformer, result, err := d.processAction(batchAction)
+			if err != nil {
+				// Validation error
+				return nil, err
+			}
+
+			transformerTypeName := transformer.GetDBEventType()
+			for _, isolatedTransformerName := range isolatedTransformerNames {
+				if isolatedTransformerName == transformerTypeName {
+					requiresIsolation = true
+				}
+			}
+			transformers = append(transformers, transformer)
+			results = append(results, result)
+		}
+
+		// Add information about the transformer types for the root-level span of ProcessBatch
+		if len(transformers) > 0 && parentSpanExisted {
+			var transformerTag string
+			if len(transformers) == 1 {
+				transformerTag = string(transformers[0].GetDBEventType())
+			} else {
+				transformerTag = "multi"
+			}
+			parentSpan.SetTag("transformers", transformerTag)
+		}
+
+		if requiresIsolation {
+			// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
+			isolationSpan, _ := tracer.StartSpanFromContext(ctx, "Wait-Lock")
+			if d.Config.LockType == LockTypeGo {
+				// This solution (go locks) is not scalable and doesn't work when we have multiple cd-service pods
+				isolatedTransformersLock.Lock()
+				defer isolatedTransformersLock.Unlock()
+			}
+			isolationSpan.Finish()
+		} else {
+			// we also use a read lock, so that destructive and non-destructive transformers cannot run in parallel:
+			isolationSpan, _ := tracer.StartSpanFromContext(ctx, "Wait-RLock")
+			if d.Config.LockType == LockTypeGo {
+				isolatedTransformersLock.RLock()
+				defer isolatedTransformersLock.RUnlock()
+			}
+			isolationSpan.Finish()
+		}
+
+		if d.Config.LockType == LockTypeDb {
+			isShared := !requiresIsolation
+			err = d.DBHandler.WithAdvisoryLock(ctx, isShared, db.LockIsolateTransformers, func(ctx context.Context) error {
+				return d.Repository.Apply(ctx, transformers...)
+			})
+		} else {
+			if d.Config.LockType == LockTypeNone {
+				logging.Info(ctx, "not locking at all")
+			}
+			err = d.Repository.Apply(ctx, transformers...)
+		}
+		if err != nil {
+			logging.Error(ctx, "error in Repository.Apply.", zap.Error(err))
+			var applyErr = repository.UnwrapUntilTransformerBatchApplyError(err)
+			if applyErr != nil {
+				resp, handledErr := d.handleError(applyErr, err)
+				return resp, handledErr
+			}
 			return nil, err
 		}
-
-		transformerTypeName := transformer.GetDBEventType()
-		for _, isolatedTransformerName := range isolatedTransformerNames {
-			if isolatedTransformerName == transformerTypeName {
-				requiresIsolation = true
-			}
-		}
-		transformers = append(transformers, transformer)
-		results = append(results, result)
-	}
-
-	// Add information about the transformer types for the root-level span of ProcessBatch
-	if len(transformers) > 0 && parentSpanExisted {
-		var transformerTag string
-		if len(transformers) == 1 {
-			transformerTag = string(transformers[0].GetDBEventType())
-		} else {
-			transformerTag = "multi"
-		}
-		parentSpan.SetTag("transformers", transformerTag)
-	}
-
-	if requiresIsolation {
-		// we protect all "destructive" operations by a read-write lock, so that only 1 destructive operation can be run in parallel:
-		isolationSpan, _ := tracer.StartSpanFromContext(ctx, "Wait-Lock")
-		if d.Config.LockType == LockTypeGo {
-			// This solution (go locks) is not scalable and doesn't work when we have multiple cd-service pods
-			isolatedTransformersLock.Lock()
-			defer isolatedTransformersLock.Unlock()
-		}
-		isolationSpan.Finish()
-	} else {
-		// we also use a read lock, so that destructive and non-destructive transformers cannot run in parallel:
-		isolationSpan, _ := tracer.StartSpanFromContext(ctx, "Wait-RLock")
-		if d.Config.LockType == LockTypeGo {
-			isolatedTransformersLock.RLock()
-			defer isolatedTransformersLock.RUnlock()
-		}
-		isolationSpan.Finish()
-	}
-
-	if d.Config.LockType == LockTypeDb {
-		isShared := !requiresIsolation
-		err = d.DBHandler.WithAdvisoryLock(ctx, isShared, db.LockIsolateTransformers, func(ctx context.Context) error {
-			return d.Repository.Apply(ctx, transformers...)
-		})
-	} else {
-		if d.Config.LockType == LockTypeNone {
-			logging.Info(ctx, "not locking at all")
-		}
-		err = d.Repository.Apply(ctx, transformers...)
-	}
-	if err != nil {
-		logging.Error(ctx, "error in Repository.Apply.", zap.Error(err))
-		var applyErr = repository.UnwrapUntilTransformerBatchApplyError(err)
-		if applyErr != nil {
-			resp, handledErr := d.handleError(applyErr, err)
-			return resp, handledErr
-		}
-		return nil, err
-	}
-	return &api.BatchResponse{Results: results}, nil
+		return &api.BatchResponse{Results: results}, nil
+	})
 }
 
 func (d *BatchServer) handleError(applyErr *repository.TransformerBatchApplyError, err error) (*api.BatchResponse, error) {
