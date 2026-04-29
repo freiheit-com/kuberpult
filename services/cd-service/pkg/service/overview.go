@@ -546,7 +546,7 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 	}
 }
 
-func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
+func (o *OverviewServiceServer) StreamChangedApps(_ *api.GetChangedAppsRequest,
 	stream api.OverviewService_StreamChangedAppsServer) error {
 	ch, unsubscribe := o.subscribeChangedApps()
 	defer unsubscribe()

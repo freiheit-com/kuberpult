@@ -260,7 +260,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			}
 			l := logger.FromContext(ctx)
 
-			l.Info("overview.get")
+			l.Info("overview.get",
+				zap.Int("changedApps", len(changedApps.ChangedApps)),
+				zap.Int("brackets", len(changedApps.ChangedBrackets)),
+			)
 
 			overview := argo.ArgoOverview{
 				Overview:   ov,
@@ -347,10 +350,13 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 			var bracketHistoryRow *db.BracketRow
 			if len(changedApps.ChangedBrackets) > 0 {
-				bracketHistoryRow, _ = db.WithTransactionT[db.BracketRow](&v.db, ctx, 1, true,
+				bracketHistoryRow, err = db.WithTransactionT[db.BracketRow](&v.db, ctx, 1, true,
 					func(ctx context.Context, tx *sql.Tx) (*db.BracketRow, error) {
 						return db.DBSelectBracketHistoryLatest(ctx, &v.db, tx)
 					})
+				if err != nil {
+					return fmt.Errorf("consumeEvents could not get bracket history: %w", err)
+				}
 			}
 
 			for _, bracketDetails := range changedApps.ChangedBrackets {
