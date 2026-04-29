@@ -348,19 +348,9 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				}
 			}
 
-			var bracketHistoryRow *db.BracketRow
-			if len(changedApps.ChangedBrackets) > 0 {
-				bracketHistoryRow, err = db.WithTransactionT[db.BracketRow](&v.db, ctx, 1, true,
-					func(ctx context.Context, tx *sql.Tx) (*db.BracketRow, error) {
-						return db.DBSelectBracketHistoryLatest(ctx, &v.db, tx)
-					})
-				if err != nil {
-					return fmt.Errorf("consumeEvents could not get bracket history: %w", err)
-				}
-			}
-
 			for _, bracketDetails := range changedApps.ChangedBrackets {
 				bracketName := bracketDetails.BracketName
+				logging.Info(ctx, "changed bracket loop", zap.String("bracketName", bracketName), zap.Any("bracketDetails", bracketDetails.Deployments))
 				for envName, bracketDeployment := range bracketDetails.Deployments {
 					if !slices.Contains(v.experimentalBracketsClusters, envName) {
 						logging.Warn(ctx, "env not in bracketclusters", zap.String("env", envName), zap.Strings("bracketClusters", v.experimentalBracketsClusters))
@@ -370,6 +360,11 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					seenVersion, hasVersion := seenVersions[bracketKey]
 					bracketVersion := types.RolloutAppBracketVersion(bracketDeployment.Version)
 					if hasVersion && bracketVersion == seenVersion {
+						logging.Warn(ctx, "bracket in same version",
+							zap.Bool("hasVersion", hasVersion),
+							zap.String("bracketVersion", string(bracketVersion)),
+							zap.String("seenVersion", string(seenVersion)),
+						)
 						continue
 					}
 					seenVersions[bracketKey] = bracketVersion
@@ -404,9 +399,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							DeployedAt:     dt,
 						},
 					})
-					if bracketHistoryRow != nil {
-						v.addBracketAppsToChange(appsToChange, bracketHistoryRow, types.ArgoBracketName(bracketName), envName, bracketDeployment.Version)
-					}
+					v.addBracketToChange(appsToChange, types.ArgoBracketName(bracketName), envName)
 				}
 			}
 
@@ -438,70 +431,21 @@ func (v *versionClient) GetArgoProcessor() *argo.ArgoAppProcessor {
 	return &v.ArgoProcessor
 }
 
-func (v *versionClient) addBracketAppsToChange(
+func (v *versionClient) addBracketToChange(
 	appsToChange map[string]*api.GetAppDetailsResponse,
-	bracketRow *db.BracketRow,
 	bracketName types.ArgoBracketName,
 	envName string,
-	versionStr string,
 ) {
-	appNames := bracketRow.AllBracketsJsonBlob.BracketMap[bracketName]
-	sortedAppNames := make(db.AppNames, len(appNames))
-	copy(sortedAppNames, appNames)
-	slices.SortFunc(sortedAppNames, func(a, b types.AppName) int {
-		return strings.Compare(string(a), string(b))
-	})
-	versionStrs := strings.Split(versionStr, ":")
-	for i, appName := range sortedAppNames {
-		if i >= len(versionStrs) {
-			break
-		}
-		releaseVersion, err := strconv.ParseUint(versionStrs[i], 10, 64)
-		if err != nil || releaseVersion == 0 {
-			continue
-		}
-		v.addAppDeploymentToChange(appsToChange, string(appName), envName, releaseVersion)
-	}
-}
-
-func (v *versionClient) addAppDeploymentToChange(
-	appsToChange map[string]*api.GetAppDetailsResponse,
-	appName string,
-	envName string,
-	version uint64,
-) {
+	name := string(bracketName)
 	//exhaustruct:ignore
-	newDep := &api.Deployment{Version: version}
-
-	mergeDeployments := func(base map[string]*api.Deployment) map[string]*api.Deployment {
-		result := make(map[string]*api.Deployment, len(base)+1)
-		for k, dep := range base {
-			result[k] = dep
-		}
-		result[envName] = newDep
-		return result
-	}
-
-	if existing, ok := appsToChange[appName]; ok {
+	appsToChange[name] = &api.GetAppDetailsResponse{
 		//exhaustruct:ignore
-		appsToChange[appName] = &api.GetAppDetailsResponse{
-			Application: existing.Application,
-			Deployments: mergeDeployments(existing.Deployments),
-		}
-	} else if cached, ok := v.cache.Get(appName); ok {
-		original := cached.(*api.GetAppDetailsResponse)
+		Application: &api.Application{
+			Name:        name,
+			ArgoBracket: name,
+		},
 		//exhaustruct:ignore
-		appsToChange[appName] = &api.GetAppDetailsResponse{
-			Application: original.Application,
-			Deployments: mergeDeployments(original.Deployments),
-		}
-	} else {
-		//exhaustruct:ignore
-		appsToChange[appName] = &api.GetAppDetailsResponse{
-			//exhaustruct:ignore
-			Application: &api.Application{Name: appName},
-			Deployments: map[string]*api.Deployment{envName: newDep},
-		}
+		Deployments: map[string]*api.Deployment{envName: {}},
 	}
 }
 

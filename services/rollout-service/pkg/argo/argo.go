@@ -154,6 +154,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 		span.SetTag("kuberpult-app", currentApp)
 		for _, envGroup := range overview.EnvironmentGroups {
 			for _, parentEnvironment := range envGroup.Environments {
+				isBracket := currentAppDetails.Application.ArgoBracket == currentApp
 				if isAAEnv(parentEnvironment.Config) {
 					for _, cfg := range parentEnvironment.Config.ArgoConfigs.Configs { //Active/Active environments have multiple argo cd configurations
 						targetEnvName := a.extractFullyQualifiedEnvironmentName(parentEnvironment.Config.ArgoConfigs.CommonEnvPrefix, parentEnvironment.Name, cfg)
@@ -163,6 +164,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 							TeamName:                     currentAppDetails.Application.Team,
 							ParentEnvironmentName:        parentEnvironment.Name,
 							ArgoEnvironmentConfiguration: cfg,
+							IsBracket:                    isBracket,
 						}
 						a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
 					}
@@ -173,6 +175,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 						TeamName:                     currentAppDetails.Application.Team,
 						ParentEnvironmentName:        parentEnvironment.Name,
 						ArgoEnvironmentConfiguration: parentEnvironment.Config.Argocd,
+						IsBracket:                    isBracket,
 					}
 					a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
 				}
@@ -242,6 +245,7 @@ type AppInfo struct {
 	EnvironmentName              string
 	ParentEnvironmentName        string
 	ArgoEnvironmentConfiguration *api.ArgoCDEnvironmentConfiguration
+	IsBracket                    bool
 }
 
 func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {
@@ -415,7 +419,12 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appInfo *AppInfo) 
 	annotations := make(map[string]string)
 	labels := make(map[string]string)
 
-	manifestPath := filepath.Join("environments", appInfo.ParentEnvironmentName, "applications", appInfo.ApplicationName, "manifests")
+	var manifestPath string
+	if appInfo.IsBracket {
+		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "brackets", appInfo.ApplicationName)
+	} else {
+		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "applications", appInfo.ApplicationName, "manifests")
+	}
 
 	annotations["com.freiheit.kuberpult/application"] = appInfo.ApplicationName
 	annotations["com.freiheit.kuberpult/environment"] = appInfo.EnvironmentName
