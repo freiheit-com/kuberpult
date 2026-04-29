@@ -78,12 +78,8 @@ pnpm lint-fix
 
 ## Code Coverage Thresholds
 
-Coverage is enforced at test time and the build fails if thresholds are not met:
-- **cd-service overall**: 66.1%
-- **cd-service `releasetrain.go`**: 89.9%
-- **cd-service `deployment.go`**: 87.3%
-- **frontend-service**: 42.0%
-- **pkg** (default): 99.9%
+Coverage is enforced at test time and the build fails if thresholds are not met.
+The coverage thresholds are defined in the services Makefile, see "MIN_COVERAGE".
 
 ## Go Test Patterns
 
