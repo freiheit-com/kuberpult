@@ -419,7 +419,7 @@ func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, ap
 		cache:          lru.New(20),
 		overviewClient: oclient,
 		versionClient:  vclient,
-		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics),
+		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics, experimentalBracketsClusters),
 		db:             dbHandler,
 
 		experimentalBracketsClusters: experimentalBracketsClusters,
