@@ -70,8 +70,8 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) (err error
 	format := os.Getenv("LOG_FORMAT")
 	envLevel := os.Getenv("LOG_LEVEL")
 	var (
-		l     *zap.Logger
-		level = zapcore.WarnLevel
+		logger *zap.Logger
+		level  = zapcore.WarnLevel
 	)
 	if envLevel != "" {
 		err = level.Set(envLevel)
@@ -82,9 +82,9 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) (err error
 	options := []zap.Option{zap.IncreaseLevel(level)}
 	switch format {
 	case "gcp":
-		l, err = zapdriver.NewProduction(options...)
+		logger, err = zapdriver.NewProduction(options...)
 	case "", "default":
-		l, err = zap.NewProduction(options...)
+		logger, err = zap.NewProduction(options...)
 	default:
 		return fmt.Errorf("unknown log_format: %s", format)
 	}
@@ -92,12 +92,12 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) (err error
 		return err
 	}
 	defer func() {
-		syncErr := l.Sync()
+		syncErr := logger.Sync()
 		if err == nil {
 			err = syncErr
 		}
 	}()
-	err = inner(WithLogger(ctx, l))
+	err = inner(WithLogger(ctx, logger))
 	return
 }
 
