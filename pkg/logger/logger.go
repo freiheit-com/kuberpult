@@ -66,49 +66,38 @@ func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 	return ctxzap.ToContext(ctx, logger)
 }
 
-func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
-	_, err := WrapT(ctx, func(ctx context.Context) (*interface{}, error) {
-		err2 := inner(ctx)
-		if err2 != nil {
-			return nil, err2
-		}
-		return nil, nil
-	})
-	return err
-}
-
-func WrapT[T any](ctx context.Context, inner func(ctx context.Context) (*T, error)) (result *T, err error) {
+func Wrap(ctx context.Context, inner func(ctx context.Context) error) (err error) {
 	format := os.Getenv("LOG_FORMAT")
 	envLevel := os.Getenv("LOG_LEVEL")
 	var (
-		logger *zap.Logger
-		level  = zapcore.WarnLevel
+		l     *zap.Logger
+		level = zapcore.WarnLevel
 	)
 	if envLevel != "" {
 		err = level.Set(envLevel)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	options := []zap.Option{zap.IncreaseLevel(level)}
 	switch format {
 	case "gcp":
-		logger, err = zapdriver.NewProduction(options...)
+		l, err = zapdriver.NewProduction(options...)
 	case "", "default":
-		logger, err = zap.NewProduction(options...)
+		l, err = zap.NewProduction(options...)
 	default:
-		return nil, fmt.Errorf("unknown log_format: %s", format)
+		return fmt.Errorf("unknown log_format: %s", format)
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer func() {
-		syncErr := logger.Sync()
+		syncErr := l.Sync()
 		if err == nil {
 			err = syncErr
 		}
 	}()
-	result, err = inner(WithLogger(ctx, logger))
+	err = inner(WithLogger(ctx, l))
 	return
 }
 
