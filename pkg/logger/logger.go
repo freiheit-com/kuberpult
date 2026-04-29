@@ -81,8 +81,8 @@ func WrapT[T any](ctx context.Context, inner func(ctx context.Context) (*T, erro
 	format := os.Getenv("LOG_FORMAT")
 	envLevel := os.Getenv("LOG_LEVEL")
 	var (
-		l     *zap.Logger
-		level = zapcore.WarnLevel
+		logger *zap.Logger
+		level  = zapcore.WarnLevel
 	)
 	if envLevel != "" {
 		err = level.Set(envLevel)
@@ -93,9 +93,9 @@ func WrapT[T any](ctx context.Context, inner func(ctx context.Context) (*T, erro
 	options := []zap.Option{zap.IncreaseLevel(level)}
 	switch format {
 	case "gcp":
-		l, err = zapdriver.NewProduction(options...)
+		logger, err = zapdriver.NewProduction(options...)
 	case "", "default":
-		l, err = zap.NewProduction(options...)
+		logger, err = zap.NewProduction(options...)
 	default:
 		return nil, fmt.Errorf("unknown log_format: %s", format)
 	}
@@ -103,12 +103,12 @@ func WrapT[T any](ctx context.Context, inner func(ctx context.Context) (*T, erro
 		return nil, err
 	}
 	defer func() {
-		syncErr := l.Sync()
+		syncErr := logger.Sync()
 		if err == nil {
 			err = syncErr
 		}
 	}()
-	result, err = inner(WithLogger(ctx, l))
+	result, err = inner(WithLogger(ctx, logger))
 	return
 }
 
