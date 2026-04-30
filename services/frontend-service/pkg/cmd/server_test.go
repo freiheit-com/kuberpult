@@ -868,6 +868,7 @@ func TestServerApiEnableDespiteNoAuthWithAzure(t *testing.T) {
 			}
 			t.Setenv("KUBERPULT_GIT_AUTHOR_EMAIL", "mail2")
 			t.Setenv("KUBERPULT_GIT_AUTHOR_NAME", "name1")
+			t.Setenv("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE", "4")
 
 			if err := runServer(ctx); err != nil {
 				t.Fatalf("runServer returned unexpected error: %q", err)

@@ -533,8 +533,7 @@ func runServer(ctx context.Context) error {
 				// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:
 				var allowedPaths = []string{"/", "/release", "/health", "/favicon.png"}
 				var allowedPrefixes = []string{"/static/js", "/static/css", "/ui"}
-				const enableFix = false
-				if c.ApiEnableDespiteNoAuth && enableFix {
+				if c.ApiEnableDespiteNoAuth {
 					// /api/* bypasses Azure auth so that ApiEnableDespiteNoAuth takes effect in restApiHandler.
 					allowedPrefixes = append(allowedPrefixes, "/api")
 				}
