@@ -3,7 +3,8 @@ set -eu
 set -o pipefail
 set -x
 
-FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081}
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 env=staging
 lockId=lockIdTest${RANDOM}
 url="http://localhost:${FRONTEND_PORT}/environments/${env}/locks/${lockId}"

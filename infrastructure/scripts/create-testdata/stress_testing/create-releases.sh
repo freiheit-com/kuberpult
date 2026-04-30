@@ -59,7 +59,8 @@ do
   fi
 done
 
-FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081} # see docker-compose.yml
+# shellcheck source=../ports.sh
+source "$(dirname "$0")/../ports.sh"
 
 for (( c=1; c<=NUMBER_RELEASES; c++ ))
 do

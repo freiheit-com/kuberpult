@@ -4,7 +4,8 @@ set -o pipefail
 set -x
 
 
-FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081}
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 team=${1}
 env=${2:-development}
 lockId=test${RANDOM}

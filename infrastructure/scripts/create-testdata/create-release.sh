@@ -90,7 +90,8 @@ EOF
   manifests+=("--form" "manifests[${env}]=@${file}")
 done
 
-FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081} # see docker-compose.yml
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 
 if [[ $(uname -o) == Darwin ]];
 then

@@ -3,7 +3,8 @@ set -eu
 set -o pipefail
 set -x
 
-FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081}
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 envGroup="${1:-development}"
 url="http://localhost:${FRONTEND_PORT}/environment-groups/${envGroup}/rollout-status"
 useSignature=false
