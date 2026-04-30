@@ -76,28 +76,41 @@ builder:
 compose-down:
 	docker compose -f docker-compose.yml -f docker-compose.datadog.yml down
 
+prepare-git:
+	@if [ ! -d "services/cd-service/repository_remote" ]; then \
+		echo "Initializing bare git repository for local development..."; \
+		git init --bare services/cd-service/repository_remote --initial-branch=master && \
+		git clone services/cd-service/repository_remote services/cd-service/repository_checkedout && \
+		git -C services/cd-service/repository_checkedout commit --allow-empty -m 'initial commit' && \
+		git -C services/cd-service/repository_checkedout push origin master; \
+	fi
+
+cleanup-git:
+	rm -rf services/cd-service/repository_remote
+	rm -rf services/cd-service/repository_checkedout
+
 prepare-compose: builder
-	make -C pkg gen
+	BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:local make -C pkg gen
 	IMAGE_TAG=local make -C services/cd-service docker
 	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
 	IMAGE_TAG=local make -C services/frontend-service docker gen-api
 	make -C infrastructure/docker/ui build-pr
 
-kuberpult-datadog: prepare-compose compose-down
+kuberpult-datadog: prepare-compose prepare-git compose-down
 ifndef DD_ENV
 	$(error "DD_ENV should be set to execute this target. E.g., DD_ENV=example-local-nov7-a make kuberpult-datadog")
 else
 	DD_ENV=$(DD_ENV) docker compose -f docker-compose.datadog.yml -f docker-compose.yml -f docker-compose.persist.yml up
 endif
 
-kuberpult: prepare-compose compose-down
+kuberpult: prepare-compose prepare-git compose-down
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
 	# This deletes the volume of the default db location:
 	docker volume rm kuberpult_pgdata
 
-kuberpult-freshdb: prepare-compose compose-down
+kuberpult-freshdb: prepare-compose cleanup-git prepare-git compose-down
 	docker compose up
 
 # Run this before starting the unit tests in your IDE:

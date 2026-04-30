@@ -23,12 +23,17 @@ RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.1
 
-RUN curl --fail --silent --show-error --location --remote-name "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz"
-RUN echo 0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5 helm-v3.14.2-linux-amd64.tar.gz | sha256sum -c
-
-RUN tar xzf helm-v3.14.2-linux-amd64.tar.gz && rm -rf helm-v3.14.2-linux-amd64.tar.gz
-RUN mv linux-amd64/helm /usr/local/bin/helm
-RUN chmod +x /usr/local/bin/helm
+ARG TARGETARCH
+RUN HELM_SHA256=$(case "$TARGETARCH" in \
+        amd64) echo "0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5" ;; \
+        arm64) echo "c65d6a9557bb359abc2c0d26670de850b52327dc3976ad6f9e14c298ea3e1b61" ;; \
+    esac) && \
+    curl --fail --silent --show-error --location --remote-name "https://get.helm.sh/helm-v3.14.2-linux-${TARGETARCH}.tar.gz" && \
+    echo "${HELM_SHA256}  helm-v3.14.2-linux-${TARGETARCH}.tar.gz" | sha256sum -c && \
+    tar xzf "helm-v3.14.2-linux-${TARGETARCH}.tar.gz" && \
+    mv "linux-${TARGETARCH}/helm" /usr/local/bin/helm && \
+    chmod +x /usr/local/bin/helm && \
+    rm -rf "helm-v3.14.2-linux-${TARGETARCH}.tar.gz" "linux-${TARGETARCH}"
 
 WORKDIR /kp
 
