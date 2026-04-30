@@ -13,6 +13,13 @@ if [ -n "$_REPO_ROOT" ] && command -v docker &>/dev/null && command -v jq &>/dev
     fi
 fi
 
+if [ -z "$FRONTEND_PORT" ]; then
+    echo "Warning: could not determine FRONTEND_PORT from docker-compose; using default 8081" >&2
+fi
+if [ -z "$CD_GRPC_PORT" ]; then
+    echo "Warning: could not determine CD_GRPC_PORT from docker-compose; using default 8443" >&2
+fi
+
 FRONTEND_PORT=${FRONTEND_PORT:-8081}
 CD_GRPC_PORT=${CD_GRPC_PORT:-8443}
 

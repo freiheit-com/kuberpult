@@ -12,7 +12,7 @@ SCRIPT_DIR="$(dirname "$0")"
 START_VERSION="${1:-100}"
 NUM_VERSIONS="${2:-7}"
 
-"${SCRIPT_DIR}/create-environments.sh" || true
+"${SCRIPT_DIR}/create-environments.sh" || echo "Warning: create-environments.sh failed, continuing anyway" >&2
 
 APP_NAME="${3:-test-1}"
 # Take first character of app name as Argo bracket prefix
