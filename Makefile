@@ -29,6 +29,7 @@ INTEGRATION_TEST_CONFIG_FILE := $(INTEGRATION_TEST_CONFIG_DIR)/kubeconfig.yaml
 COMMIT_MSG_FILE := commitlint.msg
 
 export USER_UID := $(shell id -u)
+COMPOSE_PROJECT_NAME ?= kuberpult
 .install:
 	touch .install
 
@@ -117,7 +118,7 @@ kuberpult: prepare-compose prepare-git prepare-pgp compose-down
 
 reset-db: compose-down
 	# This deletes the volume of the default db location:
-	docker volume rm kuberpult_pgdata
+	docker volume rm $(COMPOSE_PROJECT_NAME)_pgdata
 
 kuberpult-freshdb: prepare-compose cleanup-git prepare-git prepare-pgp compose-down
 	docker compose up
