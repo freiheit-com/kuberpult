@@ -3,10 +3,11 @@ set -eu
 set -o pipefail
 set -x
 
+FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081}
 envGroup=prod
 lockId=lockIdTest${RANDOM}
 lockId=lockIdIntegration0
-url="http://localhost:8081/environment-groups/${envGroup}/locks/${lockId}"
+url="http://localhost:${FRONTEND_PORT}/environment-groups/${envGroup}/locks/${lockId}"
 echo $url
 useSignature=false
 if ${useSignature}

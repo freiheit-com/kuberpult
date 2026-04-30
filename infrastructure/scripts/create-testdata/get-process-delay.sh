@@ -6,7 +6,7 @@ set -o pipefail
 # ./get-process-delay.sh
 
 
-FRONTEND_PORT=8081 # see docker-compose.yml
+FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081} # see docker-compose.yml
 
 curl  -f -X GET  \
     "http://localhost:${FRONTEND_PORT}/api/process-delay/" | jq .

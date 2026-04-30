@@ -59,7 +59,7 @@ do
   fi
 done
 
-FRONTEND_PORT=8081 # see docker-compose.yml
+FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081} # see docker-compose.yml
 
 for (( c=1; c<=NUMBER_RELEASES; c++ ))
 do

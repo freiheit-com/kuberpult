@@ -3,8 +3,9 @@ set -eu
 set -o pipefail
 set -x
 
+FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081}
 envGroup="${1:-development}"
-url="http://localhost:8081/environment-groups/${envGroup}/rollout-status"
+url="http://localhost:${FRONTEND_PORT}/environment-groups/${envGroup}/rollout-status"
 useSignature=false
 if ${useSignature}
 then

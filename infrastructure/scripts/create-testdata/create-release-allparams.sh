@@ -139,7 +139,7 @@ done
 
 echo "manifest is in $file"
 
-FRONTEND_PORT=8081 # see docker-compose.yml
+FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081} # see docker-compose.yml
 
 if [[ $(uname -o) == Darwin ]];
 then

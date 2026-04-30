@@ -4,7 +4,7 @@ set -o pipefail
 # usage
 # ./create-environments.sh [path/to/envs]
 
-FRONTEND_PORT=8081 # see docker-compose.yml
+FRONTEND_PORT=${KUBERPULT_PORT_FRONTEND_HTTP:-8081} # see docker-compose.yml
 cd "$(dirname "$0")"
 testData=${1:-"./testdata_template/environments"}
 useOldApi=false
