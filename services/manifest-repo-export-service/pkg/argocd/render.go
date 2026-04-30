@@ -39,7 +39,7 @@ type RenderOptions struct {
 	RootAppFiltering RootAppFiltering
 }
 type RootAppFiltering struct {
-	Enabled             bool // if false render all root apps
+	Enabled             bool // if false, render all root apps
 	EnabledEnvironments []types.EnvName
 }
 

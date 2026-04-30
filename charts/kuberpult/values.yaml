@@ -227,6 +227,11 @@ manifestRepoExport:
       enabled: false
       # key: name of the environment in kuberpult. value:true => render the root app of this environment.
       # This option has no effect if enabled=false.
+      # For example:
+      #
+      # envs:
+      #   development: true
+      #   staging: false
       envs: {}
 
     # True if the individual apps should be "rendered" (written) into the manifest repo at
