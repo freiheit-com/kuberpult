@@ -32,6 +32,7 @@ COPY charts/kuberpult .
 RUN rm -f tests/go.mod tests/go.sum
 COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
+COPY infrastructure/scripts/create-testdata/ports.sh .
 COPY infrastructure/scripts/create-testdata/create-release.sh .
 COPY infrastructure/scripts/create-testdata/create-environments.sh .
 COPY infrastructure/scripts/create-testdata/testdata_template/environments ./testdata_template/environments

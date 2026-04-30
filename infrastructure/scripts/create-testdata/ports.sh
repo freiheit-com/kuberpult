@@ -1,13 +1,20 @@
 #!/bin/bash
-# Source this file to get the actual host ports from docker-compose.yml.
-# Reads the resolved configuration (honoring .env overrides) via docker compose.
-# Requires: docker, jq
+# Source this file to get the actual host ports.
+# Reads the resolved configuration from docker-compose.yml (honoring .env overrides)
+# when docker and jq are available; otherwise falls back to the default ports.
 
-_REPO_ROOT=$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
-_DC_JSON=$(docker compose -f "${_REPO_ROOT}/docker-compose.yml" config --format json 2>/dev/null)
+_REPO_ROOT=$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)
 
-FRONTEND_PORT=$(printf '%s' "$_DC_JSON" | jq -r '.services["frontend-service"].ports[] | select(.target == 8081) | .published')
-CD_GRPC_PORT=$(printf '%s' "$_DC_JSON" | jq -r '.services["cd-service"].ports[] | select(.target == 8443) | .published')
+if [ -n "$_REPO_ROOT" ] && command -v docker &>/dev/null && command -v jq &>/dev/null; then
+    _DC_JSON=$(docker compose -f "${_REPO_ROOT}/docker-compose.yml" config --format json 2>/dev/null || true)
+    if [ -n "$_DC_JSON" ]; then
+        FRONTEND_PORT=$(printf '%s' "$_DC_JSON" | jq -r '.services["frontend-service"].ports[] | select(.target == 8081) | .published // empty' 2>/dev/null || true)
+        CD_GRPC_PORT=$(printf '%s' "$_DC_JSON" | jq -r '.services["cd-service"].ports[] | select(.target == 8443) | .published // empty' 2>/dev/null || true)
+    fi
+fi
+
+FRONTEND_PORT=${FRONTEND_PORT:-8081}
+CD_GRPC_PORT=${CD_GRPC_PORT:-8443}
 
 export FRONTEND_PORT CD_GRPC_PORT
 unset _REPO_ROOT _DC_JSON
