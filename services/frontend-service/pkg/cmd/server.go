@@ -61,6 +61,9 @@ import (
 
 const megaBytes int = 1024 * 1024
 
+// jwksInitAzure is a variable so tests can inject a mock JWKS without a real network call.
+var jwksInitAzure = auth.JWKSInitAzure
+
 func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 	if c.GKEBackendServiceID == "" && c.GKEBackendServiceName == "" {
 		logging.Warn(ctx, "GKE environment variables are not set up correctly! missing backend_service_id or backend_service_name")
@@ -208,7 +211,7 @@ func runServer(ctx context.Context) error {
 
 	var jwks *keyfunc.JWKS = nil
 	if c.AzureEnableAuth {
-		jwks, err = auth.JWKSInitAzure(ctx)
+		jwks, err = jwksInitAzure(ctx)
 		if err != nil {
 			logging.Fatal(ctx, "Unable to initialize jwks for azure auth")
 			return err
@@ -530,6 +533,10 @@ func runServer(ctx context.Context) error {
 				// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:
 				var allowedPaths = []string{"/", "/release", "/health", "/favicon.png"}
 				var allowedPrefixes = []string{"/static/js", "/static/css", "/ui"}
+				if c.ApiEnableDespiteNoAuth {
+					// /api/* bypasses Azure auth so that ApiEnableDespiteNoAuth takes effect in restApiHandler.
+					allowedPrefixes = append(allowedPrefixes, "/api")
+				}
 				if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, allowedPaths, allowedPrefixes); err != nil {
 					return
 				}

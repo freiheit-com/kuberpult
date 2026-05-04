@@ -473,6 +473,25 @@ func TestAllowBypassingAzureAuth(t *testing.T) {
 			allowedPrefixes: []string{"bar"},
 			expectedResult:  false,
 		},
+		{
+			// Bug: when ApiEnableDespiteNoAuth=true and AzureEnableAuth=true, /api/release gets
+			// rejected by the Azure middleware because /api is not in the server's allowedPrefixes.
+			Name:            "/api/release does not bypass without /api prefix",
+			allowedPaths:    []string{"/", "/release", "/health", "/favicon.png"},
+			requestUrlPath:  "/api/release",
+			requestMethod:   http.MethodPost,
+			allowedPrefixes: []string{"/static/js", "/static/css", "/ui"},
+			expectedResult:  false,
+		},
+		{
+			// Fix: server.go must add "/api" to allowedPrefixes when ApiEnableDespiteNoAuth=true.
+			Name:            "/api/release bypasses auth when /api is in allowedPrefixes",
+			allowedPaths:    []string{"/", "/release", "/health", "/favicon.png"},
+			requestUrlPath:  "/api/release",
+			requestMethod:   http.MethodPost,
+			allowedPrefixes: []string{"/static/js", "/static/css", "/ui", "/api"},
+			expectedResult:  true,
+		},
 	}
 
 	for _, tc := range tcs {

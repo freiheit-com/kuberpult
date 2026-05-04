@@ -89,6 +89,15 @@ cleanup-git:
 	rm -rf services/cd-service/repository_remote
 	rm -rf services/cd-service/repository_checkedout
 
+prepare-pgp:
+	@if [ ! -f "services/cd-service/test_pgp_keyring.asc" ]; then \
+		echo "Generating test PGP key ring for local development..."; \
+		GNUPGHOME=$$(mktemp -d); \
+		printf "Key-Type: RSA\nKey-Length: 2048\nName-Real: Local Dev\nName-Email: dev@example.com\nExpire-Date: 0\n%%no-protection\n%%commit\n" | gpg --batch --gen-key --homedir "$$GNUPGHOME"; \
+		gpg --homedir "$$GNUPGHOME" --armor --export dev@example.com > services/cd-service/test_pgp_keyring.asc; \
+		rm -rf "$$GNUPGHOME"; \
+	fi
+
 prepare-compose: builder
 	BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:local make -C pkg gen
 	IMAGE_TAG=local make -C services/cd-service docker
@@ -96,21 +105,21 @@ prepare-compose: builder
 	IMAGE_TAG=local make -C services/frontend-service docker gen-api
 	make -C infrastructure/docker/ui build-pr
 
-kuberpult-datadog: prepare-compose prepare-git compose-down
+kuberpult-datadog: prepare-compose prepare-git prepare-pgp compose-down
 ifndef DD_ENV
 	$(error "DD_ENV should be set to execute this target. E.g., DD_ENV=example-local-nov7-a make kuberpult-datadog")
 else
 	DD_ENV=$(DD_ENV) docker compose -f docker-compose.datadog.yml -f docker-compose.yml -f docker-compose.persist.yml up
 endif
 
-kuberpult: prepare-compose prepare-git compose-down
+kuberpult: prepare-compose prepare-git prepare-pgp compose-down
 	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
 	# This deletes the volume of the default db location:
 	docker volume rm kuberpult_pgdata
 
-kuberpult-freshdb: prepare-compose cleanup-git prepare-git compose-down
+kuberpult-freshdb: prepare-compose cleanup-git prepare-git prepare-pgp compose-down
 	docker compose up
 
 # Run this before starting the unit tests in your IDE:

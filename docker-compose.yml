@@ -44,6 +44,7 @@ services:
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=4
       - KUBERPULT_MIGRATION_SERVER_SECURE=false
       - KUBERPULT_VERSION=v0.1.2
+      - KUBERPULT_AZURE_ENABLE_AUTH=false
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -129,11 +130,14 @@ services:
       - KUBERPULT_SOURCE_REPO_URL=https://github.com/freiheit-com/kuberpult/commit/{commit}
       - KUBERPULT_MANIFEST_REPO_URL=https://github.com/freiheit-com/fdc-standard-setup-dev-env-manifest/tree/{branch}/{dir}
       - KUBERPULT_GIT_BRANCH=master
-      - KUBERPULT_API_ENABLE_DESPITE_NO_AUTH=true
       - KUBERPULT_BATCH_CLIENT_TIMEOUT=2m
       - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv
       - KUBERPULT_GRPC_MAX_RECV_MSG_SIZE=8
       - KUBERPULT_REVISIONS_ENABLED=true
+      - KUBERPULT_AZURE_ENABLE_AUTH=false
+      - KUBERPULT_API_ENABLE_DESPITE_NO_AUTH=true
+# keyring is only needed for azure auth
+#      - KUBERPULT_PGP_KEY_RING_PATH=/kp/kuberpult/services/cd-service/test_pgp_keyring.asc
     ports:
       - "8081:8081"
       - "5555:5555"
