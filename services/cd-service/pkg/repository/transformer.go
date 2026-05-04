@@ -1311,12 +1311,9 @@ func (u *DeleteEnvFromApp) Transform(
 			}
 		}
 	}
-
-	err = state.DBHandler.DBDeleteDeployment(ctx, transaction, u.Application, envName)
-	if err != nil {
-		return "", fmt.Errorf("could not delete deployment for app %s: %w", u.Application, err)
+	if err := state.DBHandler.DBDeleteDeployment(ctx, transaction, u.Application, envName); err != nil {
+		return "", fmt.Errorf("DeleteEnvFromApp: could not delete deployment for app '%s' env '%s': %w", u.Application, envName, err)
 	}
-
 	t.DeleteEnvFromApp(u.Application, envName)
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
 }
@@ -1404,12 +1401,53 @@ func (c *CleanupOldApplicationVersions) Transform(
 		span.Finish(tracer.WithError(err))
 	}()
 
+	// Remove deployments for this app that reference environments no longer active.
+	// Such zombie deployments prevent findOldApplicationVersions from cleaning up old releases,
+	// because the old version appears "still deployed" to the deleted environment.
+	allDeployments, err := state.GetAllDeploymentsForAppFromDB(ctx, transaction, c.Application)
+	if err != nil {
+		return "", fmt.Errorf("cleanup: could not get deployments for app '%s': %w", c.Application, err)
+	}
+	activeEnvNames, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("cleanup: could not get active environments: %w", err)
+	}
+	activeEnvs := make(map[types.EnvName]struct{}, len(activeEnvNames))
+	for _, envName := range activeEnvNames {
+		activeEnvs[envName] = struct{}{}
+	}
+	msg := ""
+	numCleanedUpDeployments := 0
+	for envName, releaseNums := range allDeployments {
+		// clean up deployments of old environments:
+		if _, envExists := activeEnvs[envName]; !envExists {
+			if err := state.DBHandler.DBDeleteDeployment(ctx, transaction, c.Application, envName); err != nil {
+				return "", err
+			}
+			msg = fmt.Sprintf("%sremoved zombie deployment of app %v on deleted env %v\n", msg, c.Application, envName)
+			numCleanedUpDeployments++
+			continue // deployment is gone; no need to check whether the release exists
+		}
+		// delete deployments that have no corresponding release:
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, releaseNums, false)
+		if err != nil {
+			return "", fmt.Errorf("cleanup: could not get release %v for app '%s': %w", releaseNums, c.Application, err)
+		}
+		if release == nil {
+			if err := state.DBHandler.DBDeleteDeployment(ctx, transaction, c.Application, envName); err != nil {
+				return "", err
+			}
+			msg = fmt.Sprintf("%sremoved dangling deployment of app %v on env %v (release %v does not exist)\n", msg, c.Application, envName, releaseNums)
+			numCleanedUpDeployments++
+		}
+	}
+	span.SetTag("numCleanedUpDeployments", numCleanedUpDeployments)
+
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
 
-	msg := ""
 	for _, oldRelease := range oldVersions {
 		//'Delete' from releases table
 		if err := state.DBHandler.DBDeleteFromReleases(ctx, transaction, c.Application, oldRelease); err != nil {
