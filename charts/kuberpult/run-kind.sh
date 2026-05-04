@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# shellcheck source=/dev/null
 source "$(dirname "$0")/lib.sh"
 
 set -eu
@@ -240,7 +241,7 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
 
 YAML
 
-echo installing argocd $(cat ./argocd-values.yml)
+echo "installing argocd $(cat ./argocd-values.yml)"
 
 helm install argocd argo-cd/argo-cd --values argocd-values.yml --version 5.36.0
 

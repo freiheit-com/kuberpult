@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# shellcheck source=/dev/null
 source "$(dirname "$0")/lib.sh"
 
 # prefix every call to "echo" with the name of the script:

@@ -62,8 +62,10 @@ case "${RELEASE_VERSION:-}" in
 	*) release_version+=('--form-string' "version=${RELEASE_VERSION:-}");;
 esac
 
-rev=${REVISION:-"0"}
-#revision=('--form-string' "revision=${rev}")
+revision=()
+if [ -n "${REVISION:-}" ]; then
+  revision=('--form-string' "revision=${REVISION}")
+fi
 
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
