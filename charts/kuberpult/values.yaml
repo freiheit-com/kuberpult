@@ -232,6 +232,8 @@ manifestRepoExport:
       # envs:
       #   development: true
       #   staging: false
+      #
+      # For active/active environments, you can enable them 1 by 1. The naming scheme is "<commonEnvPrefix>-<envName>-<concreteEnvName>".
       envs: {}
 
     # True if the individual apps should be "rendered" (written) into the manifest repo at

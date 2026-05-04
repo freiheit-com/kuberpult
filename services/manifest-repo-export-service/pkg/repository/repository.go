@@ -984,6 +984,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			if opts != nil && opts.RootAppFiltering.Enabled {
 				aaEnvName := types.EnvName(*cfg.ArgoCdConfigs.CommonEnvPrefix + "-" + string(env) + "-" + currentArgoCdConfiguration.ConcreteEnvName)
 				if !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, aaEnvName) {
+					logging.Info(ctx, "rootAppFiltering enabled for active/active env", zap.String("env", string(aaEnvName)))
 					continue
 				}
 			}
@@ -994,6 +995,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 		}
 	} else {
 		if opts != nil && opts.RootAppFiltering.Enabled && !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, env) {
+			logging.Info(ctx, "rootAppFiltering enabled for normal env", zap.String("env", string(env)))
 			return nil
 		}
 		if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
