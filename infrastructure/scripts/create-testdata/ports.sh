@@ -3,6 +3,9 @@
 # Reads the resolved configuration from docker-compose.yml (honoring .env overrides)
 # when docker and jq are available; otherwise falls back to the default ports.
 
+FRONTEND_PORT="${FRONTEND_PORT:-}"
+CD_GRPC_PORT="${CD_GRPC_PORT:-}"
+
 _REPO_ROOT=$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)
 
 if [ -n "$_REPO_ROOT" ] && command -v docker &>/dev/null && command -v jq &>/dev/null; then
