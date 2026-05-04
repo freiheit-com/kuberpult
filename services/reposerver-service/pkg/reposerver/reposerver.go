@@ -150,6 +150,7 @@ func (r *reposerver) generateBracketManifest(ctx context.Context, split []string
 				return nil, fmt.Errorf("generateBracketManifest: could not get deployment for app=%s: %w", appName, err)
 			}
 			if deployment == nil || deployment.ReleaseNumbers.Version == nil {
+				// deployment does not belong to any release => ignore it
 				continue
 			}
 			release, err := r.dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, deployment.ReleaseNumbers, true)
@@ -157,6 +158,7 @@ func (r *reposerver) generateBracketManifest(ctx context.Context, split []string
 				return nil, fmt.Errorf("generateBracketManifest: could not get release for app=%s: %w", appName, err)
 			}
 			if release == nil {
+				// release does not exist for the given deployment => ignore it
 				continue
 			}
 			manifest := release.Manifests.Manifests[envName]

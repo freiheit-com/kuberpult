@@ -45,47 +45,6 @@ print installing ssh...
 print installing postgres...
 ./setup-postgres.sh
 
-#function waitForDeployment() {
-#  ns="$1"
-#  label="$2"
-#  print "waitForDeployment: $ns/$label"
-#  sleep 10
-#  until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
-#  do
-#    sleep 4
-#    print "logs:"
-#    kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
-#    print "describe pod:"
-#    kubectl -n "$ns" describe pod -l "$label"
-##    print "describe pod:"
-##    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
-#    print ...
-#  done
-#}
-#
-#function portForwardAndWait() {
-#  ns="$1"
-#  deployment="$2"
-#  portHere="$3"
-#  portThere="$4"
-#  ports="$portHere:$portThere"
-#  print "portForwardAndWait for $ns/$deployment $ports"
-#  kubectl -n "$ns" port-forward "$deployment" "$ports" &
-#  print "portForwardAndWait: waiting until the port forward works..."
-#  sleep 10
-#  until nc -vz localhost "$portHere"
-#  do
-#    sleep 3
-#    print "logs:"
-#    kubectl -n "$ns" logs "$deployment"
-#    print "describe deployment:"
-#    kubectl -n "$ns" describe "$deployment"
-#    print "describe pod:"
-#    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
-#    print ...
-#  done
-#}
-
 GPG="gpg --keyring trustedkeys-kuberpult.gpg"
 gpgFile=~/.gnupg/trustedkeys-kuberpult.gpg
 if test -f "$gpgFile"
@@ -95,9 +54,9 @@ then
   then
     echo "is it ok to delete the file? Press enter twice to delete"
     # shellcheck disable=SC2162
-#    read
+    read
     # shellcheck disable=SC2162
-#    read
+    read
     rm "$gpgFile"
   else
     echo "this file should not exist on the ci"
@@ -299,10 +258,24 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: staging
+  name: aa-aa-test-dev-1
   namespace: ${ARGO_NAMESPACE}
 spec:
-  description: staging-proj-override666
+  description: aa-aa-test-dev-1
+  destinations:
+  - name: "dest1"
+    namespace: '*'
+    server: https://kubernetes.default.svc
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aa-aa-test-dev-2
+  namespace: ${ARGO_NAMESPACE}
+spec:
+  description: aa-aa-test-dev-2
   destinations:
   - name: "dest1"
     namespace: '*'
@@ -341,6 +314,7 @@ argocd login localhost:8080 --username admin --password "$argocd_adminpw" --inse
 kubectl create ns development
 kubectl create ns development2
 kubectl create ns staging
+kubectl create ns aa-test
 
 
 export GIT_NAMESPACE=${GIT_NAMESPACE}

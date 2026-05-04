@@ -63,6 +63,7 @@ rollout:
     clusters:
       development: true
       staging: false
+      aa-aa-test-dev-1: false
   enabled: true
   grpcMaxRecvMsgSize: 4
   resources:

@@ -2,7 +2,6 @@
 set -eu
 set -o pipefail
 
-echo HELLO
 # usage
 # ./create-release.sh my-service-name [my-team-name]
 # Note that this just creates files, it doesn't push in git
