@@ -575,7 +575,7 @@ func (o *OverviewServiceServer) StreamChangedApps(_ *api.GetChangedAppsRequest,
 				// does not track individual apps for those envs.
 				for envName := range response.Deployments {
 					if isBracketEnv(o.ExperimentalBracketsClusters, envName) {
-						delete(response.Deployments, envName)
+						delete(response.Deployments, envName) // safe: Go allows map deletion during range
 					}
 				}
 				ov.ChangedApps[idx] = response

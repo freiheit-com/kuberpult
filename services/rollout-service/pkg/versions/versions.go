@@ -94,7 +94,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	span.SetTag("GitRevision", revision)
 	span.SetTag("Environment", environment)
 	span.SetTag("Application", app)
-	logging.Warn(ctx, "getversion called", zap.String("env", environment), zap.String("app", app))
+	logging.Info(ctx, "getversion called", zap.String("env", environment), zap.String("app", app))
 
 	if slices.Contains(v.experimentalBracketsClusters, environment) {
 		result, err := v.getBracketVersion(ctx, revision, environment, types.ArgoBracketName(app))
@@ -130,7 +130,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 }
 
 func (v *versionClient) getBracketVersion(ctx context.Context, revision, environment string, bracketName types.ArgoBracketName) (*VersionInfo, error) {
-	return db.WithTransactionT[VersionInfo](&v.db, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
+	return db.WithTransactionT[VersionInfo](&v.db, ctx, 2, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
 		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, &v.db, tx)
 		if err != nil {
 			return nil, fmt.Errorf("getBracketVersion: could not get bracket history for bracket '%s': %w", bracketName, err)
@@ -353,14 +353,14 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				logging.Info(ctx, "changed bracket loop", zap.String("bracketName", bracketName), zap.Any("bracketDetails", bracketDetails.Deployments))
 				for envName, bracketDeployment := range bracketDetails.Deployments {
 					if !slices.Contains(v.experimentalBracketsClusters, envName) {
-						logging.Warn(ctx, "env not in bracketclusters", zap.String("env", envName), zap.Strings("bracketClusters", v.experimentalBracketsClusters))
+						logging.Warn(ctx, "env not in bracketclusters, will ignore env", zap.String("env", envName), zap.Strings("bracketClusters", v.experimentalBracketsClusters))
 						continue
 					}
 					bracketKey := key{Environment: envName, Application: bracketName}
 					seenVersion, hasVersion := seenVersions[bracketKey]
 					bracketVersion := types.RolloutAppBracketVersion(bracketDeployment.Version)
 					if hasVersion && bracketVersion == seenVersion {
-						logging.Warn(ctx, "bracket in same version",
+						logging.Info(ctx, "bracket in same version",
 							zap.Bool("hasVersion", hasVersion),
 							zap.String("bracketVersion", string(bracketVersion)),
 							zap.String("seenVersion", string(seenVersion)),

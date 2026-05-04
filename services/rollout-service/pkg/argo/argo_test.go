@@ -19,6 +19,11 @@ package argo
 import (
 	"context"
 	"fmt"
+	"io"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
@@ -33,12 +38,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"io"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sync"
-	"testing"
-	"time"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -1014,10 +1015,11 @@ type ArgoAppMetadata struct {
 // Receiving information kuberpult applications triggers changes in
 func TestReactToKuberpultEvents(t *testing.T) {
 	tcs := []struct {
-		Name             string
-		KnowArgoApps     []ArgoAppMetadata
-		ExpectedArgoApps []ArgoAppMetadata
-		ArgoOverview     []*ArgoOverview
+		Name                         string
+		KnowArgoApps                 []ArgoAppMetadata
+		ExpectedArgoApps             []ArgoAppMetadata
+		ArgoOverview                 []*ArgoOverview
+		ExperimentalBracketsClusters []string
 	}{
 		{
 			Name:         "create an app",
@@ -1461,13 +1463,14 @@ func TestReactToKuberpultEvents(t *testing.T) {
 					}
 					hlth := &setup.HealthServer{}
 					argoProcessor := &ArgoAppProcessor{
-						lastOverview:          tc.ArgoOverview[0],
-						ApplicationClient:     mockClient,
-						trigger:               make(chan *ArgoOverview, 10),
-						ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
-						ManageArgoAppsEnabled: true,
-						ManageArgoAppsFilter:  []string{"*"},
-						KnownApps:             map[string]map[string]*v1alpha1.Application{},
+						lastOverview:                 tc.ArgoOverview[0],
+						ApplicationClient:            mockClient,
+						trigger:                      make(chan *ArgoOverview, 10),
+						ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+						ManageArgoAppsEnabled:        true,
+						ManageArgoAppsFilter:         []string{"*"},
+						KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+						ExperimentalBracketsClusters: tc.ExperimentalBracketsClusters,
 					}
 					argoProcessor.PopulateAppsToKnownApps(tc.KnowArgoApps)
 					mockClient.PopulateApps(tc.KnowArgoApps)
@@ -1516,7 +1519,7 @@ func TestReactToKuberpultEvents(t *testing.T) {
 					wg.Wait() // this ensures that we have no confusing test logs when running this multiple times.
 
 					if len(mockClient.Apps) != len(tc.ExpectedArgoApps) {
-						t.Errorf("mismatch on number of applications, want %d got %d\n%v",
+						t.Fatalf("mismatch on number of applications, want %d got %d\n%v",
 							len(tc.ExpectedArgoApps),
 							len(mockClient.Apps),
 							mockClient.Apps,

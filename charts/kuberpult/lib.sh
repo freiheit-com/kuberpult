@@ -17,8 +17,6 @@ function waitForDeployment() {
     kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
     print "describe pod:"
     kubectl -n "$ns" describe pod -l "$label"
-#    print "describe pod:"
-#    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
     print ...
   done
 }
@@ -40,8 +38,9 @@ function portForwardAndWait() {
     kubectl -n "$ns" logs "$deployment"
     print "describe deployment:"
     kubectl -n "$ns" describe "$deployment"
+    appName="${deployment##*/}"
     print "describe pod:"
-    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
+    kubectl -n "$ns" describe pod -l "app=${appName}" || echo "could not describe pod"
     print ...
   done
 }
