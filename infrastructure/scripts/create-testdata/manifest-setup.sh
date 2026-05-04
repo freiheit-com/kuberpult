@@ -28,7 +28,7 @@ for v in $(seq 1 "$NUM_VERSIONS"); do
         "${SCRIPT_DIR}/create-release.sh" "${APP_NAME}" "${TEAM}" "" "${ARGO_BRACKET}"
 done
 
-"${SCRIPT_DIR}/run-releasetrain.sh" staging "${TEAM}"
+"${SCRIPT_DIR}/run-releasetrain.sh" staging "team=${TEAM}"
 
 # One extra release so not all apps are in the same state
 REVISION=6 RELEASE_VERSION=$((START_VERSION + 7)) \
