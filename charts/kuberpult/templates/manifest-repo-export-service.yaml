@@ -266,6 +266,10 @@ spec:
           value: {{ .Values.manifestRepoExport.experimentalRolloutWithManifest.argoProjectNames.environments | toJson | quote }}
         - name: KUBERPULT_EXPERIMENTAL_ROLLOUT_WITH_MANIFEST_AA_ENVIRONMENTS
           value: {{ .Values.manifestRepoExport.experimentalRolloutWithManifest.argoProjectNames.aaEnvironments | toJson | quote }}
+        - name: KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED
+          value: "{{ .Values.manifestRepoExport.rendering.experimentalRootAppFilter.enabled }}"
+        - name: KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENVIRONMENTS
+          value: {{ include "kuberpult.experimentalRootAppFilter" . | quote }}
         - name: KUBERPULT_RENDERING_RENDER_APPS
           value: "{{ .Values.manifestRepoExport.rendering.experimentalRenderApps }}"
         - name: KUBERPULT_RENDERING_RENDER_BRACKETS

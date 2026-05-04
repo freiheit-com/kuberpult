@@ -94,6 +94,8 @@ services:
       - KUBERPULT_RENDERING_RENDER_BRACKETS=true
       - KUBERPULT_RENDERING_RENDER_APPS=true
       - KUBERPULT_RENDERING_ROOT_APP_POINTS_TO_BRACKETS=true
+      - KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED=false
+      - KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENVIRONMENTS=development,staging,aa-test
     volumes:
       - ./services/cd-service:/kp/kuberpult
     ports:
