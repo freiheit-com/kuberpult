@@ -20,11 +20,11 @@ for filename in "$testData"/*; do
   if $useOldApi; then
     curl  -f -X POST -H "multipart/form-data" \
           --form-string "config=${DATA}" \
-           http://localhost:${FRONTEND_PORT}/environments/"${env}"
+           http://localhost:"${FRONTEND_PORT}"/environments/"${env}"
   else
     curl  -w "%{http_code}\n" -X POST -H "multipart/form-data" \
           --form-string "config=${DATA}" \
-           http://localhost:${FRONTEND_PORT}/api/environments/"${env}"
+           http://localhost:"${FRONTEND_PORT}"/api/environments/"${env}"
   fi
   echo # curl sometimes does not print a trailing \n
 done

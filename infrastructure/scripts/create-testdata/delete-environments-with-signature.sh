@@ -13,6 +13,6 @@ source "$(dirname "$0")/ports.sh"
 env=${1}
 curl  -f -X DELETE  \
     --form signature=@"$env".yaml.sig \
-    http://localhost:${FRONTEND_PORT}/api/environments/"${env}" -v
+    http://localhost:"${FRONTEND_PORT}"/api/environments/"${env}" -v
 
 echo # curl sometimes does not print a trailing \n

@@ -157,7 +157,7 @@ inputs+=(--form-string "source_commit_id=$commit_id")
 inputs+=(--form-string "source_author=$author")
 inputs+=(--form-string "previous_commit_id=${prev_commit_id}")
 
-curl http://localhost:${FRONTEND_PORT}/api/release \
+curl http://localhost:"${FRONTEND_PORT}"/api/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
   "${inputs[@]}" \

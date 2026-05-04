@@ -9,7 +9,7 @@ envGroup=prod
 lockId=lockIdTest${RANDOM}
 lockId=lockIdIntegration0
 url="http://localhost:${FRONTEND_PORT}/environment-groups/${envGroup}/locks/${lockId}"
-echo $url
+echo "$url"
 useSignature=false
 if ${useSignature}
 then

@@ -46,7 +46,7 @@ for appId in $(seq -w "${MIN}" "${MAX}" ); do
   }
 ]
 }' | \
-    evans --header author-name=YXV0aG9y --header author-email=YXV0aG9yQGF1dGhvcg== --host localhost --port ${CD_GRPC_PORT} -r cli call api.v1.BatchService.ProcessBatch \
+    evans --header author-name=YXV0aG9y --header author-email=YXV0aG9yQGF1dGhvcg== --host localhost --port "${CD_GRPC_PORT}" -r cli call api.v1.BatchService.ProcessBatch \
     && echo "app ${appId} deletion success" \
     || echo "app ${appId} deletion failed"
   ) &
