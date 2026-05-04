@@ -946,18 +946,13 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	fsMutex := sync.Mutex{}
 	skippedEnvs := []types.EnvName{}
 	renderedEnvs := []types.EnvName{}
-	for env, config := range configs {
-		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
+	for env, cfg := range configs {
+		if cfg.ArgoCd != nil || cfg.ArgoCdConfigs != nil {
 			_, envHasChanged := changedEnvironments[env]
 			if envHasChanged {
-				opts := r.config.ArgoRenderOptions
-				if opts != nil && opts.RootAppFiltering.Enabled && !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, env) {
-					skippedEnvs = append(skippedEnvs, env)
-					continue
-				}
 				errorGroup.Go(func() error {
 					return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
-						return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, eslVersion, &fsMutex)
+						return r.updateArgoCdApps(ctx, tx, &state, env, cfg, ts, eslVersion, &fsMutex)
 					})
 				})
 				renderedEnvs = append(renderedEnvs, env)
@@ -983,14 +978,24 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 		return nil
 	}
 
+	opts := r.config.ArgoRenderOptions
 	if config.IsAAEnv(&cfg) {
 		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
+			if opts != nil && opts.RootAppFiltering.Enabled {
+				aaEnvName := types.EnvName(*cfg.ArgoCdConfigs.CommonEnvPrefix + "-" + string(env) + "-" + currentArgoCdConfiguration.ConcreteEnvName)
+				if !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, aaEnvName) {
+					continue
+				}
+			}
 			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts, eslVersion, fsMutex)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
+		if opts != nil && opts.RootAppFiltering.Enabled && !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, env) {
+			return nil
+		}
 		if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
 			logging.Error(ctx, "No argo cd configuration found for environment.", zap.String("env", string(env)))
 			return nil
