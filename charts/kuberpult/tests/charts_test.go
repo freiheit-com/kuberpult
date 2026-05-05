@@ -1180,6 +1180,80 @@ auth:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "experimentalRootAppFilter disabled by default",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED",
+					Value: "false",
+				},
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENVIRONMENTS",
+					Value: "",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "experimentalRootAppFilter enabled with specific envs",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+manifestRepoExport:
+  rendering:
+    experimentalRootAppFilter:
+      enabled: true
+      envs:
+        production: true
+        development: true
+        staging: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENVIRONMENTS",
+					Value: "development,production",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "experimentalRootAppFilter disabled ignores envs at runtime",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+manifestRepoExport:
+  rendering:
+    experimentalRootAppFilter:
+      enabled: false
+      envs:
+        staging: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED",
+					Value: "false",
+				},
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENVIRONMENTS",
+					Value: "staging",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {

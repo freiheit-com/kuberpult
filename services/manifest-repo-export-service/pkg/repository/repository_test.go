@@ -788,6 +788,250 @@ func TestArgoCDFileGeneration(t *testing.T) {
 	}
 }
 
+func TestArgoCDRootAppFilter(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		FilterEnabled    bool
+		FilteredEnvs     []types.EnvName
+		ExpectedFiles    []string
+		NotExpectedFiles []string
+	}{
+		{
+			Name:          "filter disabled renders all envs",
+			FilterEnabled: false,
+			FilteredEnvs:  []types.EnvName{},
+			ExpectedFiles: []string{
+				"argocd/v1alpha1/dev.yaml",
+				"argocd/v1alpha1/staging.yaml",
+			},
+		},
+		{
+			Name:          "filter enabled renders only listed env",
+			FilterEnabled: true,
+			FilteredEnvs:  []types.EnvName{"dev"},
+			ExpectedFiles: []string{
+				"argocd/v1alpha1/dev.yaml",
+			},
+			NotExpectedFiles: []string{
+				"argocd/v1alpha1/staging.yaml",
+			},
+		},
+		{
+			Name:             "filter enabled with empty list renders nothing",
+			FilterEnabled:    true,
+			FilteredEnvs:     []types.EnvName{},
+			NotExpectedFiles: []string{"argocd/v1alpha1/dev.yaml", "argocd/v1alpha1/staging.yaml"},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			repo.config.ArgoRenderOptions = &argocd.RenderOptions{
+				RenderApps:      true,
+				RenderBrackets:  false,
+				PointToBrackets: false,
+				RootAppFiltering: argocd.RootAppFiltering{
+					Enabled:             tc.FilterEnabled,
+					EnabledEnvironments: tc.FilteredEnvs,
+				},
+			}
+			ctx := testutilauth.MakeTestContext()
+
+			transformers := []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "dev-server"}},
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@test.com"},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "staging-server"}},
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@test.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "myapp",
+					Manifests: map[types.EnvName]string{
+						"dev":     "manifest-dev",
+						"staging": "manifest-staging",
+					},
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@test.com"},
+				},
+			}
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range transformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "test", "test@test.com")
+				}
+				return nil
+			})
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i, tr := range transformers {
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, tr)
+					if applyErr != nil {
+						t.Fatalf("Unexpected error applying transformer[%d]: %v", i, applyErr)
+					}
+				}
+				return nil
+			})
+
+			state := repo.State()
+			for _, f := range tc.ExpectedFiles {
+				if _, err := state.Filesystem.Stat(f); errors.Is(err, os.ErrNotExist) {
+					t.Errorf("expected file %q to exist, but it does not. Files:\n%s", f, strings.Join(listFiles(state.Filesystem), "\n"))
+				}
+			}
+			for _, f := range tc.NotExpectedFiles {
+				if _, err := state.Filesystem.Stat(f); err == nil {
+					t.Errorf("expected file %q to NOT exist, but it does. Files:\n%s", f, strings.Join(listFiles(state.Filesystem), "\n"))
+				}
+			}
+		})
+	}
+}
+
+func TestArgoCDRootAppFilterAAEnv(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		FilterEnabled    bool
+		FilteredEnvs     []types.EnvName
+		ExpectedFiles    []string
+		NotExpectedFiles []string
+	}{
+		{
+			Name:          "filter disabled renders all AA sub-envs",
+			FilterEnabled: false,
+			FilteredEnvs:  []types.EnvName{},
+			ExpectedFiles: []string{
+				"argocd/v1alpha1/dev.yaml",
+				"argocd/v1alpha1/aa-staging-concrete-1.yaml",
+				"argocd/v1alpha1/aa-staging-concrete-2.yaml",
+			},
+		},
+		{
+			Name:          "filter on AA sub-env name renders only that sub-env",
+			FilterEnabled: true,
+			FilteredEnvs:  []types.EnvName{"aa-staging-concrete-1"},
+			ExpectedFiles: []string{
+				"argocd/v1alpha1/aa-staging-concrete-1.yaml",
+			},
+			NotExpectedFiles: []string{
+				"argocd/v1alpha1/aa-staging-concrete-2.yaml",
+				"argocd/v1alpha1/dev.yaml",
+			},
+		},
+		{
+			Name:          "filter on AA parent name renders nothing for AA env",
+			FilterEnabled: true,
+			FilteredEnvs:  []types.EnvName{"staging"},
+			NotExpectedFiles: []string{
+				"argocd/v1alpha1/aa-staging-concrete-1.yaml",
+				"argocd/v1alpha1/aa-staging-concrete-2.yaml",
+			},
+		},
+		{
+			Name:          "filter on non-AA env still works",
+			FilterEnabled: true,
+			FilteredEnvs:  []types.EnvName{"dev"},
+			ExpectedFiles: []string{
+				"argocd/v1alpha1/dev.yaml",
+			},
+			NotExpectedFiles: []string{
+				"argocd/v1alpha1/aa-staging-concrete-1.yaml",
+				"argocd/v1alpha1/aa-staging-concrete-2.yaml",
+			},
+		},
+	}
+	aaPrefix := "aa"
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			repo.config.ArgoRenderOptions = &argocd.RenderOptions{
+				RenderApps:      true,
+				RenderBrackets:  false,
+				PointToBrackets: false,
+				RootAppFiltering: argocd.RootAppFiltering{
+					Enabled:             tc.FilterEnabled,
+					EnabledEnvironments: tc.FilteredEnvs,
+				},
+			}
+			ctx := testutilauth.MakeTestContext()
+
+			transformers := []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "dev-server"}},
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@test.com"},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							CommonEnvPrefix: &aaPrefix,
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								{Destination: config.ArgoCdDestination{Server: "staging-server-1"}, ConcreteEnvName: "concrete-1"},
+								{Destination: config.ArgoCdDestination{Server: "staging-server-2"}, ConcreteEnvName: "concrete-2"},
+							},
+						},
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@test.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "myapp",
+					Manifests: map[types.EnvName]string{
+						"dev":     "manifest-dev",
+						"staging": "manifest-staging",
+					},
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@test.com"},
+				},
+			}
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range transformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "test", "test@test.com")
+				}
+				return nil
+			})
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i, tr := range transformers {
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, tr)
+					if applyErr != nil {
+						t.Fatalf("Unexpected error applying transformer[%d]: %v", i, applyErr)
+					}
+				}
+				return nil
+			})
+
+			state := repo.State()
+			for _, f := range tc.ExpectedFiles {
+				if _, err := state.Filesystem.Stat(f); errors.Is(err, os.ErrNotExist) {
+					t.Errorf("expected file %q to exist, but it does not. Files:\n%s", f, strings.Join(listFiles(state.Filesystem), "\n"))
+				}
+			}
+			for _, f := range tc.NotExpectedFiles {
+				if _, err := state.Filesystem.Stat(f); err == nil {
+					t.Errorf("expected file %q to NOT exist, but it does. Files:\n%s", f, strings.Join(listFiles(state.Filesystem), "\n"))
+				}
+			}
+		})
+	}
+}
+
 func TestArgoCDFileGenerationAcrossTimestamps(t *testing.T) {
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"

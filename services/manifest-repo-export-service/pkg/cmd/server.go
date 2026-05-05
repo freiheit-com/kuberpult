@@ -270,6 +270,17 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
+	renderOptions.RootAppFiltering.Enabled, err = valid.ReadEnvVarBool("KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED")
+	if err != nil {
+		return err
+	}
+	tmp, err := valid.ReadEnvVarAsList("KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENVIRONMENTS", ",")
+	if err != nil {
+		return err
+	}
+	renderOptions.RootAppFiltering.EnabledEnvironments = types.StringsToEnvNames(tmp)
+	logging.Info(ctx, "root app filter", zap.Any("filter", renderOptions.RootAppFiltering))
+
 	dbCfg := db.DBConfig{
 		DbHost:         dbLocation,
 		DbPort:         dbAuthProxyPort,
