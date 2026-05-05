@@ -1442,6 +1442,111 @@ func TestReactToKuberpultEvents(t *testing.T) {
 			},
 			ExpectedArgoApps: []ArgoAppMetadata{},
 		},
+		{
+			// Regression test: when staging is bracket-enabled and an app uses the default
+			// single-app bracket naming (bracketName == appName), the development ArgoCD
+			// app must NOT be deleted.
+			Name: "single-app bracket: staging bracket does not delete development app",
+			KnowArgoApps: []ArgoAppMetadata{
+				{
+					Name:              "myapp",
+					Environment:       "development",
+					ParentEnvironment: "development",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/development/applications/myapp/manifests",
+				},
+			},
+			ExperimentalBracketsClusters: []string{"staging"},
+			ArgoOverview: []*ArgoOverview{
+				{
+					AppDetails: map[string]*api.GetAppDetailsResponse{
+						"myapp": {
+							Application: &api.Application{
+								Name:        "myapp",
+								ArgoBracket: "myapp", // single-app bracket: bracket name == app name
+								Team:        "myteam",
+							},
+							// Merged state produced by addBracketToChange when key already exists:
+							// development has a real deployment, staging has the bracket marker.
+							Deployments: map[string]*api.Deployment{
+								"development": {
+									Version: 1,
+									DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+										DeployTime: timestamppb.New(time.Unix(123456789, 0)),
+									},
+								},
+								"staging": {}, //exhaustruct:ignore
+							},
+						},
+					},
+					Overview: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "development-group",
+								Environments: []*api.Environment{
+									{
+										Name:     "development",
+										Priority: api.Priority_UPSTREAM,
+										Config: &api.EnvironmentConfig{
+											Argocd: &api.ArgoCDEnvironmentConfiguration{
+												Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+													Name:   "development",
+													Server: "test-server",
+												},
+											},
+										},
+									},
+								},
+							},
+							{
+								EnvironmentGroupName: "staging-group",
+								Environments: []*api.Environment{
+									{
+										Name:     "staging",
+										Priority: api.Priority_UPSTREAM,
+										Config: &api.EnvironmentConfig{
+											Argocd: &api.ArgoCDEnvironmentConfiguration{
+												Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+													Name:   "staging",
+													Server: "test-server",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						GitRevision: "1234",
+					},
+				},
+			},
+			ExpectedArgoApps: []ArgoAppMetadata{
+				// Pre-existing development app (from PopulateApps).
+				{
+					Name:              "myapp",
+					Environment:       "development",
+					ParentEnvironment: "development",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/development/applications/myapp/manifests",
+				},
+				// Development app is UPDATED (not deleted) with the regular manifest path.
+				{
+					Name:              "myapp",
+					Environment:       "development",
+					ParentEnvironment: "development",
+					Event:             "MODIFIED",
+					ManifestPath:      "/environments/development/applications/myapp/manifests",
+				},
+				// Staging bracket app is CREATED with the bracket manifest path.
+				{
+					Name:              "myapp",
+					Environment:       "staging",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/brackets/myapp",
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {

@@ -168,7 +168,9 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 		span.SetTag("kuberpult-app", currentApp)
 		for _, envGroup := range overview.EnvironmentGroups {
 			for _, parentEnvironment := range envGroup.Environments {
-				isBracket := currentAppDetails.Application.ArgoBracket == currentApp
+				// isBracket must be per-environment: a single-app bracket (bracketName==appName)
+				// is a bracket only in bracket envs; in non-bracket envs it is a regular app.
+				isBracket := currentAppDetails.Application.ArgoBracket == currentApp && a.isBracketEnv(parentEnvironment.Name)
 				if isAAEnv(parentEnvironment.Config) {
 					for _, cfg := range parentEnvironment.Config.ArgoConfigs.Configs { //Active/Active environments have multiple argo cd configurations
 						targetEnvName := a.extractFullyQualifiedEnvironmentName(parentEnvironment.Config.ArgoConfigs.CommonEnvPrefix, parentEnvironment.Name, cfg)

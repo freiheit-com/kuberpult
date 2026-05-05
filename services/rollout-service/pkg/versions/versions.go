@@ -442,6 +442,13 @@ func (v *versionClient) addBracketToChange(
 	envName string,
 ) {
 	name := string(bracketName)
+	if existing, ok := appsToChange[name]; ok {
+		// When bracketName == appName (single-app bracket), the key already exists as a
+		// regular app entry. Merge rather than overwrite so non-bracket env deployments
+		// (e.g. development) are not lost, which would cause those apps to be deleted.
+		existing.Deployments[envName] = &api.Deployment{} //exhaustruct:ignore
+		return
+	}
 	//exhaustruct:ignore
 	appsToChange[name] = &api.GetAppDetailsResponse{
 		//exhaustruct:ignore
