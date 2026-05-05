@@ -754,8 +754,8 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 		// Build app→bracket inverse map and collect affected brackets.
 		seen := make(map[types.ArgoBracketName]bool)
 		for bracketName, apps := range bracketMap {
-			for _, app := range apps {
-				for _, changedApp := range changedApps {
+			for _, changedApp := range changedApps {
+				for _, app := range apps {
 					if app == changedApp {
 						if !seen[bracketName] {
 							seen[bracketName] = true
