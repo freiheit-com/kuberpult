@@ -2960,7 +2960,7 @@ func TestDeploymentHistory(t *testing.T) {
 					if envName != tc.Request.Environment {
 						continue
 					}
-// Note that we only get precision down to the second here
+					// Note that we only get precision down to the second here
 					line := fmt.Sprintf("%s,%s", createdAt.Format(time.RFC3339), tc.ExpectedCsvLines[writtenCsvLines])
 					expectedLinesWithCreated = append(expectedLinesWithCreated, line)
 					writtenCsvLines++
@@ -3130,16 +3130,16 @@ func TestCombineBracketDeployments(t *testing.T) {
 	}
 
 	tcs := []struct {
-		Name            string
-		SortedApps      []*api.GetAppDetailsResponse
-		BracketEnvs     []string
-		WantVersions    map[string]string
-		WantCommit      map[string]string
+		Name             string
+		Apps             []*api.GetAppDetailsResponse
+		BracketEnvs      []string
+		WantVersions     map[string]string
+		WantCommit       map[string]string
 		WantDeployedEnvs []string
 	}{
 		{
 			Name:        "combines versions from sorted apps, uses latest deployedAt and commit",
-			SortedApps:  []*api.GetAppDetailsResponse{app1, app2, app3},
+			Apps:        []*api.GetAppDetailsResponse{app1, app2, app3},
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
 				"dev": "1:3:0", // aaa→1, bbb→3, ccc→0 (not deployed)
@@ -3150,8 +3150,20 @@ func TestCombineBracketDeployments(t *testing.T) {
 			WantDeployedEnvs: []string{"dev"},
 		},
 		{
+			Name:        "sorts apps by name even when given in reverse order",
+			Apps:        []*api.GetAppDetailsResponse{app3, app2, app1}, // ccc, bbb, aaa — reversed
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": "1:3:0", // sorted: aaa→1, bbb→3, ccc→0
+			},
+			WantCommit: map[string]string{
+				"dev": "commit-bbb-3",
+			},
+			WantDeployedEnvs: []string{"dev"},
+		},
+		{
 			Name:        "only includes bracket-enabled envs, not staging",
-			SortedApps:  []*api.GetAppDetailsResponse{app1, app2},
+			Apps:        []*api.GetAppDetailsResponse{app1, app2},
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
 				"dev": "1:3",
@@ -3163,7 +3175,7 @@ func TestCombineBracketDeployments(t *testing.T) {
 		},
 		{
 			Name:             "no bracket envs returns empty map",
-			SortedApps:       []*api.GetAppDetailsResponse{app1, app2},
+			Apps:             []*api.GetAppDetailsResponse{app1, app2},
 			BracketEnvs:      []string{},
 			WantVersions:     map[string]string{},
 			WantCommit:       map[string]string{},
@@ -3171,9 +3183,8 @@ func TestCombineBracketDeployments(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			result := combineBracketDeployments(tc.SortedApps, tc.BracketEnvs)
+			result := combineBracketDeployments(tc.Apps, tc.BracketEnvs)
 			if len(result) != len(tc.WantDeployedEnvs) {
 				t.Errorf("expected %d envs, got %d: %v", len(tc.WantDeployedEnvs), len(result), result)
 			}

@@ -660,7 +660,10 @@ func isBracketEnv(clusters []string, env string) bool {
 	return slices.Contains(clusters, env)
 }
 
-func combineBracketDeployments(sortedAppDetails []*api.GetAppDetailsResponse, bracketEnvs []string) map[string]*api.BracketDeployment {
+func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketEnvs []string) map[string]*api.BracketDeployment {
+	sort.Slice(appDetails, func(i, j int) bool {
+		return appDetails[i].Application.Name < appDetails[j].Application.Name
+	})
 	result := make(map[string]*api.BracketDeployment)
 	for _, envName := range bracketEnvs {
 		var versionParts []string
@@ -668,7 +671,7 @@ func combineBracketDeployments(sortedAppDetails []*api.GetAppDetailsResponse, br
 		var latestDeployment *api.Deployment
 		var latestAppDetails *api.GetAppDetailsResponse
 
-		for _, appDetail := range sortedAppDetails {
+		for _, appDetail := range appDetails {
 			dep := appDetail.Deployments[envName]
 			if dep == nil {
 				versionParts = append(versionParts, "0")
@@ -711,19 +714,18 @@ func combineBracketDeployments(sortedAppDetails []*api.GetAppDetailsResponse, br
 }
 
 func (o *OverviewServiceServer) getBracketDetails(ctx context.Context, bracketName types.ArgoBracketName, appNames db.AppNames) (*api.GetBracketDetailsResponse, error) {
-	sorted := make([]types.AppName, len(appNames))
-	copy(sorted, appNames)
-	sort.Slice(sorted, func(i, j int) bool { return string(sorted[i]) < string(sorted[j]) })
-
-	appDetails := make([]*api.GetAppDetailsResponse, 0, len(sorted))
-	for _, appName := range sorted {
+	appDetails := make([]*api.GetAppDetailsResponse, 0, len(appNames))
+	for _, appName := range appNames {
 		detail, err := o.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: string(appName)})
 		if err != nil {
 			return nil, err
 		}
+		if detail.Application == nil || detail.Application.Name == "" {
+			logging.Error(ctx, "getBracketDetails: app detail has no application name, skipping", zap.String("appName", string(appName)))
+			continue
+		}
 		appDetails = append(appDetails, detail)
 	}
-
 	return &api.GetBracketDetailsResponse{
 		BracketName: string(bracketName),
 		Deployments: combineBracketDeployments(appDetails, o.ExperimentalBracketsClusters),
