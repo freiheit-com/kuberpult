@@ -270,6 +270,27 @@ func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnv
 
 func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse) {
 	logger.FromContext(ctx).Sugar().Debugf("Processing app %q on environment %q", appInfo.ApplicationName, appInfo.EnvironmentName)
+	// Bracket-to-individual transition guard (rollback: staging switched from true→false).
+	// When the existing KnownApp is a bracket (is-bracket=true) but IsBracket=false, we must
+	// not let the normal delete path do a cascading delete (which would leave a deployment gap).
+	if !appInfo.IsBracket {
+		if knownEnvApps := a.KnownApps[appInfo.EnvironmentName]; knownEnvApps != nil {
+			if existingApp := knownEnvApps[appInfo.ApplicationName]; existingApp != nil {
+				if existingApp.Annotations["com.freiheit.kuberpult/is-bracket"] == "true" {
+					if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] == nil {
+						// No deployment recorded for this environment yet. Leave the bracket as-is
+						// until deployment data arrives.
+						return
+					}
+					// Deployment data available: delete bracket without cascade so k8s resources
+					// persist; the individual app will be created on the next cycle once the
+					// ArgoCD watch event confirms the bracket app has been removed.
+					a.deleteAppNoCascade(ctx, knownEnvApps, appInfo.ApplicationName)
+					return
+				}
+			}
+		}
+	}
 	// For non-bracket apps in a bracket env: only delete once the bracket app is established in KnownApps.
 	// This prevents a downtime gap when transitioning an env to bracket mode.
 	allowDelete := appInfo.IsBracket ||
