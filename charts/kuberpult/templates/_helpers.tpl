@@ -23,10 +23,10 @@ Returns an empty string when experimentalBrackets.enabled is false.
 {{- $clusters := list -}}
 {{- range $k, $v := .Values.rollout.experimentalBrackets.clusters -}}
 {{- if $v -}}{{- $clusters = append $clusters $k -}}{{- end -}}
-{{- end -}} # end range
+{{- end -}}
 {{- sortAlpha $clusters | join "," -}}
-{{- end -}} # end if
-{{- end -}} # end define
+{{- end -}}
+{{- end -}}
 
 # Selects all root app filter clusters that are set to true
 {{- define "kuberpult.experimentalRootAppFilter" -}}
