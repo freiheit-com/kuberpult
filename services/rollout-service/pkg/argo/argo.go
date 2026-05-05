@@ -75,7 +75,9 @@ type ArgoAppProcessor struct {
 	KnownApps               map[string]map[string]*v1alpha1.Application
 	//
 	ExperimentalBracketsClusters []string
-	pendingDeletions             []PendingDeletion
+	// The apps that will be recreated as brackets.
+	// We store them, so we can delete them only once the bracket is there.
+	pendingDeletions []PendingDeletion
 }
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string) ArgoAppProcessor {
@@ -240,14 +242,20 @@ func (a *ArgoAppProcessor) deleteAppNoCascade(ctx context.Context, knownApps map
 	}
 }
 
+/*
+drainPendingDeletions deletes normal argo apps that have now been replaced by bracket apps.
+*/
 func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnvName string) {
 	l := logger.FromContext(ctx)
 	remaining := a.pendingDeletions[:0]
 	for _, pd := range a.pendingDeletions {
+		// if the app belongs to the bracket:
 		if pd.ParentEnvironmentName == bracketEnvName && a.knowsBracketApp(pd.ParentEnvironmentName) {
 			l.Info("bracket.drain.pending",
 				zap.String("app", pd.AppName),
 				zap.String("env", pd.EnvironmentName))
+			// if the apps are known by kuberpult (argo cd send us a message)
+			// then we delete the apps with cascade=false, so the brackets take over entirely.
 			if knownApps := a.KnownApps[pd.EnvironmentName]; knownApps != nil {
 				a.deleteAppNoCascade(ctx, knownApps, pd.AppName)
 			}

@@ -30,6 +30,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/util/grpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"k8s.io/utils/lru"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -38,7 +39,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 )
@@ -87,10 +87,12 @@ var ErrNotFound error = fmt.Errorf("not found")
 var ZeroVersion VersionInfo
 
 // GetVersion implements VersionClient
-func (v *versionClient) GetVersion(ctx context.Context, revision, environment, app string) (*VersionInfo, error) {
+func (v *versionClient) GetVersion(ctx context.Context, revision, environment, app string) (_ *VersionInfo, err error) {
 	// use db access see cd-service/pkg/services/version
-	span, ctx, onErr := tracing.StartSpanFromContext(ctx, "GetVersion")
-	defer span.Finish()
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetVersion")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	span.SetTag("GitRevision", revision)
 	span.SetTag("Environment", environment)
 	span.SetTag("Application", app)
@@ -99,11 +101,14 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	if slices.Contains(v.experimentalBracketsClusters, environment) {
 		result, err := v.getBracketVersion(ctx, revision, environment, types.ArgoBracketName(app))
 		if err != nil {
-			return nil, onErr(err)
+			return nil, err
 		}
 		return result, nil
 	}
+	return v.getAppVersion(ctx, revision, environment, app)
+}
 
+func (v *versionClient) getAppVersion(ctx context.Context, revision string, environment string, app string) (*VersionInfo, error) {
 	releaseVersion, err := strconv.ParseUint(revision, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse GitRevision '%s' for app '%s' in env '%s': %w",
@@ -112,14 +117,14 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	return db.WithTransactionT[VersionInfo](&v.db, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*VersionInfo, error) {
 		deployment, err := v.db.DBSelectSpecificDeploymentHistory(ctx, tx, types.AppName(app), environment, releaseVersion)
 		if err != nil || deployment == nil {
-			return nil, onErr(fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, app, err))
+			return nil, fmt.Errorf("no deployment found for env='%s' and app='%s': %w", environment, app, err)
 		}
 		release, err := v.db.DBSelectReleaseByVersion(ctx, tx, types.AppName(app), types.ReleaseNumbers{Version: &releaseVersion, Revision: 0}, true)
 		if err != nil {
-			return nil, onErr(fmt.Errorf("could not get release of app %s: %v", app, err))
+			return nil, fmt.Errorf("could not get release of app %s: %v", app, err)
 		}
 		if release == nil {
-			return nil, onErr(fmt.Errorf("no release found for env='%s' and app='%s'", environment, app))
+			return nil, fmt.Errorf("no release found for env='%s' and app='%s'", environment, app)
 		}
 		return &VersionInfo{
 			Version:        types.RolloutAppBracketVersionFromUint64(releaseVersion),
@@ -369,9 +374,9 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					}
 					seenVersions[bracketKey] = bracketVersion
 
-					var dt time.Time
+					var deployedAt time.Time
 					if bracketDeployment.DeployedAt != nil {
-						dt = bracketDeployment.DeployedAt.AsTime()
+						deployedAt = bracketDeployment.DeployedAt.AsTime()
 					}
 
 					isProduction := false
@@ -396,7 +401,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						Version: &VersionInfo{
 							Version:        bracketVersion,
 							SourceCommitId: bracketDeployment.SourceCommitId,
-							DeployedAt:     dt,
+							DeployedAt:     deployedAt,
 						},
 					})
 					v.addBracketToChange(appsToChange, types.ArgoBracketName(bracketName), envName)

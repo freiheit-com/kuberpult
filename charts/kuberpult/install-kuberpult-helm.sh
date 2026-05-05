@@ -22,13 +22,6 @@ VERSION=$(git describe --always --long --tags || echo 0.0.1)
 set -eu
 set -o pipefail
 
-#  experimentalBrackets:
-#    enabled: true
-#    clusters:
-#      development: true
-#      staging: false
-
-
 cat <<VALUES > vals.yaml
 auth:
   api:
