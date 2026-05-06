@@ -330,12 +330,12 @@ kubectl get pods
 
 (cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
 
-for v in $(seq 11 13)
+for v in $(seq 1 3)
 do
-   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-3 sreteam e
-   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-4 sreteam e
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-1 sreteam e
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-2 sreteam e
 
-   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-3 sreteam f
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
 done
 
 
