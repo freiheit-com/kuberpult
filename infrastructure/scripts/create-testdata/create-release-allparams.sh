@@ -89,7 +89,7 @@ metadata:
 data:
   key: value
   random: "${randomValue}"
-  releaseVersion: "${release_version[@]}"
+  releaseVersion: "${RELEASE_VERSION}"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -105,6 +105,7 @@ spec:
     metadata:
       labels:
         app: $name-sleep
+        releaseVersion: "${RELEASE_VERSION}"
     spec:
       containers:
       - name: $name-sleep-container
