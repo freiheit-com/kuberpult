@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -41,6 +42,8 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
+
+var ErrAppNotFound = errors.New("app not found")
 
 type OverviewServiceServer struct {
 	Repository       repository.Repository
@@ -97,7 +100,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, fmt.Errorf("error finding app: %s: %w", appName, err)
 		}
 		if appWithMetadata == nil {
-			return nil, fmt.Errorf("app not found: %s", appName)
+			return nil, fmt.Errorf("%w: %s", ErrAppNotFound, appName)
 		}
 		if appWithMetadata.ArgoBracket == "" {
 			// if there is no bracket, the appname is the bracket
@@ -569,7 +572,18 @@ func (o *OverviewServiceServer) StreamChangedApps(_ *api.GetChangedAppsRequest,
 			for idx, appName := range changedAppsNames {
 				response, err := o.GetAppDetails(stream.Context(), &api.GetAppDetailsRequest{AppName: string(appName)})
 				if err != nil {
-					return err
+					if errors.Is(err, ErrAppNotFound) {
+						// App was fully deleted; send an empty response so the rollout-service
+						// can clean up any ArgoCD Applications it still tracks for this app.
+						response = &api.GetAppDetailsResponse{
+							Application: &api.Application{Name: string(appName)},
+							AppLocks:    make(map[string]*api.Locks),
+							Deployments: make(map[string]*api.Deployment),
+							TeamLocks:   make(map[string]*api.Locks),
+						}
+					} else {
+						return err
+					}
 				}
 				// Strip bracket-enabled envs from app deployments so the rollout-service
 				// does not track individual apps for those envs.

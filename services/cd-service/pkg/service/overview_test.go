@@ -3339,3 +3339,91 @@ func TestStreamChangedAppsWithBrackets(t *testing.T) {
 		})
 	}
 }
+
+func TestStreamChangedAppsOnDeleteEnvFromApp(t *testing.T) {
+	t.Parallel()
+	shutdown := make(chan struct{})
+	repo, err := setupRepositoryTestWithDB(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := testutilauth.MakeTestContext()
+	env := types.EnvName("dev")
+	appName := types.AppName("myapp")
+
+	for _, tr := range []repository.Transformer{
+		&repository.CreateEnvironment{
+			Environment: env,
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+			},
+		},
+		&repository.CreateApplicationVersion{
+			Application: appName,
+			Version:     1,
+			Manifests:   map[types.EnvName]string{env: "manifest"},
+		},
+		&repository.DeployApplicationVersion{
+			Application: appName,
+			Environment: env,
+			Version:     1,
+		},
+	} {
+		if err := repo.Apply(ctx, tr); err != nil {
+			t.Fatalf("Apply setup %T: %v", tr, err)
+		}
+	}
+
+	svc := &OverviewServiceServer{
+		Repository: repo,
+		Shutdown:   shutdown,
+		DBHandler:  repo.State().DBHandler,
+		Context:    ctx,
+	}
+
+	resultCh := make(chan *api.GetChangedAppsResponse, 2)
+	mockStream := &mockStreamChangedAppsServer{
+		Results: resultCh,
+		Ctx:     ctx,
+	}
+
+	go func() {
+		_ = svc.StreamChangedApps(&api.GetChangedAppsRequest{}, mockStream)
+	}()
+
+	// Drain the initial notification (all apps sent on first subscribe)
+	select {
+	case <-resultCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for initial StreamChangedApps response")
+	}
+
+	// Deleting the env from the app must trigger a second stream notification.
+	if err := repo.Apply(ctx, &repository.DeleteEnvFromApp{
+		Application: appName,
+		Environment: env,
+	}); err != nil {
+		t.Fatalf("Apply DeleteEnvFromApp: %v", err)
+	}
+
+	var response *api.GetChangedAppsResponse
+	select {
+	case response = <-resultCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for post-delete StreamChangedApps response — notification was not sent for DeleteEnvFromApp")
+	}
+	close(shutdown)
+
+	var found bool
+	for _, app := range response.ChangedApps {
+		if app.Application.Name == string(appName) {
+			found = true
+			if _, hasEnv := app.Deployments[string(env)]; hasEnv {
+				t.Errorf("env %q still present in deployments after DeleteEnvFromApp", env)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("app %q not found in stream notification after DeleteEnvFromApp", appName)
+	}
+}
