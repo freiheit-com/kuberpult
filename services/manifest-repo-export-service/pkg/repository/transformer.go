@@ -573,40 +573,6 @@ func (c *CreateEnvironmentLock) Transform(
 	return GetNoOpMessage(c)
 }
 
-func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, authorName, authorEmail, created string) error {
-	locksDir := "locks"
-	if err := fs.MkdirAll(locksDir, 0777); err != nil {
-		return err
-	}
-
-	// create lock dir
-	newLockDir := fs.Join(locksDir, lockId)
-	if err := fs.MkdirAll(newLockDir, 0777); err != nil {
-		return err
-	}
-
-	// write message
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldMessage), []byte(message), 0666); err != nil {
-		return err
-	}
-
-	// write email
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedByEmail), []byte(authorEmail), 0666); err != nil {
-		return err
-	}
-
-	// write name
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedByName), []byte(authorName), 0666); err != nil {
-		return err
-	}
-
-	// write date in iso format
-	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedAt), []byte(created), 0666); err != nil {
-		return err
-	}
-	return nil
-}
-
 type DeleteEnvironmentLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
@@ -1839,7 +1805,6 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	fs := state.Filesystem
 	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, types.AppName(c.Application), false)
 	if err != nil {
 		return "", fmt.Errorf("could not get last relase for app '%v': %v", c.Application, err)
@@ -1850,43 +1815,19 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	}
 	nextReleaseNumber = lastRelease[0].ReleaseNumbers
 
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, nextReleaseNumber)
-
 	configs, err := state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
 	if err != nil {
 		return "", err
-	}
-	if tCtx.ShouldMaximizeGitData() {
-		if err = fs.MkdirAll(releaseDir, 0777); err != nil {
-			return "", err
-		}
-		// this is a flag to indicate that this is the special "undeploy" version
-		if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
-			return "", err
-		}
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-			return "", err
-		}
 	}
 	deploymentsMap, err := state.DBHandler.MapEnvNamesToDeployment(ctx, transaction, c.TransformerEslVersion)
 	if err != nil {
 		return "", err
 	}
 	for env := range configs {
-		envDir := fs.Join(releaseDir, "environments", string(env))
-
 		cfg, found := configs[env]
 		hasUpstream := false
 		if found {
 			hasUpstream = cfg.Upstream != nil
-		}
-		if tCtx.ShouldMaximizeGitData() {
-			if err = fs.MkdirAll(envDir, 0777); err != nil {
-				return "", err
-			}
-			if err := writeManifests(fs, envDir, ""); err != nil {
-				return "", err
-			}
 		}
 
 		tCtx.AddAppEnv(c.Application, env)
