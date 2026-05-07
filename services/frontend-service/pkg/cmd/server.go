@@ -1011,7 +1011,3 @@ func (p *GrpcProxy) GetManifests(ctx context.Context, in *api.GetManifestsReques
 	}
 	return p.VersionClient.GetManifests(ctx, in)
 }
-
-func (p *GrpcProxy) GetVersion(_ context.Context, _ *api.GetVersionRequest) (*api.GetVersionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "unimplemented.")
-}

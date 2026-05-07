@@ -19,72 +19,19 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
-	"fmt"
 	"os"
 
-	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
 
 type VersionServiceServer struct {
 	Repository repository.Repository
-}
-
-func (o *VersionServiceServer) GetVersion(
-	ctx context.Context,
-	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
-	oid, err := git.NewOid(in.GitRevision)
-	envName := types.EnvName(in.Environment)
-	if err != nil {
-		// Note that "not finding a oid" does not mean that it doesn't exist.
-		// Because we do a shallow clone, we won't have information on all existing OIDs.
-		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: could not find revision %v: %w", in.GitRevision, err))
-	}
-	state, err := o.Repository.StateAt(oid)
-	if err != nil {
-		var gerr *git.GitError
-		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrorCodeNotFound {
-				return nil, status.Error(codes.NotFound, "not found")
-			}
-		}
-		return nil, err
-	}
-	res, err := db.WithTransactionT[api.GetVersionResponse](state.DBHandler, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*api.GetVersionResponse, error) {
-		//exhaustruct:ignore
-		res := &api.GetVersionResponse{}
-		version, err := state.GetEnvironmentApplicationVersion(ctx, tx, envName, in.Application)
-		if err != nil {
-			return nil, err
-		}
-		if version.Version != nil {
-			res.Version = *version.Version
-			_, deployedAt, err := state.GetDeploymentMetaData(envName, in.Application)
-			if err != nil {
-				return nil, err
-			}
-			res.DeployedAt = timestamppb.New(deployedAt)
-			release, err := state.GetApplicationRelease(in.Application, version)
-			if err != nil {
-				return nil, err
-			}
-			res.SourceCommitId = release.SourceCommitId
-		}
-		return res, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
 }
 
 func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
