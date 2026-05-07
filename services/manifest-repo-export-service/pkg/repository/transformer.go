@@ -393,7 +393,6 @@ func (c *DeployApplicationVersion) Transform(
 	envName := c.Environment
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
-	releaseDir := releasesDirectoryWithVersion(fsys, c.Application, types.MakeReleaseNumbers(c.Version, c.Revision))
 	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, types.AppName(c.Application), types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
 	if err != nil {
 		return "", err
@@ -411,12 +410,6 @@ func (c *DeployApplicationVersion) Transform(
 	versionFile := fsys.Join(applicationDir, "version")
 	if err := fsys.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
-	}
-
-	if tCtx.ShouldMaximizeGitData() {
-		if err := fsys.Symlink(fsys.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
-			return "", err
-		}
 	}
 
 	// Copy the manifest for argocd
@@ -445,20 +438,6 @@ func (c *DeployApplicationVersion) Transform(
 		s, err := c.writeBracketFiles(ctx, state, transaction, fsys, []byte(manifestContent), envName)
 		if err != nil {
 			return s, err
-		}
-	}
-
-	if tCtx.ShouldMaximizeGitData() {
-		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by"), []byte(existingDeployment.Metadata.DeployedByName), 0666); err != nil {
-			return "", err
-		}
-
-		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_by_email"), []byte(existingDeployment.Metadata.DeployedByEmail), 0666); err != nil {
-			return "", err
-		}
-
-		if err := util.WriteFile(fsys, fsys.Join(applicationDir, "deployed_at_utc"), []byte(existingDeployment.Created.UTC().String()), 0666); err != nil {
-			return "", err
 		}
 	}
 
