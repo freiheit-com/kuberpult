@@ -404,7 +404,13 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							DeployedAt:     deployedAt,
 						},
 					})
-					v.addBracketToChange(appsToChange, types.ArgoBracketName(bracketName), envName)
+					if bracketVersion == "" {
+						// Empty bracket: register with no deployment so ProcessAppChange
+						// will call DeleteArgoApps (which requires deployment == nil).
+						v.addEmptyBracketToChange(appsToChange, types.ArgoBracketName(bracketName))
+					} else {
+						v.addBracketToChange(appsToChange, types.ArgoBracketName(bracketName), envName)
+					}
 				}
 			}
 
@@ -458,6 +464,28 @@ func (v *versionClient) addBracketToChange(
 		},
 		//exhaustruct:ignore
 		Deployments: map[string]*api.Deployment{envName: {}},
+	}
+}
+
+func (v *versionClient) addEmptyBracketToChange(
+	appsToChange map[string]*api.GetAppDetailsResponse,
+	bracketName types.ArgoBracketName,
+) {
+	name := string(bracketName)
+	if _, ok := appsToChange[name]; ok {
+		// Already registered (e.g. as a single-app bracket from the regular app path).
+		// Don't overwrite — the existing entry already has no deployment for the bracket env,
+		// which is sufficient to trigger deletion in ProcessAppChange.
+		return
+	}
+	//exhaustruct:ignore
+	appsToChange[name] = &api.GetAppDetailsResponse{
+		//exhaustruct:ignore
+		Application: &api.Application{
+			Name:        name,
+			ArgoBracket: name,
+		},
+		Deployments: map[string]*api.Deployment{},
 	}
 }
 

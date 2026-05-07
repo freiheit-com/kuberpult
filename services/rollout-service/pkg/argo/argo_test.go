@@ -1670,6 +1670,65 @@ func TestReactToKuberpultEvents(t *testing.T) {
 				{Name: "myapp", Environment: "staging", ParentEnvironment: "staging", Event: "DELETED", ManifestPath: "/environments/staging/brackets/myapp"},
 			},
 		},
+		{
+			// When a bracket becomes fully empty (all apps removed), the bracket ArgoCD app
+			// must be deleted. addEmptyBracketToChange registers the bracket in AppDetails
+			// with no deployment entry, so DeleteArgoApps fires when deployment == nil.
+			Name: "empty bracket: bracket ArgoCD app is deleted when bracket has no apps",
+			KnowArgoApps: []ArgoAppMetadata{
+				{
+					Name:              "bracket-one",
+					Environment:       "staging",
+					ParentEnvironment: "staging",
+					Event:             "ADDED",
+					ManifestPath:      "/environments/staging/brackets/bracket-one",
+					IsBracket:         true,
+				},
+			},
+			ExperimentalBracketsClusters: []string{"staging"},
+			ArgoOverview: []*ArgoOverview{
+				{
+					AppDetails: map[string]*api.GetAppDetailsResponse{
+						"bracket-one": {
+							Application: &api.Application{
+								Name:        "bracket-one",
+								ArgoBracket: "bracket-one",
+							},
+							// Empty deployments map: bracket has no apps left.
+							Deployments: map[string]*api.Deployment{},
+						},
+					},
+					Overview: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "staging-group",
+								Environments: []*api.Environment{
+									{
+										Name:     "staging",
+										Priority: api.Priority_UPSTREAM,
+										Config: &api.EnvironmentConfig{
+											Argocd: &api.ArgoCDEnvironmentConfiguration{
+												Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+													Name:   "staging",
+													Server: "test-server",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						GitRevision: "1234",
+					},
+				},
+			},
+			ExpectedArgoApps: []ArgoAppMetadata{
+				// Bracket app present initially.
+				{Name: "bracket-one", Environment: "staging", ParentEnvironment: "staging", Event: "ADDED", ManifestPath: "/environments/staging/brackets/bracket-one"},
+				// Bracket app deleted (cascading) because no apps remain.
+				{Name: "bracket-one", Environment: "staging", ParentEnvironment: "staging", Event: "DELETED", ManifestPath: "/environments/staging/brackets/bracket-one"},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
