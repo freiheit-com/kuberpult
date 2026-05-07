@@ -60,6 +60,17 @@ pnpm test              # Watch mode
 pnpm test-ci           # CI mode (no watch)
 ```
 
+
+## How to write unit tests
+Even for the simplest test, immediately create a "table" (go slice), so that testing different variations becomes easier in the future.
+
+In a table driven test, only put the really relevant parts into the table data.
+Data that is identical for all cases, should not be part of the table.
+
+Avoid function parameters in table tests.
+
+Omit the line "tc := tc" at the beginning of test loops, it is outdated.
+
 ## Linting
 
 Go linting runs via golangci-lint inside Docker:
@@ -147,3 +158,15 @@ The Helm chart is in `charts/kuberpult/`. Critical values:
 When introducing new fields into structs, consider defining a new custom type as in `pkg/types/types.go`.
 This is especially important for unique concepts, that cannot mix with anything else.
 For example, there is no point in comparing an envName to an appName, so they should be separate types.
+
+## Sleep
+Invoking functions like `time.Sleep` in go is generally an antipattern.
+It should be avoided in all code, including setup, request handlers, and test code.
+
+## Database Approach
+In Kuberpult we never want to lose data. Most data is relevant to keep forever.
+This includes deployment data, as well as metadata. But also lock information should never be lost.
+Therefore, we rarely use `DELETE` SQL statements.
+Currently most database entities like apps and releases have two tables: A current version, and a history version.
+The current version only stores data that is needed, but the history keeps everything.
+Never delete anything from a history table!

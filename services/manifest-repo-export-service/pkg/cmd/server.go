@@ -438,7 +438,6 @@ func Run(ctx context.Context) error {
 				grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 			},
 			Register: func(srv *grpc.Server) {
-				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 				api.RegisterManifestExportGitServiceServer(srv, &service.GitServer{
 					Repository: repo,
 					Config:     cfg,
