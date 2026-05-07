@@ -49,6 +49,16 @@ type TeamLockHistory struct {
 	DeletionMetadata LockDeletionMetadata
 }
 
+/*
+team_locks is the current set of active locks on (team, env) pairs: one row per (teamName, envName, lockId).
+A lock blocks all deployments for every app belonging to that team in that environment.
+A lock is created by inserting a row; releasing it deletes the row.
+team_locks_history is the append-only audit trail of all create and delete events.
+The deleted column in the history table marks deletion events — rows are never removed from the history.
+*/
+const teamLocksTable = "team_locks"
+const teamLocksHistoryTable = "team_locks_history"
+
 // SELECTS
 
 func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (_ map[types.EnvName]map[string][]TeamLock, err error) {
@@ -65,7 +75,7 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, teamName, metadata
-		FROM team_locks
+		FROM ` + teamLocksTable + `
 		ORDER BY lockId;`)
 	span.SetTag("query", selectQuery)
 
@@ -132,8 +142,8 @@ func (h *DBHandler) DBSelectAllTeamLocksOfAllEnvs(ctx context.Context, tx *sql.T
 
 func (h *DBHandler) DBHasAnyActiveTeamLock(ctx context.Context, tx *sql.Tx) (bool, error) {
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockid, envname, teamName, metadata 
-		FROM team_locks 
+		SELECT created, lockid, envname, teamName, metadata
+		FROM ` + teamLocksTable + `
 		LIMIT 1;`)
 
 	rows, err := tx.QueryContext(
@@ -160,7 +170,7 @@ func (h *DBHandler) DBSelectAllTeamLocksForEnv(ctx context.Context, tx *sql.Tx, 
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, teamname, metadata
-		FROM team_locks 
+		FROM ` + teamLocksTable + `
 		WHERE envname = (?)
 		ORDER BY lockid;`)
 	span.SetTag("query", selectQuery)
@@ -188,8 +198,8 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, teamName, metadata
-		FROM team_locks
-		WHERE team_locks.teamName = (?)
+		FROM ` + teamLocksTable + `
+		WHERE ` + teamLocksTable + `.teamName = (?)
 		ORDER BY lockId, envName;`)
 	rows, err := tx.QueryContext(ctx, selectQuery, teamName)
 	return h.processTeamLockRows(ctx, err, rows)
@@ -198,7 +208,7 @@ func (h *DBHandler) DBSelectAllActiveTeamLocksForTeam(ctx context.Context, tx *s
 func (h *DBHandler) DBSelectTeamLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, teamName, lockID string) (*TeamLock, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, teamName, metadata
-		FROM team_locks_history
+		FROM ` + teamLocksHistoryTable + `
 		WHERE envName=? AND teamName=? AND lockID=?
 		ORDER BY version DESC
 		LIMIT 1;`)
@@ -232,9 +242,9 @@ func (h *DBHandler) DBSelectAllTeamLocks(ctx context.Context, tx *sql.Tx, enviro
 		return nil, fmt.Errorf("DBSelectAllTeamLocks: no transaction provided")
 	}
 	selectQuery := h.AdaptQuery(`
-		SELECT lockid 
-		FROM team_locks 
-		WHERE envname = ? AND teamName = ? 
+		SELECT lockid
+		FROM ` + teamLocksTable + `
+		WHERE envname = ? AND teamName = ?
 		ORDER BY lockid;`)
 	span.SetTag("query", selectQuery)
 
@@ -259,7 +269,7 @@ func (h *DBHandler) DBSelectTeamLockHistory(ctx context.Context, tx *sql.Tx, env
 	selectQuery := h.AdaptQuery(
 		fmt.Sprintf(
 			"SELECT created, lockID, envName, teamName, metadata, deleted, deletionMetadata" +
-				" FROM team_locks_history " +
+				" FROM " + teamLocksHistoryTable +
 				" WHERE envName=? AND lockID=? AND teamName=?" +
 				" ORDER BY version DESC " +
 				" LIMIT ?;"))
@@ -430,7 +440,7 @@ func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 		span.Finish(tracer.WithError(err))
 	}()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO team_locks (created, lockId, envname, teamName, metadata)
+		INSERT INTO ` + teamLocksTable + ` (created, lockId, envname, teamName, metadata)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(teamname, envname, lockid)
 		DO UPDATE SET created = excluded.created, lockid = excluded.lockid, metadata = excluded.metadata, envname = excluded.envname, teamname = excluded.teamname;
@@ -467,7 +477,7 @@ func (h *DBHandler) upsertTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 
 func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName, teamName string) (err error) {
 	deleteQuery := h.AdaptQuery(`
-		DELETE FROM team_locks
+		DELETE FROM ` + teamLocksTable + `
 		WHERE teamname=? AND lockId=? AND envname=?;`)
 	_, err = transaction.ExecContext(
 		ctx,
@@ -489,7 +499,7 @@ func (h *DBHandler) deleteTeamLockRow(ctx context.Context, transaction *sql.Tx, 
 
 func (h *DBHandler) insertTeamLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, teamName string, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO team_locks_history (created, lockId, envname, teamName, metadata, deleted, deletionMetadata)
+		INSERT INTO ` + teamLocksHistoryTable + ` (created, lockId, envname, teamName, metadata, deleted, deletionMetadata)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
 	jsonToInsert, err := json.Marshal(metadata)
