@@ -119,6 +119,10 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) error {
 	}
 }
 
+func (a *ArgoAppProcessor) GetLastOverview() *ArgoOverview {
+	return a.lastOverview
+}
+
 func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter, chPtr WriteOnceCh) error {
 	if hlth != nil {
 		hlth.ReportReady("event-consuming")

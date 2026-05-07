@@ -3181,6 +3181,26 @@ func TestCombineBracketDeployments(t *testing.T) {
 			WantCommit:       map[string]string{},
 			WantDeployedEnvs: []string{},
 		},
+		{
+			Name:        "single app with no deployment returns empty version to trigger bracket deletion",
+			Apps:        []*api.GetAppDetailsResponse{app3}, // ccc has no dev deployment
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": "",
+			},
+			WantCommit:       map[string]string{"dev": ""},
+			WantDeployedEnvs: []string{"dev"},
+		},
+		{
+			Name:        "all apps with no deployment returns empty version to trigger bracket deletion",
+			Apps:        []*api.GetAppDetailsResponse{app3, app3}, // both have no dev deployment
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": "",
+			},
+			WantCommit:       map[string]string{"dev": ""},
+			WantDeployedEnvs: []string{"dev"},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {

@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -41,14 +42,15 @@ import (
 )
 
 type step struct {
-	ChangedApps         *api.GetChangedAppsResponse
-	ConnectErr          error
-	RecvErr             error
-	CancelContext       bool
-	OverviewResponse    *api.GetOverviewResponse
-	AppDetailsResponses map[string]*api.GetAppDetailsResponse
-	ExpectReady         bool
-	ExpectedEvents      []KuberpultEvent
+	ChangedApps            *api.GetChangedAppsResponse
+	ConnectErr             error
+	RecvErr                error
+	CancelContext          bool
+	OverviewResponse       *api.GetOverviewResponse
+	AppDetailsResponses    map[string]*api.GetAppDetailsResponse
+	ExpectReady            bool
+	ExpectedEvents         []KuberpultEvent
+	ExpectedArgoAppDetails map[string]*api.GetAppDetailsResponse
 }
 
 type expectedVersion struct {
@@ -1212,6 +1214,284 @@ func TestVersionClientStream(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:            "Multi-env bracket - both envs deployed emits events for both",
+			BracketClusters: []string{"staging", "development"},
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedBrackets: []*api.GetBracketDetailsResponse{
+							{
+								BracketName: "e",
+								Deployments: map[string]*api.BracketDeployment{
+									"staging": {
+										Version:        "5:3",
+										SourceCommitId: "abc123",
+										DeployedAt:     timestamppb.New(time.Unix(123456789, 0)),
+									},
+									"development": {
+										Version:        "5:3",
+										SourceCommitId: "abc123",
+										DeployedAt:     timestamppb.New(time.Unix(123456789, 0)),
+									},
+								},
+							},
+						},
+					},
+					OverviewResponse: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "staging-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "staging"}},
+							},
+							{
+								EnvironmentGroupName: "dev-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "development"}},
+							},
+						},
+						GitRevision: "1234",
+					},
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:       "development",
+							ParentEnvironment: "development",
+							Application:       "e",
+							EnvironmentGroup:  "dev-group",
+							IsProduction:      false,
+							Team:              "",
+							Version: &VersionInfo{
+								Version:        types.RolloutAppBracketVersion("5:3"),
+								SourceCommitId: "abc123",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+						{
+							Environment:       "staging",
+							ParentEnvironment: "staging",
+							Application:       "e",
+							EnvironmentGroup:  "staging-group",
+							IsProduction:      false,
+							Team:              "",
+							Version: &VersionInfo{
+								Version:        types.RolloutAppBracketVersion("5:3"),
+								SourceCommitId: "abc123",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
+					ExpectedArgoAppDetails: map[string]*api.GetAppDetailsResponse{
+						"e": {
+							Application: &api.Application{Name: "e", ArgoBracket: "e"},
+							Deployments: map[string]*api.Deployment{
+								"staging":     {},
+								"development": {},
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			Name:            "Multi-env bracket - unchanged step emits no events and empty Argo push",
+			BracketClusters: []string{"staging", "development"},
+			Steps: []step{
+				{
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedBrackets: []*api.GetBracketDetailsResponse{
+							{
+								BracketName: "e",
+								Deployments: map[string]*api.BracketDeployment{
+									"staging":     {Version: "5:3"},
+									"development": {Version: "5:3"},
+								},
+							},
+						},
+					},
+					OverviewResponse: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "staging-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "staging"}},
+							},
+							{
+								EnvironmentGroupName: "dev-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "development"}},
+							},
+						},
+						GitRevision: "1234",
+					},
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment: "development", ParentEnvironment: "development",
+							Application: "e", EnvironmentGroup: "dev-group",
+							Version: &VersionInfo{Version: types.RolloutAppBracketVersion("5:3")},
+						},
+						{
+							Environment: "staging", ParentEnvironment: "staging",
+							Application: "e", EnvironmentGroup: "staging-group",
+							Version: &VersionInfo{Version: types.RolloutAppBracketVersion("5:3")},
+						},
+					},
+				},
+				{
+					// Identical data: seenVersions skips both envs, no events, empty Argo push
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedBrackets: []*api.GetBracketDetailsResponse{
+							{
+								BracketName: "e",
+								Deployments: map[string]*api.BracketDeployment{
+									"staging":     {Version: "5:3"},
+									"development": {Version: "5:3"},
+								},
+							},
+						},
+					},
+					OverviewResponse: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "staging-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "staging"}},
+							},
+							{
+								EnvironmentGroupName: "dev-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "development"}},
+							},
+						},
+						GitRevision: "1234",
+					},
+					ExpectReady:            true,
+					ExpectedEvents:         nil,
+					ExpectedArgoAppDetails: map[string]*api.GetAppDetailsResponse{},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
+		{
+			// Regression test: when staging is seenVersions-stable and development transitions
+			// to "" (no deployment), the Argo push must still include staging so that
+			// ProcessArgoOverview does NOT delete the staging bracket Argo app.
+			Name:            "Regression: seenVersions skip must not drop stable envs from Argo push",
+			BracketClusters: []string{"staging", "development"},
+			Steps: []step{
+				{
+					// Step 1: establish seenVersions for both envs
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedBrackets: []*api.GetBracketDetailsResponse{
+							{
+								BracketName: "e",
+								Deployments: map[string]*api.BracketDeployment{
+									"staging":     {Version: "5:3", SourceCommitId: "abc"},
+									"development": {Version: "5:3", SourceCommitId: "abc"},
+								},
+							},
+						},
+					},
+					OverviewResponse: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "staging-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "staging"}},
+							},
+							{
+								EnvironmentGroupName: "dev-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "development"}},
+							},
+						},
+						GitRevision: "1234",
+					},
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment: "development", ParentEnvironment: "development",
+							Application: "e", EnvironmentGroup: "dev-group",
+							Version: &VersionInfo{Version: types.RolloutAppBracketVersion("5:3"), SourceCommitId: "abc"},
+						},
+						{
+							Environment: "staging", ParentEnvironment: "staging",
+							Application: "e", EnvironmentGroup: "staging-group",
+							Version: &VersionInfo{Version: types.RolloutAppBracketVersion("5:3"), SourceCommitId: "abc"},
+						},
+					},
+					ExpectedArgoAppDetails: map[string]*api.GetAppDetailsResponse{
+						"e": {
+							Application: &api.Application{Name: "e", ArgoBracket: "e"},
+							Deployments: map[string]*api.Deployment{
+								"staging":     {},
+								"development": {},
+							},
+						},
+					},
+				},
+				{
+					// Step 2: staging unchanged (seenVersions skip), development → "" (deleted).
+					// Argo push MUST include staging so its bracket Argo app is preserved.
+					ChangedApps: &api.GetChangedAppsResponse{
+						ChangedBrackets: []*api.GetBracketDetailsResponse{
+							{
+								BracketName: "e",
+								Deployments: map[string]*api.BracketDeployment{
+									"staging":     {Version: "5:3", SourceCommitId: "abc"},
+									"development": {Version: ""},
+								},
+							},
+						},
+					},
+					OverviewResponse: &api.GetOverviewResponse{
+						EnvironmentGroups: []*api.EnvironmentGroup{
+							{
+								EnvironmentGroupName: "staging-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "staging"}},
+							},
+							{
+								EnvironmentGroupName: "dev-group",
+								Priority:             api.Priority_UPSTREAM,
+								Environments:         []*api.Environment{{Name: "development"}},
+							},
+						},
+						GitRevision: "1234",
+					},
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment: "development", ParentEnvironment: "development",
+							Application: "e", EnvironmentGroup: "dev-group",
+							Version: &VersionInfo{Version: types.RolloutAppBracketVersion("")},
+						},
+					},
+					ExpectedArgoAppDetails: map[string]*api.GetAppDetailsResponse{
+						"e": {
+							Application: &api.Application{Name: "e", ArgoBracket: "e"},
+							// staging must be present so ProcessArgoOverview does not delete it
+							Deployments: map[string]*api.Deployment{
+								"staging": {},
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -1242,7 +1522,7 @@ func TestVersionClientStream(t *testing.T) {
 			for i, s := range tc.Steps {
 				<-startSteps
 				if i > 0 {
-					assertStep(t, i-1, tc.Steps[i-1], vp, hs)
+					assertStep(t, i-1, tc.Steps[i-1], vp, hs, vc)
 				}
 				if s.CancelContext {
 					cancel()
@@ -1269,7 +1549,7 @@ func TestVersionClientStream(t *testing.T) {
 	}
 }
 
-func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *setup.HealthServer) {
+func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *setup.HealthServer, vc VersionClient) {
 	if hs.IsReady("versions") != s.ExpectReady {
 		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
 	}
@@ -1285,6 +1565,14 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 		t.Errorf("version events differ: %s", cmp.Diff(s.ExpectedEvents, vp.events))
 	}
 	vp.events = nil
+	if s.ExpectedArgoAppDetails != nil {
+		lastOv := vc.GetArgoProcessor().GetLastOverview()
+		if lastOv == nil {
+			t.Errorf("step %d: expected Argo app details but no overview was pushed", i)
+		} else if diff := cmp.Diff(s.ExpectedArgoAppDetails, lastOv.AppDetails, protocmp.Transform()); diff != "" {
+			t.Errorf("step %d: Argo app details mismatch (-want, +got):\n%s", i, diff)
+		}
+	}
 }
 
 func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc VersionClient, mc *mockOverviewClient, mvc *mockVersionClient) {
