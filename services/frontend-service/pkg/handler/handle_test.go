@@ -61,11 +61,6 @@ func (c *mockVersionClient) GetManifests(_ context.Context, in *api.GetManifests
 	return c.response, nil
 }
 
-// Not used, needs to be implemented
-func (c *mockVersionClient) GetVersion(_ context.Context, in *api.GetVersionRequest, _ ...grpc.CallOption) (*api.GetVersionResponse, error) {
-	return nil, nil
-}
-
 // The createTestForm function from the artifact
 func createTestForm() (*multipart.Form, error) {
 	body := &bytes.Buffer{}

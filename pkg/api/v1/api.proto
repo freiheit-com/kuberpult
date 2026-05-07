@@ -429,20 +429,7 @@ message GetFrontendConfigResponse {
   bool revisions_enabled = 7;
 }
 
-message GetVersionRequest {
-  string git_revision = 1;
-  string application = 2;
-  string environment = 3;
-}
-
-message GetVersionResponse {
-  uint64 version = 1;
-  google.protobuf.Timestamp deployed_at = 2;
-  string source_commit_id = 3;
-}
-
 service VersionService {
-  rpc GetVersion (GetVersionRequest) returns (GetVersionResponse) {}
   rpc GetManifests (GetManifestsRequest) returns (GetManifestsResponse) {}
 }
 

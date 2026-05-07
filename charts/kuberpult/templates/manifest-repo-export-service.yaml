@@ -22,11 +22,6 @@
 {{ fail "Cannot point to brackets when not rendering brackets: Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets=true requires experimentalRenderBrackets to be true."}}
 {{ end -}}
 
-{{- if (and (.Values.manifestRepoExport.rendering.experimentalRenderBrackets) (not (.Values.git.minimizeExportedData))) }}
-{{ fail "Cannot render brackets with minimizeExportedData=false"}}
-{{ end -}}
-
-
 # the export service is only enabled, if the DB is enabled and the `enabled` flag is true
 {{- if (.Values.manifestRepoExport.enabled)}}
 
@@ -250,8 +245,6 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
           value: "{{ .Values.git.releaseVersionsLimit }}"
-        - name: KUBERPULT_MINIMIZE_EXPORTED_DATA
-          value: "{{ .Values.git.minimizeExportedData }}"
         - name: KUBERPULT_FAIL_ON_ERROR_WITH_GIT_PUSH_TAGS
           value: {{ .Values.manifestRepoExport.failOnErrorWithGitPushTags | quote }}
 {{- if .Values.db }}
