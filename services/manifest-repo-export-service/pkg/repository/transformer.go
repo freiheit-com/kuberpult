@@ -696,42 +696,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() {
-		return GetNoOpMessage(c)
-	}
-	env := c.Environment
-	fs := state.Filesystem
-	envDir := fs.Join("environments", string(c.Environment))
-	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
-	}
-
-	appDir := fs.Join(envDir, "applications", c.Application)
-	if err := fs.MkdirAll(appDir, 0777); err != nil {
-		return "", err
-	}
-
-	lock, err := state.DBHandler.DBSelectAppLock(ctx, transaction, env, types.AppName(c.Application), c.LockId)
-
-	if err != nil {
-		return "", err
-	}
-
-	if lock == nil {
-		return "", fmt.Errorf("no application lock found to create with lock id '%s', for application '%s' on environment '%s'", c.LockId, c.Application, c.Environment)
-	}
-
-	chroot, err := fs.Chroot(appDir)
-	if err != nil {
-		return "", err
-	}
-
-	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
-		return "", err
-	}
-
-	// locks are invisible to argoCd, so no changes here
-	return fmt.Sprintf("Created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
+	return GetNoOpMessage(c)
 }
 
 type DeleteEnvironmentApplicationLock struct {
