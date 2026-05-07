@@ -33,8 +33,6 @@ import (
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	yaml3 "gopkg.in/yaml.v3"
 
@@ -741,29 +739,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() {
-		return GetNoOpMessage(c)
-	}
-	fs := state.Filesystem
-	queueMessage := ""
-	lockDir := fs.Join("environments", string(c.Environment), "applications", c.Application, "locks", c.LockId)
-	_, err := fs.Stat(lockDir)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
-	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
-	}
-
-	queueMessage, err = state.ProcessQueue(ctx, transaction, fs, c.Environment, c.Application)
-	if err != nil {
-		return "", err
-	}
-	if err := state.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil
+	return GetNoOpMessage(c)
 }
 
 type CreateApplicationVersion struct {
@@ -1133,70 +1109,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	tCtx TransformerContext,
 	tx *sql.Tx,
 ) (string, error) {
-	env := c.Environment
-	if tCtx.ShouldMinimizeGitData() {
-		return GetNoOpMessage(c)
-	}
-
-	if !valid.EnvironmentName(env) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid environment: '%s'", c.Environment))
-	}
-	if !valid.TeamName(c.Team) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid team: '%s'", c.Team))
-	}
-	if !valid.LockId(c.LockId) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid lock id: '%s'", c.LockId))
-	}
-
-	fs := state.Filesystem
-
-	foundTeam := false
-	var err error
-	if apps, err := state.GetApplicationsFromFile(); err == nil {
-		for _, currentApp := range apps {
-			currentTeamName, err := state.GetTeamName(currentApp)
-			if err != nil {
-				logging.Info(ctx, "CreateEnvironmentTeamLock: Could not find team for application.", zap.String("application", currentApp))
-			} else {
-				if c.Team == currentTeamName {
-					foundTeam = true
-					break
-				}
-			}
-		}
-	}
-	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
-		return "", &TeamNotFoundErr{err: fmt.Errorf("team '%s' does not exist", c.Team)}
-	}
-
-	envDir := fs.Join("environments", string(c.Environment))
-	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error environment not found dir %q: %w", envDir, err)
-	}
-
-	teamDir := fs.Join(envDir, "teams", c.Team)
-	if err := fs.MkdirAll(teamDir, 0777); err != nil {
-		return "", fmt.Errorf("error could not create teams directory %q: %w", envDir, err)
-	}
-	chroot, err := fs.Chroot(teamDir)
-	if err != nil {
-		return "", fmt.Errorf("error changing root of fs to  %s: %w", teamDir, err)
-	}
-
-	lock, err := state.DBHandler.DBSelectTeamLock(ctx, tx, env, c.Team, c.LockId)
-	if err != nil {
-		return "", err
-	}
-
-	if lock == nil {
-		return "", fmt.Errorf("could not write team lock information to manifest. No team lock found on database for team '%s' on environment '%s' with ID '%s'", c.Team, c.Environment, c.LockId)
-	}
-
-	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("Created lock %q on environment %q for team %q.", c.LockId, c.Environment, c.Team), nil
+	return GetNoOpMessage(c)
 }
 
 type DeleteEnvironmentTeamLock struct {
@@ -1241,38 +1154,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() {
-		return GetNoOpMessage(c)
-	}
-	envName := c.Environment
-
-	if !valid.EnvironmentName(envName) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
-	}
-	if !valid.TeamName(c.Team) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid team: '%s'", c.Team))
-	}
-	if !valid.LockId(c.LockId) {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid lock id: '%s'", c.LockId))
-	}
-	fs := state.Filesystem
-
-	lockDir := fs.Join("environments", string(c.Environment), "teams", c.Team, "locks", c.LockId)
-	_, err := fs.Stat(lockDir)
-
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
-
-	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
-	}
-
-	if err := state.DeleteTeamLockIfEmpty(ctx, envName, c.Team); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+	return GetNoOpMessage(c)
 }
 
 type RenderEnvironment struct {
@@ -2400,35 +2282,7 @@ func (c *ExtendAAEnvironment) Transform(
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() {
-		//This cannot be a NO-OP, as we need to generate the argocd files after the transformer is executed
-		return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
-	}
-	fs := state.Filesystem
-	envDir := fs.Join("environments", string(c.Environment))
-	if err := fs.MkdirAll(envDir, 0777); err != nil {
-		return "", err
-	}
-
-	configFile := fs.Join(envDir, "config.json")
-
-	data, err := util.ReadFile(fs, configFile)
-	if err != nil {
-		return "", fmt.Errorf("error opening file: %w", err)
-	}
-	var envConfig config.EnvironmentConfig
-
-	err = json.Unmarshal(data, &envConfig)
-	if err != nil {
-		return "", err
-	}
-
-	envConfig.ArgoCdConfigs.ArgoCdConfigurations = append(envConfig.ArgoCdConfigs.ArgoCdConfigurations, &c.ArgoCDConfig)
-
-	err = writeEnvironmentConfigurationToManifestRepo(fs, configFile, envConfig)
-	if err != nil {
-		return "", err
-	}
+	//This cannot be a NO-OP, as we need to generate the argocd files after the transformer is executed
 	return fmt.Sprintf("added configuration for AA environment %q - %q", c.Environment, c.ArgoCDConfig.ConcreteEnvName), nil
 }
 
