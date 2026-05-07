@@ -28,6 +28,7 @@ import {
     showSnackbarWarn,
     UpdateAllApplicationLocks,
     updateAllEnvLocks,
+    UpdateAllManifestLocks,
     updateAppDetails,
     UpdateFrontendConfig,
     UpdateGitSyncStatus,
@@ -165,6 +166,15 @@ export const App: React.FC = () => {
                             })
                             .catch((e) => {
                                 PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllEnvTeamLocks', e }) });
+                            });
+                        // Get Manifest Locks
+                        api.overviewService()
+                            .GetAllManifestLocks({}, authHeader)
+                            .then((res) => {
+                                UpdateAllManifestLocks.set(res);
+                            })
+                            .catch((e) => {
+                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllManifestLocks', e }) });
                             });
                     },
                     (error) => {

@@ -413,6 +413,41 @@ func (o *OverviewServiceServer) GetAllEnvTeamLocks(ctx context.Context,
 	})
 }
 
+func (o *OverviewServiceServer) GetAllManifestLocks(ctx context.Context,
+	in *api.GetAllManifestLocksRequest) (*api.GetAllManifestLocksResponse, error) {
+
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllManifestLocks")
+	defer span.Finish()
+
+	return db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetAllManifestLocksResponse, error) {
+		locks, err := o.DBHandler.DBSelectAllActiveManifestLocks(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+		response := api.GetAllManifestLocksResponse{
+			ManifestLocks: make([]*api.ManifestLockInfo, 0, len(locks)),
+		}
+		for _, l := range locks {
+			response.ManifestLocks = append(response.ManifestLocks, &api.ManifestLockInfo{
+				App: string(l.App),
+				Env: string(l.Env),
+				Lock: &api.Lock{
+					LockId:    fmt.Sprintf("%d", l.LockID),
+					Message:   l.Metadata.Message,
+					CreatedAt: timestamppb.New(l.Metadata.CreatedAt),
+					CreatedBy: &api.Actor{
+						Name:  l.Metadata.CreatedByName,
+						Email: l.Metadata.CreatedByEmail,
+					},
+					CiLink:            l.Metadata.CiLink,
+					SuggestedLifetime: l.Metadata.SuggestedLifeTime,
+				},
+			})
+		}
+		return &response, nil
+	})
+}
+
 func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {

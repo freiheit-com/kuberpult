@@ -110,7 +110,8 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     )}
                     <Button
                         className="lock-display-info lock-action service-action--delete"
-                        onClick={deleteLock}
+                        onClick={lock.isManifestLock ? undefined : deleteLock}
+                        disabled={lock.isManifestLock}
                         icon={<Delete />}
                         highlightEffect={false}
                     />

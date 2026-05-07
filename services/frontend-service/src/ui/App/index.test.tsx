@@ -32,6 +32,7 @@ const mock_GetConfig = Spy('Config');
 const mock_StreamOverview = Spy('Overview');
 const mock_GetAllAppLocks = Spy('AllAppLocks');
 const mock_GetAllEnvTeamLocks = Spy('AllEnvLocks');
+const mock_GetAllManifestLocks = Spy('AllManifestLocks');
 const mock_StreamStatus = Spy('Status');
 const mock_StreamGitSyncStatus = Spy('GitSyncStatus');
 
@@ -46,6 +47,7 @@ jest.mock('../utils/GrpcApi', () => ({
                 StreamOverview: () => mock_StreamOverview(),
                 GetAllAppLocks: () => mock_GetAllAppLocks(),
                 GetAllEnvTeamLocks: () => mock_GetAllEnvTeamLocks(),
+                GetAllManifestLocks: () => mock_GetAllManifestLocks(),
             }),
             rolloutService: () => ({
                 StreamStatus: () => mock_StreamStatus(),
@@ -84,6 +86,7 @@ describe('App uses the API', () => {
         mock_StreamGitSyncStatus.returns(new Observable(() => {}));
         mock_GetAllAppLocks.returns(Promise.resolve('test'));
         mock_GetAllEnvTeamLocks.returns(Promise.resolve('test'));
+        mock_GetAllManifestLocks.returns(Promise.resolve({ manifestLocks: [] }));
         mock_GetConfig.returns(Promise.resolve('test-config'));
         AzureAuthSub.set({ authReady: true });
         mock_StreamStatus.returns(
@@ -120,6 +123,7 @@ describe('App uses the API', () => {
         );
         mock_GetAllAppLocks.returns(Promise.resolve('test'));
         mock_GetAllEnvTeamLocks.returns(Promise.resolve('test'));
+        mock_GetAllManifestLocks.returns(Promise.resolve({ manifestLocks: [] }));
         mock_GetConfig.returns(Promise.resolve('test-config'));
         AzureAuthSub.set({ authReady: true });
 
