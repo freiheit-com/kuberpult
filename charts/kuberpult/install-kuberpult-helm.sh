@@ -55,7 +55,7 @@ rollout:
     enabled: true
     clusters:
       development: true
-      staging: false
+      staging: true
       aa-aa-test-dev-1: false
   enabled: true
   grpcMaxRecvMsgSize: 4
@@ -132,8 +132,8 @@ VALUES
 
 make release-tag
 
-helm uninstall kuberpult-local || print kuberpult was not installed
-helm install --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz
+#helm uninstall kuberpult-local || print kuberpult was not installed
+helm upgrade --install --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz
 
 
 kubectl get deployment

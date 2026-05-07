@@ -34,9 +34,14 @@ import (
 	"time"
 )
 
+// runSuffix is a short unique string appended to app names so repeated test
+// runs do not collide with existing Kuberpult releases.
+var runSuffix = fmt.Sprintf("%d", time.Now().Unix()%100000)
+
 const (
 	kuberpultFrontendPort = "8081"
 	devNamespace          = "development"
+	dev2Namespace         = "development2"
 	stagingNamespace      = "staging"
 	// Bracket name used for the two test apps.
 	testBracket = "bracket-stability-test"
@@ -185,7 +190,7 @@ func podStartTime(t *testing.T, namespace, app string) string {
 
 // waitForDeploymentAnnotation polls until the named Deployment's annotation
 // kuberpult.freiheit.com/release-version matches wantVersion, or the 3-minute
-// deadline is exceeded.  This confirms ArgoCD has synced the new release.
+// deadline is exceeded.  This confirms ArgoCD has synced the release.
 func waitForDeploymentAnnotation(t *testing.T, namespace, deploymentName, wantVersion string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Minute)
@@ -207,33 +212,55 @@ func waitForDeploymentAnnotation(t *testing.T, namespace, deploymentName, wantVe
 // TestBracketPodStability is the regression test for the seenVersions cascade-
 // deletion bug.
 //
-// Two apps share a bracket.  After creating new releases and running a release
-// train, ArgoCD syncs the Deployment annotation — exercising the full rollout-
-// service bracket code path.  Because the pod template spec is identical across
-// all versions, Kubernetes will not restart any pods.  If a pod's startTime
-// changes, the bracket Argo app was incorrectly cascade-deleted.
+// Scenario:
+//   - Two apps share a bracket, deployed to development (bracket-cluster) and
+//     staging (bracket-cluster).
+//   - After both envs are on version 1, a new release v2 is created.
+//   - development (upstream=latest) auto-deploys v2; staging stays at v1.
+//   - The rollout-service now sees: development changed ("1:1" → "2:2"),
+//     staging unchanged (seenVersions skips it).
+//   - Bug: staging's bracket Argo app is cascade-deleted → pods disappear.
+//   - Fix: backfill staging in the Argo push → pods survive.
+//
+// Detection: because the Deployment pod-template spec is identical across
+// versions, Kubernetes does NOT roll pods on a version update.  Any change in
+// pod startTime means the Deployment was deleted — the bug.
 func TestBracketPodStability(t *testing.T) {
-	app1 := "bst-app1"
-	app2 := "bst-app2"
+	t.Logf("runSuffix: %s", runSuffix)
+	app1 := "bst-app1-" + runSuffix
+	app2 := "bst-app2-" + runSuffix
 	apps := []string{app1, app2}
-	envs := []string{devNamespace, stagingNamespace}
+
+	// staging's upstream is development2; development2's upstream is "latest".
+	// We must provide a development2 manifest so that Kuberpult records a
+	// deployment there, enabling the staging release train to pick it up.
+	manifestsV := func(version string) map[string]string {
+		m := map[string]string{}
+		for _, ns := range []string{devNamespace, dev2Namespace, stagingNamespace} {
+			m[ns] = stableManifest("", ns, version) // app filled in by caller
+		}
+		return m
+	}
 
 	t.Log("step 1: create initial releases (version 1)")
 	for _, app := range apps {
-		createRelease(t, app, "sreteam", testBracket, "1", map[string]string{
+		manifests := map[string]string{
 			devNamespace:     stableManifest(app, devNamespace, "1"),
+			dev2Namespace:    stableManifest(app, dev2Namespace, "1"),
 			stagingNamespace: stableManifest(app, stagingNamespace, "1"),
-		})
+		}
+		createRelease(t, app, "sreteam", testBracket, "1", manifests)
 	}
+	_ = manifestsV // suppress unused warning from the helper above
 
-	// development has upstream=latest so it deploys automatically.
-	// staging requires an explicit release train.
-	t.Log("step 2: run release train for staging (version 1)")
+	// development and development2 both have upstream=latest → auto-deploy v1.
+	// staging needs an explicit release train that reads from development2.
+	t.Log("step 2: run release train for staging (deploys v1 from development2)")
 	releaseTrain(t, stagingNamespace)
 
-	t.Log("step 3: wait for version 1 to be synced in both namespaces")
+	t.Log("step 3: wait for v1 to be synced in development and staging")
 	for _, app := range apps {
-		for _, ns := range envs {
+		for _, ns := range []string{devNamespace, stagingNamespace} {
 			waitForDeploymentAnnotation(t, ns, app+"-bracket-dep", "1")
 		}
 	}
@@ -242,7 +269,7 @@ func TestBracketPodStability(t *testing.T) {
 	type podKey struct{ ns, app string }
 	startTimes := map[podKey]string{}
 	for _, app := range apps {
-		for _, ns := range envs {
+		for _, ns := range []string{devNamespace, stagingNamespace} {
 			k := podKey{ns, app}
 			startTimes[k] = podStartTime(t, ns, app)
 			t.Logf("  %s/%s: %s", ns, app, startTimes[k])
@@ -253,36 +280,33 @@ func TestBracketPodStability(t *testing.T) {
 	for _, app := range apps {
 		createRelease(t, app, "sreteam", testBracket, "2", map[string]string{
 			devNamespace:     stableManifest(app, devNamespace, "2"),
+			dev2Namespace:    stableManifest(app, dev2Namespace, "2"),
 			stagingNamespace: stableManifest(app, stagingNamespace, "2"),
 		})
 	}
 
-	t.Log("step 6: run release train for staging (version 2)")
-	releaseTrain(t, stagingNamespace)
-
-	t.Log("step 7: wait for version 2 annotation to appear in both namespaces")
+	// Intentionally do NOT run the staging release train: staging stays at v1.
+	// development auto-deploys v2 (upstream=latest).
+	// This is the seenVersions scenario: development changes, staging is stable.
+	t.Log("step 6: wait for development to sync v2 (staging intentionally stays at v1)")
 	for _, app := range apps {
-		for _, ns := range envs {
-			waitForDeploymentAnnotation(t, ns, app+"-bracket-dep", "2")
-		}
+		waitForDeploymentAnnotation(t, devNamespace, app+"-bracket-dep", "2")
 	}
 
-	// Extra buffer: if a pod was deleted, give it time to come back before we
-	// check, so a transient absence is reliably caught by the startTime diff.
-	t.Log("step 8: 20s buffer to let any accidental pod churn complete")
+	// Extra buffer: if a pod was deleted give it time to come back, so a
+	// transient absence is reliably caught by the startTime diff.
+	t.Log("step 7: 20s buffer to let any accidental pod churn complete")
 	time.Sleep(20 * time.Second)
 
-	t.Log("step 9: verify pod start times have not changed")
+	t.Log("step 8: verify staging pod start times have not changed")
 	for _, app := range apps {
-		for _, ns := range envs {
-			k := podKey{ns, app}
-			got := podStartTime(t, ns, app)
-			if got != startTimes[k] {
-				t.Errorf("REGRESSION: pod %s/%s was restarted unexpectedly\n  before: %s\n  after:  %s",
-					ns, app, startTimes[k], got)
-			} else {
-				t.Logf("  OK %s/%s start time stable at %s", ns, app, got)
-			}
+		k := podKey{stagingNamespace, app}
+		got := podStartTime(t, stagingNamespace, app)
+		if got != startTimes[k] {
+			t.Errorf("REGRESSION: pod %s/%s was restarted unexpectedly\n  before: %s\n  after:  %s",
+				stagingNamespace, app, startTimes[k], got)
+		} else {
+			t.Logf("  OK %s/%s start time stable at %s", stagingNamespace, app, got)
 		}
 	}
 }

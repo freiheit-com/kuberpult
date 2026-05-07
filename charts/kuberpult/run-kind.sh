@@ -54,9 +54,9 @@ then
   then
     echo "is it ok to delete the file? Press enter twice to delete"
     # shellcheck disable=SC2162
-    read
+#    read
     # shellcheck disable=SC2162
-    read
+#    read
     rm "$gpgFile"
   else
     echo "this file should not exist on the ci"
@@ -100,11 +100,7 @@ if "$LOCAL_EXECUTION"
 then
   print 'building services...'
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../infrastructure/docker/builder build
-  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/cd-service docker
-  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/manifest-repo-export-service docker
-  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/reposerver-service docker
-  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/rollout-service docker
-  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/frontend-service docker gen-api
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -j5 -C ../../charts/kuberpult build-all-docker
 else
   print 'not building services...'
 fi
@@ -330,14 +326,36 @@ kubectl get pods
 
 (cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
 
-for v in $(seq 1 3)
+START=30
+NUM_RELEASES=2
+END=$(($START + $NUM_RELEASES))
+for v in $(seq "$START" "$END")
 do
    RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-1 sreteam e
    RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-2 sreteam e
-
    RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
 done
+../../infrastructure/scripts/create-testdata/run-releasetrain.sh staging
+v=$((v + 1))
+RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-1 sreteam e
+RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-2 sreteam e
+RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
 
+
+
+if false;
+then
+  for v in $(seq 1 3)
+  do
+     RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-3 sreteam e
+     RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
+
+     #RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
+  done
+fi
+
+print "running bracket stability integration tests..."
+(cd ../../ && go test -v ./tests/kind-brackets/ -timeout 10m)
 
 if "$LOCAL_EXECUTION"
 then

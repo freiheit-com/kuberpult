@@ -80,3 +80,22 @@ all: Chart.yaml
 lint:
 
 lint-fix:
+
+.PHONY: build-all-docker docker-cd-service docker-manifest-repo-export-service docker-reposerver-service docker-rollout-service docker-frontend-service
+
+build-all-docker: docker-cd-service docker-manifest-repo-export-service docker-reposerver-service docker-rollout-service docker-frontend-service
+
+docker-cd-service:
+	$(MAKE) -C ../../services/cd-service docker IMAGE_TAG=$(IMAGE_TAG)
+
+docker-manifest-repo-export-service:
+	$(MAKE) -C ../../services/manifest-repo-export-service docker IMAGE_TAG=$(IMAGE_TAG)
+
+docker-reposerver-service:
+	$(MAKE) -C ../../services/reposerver-service docker IMAGE_TAG=$(IMAGE_TAG)
+
+docker-rollout-service:
+	$(MAKE) -C ../../services/rollout-service docker IMAGE_TAG=$(IMAGE_TAG)
+
+docker-frontend-service:
+	$(MAKE) -C ../../services/frontend-service docker gen-api IMAGE_TAG=$(IMAGE_TAG)

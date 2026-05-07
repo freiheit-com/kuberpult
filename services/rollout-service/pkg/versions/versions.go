@@ -412,6 +412,23 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						v.addBracketToChange(appsToChange, types.ArgoBracketName(bracketName), envName)
 					}
 				}
+				// Backfill: if this bracket was modified in appsToChange, ensure every
+				// non-empty env (even seenVersions-skipped ones) has an entry in Deployments.
+				// Without this, a seenVersions-skipped env would be absent from the Argo push
+				// and ProcessArgoOverview would delete its bracket Argo app.
+				if entry, ok := appsToChange[bracketName]; ok {
+					for envName, bracketDeployment := range bracketDetails.Deployments {
+						if !slices.Contains(v.experimentalBracketsClusters, envName) {
+							continue
+						}
+						if types.RolloutAppBracketVersion(bracketDeployment.Version) == "" {
+							continue // env has no deployment; no Argo app to preserve
+						}
+						if _, present := entry.Deployments[envName]; !present {
+							entry.Deployments[envName] = &api.Deployment{} //exhaustruct:ignore
+						}
+					}
+				}
 			}
 
 			overview.AppDetails = appsToChange
