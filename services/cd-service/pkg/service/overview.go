@@ -747,17 +747,39 @@ func (o *OverviewServiceServer) getBracketDetails(ctx context.Context, bracketNa
 }
 
 func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedApps []types.AppName) ([]*api.GetBracketDetailsResponse, error) {
-	bracketRow, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, tx *sql.Tx) (*db.BracketRow, error) {
-		return db.DBSelectBracketHistoryLatest(ctx, o.DBHandler, tx)
+	type changedBracketsLookup struct {
+		bracketRow         *db.BracketRow
+		deletedAppBrackets map[types.AppName]types.ArgoBracketName
+	}
+
+	lookup, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, tx *sql.Tx) (*changedBracketsLookup, error) {
+		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, o.DBHandler, tx)
+		if err != nil {
+			return nil, err
+		}
+		deletedAppBrackets := make(map[types.AppName]types.ArgoBracketName)
+		for _, appName := range changedApps {
+			app, err := o.DBHandler.DBSelectApp(ctx, tx, appName)
+			if err != nil {
+				return nil, err
+			}
+			if app != nil && app.ArgoBracket != "" {
+				deletedAppBrackets[appName] = app.ArgoBracket
+			}
+		}
+		return &changedBracketsLookup{bracketRow: bracketRow, deletedAppBrackets: deletedAppBrackets}, nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	if bracketRow == nil {
+	if lookup == nil {
 		return nil, nil
 	}
 
-	bracketMap := bracketRow.AllBracketsJsonBlob.BracketMap
+	var bracketMap map[types.ArgoBracketName]db.AppNames
+	if lookup.bracketRow != nil {
+		bracketMap = lookup.bracketRow.AllBracketsJsonBlob.BracketMap
+	}
 
 	// Determine which brackets to update.
 	var affectedBrackets []types.ArgoBracketName
@@ -767,8 +789,8 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 			affectedBrackets = append(affectedBrackets, bracketName)
 		}
 	} else {
-		// Build app→bracket inverse map and collect affected brackets.
 		seen := make(map[types.ArgoBracketName]bool)
+		// Find brackets that still contain a changed app.
 		for bracketName, apps := range bracketMap {
 			for _, changedApp := range changedApps {
 				for _, app := range apps {
@@ -779,6 +801,15 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 						}
 						break
 					}
+				}
+			}
+		}
+		// Also include brackets for deleted apps (no longer in bracketMap).
+		for _, appName := range changedApps {
+			if bracketName, ok := lookup.deletedAppBrackets[appName]; ok {
+				if !seen[bracketName] {
+					seen[bracketName] = true
+					affectedBrackets = append(affectedBrackets, bracketName)
 				}
 			}
 		}

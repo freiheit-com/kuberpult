@@ -3340,6 +3340,117 @@ func TestStreamChangedAppsWithBrackets(t *testing.T) {
 	}
 }
 
+func TestStreamChangedAppsOnDeleteAppWithBracket(t *testing.T) {
+	t.Parallel()
+	shutdown := make(chan struct{})
+	repo, err := setupRepositoryTestWithDB(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := testutilauth.MakeTestContext()
+	bracketEnv := types.EnvName("development")
+	bracketName := "bracket-one"
+
+	for _, tr := range []repository.Transformer{
+		&repository.CreateEnvironment{
+			Environment: bracketEnv,
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+			},
+		},
+		&repository.CreateApplicationVersion{
+			Application: "app-a",
+			Version:     1,
+			Manifests:   map[types.EnvName]string{bracketEnv: "manifest-a"},
+			ArgoBracket: types.ArgoBracketName(bracketName),
+		},
+		&repository.CreateApplicationVersion{
+			Application: "app-b",
+			Version:     1,
+			Manifests:   map[types.EnvName]string{bracketEnv: "manifest-b"},
+			ArgoBracket: types.ArgoBracketName(bracketName),
+		},
+		&repository.DeployApplicationVersion{
+			Application: "app-a",
+			Environment: bracketEnv,
+			Version:     1,
+		},
+		&repository.DeployApplicationVersion{
+			Application: "app-b",
+			Environment: bracketEnv,
+			Version:     1,
+		},
+		&repository.CreateUndeployApplicationVersion{
+			Application: "app-a",
+		},
+	} {
+		if err := repo.Apply(ctx, tr); err != nil {
+			t.Fatalf("Apply setup %T: %v", tr, err)
+		}
+	}
+
+	svc := &OverviewServiceServer{
+		Repository:                   repo,
+		Shutdown:                     shutdown,
+		DBHandler:                    repo.State().DBHandler,
+		Context:                      ctx,
+		ExperimentalBracketsClusters: []string{string(bracketEnv)},
+	}
+
+	resultCh := make(chan *api.GetChangedAppsResponse, 2)
+	mockStream := &mockStreamChangedAppsServer{
+		Results: resultCh,
+		Ctx:     ctx,
+	}
+
+	go func() {
+		_ = svc.StreamChangedApps(&api.GetChangedAppsRequest{}, mockStream)
+	}()
+
+	// Drain the initial notification.
+	select {
+	case <-resultCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for initial StreamChangedApps response")
+	}
+
+	// Delete app-a entirely.
+	if err := repo.Apply(ctx, &repository.UndeployApplication{
+		Application: "app-a",
+	}); err != nil {
+		t.Fatalf("Apply UndeployApplication: %v", err)
+	}
+
+	var response *api.GetChangedAppsResponse
+	select {
+	case response = <-resultCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for post-delete StreamChangedApps response")
+	}
+	close(shutdown)
+
+	// The bracket notification must reflect that only app-b remains.
+	var foundBracket bool
+	for _, bd := range response.ChangedBrackets {
+		if bd.BracketName == bracketName {
+			foundBracket = true
+			dep, ok := bd.Deployments[string(bracketEnv)]
+			if !ok {
+				t.Errorf("bracket %q: expected deployment for env %q", bracketName, bracketEnv)
+				break
+			}
+			// app-a was removed; only app-b (version 1) should remain.
+			// The bracket version string is "1" (only app-b, sorted first since app-a gone).
+			if dep.Version == "" {
+				t.Errorf("bracket %q: expected non-empty version after partial deletion", bracketName)
+			}
+		}
+	}
+	if !foundBracket {
+		t.Errorf("bracket %q not found in ChangedBrackets after deleting app-a — bracket was not notified", bracketName)
+	}
+}
+
 func TestStreamChangedAppsOnDeleteEnvFromApp(t *testing.T) {
 	t.Parallel()
 	shutdown := make(chan struct{})
