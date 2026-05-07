@@ -47,6 +47,15 @@ type EnvLockHistory struct {
 	DeletionMetadata LockDeletionMetadata
 }
 
+/*
+environment_locks is the current set of active locks on environments: one row per (envName, lockId).
+A lock is created by inserting a row; releasing it deletes the row.
+environment_locks_history is the append-only audit trail of all create and delete events.
+The deleted column in the history table marks deletion events — rows are never removed from the history.
+*/
+const envLocksTable = "environment_locks"
+const envLocksHistoryTable = "environment_locks_history"
+
 // SELECTS
 func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx) (_ map[types.EnvName][]EnvironmentLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEnvLocksOfAllEnvs")
@@ -62,7 +71,7 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, metadata
-		FROM environment_locks
+		FROM ` + envLocksTable + `
 		ORDER BY lockId, envName;`)
 	span.SetTag("query", selectQuery)
 
@@ -125,8 +134,8 @@ func (h *DBHandler) DBSelectAllEnvLocksOfAllEnvs(ctx context.Context, tx *sql.Tx
 
 func (h *DBHandler) DBHasAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (bool, error) {
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockid, envname, metadata 
-		FROM environment_locks 
+		SELECT created, lockid, envname, metadata
+		FROM ` + envLocksTable + `
 		LIMIT 1;`)
 
 	rows, err := tx.QueryContext(
@@ -153,7 +162,7 @@ func (h *DBHandler) DBSelectEnvLocksForEnv(ctx context.Context, tx *sql.Tx, envi
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, metadata
-		FROM environment_locks 
+		FROM ` + envLocksTable + `
 		WHERE envname = (?)
 		ORDER BY lockid;`)
 	span.SetTag("query", selectQuery)
@@ -181,7 +190,7 @@ func (h *DBHandler) DBSelectAllActiveEnvLocks(ctx context.Context, tx *sql.Tx, e
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, metadata
-		FROM environment_locks
+		FROM ` + envLocksTable + `
 		WHERE envName = (?)
 		ORDER BY lockId;`)
 	rows, err := tx.QueryContext(ctx, selectQuery, envName)
@@ -191,7 +200,7 @@ func (h *DBHandler) DBSelectAllActiveEnvLocks(ctx context.Context, tx *sql.Tx, e
 func (h *DBHandler) DBSelectEnvLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, lockID string) (*EnvironmentLock, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, metadata
-		FROM environment_locks_history
+		FROM ` + envLocksHistoryTable + `
 		WHERE envName=? AND lockID=?
 		ORDER BY created DESC
 		LIMIT 1;`)
@@ -224,8 +233,8 @@ func (h *DBHandler) DBSelectAllEnvLocks(ctx context.Context, tx *sql.Tx, environ
 		return nil, fmt.Errorf("DBSelectAllEnvLocks: no transaction provided")
 	}
 	selectQuery := h.AdaptQuery(`
-		SELECT lockid 
-		FROM environment_locks 
+		SELECT lockid
+		FROM ` + envLocksTable + `
 		WHERE envname = ?
 		ORDER BY lockid;`)
 	span.SetTag("query", selectQuery)
@@ -251,7 +260,7 @@ func (h *DBHandler) DBSelectEnvLockHistory(ctx context.Context, tx *sql.Tx, envi
 	selectQuery := h.AdaptQuery(
 		fmt.Sprintf(
 			"SELECT created, lockID, envName, metadata, deleted, deletionMetadata" +
-				" FROM environment_locks_history " +
+				" FROM " + envLocksHistoryTable +
 				" WHERE envName=? AND lockID=?" +
 				" ORDER BY version DESC " +
 				" LIMIT ?;"))
@@ -415,7 +424,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 
 func (h *DBHandler) upsertEnvLockRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata) (err error) {
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO environment_locks (created, lockId, envname, metadata)
+		INSERT INTO ` + envLocksTable + ` (created, lockId, envname, metadata)
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(envname, lockid)
 		DO UPDATE SET created = excluded.created, lockid = excluded.lockid, metadata = excluded.metadata, envname = excluded.envname;
@@ -449,7 +458,7 @@ func (h *DBHandler) upsertEnvLockRow(ctx context.Context, transaction *sql.Tx, l
 
 func (h *DBHandler) deleteEnvLockRow(ctx context.Context, transaction *sql.Tx, lockId string, environment types.EnvName) (err error) {
 	deleteQuery := h.AdaptQuery(`
-		DELETE FROM environment_locks
+		DELETE FROM ` + envLocksTable + `
 		WHERE lockId=? AND envname=?;`)
 	_, err = transaction.ExecContext(
 		ctx,
@@ -469,7 +478,7 @@ func (h *DBHandler) deleteEnvLockRow(ctx context.Context, transaction *sql.Tx, l
 
 func (h *DBHandler) insertEnvLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO environment_locks_history (created, lockId, envname, metadata, deleted, deletionMetadata)
+		INSERT INTO ` + envLocksHistoryTable + ` (created, lockId, envname, metadata, deleted, deletionMetadata)
 		VALUES (?, ?, ?, ?, ?, ?);
 	`)
 	jsonToInsert, err := json.Marshal(metadata)
