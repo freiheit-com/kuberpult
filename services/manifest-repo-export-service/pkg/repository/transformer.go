@@ -2058,15 +2058,10 @@ func (u *UndeployApplication) Transform(
 		undeployFile := fs.Join(versionDir, "undeploy")
 		_, err = fs.Stat(undeployFile)
 		if err != nil { //Undeploy version does not exist if we minimize git data
-			if errors.Is(err, os.ErrNotExist) {
-				if t.ShouldMaximizeGitData() {
-					logging.Error(ctx, "Maximize git data is enabled but could not find undeploy file.", zap.String("file", undeployFile), zap.String("applicaton", u.Application), zap.String("environment", string(env)))
-				}
-			} else {
+			if !errors.Is(err, os.ErrNotExist) {
 				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %w", err)
 			}
 		}
-
 	}
 
 	if err := removeApplication(fs, u.Application); err != nil {
