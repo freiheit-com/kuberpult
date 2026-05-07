@@ -572,32 +572,7 @@ func (c *CreateEnvironmentLock) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	if tCtx.ShouldMinimizeGitData() {
-		return GetNoOpMessage(c)
-	}
-	fs := state.Filesystem
-	envDir := fs.Join("environments", string(c.Environment))
-	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("could not access environment information on: '%s': %w", envDir, err)
-	}
-	chroot, err := fs.Chroot(envDir)
-	if err != nil {
-		return "", err
-	}
-
-	lock, err := state.DBHandler.DBSelectEnvLock(ctx, transaction, c.Environment, c.LockId)
-	if err != nil {
-		return "", err
-	}
-
-	if lock == nil {
-		return "", fmt.Errorf("no lock found")
-	}
-	if err := createLock(ctx, chroot, lock.LockID, lock.Metadata.Message, lock.Metadata.CreatedByName, lock.Metadata.CreatedByEmail, lock.Created.Format(time.RFC3339)); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
+	return GetNoOpMessage(c)
 }
 
 func createLock(ctx context.Context, fs billy.Filesystem, lockId, message, authorName, authorEmail, created string) error {
@@ -675,33 +650,7 @@ func (c *DeleteEnvironmentLock) Transform(
 	tCtx TransformerContext,
 	_ *sql.Tx,
 ) (string, error) {
-	envName := c.Environment
-	if tCtx.ShouldMinimizeGitData() {
-		return GetNoOpMessage(c)
-	}
-	fs := state.Filesystem
-	s := State{
-		Commit:               nil,
-		Filesystem:           fs,
-		ReleaseVersionsLimit: state.ReleaseVersionsLimit,
-		ArgoRenderOptions:    state.ArgoRenderOptions,
-		DBHandler:            state.DBHandler,
-	}
-	lockDir := s.GetEnvLockDir(envName, c.LockId)
-	_, err := fs.Stat(lockDir)
-
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
-
-	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
-	}
-	if err := s.DeleteEnvLockIfEmpty(ctx, envName); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("Deleted lock %q on environment %q", c.LockId, c.Environment), nil
+	return GetNoOpMessage(c)
 }
 
 type CreateEnvironmentApplicationLock struct {
