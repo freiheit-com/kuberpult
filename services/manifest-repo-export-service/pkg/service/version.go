@@ -18,15 +18,11 @@ package service
 
 import (
 	"context"
-	"database/sql"
-	"os"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
 
@@ -35,52 +31,5 @@ type VersionServiceServer struct {
 }
 
 func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
-	if req.Application == "" {
-		return nil, status.Error(codes.InvalidArgument, "no application specified")
-	}
-
-	state := o.Repository.State()
-
-	wrapError := func(what string, err error) error {
-		if !os.IsNotExist(err) {
-			return status.Errorf(codes.NotFound, "%s not found", what)
-		} else {
-			return status.Error(codes.Internal, err.Error())
-		}
-	}
-
-	result, err := db.WithTransactionT(state.DBHandler, ctx, 1, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetManifestsResponse, error) {
-		var (
-			err     error
-			release types.ReleaseNumbers
-		)
-		if req.Release == "latest" {
-			release, err = state.GetLastRelease(ctx, state.Filesystem, req.Application)
-			if err != nil {
-				return nil, wrapError("application", err)
-			}
-			if release.Version == nil {
-				return nil, status.Errorf(codes.NotFound, "no releases found for application %s", req.Application)
-			}
-		} else {
-			release, err = types.MakeReleaseNumberFromString(req.Release)
-			if err != nil {
-				return nil, status.Error(codes.InvalidArgument, "invalid release number, expected number, 'Major.Minor' or 'latest'")
-			}
-		}
-		repoRelease, err := state.GetApplicationRelease(req.Application, release)
-		if err != nil {
-			return nil, wrapError("release", err)
-		}
-		manifests, err := state.GetApplicationReleaseManifests(req.Application, release)
-		if err != nil {
-			return nil, wrapError("manifests", err)
-		}
-
-		return &api.GetManifestsResponse{
-			Release:   repoRelease.ToProto(),
-			Manifests: manifests,
-		}, nil
-	})
-	return result, err
+	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
