@@ -317,10 +317,11 @@ func Run(ctx context.Context) error {
 		Certificates: repository.Certificates{
 			KnownHostsFile: gitSshKnownHosts,
 		},
-		Branch:              gitBranch,
-		NetworkTimeout:      time.Duration(networkTimeoutSeconds) * time.Second,
-		ReleaseVersionLimit: uint(releaseVersionLimit),
-		ArgoCdGenerateFiles: argoCdGenerateFiles,
+		Branch:               gitBranch,
+		NetworkTimeout:       time.Duration(networkTimeoutSeconds) * time.Second,
+		ReleaseVersionLimit:  uint(releaseVersionLimit),
+		ArgoCdGenerateFiles:  argoCdGenerateFiles,
+		MinimizeExportedData: true, // enable by default
 
 		DBHandler: dbHandler,
 
