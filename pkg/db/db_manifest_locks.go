@@ -48,6 +48,33 @@ type ManifestLock struct {
 
 // SELECTS
 
+func (h *DBHandler) DBHasActiveManifestLock(ctx context.Context, tx *sql.Tx, app types.AppName, env types.EnvName) (_ bool, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBHasActiveManifestLock")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+
+	selectQuery := h.AdaptQuery(`
+		SELECT EXISTS(
+			SELECT 1 FROM manifest_locks_history
+			WHERE app = ? AND env = ? AND active = true
+		);`)
+
+	rows, err := tx.QueryContext(ctx, selectQuery, app, env)
+	if err != nil {
+		return false, fmt.Errorf("could not query manifest_locks_history: %w", err)
+	}
+	defer closeRowsAndLog(rows, ctx, "DBHasActiveManifestLock")
+	if !rows.Next() {
+		return false, nil
+	}
+	var exists bool
+	if err := rows.Scan(&exists); err != nil {
+		return false, fmt.Errorf("error scanning DBHasActiveManifestLock result: %w", err)
+	}
+	return exists, nil
+}
+
 func (h *DBHandler) DBSelectAllActiveManifestLocks(ctx context.Context, tx *sql.Tx) (_ []ManifestLock, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllActiveManifestLocks")
 	defer func() {

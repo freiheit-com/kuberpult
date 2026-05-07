@@ -109,6 +109,17 @@ func writeManifests(fs billy.Filesystem, parentPath string, envManifest string) 
 	return nil
 }
 
+func writeManifestsIfNoManifestLock(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx, fs billy.Filesystem, parentPath string, envManifest string, app types.AppName, env types.EnvName) error {
+	hasLock, err := dbHandler.DBHasActiveManifestLock(ctx, transaction, app, env)
+	if err != nil {
+		return err
+	}
+	if hasLock {
+		return nil
+	}
+	return writeManifests(fs, parentPath, envManifest)
+}
+
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
 func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version types.ReleaseNumbers) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
@@ -417,7 +428,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if state.ArgoRenderOptions.RenderApps {
-		if err := writeManifests(fsys, manifestsDir, manifestContent); err != nil {
+		if err := writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, manifestsDir, manifestContent, types.AppName(c.Application), c.Environment); err != nil {
 			return "", err
 		}
 	}
