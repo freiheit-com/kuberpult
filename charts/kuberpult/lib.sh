@@ -28,7 +28,8 @@ function portForwardAndWait() {
   portThere="$4"
   ports="$portHere:$portThere"
   print "portForwardAndWait for $ns/$deployment $ports"
-  kubectl -n "$ns" port-forward "$deployment" "$ports" &
+  # Loop so the forward auto-restarts whenever the target pod is replaced (e.g. after helm upgrade).
+  while true; do kubectl -n "$ns" port-forward "$deployment" "$ports" || true; sleep 1; done &
   print "portForwardAndWait: waiting until the port forward works..."
   sleep 10
   until nc -vz localhost "$portHere"

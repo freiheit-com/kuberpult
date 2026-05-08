@@ -249,3 +249,84 @@ func TestBracketDeleteEnvFromApp(t *testing.T) {
 	t.Log("step 8: verify bracket Argo app still exists (must not be deleted)")
 	waitForArgoApp(t, "staging-"+bracket)
 }
+
+func undeployApp(t *testing.T, app string) {
+	t.Helper()
+	conn, err := grpc.NewClient(cdServiceGrpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("undeployApp: grpc dial: %v", err)
+	}
+	defer conn.Close()
+	client := api.NewBatchServiceClient(conn)
+	_, err = client.ProcessBatch(context.Background(), &api.BatchRequest{
+		Actions: []*api.BatchAction{
+			{Action: &api.BatchAction_Undeploy{
+				Undeploy: &api.UndeployRequest{
+					Application: app,
+				},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("undeployApp %s: %v", app, err)
+	}
+}
+
+// TestBracketUndeploy verifies that undeploying the only app in bracket1 does not:
+// (a) delete the bracket1 Argo Application, and
+// (b) restart pods belonging to a separate bracket2.
+func TestBracketUndeploy(t *testing.T) {
+	t.Logf("runSuffix: %s", runSuffix)
+	app1 := "bu-app1-" + runSuffix
+	bracket1 := "bu-bracket1-" + runSuffix
+	app2 := "bu-app2-" + runSuffix
+	bracket2 := "bu-bracket2-" + runSuffix
+
+	t.Log("step 1: upgrade to staging=true (bracket mode)")
+	helmUpgrade(t, true)
+
+	t.Log("step 2: create v1 releases for both apps")
+	createRelease(t, app1, "sreteam", bracket1, "1", map[string]string{
+		devNamespace:     stableManifest(app1, devNamespace, "1"),
+		dev2Namespace:    stableManifest(app1, dev2Namespace, "1"),
+		stagingNamespace: stableManifest(app1, stagingNamespace, "1"),
+	})
+	createRelease(t, app2, "sreteam", bracket2, "1", map[string]string{
+		devNamespace:     stableManifest(app2, devNamespace, "1"),
+		dev2Namespace:    stableManifest(app2, dev2Namespace, "1"),
+		stagingNamespace: stableManifest(app2, stagingNamespace, "1"),
+	})
+
+	t.Log("step 3: run staging release train (deploys both apps)")
+	releaseTrain(t, stagingNamespace)
+
+	t.Log("step 4: wait for both apps synced in staging")
+	waitForDeploymentAnnotation(t, stagingNamespace, app1+"-bracket-dep", "1")
+	waitForDeploymentAnnotation(t, stagingNamespace, app2+"-bracket-dep", "1")
+
+	t.Log("step 5: wait for both bracket Argo apps to appear on staging")
+	waitForArgoApp(t, "staging-"+bracket1)
+	waitForArgoApp(t, "staging-"+bracket2)
+
+	t.Log("step 6: record app2 pod start time")
+	app2StartTime := podStartTime(t, stagingNamespace, app2)
+	t.Logf("  %s/%s: %s", stagingNamespace, app2, app2StartTime)
+
+	t.Log("step 7: undeploy app1 entirely")
+	undeployApp(t, app1)
+
+	t.Log("step 8: 30s buffer for rollout-service to reconcile")
+	time.Sleep(30 * time.Second)
+
+	t.Log("step 9: verify bracket1 Argo app still exists (must not be deleted)")
+	waitForArgoApp(t, "staging-"+bracket1)
+
+	t.Log("step 10: verify app2 pod start time has not changed (no accidental restart)")
+	got := podStartTime(t, stagingNamespace, app2)
+	if got != app2StartTime {
+		t.Errorf("REGRESSION: pod %s/%s was restarted during undeploy of %s\n  before: %s\n  after:  %s",
+			stagingNamespace, app2, app1, app2StartTime, got)
+	} else {
+		t.Logf("  OK %s/%s start time stable at %s", stagingNamespace, app2, got)
+	}
+}

@@ -355,7 +355,7 @@ then
 fi
 
 print "running bracket stability integration tests..."
-(cd ../../ && go test -v ./tests/kind-brackets/ -timeout 20m)
+make kind-test
 
 if "$LOCAL_EXECUTION"
 then
