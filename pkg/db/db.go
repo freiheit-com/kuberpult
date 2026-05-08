@@ -536,7 +536,7 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 }
 
 /*
-commit_events (renamed from "events") links git commits to the kuberpult transformer that produced them.
+commit_events links git commits to the kuberpult transformer that produced them.
 Each row records the commit hash, commit type, and the transformerEslVersion of the ESL event.
 Only manifest-repo-export-service writes here, after successfully pushing a commit to the git manifest repo.
 This table lets callers trace which git commit corresponds to which kuberpult operation.
