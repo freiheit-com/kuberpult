@@ -427,6 +427,9 @@ func (o *OverviewServiceServer) GetAllManifestLocks(ctx context.Context,
 		response := api.GetAllManifestLocksResponse{
 			ManifestLocks: make([]*api.ManifestLockInfo, 0, len(locks)),
 		}
+		if locks == nil {
+			return &response, nil
+		}
 		for _, l := range locks {
 			response.ManifestLocks = append(response.ManifestLocks, &api.ManifestLockInfo{
 				App: string(l.App),
