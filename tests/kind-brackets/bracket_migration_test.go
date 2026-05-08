@@ -281,24 +281,11 @@ func TestBracketDeleteEnvFromApp(t *testing.T) {
 
 func undeployApp(t *testing.T, app string) {
 	t.Helper()
-	conn, err := grpc.NewClient(cdServiceGrpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("undeployApp: grpc dial: %v", err)
-	}
-	defer conn.Close()
-	client := api.NewBatchServiceClient(conn)
-	_, err = client.ProcessBatch(context.Background(), &api.BatchRequest{
-		Actions: []*api.BatchAction{
-			{Action: &api.BatchAction_Undeploy{
-				Undeploy: &api.UndeployRequest{
-					Application: app,
-				},
-			}},
-		},
-	})
-	if err != nil {
-		t.Fatalf("undeployApp %s: %v", app, err)
-	}
+	processBatch(t, &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_Undeploy{
+			Undeploy: &api.UndeployRequest{Application: app},
+		}},
+	}})
 }
 
 // TestBracketUndeploy verifies that undeploying the only app in bracket1 does not:
