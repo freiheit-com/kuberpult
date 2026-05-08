@@ -181,3 +181,21 @@ The only exceptions are early calls that happen before the Authentication happen
 api.configService()
     .GetConfig({}) // the config service does not require authorisation
 ```
+
+## Database Queries
+Format database queries in go code like this:
+```go
+	selectQuery := h.AdaptQuery(`
+		SELECT created, name, json, applications
+		FROM environments
+		LIMIT 1;
+	`)
+```
+Each main sql keyword gets its own line.
+
+There are 2 kinds of select queries:
+1) Those with exactly 1 or 0 results. If we filter for the primary key, then we do not need an ORDER BY.
+If we filter by something else, an ORDER BY and LIMIT 1 is required.
+2) Those with potentially a lot of results. These must have an ORDER BY and LIMIT N.
+
+The goal is to make all queries deterministic, including the order of the result.
