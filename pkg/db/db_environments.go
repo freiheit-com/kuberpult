@@ -46,11 +46,20 @@ type DBEnvironmentRow struct {
 	Applications string
 }
 
+/*
+environments is the current-state table for environment configuration: one row per environment name.
+The json column stores the full EnvironmentConfig (upstream env references, ArgoCD settings, etc.).
+The applications column is a JSON list of application names that have been deployed to this environment.
+environments_history is the append-only counterpart; rows include a deleted column for soft-deletes.
+*/
+const environmentsTable = "environments"
+const environmentsHistoryTable = "environments_history"
+
 // SELECTS
 func (h *DBHandler) DBHasAnyEnvironment(ctx context.Context, tx *sql.Tx) (bool, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, name, json, applications
-		FROM environments
+		FROM ` + environmentsTable + `
 		LIMIT 1;
 	`)
 
@@ -73,7 +82,7 @@ func (h *DBHandler) DBHasAnyEnvironment(ctx context.Context, tx *sql.Tx) (bool, 
 func (h *DBHandler) DBSelectEnvironment(ctx context.Context, tx *sql.Tx, environmentName types.EnvName) (_ *DBEnvironment, err error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, name, json, applications
-		FROM environments
+		FROM ` + environmentsTable + `
 		WHERE name=?
 		LIMIT 1;
 	`)
@@ -103,7 +112,7 @@ func (h *DBHandler) DBSelectEnvironmentsBatch(ctx context.Context, tx *sql.Tx, e
 	}
 	selectQuery := h.AdaptQuery(`
 		SELECT created, name, json, applications
-		FROM environments
+		FROM ` + environmentsTable + `
 		WHERE name IN (?` + strings.Repeat(",?", len(environmentNames)-1) + `)
 		ORDER BY name
 		LIMIT ?
@@ -156,25 +165,25 @@ func processEnvironmentRows(ctx context.Context, rows *sql.Rows) (*[]DBEnvironme
 func (h *DBHandler) DBSelectAllLatestEnvironmentsAtTimestamp(ctx context.Context, tx *sql.Tx, ts time.Time) (*[]DBEnvironment, error) {
 	selectQuery := h.AdaptQuery(`
 	SELECT
-	    environments_history.created,
-		environments_history.name,
-		environments_history.json,
-		environments_history.applications
+	    ` + environmentsHistoryTable + `.created,
+		` + environmentsHistoryTable + `.name,
+		` + environmentsHistoryTable + `.json,
+		` + environmentsHistoryTable + `.applications
 	FROM (
 	SELECT
 		MAX(version) AS latest,
 		name
 	FROM
-		environments_history
+		` + environmentsHistoryTable + `
 	WHERE created <= (?)
 	GROUP BY
 		name
 	) AS latest
 	JOIN
-		environments_history AS environments_history
+		` + environmentsHistoryTable + ` AS ` + environmentsHistoryTable + `
 	ON
-		latest.latest=environments_history.version
-		AND latest.name=environments_history.name;
+		latest.latest=` + environmentsHistoryTable + `.version
+		AND latest.name=` + environmentsHistoryTable + `.name;
 `)
 
 	args := []any{}
@@ -211,7 +220,7 @@ func (h *DBHandler) DBSelectAllEnvironments(ctx context.Context, transaction *sq
 
 	selectQuery := h.AdaptQuery(`
 		SELECT name
-		FROM environments
+		FROM ` + environmentsTable + `
 		ORDER BY name;
 	`)
 
@@ -397,7 +406,7 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 		return fmt.Errorf("attempting to write to the environments table without a transaction")
 	}
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO environments (created, name, json, applications)
+		INSERT INTO ` + environmentsTable + ` (created, name, json, applications)
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(name)
 		DO UPDATE SET created = excluded.created, name = excluded.name, json = excluded.json, applications = excluded.applications;
@@ -430,7 +439,7 @@ func (h *DBHandler) upsertEnvironmentsRow(ctx context.Context, tx *sql.Tx, envir
 
 func (h *DBHandler) deleteEnvironmentRow(ctx context.Context, transaction *sql.Tx, environmentName types.EnvName) (err error) {
 	deleteQuery := h.AdaptQuery(`
-		DELETE FROM environments WHERE name=? 
+		DELETE FROM ` + environmentsTable + ` WHERE name=?
 	`)
 	_, err = transaction.ExecContext(
 		ctx,
@@ -454,7 +463,7 @@ func (h *DBHandler) insertEnvironmentHistoryRow(ctx context.Context, tx *sql.Tx,
 		return fmt.Errorf("attempting to write to the environments table without a transaction")
 	}
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO environments_history (created, name, json, applications, deleted)
+		INSERT INTO ` + environmentsHistoryTable + ` (created, name, json, applications, deleted)
 		VALUES (?, ?, ?, ?, ?);
 	`)
 

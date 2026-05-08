@@ -28,6 +28,14 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
+/*
+argo_cd_events stores the latest ArgoCD sync event for each (app, env) pair: exactly one row per pair.
+The rollout-service writes ArgoCD notifications here via upsert (ON CONFLICT DO UPDATE).
+The cd-service reads this table to determine whether a rollout has completed successfully.
+The discarded flag marks events that should be ignored (e.g. spurious updates during a deployment).
+*/
+const argoCdEventsTable = "argo_cd_events"
+
 type ArgoEvent struct {
 	App       string
 	Env       string
@@ -46,7 +54,7 @@ func (h *DBHandler) UpsertArgoEvents(ctx context.Context, tx *sql.Tx, events []*
 	if tx == nil {
 		return fmt.Errorf("UpsertArgoEvents: no transaction provided")
 	}
-	queryTemplate := `INSERT INTO argo_cd_events (created, app, env, json, discarded)
+	queryTemplate := `INSERT INTO ` + argoCdEventsTable + ` (created, app, env, json, discarded)
 	VALUES ('%s', '%s', '%s', '%s', %t)
 	ON CONFLICT(app, env)
 	DO UPDATE SET created = excluded.created, json = excluded.json, discarded = excluded.discarded;`
@@ -76,7 +84,10 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName typ
 		return nil, fmt.Errorf("DBReadArgoEvent: no transaction provided")
 	}
 
-	selectQuery := h.AdaptQuery("SELECT app, env, json, discarded FROM argo_cd_events WHERE app = ? AND env = ? LIMIT 1;")
+	selectQuery := h.AdaptQuery(`SELECT app, env, json, discarded
+		FROM ` + argoCdEventsTable + `
+		WHERE app = ? AND env = ?
+		LIMIT 1;`)
 	row, err := tx.QueryContext(
 		ctx,
 		selectQuery,

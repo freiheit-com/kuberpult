@@ -63,11 +63,31 @@ type QueuedDeployment struct {
 	ReleaseNumbers types.ReleaseNumbers
 }
 
+/*
+deployments is the current deployment state for each (app, env) pair: one row, updated in-place.
+It records the current release version and the ESL transformer that triggered the deployment.
+deployments_history is the append-only counterpart for the full audit trail.
+The revision column is a monotonically increasing counter per (app, env, releaseVersion),
+used to distinguish re-deployments of the same version (e.g. rollbacks to the same release).
+The transformerEslVersion links each deployment to the ESL event that caused it.
+*/
+const deploymentsTable = "deployments"
+const deploymentsHistoryTable = "deployments_history"
+
+/*
+deployment_attempts_latest holds at most one pending attempt per (app, env): the desired target version.
+When a deployment is blocked (e.g. by a lock), the requested release is queued here.
+Once the lock is released and the deployment succeeds, the row is deleted.
+deployment_attempts_history is the append-only log of all queued attempts, kept forever.
+*/
+const deploymentAttemptsLatestTable = "deployment_attempts_latest"
+const deploymentAttemptsHistoryTable = "deployment_attempts_history"
+
 // SELECT
 func (h *DBHandler) DBSelectAllDeployments(ctx context.Context, tx *sql.Tx, mustHaveReleaseVersion bool) ([]Deployment, error) {
 	queryStr := `
 		SELECT created, releaseVersion, appName, envName, revision
-		FROM deployments
+		FROM ` + deploymentsTable + `
 	`
 	if mustHaveReleaseVersion {
 		queryStr += "\nWHERE releaseVersion IS NOT NULL"
@@ -126,7 +146,7 @@ func processAllDeploymentsWithReleaseVersions(rows *sql.Rows) ([]Deployment, err
 func (h *DBHandler) DBSelectLatestDeployment(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector types.EnvName) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
-		FROM deployments
+		FROM ` + deploymentsTable + `
 		WHERE appName=? AND envName=?
 		LIMIT 1;
 	`)
@@ -147,7 +167,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAtTimestamp(ctx context.Context, tx 
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
-		FROM deployments_history
+		FROM ` + deploymentsHistoryTable + `
 		WHERE appName=? AND envName=? AND created <=? AND releaseVersion IS NOT NULL
 		ORDER BY version DESC
 		LIMIT 1;
@@ -174,8 +194,8 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appname, releaseVersion, envName, metadata, transformereslversion, revision
-		FROM deployments
-		WHERE deployments.appname = (?) AND deployments.releaseVersion IS NOT NULL
+		FROM ` + deploymentsTable + `
+		WHERE ` + deploymentsTable + `.appname = (?) AND ` + deploymentsTable + `.releaseVersion IS NOT NULL
 		ORDER BY envName;
 	`)
 	span.SetTag("query", selectQuery)
@@ -194,8 +214,8 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsForApplication(ctx context.Conte
 func (h *DBHandler) DBSelectOldestDeploymentForApplication(ctx context.Context, tx *sql.Tx, appName types.AppName) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
-		FROM deployments
-		WHERE deployments.appname = (?) AND deployments.releaseVersion IS NOT NULL
+		FROM ` + deploymentsTable + `
+		WHERE ` + deploymentsTable + `.appname = (?) AND ` + deploymentsTable + `.releaseVersion IS NOT NULL
 		ORDER BY releaseVersion ASC, revision ASC
 		LIMIT 1;
 	`)
@@ -219,8 +239,8 @@ func (h *DBHandler) DBSelectDeployedAppsSince(ctx context.Context, tx *sql.Tx, e
 
 	appSelectQuery := h.AdaptQuery(`
 		SELECT DISTINCT appName
-		FROM deployments_history
-		WHERE deployments_history.envName = ? AND deployments_history.created <= ?;
+		FROM ` + deploymentsHistoryTable + `
+		WHERE ` + deploymentsHistoryTable + `.envName = ? AND ` + deploymentsHistoryTable + `.created <= ?;
 	`)
 
 	span.SetTag("query", appSelectQuery)
@@ -261,7 +281,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp(ctx con
 		ON (appName) appname,
 		releaseVersion,
 		revision
-	FROM deployments_history
+	FROM ` + deploymentsHistoryTable + `
 	WHERE
 		envname = ?
 		AND created <= ?
@@ -289,8 +309,8 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Contex
 
 	selectQuery := h.AdaptQuery(`
 		SELECT appName, releaseVersion, revision
-		FROM deployments
-		WHERE deployments.envName= ?
+		FROM ` + deploymentsTable + `
+		WHERE ` + deploymentsTable + `.envName= ?
 		ORDER BY appName;
 	`)
 
@@ -311,7 +331,7 @@ func (h *DBHandler) DBSelectAllLatestDeploymentsOnEnvironment(ctx context.Contex
 func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector string, releaseVersion uint64) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
-		FROM deployments
+		FROM ` + deploymentsTable + `
 		WHERE appName=? AND envName=? and releaseVersion=?
 		LIMIT 1;
 	`)
@@ -333,7 +353,7 @@ func (h *DBHandler) DBSelectSpecificDeployment(ctx context.Context, tx *sql.Tx, 
 func (h *DBHandler) DBSelectSpecificDeploymentHistory(ctx context.Context, tx *sql.Tx, appSelector types.AppName, envSelector string, releaseVersion uint64) (*Deployment, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
-		FROM deployments_history
+		FROM ` + deploymentsHistoryTable + `
 		WHERE appName=? AND envName=? and releaseVersion=?
 		ORDER BY created DESC
 		LIMIT 1;
@@ -361,8 +381,8 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envname, metadata, transformereslversion, revision
-		FROM deployments_history
-		WHERE deployments_history.appname = (?) AND deployments_history.envname = (?)
+		FROM ` + deploymentsHistoryTable + `
+		WHERE ` + deploymentsHistoryTable + `.appname = (?) AND ` + deploymentsHistoryTable + `.envname = (?)
 		ORDER BY version DESC
 		LIMIT ?;
 	`)
@@ -394,7 +414,7 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 
 func (h *DBHandler) DBSelectDeploymentHistoryCount(ctx context.Context, tx *sql.Tx, envSelector string, startDate time.Time, endDate time.Time) (uint64, error) {
 	selectQuery := h.AdaptQuery(`
-		SELECT COUNT(*) FROM deployments_history
+		SELECT COUNT(*) FROM ` + deploymentsHistoryTable + `
 		WHERE releaseversion IS NOT NULL AND created >= (?) AND created <= (?) AND envname = (?);
 	`)
 
@@ -422,7 +442,7 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
-		FROM deployments
+		FROM ` + deploymentsTable + `
 		WHERE transformereslVersion=?;
 	`)
 
@@ -450,7 +470,7 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 func (h *DBHandler) DBHasAnyDeployment(ctx context.Context, tx *sql.Tx) (bool, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, revision
-		FROM deployments
+		FROM ` + deploymentsTable + `
 		LIMIT 1;
 	`)
 
@@ -473,7 +493,7 @@ func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx
 
 	insertQuery := h.AdaptQuery(`
 		SELECT envName, releaseVersion, revision
-		FROM deployments
+		FROM ` + deploymentsTable + `
 		WHERE appName = (?) AND releaseVersion IS NOT NULL
 		ORDER BY envName;
 	`)
@@ -502,26 +522,26 @@ func (h *DBHandler) DBSelectAllDeploymentsForAppAtTimestamp(ctx context.Context,
 
 	query := h.AdaptQuery(`
 	SELECT
-		deployments_history.envName,
-		deployments_history.releaseVersion,
-	    deployments_history.revision
+		` + deploymentsHistoryTable + `.envName,
+		` + deploymentsHistoryTable + `.releaseVersion,
+	    ` + deploymentsHistoryTable + `.revision
 	FROM (
 	SELECT
 		MAX(version) AS latest,
 		appname,
 		envname
 	FROM
-		deployments_history
-	WHERE deployments_history.appname = (?) AND created <= (?) AND deployments_history.releaseVersion IS NOT NULL
+		` + deploymentsHistoryTable + `
+	WHERE ` + deploymentsHistoryTable + `.appname = (?) AND created <= (?) AND ` + deploymentsHistoryTable + `.releaseVersion IS NOT NULL
 	GROUP BY
 		envName, appname
 	) AS latest
 	JOIN
-		deployments_history AS deployments_history
+		` + deploymentsHistoryTable + ` AS ` + deploymentsHistoryTable + `
 	ON
-		latest.latest=deployments_history.version
-		AND latest.appname=deployments_history.appname
-		AND latest.envName=deployments_history.envName;`)
+		latest.latest=` + deploymentsHistoryTable + `.version
+		AND latest.appname=` + deploymentsHistoryTable + `.appname
+		AND latest.envName=` + deploymentsHistoryTable + `.envName;`)
 	span.SetTag("query", query)
 
 	rows, err := tx.QueryContext(
@@ -541,7 +561,7 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 	}()
 
 	query := h.AdaptQuery(
-		"SELECT created, envName, appName, releaseVersion, revision FROM deployment_attempts_history WHERE envName=? AND appName=? ORDER BY eslId DESC LIMIT ?;")
+		"SELECT created, envName, appName, releaseVersion, revision FROM " + deploymentAttemptsHistoryTable + " WHERE envName=? AND appName=? ORDER BY eslId DESC LIMIT ?;")
 
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(
@@ -581,7 +601,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOfAllApps(ctx context.Context
 	query := h.AdaptQuery(
 		`
 SELECT created, envName, appName, releaseVersion, revision
-FROM deployment_attempts_latest
+FROM ` + deploymentAttemptsLatestTable + `
 WHERE envName=?
 ORDER BY appName;
 		`)
@@ -602,7 +622,7 @@ func (h *DBHandler) DBSelectLatestDeploymentAttemptOnAllEnvironments(ctx context
 	query := h.AdaptQuery(
 		`
 SELECT created, envName, appName, releaseVersion, revision
-FROM deployment_attempts_latest
+FROM ` + deploymentAttemptsLatestTable + `
 WHERE appName=?
 ORDER BY envName;
 		`)
@@ -667,16 +687,16 @@ func (h *DBHandler) DBSelectAllOrphanDeployments(ctx context.Context, tx *sql.Tx
 	// select the orphan deployments from db
 	selectQuery := h.AdaptQuery(`
 		SELECT d.appName, d.envName
-		FROM deployments d
+		FROM ` + deploymentsTable + ` d
 			WHERE d.releaseversion IS NULL
 			OR NOT EXISTS (
-				SELECT 1 
-				FROM environments e 
+				SELECT 1
+				FROM environments e
 				WHERE e.name = d.envname
 			)
 			OR NOT EXISTS (
-				SELECT 1 
-				FROM apps a 
+				SELECT 1
+				FROM apps a
 				WHERE a.appname = d.appname
 			);
 	`)
@@ -715,7 +735,7 @@ func (h *DBHandler) DBSelectAllOrphanDeployments(ctx context.Context, tx *sql.Tx
 
 func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, appName types.AppName, envName types.EnvName) (err error) {
 	deleteQuery := h.AdaptQuery(`
-		DELETE FROM deployments WHERE appName=? AND envName=?;
+		DELETE FROM ` + deploymentsTable + ` WHERE appName=? AND envName=?;
 	`)
 	_, err = tx.ExecContext(ctx, deleteQuery, appName, envName)
 	if err != nil {
@@ -731,7 +751,7 @@ func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, t
 		span.Finish(tracer.WithError(err))
 	}()
 	historyUpdateQuery := h.AdaptQuery(`
-		UPDATE deployments_history SET created=? WHERE appname=? AND releaseversion=? AND envname=? AND revision=?;
+		UPDATE ` + deploymentsHistoryTable + ` SET created=? WHERE appname=? AND releaseversion=? AND envname=? AND revision=?;
 	`)
 
 	_, err = transaction.ExecContext(
@@ -753,7 +773,7 @@ func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, t
 	}
 
 	deploymentsUpdateQuery := h.AdaptQuery(`
-		UPDATE deployments SET created=? WHERE appname=? AND releaseversion=? AND envname=? AND revision=?;
+		UPDATE ` + deploymentsTable + ` SET created=? WHERE appname=? AND releaseversion=? AND envname=? AND revision=?;
 	`)
 
 	_, err = transaction.ExecContext(
@@ -785,7 +805,7 @@ func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deploym
 	}()
 
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO deployments (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision)
+		INSERT INTO ` + deploymentsTable + ` (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(appName, envName)
 		DO UPDATE SET created = excluded.created, releaseVersion = excluded.releaseVersion, metadata = excluded.metadata, transformereslversion = excluded.transformereslversion, revision = excluded.revision;
@@ -825,7 +845,7 @@ func (h *DBHandler) upsertDeploymentRow(ctx context.Context, tx *sql.Tx, deploym
 
 func (h *DBHandler) insertDeploymentHistoryRow(ctx context.Context, tx *sql.Tx, deployment Deployment) (err error) {
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO deployments_history (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision) 
+		INSERT INTO ` + deploymentsHistoryTable + ` (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
 	if tx == nil {
@@ -1096,7 +1116,7 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO deployment_attempts_history (created, envName, appName, releaseVersion, revision) VALUES (?, ?, ?, ?, ?);")
+		"INSERT INTO " + deploymentAttemptsHistoryTable + " (created, envName, appName, releaseVersion, revision) VALUES (?, ?, ?, ?, ?);")
 
 	_, err = tx.ExecContext(
 		ctx,
@@ -1114,7 +1134,7 @@ func (h *DBHandler) dbWriteDeploymentAttemptInternal(ctx context.Context, tx *sq
 	if nullVersion.Valid {
 		upsertQuery := h.AdaptQuery(
 			`
-INSERT INTO deployment_attempts_latest (
+INSERT INTO ` + deploymentAttemptsLatestTable + ` (
 	created,
 	envName,
 	appName,
@@ -1142,7 +1162,7 @@ ON CONFLICT (appName, envName) DO UPDATE SET
 	} else {
 		deleteQuery := h.AdaptQuery(
 			`
-DELETE FROM deployment_attempts_latest WHERE
+DELETE FROM ` + deploymentAttemptsLatestTable + ` WHERE
 	appName = ?
 	AND
 	envName = ?

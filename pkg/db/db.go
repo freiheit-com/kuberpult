@@ -270,6 +270,16 @@ const (
 	EvtDeleteAAEnvironmentConfig        EventType = "EvtDeleteAAEnvironmentConfig"
 )
 
+/*
+The event_sourcing_light (ESL) table is the master event log for all state changes in kuberpult.
+Every state-changing transaction appends exactly one row with a monotonically increasing eslVersion.
+The eslVersion acts as a cursor: downstream services (e.g. manifest-repo-export-service) replay
+events by reading all rows with eslVersion greater than their last-seen cutoff.
+The event_type column distinguishes transformer kinds (e.g. CreateApplicationVersion).
+The json column stores the full serialized transformer payload.
+*/
+const eslTable = "event_sourcing_light"
+
 // ESL EVENTS
 
 type ESLMetadata struct {
@@ -305,7 +315,7 @@ func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType Event
 		return fmt.Errorf("could not marshal combined json data: %w", err)
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type, json, trace_id, span_id)  VALUES (?, ?, ?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO " + eslTable + " (created, event_type, json, trace_id, span_id)  VALUES (?, ?, ?, ?, ?);")
 
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -339,7 +349,7 @@ func (h *DBHandler) DBWriteEslEventWithJson(ctx context.Context, tx *sql.Tx, eve
 		span.Finish(tracer.WithError(err))
 	}()
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO " + eslTable + " (created, event_type , json)  VALUES (?, ?, ?);")
 
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -403,7 +413,7 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	if firstRow {
 		sort = "ASC"
 	}
-	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json, trace_id, span_id FROM event_sourcing_light ORDER BY eslVersion %s LIMIT 1;", sort))
+	selectQuery := h.AdaptQuery(fmt.Sprintf("SELECT eslVersion, created, event_type, json, trace_id, span_id FROM "+eslTable+" ORDER BY eslVersion %s LIMIT 1;", sort))
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -441,7 +451,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf(`
 		SELECT eslVersion, created, event_type, json, trace_id, span_id
-		FROM event_sourcing_light
+		FROM `+eslTable+`
 		WHERE eslVersion > (?)
 		ORDER BY eslVersion %s
 		LIMIT 1;
@@ -504,7 +514,7 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	countQuery := h.AdaptQuery("SELECT COUNT(*) FROM event_sourcing_light WHERE eslVersion > ?;")
+	countQuery := h.AdaptQuery("SELECT COUNT(*) FROM " + eslTable + " WHERE eslVersion > ?;")
 	rows, err := tx.QueryContext(
 		ctx,
 		countQuery,
@@ -525,8 +535,16 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 	return count, nil
 }
 
+/*
+commit_events links git commits to the kuberpult transformer that produced them.
+Each row records the commit hash, commit type, and the transformerEslVersion of the ESL event.
+Only manifest-repo-export-service writes here, after successfully pushing a commit to the git manifest repo.
+This table lets callers trace which git commit corresponds to which kuberpult operation.
+*/
+const commitEventsTable = "commit_events"
+
 func (h *DBHandler) WriteEvent(ctx context.Context, transaction *sql.Tx, transformerID TransformerID, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) (err error) {
-	insertQuery := h.AdaptQuery("INSERT INTO commit_events (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO " + commitEventsTable + " (uuid, timestamp, commitHash, eventType, json, transformereslVersion)  VALUES (?, ?, ?, ?, ?, ?);")
 
 	now, err := h.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
@@ -644,7 +662,7 @@ func (h *DBHandler) DBSelectAnyEvent(ctx context.Context, transaction *sql.Tx) (
 
 	query := h.AdaptQuery(`
 		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
-		FROM commit_events
+		FROM ` + commitEventsTable + `
 		ORDER BY timestamp DESC
 		LIMIT 1;`,
 	)
@@ -661,7 +679,7 @@ func (h *DBHandler) DBContainsMigrationCommitEvent(ctx context.Context, transact
 
 	query := h.AdaptQuery(`
 		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
-		FROM commit_events
+		FROM ` + commitEventsTable + `
 		WHERE commitHash = (?)
 		ORDER BY timestamp DESC
 		LIMIT 1;`,
@@ -692,7 +710,7 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformer(ctx context.Context, t
 
 	query := h.AdaptQuery(`
 		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
-		FROM commit_events
+		FROM ` + commitEventsTable + `
 		WHERE eventType = (?) AND transformereslVersion = (?)
 		ORDER BY timestamp DESC
 		LIMIT ?;`,
@@ -772,7 +790,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, transaction 
 	// NOTE: We add one so we know if there is more to load
 	query := h.AdaptQuery(`
 		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
-		FROM commit_events
+		FROM ` + commitEventsTable + `
 		WHERE commitHash = (?)
 		ORDER BY timestamp ASC
 		LIMIT (?)
@@ -792,7 +810,7 @@ func (h *DBHandler) DBSelectAllCommitEventsForTransformerID(ctx context.Context,
 
 	query := h.AdaptQuery(`
 		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
-		FROM commit_events
+		FROM ` + commitEventsTable + `
 		WHERE transformereslVersion = (?)
 		ORDER BY timestamp DESC, uuid ASC
 		LIMIT 100;`)
@@ -810,7 +828,7 @@ func (h *DBHandler) DBSelectAllLockPreventedEventsForTransformerID(ctx context.C
 
 	query := h.AdaptQuery(`
 		SELECT uuid, timestamp, commitHash, eventType, json, transformereslVersion
-		FROM commit_events
+		FROM ` + commitEventsTable + `
 		WHERE transformereslVersion = (?) AND eventtype = (?)
 		ORDER BY timestamp DESC
 		LIMIT 100;`,
@@ -1270,7 +1288,7 @@ func (h *DBHandler) DBWriteMigrationsTransformer(ctx context.Context, transactio
 		return fmt.Errorf("could not marshal json transformer: %w", err)
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (eslversion, created, event_type, json) VALUES (0, ?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO " + eslTable + " (eslversion, created, event_type, json) VALUES (0, ?, ?, ?);")
 	ts, err := h.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
 		return fmt.Errorf("DBWriteMigrationsTransformer unable to get transaction timestamp: %w", err)
@@ -1487,6 +1505,16 @@ func (h *DBHandler) RunCustomMigrationReleaseEnvironments(ctx context.Context) (
 	return nil
 }
 
+/*
+event_sourcing_light_failed is a current-state table: one row per failing transformerEslVersion.
+When a transformer cannot be applied, the error is written to this table AND appended to
+event_sourcing_light_failed_history. On a successful retry the row is deleted from this table,
+but the history entry is kept forever as an audit trail.
+Do not delete from event_sourcing_light_failed_history.
+*/
+const eslFailedTable = "event_sourcing_light_failed"
+const eslFailedHistoryTable = "event_sourcing_light_failed_history"
+
 func (h *DBHandler) DBWriteFailedEslEvent(ctx context.Context, tx *sql.Tx, table string, eslEvent *EslFailedEventRow) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteFailedEslEvent")
 	defer func() {
@@ -1529,7 +1557,7 @@ func (h *DBHandler) DBDeleteFailedEslEvent(ctx context.Context, tx *sql.Tx, eslE
 		return fmt.Errorf("DBDeleteFailedEslEvent: no transaction provided")
 	}
 
-	deleteQuery := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE transformereslversion=?;")
+	deleteQuery := h.AdaptQuery("DELETE FROM " + eslFailedTable + " WHERE transformereslversion=?;")
 	span.SetTag("query", deleteQuery)
 	_, err = tx.ExecContext(
 		ctx,
@@ -1556,7 +1584,7 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 
 	query := h.AdaptQuery(`
 		SELECT created, event_type, json, reason, transformerEslVersion
-		FROM event_sourcing_light_failed
+		FROM ` + eslFailedTable + `
 		ORDER BY created desc
 		LIMIT (?)
 		OFFSET (?);
@@ -1602,7 +1630,7 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 
 	query := h.AdaptQuery(
 		`SELECT created, event_type, json, reason, transformerEslVersion
-	 FROM event_sourcing_light_failed WHERE transformerEslVersion=? ORDER BY created DESC LIMIT 1;`)
+	 FROM ` + eslFailedTable + ` WHERE transformerEslVersion=? ORDER BY created DESC LIMIT 1;`)
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, eslVersion)
 	if err != nil {
@@ -1642,7 +1670,7 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 		return nil, fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json, trace_id, span_id FROM event_sourcing_light ORDER BY eslVersion DESC LIMIT ?;")
+	query := h.AdaptQuery("SELECT eslVersion, created, event_type, json, trace_id, span_id FROM " + eslTable + " ORDER BY eslVersion DESC LIMIT ?;")
 	span.SetTag("query", query)
 	rows, err := tx.QueryContext(ctx, query, limit)
 	if err != nil {
@@ -1677,11 +1705,11 @@ func (h *DBHandler) DBInsertNewFailedESLEvent(ctx context.Context, tx *sql.Tx, e
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	err = h.DBWriteFailedEslEvent(ctx, tx, "event_sourcing_light_failed", eslEvent)
+	err = h.DBWriteFailedEslEvent(ctx, tx, eslFailedTable, eslEvent)
 	if err != nil {
 		return err
 	}
-	err = h.DBWriteFailedEslEvent(ctx, tx, "event_sourcing_light_failed_history", eslEvent)
+	err = h.DBWriteFailedEslEvent(ctx, tx, eslFailedHistoryTable, eslEvent)
 	if err != nil {
 		return err
 	}
@@ -1701,7 +1729,7 @@ func (h *DBHandler) DBSkipFailedEslEvent(ctx context.Context, tx *sql.Tx, transf
 		return fmt.Errorf("DBReadlastFailedEslEvents: no transaction provided")
 	}
 
-	query := h.AdaptQuery("DELETE FROM event_sourcing_light_failed WHERE transformerEslVersion = ?;")
+	query := h.AdaptQuery("DELETE FROM " + eslFailedTable + " WHERE transformerEslVersion = ?;")
 	span.SetTag("query", query)
 
 	result, err := tx.ExecContext(ctx, query, transformerEslVersion)
@@ -1743,6 +1771,13 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 	return &now, nil
 }
 
+/*
+commit_transaction_timestamps maps each git commit hash to the DB transaction timestamp at which it was written.
+This lets the manifest-repo-export-service correlate git history with database state:
+"what was the kuberpult state at the time commit X was pushed to the manifest repo?"
+*/
+const commitTransactionTimestampsTable = "commit_transaction_timestamps"
+
 func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *sql.Tx, commitHash string, timestamp time.Time) (err error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "DBWriteCommitTransactionTimestamp")
 	defer func() {
@@ -1757,7 +1792,7 @@ func (h *DBHandler) DBWriteCommitTransactionTimestamp(ctx context.Context, tx *s
 	}
 
 	insertQuery := h.AdaptQuery(
-		"INSERT INTO commit_transaction_timestamps (commitHash, transactionTimestamp) VALUES (?, ?);",
+		"INSERT INTO " + commitTransactionTimestampsTable + " (commitHash, transactionTimestamp) VALUES (?, ?);",
 	)
 
 	span.SetTag("query", insertQuery)
@@ -1781,7 +1816,7 @@ func (h *DBHandler) DBUpdateCommitTransactionTimestamp(ctx context.Context, tx *
 	}
 
 	insertQuery := h.AdaptQuery(
-		"UPDATE commit_transaction_timestamps SET transactionTimestamp=? WHERE commitHash=?;",
+		"UPDATE " + commitTransactionTimestampsTable + " SET transactionTimestamp=? WHERE commitHash=?;",
 	)
 
 	_, err = tx.ExecContext(
@@ -1811,7 +1846,7 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 
 	insertQuery := h.AdaptQuery(
 		"SELECT transactionTimestamp " +
-			"FROM commit_transaction_timestamps " +
+			"FROM " + commitTransactionTimestampsTable + " " +
 			"WHERE commitHash=?;",
 	)
 

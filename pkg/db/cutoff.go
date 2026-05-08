@@ -29,8 +29,19 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 )
 
+/*
+The cutoff table records the highest ESL version that has been fully processed by the
+manifest-repo-export-service and successfully committed to the git manifest repository.
+On startup, the service reads the maximum eslVersion here to resume replay from that point.
+Only manifest-repo-export-service writes to this table; cd-service only reads it.
+*/
+const cutoffTable = "cutoff"
+
 func DBReadCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx) (*EslVersion, error) {
-	selectQuery := h.AdaptQuery("SELECT eslVersion FROM cutoff ORDER BY eslVersion DESC LIMIT 1;")
+	selectQuery := h.AdaptQuery(`SELECT eslVersion
+		FROM ` + cutoffTable + `
+		ORDER BY eslVersion DESC
+		LIMIT 1;`)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -74,7 +85,8 @@ func DBWriteCutoff(h *DBHandler, ctx context.Context, tx *sql.Tx, eslVersion Esl
 		span.Finish(tracer.WithError(err))
 	}()
 
-	insertQuery := h.AdaptQuery("INSERT INTO cutoff (eslVersion, processedTime) VALUES (?, ?);")
+	insertQuery := h.AdaptQuery(`INSERT INTO ` + cutoffTable + ` (eslVersion, processedTime)
+		VALUES (?, ?);`)
 	span.SetTag("query", insertQuery)
 
 	_, err = tx.ExecContext(

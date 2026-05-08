@@ -188,3 +188,21 @@ Do not add nil checks for DBHandler (h) or sql.Tx (tx/transaction) in DB package
 **Why:** They are bloating the code too much. In the unlikely case that one is nil, we can deal with the panic.
 **How to apply:** When writing any new function in `pkg/db/`,
 skip the `if h == nil { return nil }` and `if tx == nil { return fmt.Errorf(...) }` guard clauses entirely.
+
+## Database Queries
+Format database queries in go code like this:
+```go
+	selectQuery := h.AdaptQuery(`
+		SELECT created, name, json, applications
+		FROM environments
+		LIMIT 1;
+	`)
+```
+Each main sql keyword gets its own line.
+
+There are 2 kinds of select queries:
+1) Those with exactly 1 or 0 results. If we filter for the primary key, then we do not need an ORDER BY.
+If we filter by something else, an ORDER BY and LIMIT 1 is required.
+2) Those with potentially a lot of results. These must have an ORDER BY and LIMIT N.
+
+The goal is to make all queries deterministic, including the order of the result.
