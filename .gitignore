@@ -40,5 +40,9 @@ docker.env
 
 # local setup
 .direnv
+
+# nix:
 .envrc.local
-.env
+# docker-compose:
+.env.local
+

@@ -114,14 +114,14 @@ else
 endif
 
 kuberpult: prepare-compose prepare-git prepare-pgp compose-down
-	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
+	docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
 	# This deletes the volume of the default db location:
 	docker volume rm $(COMPOSE_PROJECT_NAME)_pgdata
 
 kuberpult-freshdb: prepare-compose cleanup-git prepare-git prepare-pgp compose-down
-	docker compose up
+	docker compose --env-file .env.local up
 
 # Run this before starting the unit tests in your IDE:
 unit-test-db:
