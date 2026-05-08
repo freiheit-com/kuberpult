@@ -1,9 +1,13 @@
-FROM python:3.12-alpine
+FROM alpine:3.21
 WORKDIR /deps
 
 RUN apk add envsubst curl git
 
-RUN pip install yamale yamllint
+RUN curl --fail --silent --show-error --location --remote-name "https://github.com/wasilibs/go-yamllint/releases/download/v1.38.0/go-yamllint_1.38.0_linux_amd64.tar.gz" && \
+    echo f38a5a5740dceb3d4e2fb17bdabafa9ea16e7aaedde832a99c738e9b1eb7f746 go-yamllint_1.38.0_linux_amd64.tar.gz | sha256sum -c && \
+    tar xzf go-yamllint_1.38.0_linux_amd64.tar.gz && \
+    mv go-yamllint /usr/local/bin/yamllint && \
+    chmod +x /usr/local/bin/yamllint
 
 RUN curl --fail --silent --show-error --location --remote-name "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz" && \
     echo 0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5 helm-v3.14.2-linux-amd64.tar.gz | sha256sum -c && \

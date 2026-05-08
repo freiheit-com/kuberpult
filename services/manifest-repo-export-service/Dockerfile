@@ -7,7 +7,6 @@ FROM alpine:3.22.1 AS compiler
 RUN apk add --no-cache  \
         ca-certificates tar tzdata curl bash git \
         gcc g++ pkgconfig make cmake \
-        python3 py3-pip \
         musl-dev libffi-dev openssl-dev libssh2-dev \
         sqlite sqlite-dev
 

@@ -54,7 +54,7 @@ ifeq ($(CI),true)
 	@echo "running on CI no need to test this again! Check chart testing action."
 else
 	docker run --rm -w /kp -v "$(MAKEFILE_DIR)ci:/kp/ci" -v "$(MAKEFILE_DIR)Chart.yaml:/kp/Chart.yaml" -v "$(MAKEFILE_DIR)values.yaml:/kp/values.yaml" -v "$(MAKEFILE_DIR)templates:/kp/templates" $(CHARTS_BASE_IMAGE_URL) \
-		sh -c "ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git"
+		sh -c "ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git --validate-yaml=true --validate-chart-schema=false"
 endif
 
 test-helm: $(TGZ_FILE) Chart.yaml

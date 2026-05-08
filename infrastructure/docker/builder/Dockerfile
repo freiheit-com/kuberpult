@@ -39,3 +39,8 @@ WORKDIR /kp
 
 COPY go.mod go.sum ./
 
+# We only need python to install libgit, so now we removed it again to minimize security risks:
+RUN apk del --purge python3 py3-pip
+
+# and make sure it's really gone:
+RUN if command -v python3 > /dev/null; then echo "Python still exists!"; exit 1; else echo "Python deleted successfully"; fi
