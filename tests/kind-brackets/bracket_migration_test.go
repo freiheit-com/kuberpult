@@ -34,8 +34,13 @@ func helmUpgrade(t *testing.T, stagingEnabled bool) {
 		t.Fatalf("git describe: %v", err)
 	}
 	version := strings.TrimSpace(string(out))
-	chartPath := "charts/kuberpult/kuberpult-" + version + ".tgz"
-	valsPath := "charts/kuberpult/vals.yaml"
+	repoRoot, err2 := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err2 != nil {
+		t.Fatalf("git rev-parse: %v", err2)
+	}
+	root := strings.TrimSpace(string(repoRoot))
+	chartPath := root + "/charts/kuberpult/kuberpult-" + version + ".tgz"
+	valsPath := root + "/charts/kuberpult/vals.yaml"
 
 	stagingVal := "false"
 	if stagingEnabled {
