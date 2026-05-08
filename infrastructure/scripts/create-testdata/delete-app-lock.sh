@@ -3,11 +3,13 @@ set -eu
 set -o pipefail
 set -x
 
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 env=staging
 
 lockId=${2}
 app=${1}
-url="http://localhost:8081/environments/${env}/applications/${app}/locks/${lockId}"
+url="http://localhost:${FRONTEND_PORT}/environments/${env}/applications/${app}/locks/${lockId}"
 
 curl -X DELETE "$url" -H 'Content-Type: application/json'
 

@@ -6,7 +6,8 @@ set -o pipefail
 # ./get-process-delay.sh
 
 
-FRONTEND_PORT=8081 # see docker-compose.yml
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 
 curl  -f -X GET  \
     "http://localhost:${FRONTEND_PORT}/api/process-delay/" | jq .

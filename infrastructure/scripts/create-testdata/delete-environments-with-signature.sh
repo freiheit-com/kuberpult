@@ -8,10 +8,11 @@ set -o pipefail
 
 cd "$(dirname "$0")"
 
-FRONTEND_PORT=8081 # see docker-compose.yml
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 env=${1}
 curl  -f -X DELETE  \
     --form signature=@"$env".yaml.sig \
-    http://localhost:${FRONTEND_PORT}/api/environments/"${env}" -v
+    http://localhost:"${FRONTEND_PORT}"/api/environments/"${env}" -v
 
 echo # curl sometimes does not print a trailing \n

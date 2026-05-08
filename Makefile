@@ -29,6 +29,7 @@ INTEGRATION_TEST_CONFIG_FILE := $(INTEGRATION_TEST_CONFIG_DIR)/kubeconfig.yaml
 COMMIT_MSG_FILE := commitlint.msg
 
 export USER_UID := $(shell id -u)
+COMPOSE_PROJECT_NAME ?= kuberpult
 .install:
 	touch .install
 
@@ -123,14 +124,14 @@ else
 endif
 
 kuberpult: prepare-compose prepare-git prepare-pgp compose-down
-	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
+	docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
 	# This deletes the volume of the default db location:
-	docker volume rm kuberpult_pgdata
+	docker volume rm $(COMPOSE_PROJECT_NAME)_pgdata
 
 kuberpult-freshdb: prepare-compose cleanup-git prepare-git prepare-pgp compose-down
-	docker compose up
+	docker compose --env-file .env.local up
 
 # Run this before starting the unit tests in your IDE:
 unit-test-db:
