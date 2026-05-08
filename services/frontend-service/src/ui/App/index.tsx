@@ -171,10 +171,12 @@ export const App: React.FC = () => {
                         api.overviewService()
                             .GetAllManifestLocks({}, authHeader)
                             .then((res) => {
-                                UpdateAllManifestLocks.set(res);
+                                UpdateAllManifestLocks.set({ response: res });
                             })
                             .catch((e) => {
-                                PanicOverview.set({ error: JSON.stringify({ msg: 'error in GetAllManifestLocks', e }) });
+                                PanicOverview.set({
+                                    error: JSON.stringify({ msg: 'error in GetAllManifestLocks', e }),
+                                });
                             });
                     },
                     (error) => {

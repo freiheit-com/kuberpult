@@ -112,8 +112,12 @@ export const [useAllEnvLocks, updateAllEnvLocks] = createStore<{
     allTeamLocks: emptyTeamLocks,
 });
 
-export const emptyManifestLocks: GetAllManifestLocksResponse = { manifestLocks: [] };
-export const [useAllManifestLocks, UpdateAllManifestLocks] = createStore<GetAllManifestLocksResponse>(emptyManifestLocks);
+type ManifestLocksResponse = {
+    response: GetAllManifestLocksResponse;
+};
+
+export const emptyManifestLocks: ManifestLocksResponse = { response: { manifestLocks: [] } };
+export const [useAllManifestLocks, UpdateAllManifestLocks] = createStore<ManifestLocksResponse>(emptyManifestLocks);
 
 type TagsResponse = {
     response: GetGitTagsResponse;

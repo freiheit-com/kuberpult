@@ -132,20 +132,22 @@ export const LocksPage: React.FC = () => {
     }, [allAppLocks, appNameParam]);
 
     const manifestLocks = useMemo(() => {
-        const display: DisplayLock[] = (manifestLocksResponse.manifestLocks ?? []).map((info) => ({
-            date: info.lock?.createdAt,
-            environment: info.env,
-            application: info.app,
-            lockId: info.lock?.lockId ?? '',
-            message: info.lock?.message ?? '',
-            authorName: info.lock?.createdBy?.name,
-            authorEmail: info.lock?.createdBy?.email,
-            ciLink: info.lock?.ciLink ?? '',
-            suggestedLifetime: info.lock?.suggestedLifetime ?? '',
-            isManifestLock: true,
-        }));
+        const display: DisplayLock[] = (manifestLocksResponse.response.manifestLocks ?? [])
+            .map((info) => ({
+                date: info.lock?.createdAt,
+                environment: info.env,
+                application: info.app,
+                lockId: info.lock?.lockId ?? '',
+                message: info.lock?.message ?? '',
+                authorName: info.lock?.createdBy?.name,
+                authorEmail: info.lock?.createdBy?.email,
+                ciLink: info.lock?.ciLink ?? '',
+                suggestedLifetime: info.lock?.suggestedLifetime ?? '',
+                isManifestLock: true,
+            }))
+            .filter((lock) => searchCustomFilter(appNameParam, lock.application));
         return sortLocks(display, 'oldestToNewest');
-    }, [manifestLocksResponse]);
+    }, [manifestLocksResponse, appNameParam]);
 
     const element = useGlobalLoadingState();
     if (element) {
@@ -163,7 +165,11 @@ export const LocksPage: React.FC = () => {
                 <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
                 <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />
                 <LocksTable headerTitle="Team Locks" columnHeaders={teamFieldHeaders} locks={teamLocks} />
-                <LocksTable headerTitle="Manifest Locks" columnHeaders={manifestLockFieldHeaders} locks={manifestLocks} />
+                <LocksTable
+                    headerTitle="Manifest Locks"
+                    columnHeaders={manifestLockFieldHeaders}
+                    locks={manifestLocks}
+                />
             </main>
         </div>
     );
