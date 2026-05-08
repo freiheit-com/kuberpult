@@ -140,6 +140,10 @@ func (m *mockOverviewClient) Recv() (*api.GetChangedAppsResponse, error) {
 	return reply.ChangedApps, reply.RecvErr
 }
 
+func (m *mockOverviewClient) GetAllManifestLocks(ctx context.Context, in *api.GetAllManifestLocksRequest, opts ...grpc.CallOption) (*api.GetAllManifestLocksResponse, error) {
+	return nil, nil
+}
+
 var _ api.OverviewServiceClient = (*mockOverviewClient)(nil)
 
 type mockVersionClient struct {

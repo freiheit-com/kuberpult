@@ -2965,3 +2965,115 @@ func TestCombineTransformerResult(t *testing.T) {
 		})
 	}
 }
+
+func TestManifestLockPreventsDeployment(t *testing.T) {
+	const manifestFile = "environments/production/applications/test/manifests/manifests.yaml"
+	tcs := []struct {
+		Name             string
+		WriteLock        bool
+		DeleteLock       bool
+		ExpectManifest   bool
+	}{
+		{
+			Name:           "no lock - manifest is written",
+			WriteLock:      false,
+			DeleteLock:     false,
+			ExpectManifest: true,
+		},
+		{
+			Name:           "active lock - manifest is not written",
+			WriteLock:      true,
+			DeleteLock:     false,
+			ExpectManifest: false,
+		},
+		{
+			Name:           "deleted lock - manifest is written",
+			WriteLock:      true,
+			DeleteLock:     true,
+			ExpectManifest: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			repo, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repoInternal := repo.(*repository)
+
+			setupTransformers := []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "production"}},
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests:   map[types.EnvName]string{"production": "manifest-content"},
+					Version:     1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
+				},
+			}
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range setupTransformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "test@example.com", "test")
+				}
+				return nil
+			})
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range setupTransformers {
+					_, applyErr := repoInternal.ApplyTransformer(ctx, transaction, tr)
+					if applyErr != nil {
+						t.Fatalf("setup transformer failed: %v", applyErr)
+					}
+				}
+				return nil
+			})
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if tc.WriteLock {
+					//exhaustruct:ignore
+					if err := dbHandler.DBWriteManifestLock(ctx, transaction, "test", "production", db.LockMetadata{}); err != nil {
+						t.Fatalf("DBWriteManifestLock: %v", err)
+					}
+				}
+				if tc.DeleteLock {
+					if err := dbHandler.DBDeleteManifestLock(ctx, transaction, "test", "production"); err != nil {
+						t.Fatalf("DBDeleteManifestLock: %v", err)
+					}
+				}
+				return nil
+			})
+
+			deployTransformer := &DeployApplicationVersion{
+				Application:         "test",
+				Environment:         "production",
+				Version:             1,
+				TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
+			}
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				prepareDatabaseLikeCdService(ctx, transaction, deployTransformer, dbHandler, t, "test@example.com", "test")
+				return nil
+			})
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, applyErr := repoInternal.ApplyTransformer(ctx, transaction, deployTransformer)
+				if applyErr != nil {
+					t.Fatalf("deploy transformer failed: %v", applyErr)
+				}
+				return nil
+			})
+
+			state := repo.State()
+			_, statErr := state.Filesystem.Stat(manifestFile)
+			manifestExists := !errors.Is(statErr, os.ErrNotExist)
+			if diff := testutil.CmpDiff(tc.ExpectManifest, manifestExists); diff != "" {
+				t.Errorf("manifest existence mismatch (-want, +got):\n%s\nFiles present:\n%s", diff, strings.Join(listFiles(state.Filesystem), "\n"))
+			}
+		})
+	}
+}

@@ -28,6 +28,7 @@ import {
     GetFailedEslsResponse,
     GetFrontendConfigResponse,
     GetGitSyncStatusResponse,
+    GetAllManifestLocksResponse,
     GetGitTagsResponse,
     GetManifestsResponse,
     GetOverviewResponse,
@@ -65,6 +66,7 @@ export interface DisplayLock {
     authorEmail?: string;
     ciLink: string;
     suggestedLifetime: string;
+    isManifestLock?: boolean;
 }
 
 export interface ReleaseNumbers {
@@ -109,6 +111,13 @@ export const [useAllEnvLocks, updateAllEnvLocks] = createStore<{
     allEnvLocks: emptyEnvLocks,
     allTeamLocks: emptyTeamLocks,
 });
+
+type ManifestLocksResponse = {
+    response: GetAllManifestLocksResponse;
+};
+
+export const emptyManifestLocks: ManifestLocksResponse = { response: { manifestLocks: [] } };
+export const [useAllManifestLocks, UpdateAllManifestLocks] = createStore<ManifestLocksResponse>(emptyManifestLocks);
 
 type TagsResponse = {
     response: GetGitTagsResponse;

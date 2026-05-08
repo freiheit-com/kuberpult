@@ -447,6 +447,7 @@ service OverviewService {
   rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
   rpc GetAllAppLocks (GetAllAppLocksRequest) returns (GetAllAppLocksResponse) {}
   rpc GetAllEnvTeamLocks (GetAllEnvTeamLocksRequest) returns (GetAllEnvTeamLocksResponse) {}
+  rpc GetAllManifestLocks (GetAllManifestLocksRequest) returns (GetAllManifestLocksResponse) {}
 
   rpc StreamDeploymentHistory (DeploymentHistoryRequest) returns (stream DeploymentHistoryResponse) {}
 }
@@ -487,6 +488,18 @@ message GetAllEnvTeamLocksRequest {}
 message GetAllEnvTeamLocksResponse {
   map<string, Locks> all_env_locks = 1; //EnvName -> All env locks for that env
   map<string, AllTeamLocks> all_team_locks = 2; //EnvName -> All team locks for that env
+}
+
+message GetAllManifestLocksRequest {}
+
+message GetAllManifestLocksResponse {
+  repeated ManifestLockInfo manifest_locks = 1;
+}
+
+message ManifestLockInfo {
+  string app = 1;
+  string env = 2;
+  Lock   lock = 3;
 }
 
 message DeploymentHistoryRequest {

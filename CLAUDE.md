@@ -104,16 +104,17 @@ for _, tc := range tcs {
 }
 ```
 
-**Assertions with `cmp.Diff`:**
+**Assertions with `cmpDiff`:**
 ```go
-if diff := cmp.Diff(expected, actual); diff != "" {
+if diff := cmpDiff(expected, actual); diff != "" {
     t.Errorf("mismatch (-want, +got):\n%s", diff)
 }
 ```
+Always use cmpDiff, never use cmp.Diff, as it is not type-safe.
 
 **Proto message comparison:**
 ```go
-if diff := cmp.Diff(expected, actual, protocmp.Transform()); diff != "" {
+if diff := cmpDiff(expected, actual, protocmp.Transform()); diff != "" {
     t.Errorf("mismatch (-want, +got):\n%s", diff)
 }
 ```
@@ -181,6 +182,12 @@ The only exceptions are early calls that happen before the Authentication happen
 api.configService()
     .GetConfig({}) // the config service does not require authorisation
 ```
+
+## Nil Checks in DB code
+Do not add nil checks for DBHandler (h) or sql.Tx (tx/transaction) in DB package functions.
+**Why:** They are bloating the code too much. In the unlikely case that one is nil, we can deal with the panic.
+**How to apply:** When writing any new function in `pkg/db/`,
+skip the `if h == nil { return nil }` and `if tx == nil { return fmt.Errorf(...) }` guard clauses entirely.
 
 ## Database Queries
 Format database queries in go code like this:

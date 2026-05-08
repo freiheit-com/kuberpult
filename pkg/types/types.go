@@ -33,6 +33,8 @@ type AppName string
 
 type ArgoBracketName string
 
+type ManifestLockID int64
+
 type ArgoProjectName string
 
 func EnvNamesToStrings(a []EnvName) []string {
