@@ -17,11 +17,18 @@ Copyright freiheit.com*/
 package kindbracketstest
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
+
+const cdServiceGrpcAddr = "localhost:8083"
 
 // helmUpgrade calls helm upgrade with the bracket staging cluster override and waits
 // for the rollout-service deployment to finish rolling out.
@@ -181,4 +188,64 @@ func TestBracketMigration(t *testing.T) {
 			}
 		}
 	}
+}
+
+func deleteEnvFromApp(t *testing.T, env, app string) {
+	t.Helper()
+	conn, err := grpc.NewClient(cdServiceGrpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("deleteEnvFromApp: grpc dial: %v", err)
+	}
+	defer conn.Close()
+	client := api.NewBatchServiceClient(conn)
+	_, err = client.ProcessBatch(context.Background(), &api.BatchRequest{
+		Actions: []*api.BatchAction{
+			{Action: &api.BatchAction_DeleteEnvFromApp{
+				DeleteEnvFromApp: &api.DeleteEnvironmentFromAppRequest{
+					Environment: env,
+					Application: app,
+				},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("deleteEnvFromApp %s/%s: %v", env, app, err)
+	}
+}
+
+// TestBracketDeleteEnvFromApp verifies that removing the last app from a bracket
+// (via deleteEnvFromApp) does not cause the bracket Argo Application to be deleted.
+// The bracket should persist as long as the brackets_history table has an entry.
+func TestBracketDeleteEnvFromApp(t *testing.T) {
+	t.Logf("runSuffix: %s", runSuffix)
+	app := "bde-app1-" + runSuffix
+	bracket := "bde-bracket-" + runSuffix
+
+	t.Log("step 1: upgrade to staging=true (bracket mode)")
+	helmUpgrade(t, true)
+
+	t.Log("step 2: create v1 release (dev + dev2 + staging manifests)")
+	createRelease(t, app, "sreteam", bracket, "1", map[string]string{
+		devNamespace:     stableManifest(app, devNamespace, "1"),
+		dev2Namespace:    stableManifest(app, dev2Namespace, "1"),
+		stagingNamespace: stableManifest(app, stagingNamespace, "1"),
+	})
+
+	t.Log("step 3: run staging release train")
+	releaseTrain(t, stagingNamespace)
+
+	t.Log("step 4: wait for v1 synced in staging")
+	waitForDeploymentAnnotation(t, stagingNamespace, app+"-bracket-dep", "1")
+
+	t.Log("step 5: wait for bracket Argo app to appear on staging")
+	waitForArgoApp(t, "staging-"+bracket)
+
+	t.Log("step 6: delete env from app")
+	deleteEnvFromApp(t, stagingNamespace, app)
+
+	t.Log("step 7: 30s buffer for rollout-service to reconcile")
+	time.Sleep(30 * time.Second)
+
+	t.Log("step 8: verify bracket Argo app still exists (must not be deleted)")
+	waitForArgoApp(t, "staging-"+bracket)
 }
