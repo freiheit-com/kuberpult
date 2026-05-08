@@ -50,12 +50,21 @@ type ApplicationLockHistory struct {
 	DeletionMetadata LockDeletionMetadata
 }
 
+/*
+app_locks is the current set of active locks on (app, env) pairs: one row per (appName, envName, lockId).
+A lock is created by inserting a row; releasing a lock deletes the row.
+app_locks_history is the append-only audit trail of all create and delete events.
+The deleted column in the history table marks deletion events — rows are never removed from the history.
+*/
+const appLocksTable = "app_locks"
+const appLocksHistoryTable = "app_locks_history"
+
 // SELECTS
 
 func (h *DBHandler) DBSelectAppLock(ctx context.Context, tx *sql.Tx, environment types.EnvName, appName types.AppName, lockID string) (*ApplicationLockHistory, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, appName, metadata, deleted
-		FROM app_locks_history
+		FROM ` + appLocksHistoryTable + `
 		WHERE envName=? AND appName=? AND lockID=?
 		ORDER BY version DESC
 		LIMIT 1;`)
@@ -127,7 +136,7 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 	}
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, appname, metadata
-		FROM app_locks
+		FROM ` + appLocksTable + `
 		WHERE appName = (?)
 		ORDER BY lockId;`)
 
@@ -153,8 +162,8 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForSliceApps(ctx context.Context, t
 	}
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockid, envname, appname, metadata
-		FROM app_locks
-		WHERE app_locks.appName IN (?` + strings.Repeat(",?", len(appNames)-1) + `)
+		FROM ` + appLocksTable + `
+		WHERE ` + appLocksTable + `.appName IN (?` + strings.Repeat(",?", len(appNames)-1) + `)
 		ORDER BY lockId;`)
 
 	//Get the latest change to each lock
@@ -206,7 +215,7 @@ func (h *DBHandler) DBSelectAppLockSet(ctx context.Context, tx *sql.Tx, environm
 		var err error
 		selectQuery := h.AdaptQuery(`
 			SELECT created, lockID, envName, appName, metadata
-			FROM app_locks
+			FROM ` + appLocksTable + `
 			WHERE envName=? AND lockID=? AND appName=?
 			LIMIT 1;`)
 		rows, err = tx.QueryContext(ctx, selectQuery, environment, id, appName)
@@ -276,7 +285,8 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 		return nil, fmt.Errorf("DBSelectAllAppLocks: no transaction provided")
 	}
 	selectQuery := h.AdaptQuery(`
-		SELECT lockId FROM app_locks 
+		SELECT lockId
+		FROM ` + appLocksTable + `
 		WHERE envname = ? AND appName = ?
 		ORDER BY lockId;`)
 	span.SetTag("query", selectQuery)
@@ -311,7 +321,7 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 func (h *DBHandler) DBHasAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (bool, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockId, envName, appName, metadata
-		FROM app_locks
+		FROM ` + appLocksTable + `
 		LIMIT 1;
 	`)
 
@@ -333,8 +343,8 @@ func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, e
 	}()
 
 	selectQuery := h.AdaptQuery(`
-		SELECT created, lockId, envName, appName, metadata 
-		FROM app_locks
+		SELECT created, lockId, envName, appName, metadata
+		FROM ` + appLocksTable + `
 		WHERE envname = (?)
 		ORDER BY appName, lockId;`)
 	span.SetTag("query", selectQuery)
@@ -362,7 +372,7 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 
 	selectQuery := h.AdaptQuery(`
 		SELECT created, lockID, envName, appName, metadata, deleted, deletionMetadata
-		FROM app_locks_history
+		FROM ` + appLocksHistoryTable + `
 		WHERE envName=? AND lockID=? AND appName=?
 		ORDER BY version DESC
 		LIMIT ?;
@@ -495,7 +505,7 @@ func (h *DBHandler) upsertAppLockRow(ctx context.Context, transaction *sql.Tx, l
 		span.Finish(tracer.WithError(err))
 	}()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO app_locks (created, lockId, envname, appName, metadata)
+		INSERT INTO ` + appLocksTable + ` (created, lockId, envname, appName, metadata)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(appname, envname, lockid)
 		DO UPDATE SET created = excluded.created, lockid = excluded.lockid, metadata = excluded.metadata, envname = excluded.envname, appname = excluded.appname;
@@ -536,7 +546,7 @@ func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, l
 		span.Finish(tracer.WithError(err))
 	}()
 	deleteQuery := h.AdaptQuery(`
-		DELETE FROM app_locks WHERE appname=? AND lockId=? AND envname=?
+		DELETE FROM ` + appLocksTable + ` WHERE appname=? AND lockId=? AND envname=?
 	`)
 	span.SetTag("query", deleteQuery)
 	_, err = transaction.ExecContext(
@@ -559,7 +569,7 @@ func (h *DBHandler) deleteAppLockRow(ctx context.Context, transaction *sql.Tx, l
 
 func (h *DBHandler) insertAppLockHistoryRow(ctx context.Context, transaction *sql.Tx, lockID string, environment types.EnvName, appName types.AppName, metadata LockMetadata, deleted bool, deletionMetadata LockDeletionMetadata) (err error) {
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO app_locks_history (created, lockId, envname, appName, metadata, deleted, deletionMetadata)
+		INSERT INTO ` + appLocksHistoryTable + ` (created, lockId, envname, appName, metadata, deleted, deletionMetadata)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`)
 	jsonToInsert, err := json.Marshal(metadata)

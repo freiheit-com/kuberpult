@@ -31,6 +31,12 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
+/*
+The brackets history stores essentially a map with key=bracket and value=list of app names.
+Note that the bracket history is GLOBAL, meaning it's not defined per environment.
+Therefore, we only touch the bracket history if an app got deleted or added.
+But we do not touch it if an environment was removed from an app.
+*/
 const bracketsHistoryTable = "brackets_history"
 
 // BracketRow represents one row in the table brackets_history

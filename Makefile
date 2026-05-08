@@ -57,6 +57,7 @@ all: $(addsuffix /all,$(MAKEDIRS))
 init:
 
 .PHONY: release  $(addsuffix /release,$(MAKEDIRS)) all $(addsuffix /all,$(MAKEDIRS)) clean $(addsuffix /clean,$(MAKEDIRS))
+.PHONY: prepare-compose prepare-compose-cd-service prepare-compose-manifest-repo-export-service prepare-compose-frontend-service prepare-compose-ui
 
 .PHONY: version
 version:
@@ -99,12 +100,21 @@ prepare-pgp:
 		rm -rf "$$GNUPGHOME"; \
 	fi
 
+prepare-compose-cd-service:
+	IMAGE_TAG=local make -C services/cd-service docker
+
+prepare-compose-manifest-repo-export-service:
+	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
+
+prepare-compose-frontend-service:
+	IMAGE_TAG=local make -C services/frontend-service docker gen-api
+
+prepare-compose-ui:
+	make -C infrastructure/docker/ui build-pr
+
 prepare-compose: builder
 	BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:local make -C pkg gen
-	IMAGE_TAG=local make -C services/cd-service docker
-	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
-	IMAGE_TAG=local make -C services/frontend-service docker gen-api
-	make -C infrastructure/docker/ui build-pr
+	$(MAKE) -j4 prepare-compose-cd-service prepare-compose-manifest-repo-export-service prepare-compose-frontend-service prepare-compose-ui
 
 kuberpult-datadog: prepare-compose prepare-git prepare-pgp compose-down
 ifndef DD_ENV
