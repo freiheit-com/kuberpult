@@ -23,9 +23,12 @@ import (
 	"testing"
 	"time"
 
+	auth "github.com/freiheit-com/kuberpult/pkg/auth"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 const cdServiceGrpcAddr = "localhost:8083"
@@ -63,25 +66,31 @@ func helmUpgrade(t *testing.T, stagingEnabled bool) {
 		t.Fatalf("helm upgrade (staging=%s): %v\n%s", stagingVal, err, out2)
 	}
 
-	out3, err := exec.Command("kubectl", "rollout", "status",
-		"deployment/kuberpult-rollout-service", "--timeout=3m").CombinedOutput()
-	if err != nil {
-		t.Fatalf("kubectl rollout status: %v\n%s", err, out3)
+	for _, dep := range []string{
+		"deployment/kuberpult-rollout-service",
+		"deployment/kuberpult-cd-service",
+		"deployment/kuberpult-frontend-service",
+		"deployment/kuberpult-reposerver-service",
+	} {
+		out3, err := exec.Command("kubectl", "rollout", "status", dep, "--timeout=3m").CombinedOutput()
+		if err != nil {
+			t.Fatalf("kubectl rollout status %s: %v\n%s", dep, err, out3)
+		}
+		t.Logf("%s rolled out: %s", dep, strings.TrimSpace(string(out3)))
 	}
-	t.Logf("rollout-service rolled out: %s", strings.TrimSpace(string(out3)))
 }
 
 // waitForArgoApp polls until the named Argo Application exists in the default namespace.
 func waitForArgoApp(t *testing.T, name string) {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Minute)
+	deadline := time.Now().Add(argoAppWaitTimeout)
 	for time.Now().Before(deadline) {
 		out, err := exec.Command("kubectl", "get", "application", name, "-n", "default").Output()
 		if err == nil && strings.Contains(string(out), name) {
 			t.Logf("  Argo app present: %s", name)
 			return
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(argoAppPollInterval)
 	}
 	t.Fatalf("Argo app %q never appeared after 2 minutes", name)
 }
@@ -89,14 +98,14 @@ func waitForArgoApp(t *testing.T, name string) {
 // waitForArgoAppGone polls until the named Argo Application no longer exists.
 func waitForArgoAppGone(t *testing.T, name string) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Minute)
+	deadline := time.Now().Add(argoAppGoneTimeout)
 	for time.Now().Before(deadline) {
 		_, err := exec.Command("kubectl", "get", "application", name, "-n", "default").Output()
 		if err != nil {
 			t.Logf("  Argo app gone: %s", name)
 			return
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(argoAppPollInterval)
 	}
 	t.Fatalf("Argo app %q still present after 3 minutes", name)
 }
@@ -173,7 +182,7 @@ func TestBracketMigration(t *testing.T) {
 	}
 
 	t.Log("step 10: 20s buffer to let any accidental pod churn complete")
-	time.Sleep(20 * time.Second)
+	time.Sleep(podChurnBuffer)
 
 	t.Log("step 11: verify pod start times have not changed (all environments)")
 	for _, app := range apps {
@@ -190,27 +199,47 @@ func TestBracketMigration(t *testing.T) {
 	}
 }
 
+// processBatch sends a BatchRequest to the cd-service, retrying on Unavailable
+// (port-forward restarting after pod replacement) for up to 30 s.
+func processBatch(t *testing.T, req *api.BatchRequest) {
+	t.Helper()
+	ctx := auth.WriteUserToGrpcContext(context.Background(), auth.User{
+		Email: "test@kuberpult.example.com",
+		Name:  "Kind Test",
+	})
+	deadline := time.Now().Add(grpcRetryTimeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		conn, err := grpc.NewClient(cdServiceGrpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			lastErr = err
+			time.Sleep(grpcRetryInterval)
+			continue
+		}
+		_, lastErr = api.NewBatchServiceClient(conn).ProcessBatch(ctx, req)
+		conn.Close()
+		if lastErr == nil {
+			return
+		}
+		if status.Code(lastErr) == codes.Unavailable {
+			time.Sleep(grpcRetryInterval)
+			continue
+		}
+		break
+	}
+	t.Fatalf("processBatch: %v", lastErr)
+}
+
 func deleteEnvFromApp(t *testing.T, env, app string) {
 	t.Helper()
-	conn, err := grpc.NewClient(cdServiceGrpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("deleteEnvFromApp: grpc dial: %v", err)
-	}
-	defer conn.Close()
-	client := api.NewBatchServiceClient(conn)
-	_, err = client.ProcessBatch(context.Background(), &api.BatchRequest{
-		Actions: []*api.BatchAction{
-			{Action: &api.BatchAction_DeleteEnvFromApp{
-				DeleteEnvFromApp: &api.DeleteEnvironmentFromAppRequest{
-					Environment: env,
-					Application: app,
-				},
-			}},
-		},
-	})
-	if err != nil {
-		t.Fatalf("deleteEnvFromApp %s/%s: %v", env, app, err)
-	}
+	processBatch(t, &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_DeleteEnvFromApp{
+			DeleteEnvFromApp: &api.DeleteEnvironmentFromAppRequest{
+				Environment: env,
+				Application: app,
+			},
+		}},
+	}})
 }
 
 // TestBracketDeleteEnvFromApp verifies that removing the last app from a bracket
@@ -244,7 +273,7 @@ func TestBracketDeleteEnvFromApp(t *testing.T) {
 	deleteEnvFromApp(t, stagingNamespace, app)
 
 	t.Log("step 7: 30s buffer for rollout-service to reconcile")
-	time.Sleep(30 * time.Second)
+	time.Sleep(reconcileBuffer)
 
 	t.Log("step 8: verify bracket Argo app still exists (must not be deleted)")
 	waitForArgoApp(t, "staging-"+bracket)
@@ -316,7 +345,7 @@ func TestBracketUndeploy(t *testing.T) {
 	undeployApp(t, app1)
 
 	t.Log("step 8: 30s buffer for rollout-service to reconcile")
-	time.Sleep(30 * time.Second)
+	time.Sleep(reconcileBuffer)
 
 	t.Log("step 9: verify bracket1 Argo app still exists (must not be deleted)")
 	waitForArgoApp(t, "staging-"+bracket1)

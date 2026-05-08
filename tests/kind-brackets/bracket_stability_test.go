@@ -45,6 +45,16 @@ const (
 	stagingNamespace      = "staging"
 	// Bracket name used for the two test apps.
 	testBracket = "bracket-stability-test"
+
+	// Polling intervals and deadlines.
+	argoAppWaitTimeout  = 2 * time.Minute
+	argoAppGoneTimeout  = 3 * time.Minute
+	argoAppPollInterval = 5 * time.Second
+	podPollInterval     = 3 * time.Second
+	podChurnBuffer      = 20 * time.Second
+	reconcileBuffer     = 30 * time.Second
+	grpcRetryTimeout    = 30 * time.Second
+	grpcRetryInterval   = 2 * time.Second
 )
 
 // stableManifest returns a Deployment + ConfigMap for app/namespace/version.
@@ -169,7 +179,7 @@ func releaseTrain(t *testing.T, env string) {
 func podStartTime(t *testing.T, namespace, app string) string {
 	t.Helper()
 	label := "app=" + app + "-bracket"
-	deadline := time.Now().Add(2 * time.Minute)
+	deadline := time.Now().Add(argoAppWaitTimeout)
 	for time.Now().Before(deadline) {
 		out, err := exec.Command(
 			"kubectl", "get", "pods",
@@ -182,7 +192,7 @@ func podStartTime(t *testing.T, namespace, app string) string {
 		if err == nil && s != "" {
 			return s
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(podPollInterval)
 	}
 	t.Fatalf("no Running pod with label %s in namespace %s after 2 minutes", label, namespace)
 	return ""
@@ -193,7 +203,7 @@ func podStartTime(t *testing.T, namespace, app string) string {
 // deadline is exceeded.  This confirms ArgoCD has synced the release.
 func waitForDeploymentAnnotation(t *testing.T, namespace, deploymentName, wantVersion string) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Minute)
+	deadline := time.Now().Add(argoAppGoneTimeout)
 	for time.Now().Before(deadline) {
 		out, _ := exec.Command(
 			"kubectl", "get", "deployment", deploymentName,
@@ -203,7 +213,7 @@ func waitForDeploymentAnnotation(t *testing.T, namespace, deploymentName, wantVe
 		if strings.TrimSpace(string(out)) == wantVersion {
 			return
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(podPollInterval)
 	}
 	t.Fatalf("deployment %s/%s annotation release-version never reached %q after 3 minutes",
 		namespace, deploymentName, wantVersion)
@@ -296,7 +306,7 @@ func TestBracketPodStability(t *testing.T) {
 	// Extra buffer: if a pod was deleted give it time to come back, so a
 	// transient absence is reliably caught by the startTime diff.
 	t.Log("step 7: 20s buffer to let any accidental pod churn complete")
-	time.Sleep(20 * time.Second)
+	time.Sleep(podChurnBuffer)
 
 	t.Log("step 8: verify staging pod start times have not changed")
 	for _, app := range apps {

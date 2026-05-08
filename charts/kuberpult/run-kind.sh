@@ -5,6 +5,7 @@ source "$(dirname "$0")/lib.sh"
 
 set -eu
 set -o pipefail
+trap 'kill 0' EXIT SIGINT SIGTERM
 
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
