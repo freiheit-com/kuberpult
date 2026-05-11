@@ -38,7 +38,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../button';
 import { useApi } from '../../utils/GrpcApi';
-import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
+import { EnvSelectionDialogTrain } from '../SelectionDialog/SelectionDialogs';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export type TableProps = {
@@ -281,12 +281,12 @@ export const ProductVersion: React.FC = () => {
     const envsFiltered = envsList.filter((env) => groupName === env.config?.upstream?.environment);
 
     const dialog = (
-        <EnvSelectionDialog
+        <EnvSelectionDialogTrain
             environments={envsFiltered.map((env) => env.name)}
             open={showReleaseTrainEnvs}
             onCancel={handleClose}
             onSubmit={confirmReleaseTrainFunction}
-            envSelectionDialog={false}
+            multiSelect={false}
         />
     );
     return (
