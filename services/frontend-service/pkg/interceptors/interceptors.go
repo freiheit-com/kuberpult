@@ -149,7 +149,7 @@ func DexLoginInterceptor(
 
 // DexAPIInterceptor intercepts HTTP calls to the frontend service.
 // DexAPIInterceptor must only be used if dex is enabled.
-// If the user us not logged in, responds with unauthorized. API users must make a call to /token and obtain the access token from dex first
+// If the user us not logged in, responds with unauthorised. API users must make a call to /token and obtain the access token from dex first
 // If the user is already logged in, proceeds with the request.
 func DexAPIInterceptor(
 	w http.ResponseWriter,
@@ -160,7 +160,7 @@ func DexAPIInterceptor(
 	httpCtx, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, DexRbacPolicy, useClusterInternalCommunication)
 	if err != nil {
 		logging.Info(req.Context(), "Error verifying Dex token", zap.Error(err))
-		// If user is not authenticated respond with unauthorized
+		// If user is not authenticated respond with unauthorised
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
