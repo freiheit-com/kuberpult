@@ -19,15 +19,11 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"os"
-	"sort"
 	"strings"
 	"sync"
 
 	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -83,87 +79,95 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
 	dbHandler := s.Repository.State().DBHandler
 
-	commitID, err := db.WithTransactionT(dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*string, error) {
-		commitIDPrefix := in.CommitHash
-		commitID, err := findCommitID(ctx, dbHandler, transaction, commitIDPrefix)
-		return &commitID, err
+	commitInfo, err := db.WithTransactionT(dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetCommitInfoResponse, error) {
+		commitIDPrefix, pageNumber := in.CommitHash, in.PageNumber
+		release, err := findReleaseByCommitID(ctx, dbHandler, transaction, commitIDPrefix)
+		if err != nil {
+			return nil, err
+		}
+		commitID := release.Metadata.SourceCommitId
+
+		loadMore := false
+		events, err := s.GetEvents(ctx, transaction, commitID, pageNumber)
+		if err != nil {
+			return nil, err
+		}
+		if len(events) > int(s.PageSize) {
+			loadMore = true
+			events = events[:len(events)-1]
+		}
+
+		return &api.GetCommitInfoResponse{
+			CommitHash:         release.Metadata.SourceCommitId,
+			CommitMessage:      release.Metadata.SourceMessage,
+			TouchedApps:        []string{}, //TODO
+			Events:             events,     //TODO
+			PreviousCommitHash: release.Metadata.SourceCommitId, //TODO
+			NextCommitHash:     "",         //TODO
+			LoadMore:           loadMore,   //TODO
+		}, err
 	})
 	if err != nil {
 		return nil, err
 	}
+	return commitInfo, nil
 
-	fs := s.Repository.State().Filesystem
-	commitPath := fs.Join("commits", (*commitID)[:2], (*commitID)[2:])
+	// var previousCommitMessagePath = fs.Join(commitPath, "previousCommit")
+	// var previousCommitId string
+	// if data, err := util.ReadFile(fs, previousCommitMessagePath); err != nil {
+	// 	if !errors.Is(err, os.ErrNotExist) {
+	// 		return nil, fmt.Errorf("could not open the previous commit file at %s, err: %w", previousCommitMessagePath, err)
+	// 	}
+	// } else {
+	// 	previousCommitId = string(data)
+	// }
 
-	sourceMessagePath := fs.Join(commitPath, "source_message")
-	var commitMessage string
-	if dat, err := util.ReadFile(fs, sourceMessagePath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, status.Error(codes.NotFound, "commit info does not exist")
-		}
-		return nil, fmt.Errorf("could not open the source message file at %s, err: %w", sourceMessagePath, err)
-	} else {
-		commitMessage = string(dat)
-	}
+	// var nextCommitMessagePath = fs.Join(commitPath, "nextCommit")
+	// var nextCommitId string
+	// if data, err := util.ReadFile(fs, nextCommitMessagePath); err != nil {
+	// 	if !errors.Is(err, os.ErrNotExist) {
+	// 		return nil, fmt.Errorf("could not open the next commit file at %s, err: %w", nextCommitMessagePath, err)
+	// 	} //If no file exists, there is no next commit
+	// } else {
+	// 	nextCommitId = string(data)
+	// }
 
-	var previousCommitMessagePath = fs.Join(commitPath, "previousCommit")
-	var previousCommitId string
-	if data, err := util.ReadFile(fs, previousCommitMessagePath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("could not open the previous commit file at %s, err: %w", previousCommitMessagePath, err)
-		}
-	} else {
-		previousCommitId = string(data)
-	}
+	// commitApplicationsDirPath := fs.Join(commitPath, "applications")
+	// dirs, err := fs.ReadDir(commitApplicationsDirPath)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("could not read the applications directory at %s, error: %w", commitApplicationsDirPath, err)
+	// }
+	// touchedApps := make([]string, 0)
+	// for _, dir := range dirs {
+	// 	touchedApps = append(touchedApps, dir.Name())
+	// }
+	// sort.Strings(touchedApps)
+	// var events []*api.Event
+	// loadMore := false
+	// events, err = db.WithTransactionMultipleEntriesT(s.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
+	// 	return s.GetEvents(ctx, transaction, fs, commitPath, in.PageNumber)
+	// })
+	// if len(events) > int(s.PageSize) {
+	// 	loadMore = true
+	// 	events = events[:len(events)-1]
+	// }
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	var nextCommitMessagePath = fs.Join(commitPath, "nextCommit")
-	var nextCommitId string
-	if data, err := util.ReadFile(fs, nextCommitMessagePath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("could not open the next commit file at %s, err: %w", nextCommitMessagePath, err)
-		} //If no file exists, there is no next commit
-	} else {
-		nextCommitId = string(data)
-	}
-
-	commitApplicationsDirPath := fs.Join(commitPath, "applications")
-	dirs, err := fs.ReadDir(commitApplicationsDirPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not read the applications directory at %s, error: %w", commitApplicationsDirPath, err)
-	}
-	touchedApps := make([]string, 0)
-	for _, dir := range dirs {
-		touchedApps = append(touchedApps, dir.Name())
-	}
-	sort.Strings(touchedApps)
-	var events []*api.Event
-	loadMore := false
-	events, err = db.WithTransactionMultipleEntriesT(s.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
-		return s.GetEvents(ctx, transaction, fs, commitPath, in.PageNumber)
-	})
-	if len(events) > int(s.PageSize) {
-		loadMore = true
-		events = events[:len(events)-1]
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &api.GetCommitInfoResponse{
-		CommitHash:         *commitID,
-		CommitMessage:      commitMessage,
-		TouchedApps:        touchedApps,
-		Events:             events,
-		PreviousCommitHash: previousCommitId,
-		NextCommitHash:     nextCommitId,
-		LoadMore:           loadMore,
-	}, nil
+	// return &api.GetCommitInfoResponse{
+	// 	CommitHash:         *commitID,
+	// 	CommitMessage:      commitMessage,
+	// 	TouchedApps:        touchedApps,
+	// 	Events:             events,
+	// 	PreviousCommitHash: previousCommitId,
+	// 	NextCommitHash:     nextCommitId,
+	// 	LoadMore:           loadMore,
+	// }, nil
 }
 
-func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string, pageNumber uint64) ([]*api.Event, error) {
+func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, commitID string, pageNumber uint64) ([]*api.Event, error) {
 	var result []*api.Event
-	parts := strings.Split(commitPath, "/")
-	commitID := parts[len(parts)-2] + parts[len(parts)-1]
 
 	events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID, pageNumber, s.PageSize)
 	if err != nil {
@@ -192,33 +196,33 @@ func (s *GitServer) ReadEvent(_ context.Context, fs billy.Filesystem, eventPath 
 	return eventmod.ToProto(eventId, event), nil
 }
 
-// findCommitID checks if the releases table in the database contains
+// findReleaseByCommitID checks if the releases table in the database contains
 // a release with the given commit hash prefix (metadata.sourceCommitId). Returns the
-// full hash of the commit, if a unique one can be found. Returns a
+// found release, if a unique one can be found. Returns a
 // gRPC error that can be directly returned to the client.
-func findCommitID(
+func findReleaseByCommitID(
 	ctx context.Context,
 	dbHandler *db.DBHandler,
 	transaction *sql.Tx,
 	commitPrefix string,
-) (string, error) {
+) (*db.DBReleaseWithMetaData, error) {
 	if !valid.SHA1CommitIDPrefix(commitPrefix) {
-		return "", status.Error(codes.InvalidArgument,
+		return nil, status.Error(codes.InvalidArgument,
 			"not a valid commit_hash")
 	}
 	commitPrefix = strings.ToLower(commitPrefix)
 	if len(commitPrefix) < 7 {
-		return "", status.Error(codes.InvalidArgument,
+		return nil, status.Error(codes.InvalidArgument,
 			"commit_hash too short (must be at least 7 characters)")
 	}
 
 	release, err := dbHandler.DBSelectReleaseBySourceCommit(ctx, transaction, commitPrefix, true)
-	if err != nil {
-		return "", grpcErrors.NotFoundError(ctx,
+	if release == nil || err != nil {
+		return nil, grpcErrors.NotFoundError(ctx,
 			fmt.Errorf("commit with prefix %s was not found in the database", commitPrefix))
 	}
 
-	return release.Metadata.SourceCommitId, nil
+	return release, nil
 }
 
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (_ *api.GetGitSyncStatusResponse, err error) {
