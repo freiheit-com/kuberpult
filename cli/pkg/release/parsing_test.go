@@ -53,7 +53,7 @@ func TestReadArgs(t *testing.T) {
 			name: "some unrecognized positional arguments",
 			args: []string{"--skip_signatures", "potato", "tomato"},
 			expectedError: errMatcher{
-				msg: "these arguments are not recognized: \"potato tomato\"",
+				msg: "these arguments are not recognised: \"potato tomato\"",
 			},
 		},
 		{
