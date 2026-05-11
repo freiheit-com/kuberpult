@@ -81,16 +81,19 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
-	fs := s.Repository.State().Filesystem
+	dbHandler := s.Repository.State().DBHandler
 
-	commitIDPrefix, pageNumber := in.CommitHash, in.PageNumber
-
-	commitID, err := findCommitID(ctx, fs, commitIDPrefix)
+	commitID, err := db.WithTransactionT(dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*string, error) {
+		commitIDPrefix := in.CommitHash
+		commitID, err := findCommitID(ctx, dbHandler, transaction, commitIDPrefix)
+		return &commitID, err
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	commitPath := fs.Join("commits", commitID[:2], commitID[2:])
+	fs := s.Repository.State().Filesystem
+	commitPath := fs.Join("commits", (*commitID)[:2], (*commitID)[2:])
 
 	sourceMessagePath := fs.Join(commitPath, "source_message")
 	var commitMessage string
@@ -136,7 +139,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	var events []*api.Event
 	loadMore := false
 	events, err = db.WithTransactionMultipleEntriesT(s.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
-		return s.GetEvents(ctx, transaction, fs, commitPath, pageNumber)
+		return s.GetEvents(ctx, transaction, fs, commitPath, in.PageNumber)
 	})
 	if len(events) > int(s.PageSize) {
 		loadMore = true
@@ -147,7 +150,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	}
 
 	return &api.GetCommitInfoResponse{
-		CommitHash:         commitID,
+		CommitHash:         *commitID,
 		CommitMessage:      commitMessage,
 		TouchedApps:        touchedApps,
 		Events:             events,
@@ -189,13 +192,14 @@ func (s *GitServer) ReadEvent(_ context.Context, fs billy.Filesystem, eventPath 
 	return eventmod.ToProto(eventId, event), nil
 }
 
-// findCommitID checks if the "commits" directory in the given
-// filesystem contains a commit with the given prefix. Returns the
+// findCommitID checks if the releases table in the database contains
+// a release with the given commit hash prefix (metadata.sourceCommitId). Returns the
 // full hash of the commit, if a unique one can be found. Returns a
 // gRPC error that can be directly returned to the client.
 func findCommitID(
 	ctx context.Context,
-	fs billy.Filesystem,
+	dbHandler *db.DBHandler,
+	transaction *sql.Tx,
 	commitPrefix string,
 ) (string, error) {
 	if !valid.SHA1CommitIDPrefix(commitPrefix) {
@@ -203,50 +207,18 @@ func findCommitID(
 			"not a valid commit_hash")
 	}
 	commitPrefix = strings.ToLower(commitPrefix)
-	if len(commitPrefix) == valid.SHA1CommitIDLength {
-		// the easy case: the commit has been requested in
-		// full length, so we simply check if the file exist
-		// and are done.
-		commitPath := fs.Join("commits", commitPrefix[:2], commitPrefix[2:])
-
-		if _, err := fs.Stat(commitPath); err != nil {
-			return "", grpcErrors.NotFoundError(ctx,
-				fmt.Errorf("commit %s was not found in the manifest repo", commitPrefix))
-		}
-
-		return commitPrefix, nil
-	}
 	if len(commitPrefix) < 7 {
 		return "", status.Error(codes.InvalidArgument,
 			"commit_hash too short (must be at least 7 characters)")
 	}
-	// the dir we're looking in
-	commitDir := fs.Join("commits", commitPrefix[:2])
-	files, err := fs.ReadDir(commitDir)
+
+	release, err := dbHandler.DBSelectReleaseBySourceCommit(ctx, transaction, commitPrefix, true)
 	if err != nil {
 		return "", grpcErrors.NotFoundError(ctx,
-			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
+			fmt.Errorf("commit with prefix %s was not found in the database", commitPrefix))
 	}
-	// the prefix of the file we're looking for
-	filePrefix := commitPrefix[2:]
-	var commitID string
-	for _, file := range files {
-		fileName := file.Name()
-		if !strings.HasPrefix(fileName, filePrefix) {
-			continue
-		}
-		if commitID != "" {
-			// another commit has already been found
-			return "", status.Error(codes.InvalidArgument,
-				"commit_hash is not unique, provide the complete hash (or a longer prefix)")
-		}
-		commitID = commitPrefix[:2] + fileName
-	}
-	if commitID == "" {
-		return "", grpcErrors.NotFoundError(ctx,
-			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
-	}
-	return commitID, nil
+
+	return release.Metadata.SourceCommitId, nil
 }
 
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (_ *api.GetGitSyncStatusResponse, err error) {

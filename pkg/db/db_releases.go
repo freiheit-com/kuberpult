@@ -357,6 +357,23 @@ func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, 
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, false)
 }
 
+func (h *DBHandler) DBSelectReleaseBySourceCommit(ctx context.Context, tx *sql.Tx, sourceCommitID string, ignorePrepublishes bool) (_ *DBReleaseWithMetaData, err error) {
+	selectQuery := h.AdaptQuery(`
+		SELECT created, appName, metadata, releaseVersion, environments, revision
+		FROM ` + releasesTable + `
+		WHERE (metadata::jsonb)->>'SourceCommitId' LIKE ?
+		ORDER BY releaseversion DESC, revision DESC
+		LIMIT 1;
+	`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		sourceCommitID+"%",
+	)
+
+	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, false)
+}
+
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app types.AppName) (_ []types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
 	defer func() {

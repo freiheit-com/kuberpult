@@ -321,7 +321,7 @@ func Run(ctx context.Context) error {
 		NetworkTimeout:       time.Duration(networkTimeoutSeconds) * time.Second,
 		ReleaseVersionLimit:  uint(releaseVersionLimit),
 		ArgoCdGenerateFiles:  argoCdGenerateFiles,
-		MinimizeExportedData: true, // enable by default
+		MinimizeExportedData: false, // enable by default
 
 		DBHandler: dbHandler,
 
