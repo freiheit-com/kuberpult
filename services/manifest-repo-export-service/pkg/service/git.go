@@ -100,70 +100,17 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		return &api.GetCommitInfoResponse{
 			CommitHash:         release.Metadata.SourceCommitId,
 			CommitMessage:      release.Metadata.SourceMessage,
-			TouchedApps:        []string{}, //TODO
-			Events:             events,     //TODO
-			PreviousCommitHash: release.Metadata.SourceCommitId, //TODO
-			NextCommitHash:     "",         //TODO
-			LoadMore:           loadMore,   //TODO
-		}, err
+			TouchedApps:        []string{string(release.App)},
+			Events:             events,
+			PreviousCommitHash: "", //TODO
+			NextCommitHash:     "", //TODO
+			LoadMore:           loadMore,
+		}, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return commitInfo, nil
-
-	// var previousCommitMessagePath = fs.Join(commitPath, "previousCommit")
-	// var previousCommitId string
-	// if data, err := util.ReadFile(fs, previousCommitMessagePath); err != nil {
-	// 	if !errors.Is(err, os.ErrNotExist) {
-	// 		return nil, fmt.Errorf("could not open the previous commit file at %s, err: %w", previousCommitMessagePath, err)
-	// 	}
-	// } else {
-	// 	previousCommitId = string(data)
-	// }
-
-	// var nextCommitMessagePath = fs.Join(commitPath, "nextCommit")
-	// var nextCommitId string
-	// if data, err := util.ReadFile(fs, nextCommitMessagePath); err != nil {
-	// 	if !errors.Is(err, os.ErrNotExist) {
-	// 		return nil, fmt.Errorf("could not open the next commit file at %s, err: %w", nextCommitMessagePath, err)
-	// 	} //If no file exists, there is no next commit
-	// } else {
-	// 	nextCommitId = string(data)
-	// }
-
-	// commitApplicationsDirPath := fs.Join(commitPath, "applications")
-	// dirs, err := fs.ReadDir(commitApplicationsDirPath)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("could not read the applications directory at %s, error: %w", commitApplicationsDirPath, err)
-	// }
-	// touchedApps := make([]string, 0)
-	// for _, dir := range dirs {
-	// 	touchedApps = append(touchedApps, dir.Name())
-	// }
-	// sort.Strings(touchedApps)
-	// var events []*api.Event
-	// loadMore := false
-	// events, err = db.WithTransactionMultipleEntriesT(s.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
-	// 	return s.GetEvents(ctx, transaction, fs, commitPath, in.PageNumber)
-	// })
-	// if len(events) > int(s.PageSize) {
-	// 	loadMore = true
-	// 	events = events[:len(events)-1]
-	// }
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// return &api.GetCommitInfoResponse{
-	// 	CommitHash:         *commitID,
-	// 	CommitMessage:      commitMessage,
-	// 	TouchedApps:        touchedApps,
-	// 	Events:             events,
-	// 	PreviousCommitHash: previousCommitId,
-	// 	NextCommitHash:     nextCommitId,
-	// 	LoadMore:           loadMore,
-	// }, nil
 }
 
 func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, commitID string, pageNumber uint64) ([]*api.Event, error) {
