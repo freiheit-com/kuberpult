@@ -20,6 +20,7 @@ import { ReactComponent as Locks } from './Locks.svg';
 import { ReactComponent as LocksWhite } from './Locks_White.svg';
 import { ReactComponent as LocksRed } from './Locks_Red.svg';
 import { ReactComponent as LocksRedSmall } from './Locks_Red_Small.svg';
+import { ReactComponent as LocksWhiteSmall } from './Locks_White_Small.svg';
 import { ReactComponent as Close } from './Close.svg';
 import { ReactComponent as Delete } from './Delete.svg';
 import { ReactComponent as DeleteGray } from './Delete_Gray.svg';
@@ -41,6 +42,7 @@ export {
     LocksWhite,
     LocksRed,
     LocksRedSmall,
+    LocksWhiteSmall,
     Environments,
     Close,
     Delete,

@@ -607,6 +607,30 @@ export const addAction = (action: BatchAction): void => {
             )
                 isDuplicate = true;
             break;
+        case 'createManifestLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'createManifestLock' &&
+                        action.action?.$case === 'createManifestLock' &&
+                        act.action.createManifestLock.app === action.action.createManifestLock.app &&
+                        act.action.createManifestLock.env === action.action.createManifestLock.env
+                )
+            )
+                isDuplicate = true;
+            break;
+        case 'deleteManifestLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deleteManifestLock' &&
+                        action.action?.$case === 'deleteManifestLock' &&
+                        act.action.deleteManifestLock.app === action.action.deleteManifestLock.app &&
+                        act.action.deleteManifestLock.env === action.action.deleteManifestLock.env
+                )
+            )
+                isDuplicate = true;
+            break;
     }
 
     const shouldCancel = ['deploy', 'createEnvironmentApplicationLock', 'deleteEnvironmentApplicationLock'];
@@ -672,6 +696,18 @@ export const useDeleteEnvironmentActionsForApp = (app: string): string[] => {
         }
     });
     return envs;
+};
+
+export const useCreateManifestLockActionsForApp = (app: string): string[] => {
+    const createActionsForApp = useActions().filter(
+        (v) => v.action?.$case === 'createManifestLock' && v.action?.createManifestLock.app === app
+    );
+    return createActionsForApp.map((v) => {
+        if (v.action?.$case === 'createManifestLock') {
+            return v.action.createManifestLock.env;
+        }
+        return '';
+    });
 };
 
 export const deleteAction = (action: BatchAction): void => {

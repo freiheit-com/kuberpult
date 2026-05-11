@@ -268,6 +268,8 @@ const (
 	EvtSkippedServices                  EventType = "SkippedServices"
 	EvtExtendAAEnvironment              EventType = "ExtendAAEnvironment"
 	EvtDeleteAAEnvironmentConfig        EventType = "EvtDeleteAAEnvironmentConfig"
+	EvtCreateManifestLock               EventType = "CreateManifestLock"
+	EvtDeleteManifestLock               EventType = "DeleteManifestLock"
 )
 
 /*

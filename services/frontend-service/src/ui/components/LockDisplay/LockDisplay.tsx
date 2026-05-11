@@ -42,6 +42,18 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
         'date-display--normal': !isOutdatedLifetime(targetLifetimeDate),
     });
     const deleteLock = useCallback(() => {
+        if (lock.isManifestLock && lock.application) {
+            addAction({
+                action: {
+                    $case: 'deleteManifestLock',
+                    deleteManifestLock: {
+                        app: lock.application,
+                        env: lock.environment,
+                    },
+                },
+            });
+            return;
+        }
         if (lock.application) {
             addAction({
                 action: {
@@ -110,8 +122,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     )}
                     <Button
                         className="lock-display-info lock-action service-action--delete"
-                        onClick={lock.isManifestLock ? undefined : deleteLock}
-                        disabled={lock.isManifestLock}
+                        onClick={deleteLock}
                         icon={<Delete />}
                         highlightEffect={false}
                     />

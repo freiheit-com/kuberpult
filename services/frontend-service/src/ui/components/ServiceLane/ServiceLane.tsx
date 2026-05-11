@@ -27,7 +27,7 @@ import {
     useNavigateWithSearchParams,
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
-import { DeleteWhite, HistoryWhite } from '../../../images';
+import { DeleteWhite, HistoryWhite, LocksWhiteSmall } from '../../../images';
 import { ManifestLockInfo, OverviewApplication } from '../../../api/api';
 import * as React from 'react';
 import { useCallback, useState } from 'react';
@@ -41,6 +41,7 @@ import { Button } from '../button';
 import { useSearchParams } from 'react-router-dom';
 import { Tooltip } from '../tooltip/tooltip';
 import { EnvDelDialog } from '../dialog/EnvDelDialog';
+import { ManifestLockDialog } from '../dialog/ManifestLockDialog';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -405,6 +406,10 @@ export const ReadyServiceLane: React.FC<{
     const finishEnvAppDelete = useCallback(() => {
         setShowEnvSelectionDialog(false);
     }, []);
+    const [showManifestLockDialog, setShowManifestLockDialog] = useState(false);
+    const finishManifestLockDialog = useCallback(() => {
+        setShowManifestLockDialog(false);
+    }, []);
     const onReload = useCallback(() => {
         const details = updateAppDetails.get();
         details[application.name] = {
@@ -435,6 +440,13 @@ export const ReadyServiceLane: React.FC<{
             icon: <DeleteWhite />,
             onClick: undeploy,
         },
+        {
+            label: 'Create Manifest Lock',
+            icon: <LocksWhiteSmall />,
+            onClick: (): void => {
+                setShowManifestLockDialog(true);
+            },
+        },
     ];
     const dotsMenu = <DotsMenu buttons={buttons} />;
     const appLocks = Object.values(appDetails?.appLocks ? appDetails.appLocks : []);
@@ -460,9 +472,20 @@ export const ReadyServiceLane: React.FC<{
         />
     );
 
+    const manifestLockDialog = (
+        <ManifestLockDialog
+            open={showManifestLockDialog}
+            onClose={finishManifestLockDialog}
+            app={application.name}
+            envs={useEnvironments().map((e) => e.name)}
+            lockedEnvs={manifestLocks.map((l) => l.env)}
+        />
+    );
+
     return (
         <div className="service-lane">
             {dialog}
+            {manifestLockDialog}
             <div className="service-lane__header">
                 <div className="service-lane-wrapper">
                     {appLocks.length + teamLocks.length >= 1 && (
