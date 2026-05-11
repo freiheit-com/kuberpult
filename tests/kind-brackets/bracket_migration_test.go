@@ -279,6 +279,217 @@ func TestBracketDeleteEnvFromApp(t *testing.T) {
 	waitForArgoApp(t, "staging-"+bracket)
 }
 
+// TestBracketReverseMigration is the regression test for the bracket → individual rollback.
+//
+// Scenario:
+//   - Two apps share a bracket, deployed to staging in bracket mode (staging=true).
+//   - After verifying the bracket Argo app and recording pod start times, the cluster
+//     is downgraded to staging=false (individual Argo apps per app on staging).
+//   - Expected: individual Argo apps appear, the bracket Argo app is still PRESENT
+//     (apps are still members of the bracket in brackets_history), and the K8s
+//     Deployment pods are UNTOUCHED (pod start times unchanged).
+func TestBracketReverseMigration(t *testing.T) {
+	t.Logf("runSuffix: %s", runSuffix)
+	app1 := "brm-app1-" + runSuffix
+	app2 := "brm-app2-" + runSuffix
+	apps := []string{app1, app2}
+	bracket := "brm-bracket-" + runSuffix
+
+	t.Log("step 1: upgrade to staging=true (bracket mode)")
+	helmUpgrade(t, true)
+
+	t.Log("step 2: create v1 releases (dev + dev2 + staging manifests)")
+	for _, app := range apps {
+		createRelease(t, app, "sreteam", bracket, "1", map[string]string{
+			devNamespace:     stableManifest(app, devNamespace, "1"),
+			dev2Namespace:    stableManifest(app, dev2Namespace, "1"),
+			stagingNamespace: stableManifest(app, stagingNamespace, "1"),
+		})
+	}
+
+	t.Log("step 3: run staging release train (deploys v1 from development2 to staging)")
+	releaseTrain(t, stagingNamespace)
+
+	t.Log("step 4: wait for v1 synced in staging")
+	for _, app := range apps {
+		waitForDeploymentAnnotation(t, stagingNamespace, app+"-bracket-dep", "1")
+	}
+
+	t.Log("step 5: wait for bracket Argo app to appear on staging")
+	waitForArgoApp(t, "staging-"+bracket)
+
+	t.Log("step 6: record pod start times")
+	type podKey struct{ ns, app string }
+	startTimes := map[podKey]string{}
+	for _, app := range apps {
+		k := podKey{stagingNamespace, app}
+		startTimes[k] = podStartTime(t, stagingNamespace, app)
+		t.Logf("  %s/%s: %s", stagingNamespace, app, startTimes[k])
+	}
+
+	t.Log("step 7: upgrade to staging=false (revert to individual Argo apps)")
+	helmUpgrade(t, false)
+
+	t.Log("step 8: wait for individual Argo apps to appear on staging")
+	for _, app := range apps {
+		waitForArgoApp(t, "staging-"+app)
+	}
+
+	t.Log("step 9: 30s buffer for rollout-service to reconcile")
+	time.Sleep(reconcileBuffer)
+
+	t.Log("step 10: verify bracket Argo app is still present (apps still in brackets_history)")
+	waitForArgoApp(t, "staging-"+bracket)
+
+	t.Log("step 11: 20s buffer to let any accidental pod churn complete")
+	time.Sleep(podChurnBuffer)
+
+	t.Log("step 12: verify pod start times have not changed")
+	for _, app := range apps {
+		k := podKey{stagingNamespace, app}
+		got := podStartTime(t, stagingNamespace, app)
+		if got != startTimes[k] {
+			t.Errorf("REGRESSION: pod %s/%s was restarted during bracket reverse migration\n  before: %s\n  after:  %s",
+				stagingNamespace, app, startTimes[k], got)
+		} else {
+			t.Logf("  OK %s/%s start time stable at %s", stagingNamespace, app, got)
+		}
+	}
+}
+
+// TestBracketAddAppToExistingBracket verifies that adding a second app to an already-running
+// bracket does not delete the bracket Argo Application or restart existing pods.
+//
+// Scenario:
+//   - app1 is deployed to a bracket; the bracket Argo app is established.
+//   - app2 is released into the same bracket and promoted to staging.
+//   - Expected: bracket Argo app persists, bracket version string updates to include
+//     both apps (colon-separated), and app1 pods are UNTOUCHED.
+func TestBracketAddAppToExistingBracket(t *testing.T) {
+	t.Logf("runSuffix: %s", runSuffix)
+	app1 := "bae-app1-" + runSuffix
+	app2 := "bae-app2-" + runSuffix
+	bracket := "bae-bracket-" + runSuffix
+
+	t.Log("step 1: upgrade to staging=true (bracket mode)")
+	helmUpgrade(t, true)
+
+	t.Log("step 2: create v1 release for app1 only")
+	createRelease(t, app1, "sreteam", bracket, "1", map[string]string{
+		devNamespace:     stableManifest(app1, devNamespace, "1"),
+		dev2Namespace:    stableManifest(app1, dev2Namespace, "1"),
+		stagingNamespace: stableManifest(app1, stagingNamespace, "1"),
+	})
+
+	t.Log("step 3: run staging release train (deploys app1 v1 to staging)")
+	releaseTrain(t, stagingNamespace)
+
+	t.Log("step 4: wait for app1 v1 synced in staging")
+	waitForDeploymentAnnotation(t, stagingNamespace, app1+"-bracket-dep", "1")
+
+	t.Log("step 5: wait for bracket Argo app to appear on staging")
+	waitForArgoApp(t, "staging-"+bracket)
+
+	t.Log("step 6: record app1 pod start time")
+	app1StartTime := podStartTime(t, stagingNamespace, app1)
+	t.Logf("  %s/%s: %s", stagingNamespace, app1, app1StartTime)
+
+	t.Log("step 7: create v1 release for app2 (same bracket, new member)")
+	createRelease(t, app2, "sreteam", bracket, "1", map[string]string{
+		devNamespace:     stableManifest(app2, devNamespace, "1"),
+		dev2Namespace:    stableManifest(app2, dev2Namespace, "1"),
+		stagingNamespace: stableManifest(app2, stagingNamespace, "1"),
+	})
+
+	t.Log("step 8: run staging release train (deploys app2 v1 to staging)")
+	releaseTrain(t, stagingNamespace)
+
+	t.Log("step 9: wait for app2 v1 synced in staging (bracket version string updated to include both apps)")
+	waitForDeploymentAnnotation(t, stagingNamespace, app2+"-bracket-dep", "1")
+
+	t.Log("step 10: 20s buffer to let any accidental pod churn complete")
+	time.Sleep(podChurnBuffer)
+
+	t.Log("step 11: verify bracket Argo app still exists (must not be deleted)")
+	waitForArgoApp(t, "staging-"+bracket)
+
+	t.Log("step 12: verify app1 pod start time has not changed")
+	got := podStartTime(t, stagingNamespace, app1)
+	if got != app1StartTime {
+		t.Errorf("REGRESSION: pod %s/%s was restarted when app2 was added to the bracket\n  before: %s\n  after:  %s",
+			stagingNamespace, app1, app1StartTime, got)
+	} else {
+		t.Logf("  OK %s/%s start time stable at %s", stagingNamespace, app1, got)
+	}
+}
+
+// TestBracketPartialUpdate verifies that a release train updating only one of two apps
+// in a bracket does not restart the other app's pods.
+//
+// Scenario:
+//   - Two apps share a bracket on staging, both at v1 (bracket version "1:1").
+//   - A new v2 release is created for app1 only; the staging release train is run.
+//   - staging's bracket version advances to "2:1" (app1=v2, app2=v1).
+//   - Expected: app2 pods on staging are UNTOUCHED (no cascade deletion of bracket).
+//
+// This differs from TestBracketPodStability, where development changes and staging is
+// skipped entirely.  Here staging itself receives a partial update.
+func TestBracketPartialUpdate(t *testing.T) {
+	t.Logf("runSuffix: %s", runSuffix)
+	app1 := "bpu-app1-" + runSuffix
+	app2 := "bpu-app2-" + runSuffix
+	bracket := "bpu-bracket-" + runSuffix
+
+	t.Log("step 1: upgrade to staging=true (bracket mode)")
+	helmUpgrade(t, true)
+
+	t.Log("step 2: create v1 releases for both apps")
+	for _, app := range []string{app1, app2} {
+		createRelease(t, app, "sreteam", bracket, "1", map[string]string{
+			devNamespace:     stableManifest(app, devNamespace, "1"),
+			dev2Namespace:    stableManifest(app, dev2Namespace, "1"),
+			stagingNamespace: stableManifest(app, stagingNamespace, "1"),
+		})
+	}
+
+	t.Log("step 3: run staging release train (deploys both apps v1)")
+	releaseTrain(t, stagingNamespace)
+
+	t.Log("step 4: wait for v1 synced in staging for both apps")
+	for _, app := range []string{app1, app2} {
+		waitForDeploymentAnnotation(t, stagingNamespace, app+"-bracket-dep", "1")
+	}
+
+	t.Log("step 5: record app2 pod start time")
+	app2StartTime := podStartTime(t, stagingNamespace, app2)
+	t.Logf("  %s/%s: %s", stagingNamespace, app2, app2StartTime)
+
+	t.Log("step 6: create v2 release for app1 only (app2 stays at v1)")
+	createRelease(t, app1, "sreteam", bracket, "2", map[string]string{
+		devNamespace:     stableManifest(app1, devNamespace, "2"),
+		dev2Namespace:    stableManifest(app1, dev2Namespace, "2"),
+		stagingNamespace: stableManifest(app1, stagingNamespace, "2"),
+	})
+
+	t.Log("step 7: run staging release train (promotes app1 v2, app2 stays at v1)")
+	releaseTrain(t, stagingNamespace)
+
+	t.Log("step 8: wait for app1 v2 synced in staging (bracket version advances to mixed state)")
+	waitForDeploymentAnnotation(t, stagingNamespace, app1+"-bracket-dep", "2")
+
+	t.Log("step 9: 20s buffer to let any accidental pod churn complete")
+	time.Sleep(podChurnBuffer)
+
+	t.Log("step 10: verify app2 pod start time has not changed")
+	got := podStartTime(t, stagingNamespace, app2)
+	if got != app2StartTime {
+		t.Errorf("REGRESSION: pod %s/%s was restarted during partial bracket version update\n  before: %s\n  after:  %s",
+			stagingNamespace, app2, app2StartTime, got)
+	} else {
+		t.Logf("  OK %s/%s start time stable at %s", stagingNamespace, app2, got)
+	}
+}
+
 func undeployApp(t *testing.T, app string) {
 	t.Helper()
 	processBatch(t, &api.BatchRequest{Actions: []*api.BatchAction{
