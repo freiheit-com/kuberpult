@@ -342,10 +342,10 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 	span.SetTag("app", appName)
 	span.SetTag("env", envName)
 
-	selectQuerry := h.AdaptQuery("SELECT transformerid, envName, appName, status FROM git_sync_status WHERE appName = ? AND envName= ? ORDER BY created DESC LIMIT 1;")
+	selectQuery := h.AdaptQuery("SELECT transformerid, envName, appName, status FROM git_sync_status WHERE appName = ? AND envName= ? ORDER BY created DESC LIMIT 1;")
 	rows, err := tx.QueryContext(
 		ctx,
-		selectQuerry,
+		selectQuery,
 		appName,
 		envName)
 
@@ -361,13 +361,13 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 }
 
 func (h *DBHandler) DBDeleteSyncStatusOnAppAndEnv(ctx context.Context, tx *sql.Tx, appName types.AppName, envName types.EnvName) (err error) {
-	selectQuerry := h.AdaptQuery(`
+	selectQuery := h.AdaptQuery(`
 		DELETE FROM git_sync_status
 		WHERE appName = ? AND envName= ?
 		;`)
 	_, err = tx.ExecContext(
 		ctx,
-		selectQuerry,
+		selectQuery,
 		appName,
 		envName)
 
@@ -422,10 +422,10 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 		return -1, fmt.Errorf("DBCountAppsWithStatus: no transaction provided")
 	}
 
-	selectQuerry := h.AdaptQuery("SELECT count(*) FROM git_sync_status WHERE status = (?);")
+	selectQuery := h.AdaptQuery("SELECT count(*) FROM git_sync_status WHERE status = (?);")
 	rows, err := tx.QueryContext(
 		ctx,
-		selectQuerry,
+		selectQuery,
 		status,
 	)
 
@@ -447,7 +447,7 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 			if errors.Is(err, sql.ErrNoRows) {
 				return 0, nil
 			}
-			return -1, fmt.Errorf("error scanning git sync status. Could not retrive number of apps with status %q. Error: %w", status, err)
+			return -1, fmt.Errorf("error scanning git sync status. Could not retrieve number of apps with status %q. Error: %w", status, err)
 		}
 	}
 	err = closeRows(rows)

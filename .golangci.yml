@@ -12,6 +12,7 @@ linters:
     - unconvert
     - gocritic
     - revive
+    - misspell
   exclusions:
     paths:
       - pkg/publicapi
@@ -25,6 +26,8 @@ linters:
         - name: redundant-import-alias
           severity: error
           disabled: false
+    misspell:
+      locale: UK
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0

@@ -397,7 +397,7 @@ func (h *DBHandler) DBDeleteEnvironmentLock(ctx context.Context, tx *sql.Tx, env
 	}
 
 	if existingEnvLock == nil {
-		logging.Info(ctx, "could not delete enviroment lock. The enviroment lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("environment", string(environment)))
+		logging.Info(ctx, "could not delete environment lock. The environment lock does not exist. Continuing anyway.", zap.String("lockID", lockID), zap.String("environment", string(environment)))
 		return nil
 	}
 	err = h.deleteEnvLockRow(ctx, tx, lockID, environment)
