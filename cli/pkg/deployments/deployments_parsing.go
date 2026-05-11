@@ -37,7 +37,7 @@ func ParseArgsCommitDeployments(args []string) (*CommitDeploymentsParameters, er
 	}
 
 	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
-		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+		return nil, fmt.Errorf("these arguments are not recognised: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 	if cmdArgs.CommitId == "" {
 		return nil, fmt.Errorf("the commit hash must be set with the --commit flag")
@@ -64,7 +64,7 @@ func ParseArgsDeploymentCommit(args []string) (*DeploymentCommitParameters, erro
 	}
 
 	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
-		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+		return nil, fmt.Errorf("these arguments are not recognised: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 	if cmdArgs.Env == "" {
 		return nil, fmt.Errorf("the environment name must be set with the --environment flag")

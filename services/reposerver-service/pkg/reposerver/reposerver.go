@@ -105,7 +105,7 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 		Server:               "",
 		VerifyResult:         "",
 		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
+		XXX_unrecognized:     nil, //nolint:misspell
 		XXX_sizecache:        0,
 		Manifests:            mn,
 		Revision:             ToRevision(releaseResult.releaseVersion),
@@ -202,7 +202,7 @@ func (r *reposerver) ResolveRevision(ctx context.Context, req *argorepo.ResolveR
 	const commitID = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 	return &argorepo.ResolveRevisionResponse{
 		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
+		XXX_unrecognized:     nil, //nolint:misspell
 		XXX_sizecache:        0,
 		Revision:             commitID,
 		AmbiguousRevision:    fmt.Sprintf("%s (%s)", req.AmbiguousRevision, commitID),

@@ -2359,7 +2359,7 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 		}
 	}
 
-	//We don't error out when we don't find this concrete enviroment config to make this operation idempotent
+	//We don't error out when we don't find this concrete environment config to make this operation idempotent
 	if foundIdx != -1 {
 		configs = append(configs[:foundIdx], configs[foundIdx+1:]...)
 		slices.SortFunc(configs, func(d1 *config.EnvironmentConfigArgoCd, d2 *config.EnvironmentConfigArgoCd) int {

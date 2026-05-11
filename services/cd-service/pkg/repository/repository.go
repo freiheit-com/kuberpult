@@ -130,7 +130,7 @@ const (
 )
 
 type repository struct {
-	// Mutex gurading the writer
+	// Mutex guarding the writer
 	writeLock sync.Mutex
 	config    *RepositoryConfig
 
@@ -167,7 +167,7 @@ type RepositoryConfig struct {
 	DBHandler *db.DBHandler
 }
 
-// Opens a repository. The repository is initialized and updated in the background.
+// Opens a repository. The repository is initialised and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
 	if ddMetricsFromCtx != nil {

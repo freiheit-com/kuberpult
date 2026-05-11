@@ -269,7 +269,7 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 		validate := false
 		appCreateRequest := &application.ApplicationCreateRequest{
 			XXX_NoUnkeyedLiteral: struct{}{},
-			XXX_unrecognized:     nil,
+			XXX_unrecognized:     nil, //nolint:misspell
 			XXX_sizecache:        0,
 			Application:          appToCreate,
 			Upsert:               &upsert,
@@ -293,7 +293,7 @@ func (a *ArgoAppProcessor) UpdateArgoApp(ctx context.Context, overview *api.GetO
 	appToUpdate.Spec.SyncPolicy = existingApp.Spec.SyncPolicy
 	appUpdateRequest := &application.ApplicationUpdateRequest{
 		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
+		XXX_unrecognized:     nil, //nolint:misspell
 		XXX_sizecache:        0,
 		Validate:             conversion.Bool(false),
 		Application:          appToUpdate,
@@ -397,7 +397,7 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 			AppNamespace:         nil,
 			Project:              nil,
 			XXX_NoUnkeyedLiteral: struct{}{},
-			XXX_unrecognized:     nil,
+			XXX_unrecognized:     nil, //nolint:misspell
 			XXX_sizecache:        0,
 			Name:                 conversion.FromString(toDelete[i].Name),
 		})

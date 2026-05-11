@@ -538,7 +538,7 @@ func ProcessOneEvent(
 	var esl *db.EslEventRow = nil
 	const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
 
-	// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation.
+	// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation. //nolint:misspell
 	// This means that there is a possibility that two transaction timestamps collide with the same git hash.
 	// As such, before executing any transformer, we get the current commit hash so that we can then compare it with the
 	// (possibly) new commit hash

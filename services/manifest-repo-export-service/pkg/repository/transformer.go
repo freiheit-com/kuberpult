@@ -99,7 +99,7 @@ func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvN
 func writeManifests(fs billy.Filesystem, parentPath string, envManifest string) error {
 	// When we undeploy applications, the manifests will be empty.
 	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
-	// We work around this unusual behavior by writing a space into the file
+	// We work around this unusual behaviour by writing a space into the file
 	if envManifest == "" {
 		envManifest = " "
 	}
@@ -1359,7 +1359,7 @@ func commitApplicationDirectory(fs billy.Filesystem, commit, application string)
 
 func removeCommit(fs billy.Filesystem, commitID, application string) error {
 	errorTemplate := func(message string, err error) error {
-		return fmt.Errorf("while removing applicaton %s from commit %s and error was encountered, message: %s, error %w", application, commitID, message, err)
+		return fmt.Errorf("while removing application %s from commit %s and error was encountered, message: %s, error %w", application, commitID, message, err)
 	}
 
 	commitApplicationDir := commitApplicationDirectory(fs, commitID, application)
@@ -2009,7 +2009,7 @@ func (u *UndeployApplication) Transform(
 
 		undeployFile := fs.Join(versionDir, "undeploy")
 		_, err = fs.Stat(undeployFile)
-		if err != nil { //Undeploy version does not exist if we minimize git data
+		if err != nil { //Undeploy version does not exist if we minimise git data
 			if !errors.Is(err, os.ErrNotExist) {
 				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %w", err)
 			}
