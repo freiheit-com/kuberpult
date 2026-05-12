@@ -402,11 +402,15 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							DeployedAt:     deployedAt,
 						},
 					})
-					if bracketVersion == "" {
+					switch {
+					case bracketVersion == types.BracketVersionDelete:
 						// Empty bracket: register with no deployment so ProcessAppChange
 						// will call DeleteArgoApps (which requires deployment == nil).
 						v.addEmptyBracketToChange(appsToChange, types.ArgoBracketName(bracketName))
-					} else {
+					case bracketVersion == "":
+						// Proto zero-value leaking through — neither delete nor update.
+						l.Warn("bracket.version.empty", zap.String("bracket", bracketName), zap.String("env", envName))
+					default:
 						v.addBracketToChange(appsToChange, types.ArgoBracketName(bracketName), envName)
 					}
 				}
@@ -419,7 +423,8 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						if !slices.Contains(v.experimentalBracketsClusters, envName) {
 							continue
 						}
-						if types.RolloutAppBracketVersion(bracketDeployment.Version) == "" {
+						bv := types.RolloutAppBracketVersion(bracketDeployment.Version)
+						if bv == types.BracketVersionDelete || bv == "" {
 							continue // env has no deployment; no Argo app to preserve
 						}
 						if _, present := entry.Deployments[envName]; !present {

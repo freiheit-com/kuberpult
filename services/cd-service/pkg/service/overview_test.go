@@ -3201,6 +3201,16 @@ func TestCombineBracketDeployments(t *testing.T) {
 			WantCommit:       map[string]string{"dev": ""},
 			WantDeployedEnvs: []string{"dev"},
 		},
+		{
+			Name:        "no apps in bracket env returns BracketVersionDelete sentinel",
+			Apps:        []*api.GetAppDetailsResponse{},
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": string(types.BracketVersionDelete),
+			},
+			WantCommit:       map[string]string{"dev": ""},
+			WantDeployedEnvs: []string{"dev"},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {

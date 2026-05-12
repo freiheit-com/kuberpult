@@ -756,8 +756,12 @@ func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketE
 			}
 		}
 
+		version := strings.Join(versionParts, ":")
+		if len(versionParts) == 0 {
+			version = string(types.BracketVersionDelete)
+		}
 		result[envName] = &api.BracketDeployment{
-			Version:        strings.Join(versionParts, ":"),
+			Version:        version,
 			DeployedAt:     deployedAt,
 			SourceCommitId: sourceCommitId,
 		}
