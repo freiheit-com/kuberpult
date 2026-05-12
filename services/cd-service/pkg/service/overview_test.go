@@ -3186,7 +3186,7 @@ func TestCombineBracketDeployments(t *testing.T) {
 			Apps:        []*api.GetAppDetailsResponse{app3}, // ccc has no dev deployment
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
-				"dev": "",
+				"dev": "0",
 			},
 			WantCommit:       map[string]string{"dev": ""},
 			WantDeployedEnvs: []string{"dev"},
@@ -3196,7 +3196,7 @@ func TestCombineBracketDeployments(t *testing.T) {
 			Apps:        []*api.GetAppDetailsResponse{app3, app3}, // both have no dev deployment
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
-				"dev": "",
+				"dev": "0:0",
 			},
 			WantCommit:       map[string]string{"dev": ""},
 			WantDeployedEnvs: []string{"dev"},
@@ -3249,7 +3249,6 @@ func TestStreamChangedAppsWithBrackets(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			shutdown := make(chan struct{}, 1)

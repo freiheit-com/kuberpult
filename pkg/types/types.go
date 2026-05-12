@@ -51,7 +51,6 @@ func (v RolloutAppBracketVersion) ToUint64() (uint64, bool) {
 
 type ManifestLockID int64
 
-
 type ArgoProjectName string
 
 func EnvNamesToStrings(a []EnvName) []string {
