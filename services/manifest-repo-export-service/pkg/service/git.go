@@ -102,8 +102,8 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 			CommitMessage:      release.Metadata.SourceMessage,
 			TouchedApps:        []string{string(release.App)},
 			Events:             events,
-			PreviousCommitHash: "", //TODO
-			NextCommitHash:     "", //TODO
+			PreviousCommitHash: "",
+			NextCommitHash:     "",
 			LoadMore:           loadMore,
 		}, nil
 	})
