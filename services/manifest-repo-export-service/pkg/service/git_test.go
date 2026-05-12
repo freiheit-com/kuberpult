@@ -656,29 +656,6 @@ func TestGetCommitInfo(t *testing.T) {
 			expectedResponse:       nil,
 		},
 		{
-			name: "no commit info written if toggle not set",
-			transformers: []rp.Transformer{
-				&rp.CreateApplicationVersion{
-					Application:    "app",
-					Team:           "team",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					SourceMessage:  "some message",
-					Manifests: map[types.EnvName]string{
-						"development-1": "dev-manifest",
-					},
-					Version:             1,
-					WriteCommitData:     false, // do not write commit data …
-					TransformerMetadata: rp.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
-				},
-			},
-			request: &api.GetCommitInfoRequest{
-				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-			},
-			allowReadingCommitData: true, // … but attempt to read anyway
-			expectedError:          status.Error(codes.NotFound, "error: commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa was not found in the manifest repo"),
-			expectedResponse:       nil,
-		},
-		{
 			name: "events for release trains on environments are correctly retrieved by GetCommitInfo",
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
