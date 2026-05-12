@@ -35,14 +35,15 @@ import (
 )
 
 type DBReleaseMetaData struct {
-	SourceAuthor    string
-	SourceCommitId  string
-	SourceMessage   string
-	DisplayVersion  string
-	UndeployVersion bool
-	IsMinor         bool
-	CiLink          string
-	IsPrepublish    bool
+	SourceAuthor     string
+	SourceCommitId   string
+	PreviousCommitId string
+	SourceMessage    string
+	DisplayVersion   string
+	UndeployVersion  bool
+	IsMinor          bool
+	CiLink           string
+	IsPrepublish     bool
 }
 
 type DBReleaseManifests struct {
@@ -204,14 +205,15 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 		}
 
 		var metaData = DBReleaseMetaData{
-			SourceAuthor:    "",
-			SourceCommitId:  "",
-			SourceMessage:   "",
-			DisplayVersion:  "",
-			UndeployVersion: false,
-			IsMinor:         false,
-			CiLink:          "",
-			IsPrepublish:    false,
+			SourceAuthor:     "",
+			SourceCommitId:   "",
+			PreviousCommitId: "",
+			SourceMessage:    "",
+			DisplayVersion:   "",
+			UndeployVersion:  false,
+			IsMinor:          false,
+			CiLink:           "",
+			IsPrepublish:     false,
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
@@ -800,14 +802,15 @@ func (h *DBHandler) processReleaseRows(ctx context.Context, err error, rows *sql
 		}
 		// handle meta data
 		var metaData = DBReleaseMetaData{
-			SourceAuthor:    "",
-			SourceCommitId:  "",
-			SourceMessage:   "",
-			DisplayVersion:  "",
-			UndeployVersion: false,
-			IsMinor:         false,
-			CiLink:          "",
-			IsPrepublish:    false,
+			SourceAuthor:     "",
+			SourceCommitId:   "",
+			PreviousCommitId: "",
+			SourceMessage:    "",
+			DisplayVersion:   "",
+			UndeployVersion:  false,
+			IsMinor:          false,
+			CiLink:           "",
+			IsPrepublish:     false,
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
@@ -1038,14 +1041,15 @@ func (h *DBHandler) DBSelectCommitHashesTimeWindow(ctx context.Context, transact
 		}
 
 		var metaData = DBReleaseMetaData{
-			SourceAuthor:    "",
-			SourceCommitId:  "",
-			SourceMessage:   "",
-			DisplayVersion:  "",
-			UndeployVersion: false,
-			IsMinor:         false,
-			CiLink:          "",
-			IsPrepublish:    false,
+			SourceAuthor:     "",
+			SourceCommitId:   "",
+			PreviousCommitId: "",
+			SourceMessage:    "",
+			DisplayVersion:   "",
+			UndeployVersion:  false,
+			IsMinor:          false,
+			CiLink:           "",
+			IsPrepublish:     false,
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
@@ -1136,14 +1140,15 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersionsAtTimestamp(ctx context.Co
 			return nil, err
 		}
 		var metaData = DBReleaseMetaData{
-			SourceAuthor:    "",
-			SourceCommitId:  "",
-			SourceMessage:   "",
-			DisplayVersion:  "",
-			UndeployVersion: false,
-			IsMinor:         false,
-			CiLink:          "",
-			IsPrepublish:    false,
+			SourceAuthor:     "",
+			SourceCommitId:   "",
+			PreviousCommitId: "",
+			SourceMessage:    "",
+			DisplayVersion:   "",
+			UndeployVersion:  false,
+			IsMinor:          false,
+			CiLink:           "",
+			IsPrepublish:     false,
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {
@@ -1220,14 +1225,15 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 			return nil, err
 		}
 		var metaData = DBReleaseMetaData{
-			SourceAuthor:    "",
-			SourceCommitId:  "",
-			SourceMessage:   "",
-			DisplayVersion:  "",
-			UndeployVersion: false,
-			IsMinor:         false,
-			CiLink:          "",
-			IsPrepublish:    false,
+			SourceAuthor:     "",
+			SourceCommitId:   "",
+			PreviousCommitId: "",
+			SourceMessage:    "",
+			DisplayVersion:   "",
+			UndeployVersion:  false,
+			IsMinor:          false,
+			CiLink:           "",
+			IsPrepublish:     false,
 		}
 		err = json.Unmarshal(([]byte)(metadataStr), &metaData)
 		if err != nil {

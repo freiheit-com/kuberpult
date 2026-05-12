@@ -615,7 +615,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, state.DBHandler, transaction, version, c.TransformerEslVersion, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, state)
+		err = writeCommitData(ctx, state.DBHandler, transaction, version, c.TransformerEslVersion, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, state)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -643,14 +643,15 @@ func (c *CreateApplicationVersion) Transform(
 			Manifests: manifestsToKeep,
 		},
 		Metadata: db.DBReleaseMetaData{
-			SourceAuthor:    c.SourceAuthor,
-			SourceCommitId:  c.SourceCommitId,
-			SourceMessage:   c.SourceMessage,
-			DisplayVersion:  c.DisplayVersion,
-			UndeployVersion: false,
-			IsMinor:         isMinor,
-			CiLink:          c.CiLink,
-			IsPrepublish:    c.IsPrepublish,
+			SourceAuthor:     c.SourceAuthor,
+			SourceCommitId:   c.SourceCommitId,
+			PreviousCommitId: c.PreviousCommit,
+			SourceMessage:    c.SourceMessage,
+			DisplayVersion:   c.DisplayVersion,
+			UndeployVersion:  false,
+			IsMinor:          isMinor,
+			CiLink:           c.CiLink,
+			IsPrepublish:     c.IsPrepublish,
 		},
 		Environments: []types.EnvName{},
 		Created:      *now,
@@ -845,7 +846,7 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, releaseVersion types.ReleaseNumbers, transformerEslVersion db.TransformerID, sourceCommitId string, sourceMessage string, app types.AppName, eventId string, environments []types.EnvName, previousCommitId string, state *State) error {
+func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, releaseVersion types.ReleaseNumbers, transformerEslVersion db.TransformerID, sourceCommitId string, sourceMessage string, app types.AppName, eventId string, environments []types.EnvName, state *State) error {
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
@@ -1041,14 +1042,15 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			Manifests: envManifests,
 		},
 		Metadata: db.DBReleaseMetaData{
-			SourceAuthor:    "",
-			SourceCommitId:  "",
-			SourceMessage:   "",
-			DisplayVersion:  "",
-			UndeployVersion: true,
-			IsMinor:         false,
-			IsPrepublish:    false,
-			CiLink:          "",
+			SourceAuthor:     "",
+			SourceCommitId:   "",
+			PreviousCommitId: "",
+			SourceMessage:    "",
+			DisplayVersion:   "",
+			UndeployVersion:  true,
+			IsMinor:          false,
+			IsPrepublish:     false,
+			CiLink:           "",
 		},
 		Environments: envs,
 		Created:      *now,
