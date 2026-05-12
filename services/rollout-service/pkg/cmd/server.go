@@ -298,6 +298,12 @@ func runServer(ctx context.Context, config Config) error {
 		logger.FromContext(ctx).Sugar().Warn("Application filter feature is deprecated. In the future, either all applications will be self managed or none at all, regardless of team.")
 	}
 
+	if len(config.ExperimentalBracketsClusters) == 1 && config.ExperimentalBracketsClusters[0] == "" {
+		// If the env var is not set, envconfig.Process would return [""], instead of "".
+		// We want to have the same behavior as in the cd-service, so we overwrite the value with an empty slice.
+		// "" is also not a valid environment name, so there is no point of having it in this slice.
+		config.ExperimentalBracketsClusters = []string{}
+	}
 	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.KuberpultEventsMetricsEnabled, config.ArgoEventsMetricsEnabled, config.ManageArgoApplicationsFilter, *dbHandler, config.KuberpultEventsChannelSize, config.ArgoEventsChannelSize, ddMetrics, config.ExperimentalBracketsClusters)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
 	ArgoEventConsumer := service.ArgoEventConsumer{

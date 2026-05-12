@@ -144,9 +144,7 @@ func (v *versionClient) getBracketVersion(ctx context.Context, revision, environ
 			return nil, fmt.Errorf("getBracketVersion: no bracket history found for bracket '%s'", bracketName)
 		}
 		appNames := bracketRow.AllBracketsJsonBlob.BracketMap[bracketName]
-		sortedAppNames := make(db.AppNames, len(appNames))
-		copy(sortedAppNames, appNames)
-		slices.SortFunc(sortedAppNames, func(a, b types.AppName) int { return strings.Compare(string(a), string(b)) })
+		sortedAppNames := db.SortAppNames(appNames)
 
 		versionStrs := strings.Split(revision, ":")
 

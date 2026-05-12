@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -137,9 +136,7 @@ func (r *reposerver) generateBracketManifest(ctx context.Context, split []string
 			return nil, fmt.Errorf("generateBracketManifest: no bracket history found for bracket '%s'", bracketName)
 		}
 		appNames := bracketRow.AllBracketsJsonBlob.BracketMap[bracketName]
-		sortedAppNames := make(db.AppNames, len(appNames))
-		copy(sortedAppNames, appNames)
-		sort.Slice(sortedAppNames, func(i, j int) bool { return sortedAppNames[i] < sortedAppNames[j] })
+		sortedAppNames := db.SortAppNames(appNames)
 
 		var versionParts []string
 		var rawManifests []string
@@ -179,8 +176,11 @@ func (r *reposerver) generateBracketManifest(ctx context.Context, split []string
 			revision:  strings.Join(versionParts, ":"),
 		}, nil
 	})
-	if err != nil || result == nil {
+	if err != nil {
 		return nil, fmt.Errorf("could not load all data to generate bracket manifests: %w", err)
+	}
+	if result == nil {
+		return nil, fmt.Errorf("nil result when generating bracket manifests: %w", err)
 	}
 	return &argorepo.ManifestResponse{
 		Manifests:  result.manifests,

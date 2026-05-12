@@ -641,7 +641,7 @@ func (o *OverviewServiceServer) StreamChangedApps(_ *api.GetChangedAppsRequest,
 				ov.ChangedBrackets = changedBrackets
 			}
 
-			logging.Warn(stream.Context(), "StreamChangedApps called", zap.Any("response", ov))
+			logging.Info(stream.Context(), "StreamChangedApps called", zap.Any("response", ov))
 
 			if err := stream.Send(ov); err != nil {
 				logging.Error(stream.Context(), "error sending changed apps.", zap.Error(err), zap.String("changedAppsNames", fmt.Sprintf("%+v", ov)))

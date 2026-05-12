@@ -55,9 +55,9 @@ then
   then
     echo "is it ok to delete the file? Press enter twice to delete"
     # shellcheck disable=SC2162
-#    read
+    read
     # shellcheck disable=SC2162
-#    read
+    read
     rm "$gpgFile"
   else
     echo "this file should not exist on the ci"

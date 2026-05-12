@@ -82,6 +82,7 @@ type mockApplicationServiceClient struct {
 	lastEvent         chan *ArgoEvent
 	cancel            context.CancelFunc
 	lastUpdateRequest *application.ApplicationUpdateRequest
+	deleteErr         error
 	grpc.ClientStream
 }
 
@@ -231,6 +232,9 @@ func (m *mockApplicationServiceClient) Watch(ctx context.Context, qry *applicati
 }
 
 func (m *mockApplicationServiceClient) Delete(ctx context.Context, req *application.ApplicationDeleteRequest, opts ...grpc.CallOption) (*application.ApplicationResponse, error) {
+	if m.deleteErr != nil {
+		return nil, m.deleteErr
+	}
 	for _, app := range m.Apps {
 		if app.App.Name == *req.Name {
 			deleteApp := &ArgoApp{App: app.App, LastEvent: "DELETED"}
@@ -1936,6 +1940,73 @@ func TestUpdateArgoAppPreservesSyncPolicy(t *testing.T) {
 					t.Errorf("SyncPolicy mismatch (-want, +got):\n%s", diff)
 				}
 			})
+		})
+	}
+}
+
+func TestDrainPendingDeletionsRetryOnError(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		DeleteErr         error
+		ExpectedRemaining int
+	}{
+		{
+			Name:              "successful delete removes item from pending",
+			DeleteErr:         nil,
+			ExpectedRemaining: 0,
+		},
+		{
+			Name:              "failed delete keeps item in pending for retry",
+			DeleteErr:         fmt.Errorf("argocd rejected delete"),
+			ExpectedRemaining: 1,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			appName := "my-app"
+			argoAppName := "staging-1-my-app"
+			envName := "staging-1"
+			parentEnvName := "staging"
+
+			mockClient := &mockApplicationServiceClient{
+				deleteErr: tc.DeleteErr,
+			}
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient: mockClient,
+				KnownApps: map[string]map[string]*v1alpha1.Application{
+					parentEnvName: {
+						"bracket-app": {
+							//exhaustruct:ignore
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "staging-bracket",
+								Annotations: map[string]string{"com.freiheit.kuberpult/is-bracket": "true"},
+							},
+						},
+					},
+					envName: {
+						appName: {
+							//exhaustruct:ignore
+							ObjectMeta: metav1.ObjectMeta{
+								Name: argoAppName,
+							},
+						},
+					},
+				},
+				pendingDeletions: []PendingDeletion{
+					{
+						EnvironmentName:       envName,
+						ParentEnvironmentName: parentEnvName,
+						AppName:               appName,
+					},
+				},
+			}
+
+			argoProcessor.drainPendingDeletions(ctx, parentEnvName)
+
+			if got := len(argoProcessor.pendingDeletions); got != tc.ExpectedRemaining {
+				t.Errorf("pendingDeletions length: want %d, got %d", tc.ExpectedRemaining, got)
+			}
 		})
 	}
 }

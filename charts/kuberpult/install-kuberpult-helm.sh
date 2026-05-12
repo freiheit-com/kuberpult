@@ -12,7 +12,7 @@ print 'installing kuberpult helm chart...'
 
 token=$(argocd account generate-token --server localhost:8080 --account kuberpult --insecure)
 
-echo "argocd token: $token"
+echo "argocd token: $token" # this is only ok because this script is only used locally for a temporary cluster. Never do this on production.
 
 
 GIT_NAMESPACE=${GIT_NAMESPACE:-git}
