@@ -13,6 +13,7 @@ or
 but in the state given by this git tag. If the tag does not exist, the endpoint will fail.
 * `gitTag=${myNonExistingManifestRepoGitTag}` is an optional parameter. If set, the manifest-export will create the git tag on the manifest repo after successfully pushing the commit.
 What happens if the creation of the git tag fails depends on the option `manifestRepoExport.failOnErrorWithGitPushTags` (see `charts/kuberpult/values.yaml`).
+If the release train changes nothing (meaning all deployments are already in the desired version), then no git commit and no git tag will be created, even if `gitTag` is set.
 
 ### Git Tag Support
 * All mentioned git tags refer to the manifest-repository.
