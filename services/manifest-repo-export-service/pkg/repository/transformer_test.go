@@ -2046,27 +2046,27 @@ spec:
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
 				if err != nil {
-					return err
+					return fmt.Errorf("migration error: %w", err)
 				}
-				for _, tr := range tc.SetupTransformers {
+				for index, tr := range tc.SetupTransformers {
 					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
 					if err != nil {
-						return err
+						return fmt.Errorf("setup transformer[%d] failed: %w", index, err)
 					}
 					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
 				}
 
-				for _, t := range tc.SetupTransformers {
+				for index, t := range tc.SetupTransformers {
 					err := repo.Apply(ctx, transaction, t)
 					if err != nil {
-						return err
+						return fmt.Errorf("apply[%d] failed: %w", index, err)
 					}
 					// just for testing, we push each transformer change separately.
 					// if you need to debug this test, you can git clone the repo
 					// and we will only see anything if we push.
 					err = repo.PushRepo(ctx)
 					if err != nil {
-						return err
+						return fmt.Errorf("push[%d] failed: %w", index, err)
 					}
 				}
 				return nil
@@ -2120,6 +2120,9 @@ spec:
 				}
 				return nil
 			})
+			if err != nil {
+				t.Fatalf("failed to execute transaction: %v", err)
+			}
 
 			updatedState = repo.State()
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
