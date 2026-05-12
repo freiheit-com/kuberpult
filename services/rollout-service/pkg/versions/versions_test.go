@@ -29,10 +29,15 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/cenkalti/backoff/v4"
+	"github.com/google/go-cmp/cmp"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
+	"k8s.io/utils/lru"
 )
 
 type step struct {
@@ -252,5 +257,260 @@ func TestGetVersion_Bracket(t *testing.T) {
 	// app-b is deployed later (separate transaction), so its SourceCommitId should be returned.
 	if version.SourceCommitId != "commit-b" {
 		t.Errorf("expected SourceCommitId=%q, got %q", "commit-b", version.SourceCommitId)
+	}
+}
+
+type recordingProcessor struct {
+	events chan KuberpultEvent
+}
+
+func (r *recordingProcessor) ProcessKuberpultEvent(_ context.Context, ev KuberpultEvent) {
+	r.events <- ev
+}
+
+func devOverview() *api.GetOverviewResponse {
+	return &api.GetOverviewResponse{
+		//exhaustruct:ignore
+		EnvironmentGroups: []*api.EnvironmentGroup{{
+			EnvironmentGroupName: "dev-group",
+			Priority:             api.Priority_UPSTREAM,
+			//exhaustruct:ignore
+			Environments: []*api.Environment{{Name: "dev"}},
+		}},
+	}
+}
+
+func bracketOverview(envName string) *api.GetOverviewResponse {
+	return &api.GetOverviewResponse{
+		//exhaustruct:ignore
+		EnvironmentGroups: []*api.EnvironmentGroup{{
+			EnvironmentGroupName: "bracket-group",
+			Priority:             api.Priority_UPSTREAM,
+			//exhaustruct:ignore
+			Environments: []*api.Environment{{Name: envName}},
+		}},
+	}
+}
+
+func TestConsumeEvents(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Steps           []step
+		BracketClusters []string
+		WantEvents      []KuberpultEvent
+	}{
+		{
+			Name: "normal app change triggers ProcessKuberpultEvent",
+			Steps: []step{{
+				OverviewResponse: devOverview(),
+				ChangedApps: &api.GetChangedAppsResponse{
+					//exhaustruct:ignore
+					ChangedApps: []*api.GetAppDetailsResponse{{
+						//exhaustruct:ignore
+						Application: &api.Application{Name: "my-app"},
+						Deployments: map[string]*api.Deployment{
+							"dev": {Version: 42}, //exhaustruct:ignore
+						},
+					}},
+				},
+			}},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-app",
+				Environment:       "dev",
+				ParentEnvironment: "dev",
+				EnvironmentGroup:  "dev-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.RolloutAppBracketVersionFromUint64(42),
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+		{
+			Name:            "bracket BracketVersionDelete triggers ProcessKuberpultEvent",
+			BracketClusters: []string{"benv"},
+			Steps: []step{{
+				OverviewResponse: bracketOverview("benv"),
+				ChangedApps: &api.GetChangedAppsResponse{
+					//exhaustruct:ignore
+					ChangedBrackets: []*api.GetBracketDetailsResponse{{
+						BracketName: "my-bracket",
+						Deployments: map[string]*api.BracketDeployment{
+							"benv": {Version: string(types.BracketVersionDelete)}, //exhaustruct:ignore
+						},
+					}},
+				},
+			}},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-bracket",
+				Environment:       "benv",
+				ParentEnvironment: "benv",
+				EnvironmentGroup:  "bracket-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.BracketVersionDelete,
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+		{
+			Name:            "bracket normal version triggers ProcessKuberpultEvent",
+			BracketClusters: []string{"benv"},
+			Steps: []step{{
+				OverviewResponse: bracketOverview("benv"),
+				ChangedApps: &api.GetChangedAppsResponse{
+					//exhaustruct:ignore
+					ChangedBrackets: []*api.GetBracketDetailsResponse{{
+						BracketName: "my-bracket",
+						Deployments: map[string]*api.BracketDeployment{
+							"benv": {Version: "1:2"}, //exhaustruct:ignore
+						},
+					}},
+				},
+			}},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-bracket",
+				Environment:       "benv",
+				ParentEnvironment: "benv",
+				EnvironmentGroup:  "bracket-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.RolloutAppBracketVersion("1:2"),
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+		{
+			Name:            "bracket proto zero-value still triggers ProcessKuberpultEvent",
+			BracketClusters: []string{"benv"},
+			Steps: []step{{
+				OverviewResponse: bracketOverview("benv"),
+				ChangedApps: &api.GetChangedAppsResponse{
+					//exhaustruct:ignore
+					ChangedBrackets: []*api.GetBracketDetailsResponse{{
+						BracketName: "my-bracket",
+						Deployments: map[string]*api.BracketDeployment{
+							"benv": {Version: ""}, //exhaustruct:ignore
+						},
+					}},
+				},
+			}},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-bracket",
+				Environment:       "benv",
+				ParentEnvironment: "benv",
+				EnvironmentGroup:  "bracket-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.RolloutAppBracketVersion(""),
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+		{
+			Name: "same app version in second step is deduplicated",
+			Steps: []step{
+				{
+					OverviewResponse: devOverview(),
+					ChangedApps: &api.GetChangedAppsResponse{
+						//exhaustruct:ignore
+						ChangedApps: []*api.GetAppDetailsResponse{{
+							//exhaustruct:ignore
+							Application: &api.Application{Name: "my-app"},
+							Deployments: map[string]*api.Deployment{
+								"dev": {Version: 42}, //exhaustruct:ignore
+							},
+						}},
+					},
+				},
+				{
+					OverviewResponse: devOverview(),
+					ChangedApps: &api.GetChangedAppsResponse{
+						//exhaustruct:ignore
+						ChangedApps: []*api.GetAppDetailsResponse{{
+							//exhaustruct:ignore
+							Application: &api.Application{Name: "my-app"},
+							Deployments: map[string]*api.Deployment{
+								"dev": {Version: 42}, //exhaustruct:ignore
+							},
+						}},
+					},
+				},
+			},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-app",
+				Environment:       "dev",
+				ParentEnvironment: "dev",
+				EnvironmentGroup:  "dev-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.RolloutAppBracketVersionFromUint64(42),
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			stepsChannel := make(chan step, len(tc.Steps)+1)
+			for _, s := range tc.Steps {
+				stepsChannel <- s
+			}
+
+			mockClient := &mockOverviewClient{
+				StartStep: make(chan struct{}, len(tc.Steps)+10),
+				Steps:     stepsChannel,
+			}
+
+			processor := &recordingProcessor{
+				events: make(chan KuberpultEvent, len(tc.WantEvents)+5),
+			}
+
+			vc := &versionClient{
+				overviewClient:               mockClient,
+				ArgoProcessor:                argo.New(nil, false, false, false, []string{}, 10, 10, nil, tc.BracketClusters),
+				cache:                        lru.New(20),
+				experimentalBracketsClusters: tc.BracketClusters,
+			}
+
+			hlth := &setup.HealthServer{}
+			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
+
+			done := make(chan error, 1)
+			go func() {
+				done <- vc.ConsumeEvents(ctx, processor, hlth.Reporter("test"))
+			}()
+
+			gotEvents := make([]KuberpultEvent, 0, len(tc.WantEvents))
+			for range tc.WantEvents {
+				select {
+				case ev := <-processor.events:
+					gotEvents = append(gotEvents, ev)
+				case <-time.After(5 * time.Second):
+					t.Fatalf("timed out waiting for event %d/%d", len(gotEvents)+1, len(tc.WantEvents))
+				}
+			}
+
+			close(stepsChannel)
+			cancel()
+			<-done
+
+			if diff := cmp.Diff(tc.WantEvents, gotEvents); diff != "" {
+				t.Errorf("events mismatch (-want, +got):\n%s", diff)
+			}
+		})
 	}
 }
