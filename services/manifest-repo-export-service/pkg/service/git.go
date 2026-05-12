@@ -80,12 +80,33 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	dbHandler := s.Repository.State().DBHandler
 
 	commitInfo, err := db.WithTransactionT(dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetCommitInfoResponse, error) {
-		commitIDPrefix, pageNumber := in.CommitHash, in.PageNumber
-		release, err := findReleaseByCommitID(ctx, dbHandler, transaction, commitIDPrefix)
+		commitPrefix, pageNumber := in.CommitHash, in.PageNumber
+
+		err := validateCommitPrefix(commitPrefix)
 		if err != nil {
 			return nil, err
 		}
+
+		release, err := dbHandler.DBSelectReleaseBySourceCommit(ctx, transaction, commitPrefix, true)
+		if err != nil {
+			return nil, fmt.Errorf("could not read release with SourceCommitId prefix %s from DB: %v", commitPrefix, err)
+		}
+		if release == nil {
+			return nil, grpcErrors.NotFoundError(ctx,
+				fmt.Errorf("SourceCommitId with prefix %s was not found in the DB", commitPrefix))
+		}
+
 		commitID := release.Metadata.SourceCommitId
+		prevCommitID := release.Metadata.PreviousCommitId
+		var nextCommitID string
+
+		nextRelease, err := dbHandler.DBSelectReleaseByPreviousCommit(ctx, transaction, commitID, true)
+		if err != nil {
+			return nil, fmt.Errorf("could not read release with PreviousCommitId %s from DB: %v", commitID, err)
+		}
+		if nextRelease != nil {
+			nextCommitID = nextRelease.Metadata.SourceCommitId
+		}
 
 		loadMore := false
 		events, err := s.GetEvents(ctx, transaction, commitID, pageNumber)
@@ -98,12 +119,12 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		}
 
 		return &api.GetCommitInfoResponse{
-			CommitHash:         release.Metadata.SourceCommitId,
+			CommitHash:         commitID,
 			CommitMessage:      release.Metadata.SourceMessage,
 			TouchedApps:        []string{string(release.App)},
 			Events:             events,
-			PreviousCommitHash: "",
-			NextCommitHash:     "",
+			PreviousCommitHash: prevCommitID,
+			NextCommitHash:     nextCommitID,
 			LoadMore:           loadMore,
 		}, nil
 	})
@@ -143,33 +164,17 @@ func (s *GitServer) ReadEvent(_ context.Context, fs billy.Filesystem, eventPath 
 	return eventmod.ToProto(eventId, event), nil
 }
 
-// findReleaseByCommitID checks if the releases table in the database contains
-// a release with the given commit hash prefix (metadata.sourceCommitId). Returns the
-// found release, if a unique one can be found. Returns a
-// gRPC error that can be directly returned to the client.
-func findReleaseByCommitID(
-	ctx context.Context,
-	dbHandler *db.DBHandler,
-	transaction *sql.Tx,
-	commitPrefix string,
-) (*db.DBReleaseWithMetaData, error) {
+func validateCommitPrefix(commitPrefix string) error {
 	if !valid.SHA1CommitIDPrefix(commitPrefix) {
-		return nil, status.Error(codes.InvalidArgument,
-			"not a valid commit_hash")
+		return status.Error(codes.InvalidArgument, "not a valid commit_hash")
 	}
+
 	commitPrefix = strings.ToLower(commitPrefix)
 	if len(commitPrefix) < 7 {
-		return nil, status.Error(codes.InvalidArgument,
-			"commit_hash too short (must be at least 7 characters)")
+		return status.Error(codes.InvalidArgument, "commit_hash too short (must be at least 7 characters)")
 	}
 
-	release, err := dbHandler.DBSelectReleaseBySourceCommit(ctx, transaction, commitPrefix, true)
-	if release == nil || err != nil {
-		return nil, grpcErrors.NotFoundError(ctx,
-			fmt.Errorf("commit with prefix %s was not found in the database", commitPrefix))
-	}
-
-	return release, nil
+	return nil
 }
 
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (_ *api.GetGitSyncStatusResponse, err error) {
