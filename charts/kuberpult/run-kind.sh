@@ -329,7 +329,7 @@ kubectl get pods
 
 START=30
 NUM_RELEASES=2
-END=$(($START + $NUM_RELEASES))
+END=$((START + NUM_RELEASES))
 for v in $(seq "$START" "$END")
 do
    RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-1 sreteam e
