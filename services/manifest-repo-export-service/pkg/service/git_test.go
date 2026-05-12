@@ -2204,10 +2204,9 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr r
 				Manifests: concreteTransformer.Manifests,
 			},
 			Metadata: db.DBReleaseMetaData{
-				SourceAuthor:     concreteTransformer.AuthorName,
-				SourceCommitId:   concreteTransformer.SourceCommitId,
-				SourceMessage:    concreteTransformer.SourceMessage,
-				PreviousCommitId: concreteTransformer.PreviousCommit,
+				SourceAuthor:   concreteTransformer.AuthorName,
+				SourceCommitId: concreteTransformer.SourceCommitId,
+				SourceMessage:  concreteTransformer.SourceMessage,
 			},
 		})
 		if err2 != nil {

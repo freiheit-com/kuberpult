@@ -99,7 +99,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 
 		commitID := releases[0].Metadata.SourceCommitId
 		sourceMessage := releases[0].Metadata.SourceMessage
-		prevCommitID := releases[0].Metadata.PreviousCommitId
+		prevCommitID := ""
 
 		uniqueApps := make(map[string]struct{})
 		for _, release := range releases {

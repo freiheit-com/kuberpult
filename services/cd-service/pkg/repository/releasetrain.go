@@ -1101,7 +1101,7 @@ func (c *envReleaseTrain) applyPrognosis(
 				SourceCommitId:        revivedRelease.Metadata.SourceCommitId,
 				SourceAuthor:          revivedRelease.Metadata.SourceAuthor,
 				SourceMessage:         revivedRelease.Metadata.SourceMessage,
-				PreviousCommit:        revivedRelease.Metadata.PreviousCommitId,
+				PreviousCommit:        "",
 				Team:                  appPrognosis.Team,
 				DisplayVersion:        revivedRelease.Metadata.DisplayVersion,
 				Authentication:        c.Parent.Authentication,
