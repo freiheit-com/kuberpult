@@ -535,6 +535,9 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 	return count, nil
 }
 
+/*
+The commit history stores all commits and how they are connected.
+*/
 const commitHistoryTable = "commits_history"
 
 func (h *DBHandler) DBWriteCommitHistoryRow(ctx context.Context, transaction *sql.Tx, commitHash, previousCommitHash string) (err error) {
@@ -555,15 +558,19 @@ func (h *DBHandler) DBWriteCommitHistoryRow(ctx context.Context, transaction *sq
 	return nil
 }
 
-func (h *DBHandler) DBGetNextCommit(ctx context.Context, transaction *sql.Tx, commitHash string) (_ *string, err error) {
-	selectQuery := h.AdaptQuery("SELECT commitHash FROM " + commitHistoryTable + " WHERE previousCommitHash = ?;")
+func (h *DBHandler) DBGetNextCommit(ctx context.Context, transaction *sql.Tx, commitHash string) (_ string, err error) {
+	selectQuery := h.AdaptQuery(`
+		SELECT commitHash
+		FROM ` + commitHistoryTable + `
+		WHERE previousCommitHash = ?;
+	`)
 	rows, err := transaction.QueryContext(
 		ctx,
 		selectQuery,
 		commitHash,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query commit history table from DB. Error: %w", err)
+		return "", fmt.Errorf("could not query commit history table from DB. Error: %w", err)
 	}
 
 	var nextCommitHash *string
@@ -571,29 +578,36 @@ func (h *DBHandler) DBGetNextCommit(ctx context.Context, transaction *sql.Tx, co
 		errScan := rows.Scan(&nextCommitHash)
 		if errScan != nil {
 			if errors.Is(errScan, sql.ErrNoRows) {
-				return nil, nil
+				return "", nil
 			}
-			return nil, fmt.Errorf("error scanning commit history row from DB. Error: %w", errScan)
+			return "", fmt.Errorf("error scanning commit history row from DB. Error: %w", errScan)
 		}
 	} else {
 		nextCommitHash = nil
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return nextCommitHash, nil
+	if nextCommitHash == nil {
+		return "", errors.New("no next commit found")
+	}
+	return *nextCommitHash, nil
 }
 
-func (h *DBHandler) DBGetPreviousCommit(ctx context.Context, transaction *sql.Tx, commitHash string) (_ *string, err error) {
-	selectQuery := h.AdaptQuery("SELECT previousCommitHash FROM " + commitHistoryTable + " WHERE commitHash = ?;")
+func (h *DBHandler) DBGetPreviousCommit(ctx context.Context, transaction *sql.Tx, commitHash string) (_ string, err error) {
+	selectQuery := h.AdaptQuery(`
+		SELECT previousCommitHash
+		FROM ` + commitHistoryTable + `
+		WHERE commitHash = ?;
+	`)
 	rows, err := transaction.QueryContext(
 		ctx,
 		selectQuery,
 		commitHash,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not query commit history table from DB. Error: %w", err)
+		return "", fmt.Errorf("could not query commit history table from DB. Error: %w", err)
 	}
 
 	var previousCommitHash *string
@@ -601,18 +615,21 @@ func (h *DBHandler) DBGetPreviousCommit(ctx context.Context, transaction *sql.Tx
 		errScan := rows.Scan(&previousCommitHash)
 		if errScan != nil {
 			if errors.Is(errScan, sql.ErrNoRows) {
-				return nil, nil
+				return "", nil
 			}
-			return nil, fmt.Errorf("error scanning commit history row from DB. Error: %w", errScan)
+			return "", fmt.Errorf("error scanning commit history row from DB. Error: %w", errScan)
 		}
 	} else {
 		previousCommitHash = nil
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return previousCommitHash, nil
+	if previousCommitHash == nil {
+		return "", errors.New("no previous commit found")
+	}
+	return *previousCommitHash, nil
 }
 
 /*

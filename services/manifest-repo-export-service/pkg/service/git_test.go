@@ -579,7 +579,7 @@ func TestGetCommitInfo(t *testing.T) {
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
 			allowReadingCommitData: true,
-			expectedError:          status.Error(codes.NotFound, "error: SourceCommitId with prefix bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the DB"),
+			expectedError:          status.Error(codes.NotFound, "error: commit hash with prefix bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the DB"),
 			expectedResponse:       nil,
 		},
 		{

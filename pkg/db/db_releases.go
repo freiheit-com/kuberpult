@@ -361,13 +361,13 @@ func (h *DBHandler) DBSelectAllLatestReleasesByCommitHash(ctx context.Context, t
 	selectQuery := h.AdaptQuery(`
 		SELECT DISTINCT ON (appName) created, appName, metadata, releaseVersion, environments, revision
 		FROM ` + releasesTable + `
-		WHERE commitHash LIKE ?
+		WHERE commitHash = ?
 		ORDER BY appName, releaseversion DESC, revision DESC;
 	`)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
-		commitHash+"%",
+		commitHash,
 	)
 
 	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)

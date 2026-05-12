@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 
 	billy "github.com/go-git/go-billy/v5"
@@ -81,20 +80,18 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	dbHandler := s.Repository.State().DBHandler
 
 	commitInfo, err := db.WithTransactionT(dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetCommitInfoResponse, error) {
-		commitPrefix, pageNumber := in.CommitHash, in.PageNumber
+		commitHash, pageNumber := in.CommitHash, in.PageNumber
 
-		err := validateCommitPrefix(commitPrefix)
-		if err != nil {
-			return nil, err
+		if !valid.SHA1CommitID(commitHash) {
+			return nil, status.Error(codes.InvalidArgument, "not a valid commit_hash")
 		}
 
-		releases, err := dbHandler.DBSelectAllLatestReleasesByCommitHash(ctx, transaction, commitPrefix, true)
+		releases, err := dbHandler.DBSelectAllLatestReleasesByCommitHash(ctx, transaction, commitHash, true)
 		if err != nil {
-			return nil, fmt.Errorf("could not read release with commit hash prefix %s from DB: %v", commitPrefix, err)
+			return nil, fmt.Errorf("could not read release with commit hash %s from DB: %v", commitHash, err)
 		}
 		if len(releases) == 0 {
-			return nil, grpcErrors.NotFoundError(ctx,
-				fmt.Errorf("commit hash with prefix %s was not found in the DB", commitPrefix))
+			return nil, grpcErrors.NotFoundError(ctx, fmt.Errorf("commit hash %s was not found in the DB", commitHash))
 		}
 
 		commitID := releases[0].Metadata.SourceCommitId
@@ -107,24 +104,14 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		}
 		slices.Sort(touchedApps)
 
-		dbPrevCommitID, err := dbHandler.DBGetPreviousCommit(ctx, transaction, commitID)
+		prevCommitID, err := dbHandler.DBGetPreviousCommit(ctx, transaction, commitID)
 		if err != nil {
 			return nil, fmt.Errorf("could not get previous commit of %s from DB: %v", commitID, err)
 		}
 
-		dbNextCommitID, err := dbHandler.DBGetNextCommit(ctx, transaction, commitID)
+		nextCommitID, err := dbHandler.DBGetNextCommit(ctx, transaction, commitID)
 		if err != nil {
 			return nil, fmt.Errorf("could not get next commit of %s from DB: %v", commitID, err)
-		}
-
-		var prevCommitID string
-		if dbPrevCommitID != nil {
-			prevCommitID = *dbPrevCommitID
-		}
-
-		var nextCommitID string
-		if dbNextCommitID != nil {
-			nextCommitID = *dbNextCommitID
 		}
 
 		loadMore := false
@@ -181,19 +168,6 @@ func (s *GitServer) ReadEvent(_ context.Context, fs billy.Filesystem, eventPath 
 		return nil, err
 	}
 	return eventmod.ToProto(eventId, event), nil
-}
-
-func validateCommitPrefix(commitPrefix string) error {
-	commitPrefix = strings.ToLower(commitPrefix)
-	if !valid.SHA1CommitIDPrefix(commitPrefix) {
-		return status.Error(codes.InvalidArgument, "not a valid commit_hash")
-	}
-
-	if len(commitPrefix) < 7 {
-		return status.Error(codes.InvalidArgument, "commit_hash too short (must be at least 7 characters)")
-	}
-
-	return nil
 }
 
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (_ *api.GetGitSyncStatusResponse, err error) {
