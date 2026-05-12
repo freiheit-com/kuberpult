@@ -357,17 +357,17 @@ func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, 
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, false)
 }
 
-func (h *DBHandler) DBSelectAllReleasesBySourceCommit(ctx context.Context, tx *sql.Tx, sourceCommitID string, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
+func (h *DBHandler) DBSelectAllLatestReleasesByCommitHash(ctx context.Context, tx *sql.Tx, commitHash string, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
 	selectQuery := h.AdaptQuery(`
-		SELECT created, appName, metadata, releaseVersion, environments, revision
+		SELECT DISTINCT ON (appName) created, appName, metadata, releaseVersion, environments, revision
 		FROM ` + releasesTable + `
 		WHERE commitHash LIKE ?
-		ORDER BY releaseversion DESC, revision DESC;
+		ORDER BY appName, releaseversion DESC, revision DESC;
 	`)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
-		sourceCommitID+"%",
+		commitHash+"%",
 	)
 
 	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)

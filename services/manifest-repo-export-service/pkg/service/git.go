@@ -88,26 +88,22 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 			return nil, err
 		}
 
-		releases, err := dbHandler.DBSelectAllReleasesBySourceCommit(ctx, transaction, commitPrefix, true)
+		releases, err := dbHandler.DBSelectAllLatestReleasesByCommitHash(ctx, transaction, commitPrefix, true)
 		if err != nil {
-			return nil, fmt.Errorf("could not read release with SourceCommitId prefix %s from DB: %v", commitPrefix, err)
+			return nil, fmt.Errorf("could not read release with commit hash prefix %s from DB: %v", commitPrefix, err)
 		}
 		if len(releases) == 0 {
 			return nil, grpcErrors.NotFoundError(ctx,
-				fmt.Errorf("SourceCommitId with prefix %s was not found in the DB", commitPrefix))
+				fmt.Errorf("commit hash with prefix %s was not found in the DB", commitPrefix))
 		}
 
 		commitID := releases[0].Metadata.SourceCommitId
 		sourceMessage := releases[0].Metadata.SourceMessage
 
-		uniqueApps := make(map[string]struct{})
-		for _, release := range releases {
-			uniqueApps[string(release.App)] = struct{}{}
-		}
-
 		var touchedApps []string
-		for app := range uniqueApps {
-			touchedApps = append(touchedApps, app)
+		for _, release := range releases {
+			touchedApps = append(touchedApps, string(release.App))
+
 		}
 		slices.Sort(touchedApps)
 
