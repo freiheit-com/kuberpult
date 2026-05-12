@@ -633,7 +633,7 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 		},
 		{
-			name: "no commit info returned if feature toggle not set",
+			name: "no commit events written if WriteCommitData is set to false",
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
 					Application:    "app",
@@ -644,16 +644,21 @@ func TestGetCommitInfo(t *testing.T) {
 						"development-1": "dev-manifest",
 					},
 					Version:             1,
-					WriteCommitData:     false, // we still write the info …
+					WriteCommitData:     false,
 					TransformerMetadata: rp.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
 				},
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
-			allowReadingCommitData: false, // … but do not return it
-			expectedError:          status.Error(codes.NotFound, "error: commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa was not found in the manifest repo"),
-			expectedResponse:       nil,
+			allowReadingCommitData: true,
+			expectedResponse: &api.GetCommitInfoResponse{
+				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				LoadMore:      false,
+				CommitMessage: "some message",
+				TouchedApps:   []string{"app"},
+				Events:        []*api.Event{},
+			},
 		},
 		{
 			name: "events for release trains on environments are correctly retrieved by GetCommitInfo",
