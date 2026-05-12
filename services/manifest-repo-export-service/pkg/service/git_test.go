@@ -579,7 +579,7 @@ func TestGetCommitInfo(t *testing.T) {
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
 			allowReadingCommitData: true,
-			expectedError:          status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
+			expectedError:          status.Error(codes.NotFound, "error: SourceCommitId with prefix bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the DB"),
 			expectedResponse:       nil,
 		},
 		{
@@ -958,10 +958,14 @@ func TestGetCommitInfo(t *testing.T) {
 			dbHandler := repo.State().DBHandler
 
 			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
-				err := setupDBFixtures(ctx, dbHandler, transaction)
-				if err != nil {
-					return err
+				//err := setupDBFixtures(ctx, dbHandler, transaction)
+				//if err != nil {
+				//	return err
+				//}
+				for _, tr := range tc.transformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "author", "email")
 				}
+
 				for _, initialEvent := range tc.InitialEvents {
 					switch initialEvent.EventType.(type) {
 					case *api.Event_CreateReleaseEvent:
@@ -2156,4 +2160,138 @@ func setupRepositoryTestWithPathAndDB(t *testing.T) (rp.Repository, *db.DBHandle
 		t.Fatal(err)
 	}
 	return repo, repoCfg.DBHandler, remoteDir
+}
+
+func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr rp.Transformer, dbHandler *db.DBHandler, t *testing.T, authorEmail string, authorName string) {
+	now, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr.SetCreationTimestamp(*now)
+	if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
+		concreteTransformer := tr.(*rp.CreateEnvironmentLock)
+		err2 := dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
+			CreatedByName:  concreteTransformer.AuthorName,
+			CreatedByEmail: concreteTransformer.AuthorEmail,
+			Message:        concreteTransformer.Message,
+			CiLink:         "", //not transported to repo
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtCreateEnvironment {
+		concreteTransformer := tr.(*rp.CreateEnvironment)
+		err2 := dbHandler.DBWriteEnvironment(ctx, transaction, concreteTransformer.Environment, concreteTransformer.Config)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtDeleteEnvironmentLock {
+		concreteTransformer := tr.(*rp.DeleteEnvironmentLock)
+		err2 := dbHandler.DBDeleteEnvironmentLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.LockId, db.LockDeletionMetadata{DeletedByUser: authorName, DeletedByEmail: authorEmail})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtDeployApplicationVersion {
+		concreteTransformer := tr.(*rp.DeployApplicationVersion)
+		err2 := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+			App:            types.AppName(concreteTransformer.Application),
+			Env:            concreteTransformer.Environment,
+			ReleaseNumbers: types.MakeReleaseNumbers(concreteTransformer.Version, concreteTransformer.Revision),
+			Metadata: db.DeploymentMetadata{
+				DeployedByEmail: authorEmail,
+				DeployedByName:  authorName,
+			},
+			TransformerID: concreteTransformer.TransformerEslVersion,
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
+		concreteTransformer := tr.(*rp.CreateApplicationVersion)
+		actualBracketName := types.ArgoBracketName(concreteTransformer.Application)
+		if concreteTransformer.GetEslVersion() > 0 {
+			bracketName, bracketError := db.HandleBracketsUpdate(ctx, dbHandler, transaction, types.AppName(concreteTransformer.Application), concreteTransformer.ArgoBracket, *now, concreteTransformer.GetEslVersion())
+			if bracketError != nil {
+				t.Fatal(bracketError)
+			}
+			actualBracketName = bracketName
+		}
+		err2 := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, actualBracketName)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+			ReleaseNumbers: types.ReleaseNumbers{
+				Version:  &concreteTransformer.Version,
+				Revision: concreteTransformer.Revision,
+			},
+			App: types.AppName(concreteTransformer.Application),
+			Manifests: db.DBReleaseManifests{
+				Manifests: concreteTransformer.Manifests,
+			},
+			Metadata: db.DBReleaseMetaData{
+				SourceAuthor:     concreteTransformer.AuthorName,
+				SourceCommitId:   concreteTransformer.SourceCommitId,
+				SourceMessage:    concreteTransformer.SourceMessage,
+				PreviousCommitId: concreteTransformer.PreviousCommit,
+			},
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtCreateEnvironmentApplicationLock {
+		concreteTransformer := tr.(*rp.CreateEnvironmentApplicationLock)
+		err2 := dbHandler.DBWriteApplicationLock(ctx, transaction, concreteTransformer.LockId, concreteTransformer.Environment, types.AppName(concreteTransformer.Application), db.LockMetadata{
+			CreatedByName:  concreteTransformer.AuthorName,
+			CreatedByEmail: concreteTransformer.AuthorEmail,
+			Message:        concreteTransformer.Message,
+			CiLink:         "", //not transported to repo
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtDeleteEnvironmentApplicationLock {
+		concreteTransformer := tr.(*rp.DeleteEnvironmentApplicationLock)
+		err2 := dbHandler.DBDeleteApplicationLock(ctx, transaction, concreteTransformer.Environment, types.AppName(concreteTransformer.Application), concreteTransformer.LockId, db.LockDeletionMetadata{
+			DeletedByEmail: authorEmail,
+			DeletedByUser:  authorName,
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtCreateEnvironmentTeamLock {
+		concreteTransformer := tr.(*rp.CreateEnvironmentTeamLock)
+
+		err2 := dbHandler.DBWriteTeamLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), concreteTransformer.Team, db.LockMetadata{
+			CreatedByName:  concreteTransformer.AuthorName,
+			CreatedByEmail: concreteTransformer.AuthorEmail,
+			Message:        concreteTransformer.Message,
+			CiLink:         "", //not transported to repo
+		})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+	if tr.GetDBEventType() == db.EvtDeleteEnvironmentTeamLock {
+		concreteTransformer := tr.(*rp.DeleteEnvironmentTeamLock)
+		err2 := dbHandler.DBDeleteTeamLock(ctx,
+			transaction,
+			types.EnvName(concreteTransformer.Environment),
+			concreteTransformer.Team,
+			concreteTransformer.LockId,
+			db.LockDeletionMetadata{
+				DeletedByUser:  concreteTransformer.AuthorEmail,
+				DeletedByEmail: concreteTransformer.AuthorEmail,
+			})
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
 }
