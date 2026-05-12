@@ -8,6 +8,13 @@ CD_GRPC_PORT="${CD_GRPC_PORT:-}"
 
 _REPO_ROOT=$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)
 
+if [ -f "${_REPO_ROOT}/.env.local" ]; then
+    set -a
+    # shellcheck source=/dev/null
+    . "${_REPO_ROOT}/.env.local"
+    set +a
+fi
+
 if [ -n "$_REPO_ROOT" ] && command -v docker &>/dev/null && command -v jq &>/dev/null; then
     _DC_JSON=$(docker compose -f "${_REPO_ROOT}/docker-compose.yml" config --format json 2>/dev/null || true)
     if [ -n "$_DC_JSON" ]; then

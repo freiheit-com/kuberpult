@@ -42,6 +42,7 @@ import {
     StreamStatusResponse,
     TagData,
     Warning,
+    ManifestLockInfo,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -118,6 +119,9 @@ type ManifestLocksResponse = {
 
 export const emptyManifestLocks: ManifestLocksResponse = { response: { manifestLocks: [] } };
 export const [useAllManifestLocks, UpdateAllManifestLocks] = createStore<ManifestLocksResponse>(emptyManifestLocks);
+
+export const useManifestsLockForApp = (appName: string): ManifestLockInfo[] =>
+    useAllManifestLocks(({ response }) => response.manifestLocks.filter((lock) => lock.app === appName));
 
 type TagsResponse = {
     response: GetGitTagsResponse;

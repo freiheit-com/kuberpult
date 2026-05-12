@@ -91,20 +91,20 @@ func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvN
 }
 
 // writeManifests writes the manifests.yaml file to the given parent path
-func writeManifests(fs billy.Filesystem, parentPath string, envManifest string) error {
+func writeManifests(fs billy.Filesystem, completeFilePath string, envManifest string) error {
 	// When we undeploy applications, the manifests will be empty.
 	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
 	// We work around this unusual behavior by writing a space into the file
 	if envManifest == "" {
 		envManifest = " "
 	}
-	if err := util.WriteFile(fs, fs.Join(parentPath, "manifests.yaml"), []byte(envManifest), 0666); err != nil {
+	if err := util.WriteFile(fs, completeFilePath, []byte(envManifest), 0666); err != nil {
 		return err
 	}
 	return nil
 }
 
-func writeManifestsIfNoManifestLock(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx, fs billy.Filesystem, parentPath string, envManifest string, app types.AppName, env types.EnvName) error {
+func writeManifestsIfNoManifestLock(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx, fs billy.Filesystem, completePath string, envManifest string, app types.AppName, env types.EnvName) error {
 	hasLock, err := dbHandler.DBHasActiveManifestLock(ctx, transaction, app, env)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func writeManifestsIfNoManifestLock(ctx context.Context, dbHandler *db.DBHandler
 	if hasLock {
 		return nil
 	}
-	return writeManifests(fs, parentPath, envManifest)
+	return writeManifests(fs, completePath, envManifest)
 }
 
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
@@ -409,7 +409,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if state.ArgoRenderOptions.RenderApps {
-		if err := writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, manifestsDir, manifestContent, types.AppName(c.Application), c.Environment); err != nil {
+		if err := writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, fsys.Join(manifestsDir, "manifests.yaml"), manifestContent, types.AppName(c.Application), c.Environment); err != nil {
 			return "", err
 		}
 	}
@@ -480,7 +480,8 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 	if err := fsys.MkdirAll(dir.BracketDirectory, 0777); err != nil {
 		return "", fmt.Errorf("could not create directory %s: %v", dir.BracketDirectory, err)
 	}
-	if err := util.WriteFile(fsys, dir.BracketPath, manifestContent, 0666); err != nil {
+	err = writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, dir.BracketPath, string(manifestContent), types.AppName(c.Application), c.Environment)
+	if err != nil {
 		return "", fmt.Errorf("could not write bracket for deployment of app %s on env %s: %v", c.Application, envName, err)
 	}
 	return "", nil
@@ -1058,7 +1059,7 @@ func (c *RenderEnvironment) Transform(
 				return "", fmt.Errorf("could not create directory %s: %v", manifestsDir, err)
 			}
 
-			if err := writeManifests(fs, manifestsDir, envManifest); err != nil {
+			if err := writeManifests(fs, fs.Join(manifestsDir, "manifests.yaml"), envManifest); err != nil {
 				return "", fmt.Errorf("could not write manifests for app '%s' on env '%s': %v", appName, c.Environment, err)
 			}
 

@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { act, render, getByTestId } from '@testing-library/react';
 import { documentQuerySelectorSafe } from '../../../setupTests';
-import { EnvSelectionDialog, EnvSelectionDialogProps } from './SelectionDialogs';
+import { EnvSelectionDialogTrain, EnvSelectionDialogProps } from './SelectionDialogs';
 
 type TestDataSelection = {
     name: string;
@@ -42,7 +42,7 @@ const dataSelection: TestDataSelection[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            envSelectionDialog: true,
+            multiSelect: true,
         },
         expectedNumItems: 2,
         clickOnButton: 'dev',
@@ -58,7 +58,7 @@ const dataSelection: TestDataSelection[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            envSelectionDialog: true,
+            multiSelect: true,
         },
         expectedNumItems: 3,
         clickOnButton: 'staging',
@@ -74,7 +74,7 @@ const dataSelection: TestDataSelection[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            envSelectionDialog: false,
+            multiSelect: false,
         },
         expectedNumItems: 3,
         clickOnButton: 'staging',
@@ -90,7 +90,7 @@ const dataSelection: TestDataSelection[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            envSelectionDialog: true,
+            multiSelect: true,
         },
         expectedNumItems: 0,
         clickOnButton: '',
@@ -114,7 +114,7 @@ const dataOpenClose: TestDataOpenClose[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            envSelectionDialog: true,
+            multiSelect: true,
         },
         expectedNumElements: 1,
     },
@@ -125,7 +125,7 @@ const dataOpenClose: TestDataOpenClose[] = [
             open: false,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            envSelectionDialog: true,
+            multiSelect: true,
         },
         expectedNumElements: 0,
     },
@@ -146,7 +146,7 @@ const dataCallbacks: TestDataCallbacks[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            envSelectionDialog: true,
+            multiSelect: false,
         },
         clickThis: cancelButtonTestId,
         expectedCancelCallCount: 1,
@@ -159,7 +159,7 @@ const dataCallbacks: TestDataCallbacks[] = [
             open: true,
             onSubmit: mySubmitSpy,
             onCancel: myCancelSpy,
-            envSelectionDialog: true,
+            multiSelect: false,
         },
         clickThis: confirmButtonTestId,
         expectedCancelCallCount: 0,
@@ -167,7 +167,7 @@ const dataCallbacks: TestDataCallbacks[] = [
     },
 ];
 
-const getNode = (overrides: EnvSelectionDialogProps) => <EnvSelectionDialog {...overrides} />;
+const getNode = (overrides: EnvSelectionDialogProps) => <EnvSelectionDialogTrain {...overrides} />;
 const getWrapper = (overrides: EnvSelectionDialogProps) => render(getNode(overrides));
 
 describe('EnvSelectionDialog', () => {
@@ -190,7 +190,7 @@ describe('EnvSelectionDialog', () => {
                 });
             } else {
                 expect(document.querySelector('.env-selection-dialog')?.textContent).toContain(
-                    'There are no environments to list'
+                    'There are no available environments to run a release train to based on the current environment/environmentGroup'
                 );
             }
             expect(document.querySelectorAll('.test-button-checkbox.enabled').length).toEqual(
@@ -252,7 +252,7 @@ describe('EnvSelectionDialog', () => {
                 open: true,
                 onSubmit: mySubmitSpy,
                 onCancel: myCancelSpy,
-                envSelectionDialog: true,
+                multiSelect: false,
             },
             clickTheseTeams: ['dev'],
             expectedCancelCallCount: 0,
@@ -266,7 +266,7 @@ describe('EnvSelectionDialog', () => {
                 open: true,
                 onSubmit: mySubmitSpy,
                 onCancel: myCancelSpy,
-                envSelectionDialog: true,
+                multiSelect: true,
             },
             clickTheseTeams: ['staging', 'prod'],
             expectedCancelCallCount: 0,
@@ -280,7 +280,7 @@ describe('EnvSelectionDialog', () => {
                 open: true,
                 onSubmit: mySubmitSpy,
                 onCancel: myCancelSpy,
-                envSelectionDialog: true,
+                multiSelect: true,
             },
             clickTheseTeams: ['dev', 'staging', 'staging'],
             expectedCancelCallCount: 0,
@@ -297,7 +297,7 @@ describe('EnvSelectionDialog', () => {
 
             const { container } = getWrapper(testcase.input);
 
-            testcase.clickTheseTeams.forEach((value, index) => {
+            testcase.clickTheseTeams.forEach((value) => {
                 const teamButton = documentQuerySelectorSafe('.id-' + value);
                 act(() => {
                     teamButton.click();
