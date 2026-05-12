@@ -38,4 +38,5 @@ RUN HELM_SHA256=$(case "$TARGETARCH" in \
 WORKDIR /kp
 
 COPY go.mod go.sum ./
+RUN go mod download
 

@@ -35,6 +35,10 @@ Build a single service Docker image:
 IMAGE_TAG=local make -C services/cd-service docker
 ```
 
+## Docker Concept
+Our "builder" Dockerfile contains the go.mod and runs go mod download.
+Other Dockerfiles that depend on it, should not use go mod download again. They just copy from the builder.
+
 ## Testing
 
 Tests run inside Docker using the builder image and connect to a test PostgreSQL instance.
