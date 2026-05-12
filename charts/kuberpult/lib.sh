@@ -9,7 +9,7 @@ function waitForDeployment() {
   ns="$1"
   label="$2"
   print "waitForDeployment: $ns/$label"
-  sleep 10
+  sleep 6
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
     sleep 4

@@ -402,12 +402,12 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							DeployedAt:     deployedAt,
 						},
 					})
-					switch {
-					case bracketVersion == types.BracketVersionDelete:
+					switch bracketVersion {
+					case types.BracketVersionDelete:
 						// Empty bracket: register with no deployment so ProcessAppChange
 						// will call DeleteArgoApps (which requires deployment == nil).
 						v.addEmptyBracketToChange(appsToChange, types.ArgoBracketName(bracketName))
-					case bracketVersion == "":
+					case "":
 						// Proto zero-value leaking through — neither delete nor update.
 						l.Warn("bracket.version.empty", zap.String("bracket", bracketName), zap.String("env", envName))
 					default:
