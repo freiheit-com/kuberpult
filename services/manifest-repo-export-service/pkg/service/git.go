@@ -91,7 +91,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		if err != nil {
 			return nil, fmt.Errorf("could not read release with SourceCommitId prefix %s from DB: %v", commitPrefix, err)
 		}
-		if releases == nil || len(releases) == 0 {
+		if len(releases) == 0 {
 			return nil, grpcErrors.NotFoundError(ctx,
 				fmt.Errorf("SourceCommitId with prefix %s was not found in the DB", commitPrefix))
 		}

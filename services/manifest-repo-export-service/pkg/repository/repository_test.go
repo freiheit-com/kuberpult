@@ -2296,7 +2296,6 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 				return nil
 			})
-			repo.config.MinimizeExportedData = true
 
 			initialCommitId, err := repo.GetHeadCommitId()
 			if err != nil {
@@ -2399,14 +2398,13 @@ func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 	}
 
 	repoCfg := RepositoryConfig{
-		URL:                  remoteDir,
-		Path:                 localDir,
-		CommitterEmail:       "kuberpult@freiheit.com",
-		CommitterName:        "kuberpult",
-		ArgoCdGenerateFiles:  true,
-		ReleaseVersionLimit:  2,
-		MinimizeExportedData: false,
-		ArgoRenderOptions:    testRenderOptions(),
+		URL:                 remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
+		ReleaseVersionLimit: 2,
+		ArgoRenderOptions:   testRenderOptions(),
 	}
 
 	if dbConfig != nil {
@@ -2796,7 +2794,6 @@ func TestTransformerResultEnvironments(t *testing.T) {
 			t.Parallel()
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
-			repo.config.MinimizeExportedData = true
 
 			ctx := testutilauth.MakeTestContext()
 
@@ -2969,10 +2966,10 @@ func TestCombineTransformerResult(t *testing.T) {
 func TestManifestLockPreventsDeployment(t *testing.T) {
 	const manifestFile = "environments/production/applications/test/manifests/manifests.yaml"
 	tcs := []struct {
-		Name             string
-		WriteLock        bool
-		DeleteLock       bool
-		ExpectManifest   bool
+		Name           string
+		WriteLock      bool
+		DeleteLock     bool
+		ExpectManifest bool
 	}{
 		{
 			Name:           "no lock - manifest is written",
@@ -3012,9 +3009,9 @@ func TestManifestLockPreventsDeployment(t *testing.T) {
 					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
 				},
 				&CreateApplicationVersion{
-					Application: "test",
-					Manifests:   map[types.EnvName]string{"production": "manifest-content"},
-					Version:     1,
+					Application:         "test",
+					Manifests:           map[types.EnvName]string{"production": "manifest-content"},
+					Version:             1,
 					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
 				},
 			}

@@ -987,10 +987,9 @@ func TestGetCommitInfo(t *testing.T) {
 			}
 
 			config := rp.RepositoryConfig{
-				ArgoCdGenerateFiles:  true,
-				DBHandler:            repo.State().DBHandler,
-				MinimizeExportedData: false,
-				ArgoRenderOptions:    testRenderOptions(),
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+				ArgoRenderOptions:   testRenderOptions(),
 			}
 			sv := &GitServer{
 				Repository: repo,
@@ -1183,10 +1182,9 @@ func TestGetSyncData(t *testing.T) {
 			pageSize := 100
 			ctx := testutilauth.MakeTestContext()
 			config := rp.RepositoryConfig{
-				ArgoCdGenerateFiles:  true,
-				DBHandler:            repo.State().DBHandler,
-				MinimizeExportedData: false,
-				ArgoRenderOptions:    testRenderOptions(),
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+				ArgoRenderOptions:   testRenderOptions(),
 			}
 			sv := &GitServer{
 				Repository: repo,
@@ -1511,10 +1509,9 @@ func TestRetryEvent(t *testing.T) {
 			pageSize := 100
 			ctx := testutilauth.MakeTestContext()
 			config := rp.RepositoryConfig{
-				ArgoCdGenerateFiles:  true,
-				DBHandler:            repo.State().DBHandler,
-				MinimizeExportedData: false,
-				ArgoRenderOptions:    testRenderOptions(),
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+				ArgoRenderOptions:   testRenderOptions(),
 			}
 			sv := &GitServer{
 				Repository: repo,
@@ -1773,10 +1770,9 @@ func TestSkipEvent(t *testing.T) {
 			pageSize := 100
 			ctx := testutilauth.MakeTestContext()
 			config := rp.RepositoryConfig{
-				ArgoCdGenerateFiles:  true,
-				DBHandler:            repo.State().DBHandler,
-				MinimizeExportedData: false,
-				ArgoRenderOptions:    testRenderOptions(),
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+				ArgoRenderOptions:   testRenderOptions(),
 			}
 			sv := &GitServer{
 				Repository: repo,
@@ -1905,10 +1901,9 @@ func TestRetryEventRbac(t *testing.T) {
 			ctx = auth.WriteUserToContext(ctx, user)
 
 			config := rp.RepositoryConfig{
-				ArgoCdGenerateFiles:  true,
-				DBHandler:            repo.State().DBHandler,
-				MinimizeExportedData: false,
-				ArgoRenderOptions:    testRenderOptions(),
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+				ArgoRenderOptions:   testRenderOptions(),
 			}
 
 			sv := &GitServer{
@@ -1984,10 +1979,9 @@ func TestSkipEventRbac(t *testing.T) {
 			ctx = auth.WriteUserToContext(ctx, user)
 
 			config := rp.RepositoryConfig{
-				ArgoCdGenerateFiles:  true,
-				DBHandler:            repo.State().DBHandler,
-				MinimizeExportedData: false,
-				ArgoRenderOptions:    testRenderOptions(),
+				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
+				ArgoRenderOptions:   testRenderOptions(),
 			}
 
 			sv := &GitServer{
@@ -2022,16 +2016,15 @@ func TestGetGitTags(t *testing.T) {
 
 	repo, dbHandler, remoteDir := setupRepositoryTestWithPathAndDB(t)
 	config := rp.RepositoryConfig{
-		ArgoCdGenerateFiles:  true,
-		DBHandler:            repo.State().DBHandler,
-		MinimizeExportedData: false,
-		URL:                  "file://" + remoteDir,
-		Path:                 remoteDir,
-		TagsPath:             remoteDir,
-		CommitterEmail:       "kuberpult@freiheit.com",
-		CommitterName:        "kuberpult",
-		Branch:               "master",
-		ArgoRenderOptions:    testRenderOptions(),
+		ArgoCdGenerateFiles: true,
+		DBHandler:           repo.State().DBHandler,
+		URL:                 "file://" + remoteDir,
+		Path:                remoteDir,
+		TagsPath:            remoteDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		Branch:              "master",
+		ArgoRenderOptions:   testRenderOptions(),
 	}
 	sv := &GitServer{
 		Repository: repo,
@@ -2110,14 +2103,13 @@ func setupRepositoryTestWithPathAndDB(t *testing.T) (rp.Repository, *db.DBHandle
 	}
 
 	repoCfg := rp.RepositoryConfig{
-		URL:                  remoteDir,
-		Path:                 localDir,
-		CommitterEmail:       "kuberpult@freiheit.com",
-		CommitterName:        "kuberpult",
-		ArgoCdGenerateFiles:  true,
-		ReleaseVersionLimit:  2,
-		MinimizeExportedData: false,
-		ArgoRenderOptions:    testRenderOptions(),
+		URL:                 remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
+		ReleaseVersionLimit: 2,
+		ArgoRenderOptions:   testRenderOptions(),
 	}
 
 	if dbConfig != nil {

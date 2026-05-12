@@ -188,15 +188,13 @@ func GetNoOpMessage(t Transformer) (string, error) {
 	return fmt.Sprintf("%s %s", NoOpMessage, evt), nil
 }
 
-func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx, minimizeExportedData bool) (string, *TransformerResult, error) {
+func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx) (string, *TransformerResult, error) {
 	runner := transformerRunner{
 		ChangedApps:          nil,
 		EnvironmentsToRender: nil,
 		Commits:              nil,
 		State:                s,
 		Stack:                [][]string{nil},
-
-		MinimizeGitData: minimizeExportedData,
 	}
 	if err := runner.Execute(ctx, t, transaction); err != nil {
 		return "", nil, err
@@ -224,8 +222,6 @@ type transformerRunner struct {
 
 	EnvironmentsToRender []EnvironmentToRender
 	Commits              *CommitIds
-
-	MinimizeGitData bool
 }
 
 var _ TransformerContext = &transformerRunner{} // ensure interface is implemented
