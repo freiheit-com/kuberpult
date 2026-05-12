@@ -1217,6 +1217,180 @@ spec:
 	}
 }
 
+func TestReleasesAndDeployments(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		ExpectedError error
+		ExpectedFile  []*FilenameAndData
+	}{
+		{
+			Name: "Check deployments",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+					TransformerEslVersion: 2,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"production": "some production manifest 1.0",
+						"staging":    "some staging manifest 1.0",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 3,
+					Team:                  "team-123",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"production": "some production manifest 1.1",
+						"staging":    "some staging manifest 1.1",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              1,
+					TransformerEslVersion: 4,
+					Team:                  "team-123",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "staging",
+					Application:           appName,
+					Version:               1,
+					Revision:              1,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 5,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "production",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 5,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFile: []*FilenameAndData{
+				{
+					path:     "environments/production/applications/" + appName + "/manifests/manifests.yaml",
+					fileData: []byte("some production manifest 1.0"),
+				},
+				{
+					path:     "environments/staging/applications/" + appName + "/manifests/manifests.yaml",
+					fileData: []byte("some staging manifest 1.1"),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _, _ := SetupRepositoryTestWithDB(t)
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// setup:
+				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				for _, tr := range tc.Transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+
+				// actual transformer to be tested:
+				err = repo.Apply(ctx, transaction, tc.Transformers...)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if tc.ExpectedFile != nil {
+				for i := range tc.ExpectedFile {
+					expectedFile := tc.ExpectedFile[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(actualFileData, expectedFile.fileData) {
+						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestDeleteAAEnvironmentConfigTransformer(t *testing.T) {
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"

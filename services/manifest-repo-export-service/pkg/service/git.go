@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -100,10 +101,16 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		sourceMessage := releases[0].Metadata.SourceMessage
 		prevCommitID := releases[0].Metadata.PreviousCommitId
 
-		var touchedApps []string
+		uniqueApps := make(map[string]struct{})
 		for _, release := range releases {
-			touchedApps = append(touchedApps, string(release.App))
+			uniqueApps[string(release.App)] = struct{}{}
 		}
+
+		var touchedApps []string
+		for app := range uniqueApps {
+			touchedApps = append(touchedApps, app)
+		}
+		slices.Sort(touchedApps)
 
 		var nextCommitID string
 		nextRelease, err := dbHandler.DBSelectLatestReleaseByPreviousCommit(ctx, transaction, commitID, true)
@@ -171,11 +178,11 @@ func (s *GitServer) ReadEvent(_ context.Context, fs billy.Filesystem, eventPath 
 }
 
 func validateCommitPrefix(commitPrefix string) error {
+	commitPrefix = strings.ToLower(commitPrefix)
 	if !valid.SHA1CommitIDPrefix(commitPrefix) {
 		return status.Error(codes.InvalidArgument, "not a valid commit_hash")
 	}
 
-	commitPrefix = strings.ToLower(commitPrefix)
 	if len(commitPrefix) < 7 {
 		return status.Error(codes.InvalidArgument, "commit_hash too short (must be at least 7 characters)")
 	}
