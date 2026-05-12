@@ -87,20 +87,26 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 			return nil, err
 		}
 
-		release, err := dbHandler.DBSelectReleaseBySourceCommit(ctx, transaction, commitPrefix, true)
+		releases, err := dbHandler.DBSelectAllReleasesBySourceCommit(ctx, transaction, commitPrefix, true)
 		if err != nil {
 			return nil, fmt.Errorf("could not read release with SourceCommitId prefix %s from DB: %v", commitPrefix, err)
 		}
-		if release == nil {
+		if releases == nil || len(releases) == 0 {
 			return nil, grpcErrors.NotFoundError(ctx,
 				fmt.Errorf("SourceCommitId with prefix %s was not found in the DB", commitPrefix))
 		}
 
-		commitID := release.Metadata.SourceCommitId
-		prevCommitID := release.Metadata.PreviousCommitId
-		var nextCommitID string
+		commitID := releases[0].Metadata.SourceCommitId
+		sourceMessage := releases[0].Metadata.SourceMessage
+		prevCommitID := releases[0].Metadata.PreviousCommitId
 
-		nextRelease, err := dbHandler.DBSelectReleaseByPreviousCommit(ctx, transaction, commitID, true)
+		var touchedApps []string
+		for _, release := range releases {
+			touchedApps = append(touchedApps, string(release.App))
+		}
+
+		var nextCommitID string
+		nextRelease, err := dbHandler.DBSelectLatestReleaseByPreviousCommit(ctx, transaction, commitID, true)
 		if err != nil {
 			return nil, fmt.Errorf("could not read release with PreviousCommitId %s from DB: %v", commitID, err)
 		}
@@ -120,8 +126,8 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 
 		return &api.GetCommitInfoResponse{
 			CommitHash:         commitID,
-			CommitMessage:      release.Metadata.SourceMessage,
-			TouchedApps:        []string{string(release.App)},
+			CommitMessage:      sourceMessage,
+			TouchedApps:        touchedApps,
 			Events:             events,
 			PreviousCommitHash: prevCommitID,
 			NextCommitHash:     nextCommitID,

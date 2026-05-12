@@ -359,13 +359,12 @@ func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, 
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, false)
 }
 
-func (h *DBHandler) DBSelectReleaseBySourceCommit(ctx context.Context, tx *sql.Tx, sourceCommitID string, ignorePrepublishes bool) (_ *DBReleaseWithMetaData, err error) {
+func (h *DBHandler) DBSelectAllReleasesBySourceCommit(ctx context.Context, tx *sql.Tx, sourceCommitID string, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, releaseVersion, environments, revision
 		FROM ` + releasesTable + `
 		WHERE (metadata::jsonb)->>'SourceCommitId' LIKE ?
-		ORDER BY releaseversion DESC, revision DESC
-		LIMIT 1;
+		ORDER BY releaseversion DESC, revision DESC;
 	`)
 	rows, err := tx.QueryContext(
 		ctx,
@@ -373,10 +372,10 @@ func (h *DBHandler) DBSelectReleaseBySourceCommit(ctx context.Context, tx *sql.T
 		sourceCommitID+"%",
 	)
 
-	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, false)
+	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
 }
 
-func (h *DBHandler) DBSelectReleaseByPreviousCommit(ctx context.Context, tx *sql.Tx, previousCommitID string, ignorePrepublishes bool) (_ *DBReleaseWithMetaData, err error) {
+func (h *DBHandler) DBSelectLatestReleaseByPreviousCommit(ctx context.Context, tx *sql.Tx, previousCommitID string, ignorePrepublishes bool) (_ *DBReleaseWithMetaData, err error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, metadata, releaseVersion, environments, revision
 		FROM ` + releasesTable + `
