@@ -940,10 +940,6 @@ func TestGetCommitInfo(t *testing.T) {
 			dbHandler := repo.State().DBHandler
 
 			err := dbHandler.WithTransactionR(ctx, 0, false, func(ctx context.Context, transaction *sql.Tx) error {
-				//err := setupDBFixtures(ctx, dbHandler, transaction)
-				//if err != nil {
-				//	return err
-				//}
 				for _, tr := range tc.transformers {
 					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "author", "email")
 				}
