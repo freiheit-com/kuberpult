@@ -63,22 +63,9 @@ There's no need to push the image.
 
 ## Setup and run instructions (with docker-compose)
 
-- in `services/cd-service`, initialize a bare repository with the name `repository_remote`
+Run `make kuberpult-freshdb` or `make kuberpult`, it will set up the manifest repository for you.
 
-```bash
-cd services/cd-service
-git init --bare repository_remote --initial-branch=master
-git clone ./repository_remote/ repository_checkedout
-cd repository_checkedout
-git commit --allow-empty -m 'initial commit' && git push
-cd ../../..
-```
-- This repository is bare, to populate it, fill it with data as described in `README.md` or https://github.com/freiheit-com/kuberpult/pull/95
-- the value of environment variables are defaulted to `KUBERPULT_GIT_URL=./repository_remote` and `KUBERPULT_GIT_BRANCH=master`
-- run the following command to start all the services required.
-```bash
-make kuberpult
-```
+You can then run `infrastructure/scripts/create-testdata/manifest-setup.sh` to create environments and add your first app.
 
 - To enable tracing with Datadog for the services, first create `docker.env` for storing Data API Key under the Kuberpult's root directory:
 ```

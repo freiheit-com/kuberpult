@@ -21,6 +21,7 @@ import {
     sortLocks,
     useAllApplicationLocks,
     useAllEnvLocks,
+    useAllManifestLocks,
     useApplications,
     useGlobalLoadingState,
     useTeamLocks,
@@ -63,6 +64,19 @@ const environmentFieldHeaders = [
     'Suggested Lifetime',
     '',
 ];
+
+const manifestLockFieldHeaders = [
+    'Date',
+    'Environment',
+    'Application',
+    'Lock Id',
+    'Message',
+    'Author Name',
+    'Author Email',
+    'Suggested Lifetime',
+    '',
+];
+
 export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');
@@ -70,6 +84,7 @@ export const LocksPage: React.FC = () => {
     const allAppLocks = useAllApplicationLocks((map) => map);
     const allEnvLocks = useAllEnvLocks((map) => map.allEnvLocks);
     let teamLocks = useTeamLocks(allApps);
+    const manifestLocksResponse = useAllManifestLocks((r) => r);
     const envLocks = useMemo(() => {
         const allEnvLocksDisplay: DisplayLock[] = [];
         Object.entries(allEnvLocks).forEach(([env, envLocks]): void => {
@@ -116,6 +131,24 @@ export const LocksPage: React.FC = () => {
         );
     }, [allAppLocks, appNameParam]);
 
+    const manifestLocks = useMemo(() => {
+        const display: DisplayLock[] = (manifestLocksResponse.response.manifestLocks ?? [])
+            .map((info) => ({
+                date: info.lock?.createdAt,
+                environment: info.env,
+                application: info.app,
+                lockId: info.lock?.lockId ?? '',
+                message: info.lock?.message ?? '',
+                authorName: info.lock?.createdBy?.name,
+                authorEmail: info.lock?.createdBy?.email,
+                ciLink: info.lock?.ciLink ?? '',
+                suggestedLifetime: info.lock?.suggestedLifetime ?? '',
+                isManifestLock: true,
+            }))
+            .filter((lock) => searchCustomFilter(appNameParam, lock.application));
+        return sortLocks(display, 'oldestToNewest');
+    }, [manifestLocksResponse, appNameParam]);
+
     const element = useGlobalLoadingState();
     if (element) {
         return element;
@@ -132,6 +165,11 @@ export const LocksPage: React.FC = () => {
                 <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
                 <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />
                 <LocksTable headerTitle="Team Locks" columnHeaders={teamFieldHeaders} locks={teamLocks} />
+                <LocksTable
+                    headerTitle="Manifest Locks"
+                    columnHeaders={manifestLockFieldHeaders}
+                    locks={manifestLocks}
+                />
             </main>
         </div>
     );

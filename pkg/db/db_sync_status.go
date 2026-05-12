@@ -40,6 +40,16 @@ const (
 
 const BULK_INSERT_BATCH_SIZE = 500
 
+/*
+git_sync_status tracks whether the manifest-repo-export-service has synced each (app, env) to git
+for a given transformer event (identified by transformerID = eslVersion).
+When a transformer is processed, UNSYNCED rows are inserted for all affected (app, env) pairs.
+After the git push succeeds they are updated to SYNCED, or SYNC_FAILED on error.
+The service queries unsynced rows to know what still needs to be pushed.
+Status values: SYNCED (0), UNSYNCED (1), SYNC_FAILED (2).
+*/
+const gitSyncStatusTable = "git_sync_status"
+
 type GitSyncData struct {
 	AppName       types.AppName
 	EnvName       types.EnvName
@@ -59,7 +69,8 @@ func (h *DBHandler) DBWriteNewSyncEvent(ctx context.Context, tx *sql.Tx, syncDat
 		return fmt.Errorf("DBWriteNewSyncEvent: no transaction provided")
 	}
 
-	insertQuery := h.AdaptQuery("INSERT INTO git_sync_status (created, transformerid, envName, appName, status)  VALUES (?, ?, ?, ?, ?);")
+	insertQuery := h.AdaptQuery(`INSERT INTO ` + gitSyncStatusTable + ` (created, transformerid, envName, appName, status)
+		VALUES (?, ?, ?, ?, ?);`)
 	now, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
 		return fmt.Errorf("DBWriteNewSyncEvent unable to get transaction timestamp: %w", err)
@@ -120,7 +131,10 @@ func (h *DBHandler) DBReadUnsyncedAppsForTransfomerID(ctx context.Context, tx *s
 		return nil, fmt.Errorf("DBReadUnsyncedAppsForTransfomerID: no transaction provided")
 	}
 
-	selectQuery := h.AdaptQuery("SELECT appName, envName FROM git_sync_status WHERE transformerid = ? AND status = ? ORDER BY created DESC;")
+	selectQuery := h.AdaptQuery(`SELECT appName, envName
+		FROM ` + gitSyncStatusTable + `
+		WHERE transformerid = ? AND status = ?
+		ORDER BY created DESC;`)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -171,7 +185,10 @@ func (h *DBHandler) DBReadAllAppsForTransfomerID(ctx context.Context, tx *sql.Tx
 		return nil, fmt.Errorf("DBReadAllAppsForTransfomerID: no transaction provided")
 	}
 
-	selectQuery := h.AdaptQuery("SELECT appName, envName FROM git_sync_status WHERE transformerid = ? ORDER BY created DESC;")
+	selectQuery := h.AdaptQuery(`SELECT appName, envName
+		FROM ` + gitSyncStatusTable + `
+		WHERE transformerid = ?
+		ORDER BY created DESC;`)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -289,7 +306,10 @@ func (h *DBHandler) DBRetrieveAppsByStatus(ctx context.Context, tx *sql.Tx, stat
 		span.Finish(tracer.WithError(err))
 	}()
 	span.SetTag("status", status)
-	selectQuery := h.AdaptQuery("SELECT transformerid, envName, appName, status FROM git_sync_status WHERE status = ? ORDER BY created DESC;")
+	selectQuery := h.AdaptQuery(`SELECT transformerid, envName, appName, status
+		FROM ` + gitSyncStatusTable + `
+		WHERE status = ?
+		ORDER BY created DESC;`)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
@@ -342,7 +362,11 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 	span.SetTag("app", appName)
 	span.SetTag("env", envName)
 
-	selectQuerry := h.AdaptQuery("SELECT transformerid, envName, appName, status FROM git_sync_status WHERE appName = ? AND envName= ? ORDER BY created DESC LIMIT 1;")
+	selectQuerry := h.AdaptQuery(`SELECT transformerid, envName, appName, status
+		FROM ` + gitSyncStatusTable + `
+		WHERE appName = ? AND envName= ?
+		ORDER BY created DESC
+		LIMIT 1;`)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuerry,
@@ -362,7 +386,7 @@ func (h *DBHandler) DBRetrieveSyncStatus(ctx context.Context, tx *sql.Tx, appNam
 
 func (h *DBHandler) DBDeleteSyncStatusOnAppAndEnv(ctx context.Context, tx *sql.Tx, appName types.AppName, envName types.EnvName) (err error) {
 	selectQuerry := h.AdaptQuery(`
-		DELETE FROM git_sync_status
+		DELETE FROM ` + gitSyncStatusTable + `
 		WHERE appName = ? AND envName= ?
 		;`)
 	_, err = tx.ExecContext(
@@ -379,7 +403,7 @@ func (h *DBHandler) DBDeleteSyncStatusOnAppAndEnv(ctx context.Context, tx *sql.T
 
 // These queries can get long. Because of this, we insert these values in batches
 func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApps []EnvApp, now time.Time, id TransformerID, status SyncStatus, batchSize int) (err error) {
-	queryTemplate := `INSERT INTO git_sync_status (created, transformerid, envName, appName, status)
+	queryTemplate := `INSERT INTO ` + gitSyncStatusTable + ` (created, transformerid, envName, appName, status)
 		VALUES ('%s', %d, '%s', '%s', %d)
 		ON CONFLICT(envName, appname)
 		DO UPDATE SET created = excluded.created, status = excluded.status, transformerid = excluded.transformerid;`
@@ -402,7 +426,7 @@ func (h *DBHandler) executeBulkInsert(ctx context.Context, tx *sql.Tx, allEnvApp
 }
 
 func (h *DBHandler) truncateGitSyncStatus(ctx context.Context, tx *sql.Tx) error {
-	const query = "TRUNCATE TABLE git_sync_status;"
+	const query = "TRUNCATE TABLE " + gitSyncStatusTable + ";"
 	_, err := tx.ExecContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("could not truncate git_sync_status: %w", err)
@@ -422,7 +446,9 @@ func (h *DBHandler) DBCountAppsWithStatus(ctx context.Context, tx *sql.Tx, statu
 		return -1, fmt.Errorf("DBCountAppsWithStatus: no transaction provided")
 	}
 
-	selectQuerry := h.AdaptQuery("SELECT count(*) FROM git_sync_status WHERE status = (?);")
+	selectQuerry := h.AdaptQuery(`SELECT count(*)
+		FROM ` + gitSyncStatusTable + `
+		WHERE status = (?);`)
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuerry,

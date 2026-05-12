@@ -31,18 +31,30 @@ import { ArgoAppEnvLink, ArgoAppMultiEnvLink } from '../../utils/Links';
 export const AppLockSummary: React.FC<{
     app: string;
     numLocks: number;
-}> = ({ app, numLocks }) => {
-    const plural = numLocks === 1 ? 'lock' : 'locks';
+    isManifestLock: boolean;
+}> = ({ app, numLocks, isManifestLock }) => {
+    const plural = isManifestLock
+        ? numLocks === 1
+            ? 'manifest-lock'
+            : 'manifest-locks'
+        : numLocks === 1
+          ? 'lock'
+          : 'locks';
+    const cssClass: string = isManifestLock ? 'app-lock-summary-manifest-lock' : '';
+    const message: string = isManifestLock ? 'M-Locked' : 'Locked';
+    const title: string = isManifestLock
+        ? 'Go to the locks page on /ui/locks to see details.'
+        : 'Click on a tile to see details.';
     return (
         <div
-            className={'app-lock-summary'}
+            className={'app-lock-summary ' + cssClass}
             key={'app-lock-hint-' + app}
-            title={'"' + app + '" has ' + numLocks + ' ' + plural + '. Click on a tile to see details.'}>
+            title={'"' + app + '" has ' + numLocks + ' ' + plural + '. ' + title}>
             <div className={'app-lock-summary-wrapper'}>
                 <div className={'app-lock-summary-lock'}>
                     <LocksWhite className="env-card-env-lock-icon" width="20px" height="20px" />
                 </div>
-                <div className={'app-lock-summary-text'}>Locked</div>
+                <div className={'app-lock-summary-text'}>{message}</div>
             </div>
         </div>
     );

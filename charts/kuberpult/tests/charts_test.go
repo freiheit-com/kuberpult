@@ -1029,43 +1029,6 @@ manifestRepoExport:
 			ExpectedMissing: []core.EnvVar{},
 		},
 		{
-			Name: "Git MinimizeExportData mode explicitely set",
-			Values: `
-git:
-  url:  "testURL"
-  minimizeExportedData: true
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  sslMode: disable
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_MINIMIZE_EXPORTED_DATA",
-					Value: "true",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Git MinimizeExportData mode default value",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  sslMode: disable
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_MINIMIZE_EXPORTED_DATA",
-					Value: "false",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
 			Name: "DB ssl mode",
 			Values: `
 git:
@@ -2421,21 +2384,6 @@ manifestRepoExport:
     experimentalRootAppsPointToBrackets: false
 `,
 			ExpectedError: infixErrMatcher{"Cannot point to apps when not rendering apps"},
-		},
-		{
-			Name: "Invalid rendering settings: cannot maximize git with brackets",
-			Values: `
-git:
-  url: "testURL"
-  minimizeExportedData: false
-manifestRepoExport:
-  enabled: true
-  rendering:
-    experimentalRenderApps: true
-    experimentalRenderBrackets: true
-    experimentalRootAppsPointToBrackets: false
-`,
-			ExpectedError: infixErrMatcher{"Cannot render brackets with minimizeExportedData=false"},
 		},
 	}
 

@@ -89,6 +89,8 @@ func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *
 	return nil
 }
 
+var versionOne = uint64(1)
+
 func TestGetCommitInfo(t *testing.T) {
 	environmentSetup := []rp.Transformer{
 		&rp.CreateEnvironment{

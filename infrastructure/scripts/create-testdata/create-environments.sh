@@ -4,7 +4,8 @@ set -o pipefail
 # usage
 # ./create-environments.sh [path/to/envs]
 
-FRONTEND_PORT=8081 # see docker-compose.yml
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 cd "$(dirname "$0")"
 testData=${1:-"./testdata_template/environments"}
 useOldApi=false
@@ -19,11 +20,11 @@ for filename in "$testData"/*; do
   if $useOldApi; then
     curl  -f -X POST -H "multipart/form-data" \
           --form-string "config=${DATA}" \
-           http://localhost:${FRONTEND_PORT}/environments/"${env}"
+           http://localhost:"${FRONTEND_PORT}"/environments/"${env}"
   else
     curl  -w "%{http_code}\n" -X POST -H "multipart/form-data" \
           --form-string "config=${DATA}" \
-           http://localhost:${FRONTEND_PORT}/api/environments/"${env}"
+           http://localhost:"${FRONTEND_PORT}"/api/environments/"${env}"
   fi
   echo # curl sometimes does not print a trailing \n
 done

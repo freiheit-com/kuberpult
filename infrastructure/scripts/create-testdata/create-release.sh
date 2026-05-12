@@ -92,7 +92,8 @@ EOF
   manifests+=("--form" "manifests[${env}]=@${file}")
 done
 
-FRONTEND_PORT=8081 # see docker-compose.yml
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 
 if [[ $(uname -o) == Darwin ]];
 then
@@ -115,7 +116,7 @@ fi
 
 debug "useOldApi=$useOldApi"
 if $useOldApi; then
-  curl http://localhost:${FRONTEND_PORT}/release \
+  curl http://localhost:"${FRONTEND_PORT}"/release \
     -H "author-email:${EMAIL}" \
     -H "author-name:${AUTHOR}=" \
     "${inputs[@]}" \
@@ -126,7 +127,7 @@ if $useOldApi; then
     "${configuration[@]}" \
     "${manifests[@]}"
 else
-  curl http://localhost:${FRONTEND_PORT}/api/release \
+  curl http://localhost:"${FRONTEND_PORT}"/api/release \
     -H "author-email:${EMAIL}" \
     -H "author-name:${AUTHOR}=" \
     -H "client-uuid:${clientUUID}" \

@@ -819,6 +819,12 @@ func (p *GrpcProxy) GetAllEnvTeamLocks(
 	return p.OverviewClient.GetAllEnvTeamLocks(ctx, in)
 }
 
+func (p *GrpcProxy) GetAllManifestLocks(
+	ctx context.Context,
+	in *api.GetAllManifestLocksRequest) (*api.GetAllManifestLocksResponse, error) {
+	return p.OverviewClient.GetAllManifestLocks(ctx, in)
+}
+
 func (p *GrpcProxy) GetGitTags(
 	ctx context.Context,
 	in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
@@ -1010,8 +1016,4 @@ func (p *GrpcProxy) GetManifests(ctx context.Context, in *api.GetManifestsReques
 		return nil, status.Error(codes.Unimplemented, "version client service is not enabled.")
 	}
 	return p.VersionClient.GetManifests(ctx, in)
-}
-
-func (p *GrpcProxy) GetVersion(_ context.Context, _ *api.GetVersionRequest) (*api.GetVersionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "unimplemented.")
 }

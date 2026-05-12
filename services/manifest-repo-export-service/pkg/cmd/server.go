@@ -153,10 +153,6 @@ func Run(ctx context.Context) error {
 	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
-	minimizeExportedData, err := valid.ReadEnvVarBool("KUBERPULT_MINIMIZE_EXPORTED_DATA")
-	if err != nil {
-		return err
-	}
 
 	var eslProcessingIdleTimeSeconds int64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
@@ -325,7 +321,7 @@ func Run(ctx context.Context) error {
 		NetworkTimeout:       time.Duration(networkTimeoutSeconds) * time.Second,
 		ReleaseVersionLimit:  uint(releaseVersionLimit),
 		ArgoCdGenerateFiles:  argoCdGenerateFiles,
-		MinimizeExportedData: minimizeExportedData,
+		MinimizeExportedData: true, // enable by default
 
 		DBHandler: dbHandler,
 
@@ -442,7 +438,6 @@ func Run(ctx context.Context) error {
 				grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 			},
 			Register: func(srv *grpc.Server) {
-				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 				api.RegisterManifestExportGitServiceServer(srv, &service.GitServer{
 					Repository: repo,
 					Config:     cfg,

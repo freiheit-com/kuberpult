@@ -29,6 +29,14 @@ import (
 
 const GoMigration_AppsHistory = "AppsHistory"
 
+/*
+go_migration_cutoff records which Go-level data migrations have been applied, keyed by migration name.
+Unlike SQL schema migrations (handled by golang-migrate), these are one-time data transformations
+written in Go (e.g. backfilling a new column from existing data).
+Once a migration name appears in this table, the migration is skipped on future service restarts.
+*/
+const goMigrationCutoffTable = "go_migration_cutoff"
+
 func (h *DBHandler) DBInsertGoMigrationCutoff(ctx context.Context, tx *sql.Tx, migrationName string) error {
 	timestamp, err := h.DBReadTransactionTimestamp(ctx, tx)
 	if err != nil {
@@ -36,7 +44,7 @@ func (h *DBHandler) DBInsertGoMigrationCutoff(ctx context.Context, tx *sql.Tx, m
 	}
 
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO go_migration_cutoff (migration_done_at, migration_name)
+		INSERT INTO ` + goMigrationCutoffTable + ` (migration_done_at, migration_name)
 		VALUES (?, ?);`)
 
 	_, err = tx.ExecContext(
@@ -54,7 +62,7 @@ func (h *DBHandler) DBInsertGoMigrationCutoff(ctx context.Context, tx *sql.Tx, m
 func (h *DBHandler) DBHasGoMigrationCutoff(ctx context.Context, tx *sql.Tx, migrationName string) (bool, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT migration_done_at
-		FROM go_migration_cutoff
+		FROM ` + goMigrationCutoffTable + `
 		WHERE migration_name=?
 		LIMIT 1;
 	`)

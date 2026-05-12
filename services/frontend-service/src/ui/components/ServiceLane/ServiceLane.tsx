@@ -22,12 +22,13 @@ import {
     updateAppDetails,
     useAppDetailsForApp,
     useEnvironments,
+    useManifestsLockForApp,
     useMinorsForApp,
     useNavigateWithSearchParams,
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
-import { OverviewApplication } from '../../../api/api';
+import { ManifestLockInfo, OverviewApplication } from '../../../api/api';
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
@@ -438,6 +439,7 @@ export const ReadyServiceLane: React.FC<{
     const dotsMenu = <DotsMenu buttons={buttons} />;
     const appLocks = Object.values(appDetails?.appLocks ? appDetails.appLocks : []);
     const teamLocks = Object.values(appDetails?.teamLocks ? appDetails.teamLocks : []);
+    const manifestLocks: ManifestLockInfo[] = useManifestsLockForApp(application.name);
     const app = appDetails?.application ? appDetails?.application?.name : '';
     const dialog = (
         <EnvDelDialog
@@ -465,7 +467,20 @@ export const ReadyServiceLane: React.FC<{
                 <div className="service-lane-wrapper">
                     {appLocks.length + teamLocks.length >= 1 && (
                         <div className={'test-app-lock-summary'}>
-                            <AppLockSummary app={application.name} numLocks={appLocks.length + teamLocks.length} />
+                            <AppLockSummary
+                                app={application.name}
+                                numLocks={appLocks.length + teamLocks.length}
+                                isManifestLock={false}
+                            />
+                        </div>
+                    )}
+                    {manifestLocks.length >= 1 && (
+                        <div className={'test-app-lock-summary'}>
+                            <AppLockSummary
+                                app={application.name}
+                                numLocks={manifestLocks.length}
+                                isManifestLock={true}
+                            />
                         </div>
                     )}
                     <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>
