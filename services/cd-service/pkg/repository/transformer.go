@@ -615,7 +615,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, state.DBHandler, transaction, version, c.TransformerEslVersion, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, state)
+		err = writeCommitData(ctx, state.DBHandler, transaction, version, c.TransformerEslVersion, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, state)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -845,9 +845,14 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, releaseVersion types.ReleaseNumbers, transformerEslVersion db.TransformerID, sourceCommitId string, sourceMessage string, app types.AppName, eventId string, environments []types.EnvName, state *State) error {
+func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, releaseVersion types.ReleaseNumbers, transformerEslVersion db.TransformerID, sourceCommitId string, sourceMessage string, app types.AppName, eventId string, environments []types.EnvName, previousCommitId string, state *State) error {
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
+	}
+
+	err := h.DBWriteCommitHistoryRow(ctx, transaction, sourceCommitId, previousCommitId)
+	if err != nil {
+		return fmt.Errorf("error while writing commit history: %v", err)
 	}
 
 	envMap := make(map[string]struct{}, len(environments))

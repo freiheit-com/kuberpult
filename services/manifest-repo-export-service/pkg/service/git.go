@@ -99,7 +99,6 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 
 		commitID := releases[0].Metadata.SourceCommitId
 		sourceMessage := releases[0].Metadata.SourceMessage
-		prevCommitID := ""
 
 		uniqueApps := make(map[string]struct{})
 		for _, release := range releases {
@@ -112,13 +111,24 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		}
 		slices.Sort(touchedApps)
 
-		var nextCommitID string
-		nextRelease, err := dbHandler.DBSelectLatestReleaseByPreviousCommit(ctx, transaction, commitID, true)
+		dbPrevCommitID, err := dbHandler.DBGetPreviousCommit(ctx, transaction, commitID)
 		if err != nil {
-			return nil, fmt.Errorf("could not read release with PreviousCommitId %s from DB: %v", commitID, err)
+			return nil, fmt.Errorf("could not get previous commit of %s from DB: %v", commitID, err)
 		}
-		if nextRelease != nil {
-			nextCommitID = nextRelease.Metadata.SourceCommitId
+
+		dbNextCommitID, err := dbHandler.DBGetNextCommit(ctx, transaction, commitID)
+		if err != nil {
+			return nil, fmt.Errorf("could not get next commit of %s from DB: %v", commitID, err)
+		}
+
+		var prevCommitID string
+		if dbPrevCommitID != nil {
+			prevCommitID = *dbPrevCommitID
+		}
+
+		var nextCommitID string
+		if dbNextCommitID != nil {
+			nextCommitID = *dbNextCommitID
 		}
 
 		loadMore := false

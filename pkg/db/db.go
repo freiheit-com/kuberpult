@@ -535,6 +535,86 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 	return count, nil
 }
 
+const commitHistoryTable = "commits_history"
+
+func (h *DBHandler) DBWriteCommitHistoryRow(ctx context.Context, transaction *sql.Tx, commitHash, previousCommitHash string) (err error) {
+	insertQuery := h.AdaptQuery(`
+		INSERT INTO ` + commitHistoryTable + ` (commitHash, previousCommitHash) VALUES (?, ?)
+		ON CONFLICT(commitHash)
+		DO UPDATE SET previousCommitHash = excluded.previousCommitHash;
+	`)
+	_, err = transaction.ExecContext(
+		ctx,
+		insertQuery,
+		commitHash,
+		previousCommitHash,
+	)
+	if err != nil {
+		return fmt.Errorf("error inserting commit history row into DB. Error: %w", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBGetNextCommit(ctx context.Context, transaction *sql.Tx, commitHash string) (_ *string, err error) {
+	selectQuery := h.AdaptQuery("SELECT commitHash FROM " + commitHistoryTable + " WHERE previousCommitHash = ?;")
+	rows, err := transaction.QueryContext(
+		ctx,
+		selectQuery,
+		commitHash,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query commit history table from DB. Error: %w", err)
+	}
+
+	var nextCommitHash *string
+	if rows.Next() {
+		errScan := rows.Scan(&nextCommitHash)
+		if errScan != nil {
+			if errors.Is(errScan, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning commit history row from DB. Error: %w", errScan)
+		}
+	} else {
+		nextCommitHash = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return nextCommitHash, nil
+}
+
+func (h *DBHandler) DBGetPreviousCommit(ctx context.Context, transaction *sql.Tx, commitHash string) (_ *string, err error) {
+	selectQuery := h.AdaptQuery("SELECT previousCommitHash FROM " + commitHistoryTable + " WHERE commitHash = ?;")
+	rows, err := transaction.QueryContext(
+		ctx,
+		selectQuery,
+		commitHash,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query commit history table from DB. Error: %w", err)
+	}
+
+	var previousCommitHash *string
+	if rows.Next() {
+		errScan := rows.Scan(&previousCommitHash)
+		if errScan != nil {
+			if errors.Is(errScan, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("error scanning commit history row from DB. Error: %w", errScan)
+		}
+	} else {
+		previousCommitHash = nil
+	}
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return previousCommitHash, nil
+}
+
 /*
 commit_events links git commits to the kuberpult transformer that produced them.
 Each row records the commit hash, commit type, and the transformerEslVersion of the ESL event.
