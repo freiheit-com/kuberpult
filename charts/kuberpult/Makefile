@@ -14,7 +14,7 @@
 
 # Copyright freiheit.com
 
-.PHONY: build-base-image push-base-image clean release-tag ct-test test-helm test
+.PHONY: build-base-image push-base-image clean release-tag ct-test test-helm test kind-test
 include ../../Makefile.variables
 MAKEFILE_PATH := $(abspath $(word 1, $(MAKEFILE_LIST)))
 MAKEFILE_DIR := $(dir $(MAKEFILE_PATH))
@@ -62,6 +62,9 @@ test-helm: $(TGZ_FILE) Chart.yaml
 
 test: ct-test test-helm
 
+kind-test:
+	cd ../../ && go test -v ./tests/kind-brackets/ -timeout 20m
+
 clean:
 	rm -rf Chart.yaml
 	rm -rf ci/test-values.yaml
@@ -80,3 +83,22 @@ all: Chart.yaml
 lint:
 
 lint-fix:
+
+.PHONY: build-all-docker docker-cd-service docker-manifest-repo-export-service docker-reposerver-service docker-rollout-service docker-frontend-service
+
+build-all-docker: docker-cd-service docker-manifest-repo-export-service docker-reposerver-service docker-rollout-service docker-frontend-service
+
+docker-cd-service:
+	$(MAKE) -C ../../services/cd-service docker IMAGE_TAG=$(IMAGE_TAG)
+
+docker-manifest-repo-export-service:
+	$(MAKE) -C ../../services/manifest-repo-export-service docker IMAGE_TAG=$(IMAGE_TAG)
+
+docker-reposerver-service:
+	$(MAKE) -C ../../services/reposerver-service docker IMAGE_TAG=$(IMAGE_TAG)
+
+docker-rollout-service:
+	$(MAKE) -C ../../services/rollout-service docker IMAGE_TAG=$(IMAGE_TAG)
+
+docker-frontend-service:
+	$(MAKE) -C ../../services/frontend-service docker gen-api IMAGE_TAG=$(IMAGE_TAG)

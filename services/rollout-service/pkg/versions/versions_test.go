@@ -21,32 +21,35 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"sort"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/cenkalti/backoff/v4"
+	"github.com/google/go-cmp/cmp"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
+	"k8s.io/utils/lru"
 )
 
 type step struct {
-	ChangedApps         *api.GetChangedAppsResponse
-	ConnectErr          error
-	RecvErr             error
-	CancelContext       bool
-	OverviewResponse    *api.GetOverviewResponse
-	AppDetailsResponses map[string]*api.GetAppDetailsResponse
-	ExpectReady         bool
-	ExpectedEvents      []KuberpultEvent
+	ChangedApps            *api.GetChangedAppsResponse
+	ConnectErr             error
+	RecvErr                error
+	CancelContext          bool
+	OverviewResponse       *api.GetOverviewResponse
+	AppDetailsResponses    map[string]*api.GetAppDetailsResponse
+	ExpectReady            bool
+	ExpectedEvents         []KuberpultEvent
+	ExpectedArgoAppDetails map[string]*api.GetAppDetailsResponse
 }
 
 type expectedVersion struct {
@@ -146,68 +149,8 @@ func (m *mockOverviewClient) GetAllManifestLocks(ctx context.Context, in *api.Ge
 
 var _ api.OverviewServiceClient = (*mockOverviewClient)(nil)
 
-type mockVersionClient struct {
-	LastMetadata metadata.MD
-}
-
-func (m *mockVersionClient) GetManifests(ctx context.Context, in *api.GetManifestsRequest, opts ...grpc.CallOption) (*api.GetManifestsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "unimplemented")
-}
-
-type mockVersionEventProcessor struct {
-	events []KuberpultEvent
-}
-
-func (m *mockVersionEventProcessor) ProcessKuberpultEvent(ctx context.Context, ev KuberpultEvent) {
-	m.events = append(m.events, ev)
-}
-
-func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *setup.HealthServer) {
-	if hs.IsReady("versions") != s.ExpectReady {
-		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
-	}
-	//Sort this to avoid flakeyness based on order
-	sort.Slice(vp.events, func(i, j int) bool {
-		return vp.events[i].Environment < vp.events[j].Environment
-	})
-	//Sort this to avoid flakeyness based on order
-	sort.Slice(s.ExpectedEvents, func(i, j int) bool {
-		return s.ExpectedEvents[i].Environment < s.ExpectedEvents[j].Environment
-	})
-	if !cmp.Equal(s.ExpectedEvents, vp.events) {
-		t.Errorf("version events differ: %s", cmp.Diff(s.ExpectedEvents, vp.events))
-	}
-	vp.events = nil
-}
-
-func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc VersionClient, mc *mockOverviewClient, mvc *mockVersionClient) {
-	for _, ev := range expectedVersions {
-		version, err := vc.GetVersion(context.Background(), ev.Revision, ev.Environment, ev.Application)
-		if err != nil {
-			t.Errorf("expected no error for %s/%s@%s, but got %q", ev.Environment, ev.Application, ev.Revision, err)
-			continue
-		}
-		//We ignore the timestamp as it is based on test execution. Everything else we check
-
-		if version.Version != ev.DeployedVersion {
-			t.Errorf("expected version %d to be deployed for %s/%s@%s but got %d", ev.DeployedVersion, ev.Environment, ev.Application, ev.Revision, version.Version)
-		}
-
-		if version.SourceCommitId != ev.SourceCommitId {
-			t.Errorf("expected source commit id to be %q for %s/%s@%s but got %q", ev.SourceCommitId, ev.Environment, ev.Application, ev.Revision, version.SourceCommitId)
-		}
-		if !cmp.Equal(mc.LastMetadata, ev.OverviewMetadata) {
-			t.Errorf("mismachted version metadata %s", cmp.Diff(mc.LastMetadata, ev.OverviewMetadata))
-		}
-		if !cmp.Equal(mvc.LastMetadata, ev.VersionMetadata) {
-			t.Errorf("mismachted version metadata %s", cmp.Diff(mvc.LastMetadata, ev.VersionMetadata))
-		}
-
-	}
-}
-
-// setupDB returns a new DBHandler with a tmp directory every time, so tests can are completely independent
-func setupDB(t *testing.T) *db.DBHandler {
+func TestGetVersion_Bracket(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -217,66 +160,357 @@ func setupDB(t *testing.T) *db.DBHandler {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	tmpDir := t.TempDir()
 	t.Logf("directory for DB migrations: %s", migrationsPath)
-	t.Logf("tmp dir for DB data: %s", tmpDir)
-
-	migErr := db.RunDBMigrations(ctx, *dbConfig)
-	if migErr != nil {
-		t.Fatal(migErr)
+	if err := db.RunDBMigrations(ctx, *dbConfig); err != nil {
+		t.Fatal(err)
 	}
-
 	dbHandler, err := db.Connect(ctx, *dbConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
-	setupErr := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		err = dbHandler.DBWriteEnvironment(ctx, transaction, "staging", config.EnvironmentConfig{})
-		if err != nil {
-			return err
-		}
-		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{}, "foo")
-		if err != nil {
-			return err
-		}
-		var version uint64 = 1234
-		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-			ReleaseNumbers: types.ReleaseNumbers{
-				Revision: 0,
-				Version:  &version,
-			},
-			Created: time.Unix(123456789, 0).UTC(),
-			App:     "foo",
-			Manifests: db.DBReleaseManifests{
-				Manifests: map[types.EnvName]string{"staging": ""},
-			},
-			Metadata: db.DBReleaseMetaData{},
-		})
-		if err != nil {
-			return err
-		}
 
-		err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-			Created: time.Unix(123456789, 0).UTC(),
-			App:     "foo",
-			Env:     "staging",
-			ReleaseNumbers: types.ReleaseNumbers{
-				Revision: 0,
-				Version:  &version,
-			},
-			TransformerID: 0,
-		})
+	const bracketEnv = "bracket-env"
+	const bracketName types.ArgoBracketName = "my-bracket"
+	var versionA uint64 = 5
+	var versionB uint64 = 3
 
-		return err
+	// Use two separate transactions so deployments get distinct transaction timestamps.
+	setupErr := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+		if err := dbHandler.DBWriteMigrationsTransformer(ctx, tx); err != nil {
+			return err
+		}
+		if err := dbHandler.DBWriteEnvironment(ctx, tx, bracketEnv, config.EnvironmentConfig{}); err != nil {
+			return err
+		}
+		for _, appName := range []types.AppName{"app-a", "app-b"} {
+			if err := dbHandler.DBInsertOrUpdateApplication(ctx, tx, appName, db.AppStateChangeCreate, db.DBAppMetaData{}, bracketName); err != nil {
+				return err
+			}
+		}
+		// releases
+		for _, r := range []db.DBReleaseWithMetaData{
+			{
+				ReleaseNumbers: types.ReleaseNumbers{Version: &versionA, Revision: 0},
+				App:            "app-a",
+				Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{bracketEnv: ""}},
+				Metadata:       db.DBReleaseMetaData{SourceCommitId: "commit-a"},
+			},
+			{
+				ReleaseNumbers: types.ReleaseNumbers{Version: &versionB, Revision: 0},
+				App:            "app-b",
+				Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{bracketEnv: ""}},
+				Metadata:       db.DBReleaseMetaData{SourceCommitId: "commit-b"},
+			},
+		} {
+			if err := dbHandler.DBUpdateOrCreateRelease(ctx, tx, r); err != nil {
+				return err
+			}
+		}
+		// deploy app-a in this transaction
+		if err := dbHandler.DBUpdateOrCreateDeployment(ctx, tx, db.Deployment{
+			App: "app-a", Env: bracketEnv,
+			ReleaseNumbers: types.ReleaseNumbers{Version: &versionA, Revision: 0},
+		}); err != nil {
+			return err
+		}
+		// bracket history: my-bracket → [app-a, app-b]
+		return db.DBInsertBracketHistory(ctx, dbHandler, tx, db.BracketRow{
+			CreatedAt: time.Now(),
+			AllBracketsJsonBlob: db.BracketJsonBlob{
+				BracketMap: map[types.ArgoBracketName]db.AppNames{
+					bracketName: {"app-a", "app-b"},
+				},
+			},
+		}, 0)
 	})
-
 	if setupErr != nil {
 		t.Fatal(setupErr)
 	}
-	return dbHandler
+
+	// Deploy app-b in a separate transaction so it gets a later timestamp.
+	if err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+		return dbHandler.DBUpdateOrCreateDeployment(ctx, tx, db.Deployment{
+			App: "app-b", Env: bracketEnv,
+			ReleaseNumbers: types.ReleaseNumbers{Version: &versionB, Revision: 0},
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	vc := New(nil, nil, nil, false, false, false, []string{}, *dbHandler, 50, 50, nil, []string{bracketEnv})
+
+	version, err := vc.GetVersion(ctx, "5:3", bracketEnv, string(bracketName))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if version == nil {
+		t.Fatal("expected non-nil VersionInfo")
+	}
+	// The revision string is returned as-is as the Version field.
+	if version.Version != types.RolloutAppBracketVersion("5:3") {
+		t.Errorf("expected Version=%q, got %q", "5:3", version.Version)
+	}
+	// DeployedAt must be non-zero since both apps have deployments.
+	if version.DeployedAt.IsZero() {
+		t.Errorf("expected non-zero DeployedAt")
+	}
+	// app-b is deployed later (separate transaction), so its SourceCommitId should be returned.
+	if version.SourceCommitId != "commit-b" {
+		t.Errorf("expected SourceCommitId=%q, got %q", "commit-b", version.SourceCommitId)
+	}
+}
+
+type recordingProcessor struct {
+	events chan KuberpultEvent
+}
+
+func (r *recordingProcessor) ProcessKuberpultEvent(_ context.Context, ev KuberpultEvent) {
+	r.events <- ev
+}
+
+func devOverview() *api.GetOverviewResponse {
+	return &api.GetOverviewResponse{
+		//exhaustruct:ignore
+		EnvironmentGroups: []*api.EnvironmentGroup{{
+			EnvironmentGroupName: "dev-group",
+			Priority:             api.Priority_UPSTREAM,
+			//exhaustruct:ignore
+			Environments: []*api.Environment{{Name: "dev"}},
+		}},
+	}
+}
+
+func bracketOverview(envName string) *api.GetOverviewResponse {
+	return &api.GetOverviewResponse{
+		//exhaustruct:ignore
+		EnvironmentGroups: []*api.EnvironmentGroup{{
+			EnvironmentGroupName: "bracket-group",
+			Priority:             api.Priority_UPSTREAM,
+			//exhaustruct:ignore
+			Environments: []*api.Environment{{Name: envName}},
+		}},
+	}
+}
+
+func TestConsumeEvents(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Steps           []step
+		BracketClusters []string
+		WantEvents      []KuberpultEvent
+	}{
+		{
+			Name: "normal app change triggers ProcessKuberpultEvent",
+			Steps: []step{{
+				OverviewResponse: devOverview(),
+				ChangedApps: &api.GetChangedAppsResponse{
+					//exhaustruct:ignore
+					ChangedApps: []*api.GetAppDetailsResponse{{
+						//exhaustruct:ignore
+						Application: &api.Application{Name: "my-app"},
+						Deployments: map[string]*api.Deployment{
+							"dev": {Version: 42}, //exhaustruct:ignore
+						},
+					}},
+				},
+			}},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-app",
+				Environment:       "dev",
+				ParentEnvironment: "dev",
+				EnvironmentGroup:  "dev-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.RolloutAppBracketVersionFromUint64(42),
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+		{
+			Name:            "bracket BracketVersionDelete triggers ProcessKuberpultEvent",
+			BracketClusters: []string{"benv"},
+			Steps: []step{{
+				OverviewResponse: bracketOverview("benv"),
+				ChangedApps: &api.GetChangedAppsResponse{
+					//exhaustruct:ignore
+					ChangedBrackets: []*api.GetBracketDetailsResponse{{
+						BracketName: "my-bracket",
+						Deployments: map[string]*api.BracketDeployment{
+							"benv": {Version: string(types.BracketVersionDelete)}, //exhaustruct:ignore
+						},
+					}},
+				},
+			}},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-bracket",
+				Environment:       "benv",
+				ParentEnvironment: "benv",
+				EnvironmentGroup:  "bracket-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.BracketVersionDelete,
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+		{
+			Name:            "bracket normal version triggers ProcessKuberpultEvent",
+			BracketClusters: []string{"benv"},
+			Steps: []step{{
+				OverviewResponse: bracketOverview("benv"),
+				ChangedApps: &api.GetChangedAppsResponse{
+					//exhaustruct:ignore
+					ChangedBrackets: []*api.GetBracketDetailsResponse{{
+						BracketName: "my-bracket",
+						Deployments: map[string]*api.BracketDeployment{
+							"benv": {Version: "1:2"}, //exhaustruct:ignore
+						},
+					}},
+				},
+			}},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-bracket",
+				Environment:       "benv",
+				ParentEnvironment: "benv",
+				EnvironmentGroup:  "bracket-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.RolloutAppBracketVersion("1:2"),
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+		{
+			Name:            "bracket proto zero-value still triggers ProcessKuberpultEvent",
+			BracketClusters: []string{"benv"},
+			Steps: []step{{
+				OverviewResponse: bracketOverview("benv"),
+				ChangedApps: &api.GetChangedAppsResponse{
+					//exhaustruct:ignore
+					ChangedBrackets: []*api.GetBracketDetailsResponse{{
+						BracketName: "my-bracket",
+						Deployments: map[string]*api.BracketDeployment{
+							"benv": {Version: ""}, //exhaustruct:ignore
+						},
+					}},
+				},
+			}},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-bracket",
+				Environment:       "benv",
+				ParentEnvironment: "benv",
+				EnvironmentGroup:  "bracket-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.RolloutAppBracketVersion(""),
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+		{
+			Name: "same app version in second step is deduplicated",
+			Steps: []step{
+				{
+					OverviewResponse: devOverview(),
+					ChangedApps: &api.GetChangedAppsResponse{
+						//exhaustruct:ignore
+						ChangedApps: []*api.GetAppDetailsResponse{{
+							//exhaustruct:ignore
+							Application: &api.Application{Name: "my-app"},
+							Deployments: map[string]*api.Deployment{
+								"dev": {Version: 42}, //exhaustruct:ignore
+							},
+						}},
+					},
+				},
+				{
+					OverviewResponse: devOverview(),
+					ChangedApps: &api.GetChangedAppsResponse{
+						//exhaustruct:ignore
+						ChangedApps: []*api.GetAppDetailsResponse{{
+							//exhaustruct:ignore
+							Application: &api.Application{Name: "my-app"},
+							Deployments: map[string]*api.Deployment{
+								"dev": {Version: 42}, //exhaustruct:ignore
+							},
+						}},
+					},
+				},
+			},
+			WantEvents: []KuberpultEvent{{
+				Application:       "my-app",
+				Environment:       "dev",
+				ParentEnvironment: "dev",
+				EnvironmentGroup:  "dev-group",
+				IsProduction:      false,
+				Team:              "",
+				Version: &VersionInfo{
+					Version:        types.RolloutAppBracketVersionFromUint64(42),
+					SourceCommitId: "",
+					DeployedAt:     time.Time{},
+				},
+			}},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			stepsChannel := make(chan step, len(tc.Steps)+1)
+			for _, s := range tc.Steps {
+				stepsChannel <- s
+			}
+
+			mockClient := &mockOverviewClient{
+				StartStep: make(chan struct{}, len(tc.Steps)+10),
+				Steps:     stepsChannel,
+			}
+
+			processor := &recordingProcessor{
+				events: make(chan KuberpultEvent, len(tc.WantEvents)+5),
+			}
+
+			vc := &versionClient{
+				overviewClient:               mockClient,
+				ArgoProcessor:                argo.New(nil, false, false, false, []string{}, 10, 10, nil, tc.BracketClusters),
+				cache:                        lru.New(20),
+				experimentalBracketsClusters: tc.BracketClusters,
+			}
+
+			hlth := &setup.HealthServer{}
+			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
+
+			done := make(chan error, 1)
+			go func() {
+				done <- vc.ConsumeEvents(ctx, processor, hlth.Reporter("test"))
+			}()
+
+			gotEvents := make([]KuberpultEvent, 0, len(tc.WantEvents))
+			for range tc.WantEvents {
+				select {
+				case ev := <-processor.events:
+					gotEvents = append(gotEvents, ev)
+				case <-time.After(5 * time.Second):
+					t.Fatalf("timed out waiting for event %d/%d", len(gotEvents)+1, len(tc.WantEvents))
+				}
+			}
+
+			close(stepsChannel)
+			cancel()
+			<-done
+
+			if diff := cmp.Diff(tc.WantEvents, gotEvents); diff != "" {
+				t.Errorf("events mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
 }

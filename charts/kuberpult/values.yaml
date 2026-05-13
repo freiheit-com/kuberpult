@@ -363,6 +363,24 @@ rollout:
     # If `KuberpultEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding kuberpult events received by the
     # rollout service. Useful for diagnosing possible bottlenecks on rollout service
     kuberpultEventsMetricsEnabled: false
+  experimentalBrackets:
+    # Master switch for bracket rendering in the rollout service.
+    # When false, the clusters parameter is ignored.
+    enabled: false
+    # Switches an environment to bracket mode.
+    # Environments that are not listed here will be handled as normal apps in the rollout service.
+    # Example:
+    # clusters:
+    #   <env1>: true
+    #   <env2>: true
+    # For active/active environments, you can enable them 1 by 1. The naming scheme is "<commonEnvPrefix>-<envName>-<concreteEnvName>"
+    # When switching this option to true for an environment, the rollout-service will:
+    # 1) keep the normal argo apps for now
+    # 2) create bracket apps for argo - for a moment the apps will "fight" against each other, but not find any meaningful difference.
+    # 3) delete the normal apps with cascade=false, so that only bracket apps remain.
+    # ROLLBACK:
+    # When switching this option from true to false, the rollout-service will just add the apps, it will not delete the brackets.
+    clusters: {}
 # Standalone reposerver service for interacting with argocd
 reposerver:
   # DEPRECATED

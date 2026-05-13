@@ -33,6 +33,28 @@ type AppName string
 
 type ArgoBracketName string
 
+// RolloutAppBracketVersion is the deployed version of an app or bracket.
+// For normal apps it is the release number as a decimal string (e.g. "42").
+// For brackets it is the colon-separated release numbers of all sorted apps (e.g. "1:2:3:0").
+type RolloutAppBracketVersion string
+
+// BracketVersionDelete is the sentinel RolloutAppBracketVersion value that signals
+// "no apps exist in this bracket environment; delete the ArgoCD application."
+// It is intentionally non-empty and non-numeric so it cannot be confused with a
+// valid version (which contains only digits and colons) or the proto3 string zero-value.
+const BracketVersionDelete RolloutAppBracketVersion = "KUBERPULT_BRACKET_DELETE"
+
+func RolloutAppBracketVersionFromUint64(v uint64) RolloutAppBracketVersion {
+	return RolloutAppBracketVersion(fmt.Sprintf("%d", v))
+}
+
+// ToUint64 returns the numeric value and true for single-app versions.
+// Returns 0, false for bracket versions.
+func (v RolloutAppBracketVersion) ToUint64() (uint64, bool) {
+	n, err := strconv.ParseUint(string(v), 10, 64)
+	return n, err == nil
+}
+
 type ManifestLockID int64
 
 type ArgoProjectName string

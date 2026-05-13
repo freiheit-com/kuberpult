@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -46,6 +47,13 @@ type BracketRow struct {
 }
 
 type AppNames = []types.AppName
+
+func SortAppNames(appNames AppNames) AppNames {
+	sortedAppNames := make(AppNames, len(appNames))
+	copy(sortedAppNames, appNames)
+	slices.SortFunc(sortedAppNames, func(a, b types.AppName) int { return strings.Compare(string(a), string(b)) })
+	return sortedAppNames
+}
 
 type BracketJsonBlob struct {
 	BracketMap map[types.ArgoBracketName]AppNames
