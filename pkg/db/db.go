@@ -590,7 +590,7 @@ func (h *DBHandler) DBGetNextCommit(ctx context.Context, transaction *sql.Tx, co
 		return "", err
 	}
 	if nextCommitHash == nil {
-		return "", errors.New("no next commit found")
+		return "", nil
 	}
 	return *nextCommitHash, nil
 }
@@ -627,7 +627,7 @@ func (h *DBHandler) DBGetPreviousCommit(ctx context.Context, transaction *sql.Tx
 		return "", err
 	}
 	if previousCommitHash == nil {
-		return "", errors.New("no previous commit found")
+		return "", nil
 	}
 	return *previousCommitHash, nil
 }

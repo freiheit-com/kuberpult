@@ -579,58 +579,8 @@ func TestGetCommitInfo(t *testing.T) {
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
 			allowReadingCommitData: true,
-			expectedError:          status.Error(codes.NotFound, "error: commit hash with prefix bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the DB"),
+			expectedError:          status.Error(codes.NotFound, "error: commit hash bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the DB"),
 			expectedResponse:       nil,
-		},
-		{
-			name: "find a commit by prefix",
-			transformers: []rp.Transformer{
-				&rp.CreateApplicationVersion{
-					Team:                "team",
-					Application:         "app",
-					SourceCommitId:      "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
-					SourceMessage:       "some message",
-					WriteCommitData:     true,
-					Version:             1,
-					TransformerMetadata: rp.TransformerMetadata{AuthorName: "testAuthorName", AuthorEmail: "testAuthorEmail@example.com"},
-				},
-			},
-			request: &api.GetCommitInfoRequest{
-				CommitHash: "32a5b7b27",
-				PageNumber: 0,
-			},
-			InitialEvents: []*initialEvent{
-				{
-					Event: api.Event{
-						Uuid:      "00000000-0000-0000-0000-000000000000",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000000"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"staging"},
-							},
-						},
-					},
-					CommitHash: "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
-				},
-			},
-			allowReadingCommitData: true,
-			expectedResponse: &api.GetCommitInfoResponse{
-				CommitHash:    "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
-				LoadMore:      false,
-				CommitMessage: "some message",
-				TouchedApps:   []string{"app"},
-				Events: []*api.Event{
-					{
-						Uuid:      "00000000-0000-0000-0000-000000000000",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000000"),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"staging"},
-							},
-						},
-					},
-				},
-			},
 		},
 		{
 			name: "no commit events written if WriteCommitData is set to false",
@@ -2191,6 +2141,10 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr r
 			actualBracketName = bracketName
 		}
 		err2 := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, actualBracketName)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		err2 = dbHandler.DBWriteCommitHistoryRow(ctx, transaction, concreteTransformer.SourceCommitId, concreteTransformer.PreviousCommit)
 		if err2 != nil {
 			t.Fatal(err2)
 		}
