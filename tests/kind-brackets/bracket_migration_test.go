@@ -716,3 +716,75 @@ func TestBracketEnableAllClusters(t *testing.T) {
 		}
 	}
 }
+
+// TestBracketMigrateDevelopment is the regression test for the bug where enabling
+// experimentalBrackets for the development cluster (while staging stays disabled)
+// caused all development apps to vanish without bracket apps replacing them.
+//
+// Scenario:
+//   - Two apps share a bracket, deployed to development in NON-bracket mode.
+//   - Pod start times are recorded.
+//   - The cluster is upgraded to experimentalBrackets.clusters.development=true
+//     (staging stays false) — the exact user-reported config change.
+//   - Expected: bracket Argo app appears on development, individual Argo apps are
+//     deleted, and all K8s Deployments are UNTOUCHED (pod start times unchanged).
+func TestBracketMigrateDevelopment(t *testing.T) {
+	t.Logf("runSuffix: %s", runSuffix)
+	app1 := "bmd-app1-" + runSuffix
+	app2 := "bmd-app2-" + runSuffix
+	apps := []string{app1, app2}
+	bracket := "bmd-bracket-" + runSuffix
+
+	t.Log("step 1: upgrade to brackets enabled, development=false (individual-app mode)")
+	helmUpgradeWithBracketsConfig(t, true, false, false)
+
+	t.Log("step 2: create v1 releases (dev + dev2 manifests)")
+	for _, app := range apps {
+		createRelease(t, app, "sreteam", bracket, "1", map[string]string{
+			devNamespace:  stableManifest(app, devNamespace, "1"),
+			dev2Namespace: stableManifest(app, dev2Namespace, "1"),
+		})
+	}
+
+	t.Log("step 3: wait for v1 synced in development")
+	for _, app := range apps {
+		waitForDeploymentAnnotation(t, devNamespace, app+"-bracket-dep", "1")
+	}
+
+	t.Log("step 4: verify individual Argo apps exist on development")
+	for _, app := range apps {
+		waitForArgoApp(t, devNamespace+"-"+app)
+	}
+
+	t.Log("step 5: record pod start times in development")
+	startTimes := map[string]string{}
+	for _, app := range apps {
+		startTimes[app] = podStartTime(t, devNamespace, app)
+		t.Logf("  %s/%s: %s", devNamespace, app, startTimes[app])
+	}
+
+	t.Log("step 6: upgrade to development=true (the bug-triggering upgrade)")
+	helmUpgradeWithBracketsConfig(t, true, true, false)
+
+	t.Log("step 7: wait for bracket Argo app to appear on development")
+	waitForArgoApp(t, devNamespace+"-"+bracket)
+
+	t.Log("step 8: wait for individual Argo apps to be deleted from development")
+	for _, app := range apps {
+		waitForArgoAppGone(t, devNamespace+"-"+app)
+	}
+
+	t.Log("step 9: 20s buffer to let any accidental pod churn complete")
+	time.Sleep(podChurnBuffer)
+
+	t.Log("step 10: verify pod start times have not changed")
+	for _, app := range apps {
+		got := podStartTime(t, devNamespace, app)
+		if got != startTimes[app] {
+			t.Errorf("REGRESSION: pod %s/%s was restarted when development brackets were enabled\n  before: %s\n  after:  %s",
+				devNamespace, app, startTimes[app], got)
+		} else {
+			t.Logf("  OK %s/%s start time stable at %s", devNamespace, app, got)
+		}
+	}
+}
