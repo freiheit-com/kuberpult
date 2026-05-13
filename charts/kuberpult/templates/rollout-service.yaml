@@ -17,6 +17,9 @@
 {{- if .Values.rollout.tag }}
 {{ fail "Values.rollout.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
+{{- if and .Values.rollout.experimentalBrackets.enabled (ne .Values.manageArgoApplications.filter "*") }}
+{{ fail "rollout.experimentalBrackets.enabled=true requires manageArgoApplications.filter=\"*\"; bracket apps have no team and cannot be managed under a team-specific filter" }}
+{{ end -}}
 
 {{- if .Values.rollout.enabled }}
 {{- if .Values.manifestRepoExport.enabled}}
