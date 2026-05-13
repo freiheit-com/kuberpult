@@ -258,6 +258,16 @@ func TestGetVersion_Bracket(t *testing.T) {
 	if version.SourceCommitId != "commit-b" {
 		t.Errorf("expected SourceCommitId=%q, got %q", "commit-b", version.SourceCommitId)
 	}
+
+	// Verify fallback: env not in experimentalBracketsClusters but revision contains ":"
+	vcNoCluster := New(nil, nil, nil, false, false, false, []string{}, *dbHandler, 50, 50, nil, []string{})
+	version2, err2 := vcNoCluster.GetVersion(ctx, "5:3:", bracketEnv, string(bracketName))
+	if err2 != nil {
+		t.Fatalf("expected no error for bracket revision when env not in clusters list, got: %v", err2)
+	}
+	if version2 == nil || version2.Version != types.RolloutAppBracketVersion("5:3:") {
+		t.Errorf("expected Version=%q, got %v", "5:3:", version2)
+	}
 }
 
 type recordingProcessor struct {

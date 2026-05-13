@@ -98,7 +98,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	span.SetTag("Application", app)
 	logging.Info(ctx, "getversion called", zap.String("env", environment), zap.String("app", app))
 
-	if slices.Contains(v.experimentalBracketsClusters, environment) {
+	if strings.Contains(revision, ":") {
 		result, err := v.getBracketVersion(ctx, revision, environment, types.ArgoBracketName(app))
 		if err != nil {
 			return nil, err
