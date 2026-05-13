@@ -34,4 +34,13 @@ FRONTEND_PORT=${FRONTEND_PORT:-8081}
 CD_GRPC_PORT=${CD_GRPC_PORT:-8443}
 
 export FRONTEND_PORT CD_GRPC_PORT
+
+MIGRATIONTEST=true
+if [ "${MIGRATIONTEST:-}" = "true" ]; then
+  KUBERPULT_BASE_URL="https://kuberpult.migrationtest.dev.freiheit.systems"
+else
+  KUBERPULT_BASE_URL="http://localhost:${FRONTEND_PORT}"
+fi
+export KUBERPULT_BASE_URL
+
 unset _REPO_ROOT _DC_JSON

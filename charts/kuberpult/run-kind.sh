@@ -55,9 +55,9 @@ then
   then
     echo "is it ok to delete the file? Press enter twice to delete"
     # shellcheck disable=SC2162
-    read
+#    read
     # shellcheck disable=SC2162
-    read
+#    read
     rm "$gpgFile"
   else
     echo "this file should not exist on the ci"
@@ -209,6 +209,7 @@ portForwardAndWait "default" service/argocd-server 8080 443
 
 # For now, we are only creating development here
 # This means argo cd will only handle development, including the rollout-status
+#export ARGO_NAMESPACE=tools
 kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -327,7 +328,7 @@ kubectl get pods
 
 (cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
 
-START=30
+START=10
 NUM_RELEASES=2
 END=$((START + NUM_RELEASES))
 for v in $(seq "$START" "$END")
