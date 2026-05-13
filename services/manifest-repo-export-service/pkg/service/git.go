@@ -19,15 +19,11 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"os"
-	"sort"
-	"strings"
+	"slices"
 	"sync"
 
 	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -81,86 +77,71 @@ func (s *GitServer) GetGitTags(ctx context.Context, _ *api.GetGitTagsRequest) (*
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
-	fs := s.Repository.State().Filesystem
+	dbHandler := s.Repository.State().DBHandler
 
-	commitIDPrefix, pageNumber := in.CommitHash, in.PageNumber
+	commitInfo, err := db.WithTransactionT(dbHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetCommitInfoResponse, error) {
+		commitHash, pageNumber := in.CommitHash, in.PageNumber
 
-	commitID, err := findCommitID(ctx, fs, commitIDPrefix)
-	if err != nil {
-		return nil, err
-	}
-
-	commitPath := fs.Join("commits", commitID[:2], commitID[2:])
-
-	sourceMessagePath := fs.Join(commitPath, "source_message")
-	var commitMessage string
-	if dat, err := util.ReadFile(fs, sourceMessagePath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, status.Error(codes.NotFound, "commit info does not exist")
+		if !valid.SHA1CommitID(commitHash) {
+			return nil, status.Error(codes.InvalidArgument, "not a valid commit_hash")
 		}
-		return nil, fmt.Errorf("could not open the source message file at %s, err: %w", sourceMessagePath, err)
-	} else {
-		commitMessage = string(dat)
-	}
 
-	var previousCommitMessagePath = fs.Join(commitPath, "previousCommit")
-	var previousCommitId string
-	if data, err := util.ReadFile(fs, previousCommitMessagePath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("could not open the previous commit file at %s, err: %w", previousCommitMessagePath, err)
+		releases, err := dbHandler.DBSelectAllLatestReleasesByCommitHash(ctx, transaction, commitHash, true)
+		if err != nil {
+			return nil, fmt.Errorf("could not read release with commit hash %s from DB: %v", commitHash, err)
 		}
-	} else {
-		previousCommitId = string(data)
-	}
+		if len(releases) == 0 {
+			return nil, grpcErrors.NotFoundError(ctx, fmt.Errorf("commit hash %s was not found in the DB", commitHash))
+		}
 
-	var nextCommitMessagePath = fs.Join(commitPath, "nextCommit")
-	var nextCommitId string
-	if data, err := util.ReadFile(fs, nextCommitMessagePath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("could not open the next commit file at %s, err: %w", nextCommitMessagePath, err)
-		} //If no file exists, there is no next commit
-	} else {
-		nextCommitId = string(data)
-	}
+		commitID := releases[0].Metadata.SourceCommitId
+		sourceMessage := releases[0].Metadata.SourceMessage
 
-	commitApplicationsDirPath := fs.Join(commitPath, "applications")
-	dirs, err := fs.ReadDir(commitApplicationsDirPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not read the applications directory at %s, error: %w", commitApplicationsDirPath, err)
-	}
-	touchedApps := make([]string, 0)
-	for _, dir := range dirs {
-		touchedApps = append(touchedApps, dir.Name())
-	}
-	sort.Strings(touchedApps)
-	var events []*api.Event
-	loadMore := false
-	events, err = db.WithTransactionMultipleEntriesT(s.Repository.State().DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*api.Event, error) {
-		return s.GetEvents(ctx, transaction, fs, commitPath, pageNumber)
+		var touchedApps []string
+		for _, release := range releases {
+			touchedApps = append(touchedApps, string(release.App))
+
+		}
+		slices.Sort(touchedApps)
+
+		prevCommitID, err := dbHandler.DBGetPreviousCommit(ctx, transaction, commitID)
+		if err != nil {
+			return nil, fmt.Errorf("could not get previous commit of %s from DB: %v", commitID, err)
+		}
+
+		nextCommitID, err := dbHandler.DBGetNextCommit(ctx, transaction, commitID)
+		if err != nil {
+			return nil, fmt.Errorf("could not get next commit of %s from DB: %v", commitID, err)
+		}
+
+		loadMore := false
+		events, err := s.GetEvents(ctx, transaction, commitID, pageNumber)
+		if err != nil {
+			return nil, err
+		}
+		if len(events) > int(s.PageSize) {
+			loadMore = true
+			events = events[:len(events)-1]
+		}
+
+		return &api.GetCommitInfoResponse{
+			CommitHash:         commitID,
+			CommitMessage:      sourceMessage,
+			TouchedApps:        touchedApps,
+			Events:             events,
+			PreviousCommitHash: prevCommitID,
+			NextCommitHash:     nextCommitID,
+			LoadMore:           loadMore,
+		}, nil
 	})
-	if len(events) > int(s.PageSize) {
-		loadMore = true
-		events = events[:len(events)-1]
-	}
 	if err != nil {
 		return nil, err
 	}
-
-	return &api.GetCommitInfoResponse{
-		CommitHash:         commitID,
-		CommitMessage:      commitMessage,
-		TouchedApps:        touchedApps,
-		Events:             events,
-		PreviousCommitHash: previousCommitId,
-		NextCommitHash:     nextCommitId,
-		LoadMore:           loadMore,
-	}, nil
+	return commitInfo, nil
 }
 
-func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, fs billy.Filesystem, commitPath string, pageNumber uint64) ([]*api.Event, error) {
+func (s *GitServer) GetEvents(ctx context.Context, transaction *sql.Tx, commitID string, pageNumber uint64) ([]*api.Event, error) {
 	var result []*api.Event
-	parts := strings.Split(commitPath, "/")
-	commitID := parts[len(parts)-2] + parts[len(parts)-1]
 
 	events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, transaction, commitID, pageNumber, s.PageSize)
 	if err != nil {
@@ -187,66 +168,6 @@ func (s *GitServer) ReadEvent(_ context.Context, fs billy.Filesystem, eventPath 
 		return nil, err
 	}
 	return eventmod.ToProto(eventId, event), nil
-}
-
-// findCommitID checks if the "commits" directory in the given
-// filesystem contains a commit with the given prefix. Returns the
-// full hash of the commit, if a unique one can be found. Returns a
-// gRPC error that can be directly returned to the client.
-func findCommitID(
-	ctx context.Context,
-	fs billy.Filesystem,
-	commitPrefix string,
-) (string, error) {
-	if !valid.SHA1CommitIDPrefix(commitPrefix) {
-		return "", status.Error(codes.InvalidArgument,
-			"not a valid commit_hash")
-	}
-	commitPrefix = strings.ToLower(commitPrefix)
-	if len(commitPrefix) == valid.SHA1CommitIDLength {
-		// the easy case: the commit has been requested in
-		// full length, so we simply check if the file exist
-		// and are done.
-		commitPath := fs.Join("commits", commitPrefix[:2], commitPrefix[2:])
-
-		if _, err := fs.Stat(commitPath); err != nil {
-			return "", grpcErrors.NotFoundError(ctx,
-				fmt.Errorf("commit %s was not found in the manifest repo", commitPrefix))
-		}
-
-		return commitPrefix, nil
-	}
-	if len(commitPrefix) < 7 {
-		return "", status.Error(codes.InvalidArgument,
-			"commit_hash too short (must be at least 7 characters)")
-	}
-	// the dir we're looking in
-	commitDir := fs.Join("commits", commitPrefix[:2])
-	files, err := fs.ReadDir(commitDir)
-	if err != nil {
-		return "", grpcErrors.NotFoundError(ctx,
-			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
-	}
-	// the prefix of the file we're looking for
-	filePrefix := commitPrefix[2:]
-	var commitID string
-	for _, file := range files {
-		fileName := file.Name()
-		if !strings.HasPrefix(fileName, filePrefix) {
-			continue
-		}
-		if commitID != "" {
-			// another commit has already been found
-			return "", status.Error(codes.InvalidArgument,
-				"commit_hash is not unique, provide the complete hash (or a longer prefix)")
-		}
-		commitID = commitPrefix[:2] + fileName
-	}
-	if commitID == "" {
-		return "", grpcErrors.NotFoundError(ctx,
-			fmt.Errorf("commit with prefix %s was not found in the manifest repo", commitPrefix))
-	}
-	return commitID, nil
 }
 
 func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatusRequest) (_ *api.GetGitSyncStatusResponse, err error) {
