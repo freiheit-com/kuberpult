@@ -54,8 +54,8 @@ rollout:
   experimentalBrackets:
     enabled: true
     clusters:
-      development: true
-      staging: true
+      development: false
+      staging: false
       aa-aa-test-dev-1: false
   enabled: true
   grpcMaxRecvMsgSize: 4

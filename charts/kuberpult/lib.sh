@@ -9,10 +9,10 @@ function waitForDeployment() {
   ns="$1"
   label="$2"
   print "waitForDeployment: $ns/$label"
-  sleep 2
+  sleep 6
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
-    sleep 2
+    sleep 4
     print "logs:"
     kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
     print "describe pod:"
@@ -31,10 +31,10 @@ function portForwardAndWait() {
   # Loop so the forward auto-restarts whenever the target pod is replaced (e.g. after helm upgrade).
   while kubectl cluster-info &>/dev/null 2>&1; do kubectl -n "$ns" port-forward "$deployment" "$ports" 2>/dev/null || true; sleep 2; done &
   print "portForwardAndWait: waiting until the port forward works..."
-  sleep 2
+  sleep 10
   until nc -vz localhost "$portHere"
   do
-    sleep 2
+    sleep 3
     print "logs:"
     kubectl -n "$ns" logs "$deployment"
     print "describe deployment:"
