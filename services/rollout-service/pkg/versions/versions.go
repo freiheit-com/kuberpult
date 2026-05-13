@@ -436,11 +436,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 			overview.AppDetails = appsToChange
 			if err := v.ArgoProcessor.Push(ctx, &overview); err != nil {
-				l.Sugar().Warnf("version.push failed: %v", err)
-			} else {
-				l.Info("version.push")
-				appsToChange = make(map[string]*api.GetAppDetailsResponse)
+				return err
 			}
+			l.Info("version.push")
+			appsToChange = make(map[string]*api.GetAppDetailsResponse)
 		}
 	})
 }
