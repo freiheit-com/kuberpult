@@ -557,3 +557,162 @@ func TestBracketUndeploy(t *testing.T) {
 		t.Logf("  OK %s/%s start time stable at %s", stagingNamespace, app2, got)
 	}
 }
+
+// helmUpgradeWithBracketsConfig is like helmUpgrade but controls the master
+// experimentalBrackets.enabled switch as well as both the development and
+// staging cluster flags simultaneously.  This lets tests start from a state
+// where brackets are fully disabled (enabled=false) and then flip everything
+// on at once — the exact scenario the user reported.
+func helmUpgradeWithBracketsConfig(t *testing.T, bracketsEnabled, developmentEnabled, stagingEnabled bool) {
+	t.Helper()
+	out, err := exec.Command("git", "describe", "--always", "--long", "--tags").Output()
+	if err != nil {
+		t.Fatalf("git describe: %v", err)
+	}
+	version := strings.TrimSpace(string(out))
+	repoRoot, err2 := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err2 != nil {
+		t.Fatalf("git rev-parse: %v", err2)
+	}
+	root := strings.TrimSpace(string(repoRoot))
+	chartPath := root + "/charts/kuberpult/kuberpult-" + version + ".tgz"
+	valsPath := root + "/charts/kuberpult/vals.yaml"
+
+	boolStr := func(b bool) string {
+		if b {
+			return "true"
+		}
+		return "false"
+	}
+	t.Logf("helmUpgradeWithBracketsConfig: enabled=%s development=%s staging=%s chart=%s",
+		boolStr(bracketsEnabled), boolStr(developmentEnabled), boolStr(stagingEnabled), chartPath)
+
+	// Use a trigger channel of size 1 so that rapid back-to-back cd-service
+	// events reliably overflow it when Push is non-blocking — reproducing the
+	// exact condition that caused the original cascade-deletion bug.
+	cmd := exec.Command("helm", "upgrade", "--install",
+		"--values", valsPath,
+		"--set", "rollout.experimentalBrackets.enabled="+boolStr(bracketsEnabled),
+		"--set", "rollout.experimentalBrackets.clusters.development="+boolStr(developmentEnabled),
+		"--set", "rollout.experimentalBrackets.clusters.staging="+boolStr(stagingEnabled),
+		"--set", "rollout.kuberpultEventsChannelSize=1",
+		"kuberpult-local", chartPath)
+	if out2, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("helm upgrade (enabled=%s dev=%s staging=%s): %v\n%s",
+			boolStr(bracketsEnabled), boolStr(developmentEnabled), boolStr(stagingEnabled), err, out2)
+	}
+
+	for _, dep := range []string{
+		"deployment/kuberpult-rollout-service",
+		"deployment/kuberpult-cd-service",
+		"deployment/kuberpult-frontend-service",
+		"deployment/kuberpult-reposerver-service",
+	} {
+		out3, err := exec.Command("kubectl", "rollout", "status", dep, "--timeout=3m").CombinedOutput()
+		if err != nil {
+			t.Fatalf("kubectl rollout status %s: %v\n%s", dep, err, out3)
+		}
+		t.Logf("%s rolled out: %s", dep, strings.TrimSpace(string(out3)))
+	}
+}
+
+// TestBracketEnableAllClusters is the regression test for the bug where enabling
+// experimentalBrackets for the first time (going from enabled=false to enabled=true
+// with development=true and staging=true simultaneously) cascade-deletes all apps
+// on both environments.
+//
+// Scenario:
+//   - Two apps share a bracket, deployed to development and staging in
+//     NON-bracket mode (experimentalBrackets.enabled=false).
+//   - Pod start times are recorded for both envs.
+//   - The cluster is upgraded to experimentalBrackets.enabled=true with both
+//     development=true and staging=true (the exact user-reported config change).
+//   - Expected: bracket Argo apps appear on both envs, individual Argo apps are
+//     deleted, and all K8s Deployments are UNTOUCHED (pod start times unchanged).
+func TestBracketEnableAllClusters(t *testing.T) {
+	t.Logf("runSuffix: %s", runSuffix)
+	app1 := "beac-app1-" + runSuffix
+	app2 := "beac-app2-" + runSuffix
+	apps := []string{app1, app2}
+	bracket := "beac-bracket-" + runSuffix
+
+	t.Log("step 1: upgrade to experimentalBrackets.enabled=false (fully disabled brackets)")
+	helmUpgradeWithBracketsConfig(t, false, false, false)
+
+	t.Log("step 2: create v1 releases (dev + dev2 + staging manifests)")
+	for _, app := range apps {
+		createRelease(t, app, "sreteam", bracket, "1", map[string]string{
+			devNamespace:     stableManifest(app, devNamespace, "1"),
+			dev2Namespace:    stableManifest(app, dev2Namespace, "1"),
+			stagingNamespace: stableManifest(app, stagingNamespace, "1"),
+		})
+	}
+
+	t.Log("step 3: run staging release train (deploys v1 from development2 to staging)")
+	releaseTrain(t, stagingNamespace)
+
+	// diagnostic: show what ArgoCD apps and staging deployments exist after release train
+	if out, err := exec.Command("kubectl", "get", "applications", "-n", "default", "--no-headers").CombinedOutput(); err == nil {
+		t.Logf("ArgoCD apps after releaseTrain:\n%s", out)
+	}
+	if out, err := exec.Command("kubectl", "get", "deployments", "-n", stagingNamespace, "--no-headers").CombinedOutput(); err == nil {
+		t.Logf("Deployments in staging after releaseTrain:\n%s", out)
+	}
+	if out, err := exec.Command("kubectl", "logs", "-n", "default", "deployment/kuberpult-rollout-service", "--tail=40").CombinedOutput(); err == nil {
+		t.Logf("rollout-service tail after releaseTrain:\n%s", out)
+	}
+
+	t.Log("step 4: wait for v1 synced in both development and staging")
+	for _, app := range apps {
+		for _, ns := range []string{devNamespace, stagingNamespace} {
+			waitForDeploymentAnnotation(t, ns, app+"-bracket-dep", "1")
+		}
+	}
+
+	t.Log("step 5: verify individual Argo apps exist on both development and staging")
+	for _, app := range apps {
+		waitForArgoApp(t, devNamespace+"-"+app)
+		waitForArgoApp(t, stagingNamespace+"-"+app)
+	}
+
+	t.Log("step 6: record pod start times in both envs")
+	type podKey struct{ ns, app string }
+	startTimes := map[podKey]string{}
+	for _, app := range apps {
+		for _, ns := range []string{devNamespace, stagingNamespace} {
+			k := podKey{ns, app}
+			startTimes[k] = podStartTime(t, ns, app)
+			t.Logf("  %s/%s: %s", ns, app, startTimes[k])
+		}
+	}
+
+	t.Log("step 7: upgrade to experimentalBrackets.enabled=true, development=true, staging=true")
+	helmUpgradeWithBracketsConfig(t, true, true, true)
+
+	t.Log("step 8: wait for bracket Argo apps to appear on both envs")
+	waitForArgoApp(t, devNamespace+"-"+bracket)
+	waitForArgoApp(t, stagingNamespace+"-"+bracket)
+
+	t.Log("step 9: wait for individual Argo apps to be deleted from both envs")
+	for _, app := range apps {
+		waitForArgoAppGone(t, devNamespace+"-"+app)
+		waitForArgoAppGone(t, stagingNamespace+"-"+app)
+	}
+
+	t.Log("step 10: 20s buffer to let any accidental pod churn complete")
+	time.Sleep(podChurnBuffer)
+
+	t.Log("step 11: verify pod start times have not changed in either env")
+	for _, app := range apps {
+		for _, ns := range []string{devNamespace, stagingNamespace} {
+			k := podKey{ns, app}
+			got := podStartTime(t, ns, app)
+			if got != startTimes[k] {
+				t.Errorf("REGRESSION: pod %s/%s was restarted when brackets were enabled\n  before: %s\n  after:  %s",
+					ns, app, startTimes[k], got)
+			} else {
+				t.Logf("  OK %s/%s start time stable at %s", ns, app, got)
+			}
+		}
+	}
+}
