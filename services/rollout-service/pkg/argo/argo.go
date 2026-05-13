@@ -72,8 +72,12 @@ type ArgoAppProcessor struct {
 	ArgoAppsMetricsEnabled  bool
 	ManageArgoAppsFilter    []string
 	DDMetrics               statsd.ClientInterface
-	KnownApps               map[string]map[string]*v1alpha1.Application
-	//
+	// Tracks which ArgoCD Application objects currently exist, keyed by [environmentName][appName].
+	// environmentName is the fully-qualified ArgoCD env name (AppInfo.EnvironmentName).
+	// appName is the kuberpult application name (AppInfo.ApplicationName).
+	// nil outer entry → Create path; existing inner entry → Update path; stale inner entry with no deployment → Delete path.
+	KnownApps map[string]map[string]*v1alpha1.Application
+	// Environment names in this slice use bracket manifests and no-cascade deletes.
 	ExperimentalBracketsClusters []string
 	// The apps that will be recreated as brackets.
 	// We store them, so we can delete them only once the bracket is there.
@@ -156,8 +160,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 }
 
 type ArgoOverview struct {
-	AppDetails map[string]*api.GetAppDetailsResponse //Map from appName to app Details. Gets filled with information based on what apps have changed.
-	Overview   *api.GetOverviewResponse              //Standard overview. Only information regarding environments should be retrieved from this overview.
+	// Missing entry for an app/env pair triggers deletion of the ArgoCD Application object.
+	AppDetails map[string]*api.GetAppDetailsResponse
+	// Environment group configs (ArgoCD destination, AA prefix, etc.) are read exclusively from here.
+	Overview *api.GetOverviewResponse
 }
 
 func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, argoOv *ArgoOverview) {
@@ -381,12 +387,21 @@ func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Log
 }
 
 type AppInfo struct {
-	ApplicationName              string
-	TeamName                     string
-	EnvironmentName              string
-	ParentEnvironmentName        string
+	// Becomes part of the ArgoCD Application name (<env>-<app>) and the manifest path.
+	ApplicationName string
+	// Checked against ManageArgoAppsFilter; if the team is not in the filter, no Argo app is created/updated.
+	TeamName string
+	// Fully-qualified ArgoCD environment name (includes Active/Active prefix when applicable).
+	// Used as the ArgoCD project name and as the outer key into KnownApps.
+	EnvironmentName string
+	// Logical parent env; used to look up Deployments[ParentEnvironmentName].
+	// A nil deployment for this key causes the ArgoCD app to be deleted.
+	ParentEnvironmentName string
+	// Supplies the cluster destination (server/name/namespace) and SyncOptions written into the ArgoCD spec.
 	ArgoEnvironmentConfiguration *api.ArgoCDEnvironmentConfiguration
-	IsBracket                    bool
+	// When true, the manifest path points to brackets/<app> instead of applications/<app>/manifests,
+	// and deletes use cascade=false so k8s resources survive the ArgoCD object removal.
+	IsBracket bool
 }
 
 func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {

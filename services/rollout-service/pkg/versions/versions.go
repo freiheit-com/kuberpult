@@ -68,6 +68,12 @@ type versionClient struct {
 }
 
 type VersionInfo struct {
+	// Drives the create/update/delete decision for bracket environments:
+	//   BracketVersionDelete ("KUBERPULT_BRACKET_DELETE") → delete the bracket ArgoCD app.
+	//   ""                                                → proto3 zero-value leaking through; no-op (logged as warning).
+	//   any other value (digits[:digits…])               → valid release; triggers create or update.
+	// For regular (non-bracket) apps, deletion is driven by the deployment being absent from
+	// AppDetails.Deployments, not by this field.
 	Version        types.RolloutAppBracketVersion
 	SourceCommitId string
 	DeployedAt     time.Time
@@ -201,13 +207,20 @@ func sourceCommitId(appReleases []*api.Release, deployment *api.Deployment) stri
 }
 
 type KuberpultEvent struct {
-	Environment       string
+	// Fully-qualified ArgoCD cluster/environment identifier forwarded to AppInfo.EnvironmentName.
+	Environment string
+	// Logical parent env forwarded to AppInfo.ParentEnvironmentName for deployment lookup.
 	ParentEnvironment string
-	Application       string
-	EnvironmentGroup  string
-	IsProduction      bool
-	Team              string
-	Version           *VersionInfo
+	// App (or bracket) name forwarded to AppInfo.ApplicationName.
+	Application      string
+	EnvironmentGroup string
+	// True when the env group priority is PROD or CANARY; used for metrics only, does not affect deployment.
+	IsProduction bool
+	// Forwarded to AppInfo.TeamName for the self-managed filter check.
+	Team string
+	// Carries the release version. For brackets, BracketVersionDelete triggers deletion;
+	// for regular apps deletion is driven by the env being absent from AppDetails.Deployments.
+	Version *VersionInfo
 }
 
 type VersionEventProcessor interface {
