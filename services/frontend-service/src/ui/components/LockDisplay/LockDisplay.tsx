@@ -15,11 +15,13 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
-import { addAction, DisplayLock } from '../../utils/store';
+import { addAction, DisplayLock, useAppDetailsForApp } from '../../utils/store';
 import classNames from 'classnames';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { Link } from 'react-router-dom';
+import { LockBehavior } from '../../../api/api';
+import { PlainDialog } from '../dialog/ConfirmationDialog';
 
 const millisecondsPerDay = 1000 * 60 * 60 * 24;
 // lock is outdated if it's more than two days old
@@ -41,17 +43,27 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
         'date-display--outdated': isOutdatedLifetime(targetLifetimeDate),
         'date-display--normal': !isOutdatedLifetime(targetLifetimeDate),
     });
+    const [showDeleteManifestLockDialog, setShowDeleteManifestLockDialog] = useState(false);
+    const appDetails = useAppDetailsForApp(lock.application || '');
+    const deployedVersion = lock.application
+        ? appDetails.details?.deployments[lock.environment]
+        : undefined;
+
+    const addDeleteManifestLockAction = useCallback(() => {
+        addAction({
+            action: {
+                $case: 'deleteManifestLock',
+                deleteManifestLock: {
+                    app: lock.application!,
+                    env: lock.environment,
+                },
+            },
+        });
+    }, [lock.application, lock.environment]);
+
     const deleteLock = useCallback(() => {
         if (lock.isManifestLock && lock.application) {
-            addAction({
-                action: {
-                    $case: 'deleteManifestLock',
-                    deleteManifestLock: {
-                        app: lock.application,
-                        env: lock.environment,
-                    },
-                },
-            });
+            setShowDeleteManifestLockDialog(true);
             return;
         }
         if (lock.application) {
@@ -128,6 +140,63 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     />
                 </div>
             </div>
+            {lock.isManifestLock && (
+                <PlainDialog
+                    open={showDeleteManifestLockDialog}
+                    onClose={() => setShowDeleteManifestLockDialog(false)}
+                    classNames="delete-manifest-lock-dialog"
+                    disableBackground={true}
+                    center={true}>
+                    <>
+                        <div className={'manifest-lock-dialog-header'}>Remove Manifest Lock</div>
+                        <div className={'manifest-lock-dialog-description'}>
+                            {
+                                'Removing the manifest lock will allow Kuberpult to write manifest files for this app/env again. '
+                            }
+                            {deployedVersion
+                                ? 'You can also trigger a re-deployment of the currently deployed version to immediately restore the manifest files. ' +
+                                  'This re-deployment usually has no effect unless you have manual changes in the manifest repository.'
+                                : ''}
+                        </div>
+                        <hr />
+                        <div className={'manifest-lock-dialog-footer'}>
+                            <Button
+                                className="mdc-button--unelevated button-cancel"
+                                label="Remove lock only"
+                                onClick={() => {
+                                    setShowDeleteManifestLockDialog(false);
+                                    addDeleteManifestLockAction();
+                                }}
+                                highlightEffect={false}
+                            />
+                            {deployedVersion && (
+                                <Button
+                                    className="mdc-button--unelevated button-confirm"
+                                    label="Remove lock and re-deploy"
+                                    onClick={() => {
+                                        setShowDeleteManifestLockDialog(false);
+                                        addDeleteManifestLockAction();
+                                        addAction({
+                                            action: {
+                                                $case: 'deploy',
+                                                deploy: {
+                                                    environment: lock.environment,
+                                                    application: lock.application!,
+                                                    version: deployedVersion.version,
+                                                    revision: deployedVersion.revision ?? 0,
+                                                    ignoreAllLocks: false,
+                                                    lockBehavior: LockBehavior.IGNORE,
+                                                },
+                                            },
+                                        });
+                                    }}
+                                    highlightEffect={false}
+                                />
+                            )}
+                        </div>
+                    </>
+                </PlainDialog>
+            )}
         </div>
     );
 };

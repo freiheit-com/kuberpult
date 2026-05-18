@@ -2885,3 +2885,298 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 	}
 
 }
+
+func TestManifestLockRedeployAfterDelete(t *testing.T) {
+	const appName = "myapp"
+	const envName types.EnvName = "development"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name              string
+		ArgoRenderOptions func(*argocd.RenderOptions)
+		ExpectedFiles     []*FilenameAndData
+	}{
+		{
+			Name: "manifests.yaml written after lock deleted and same-version redeploy",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{path: "environments/development/applications/myapp/manifests/manifests.yaml", fileData: []byte("normal manifest")},
+			},
+		},
+		{
+			Name: "bracket file written after lock deleted and same-version redeploy",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{path: "environments/development/brackets/myapp/myapp.yaml", fileData: []byte("normal manifest")},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t, tc.ArgoRenderOptions)
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+
+			setupTransformers := []Transformer{
+				&CreateEnvironment{
+					Environment: envName,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{Server: string(envName)},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						envName: "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+			}
+			deployTransformer := &DeployApplicationVersion{
+				Authentication:        Authentication{},
+				Environment:           envName,
+				Application:           appName,
+				Version:               1,
+				Revision:              0,
+				LockBehaviour:         1,
+				WriteCommitData:       false,
+				TransformerEslVersion: 3,
+				TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+			}
+			redeployTransformer := &DeployApplicationVersion{
+				Authentication:        Authentication{},
+				Environment:           envName,
+				Application:           appName,
+				Version:               1,
+				Revision:              0,
+				LockBehaviour:         1,
+				WriteCommitData:       false,
+				TransformerEslVersion: 4,
+				TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+			}
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction); err != nil {
+					return err
+				}
+				for _, tr := range setupTransformers {
+					if err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail}); err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+				// First deploy while lock is active: files should NOT be written
+				if err := dbHandler.DBWriteEslEventInternal(ctx, deployTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: authorName, AuthorEmail: authorEmail}); err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, deployTransformer, dbHandler, t, authorEmail, authorName)
+				if err := dbHandler.DBWriteManifestLock(ctx, transaction, types.AppName(appName), envName, db.LockMetadata{
+					CreatedByName:  authorName,
+					CreatedByEmail: authorEmail,
+					Message:        "test lock",
+				}); err != nil {
+					return err
+				}
+
+				for _, tr := range setupTransformers {
+					if err := repo.Apply(ctx, transaction, tr); err != nil {
+						return err
+					}
+				}
+				if err := repo.Apply(ctx, transaction, deployTransformer); err != nil {
+					return err
+				}
+
+				// Now delete the lock and do a same-version redeploy: files SHOULD be written
+				if err := dbHandler.DBDeleteManifestLock(ctx, transaction, types.AppName(appName), envName); err != nil {
+					return err
+				}
+				if err := dbHandler.DBWriteEslEventInternal(ctx, redeployTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: authorName, AuthorEmail: authorEmail}); err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, redeployTransformer, dbHandler, t, authorEmail, authorName)
+				return repo.Apply(ctx, transaction, redeployTransformer)
+			})
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Fatalf("error verifying content: %v\nFiles:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+func TestManifestLockBlocksDeploy(t *testing.T) {
+	const appName = "myapp"
+	const envName types.EnvName = "development"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name              string
+		HasManifestLock   bool
+		ArgoRenderOptions func(*argocd.RenderOptions)
+		ExpectedFiles     []*FilenameAndData
+		UnexpectedFiles   []*FilenameAndData
+	}{
+		{
+			Name:            "manifests.yaml not written when manifest lock exists",
+			HasManifestLock: true,
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+			},
+			UnexpectedFiles: []*FilenameAndData{
+				{path: "environments/development/applications/myapp/manifests/manifests.yaml"},
+			},
+		},
+		{
+			Name:            "bracket file not written when manifest lock exists",
+			HasManifestLock: true,
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			UnexpectedFiles: []*FilenameAndData{
+				{path: "environments/development/brackets/myapp/myapp.yaml"},
+			},
+		},
+		{
+			Name:            "manifests.yaml is written when no manifest lock",
+			HasManifestLock: false,
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{path: "environments/development/applications/myapp/manifests/manifests.yaml", fileData: []byte("normal manifest")},
+			},
+		},
+		{
+			Name:            "bracket file is written when no manifest lock",
+			HasManifestLock: false,
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{path: "environments/development/brackets/myapp/myapp.yaml", fileData: []byte("normal manifest")},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t, tc.ArgoRenderOptions)
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+
+			setupTransformers := []Transformer{
+				&CreateEnvironment{
+					Environment: envName,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{Server: string(envName)},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						envName: "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+			}
+			deployTransformer := &DeployApplicationVersion{
+				Authentication:        Authentication{},
+				Environment:           envName,
+				Application:           appName,
+				Version:               1,
+				Revision:              0,
+				LockBehaviour:         1,
+				WriteCommitData:       false,
+				TransformerEslVersion: 3,
+				TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+			}
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction); err != nil {
+					return err
+				}
+				for _, tr := range setupTransformers {
+					if err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail}); err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+				if err := dbHandler.DBWriteEslEventInternal(ctx, deployTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: authorName, AuthorEmail: authorEmail}); err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, deployTransformer, dbHandler, t, authorEmail, authorName)
+
+				if tc.HasManifestLock {
+					if err := dbHandler.DBWriteManifestLock(ctx, transaction, types.AppName(appName), envName, db.LockMetadata{
+						CreatedByName:  authorName,
+						CreatedByEmail: authorEmail,
+						Message:        "test lock",
+					}); err != nil {
+						return err
+					}
+				}
+
+				for _, tr := range setupTransformers {
+					if err := repo.Apply(ctx, transaction, tr); err != nil {
+						return err
+					}
+				}
+				return repo.Apply(ctx, transaction, deployTransformer)
+			})
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Fatalf("error verifying content: %v\nFiles:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.UnexpectedFiles); err != nil {
+				t.Fatalf("error verifying missing files: %v\nFiles:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
