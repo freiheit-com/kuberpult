@@ -5,7 +5,9 @@ source "$(dirname "$0")/lib.sh"
 
 set -eu
 set -o pipefail
-trap 'kill 0' EXIT SIGINT SIGTERM
+
+# avoid infinite trap invocations in shell by resetting trap handler on trap:
+trap 'trap - EXIT SIGINT SIGTERM; kill 0' EXIT SIGINT SIGTERM
 
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
@@ -209,6 +211,9 @@ portForwardAndWait "default" service/argocd-server 8080 443
 
 # For now, we are only creating development here
 # This means argo cd will only handle development, including the rollout-status
+
+# when testing on our gke environment, note that the namespace is different:
+#export ARGO_NAMESPACE=tools
 kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -330,6 +335,7 @@ kubectl get pods
 START=30
 NUM_RELEASES=2
 END=$((START + NUM_RELEASES))
+
 for v in $(seq "$START" "$END")
 do
    RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-1 sreteam e
@@ -357,6 +363,7 @@ fi
 
 print "running bracket stability integration tests..."
 make kind-test
+
 
 if "$LOCAL_EXECUTION"
 then
