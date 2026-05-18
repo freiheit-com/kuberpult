@@ -110,12 +110,12 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) error {
 	l := logger.FromContext(ctx).With(zap.String("argo-pushing", "ready"))
 	a.lastOverview = last
 	select {
-	case a.trigger <- a.lastOverview:
+	case a.trigger <- last:
 		l.Info("argocd.pushed")
 		a.GaugeKuberpultEventsQueueFillRate(ctx)
 		return nil
-	default:
-		return fmt.Errorf("failed to push to argo app processor: channel full")
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
