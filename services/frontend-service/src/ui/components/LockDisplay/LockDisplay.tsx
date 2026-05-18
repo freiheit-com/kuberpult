@@ -45,7 +45,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     });
     const [showDeleteManifestLockDialog, setShowDeleteManifestLockDialog] = useState(false);
     const appDetails = useAppDetailsForApp(lock.application || '');
-    const deployedVersion = lock.application ? appDetails.details?.deployments[lock.environment] : undefined;
+    const deployedVersion = lock.application ? appDetails?.details?.deployments[lock.environment] : undefined;
 
     const addDeleteManifestLockAction = useCallback(() => {
         if (!lock.application) {

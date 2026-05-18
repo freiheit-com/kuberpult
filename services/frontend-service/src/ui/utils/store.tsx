@@ -653,7 +653,7 @@ export const useOpenReleaseDialog = (app: string, version: number, revision: num
     }, [app, params, setParams, version, revision]);
 };
 
-export const useAppDetailsForApp = (app: string): AppDetailsResponse => useAppDetails((map) => map[app]);
+export const useAppDetailsForApp = (app: string): AppDetailsResponse | undefined => useAppDetails((map) => map[app]);
 
 export const useCloseReleaseDialog = (): (() => void) => {
     const [params, setParams] = useSearchParams();
@@ -1209,7 +1209,7 @@ export const useReleaseOrLog = (application: string, version: number, revision: 
 
 export const useReleaseOptional = (application: string, env: Environment): Release | undefined => {
     const response = useAppDetailsForApp(application);
-    const appDetails = response.details;
+    const appDetails = response?.details;
     if (appDetails === undefined) {
         return undefined;
     }
@@ -1231,7 +1231,7 @@ export const useCurrentlyDeployedAtGroup = (
 ): EnvironmentGroupExtended[] => {
     const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
     const response = useAppDetailsForApp(application);
-    const appDetails = response.details;
+    const appDetails = response?.details;
     return useMemo(() => {
         const envGroups: EnvironmentGroupExtended[] = [];
         environmentGroups.forEach((group: EnvironmentGroup) => {
@@ -1265,7 +1265,7 @@ export const useCurrentlyDeployedAtGroup = (
 export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroupExtended[] => {
     const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
     const response = useAppDetailsForApp(application);
-    const appDetails = response.details;
+    const appDetails = response?.details;
 
     return useMemo(() => {
         const envGroups: EnvironmentGroupExtended[] = [];
@@ -1324,7 +1324,7 @@ export const useReleaseDifference = (
 // Get all minor releases for an app
 export const useMinorsForApp = (app: string): ReleaseNumbers[] | undefined =>
     useAppDetailsForApp(app)
-        .details?.application?.releases.filter((rel) => rel.isMinor)
+        ?.details?.application?.releases.filter((rel) => rel.isMinor)
         .map((d) => ({ version: d.version, revision: d.revision }));
 
 // Navigate while keeping search params, returns new navigation url, and a callback function to navigate
