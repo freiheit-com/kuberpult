@@ -362,6 +362,17 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         [isSameVersion, deployAndLockClick]
     );
 
+    const handleSameVersionConfirm = useCallback((): void => {
+        setShowSameVersionWarning(undefined);
+        if (showSameVersionWarning !== undefined) {
+            deployAndLockClick(showSameVersionWarning);
+        }
+    }, [showSameVersionWarning, deployAndLockClick]);
+
+    const handleSameVersionCancel = useCallback((): void => {
+        setShowSameVersionWarning(undefined);
+    }, []);
+
     const releaseDifference = useReleaseDifference(
         { version: release.version, revision: release.revision },
         app,
@@ -492,11 +503,8 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 headerLabel={'Re-deploy same version?'}
                 confirmLabel={'Re-deploy'}
                 classNames={'same-version-warning-dialog'}
-                onConfirm={() => {
-                    setShowSameVersionWarning(undefined);
-                    deployAndLockClick(showSameVersionWarning!);
-                }}
-                onCancel={() => setShowSameVersionWarning(undefined)}>
+                onConfirm={handleSameVersionConfirm}
+                onCancel={handleSameVersionCancel}>
                 <span>
                     {
                         'This version is already deployed here. A re-deployment usually has no effect unless you have manual changes in the manifest repository.'
@@ -806,6 +814,17 @@ export const EnvironmentGroupLane: React.FC<{
         [isSameVersionGroup, deployAndLockClick]
     );
 
+    const handleGroupSameVersionConfirm = React.useCallback((): void => {
+        setShowGroupSameVersionWarning(undefined);
+        if (showGroupSameVersionWarning !== undefined) {
+            deployAndLockClick(showGroupSameVersionWarning, true);
+        }
+    }, [showGroupSameVersionWarning, deployAndLockClick]);
+
+    const handleGroupSameVersionCancel = React.useCallback((): void => {
+        setShowGroupSameVersionWarning(undefined);
+    }, []);
+
     return (
         <div className="release-dialog-environment-group-lane">
             <div className={'release-dialog-environment-group-lane__header-wrapper'}>
@@ -848,11 +867,8 @@ export const EnvironmentGroupLane: React.FC<{
                 headerLabel={'Re-deploy same version?'}
                 confirmLabel={'Re-deploy'}
                 classNames={'same-version-warning-dialog'}
-                onConfirm={() => {
-                    setShowGroupSameVersionWarning(undefined);
-                    deployAndLockClick(showGroupSameVersionWarning!, true);
-                }}
-                onCancel={() => setShowGroupSameVersionWarning(undefined)}>
+                onConfirm={handleGroupSameVersionConfirm}
+                onCancel={handleGroupSameVersionCancel}>
                 <span>
                     {
                         'This version is already deployed on all environments in this group. A re-deployment usually has no effect unless you have manual changes in the manifest repository.'
