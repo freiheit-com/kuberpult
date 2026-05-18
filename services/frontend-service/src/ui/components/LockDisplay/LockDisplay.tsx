@@ -178,7 +178,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                 <PlainDialog
                     open={showDeleteManifestLockDialog}
                     onClose={onClose}
-                    classNames="delete-manifest-lock-dialog"
+                    classNames="manifest-lock-dialog"
                     disableBackground={true}
                     center={true}>
                     <>
