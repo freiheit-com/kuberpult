@@ -159,14 +159,14 @@ export const ServiceLane: React.FC<{
 
 function getAppDetailsIfInView(
     componentRef: React.MutableRefObject<any>,
-    appDetails: AppDetailsResponse,
+    appDetails: AppDetailsResponse | undefined,
     authHeader: AuthHeader,
     appName: string
 ): void {
     if (componentRef.current !== null) {
         const rect = componentRef.current.getBoundingClientRect();
         if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-            if (appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
+            if (!appDetails || appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
                 getAppDetails(appName, authHeader);
             }
         }
@@ -176,7 +176,7 @@ function getAppDetailsIfInView(
 export const GeneralServiceLane: React.FC<{
     application: OverviewApplication;
     hideMinors: boolean;
-    allAppData: AppDetailsResponse;
+    allAppData: AppDetailsResponse | undefined;
 }> = (props) => {
     const onReload = useCallback(() => {
         const details = updateAppDetails.get();
@@ -191,7 +191,7 @@ export const GeneralServiceLane: React.FC<{
 
     let buttonClassName: string;
 
-    switch (props.allAppData.appDetailState) {
+    switch (props.allAppData?.appDetailState) {
         case AppDetailsState.ERROR: {
             buttonClassName = 'servicelane__reload__error';
             break;
@@ -214,18 +214,18 @@ export const GeneralServiceLane: React.FC<{
             onClick={onReload}
         />
     );
-    if (props.allAppData.appDetailState === AppDetailsState.READY) {
+    if (props.allAppData?.appDetailState === AppDetailsState.READY) {
         return (
             <ReadyServiceLane
                 application={props.application}
                 hideMinors={props.hideMinors}
                 allAppData={props.allAppData}></ReadyServiceLane>
         );
-    } else if (props.allAppData.appDetailState === AppDetailsState.NOTFOUND) {
+    } else if (props.allAppData?.appDetailState === AppDetailsState.NOTFOUND) {
         return <NoDataServiceLane application={props.application} reloadButton={reloadButton}></NoDataServiceLane>;
-    } else if (props.allAppData.appDetailState === AppDetailsState.NOTREQUESTED) {
+    } else if (!props.allAppData || props.allAppData.appDetailState === AppDetailsState.NOTREQUESTED) {
         return <NotRequestedServiceLane application={props.application}></NotRequestedServiceLane>;
-    } else if (props.allAppData.appDetailState === AppDetailsState.ERROR) {
+    } else if (props.allAppData?.appDetailState === AppDetailsState.ERROR) {
         return (
             <ErrorServiceLane
                 application={props.application}
@@ -236,7 +236,7 @@ export const GeneralServiceLane: React.FC<{
                         : 'no error message was provided.'
                 }></ErrorServiceLane>
         );
-    } else if (props.allAppData.appDetailState === AppDetailsState.LOADING) {
+    } else if (props.allAppData?.appDetailState === AppDetailsState.LOADING) {
         return <LoadingServiceLane application={props.application}></LoadingServiceLane>;
     }
     return <LoadingServiceLane application={props.application}></LoadingServiceLane>;

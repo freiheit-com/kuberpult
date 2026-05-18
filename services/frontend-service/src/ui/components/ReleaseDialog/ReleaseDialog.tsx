@@ -202,7 +202,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const isSameVersion =
         !!otherRelease && otherRelease.version === release.version && otherRelease.revision === release.revision;
     const appDetails = useAppDetailsForApp(app);
-    const deployment = appDetails.details?.deployments[env.name];
+    const deployment = appDetails?.details?.deployments[env.name];
     const hasEnv = release.environments.indexOf(env.name) >= 0;
 
     const getDeploymentMetadata = (): [JSX.Element, JSX.Element] => {
@@ -543,7 +543,7 @@ export const undeployTooltipExplanation =
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
     const appDetails = useAppDetailsForApp(app);
-    const linkTarget: string = appDetails.details?.application?.argoBracket || app;
+    const linkTarget: string = appDetails?.details?.application?.argoBracket || app;
     const team = useTeamFromApplication(app) || '';
     const closeReleaseDialog = useCloseReleaseDialog();
     if (!appDetails) {
@@ -889,8 +889,8 @@ export const EnvironmentGroupLane: React.FC<{
                             team={team}
                             className={priorityClassName}
                             queuedVersion={
-                                appDetails.details?.deployments[env.name]
-                                    ? appDetails.details?.deployments[env.name].queuedVersion
+                                appDetails?.details?.deployments[env.name]
+                                    ? appDetails?.details?.deployments[env.name].queuedVersion
                                     : 0
                             }
                         />
