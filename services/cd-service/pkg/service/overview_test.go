@@ -3142,7 +3142,7 @@ func TestCombineBracketDeployments(t *testing.T) {
 			Apps:        []*api.GetAppDetailsResponse{app1, app2, app3},
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
-				"dev": "1:3:0", // aaa→1, bbb→3, ccc→0 (not deployed)
+				"dev": "1:3:0:", // aaa→1, bbb→3, ccc→0 (not deployed)
 			},
 			WantCommit: map[string]string{
 				"dev": "commit-bbb-3", // bbb has latest deploy_time
@@ -3154,7 +3154,7 @@ func TestCombineBracketDeployments(t *testing.T) {
 			Apps:        []*api.GetAppDetailsResponse{app3, app2, app1}, // ccc, bbb, aaa — reversed
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
-				"dev": "1:3:0", // sorted: aaa→1, bbb→3, ccc→0
+				"dev": "1:3:0:", // sorted: aaa→1, bbb→3, ccc→0
 			},
 			WantCommit: map[string]string{
 				"dev": "commit-bbb-3",
@@ -3166,7 +3166,7 @@ func TestCombineBracketDeployments(t *testing.T) {
 			Apps:        []*api.GetAppDetailsResponse{app1, app2},
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
-				"dev": "1:3",
+				"dev": "1:3:",
 			},
 			WantCommit: map[string]string{
 				"dev": "commit-bbb-3",
@@ -3186,7 +3186,7 @@ func TestCombineBracketDeployments(t *testing.T) {
 			Apps:        []*api.GetAppDetailsResponse{app3}, // ccc has no dev deployment
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
-				"dev": "0",
+				"dev": "0:",
 			},
 			WantCommit:       map[string]string{"dev": ""},
 			WantDeployedEnvs: []string{"dev"},
@@ -3196,7 +3196,7 @@ func TestCombineBracketDeployments(t *testing.T) {
 			Apps:        []*api.GetAppDetailsResponse{app3, app3}, // both have no dev deployment
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
-				"dev": "0:0",
+				"dev": "0:0:",
 			},
 			WantCommit:       map[string]string{"dev": ""},
 			WantDeployedEnvs: []string{"dev"},

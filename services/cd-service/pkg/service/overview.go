@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -756,7 +755,7 @@ func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketE
 			}
 		}
 
-		version := strings.Join(versionParts, ":")
+		version := string(types.JoinBracketVersionFromParts(versionParts))
 		if len(versionParts) == 0 {
 			version = string(types.BracketVersionDelete)
 		}
