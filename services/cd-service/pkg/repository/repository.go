@@ -461,6 +461,12 @@ func (r *repository) notifyChangedApps(changes *TransformerResult) {
 			changedAppNames = append(changedAppNames, app.App)
 		}
 	}
+	for _, app := range changes.DeletedApps {
+		if _, ok := seen[app.App]; !ok {
+			seen[app.App] = true
+			changedAppNames = append(changedAppNames, app.App)
+		}
+	}
 	if len(changedAppNames) != 0 {
 		r.notify.NotifyChangedApps(changedAppNames)
 	}

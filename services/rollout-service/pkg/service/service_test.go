@@ -141,7 +141,7 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, env
 	m.attemptCount[key] = current + 1
 	for _, v := range m.versions {
 		if v.Revision == revision && v.Environment == environment && v.Application == application && v.Attempt == current {
-			return &versions.VersionInfo{Version: v.DeployedVersion}, nil
+			return &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(v.DeployedVersion)}, nil
 		}
 	}
 	return nil, fmt.Errorf("no")
@@ -336,7 +336,7 @@ func TestArgoConnection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     &versions.VersionInfo{Version: 42},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(42)},
 					},
 				},
 				{
@@ -384,7 +384,7 @@ func TestArgoConnection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     &versions.VersionInfo{Version: 42},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(42)},
 					},
 				},
 				{
@@ -440,7 +440,7 @@ func TestArgoConnection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     &versions.VersionInfo{},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(0)},
 					},
 				},
 				{
@@ -572,7 +572,7 @@ func TestArgoEvents(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: appName,
 						Environment: envName,
-						Version:     &versions.VersionInfo{Version: deployedVersion},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(deployedVersion)},
 					},
 				},
 				{
@@ -625,7 +625,7 @@ func TestArgoEvents(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: appName,
 						Environment: envName,
-						Version:     &versions.VersionInfo{Version: deployedVersion},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(deployedVersion)},
 					},
 				},
 				{
@@ -678,7 +678,7 @@ func TestArgoEvents(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: appName,
 						Environment: envName,
-						Version:     &versions.VersionInfo{Version: deployedVersion},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(deployedVersion)},
 					},
 				},
 				{
@@ -732,7 +732,7 @@ func TestArgoEvents(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: appName,
 						Environment: aaEnv1,
-						Version:     &versions.VersionInfo{Version: deployedVersion},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(deployedVersion)},
 					},
 				},
 				{
@@ -810,7 +810,7 @@ func TestArgoEvents(t *testing.T) {
 						Health: v1alpha1.HealthStatus{},
 					},
 				},
-			}, &versions.VersionInfo{Version: uint64(tc.ExpectedDBEvent.deployedVersion)}, false)
+			}, &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(uint64(tc.ExpectedDBEvent.deployedVersion))}, false)
 			dbCtx := testutilauth.MakeTestContext()
 			result, err := db.WithTransactionT(dbHandler, dbCtx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.ArgoEvent, error) {
 				r, err := dbHandler.DBReadArgoEvent(dbCtx, transaction, types.AppName(tc.ExpectedDBEvent.AppName), tc.ExpectedDBEvent.EnvName)

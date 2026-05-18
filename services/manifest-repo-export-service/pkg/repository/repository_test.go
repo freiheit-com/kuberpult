@@ -26,7 +26,6 @@ import (
 	"path"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/cenkalti/backoff/v4"
@@ -37,7 +36,6 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -2296,7 +2294,6 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 				}
 				return nil
 			})
-			repo.config.MinimizeExportedData = true
 
 			initialCommitId, err := repo.GetHeadCommitId()
 			if err != nil {
@@ -2399,14 +2396,13 @@ func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 	}
 
 	repoCfg := RepositoryConfig{
-		URL:                  remoteDir,
-		Path:                 localDir,
-		CommitterEmail:       "kuberpult@freiheit.com",
-		CommitterName:        "kuberpult",
-		ArgoCdGenerateFiles:  true,
-		ReleaseVersionLimit:  2,
-		MinimizeExportedData: false,
-		ArgoRenderOptions:    testRenderOptions(),
+		URL:                 remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
+		ReleaseVersionLimit: 2,
+		ArgoRenderOptions:   testRenderOptions(),
 	}
 
 	if dbConfig != nil {
@@ -2431,108 +2427,6 @@ func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
 		t.Fatal(err)
 	}
 	return repo, remoteDir
-}
-
-func BenchmarkApplyQueue(t *testing.B) {
-	t.StopTimer()
-	repo, _ := setupRepositoryBenchmarkWithPath(t)
-	ctx := testutilauth.MakeTestContext()
-	generator := testutil.NewIncrementalUUIDGenerator()
-	dbHandler := repo.State().DBHandler
-
-	repoInternal := repo.(*repository)
-	// The worker go routine is now blocked. We can move some items into the queue now.
-	results := make([]error, t.N)
-	expectedResults := make([]error, t.N)
-	expectedReleases := make(map[TestStruct]bool, t.N)
-	tf, _ := getTransformer(0)
-
-	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-		if err != nil {
-			return err
-		}
-		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, "foo", db.AppStateChangeCreate, db.DBAppMetaData{
-			Team: "team-123",
-		}, "")
-		if err != nil {
-			return err
-		}
-		err = dbHandler.DBWriteEslEventInternal(ctx, tf.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tf.GetMetadata().AuthorName, AuthorEmail: tf.GetMetadata().AuthorEmail})
-		if err != nil {
-			return err
-		}
-		err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-			ReleaseNumbers: types.ReleaseNumbers{
-				Revision: 0,
-				Version:  &versionZero,
-			},
-			Created:   time.Time{},
-			App:       "foo",
-			Manifests: db.DBReleaseManifests{},
-			Metadata:  db.DBReleaseMetaData{},
-		})
-		if err != nil {
-			return err
-		}
-		err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 0, types.ReleaseNumbers{Version: &versionZero, Revision: 0}, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
-		if err != nil {
-			return err
-		}
-		err = repoInternal.Apply(ctx, transaction, tf)
-		if err != nil {
-			return err
-		}
-		expectedReleases[TestStruct{Version: 0, Revision: 0}] = true
-
-		t.StartTimer()
-		for i := 1; i < t.N; i++ {
-			tf, expectedResult := getTransformer(i)
-			err = dbHandler.DBWriteEslEventInternal(ctx, tf.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tf.GetMetadata().AuthorName, AuthorEmail: tf.GetMetadata().AuthorEmail})
-			if err != nil {
-				return err
-			}
-			version := uint64(i)
-			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-				ReleaseNumbers: types.ReleaseNumbers{
-					Revision: 0,
-					Version:  &version,
-				},
-				Created:   time.Time{},
-				App:       "foo",
-				Manifests: db.DBReleaseManifests{},
-				Metadata:  db.DBReleaseMetaData{},
-			})
-			if err != nil {
-				return err
-			}
-			var v = uint64(i)
-			err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, db.TransformerID(i), types.ReleaseNumbers{Version: &v, Revision: 0}, generator.Generate(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
-			if err != nil {
-				return err
-			}
-			results[i] = repoInternal.Apply(ctx, transaction, tf)
-			expectedResults[i] = expectedResult
-			if expectedResult == nil {
-				expectedReleases[TestStruct{Version: uint64(i), Revision: 0}] = true
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		t.Errorf("Error applying transformers: %v", err)
-	}
-
-	for i := 0; i < t.N; i++ {
-		if diff := cmp.Diff(expectedResults[i], results[i], cmpopts.EquateErrors()); diff != "" {
-			t.Errorf("result[%d] expected error \"%v\" but got \"%v\"", i, expectedResults[i], err)
-		}
-	}
-	releases, _ := repo.State().GetAllApplicationReleasesFromManifest("foo")
-	if !cmp.Equal(expectedReleases, convertToSet(releases)) {
-		t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
-	}
 }
 
 type Gauge struct {
@@ -2796,7 +2690,6 @@ func TestTransformerResultEnvironments(t *testing.T) {
 			t.Parallel()
 			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
 			repo := r.(*repository)
-			repo.config.MinimizeExportedData = true
 
 			ctx := testutilauth.MakeTestContext()
 
@@ -2969,10 +2862,10 @@ func TestCombineTransformerResult(t *testing.T) {
 func TestManifestLockPreventsDeployment(t *testing.T) {
 	const manifestFile = "environments/production/applications/test/manifests/manifests.yaml"
 	tcs := []struct {
-		Name             string
-		WriteLock        bool
-		DeleteLock       bool
-		ExpectManifest   bool
+		Name           string
+		WriteLock      bool
+		DeleteLock     bool
+		ExpectManifest bool
 	}{
 		{
 			Name:           "no lock - manifest is written",
@@ -3012,9 +2905,9 @@ func TestManifestLockPreventsDeployment(t *testing.T) {
 					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
 				},
 				&CreateApplicationVersion{
-					Application: "test",
-					Manifests:   map[types.EnvName]string{"production": "manifest-content"},
-					Version:     1,
+					Application:         "test",
+					Manifests:           map[types.EnvName]string{"production": "manifest-content"},
+					Version:             1,
 					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
 				},
 			}
@@ -3073,6 +2966,122 @@ func TestManifestLockPreventsDeployment(t *testing.T) {
 			manifestExists := !errors.Is(statErr, os.ErrNotExist)
 			if diff := testutil.CmpDiff(tc.ExpectManifest, manifestExists); diff != "" {
 				t.Errorf("manifest existence mismatch (-want, +got):\n%s\nFiles present:\n%s", diff, strings.Join(listFiles(state.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+func TestManifestLockPreventsDeploymentInBracketMode(t *testing.T) {
+	const bracketManifestFile = "environments/production/brackets/test/test.yaml"
+	tcs := []struct {
+		Name           string
+		WriteLock      bool
+		DeleteLock     bool
+		ExpectManifest bool
+	}{
+		{
+			Name:           "no lock - bracket manifest is written",
+			WriteLock:      false,
+			DeleteLock:     false,
+			ExpectManifest: true,
+		},
+		{
+			Name:           "active lock - bracket manifest is not written",
+			WriteLock:      true,
+			DeleteLock:     false,
+			ExpectManifest: false,
+		},
+		{
+			Name:           "deleted lock - bracket manifest is written",
+			WriteLock:      true,
+			DeleteLock:     true,
+			ExpectManifest: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			repo, _ := setupRepositoryTestWithPath(t, func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			})
+			repoInternal := repo.(*repository)
+			dbHandler := repo.State().DBHandler
+
+			setupTransformers := []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "production"}},
+					},
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
+				},
+				&CreateApplicationVersion{
+					Application:         "test",
+					Manifests:           map[types.EnvName]string{"production": "manifest-content"},
+					Version:             1,
+					TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
+				},
+			}
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range setupTransformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "test@example.com", "test")
+				}
+				return nil
+			})
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range setupTransformers {
+					_, applyErr := repoInternal.ApplyTransformer(ctx, transaction, tr)
+					if applyErr != nil {
+						t.Fatalf("setup transformer failed: %v", applyErr)
+					}
+				}
+				return nil
+			})
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if tc.WriteLock {
+					//exhaustruct:ignore
+					if err := dbHandler.DBWriteManifestLock(ctx, transaction, "test", "production", db.LockMetadata{}); err != nil {
+						t.Fatalf("DBWriteManifestLock: %v", err)
+					}
+				}
+				if tc.DeleteLock {
+					if err := dbHandler.DBDeleteManifestLock(ctx, transaction, "test", "production"); err != nil {
+						t.Fatalf("DBDeleteManifestLock: %v", err)
+					}
+				}
+				return nil
+			})
+
+			deployTransformer := &DeployApplicationVersion{
+				Application:         "test",
+				Environment:         "production",
+				Version:             1,
+				TransformerMetadata: TransformerMetadata{AuthorName: "test", AuthorEmail: "test@example.com"},
+			}
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				prepareDatabaseLikeCdService(ctx, transaction, deployTransformer, dbHandler, t, "test@example.com", "test")
+				return nil
+			})
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, applyErr := repoInternal.ApplyTransformer(ctx, transaction, deployTransformer)
+				if applyErr != nil {
+					t.Fatalf("deploy transformer failed: %v", applyErr)
+				}
+				return nil
+			})
+
+			state := repo.State()
+			_, statErr := state.Filesystem.Stat(bracketManifestFile)
+			manifestExists := !errors.Is(statErr, os.ErrNotExist)
+			if diff := testutil.CmpDiff(tc.ExpectManifest, manifestExists); diff != "" {
+				t.Errorf("manifest existence mismatch (-want, +got):\n%s\nFiles present:\n%s\nActual err=%v", diff, strings.Join(listFiles(state.Filesystem), "\n"), statErr)
 			}
 		})
 	}

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
 
@@ -97,7 +98,7 @@ func TestDispatcher(t *testing.T) {
 			}
 			if tc.VersionExists {
 				reply.info = &versions.VersionInfo{
-					Version: 1,
+					Version: types.RolloutAppBracketVersionFromUint64(1),
 				}
 			}
 			dvc := &dispatcherVersionMock{

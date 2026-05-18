@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
+# shellcheck source=/dev/null
+source "$(dirname "$0")/lib.sh"
+
 set -eu
 set -o pipefail
+trap 'kill 0' EXIT SIGINT SIGTERM
 
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
@@ -10,10 +14,6 @@ set -o pipefail
 cd "$(dirname "$0")"
 
 
-# prefix every call to "echo" with the name of the script:
-function print() {
-  /bin/echo "$0:" "$@"
-}
 
 cleanup() {
     print "Cleaning stuff up..."
@@ -45,47 +45,6 @@ print installing ssh...
 
 print installing postgres...
 ./setup-postgres.sh
-
-function waitForDeployment() {
-  ns="$1"
-  label="$2"
-  print "waitForDeployment: $ns/$label"
-  sleep 10
-  until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
-  do
-    sleep 4
-    print "logs:"
-    kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
-    print "describe pod:"
-    kubectl -n "$ns" describe pod -l "$label"
-#    print "describe pod:"
-#    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
-    print ...
-  done
-}
-
-function portForwardAndWait() {
-  ns="$1"
-  deployment="$2"
-  portHere="$3"
-  portThere="$4"
-  ports="$portHere:$portThere"
-  print "portForwardAndWait for $ns/$deployment $ports"
-  kubectl -n "$ns" port-forward "$deployment" "$ports" &
-  print "portForwardAndWait: waiting until the port forward works..."
-  sleep 10
-  until nc -vz localhost "$portHere"
-  do
-    sleep 3
-    print "logs:"
-    kubectl -n "$ns" logs "$deployment"
-    print "describe deployment:"
-    kubectl -n "$ns" describe "$deployment"
-    print "describe pod:"
-    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
-    print ...
-  done
-}
 
 GPG="gpg --keyring trustedkeys-kuberpult.gpg"
 gpgFile=~/.gnupg/trustedkeys-kuberpult.gpg
@@ -142,9 +101,7 @@ if "$LOCAL_EXECUTION"
 then
   print 'building services...'
   IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../infrastructure/docker/builder build
-  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/cd-service docker
-  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/manifest-repo-export-service docker
-  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -C ../../services/frontend-service docker gen-api
+  IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -j5 -C ../../charts/kuberpult build-all-docker
 else
   print 'not building services...'
 fi
@@ -211,9 +168,18 @@ print "starting argoCd..."
 helm repo add argo-cd https://argoproj.github.io/argo-helm
 
 
+reposerver_service=kuberpult-reposerver-service
+namespace=default
 helm uninstall argocd || echo "did not uninstall argo"
 cat <<YAML > argocd-values.yml
+repoServer:
+  replicas: 0
 configs:
+  params:
+    repo.server: ${reposerver_service}.${namespace}.svc.cluster.local:8443
+    controller.repo.server.plaintext: true
+    server.repo.server.plaintext: true
+    applicationsetcontroller.log.level: warn
   ssh:
     knownHosts: |
 $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
@@ -230,11 +196,14 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
       g, kuberpult, role:kuberpult
 
 YAML
+
+echo "installing argocd $(cat ./argocd-values.yml)"
+
 helm install argocd argo-cd/argo-cd --values argocd-values.yml --version 5.36.0
 
 print applying app...
 
-waitForDeployment "default" "app.kubernetes.io/name=argocd-repo-server"
+#waitForDeployment "default" "app.kubernetes.io/name=argocd-repo-server"
 waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
 portForwardAndWait "default" service/argocd-server 8080 443
 
@@ -286,10 +255,10 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: staging
+  name: aa-aa-test-dev-1
   namespace: ${ARGO_NAMESPACE}
 spec:
-  description: staging-proj-override666
+  description: aa-aa-test-dev-1
   destinations:
   - name: "dest1"
     namespace: '*'
@@ -298,21 +267,36 @@ spec:
   - '*'
 ---
 apiVersion: argoproj.io/v1alpha1
-kind: Application
+kind: AppProject
 metadata:
-  name: root
+  name: aa-aa-test-dev-2
   namespace: ${ARGO_NAMESPACE}
 spec:
-  destination:
-    namespace: ${ARGO_NAMESPACE}
+  description: aa-aa-test-dev-2
+  destinations:
+  - name: "dest1"
+    namespace: '*'
     server: https://kubernetes.default.svc
-  project: dev
-  source:
-    path: argocd/v1alpha1
-    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
-    targetRevision: main
-  syncPolicy:
-    automated: {}
+  sourceRepos:
+  - '*'
+---
+# root app is only necessary and desired if we use git with the manifest-repo-export
+#apiVersion: argoproj.io/v1alpha1
+#kind: Application
+#metadata:
+#  name: root
+#  namespace: ${ARGO_NAMESPACE}
+#spec:
+#  destination:
+#    namespace: ${ARGO_NAMESPACE}
+#    server: https://kubernetes.default.svc
+#  project: dev
+#  source:
+#    path: argocd/v1alpha1
+#    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
+#    targetRevision: main
+#  syncPolicy:
+#    automated: {}
 EOF
 
 print "admin password:"
@@ -321,20 +305,18 @@ echo "$argocd_adminpw"
 echo "$argocd_adminpw" > argocd_adminpw.txt
 
 argocd login localhost:8080 --username admin --password "$argocd_adminpw" --insecure
-token=$(argocd account generate-token --server localhost:8080 --account kuberpult --insecure)
 
-echo "argocd token: $token"
 
 
 kubectl create ns development
 kubectl create ns development2
 kubectl create ns staging
+kubectl create ns aa-test
 
 
 export GIT_NAMESPACE=${GIT_NAMESPACE}
 export ARGO_NAMESPACE=${ARGO_NAMESPACE}
 export LOCAL_EXECUTION=${LOCAL_EXECUTION}
-export TOKEN=${token}
 
 ./install-kuberpult-helm.sh
 
@@ -343,24 +325,38 @@ print 'checking for pods and waiting for portforwarding to be ready...'
 kubectl get deployment
 kubectl get pods
 
-print "port forwarding to cd service..."
-waitForDeployment "default" "app=kuberpult-cd-service"
-portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
-
-waitForDeployment "default" "app=kuberpult-frontend-service"
-portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
-print "connection to frontend service successful"
-
-kubectl get deployment
-kubectl get pods
-
 (cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
 
-for v in $(seq 1 3)
+START=30
+NUM_RELEASES=2
+END=$((START + NUM_RELEASES))
+for v in $(seq "$START" "$END")
 do
-   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release.sh echo;
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-1 sreteam e
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-2 sreteam e
+   RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
 done
+../../infrastructure/scripts/create-testdata/run-releasetrain.sh staging
+v=$((v + 1))
+RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-1 sreteam e
+RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-2 sreteam e
+RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
 
+
+
+if false;
+then
+  for v in $(seq 1 3)
+  do
+     RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-3 sreteam e
+     RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
+
+     #RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
+  done
+fi
+
+print "running bracket stability integration tests..."
+make kind-test
 
 if "$LOCAL_EXECUTION"
 then

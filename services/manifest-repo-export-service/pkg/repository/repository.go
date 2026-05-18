@@ -155,8 +155,6 @@ type RepositoryConfig struct {
 
 	ReleaseVersionLimit uint
 
-	MinimizeExportedData bool
-
 	DDMetrics statsd.ClientInterface
 	TagsPath  string
 
@@ -513,7 +511,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 			}
 			return nil, nil, nil, &applyErr
 		}
-		msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction, r.config.MinimizeExportedData)
+		msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction)
 		if err != nil {
 			applyErr := TransformerBatchApplyError{
 				TransformerError: err,
@@ -768,9 +766,6 @@ func (r *repository) makeGitSignature() *git.Signature {
 }
 
 func (r *repository) shouldCreateNewCommit(commitMessages []string) bool {
-	if !r.config.MinimizeExportedData {
-		return true
-	}
 	for _, currCommitMessage := range commitMessages {
 		if !strings.Contains(currCommitMessage, NoOpMessage) { //Transformers that generate no commits always return a message beginning with $NoOpMessage
 			return true

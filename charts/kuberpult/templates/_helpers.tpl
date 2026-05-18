@@ -14,6 +14,20 @@
 
 # Copyright freiheit.com
 
+{{/*
+Returns a sorted, comma-separated list of environment names that have bracket rendering enabled.
+Returns an empty string when experimentalBrackets.enabled is false.
+*/}}
+{{- define "kuberpult.experimentalBracketsClusters" -}}
+{{- if .Values.rollout.experimentalBrackets.enabled -}}
+{{- $clusters := list -}}
+{{- range $k, $v := .Values.rollout.experimentalBrackets.clusters -}}
+{{- if $v -}}{{- $clusters = append $clusters $k -}}{{- end -}}
+{{- end -}}
+{{- sortAlpha $clusters | join "," -}}
+{{- end -}}
+{{- end -}}
+
 # Selects all root app filter clusters that are set to true
 {{- define "kuberpult.experimentalRootAppFilter" -}}
 {{- $envs := list -}}

@@ -850,6 +850,11 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 		return nil
 	}
 
+	err := h.DBWriteCommitHistoryRow(ctx, transaction, sourceCommitId, previousCommitId)
+	if err != nil {
+		return fmt.Errorf("error while writing commit history: %v", err)
+	}
+
 	envMap := make(map[string]struct{}, len(environments))
 	for _, env := range environments {
 		envMap[string(env)] = struct{}{}

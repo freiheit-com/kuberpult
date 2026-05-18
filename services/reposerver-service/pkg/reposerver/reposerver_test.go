@@ -258,9 +258,154 @@ func TestGetRevisionMetadata(t *testing.T) {
 	}
 }
 
+func TestGenerateManifestBracket(t *testing.T) {
+	t.Parallel()
+
+	var vA uint64 = 2
+	var vB uint64 = 5
+
+	tcs := []struct {
+		Name             string
+		BracketEnv       types.EnvName
+		BracketName      types.ArgoBracketName
+		Apps             []types.AppName
+		Releases         []db.DBReleaseWithMetaData
+		Deployments      []db.Deployment
+		BracketMap       map[types.ArgoBracketName]db.AppNames
+		RequestPath      string
+		ExpectedRevision string
+		ExpectedManifests int
+	}{
+		{
+			Name:        "two-app bracket returns combined manifests and colon-separated revision",
+			BracketEnv:  "development",
+			BracketName: "my-bracket",
+			Apps:        []types.AppName{"app-a", "app-b"},
+			Releases: []db.DBReleaseWithMetaData{
+				{
+					ReleaseNumbers: types.ReleaseNumbers{Version: &vA, Revision: 0},
+					App:            "app-a",
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
+						"development": `api: v1
+kind: ConfigMap
+metadata:
+  name: app-a-config
+  namespace: default
+data:
+  key: a`,
+					}},
+				},
+				{
+					ReleaseNumbers: types.ReleaseNumbers{Version: &vB, Revision: 0},
+					App:            "app-b",
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
+						"development": `api: v1
+kind: ConfigMap
+metadata:
+  name: app-b-config
+  namespace: default
+data:
+  key: b`,
+					}},
+				},
+			},
+			Deployments: []db.Deployment{
+				{App: "app-a", Env: "development", ReleaseNumbers: types.ReleaseNumbers{Version: &vA, Revision: 0}},
+				{App: "app-b", Env: "development", ReleaseNumbers: types.ReleaseNumbers{Version: &vB, Revision: 0}},
+			},
+			BracketMap: map[types.ArgoBracketName]db.AppNames{
+				"my-bracket": {"app-a", "app-b"},
+			},
+			RequestPath:       "environments/development/brackets/my-bracket",
+			ExpectedRevision:  "2:5:",
+			ExpectedManifests: 2,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			dbHandler := SetupRepositoryTestWithDBOptions(t)
+			ctx := context.Background()
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+				if err := dbHandler.DBWriteMigrationsTransformer(ctx, tx); err != nil {
+					return err
+				}
+				if err := dbHandler.DBWriteEnvironment(ctx, tx, tc.BracketEnv, devEnvironment.Config); err != nil {
+					return err
+				}
+				for _, appName := range tc.Apps {
+					if err := dbHandler.DBInsertOrUpdateApplication(ctx, tx, appName, db.AppStateChangeCreate, db.DBAppMetaData{}, tc.BracketName); err != nil {
+						return err
+					}
+				}
+				for _, r := range tc.Releases {
+					if err := dbHandler.DBUpdateOrCreateRelease(ctx, tx, r); err != nil {
+						return err
+					}
+				}
+				for _, d := range tc.Deployments {
+					if err := dbHandler.DBUpdateOrCreateDeployment(ctx, tx, d); err != nil {
+						return err
+					}
+				}
+				return db.DBInsertBracketHistory(ctx, dbHandler, tx, db.BracketRow{
+					AllBracketsJsonBlob: db.BracketJsonBlob{BracketMap: tc.BracketMap},
+				}, 0)
+			})
+
+			srv := New(dbHandler)
+			resp, err := srv.GenerateManifest(ctx, &argorepo.ManifestRequest{
+				Revision: "master",
+				Repo:     &v1alpha1.Repository{Repo: "<the-repo-url>"},
+				ApplicationSource: &v1alpha1.ApplicationSource{Path: tc.RequestPath},
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if resp.Revision != tc.ExpectedRevision {
+				t.Errorf("expected Revision=%q, got %q", tc.ExpectedRevision, resp.Revision)
+			}
+			if len(resp.Manifests) != tc.ExpectedManifests {
+				t.Errorf("expected %d manifests, got %d", tc.ExpectedManifests, len(resp.Manifests))
+			}
+		})
+	}
+}
+
+func TestGenerateManifest_InvalidPath(t *testing.T) {
+	tcs := []struct {
+		Name string
+		Path string
+	}{
+		{Name: "wrong keyword 5-part", Path: "environments/dev/configs/app/manifests"},
+		{Name: "wrong end 5-part", Path: "environments/dev/applications/app/something"},
+		{Name: "wrong keyword 4-part", Path: "environments/dev/applications/app"},
+		{Name: "too long", Path: "environments/dev/applications/app/manifests/extra"},
+		{Name: "3-part path", Path: "environments/dev/applications"},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// nil dbHandler is safe here since invalid paths are rejected before any DB access.
+			srv := New(nil)
+			_, err := srv.GenerateManifest(context.Background(), &argorepo.ManifestRequest{
+				Repo:              &v1alpha1.Repository{Repo: "<the-repo-url>"},
+				ApplicationSource: &v1alpha1.ApplicationSource{Path: tc.Path},
+			})
+			if err == nil {
+				t.Errorf("expected error for path %q but got none", tc.Path)
+			}
+		})
+	}
+}
+
 func SetupRepositoryTestWithDBOptions(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
-	migrationsPath, err := db.CreateMigrationsPath(5)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}

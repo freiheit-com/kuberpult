@@ -23,6 +23,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
@@ -63,14 +64,14 @@ func TestSubscribe(t *testing.T) {
 					ArgoEvent: &service.ArgoEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					},
 				},
 				{
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 2},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					},
 					ExpectedNotification: &expectedNotification{
 						Application: "foo",
@@ -86,14 +87,14 @@ func TestSubscribe(t *testing.T) {
 					ArgoEvent: &service.ArgoEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					},
 				},
 				{
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 2},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					},
 					ExpectedNotification: &expectedNotification{
 						Application: "foo",
@@ -104,7 +105,7 @@ func TestSubscribe(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 2},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					},
 				},
 			},
@@ -116,14 +117,14 @@ func TestSubscribe(t *testing.T) {
 					ArgoEvent: &service.ArgoEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					},
 				},
 				{
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 2},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					},
 					ExpectedNotification: &expectedNotification{
 						Application: "foo",
@@ -134,7 +135,7 @@ func TestSubscribe(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 3},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					},
 					ExpectedNotification: &expectedNotification{
 						Application: "foo",
@@ -214,7 +215,7 @@ func TestSubscriberHandlesReconnects(t *testing.T) {
 				bc.ProcessKuberpultEvent(ctx, versions.KuberpultEvent{
 					Application: "app",
 					Environment: "env",
-					Version:     &versions.VersionInfo{Version: i},
+					Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(i)},
 				})
 				<-notifications
 				bc.DisconnectAll()

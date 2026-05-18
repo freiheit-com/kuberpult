@@ -56,6 +56,12 @@ type Processor interface {
 	GetManageArgoAppsEnabled() bool
 }
 
+type PendingDeletion struct {
+	EnvironmentName       string // key into KnownApps for the DeleteArgoApps call
+	ParentEnvironmentName string // key for isBracketEnv / knowsBracketApp check
+	AppName               string
+}
+
 type ArgoAppProcessor struct {
 	trigger                 chan *ArgoOverview
 	lastOverview            *ArgoOverview
@@ -67,9 +73,14 @@ type ArgoAppProcessor struct {
 	ManageArgoAppsFilter    []string
 	DDMetrics               statsd.ClientInterface
 	KnownApps               map[string]map[string]*v1alpha1.Application
+	//
+	ExperimentalBracketsClusters []string
+	// The apps that will be recreated as brackets.
+	// We store them, so we can delete them only once the bracket is there.
+	pendingDeletions []PendingDeletion
 }
 
-func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface) ArgoAppProcessor {
+func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string) ArgoAppProcessor {
 	return ArgoAppProcessor{
 		lastOverview:            nil,
 		ApplicationClient:       appClient,
@@ -81,6 +92,9 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		ArgoApps:                make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
 		DDMetrics:               ddMetrics,
 		KnownApps:               map[string]map[string]*v1alpha1.Application{},
+		//
+		ExperimentalBracketsClusters: experimentalBracketsClusters,
+		pendingDeletions:             []PendingDeletion{},
 	}
 }
 
@@ -96,12 +110,12 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) error {
 	l := logger.FromContext(ctx).With(zap.String("argo-pushing", "ready"))
 	a.lastOverview = last
 	select {
-	case a.trigger <- a.lastOverview:
+	case a.trigger <- last:
 		l.Info("argocd.pushed")
 		a.GaugeKuberpultEventsQueueFillRate(ctx)
 		return nil
-	default:
-		return fmt.Errorf("failed to push to argo app processor: channel full")
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
@@ -154,6 +168,9 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 		span.SetTag("kuberpult-app", currentApp)
 		for _, envGroup := range overview.EnvironmentGroups {
 			for _, parentEnvironment := range envGroup.Environments {
+				// isBracket must be per-environment: a single-app bracket (bracketName==appName)
+				// is a bracket only in bracket envs; in non-bracket envs it is a regular app.
+				isBracket := currentAppDetails.Application.ArgoBracket == currentApp && a.isBracketEnv(parentEnvironment.Name)
 				if isAAEnv(parentEnvironment.Config) {
 					for _, cfg := range parentEnvironment.Config.ArgoConfigs.Configs { //Active/Active environments have multiple argo cd configurations
 						targetEnvName := a.extractFullyQualifiedEnvironmentName(parentEnvironment.Config.ArgoConfigs.CommonEnvPrefix, parentEnvironment.Name, cfg)
@@ -163,6 +180,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 							TeamName:                     currentAppDetails.Application.Team,
 							ParentEnvironmentName:        parentEnvironment.Name,
 							ArgoEnvironmentConfiguration: cfg,
+							IsBracket:                    isBracket,
 						}
 						a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
 					}
@@ -173,6 +191,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 						TeamName:                     currentAppDetails.Application.Team,
 						ParentEnvironmentName:        parentEnvironment.Name,
 						ArgoEnvironmentConfiguration: parentEnvironment.Config.Argocd,
+						IsBracket:                    isBracket,
 					}
 					a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
 				}
@@ -187,10 +206,123 @@ func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, en
 	return commonPrefix + "-" + envName + "-" + argoCDConfig.ConcreteEnvName
 }
 
+func (a *ArgoAppProcessor) isBracketEnv(envName string) bool {
+	return slices.Contains(a.ExperimentalBracketsClusters, envName)
+}
+
+func (a *ArgoAppProcessor) knowsBracketApp(envName string) bool {
+	for _, app := range a.KnownApps[envName] {
+		if app.Annotations["com.freiheit.kuberpult/is-bracket"] == "true" {
+			return true
+		}
+	}
+	return false
+}
+
+// deleteAppNoCascade deletes an ArgoCD Application object without pruning the k8s resources it manages.
+// Used when transitioning an env to bracket mode: the bracket app takes over resource ownership,
+// so the individual app object can be removed without touching the live k8s resources.
+func (a *ArgoAppProcessor) deleteAppNoCascade(ctx context.Context, knownApps map[string]*v1alpha1.Application, appName string) error {
+	argoApp := knownApps[appName]
+	if argoApp == nil {
+		return nil
+	}
+	logger.FromContext(ctx).Info("bracket.delete.no-cascade",
+		zap.String("argo.app", argoApp.Name),
+		zap.String("kuberpult.app", appName))
+	f := false
+	_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
+		Cascade:              &f,
+		Name:                 conversion.FromString(argoApp.Name),
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+	})
+	return err
+}
+
+/*
+drainPendingDeletions deletes normal argo apps that have now been replaced by bracket apps.
+*/
+func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnvName string) {
+	l := logger.FromContext(ctx)
+	remaining := a.pendingDeletions[:0]
+	for _, pd := range a.pendingDeletions {
+		// if the app belongs to the bracket:
+		if pd.ParentEnvironmentName == bracketEnvName && a.knowsBracketApp(pd.ParentEnvironmentName) {
+			l.Info("bracket.drain.pending",
+				zap.String("app", pd.AppName),
+				zap.String("env", pd.EnvironmentName))
+			// if the apps are known by kuberpult (argo cd send us a message)
+			// then we delete the apps with cascade=false, so the brackets take over entirely.
+			if knownApps := a.KnownApps[pd.EnvironmentName]; knownApps != nil {
+				if err := a.deleteAppNoCascade(ctx, knownApps, pd.AppName); err != nil {
+					l.Error("bracket.drain.delete.failed", zap.String("app", pd.AppName), zap.Error(err))
+					remaining = append(remaining, pd)
+					continue
+				}
+			}
+		} else {
+			remaining = append(remaining, pd)
+		}
+	}
+	a.pendingDeletions = remaining
+}
+
 func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse) {
 	logger.FromContext(ctx).Sugar().Debugf("Processing app %q on environment %q", appInfo.ApplicationName, appInfo.EnvironmentName)
-	if ok := a.KnownApps[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
-		a.DeleteArgoApps(ctx, a.KnownApps[appInfo.EnvironmentName], appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
+	// Bracket-to-individual transition guard (rollback: staging switched from true→false).
+	// When the existing KnownApp is a bracket (is-bracket=true) but IsBracket=false, we must
+	// not let the normal delete path do a cascading delete (which would leave a deployment gap).
+	if !appInfo.IsBracket {
+		if knownEnvApps := a.KnownApps[appInfo.EnvironmentName]; knownEnvApps != nil {
+			if existingApp := knownEnvApps[appInfo.ApplicationName]; existingApp != nil {
+				if existingApp.Annotations["com.freiheit.kuberpult/is-bracket"] == "true" {
+					if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] == nil {
+						// No deployment recorded for this environment yet. Leave the bracket as-is
+						// until deployment data arrives.
+						return
+					}
+					// Deployment data available: delete bracket without cascade so k8s resources
+					// persist; the individual app will be created on the next cycle once the
+					// ArgoCD watch event confirms the bracket app has been removed.
+					if err := a.deleteAppNoCascade(ctx, knownEnvApps, appInfo.ApplicationName); err != nil {
+						logger.FromContext(ctx).Error("bracket.rollback.delete.failed",
+							zap.String("app", appInfo.ApplicationName), zap.Error(err))
+					}
+					return
+				}
+			}
+		}
+	}
+	// For non-bracket apps in a bracket env: only delete once the bracket app is established in KnownApps.
+	// This prevents a downtime gap when transitioning an env to bracket mode.
+	allowDelete := appInfo.IsBracket ||
+		!a.isBracketEnv(appInfo.ParentEnvironmentName) ||
+		a.knowsBracketApp(appInfo.ParentEnvironmentName)
+	if allowDelete {
+		if ok := a.KnownApps[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
+			if !appInfo.IsBracket && a.isBracketEnv(appInfo.ParentEnvironmentName) {
+				// Individual app in a bracket env: delete without cascade so k8s resources
+				// remain under the bracket app's management.
+				if err := a.deleteAppNoCascade(ctx, ok, appInfo.ApplicationName); err != nil {
+					logger.FromContext(ctx).Error("bracket.individual.delete.failed",
+						zap.String("app", appInfo.ApplicationName), zap.Error(err))
+				}
+			} else {
+				a.DeleteArgoApps(ctx, ok, appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
+			}
+		}
+	} else if a.KnownApps[appInfo.EnvironmentName][appInfo.ApplicationName] != nil {
+		// Bracket app not yet confirmed; record for deletion once it appears in the Watch stream.
+		logger.FromContext(ctx).Info("bracket.defer.deletion",
+			zap.String("app", appInfo.ApplicationName),
+			zap.String("env", appInfo.EnvironmentName))
+		a.pendingDeletions = append(a.pendingDeletions, PendingDeletion{
+			EnvironmentName:       appInfo.EnvironmentName,
+			ParentEnvironmentName: appInfo.ParentEnvironmentName,
+			AppName:               appInfo.ApplicationName,
+		})
 	}
 
 	if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] != nil { //If there is a deployment for this app on this environment
@@ -228,8 +360,20 @@ func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Log
 	}
 	switch ev.Type {
 	case "ADDED", "MODIFIED":
-		l.Info("created/updated:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
+		l.Info("created/updated:kuberpult.application:"+ev.Application.Name+",kuberpult.environment:"+envName,
+			zap.String("sync", string(ev.Application.Status.Sync.Status)),
+			zap.String("health", string(ev.Application.Status.Health.Status)))
 		a.KnownApps[envName][appName] = &ev.Application
+		if ev.Application.Annotations["com.freiheit.kuberpult/is-bracket"] == "true" {
+			l.Info("bracket.watch.event",
+				zap.String("type", string(ev.Type)),
+				zap.String("argo.app", ev.Application.Name),
+				zap.String("env", envName),
+				zap.String("sync", string(ev.Application.Status.Sync.Status)),
+				zap.String("health", string(ev.Application.Status.Health.Status)),
+				zap.Int("pending.deletions", len(a.pendingDeletions)))
+			a.drainPendingDeletions(ctx, envName)
+		}
 	case "DELETED":
 		l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
 		delete(a.KnownApps[envName], appName)
@@ -242,6 +386,7 @@ type AppInfo struct {
 	EnvironmentName              string
 	ParentEnvironmentName        string
 	ArgoEnvironmentConfiguration *api.ArgoCDEnvironmentConfiguration
+	IsBracket                    bool
 }
 
 func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {
@@ -415,12 +560,20 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appInfo *AppInfo) 
 	annotations := make(map[string]string)
 	labels := make(map[string]string)
 
-	manifestPath := filepath.Join("environments", appInfo.ParentEnvironmentName, "applications", appInfo.ApplicationName, "manifests")
+	var manifestPath string
+	if appInfo.IsBracket {
+		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "brackets", appInfo.ApplicationName)
+	} else {
+		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "applications", appInfo.ApplicationName, "manifests")
+	}
 
 	annotations["com.freiheit.kuberpult/application"] = appInfo.ApplicationName
 	annotations["com.freiheit.kuberpult/environment"] = appInfo.EnvironmentName
 	annotations["com.freiheit.kuberpult/aa-parent-environment"] = appInfo.ParentEnvironmentName
 	annotations["com.freiheit.kuberpult/self-managed"] = "true"
+	if appInfo.IsBracket {
+		annotations["com.freiheit.kuberpult/is-bracket"] = "true"
+	}
 	// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
 	// It has to start with a "/" to be absolute to the git repo.
 	// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation

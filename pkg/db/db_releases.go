@@ -357,6 +357,22 @@ func (h *DBHandler) DBSelectLatestReleaseOfApp(ctx context.Context, tx *sql.Tx, 
 	return h.processReleaseRow(ctx, err, rows, ignorePrepublishes, false)
 }
 
+func (h *DBHandler) DBSelectAllLatestReleasesByCommitHash(ctx context.Context, tx *sql.Tx, commitHash string, ignorePrepublishes bool) (_ []*DBReleaseWithMetaData, err error) {
+	selectQuery := h.AdaptQuery(`
+		SELECT DISTINCT ON (appName) created, appName, metadata, releaseVersion, environments, revision
+		FROM ` + releasesTable + `
+		WHERE commitHash = ?
+		ORDER BY appName, releaseversion DESC, revision DESC;
+	`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		commitHash,
+	)
+
+	return h.processReleaseRows(ctx, err, rows, ignorePrepublishes, false)
+}
+
 func (h *DBHandler) DBSelectAllReleasesOfApp(ctx context.Context, tx *sql.Tx, app types.AppName) (_ []types.ReleaseNumbers, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllReleasesOfApp")
 	defer func() {
@@ -567,8 +583,8 @@ func (h *DBHandler) deleteReleaseRow(ctx context.Context, transaction *sql.Tx, r
 
 func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, release DBReleaseWithMetaData) (err error) {
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO ` + releasesTable + ` (created, releaseVersion, appName, manifests, metadata, environments, revision)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO ` + releasesTable + ` (created, releaseVersion, appName, manifests, metadata, environments, revision, commitHash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(releaseVersion, appname, revision)
 		DO UPDATE SET manifests = excluded.manifests, metadata = excluded.metadata, environments = excluded.environments;
 	`)
@@ -606,6 +622,7 @@ func (h *DBHandler) upsertReleaseRow(ctx context.Context, transaction *sql.Tx, r
 		metadataJson,
 		environmentStr,
 		release.ReleaseNumbers.Revision,
+		release.Metadata.SourceCommitId,
 	)
 	if err != nil {
 		return fmt.Errorf(
