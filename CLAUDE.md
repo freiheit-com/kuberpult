@@ -42,21 +42,17 @@ Other Dockerfiles that depend on it, should not use go mod download again. They 
 ## Testing
 
 Tests run inside Docker using the builder image and connect to a test PostgreSQL instance.
+Most tests require the DB.
 
 ```bash
 make test                          # Run all tests (all services + pkg)
 make -C services/cd-service test   # Test a single service
 make -C pkg test                   # Test shared packages
+make -C services/manifest-repo-export-service test GO_TEST_ARGS="-run TestParseEnvironmentOverrides -v" # Run specific test verbose
 ```
 
-For IDE/local test runs (without Docker), the test database must be reachable:
-1. Start the test database: `make unit-test-db`
-2. Run tests directly: `go test ./... -v` inside the service directory
+Do not try to run `go test` directly - it will likely fail, either because of the Database, or because of libgit2 issues.
 
-Run a single Go test:
-```bash
-go test -run TestFunctionName ./path/to/package -v
-```
 
 Frontend tests (inside `services/frontend-service`):
 ```bash
