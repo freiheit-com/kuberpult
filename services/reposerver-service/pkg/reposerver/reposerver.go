@@ -173,7 +173,7 @@ func (r *reposerver) generateBracketManifest(ctx context.Context, split []string
 
 		return &bracketResult{
 			manifests: mn,
-			revision:  strings.Join(versionParts, ":") + ":",
+			revision:  string(types.JoinBracketVersionFromParts(versionParts)),
 		}, nil
 	})
 	if err != nil {

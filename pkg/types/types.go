@@ -48,6 +48,14 @@ func RolloutAppBracketVersionFromUint64(v uint64) RolloutAppBracketVersion {
 	return RolloutAppBracketVersion(fmt.Sprintf("%d", v))
 }
 
+// JoinBracketVersionFromParts joins sorted per-app version numbers into the canonical
+// bracket version wire format (colon-separated with a trailing colon).
+// The trailing colon makes single-app brackets ("42:") distinguishable from plain
+// app versions ("42") wherever the string is used as a revision.
+func JoinBracketVersionFromParts(deployedVersions []string) RolloutAppBracketVersion {
+	return RolloutAppBracketVersion(strings.Join(deployedVersions, ":") + ":")
+}
+
 // ToUint64 returns the numeric value and true for single-app versions.
 // Returns 0, false for bracket versions.
 func (v RolloutAppBracketVersion) ToUint64() (uint64, bool) {
