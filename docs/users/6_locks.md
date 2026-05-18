@@ -62,28 +62,38 @@ These work the same as environment locks, but are specific to one team alone.
 
 ## Manifest Locks
 
-Imagine you have manual change in your manifest-repo, because of an incident.
+Imagine you made a manual change in your manifest-repo, because of an incident.
 Kuberpult would normally overwrite this change at the next deployment.
-This deployment can happen delayed if you are sending kuberpult a lot of events (new releases, release trains, etc).
+This deployment can happen delayed if kuberpult is receiving a lot of requests (new releases, release trains, etc.),
+because the manifest-repo-export-service processes them all sequentially.
 
-You can prevent this with a manifest lock.
+To prevent kuberpult from overwriting a manifest, kuberpult has **manifest locks**.
 
 A manifest lock prevents Kuberpult from writing manifest files to git for **one service** in **one environment**.
 Since ArgoCD watches the git repository, this stops ArgoCD from applying any new version of that service to the environment.
+
+Note that manifest locks only have an effect when using the manifest-repo-export with the helm option `manifestRepoExport.enabled: true`.
 
 ### Near-instant locking
 
 Normal locks (environment, app, team) work at the *deployment* level inside Kuberpult:
 - When a deployment is triggered while a lock is active, Kuberpult's cd-service stops the deployment instead of executing it.
-- The manifest-export service processes events from a queue and writes the results to git.
+- The manifest-repo-export service processes events from a queue and writes the results to git.
   Because of this queue, there can be a noticeable delay between the moment a normal lock is created and the moment it actually stops new manifests from reaching ArgoCD.
   The manifest-repo-export service only processes events that are already in the Database - it does not check for normal locks.
 
 Manifest locks work at the *git-write* level:
-- Just before writing files to git, the manifest-export service checks whether a manifest lock exists.
+- Just before writing files to git, the manifest-repo-export service checks whether a manifest lock exists.
 - If one does, the write operation is skipped immediately — no manifest change is pushed to ArgoCD.
 
-Use a manifest lock when you need the lock to take effect immediately, without waiting for the manifest-export queue to drain. Normal locks are sufficient when a short delay is acceptable.
+Use a manifest lock when you need the lock to take effect immediately, without waiting for the manifest-export queue to drain.
+Normal locks are sufficient when a short delay is acceptable.
+
+## How long is this delay?
+
+This varies heavily depending on the load.
+If you have DataDog metrics enabled, you can observe the queue size and processing duration with the 2 metrics
+`Kuberpult.process_delay_seconds` (number of seconds behind) and `Kuberpult.process_delay_events` (number of events behind).
 
 ### What manifest locks do not affect
 
