@@ -62,7 +62,7 @@ These work the same as environment locks, but are specific to one team alone.
 
 ## Manifest Locks
 
-Imagine you made a manual change in your manifest-repo, because of an incident.
+Imagine you are responding to an emergency situation, and you needed to make a manual change in your manifest-repo.
 Kuberpult would normally overwrite this change at the next deployment.
 This deployment can happen delayed if kuberpult is receiving a lot of requests (new releases, release trains, etc.),
 because the manifest-repo-export-service processes them all sequentially.
@@ -86,10 +86,11 @@ Manifest locks work at the *git-write* level:
 - Just before writing files to git, the manifest-repo-export service checks whether a manifest lock exists.
 - If one does, the write operation is skipped immediately — no manifest change is pushed to ArgoCD.
 
-Use a manifest lock when you need the lock to take effect immediately, without waiting for the manifest-export queue to drain.
+Use a manifest lock when you need the lock to take effect immediately - like in an emergency situation -
+without waiting for the manifest-export queue to drain.
 Normal locks are sufficient when a short delay is acceptable.
 
-## How long is this delay?
+### How long is this delay?
 
 This varies heavily depending on the load.
 If you have DataDog metrics enabled, you can observe the queue size and processing duration with the 2 metrics
