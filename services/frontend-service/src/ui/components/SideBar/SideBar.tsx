@@ -61,6 +61,8 @@ export enum ActionTypes {
     DeleteEnvironmentTeamLock,
     CreateEnvironmentTeamLock,
     RenderEnvironment,
+    CreateManifestLock,
+    DeleteManifestLock,
     UNKNOWN,
 }
 
@@ -304,6 +306,35 @@ export const getActionDetails = (
                 tooltip: 'This will only re-render manifests of all the apps for this environment in Git.',
                 environment: action.renderEnvironment.environment,
             };
+        case 'createManifestLock':
+            return {
+                type: ActionTypes.CreateManifestLock,
+                name: 'Create Manifest Lock',
+                dialogTitle: 'Are you sure you want to add this manifest lock?',
+                summary:
+                    'Create manifest lock for "' +
+                    action.createManifestLock.app +
+                    '" on ' +
+                    action.createManifestLock.env,
+                tooltip:
+                    'A manifest lock prevents deployment manifests from being written for this app/env combination.',
+                application: action.createManifestLock.app,
+                environment: action.createManifestLock.env,
+            };
+        case 'deleteManifestLock':
+            return {
+                type: ActionTypes.DeleteManifestLock,
+                name: 'Delete Manifest Lock',
+                dialogTitle: 'Are you sure you want to delete this manifest lock?',
+                summary:
+                    'Delete manifest lock for "' +
+                    action.deleteManifestLock.app +
+                    '" on ' +
+                    action.deleteManifestLock.env,
+                tooltip: 'This will only remove the manifest lock, it will not trigger a deployment.',
+                application: action.deleteManifestLock.app,
+                environment: action.deleteManifestLock.env,
+            };
         default:
             return {
                 type: ActionTypes.UNKNOWN,
@@ -520,7 +551,8 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
         (action) =>
             action.action?.$case === 'createEnvironmentLock' ||
             action.action?.$case === 'createEnvironmentApplicationLock' ||
-            action.action?.$case === 'createEnvironmentTeamLock'
+            action.action?.$case === 'createEnvironmentTeamLock' ||
+            action.action?.$case === 'createManifestLock'
     );
     const [showSpinner, setShowSpinner] = useState(false);
     const [dialogState, setDialogState] = useState({
@@ -548,6 +580,9 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 if (action.action?.$case === 'createEnvironmentTeamLock') {
                     action.action.createEnvironmentTeamLock.message = lockMessage;
                 }
+                if (action.action?.$case === 'createManifestLock') {
+                    action.action.createManifestLock.message = lockMessage;
+                }
             });
             setLockMessage('');
         }
@@ -568,6 +603,9 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                 }
                 if (action.action?.$case === 'createEnvironmentTeamLock') {
                     action.action.createEnvironmentTeamLock.suggestedLifeTime = suggestedLockLifeTime;
+                }
+                if (action.action?.$case === 'createManifestLock') {
+                    action.action.createManifestLock.suggestedLifeTime = suggestedLockLifeTime;
                 }
             });
             setSuggestedLockLifeTime('');
@@ -612,6 +650,12 @@ export const SideBar: React.FC<{ className?: string }> = (props) => {
                     const team = action.action.createEnvironmentTeamLock.team;
                     action.action.createEnvironmentTeamLock.lockId = lockId;
                     allApps.filter((elem) => elem.team !== team).forEach((app) => appNamesToUpdate.push(app.name));
+                }
+                if (action.action?.$case === 'createManifestLock') {
+                    appNamesToUpdate.push(action.action.createManifestLock.app);
+                }
+                if (action.action?.$case === 'deleteManifestLock') {
+                    appNamesToUpdate.push(action.action.deleteManifestLock.app);
                 }
             }
             api.batchService()
