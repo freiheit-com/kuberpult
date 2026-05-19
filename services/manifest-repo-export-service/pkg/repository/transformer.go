@@ -425,9 +425,8 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if state.ArgoRenderOptions.RenderBrackets {
-		s, err := c.writeBracketFiles(ctx, state, transaction, fsys, []byte(manifestContent), envName)
-		if err != nil {
-			return s, err
+		if err := c.writeBracketFiles(ctx, state, transaction, fsys, []byte(manifestContent), envName); err != nil {
+			return "", err
 		}
 	}
 
@@ -451,13 +450,20 @@ func (c *DeployApplicationVersion) Transform(
 	return fmt.Sprintf("deployed version %v of %q to %q", types.MakeReleaseNumbers(c.Version, c.Revision), c.Application, c.Environment), nil
 }
 
-func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, manifestContent []byte, envName types.EnvName) (string, error) {
+func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, manifestContent []byte, envName types.EnvName) error {
+	hasLock, err := state.DBHandler.DBHasActiveManifestLock(ctx, transaction, types.AppName(c.Application), envName)
+	if err != nil {
+		return err
+	}
+	if hasLock {
+		return nil
+	}
 	app, err := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(c.Application))
 	if err != nil {
-		return "", fmt.Errorf("could not get app %s for deployment: %v", c.Application, err)
+		return fmt.Errorf("could not get app %s for deployment: %v", c.Application, err)
 	}
 	if app == nil {
-		return "", fmt.Errorf("got nil app %s for deployment", c.Application)
+		return fmt.Errorf("got nil app %s for deployment", c.Application)
 	}
 	actualBracket := app.ArgoBracket
 	if app.ArgoBracket == "" {
@@ -465,9 +471,8 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 		actualBracket = types.ArgoBracketName(app.App)
 	}
 
-	err = cleanupBracketFile(ctx, state, transaction, fsys, c.Environment, types.AppName(c.Application), c.TransformerEslVersion)
-	if err != nil {
-		return "", fmt.Errorf("error in cleanup: %v", err)
+	if err := cleanupBracketFile(ctx, state, transaction, fsys, c.Environment, types.AppName(c.Application), c.TransformerEslVersion); err != nil {
+		return fmt.Errorf("error in cleanup: %v", err)
 	}
 
 	// then we recreate the current one:
@@ -478,13 +483,13 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 		zap.String("bracketDir", dir.BracketDirectory),
 	)
 	if err := fsys.MkdirAll(dir.BracketDirectory, 0777); err != nil {
-		return "", fmt.Errorf("could not create directory %s: %v", dir.BracketDirectory, err)
+		return fmt.Errorf("could not create directory %s: %v", dir.BracketDirectory, err)
 	}
 	err = writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, dir.BracketPath, string(manifestContent), types.AppName(c.Application), c.Environment)
 	if err != nil {
-		return "", fmt.Errorf("could not write bracket for deployment of app %s on env %s: %v", c.Application, envName, err)
+		return fmt.Errorf("could not write bracket for deployment of app %s on env %s: %v", c.Application, envName, err)
 	}
-	return "", nil
+	return nil
 }
 
 func cleanupBracketFile(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, env types.EnvName, app types.AppName, eslVersion db.TransformerID) error {

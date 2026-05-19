@@ -317,7 +317,7 @@ data:
 				"my-bracket": {"app-a", "app-b"},
 			},
 			RequestPath:       "environments/development/brackets/my-bracket",
-			ExpectedRevision:  "2:5",
+			ExpectedRevision:  "2:5:",
 			ExpectedManifests: 2,
 		},
 	}

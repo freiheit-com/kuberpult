@@ -2385,6 +2385,25 @@ manifestRepoExport:
 `,
 			ExpectedError: infixErrMatcher{"Cannot point to apps when not rendering apps"},
 		},
+		{
+			Name: "experimental brackets require manageArgoApplications.filter to be wildcard",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  experimentalBrackets:
+    enabled: true
+manageArgoApplications:
+  enabled: true
+  filter:
+    - "team1"
+`,
+			ExpectedError: ContainsErrMatcher{
+				Messages: []string{"bracket apps have no team and cannot be managed under a team-specific filter"},
+			},
+		},
 	}
 
 	for _, tc := range tcs {

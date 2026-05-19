@@ -98,7 +98,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	span.SetTag("Application", app)
 	logging.Info(ctx, "getversion called", zap.String("env", environment), zap.String("app", app))
 
-	if slices.Contains(v.experimentalBracketsClusters, environment) {
+	if strings.Contains(revision, ":") {
 		result, err := v.getBracketVersion(ctx, revision, environment, types.ArgoBracketName(app))
 		if err != nil {
 			return nil, err
@@ -436,11 +436,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 			overview.AppDetails = appsToChange
 			if err := v.ArgoProcessor.Push(ctx, &overview); err != nil {
-				l.Sugar().Warnf("version.push failed: %v", err)
-			} else {
-				l.Info("version.push")
-				appsToChange = make(map[string]*api.GetAppDetailsResponse)
+				return fmt.Errorf("argo.push failed: %w", err)
 			}
+			l.Info("version.push")
+			appsToChange = make(map[string]*api.GetAppDetailsResponse)
 		}
 	})
 }

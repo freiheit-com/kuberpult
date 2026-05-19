@@ -161,6 +161,9 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 </div>
               </div>
               <div
+                class=""
+              />
+              <div
                 class="release-dialog-environment-group-lane__body"
               >
                 <li
@@ -301,6 +304,9 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                       </div>
                     </div>
                   </div>
+                  <div
+                    class=""
+                  />
                 </li>
               </div>
               <div
@@ -476,6 +482,9 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                 </div>
               </div>
               <div
+                class=""
+              />
+              <div
                 class="release-dialog-environment-group-lane__body"
               >
                 <li
@@ -616,6 +625,9 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                       </div>
                     </div>
                   </div>
+                  <div
+                    class=""
+                  />
                 </li>
               </div>
               <div
@@ -791,6 +803,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 </div>
               </div>
               <div
+                class=""
+              />
+              <div
                 class="release-dialog-environment-group-lane__body"
               >
                 <li
@@ -913,7 +928,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                               </span>
                             </button>
                             <button
-                              aria-label="Deploy and Lock"
+                              aria-label="Re-deploy and Lock"
                               class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
                               disabled=""
                             >
@@ -923,7 +938,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                               <span
                                 class="mdc-button__label"
                               >
-                                Deploy and Lock
+                                Re-deploy and Lock
                               </span>
                             </button>
                           </div>
@@ -931,6 +946,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                       </div>
                     </div>
                   </div>
+                  <div
+                    class=""
+                  />
                 </li>
                 <li
                   class="env-card"
@@ -1100,6 +1118,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                       </div>
                     </div>
                   </div>
+                  <div
+                    class=""
+                  />
                 </li>
               </div>
               <div
@@ -1266,6 +1287,9 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                   </div>
                 </div>
               </div>
+              <div
+                class=""
+              />
               <div
                 class="release-dialog-environment-group-lane__body"
               />

@@ -1995,6 +1995,109 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
 }
 
+type CreateManifestLock struct {
+	Authentication        `json:"-"`
+	App                   types.AppName    `json:"app"`
+	Env                   types.EnvName    `json:"env"`
+	Message               string           `json:"message"`
+	SuggestedLifeTime     *string          `json:"suggestedLifeTime"`
+	TransformerEslVersion db.TransformerID `json:"-"`
+}
+
+func (c *CreateManifestLock) GetDBEventType() db.EventType {
+	return db.EvtCreateManifestLock
+}
+
+func (c *CreateManifestLock) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *CreateManifestLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *CreateManifestLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	if !valid.ApplicationName(c.App) {
+		return "", grpc.InvalidArgument(ctx, fmt.Errorf("cannot create manifest lock: invalid application name: '%s'", c.App))
+	}
+	if !valid.EnvironmentName(c.Env) {
+		return "", grpc.InvalidArgument(ctx, fmt.Errorf("cannot create manifest lock: invalid environment name: '%s'", c.Env))
+	}
+	hasLock, err := state.DBHandler.DBHasActiveManifestLock(ctx, transaction, c.App, c.Env)
+	if err != nil {
+		return "", fmt.Errorf("CreateManifestLock: could not check for existing lock: %w", err)
+	}
+	if hasLock {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("manifest lock already exists for app %q on environment %q", c.App, c.Env))
+	}
+	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
+	}
+	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("could not get transaction timestamp")
+	}
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+	metadata := db.LockMetadata{
+		Message:        c.Message,
+		CreatedByName:  user.Name,
+		CreatedByEmail: user.Email,
+		CreatedAt:      *now,
+	}
+	if c.SuggestedLifeTime != nil {
+		metadata.SuggestedLifeTime = *c.SuggestedLifeTime
+	}
+	if err := state.DBHandler.DBWriteManifestLock(ctx, transaction, c.App, c.Env, metadata); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Created manifest lock for app %q on environment %q", c.App, c.Env), nil
+}
+
+type DeleteManifestLock struct {
+	Authentication        `json:"-"`
+	App                   types.AppName    `json:"app"`
+	Env                   types.EnvName    `json:"env"`
+	TransformerEslVersion db.TransformerID `json:"-"`
+}
+
+func (c *DeleteManifestLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteManifestLock
+}
+
+func (c *DeleteManifestLock) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *DeleteManifestLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *DeleteManifestLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	if !valid.ApplicationName(c.App) {
+		return "", grpc.InvalidArgument(ctx, fmt.Errorf("cannot delete manifest lock: invalid application name: '%s'", c.App))
+	}
+	if !valid.EnvironmentName(c.Env) {
+		return "", grpc.InvalidArgument(ctx, fmt.Errorf("cannot delete manifest lock: invalid environment name: '%s'", c.Env))
+	}
+	if err := state.DBHandler.DBDeleteManifestLock(ctx, transaction, c.App, c.Env); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Deleted manifest lock for app %q on environment %q", c.App, c.Env), nil
+}
+
 type RenderEnvironment struct {
 	Authentication        `json:"-"`
 	Environment           types.EnvName    `json:"env"`
