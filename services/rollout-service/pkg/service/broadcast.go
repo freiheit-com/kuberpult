@@ -331,7 +331,7 @@ type BroadcastEvent struct {
 func streamStatus(b *BroadcastEvent) *api.StreamStatusResponse {
 	version := uint64(0)
 	if b.ArgocdVersion != nil {
-		version = b.ArgocdVersion.Version
+		version, _ = b.ArgocdVersion.Version.ToUint64()
 	}
 	return &api.StreamStatusResponse{
 		Environment:   b.Environment,

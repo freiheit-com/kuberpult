@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 )
 
@@ -64,7 +65,7 @@ type key struct {
 }
 
 type notifyStatus struct {
-	targetVersion uint64
+	targetVersion types.RolloutAppBracketVersion
 }
 
 type subscriber struct {

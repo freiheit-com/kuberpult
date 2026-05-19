@@ -44,7 +44,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	time2 "github.com/freiheit-com/kuberpult/pkg/time"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -64,10 +63,6 @@ const (
 	fieldNextCommidId     = "nextCommit"
 	fieldPreviousCommitId = "previousCommit"
 	keptVersionsOnCleanup = 20
-)
-
-const (
-	fieldTeam = "team"
 )
 
 type ctxMarkerGenerateUuid struct{}
@@ -96,20 +91,20 @@ func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvN
 }
 
 // writeManifests writes the manifests.yaml file to the given parent path
-func writeManifests(fs billy.Filesystem, parentPath string, envManifest string) error {
+func writeManifests(fs billy.Filesystem, completeFilePath string, envManifest string) error {
 	// When we undeploy applications, the manifests will be empty.
 	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
 	// We work around this unusual behaviour by writing a space into the file
 	if envManifest == "" {
 		envManifest = " "
 	}
-	if err := util.WriteFile(fs, fs.Join(parentPath, "manifests.yaml"), []byte(envManifest), 0666); err != nil {
+	if err := util.WriteFile(fs, completeFilePath, []byte(envManifest), 0666); err != nil {
 		return err
 	}
 	return nil
 }
 
-func writeManifestsIfNoManifestLock(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx, fs billy.Filesystem, parentPath string, envManifest string, app types.AppName, env types.EnvName) error {
+func writeManifestsIfNoManifestLock(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx, fs billy.Filesystem, completePath string, envManifest string, app types.AppName, env types.EnvName) error {
 	hasLock, err := dbHandler.DBHasActiveManifestLock(ctx, transaction, app, env)
 	if err != nil {
 		return err
@@ -117,7 +112,7 @@ func writeManifestsIfNoManifestLock(ctx context.Context, dbHandler *db.DBHandler
 	if hasLock {
 		return nil
 	}
-	return writeManifests(fs, parentPath, envManifest)
+	return writeManifests(fs, completePath, envManifest)
 }
 
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
@@ -174,8 +169,6 @@ type TransformerContext interface {
 	AddAppEnv(app string, env types.EnvName)
 	Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error
 	DeleteEnvFromApp(app string, env types.EnvName)
-	ShouldMinimizeGitData() bool
-	ShouldMaximizeGitData() bool
 	ChangeEnvironment(environment types.EnvName)
 }
 
@@ -195,15 +188,13 @@ func GetNoOpMessage(t Transformer) (string, error) {
 	return fmt.Sprintf("%s %s", NoOpMessage, evt), nil
 }
 
-func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx, minimizeExportedData bool) (string, *TransformerResult, error) {
+func RunTransformer(ctx context.Context, t Transformer, s *State, transaction *sql.Tx) (string, *TransformerResult, error) {
 	runner := transformerRunner{
 		ChangedApps:          nil,
 		EnvironmentsToRender: nil,
 		Commits:              nil,
 		State:                s,
 		Stack:                [][]string{nil},
-
-		MinimizeGitData: minimizeExportedData,
 	}
 	if err := runner.Execute(ctx, t, transaction); err != nil {
 		return "", nil, err
@@ -231,8 +222,6 @@ type transformerRunner struct {
 
 	EnvironmentsToRender []EnvironmentToRender
 	Commits              *CommitIds
-
-	MinimizeGitData bool
 }
 
 var _ TransformerContext = &transformerRunner{} // ensure interface is implemented
@@ -274,14 +263,6 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env types.EnvName) {
 		App: app,
 		Env: env,
 	})
-}
-
-func (r *transformerRunner) ShouldMinimizeGitData() bool {
-	return r.MinimizeGitData
-}
-
-func (r *transformerRunner) ShouldMaximizeGitData() bool {
-	return !r.MinimizeGitData
 }
 
 type RawNode struct{ *yaml3.Node }
@@ -428,7 +409,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if state.ArgoRenderOptions.RenderApps {
-		if err := writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, manifestsDir, manifestContent, types.AppName(c.Application), c.Environment); err != nil {
+		if err := writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, fsys.Join(manifestsDir, "manifests.yaml"), manifestContent, types.AppName(c.Application), c.Environment); err != nil {
 			return "", err
 		}
 	}
@@ -444,9 +425,8 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if state.ArgoRenderOptions.RenderBrackets {
-		s, err := c.writeBracketFiles(ctx, state, transaction, fsys, []byte(manifestContent), envName)
-		if err != nil {
-			return s, err
+		if err := c.writeBracketFiles(ctx, state, transaction, fsys, []byte(manifestContent), envName); err != nil {
+			return "", err
 		}
 	}
 
@@ -470,13 +450,20 @@ func (c *DeployApplicationVersion) Transform(
 	return fmt.Sprintf("deployed version %v of %q to %q", types.MakeReleaseNumbers(c.Version, c.Revision), c.Application, c.Environment), nil
 }
 
-func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, manifestContent []byte, envName types.EnvName) (string, error) {
+func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, manifestContent []byte, envName types.EnvName) error {
+	hasLock, err := state.DBHandler.DBHasActiveManifestLock(ctx, transaction, types.AppName(c.Application), envName)
+	if err != nil {
+		return err
+	}
+	if hasLock {
+		return nil
+	}
 	app, err := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(c.Application))
 	if err != nil {
-		return "", fmt.Errorf("could not get app %s for deployment: %v", c.Application, err)
+		return fmt.Errorf("could not get app %s for deployment: %v", c.Application, err)
 	}
 	if app == nil {
-		return "", fmt.Errorf("got nil app %s for deployment", c.Application)
+		return fmt.Errorf("got nil app %s for deployment", c.Application)
 	}
 	actualBracket := app.ArgoBracket
 	if app.ArgoBracket == "" {
@@ -484,9 +471,8 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 		actualBracket = types.ArgoBracketName(app.App)
 	}
 
-	err = cleanupBracketFile(ctx, state, transaction, fsys, c.Environment, types.AppName(c.Application), c.TransformerEslVersion)
-	if err != nil {
-		return "", fmt.Errorf("error in cleanup: %v", err)
+	if err := cleanupBracketFile(ctx, state, transaction, fsys, c.Environment, types.AppName(c.Application), c.TransformerEslVersion); err != nil {
+		return fmt.Errorf("error in cleanup: %v", err)
 	}
 
 	// then we recreate the current one:
@@ -497,12 +483,13 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 		zap.String("bracketDir", dir.BracketDirectory),
 	)
 	if err := fsys.MkdirAll(dir.BracketDirectory, 0777); err != nil {
-		return "", fmt.Errorf("could not create directory %s: %v", dir.BracketDirectory, err)
+		return fmt.Errorf("could not create directory %s: %v", dir.BracketDirectory, err)
 	}
-	if err := util.WriteFile(fsys, dir.BracketPath, manifestContent, 0666); err != nil {
-		return "", fmt.Errorf("could not write bracket for deployment of app %s on env %s: %v", c.Application, envName, err)
+	err = writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, dir.BracketPath, string(manifestContent), types.AppName(c.Application), c.Environment)
+	if err != nil {
+		return fmt.Errorf("could not write bracket for deployment of app %s on env %s: %v", c.Application, envName, err)
 	}
-	return "", nil
+	return nil
 }
 
 func cleanupBracketFile(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, env types.EnvName, app types.AppName, eslVersion db.TransformerID) error {
@@ -771,17 +758,6 @@ func (c *CreateApplicationVersion) Transform(
 	transaction *sql.Tx,
 ) (string, error) {
 	version := types.MakeReleaseNumbers(c.Version, c.Revision)
-	fs := state.Filesystem
-
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
-	appDir := applicationDirectory(fs, c.Application)
-
-	if tCtx.ShouldMaximizeGitData() {
-		if err := fs.MkdirAll(releaseDir, 0777); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
-
 	var checkForInvalidCommitId = func(commitId, commitKind string) {
 		if !valid.SHA1CommitID(commitId) {
 			logging.Error(ctx, "Commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F].", zap.String(commitKind, commitId))
@@ -791,71 +767,12 @@ func (c *CreateApplicationVersion) Transform(
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
 
-	if tCtx.ShouldMaximizeGitData() {
-		if c.SourceCommitId != "" {
-			c.SourceCommitId = strings.ToLower(c.SourceCommitId)
-			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-		}
-
-		if c.SourceAuthor != "" {
-			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-		}
-		if c.SourceMessage != "" {
-			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-		}
-		if c.DisplayVersion != "" {
-			if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-		}
-		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(time2.GetTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-
-		if c.Team != "" {
-			//util.WriteFile has a bug where it does not truncate the old file content. If two application versions with the same
-			//team are deployed, team names simply get concatenated. Just remove the file beforehand.
-			//This bug can'tCtx be fixed because it is part of the util library
-			teamFileLoc := fs.Join(appDir, fieldTeam)
-			if _, err := fs.Stat(teamFileLoc); err == nil { //If path to file exists
-				err := fs.Remove(teamFileLoc)
-				if err != nil {
-					return "", GetCreateReleaseGeneralFailure(err)
-				}
-			}
-			if err := util.WriteFile(fs, teamFileLoc, []byte(c.Team), 0666); err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-		}
-	}
-
 	var allEnvsOfThisApp []types.EnvName = nil
 
 	for env := range c.Manifests {
 		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
 	}
 	slices.Sort(allEnvsOfThisApp)
-
-	if c.WriteCommitData && tCtx.ShouldMaximizeGitData() {
-		ev, err := state.DBHandler.DBSelectAllCommitEventsForTransformer(ctx, transaction, c.TransformerEslVersion, event.EventTypeNewRelease, 1)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-		if len(ev) == 0 {
-			return "", fmt.Errorf("no new release event to read from database for application '%s'", c.Application)
-		}
-
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, c.PreviousCommit, state)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
 
 	deploymentsMap, err := state.DBHandler.MapEnvNamesToDeployment(ctx, transaction, c.TransformerEslVersion)
 	if err != nil {
@@ -864,20 +781,6 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 	for i := range sortedKeys {
 		env := sortedKeys[i]
-		man := c.Manifests[env]
-
-		envDir := fs.Join(releaseDir, "environments", string(env))
-
-		if tCtx.ShouldMaximizeGitData() {
-			if err = fs.MkdirAll(envDir, 0777); err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-			err = writeManifests(fs, envDir, man)
-			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-		}
-
 		if _, exists := deploymentsMap[env]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
@@ -903,80 +806,11 @@ func (c *CreateApplicationVersion) Transform(
 		}
 	}
 
-	if tCtx.ShouldMinimizeGitData() && len(deploymentsMap) == 0 {
+	if len(deploymentsMap) == 0 {
 		return GetNoOpMessage(c)
 	}
 
 	return fmt.Sprintf("created version %v of %q", version, c.Application), nil
-}
-
-func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, previousCommitId string, state *State) error {
-	fs := state.Filesystem
-	if !valid.SHA1CommitID(sourceCommitId) {
-		return nil
-	}
-	commitDir := commitDirectory(fs, sourceCommitId)
-	if err := fs.MkdirAll(commitDir, 0777); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-
-	if previousCommitId != "" && valid.SHA1CommitID(previousCommitId) {
-		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, app, fs); err != nil {
-			return GetCreateReleaseGeneralFailure(err)
-		}
-	}
-
-	commitAppDir := commitApplicationDirectory(fs, sourceCommitId, app)
-	if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-	if err := util.WriteFile(fs, fs.Join(commitDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
-		return err
-	}
-	if err := util.WriteFile(fs, fs.Join(commitDir, "source_message"), []byte(sourceMessage), 0666); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-
-	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-	return nil
-}
-
-func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId string, fieldSource string, application string, fs billy.Filesystem) error {
-
-	otherCommitId = strings.ToLower(otherCommitId)
-	sourceCommitDir := commitDirectory(fs, sourceCommitId)
-
-	otherCommitDir := commitDirectory(fs, otherCommitId)
-
-	if _, err := fs.Stat(otherCommitDir); err != nil {
-		logging.Error(ctx, "Could not find the previous commit while trying to create a new release. This is expected when `git.enableWritingCommitData` was just turned on, however it should not happen multiple times.", zap.String("otherCommitId", otherCommitId), zap.String("application", application))
-		return nil
-	}
-
-	if err := util.WriteFile(fs, fs.Join(sourceCommitDir, fieldSource), []byte(otherCommitId), 0666); err != nil {
-		return err
-	}
-	fieldOther := ""
-	if otherCommitId != "" {
-
-		if fieldSource == fieldPreviousCommitId {
-			fieldOther = fieldNextCommidId
-		} else {
-			fieldOther = fieldPreviousCommitId
-		}
-
-		//This is a workaround. util.WriteFile does NOT truncate file contents, so we simply delete the file before writing.
-		if err := fs.Remove(fs.Join(otherCommitDir, fieldOther)); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-
-		if err := util.WriteFile(fs, fs.Join(otherCommitDir, fieldOther), []byte(sourceCommitId), 0666); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
@@ -1230,7 +1064,7 @@ func (c *RenderEnvironment) Transform(
 				return "", fmt.Errorf("could not create directory %s: %v", manifestsDir, err)
 			}
 
-			if err := writeManifests(fs, manifestsDir, envManifest); err != nil {
+			if err := writeManifests(fs, fs.Join(manifestsDir, "manifests.yaml"), envManifest); err != nil {
 				return "", fmt.Errorf("could not write manifests for app '%s' on env '%s': %v", appName, c.Environment, err)
 			}
 

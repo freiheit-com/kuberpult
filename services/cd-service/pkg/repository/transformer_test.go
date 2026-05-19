@@ -6304,3 +6304,113 @@ func TestGetEnvironmentGroupsOrEnvironment(t *testing.T) {
 	}
 
 }
+
+func TestManifestLocks(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		expectedError *TransformerBatchApplyError
+	}{
+		{
+			Name: "create manifest lock",
+			Transformers: []Transformer{
+				&CreateManifestLock{
+					App:     "app1",
+					Env:     envProduction,
+					Message: "my manifest lock",
+				},
+			},
+		},
+		{
+			Name: "create duplicate manifest lock is rejected",
+			Transformers: []Transformer{
+				&CreateManifestLock{
+					App:     "app1",
+					Env:     envProduction,
+					Message: "first lock",
+				},
+				&CreateManifestLock{
+					App:     "app1",
+					Env:     envProduction,
+					Message: "second lock",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            1,
+				TransformerError: errMatcher{`rpc error: code = FailedPrecondition desc = error: manifest lock already exists for app "app1" on environment "production"`},
+			},
+		},
+		{
+			Name: "delete manifest lock",
+			Transformers: []Transformer{
+				&CreateManifestLock{
+					App:     "app1",
+					Env:     envProduction,
+					Message: "to be deleted",
+				},
+				&DeleteManifestLock{
+					App: "app1",
+					Env: envProduction,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, _ := SetupRepositoryTestWithDBOptions(t)
+			ctx := testutilauth.MakeTestContext()
+			r := repo.(*repository)
+			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
+				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+		})
+	}
+}
+
+func TestManifestLockCreatedAt(t *testing.T) {
+	tcs := []struct {
+		Name string
+	}{
+		{Name: "created at is set"},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, _ := SetupRepositoryTestWithDBOptions(t)
+			ctx := testutilauth.MakeTestContext()
+			r := repo.(*repository)
+			_ = r.DB.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, applyErr := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, &CreateManifestLock{
+					App:     "app1",
+					Env:     envProduction,
+					Message: "my manifest lock",
+				})
+				if applyErr != nil {
+					t.Errorf("unexpected error: %v", applyErr)
+					return nil
+				}
+				now, err := r.DB.DBReadTransactionTimestamp(ctx, transaction)
+				if err != nil {
+					t.Errorf("could not read transaction timestamp: %v", err)
+					return nil
+				}
+				locks, err := r.DB.DBSelectAllActiveManifestLocksForApp(ctx, transaction, "app1")
+				if err != nil {
+					t.Errorf("could not read manifest locks: %v", err)
+					return nil
+				}
+				if len(locks) != 1 {
+					t.Errorf("expected 1 lock, got %d", len(locks))
+					return nil
+				}
+				if !now.Equal(locks[0].Metadata.CreatedAt) {
+					t.Errorf("CreatedAt mismatch: want %v, got %v", now, locks[0].Metadata.CreatedAt)
+				}
+				return nil
+			})
+		})
+	}
+}

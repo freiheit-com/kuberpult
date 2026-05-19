@@ -278,6 +278,22 @@ func (d *BatchServer) processAction(
 			Authentication:        repository.Authentication{RBACConfig: d.RBACConfig},
 			TransformerEslVersion: 0,
 		}, nil, nil
+	case *api.BatchAction_CreateManifestLock:
+		act := action.CreateManifestLock
+		return &repository.CreateManifestLock{
+			App:               types.AppName(act.App),
+			Env:               types.EnvName(act.Env),
+			Message:           act.Message,
+			SuggestedLifeTime: act.SuggestedLifeTime,
+			Authentication:    repository.Authentication{RBACConfig: d.RBACConfig},
+		}, nil, nil
+	case *api.BatchAction_DeleteManifestLock:
+		act := action.DeleteManifestLock
+		return &repository.DeleteManifestLock{
+			App:            types.AppName(act.App),
+			Env:            types.EnvName(act.Env),
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+		}, nil, nil
 	case *api.BatchAction_PrepareUndeploy:
 		act := action.PrepareUndeploy
 		if err := ValidateApplication(types.AppName(act.Application)); err != nil {

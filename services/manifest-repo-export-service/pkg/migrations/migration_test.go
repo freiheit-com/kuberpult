@@ -125,14 +125,13 @@ func setupRepositoryTestWithPath(t *testing.T) (repository.Repository, string) {
 	}
 
 	repoCfg := repository.RepositoryConfig{
-		URL:                  remoteDir,
-		Path:                 localDir,
-		CommitterEmail:       "kuberpult@freiheit.com",
-		CommitterName:        "kuberpult",
-		ArgoCdGenerateFiles:  true,
-		ReleaseVersionLimit:  2,
-		MinimizeExportedData: false,
-		ArgoRenderOptions:    testRenderOptions(),
+		URL:                 remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
+		ReleaseVersionLimit: 2,
+		ArgoRenderOptions:   testRenderOptions(),
 	}
 
 	if dbConfig != nil {

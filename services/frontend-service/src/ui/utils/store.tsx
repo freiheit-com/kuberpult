@@ -607,6 +607,30 @@ export const addAction = (action: BatchAction): void => {
             )
                 isDuplicate = true;
             break;
+        case 'createManifestLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'createManifestLock' &&
+                        action.action?.$case === 'createManifestLock' &&
+                        act.action.createManifestLock.app === action.action.createManifestLock.app &&
+                        act.action.createManifestLock.env === action.action.createManifestLock.env
+                )
+            )
+                isDuplicate = true;
+            break;
+        case 'deleteManifestLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deleteManifestLock' &&
+                        action.action?.$case === 'deleteManifestLock' &&
+                        act.action.deleteManifestLock.app === action.action.deleteManifestLock.app &&
+                        act.action.deleteManifestLock.env === action.action.deleteManifestLock.env
+                )
+            )
+                isDuplicate = true;
+            break;
     }
 
     const shouldCancel = ['deploy', 'createEnvironmentApplicationLock', 'deleteEnvironmentApplicationLock'];
@@ -629,7 +653,7 @@ export const useOpenReleaseDialog = (app: string, version: number, revision: num
     }, [app, params, setParams, version, revision]);
 };
 
-export const useAppDetailsForApp = (app: string): AppDetailsResponse => useAppDetails((map) => map[app]);
+export const useAppDetailsForApp = (app: string): AppDetailsResponse | undefined => useAppDetails((map) => map[app]);
 
 export const useCloseReleaseDialog = (): (() => void) => {
     const [params, setParams] = useSearchParams();
@@ -672,6 +696,18 @@ export const useDeleteEnvironmentActionsForApp = (app: string): string[] => {
         }
     });
     return envs;
+};
+
+export const useCreateManifestLockActionsForApp = (app: string): string[] => {
+    const createActionsForApp = useActions().filter(
+        (v) => v.action?.$case === 'createManifestLock' && v.action?.createManifestLock.app === app
+    );
+    return createActionsForApp.map((v) => {
+        if (v.action?.$case === 'createManifestLock') {
+            return v.action.createManifestLock.env;
+        }
+        return '';
+    });
 };
 
 export const deleteAction = (action: BatchAction): void => {
@@ -1173,7 +1209,7 @@ export const useReleaseOrLog = (application: string, version: number, revision: 
 
 export const useReleaseOptional = (application: string, env: Environment): Release | undefined => {
     const response = useAppDetailsForApp(application);
-    const appDetails = response.details;
+    const appDetails = response?.details;
     if (appDetails === undefined) {
         return undefined;
     }
@@ -1195,7 +1231,7 @@ export const useCurrentlyDeployedAtGroup = (
 ): EnvironmentGroupExtended[] => {
     const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
     const response = useAppDetailsForApp(application);
-    const appDetails = response.details;
+    const appDetails = response?.details;
     return useMemo(() => {
         const envGroups: EnvironmentGroupExtended[] = [];
         environmentGroups.forEach((group: EnvironmentGroup) => {
@@ -1229,7 +1265,7 @@ export const useCurrentlyDeployedAtGroup = (
 export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroupExtended[] => {
     const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
     const response = useAppDetailsForApp(application);
-    const appDetails = response.details;
+    const appDetails = response?.details;
 
     return useMemo(() => {
         const envGroups: EnvironmentGroupExtended[] = [];
@@ -1288,7 +1324,7 @@ export const useReleaseDifference = (
 // Get all minor releases for an app
 export const useMinorsForApp = (app: string): ReleaseNumbers[] | undefined =>
     useAppDetailsForApp(app)
-        .details?.application?.releases.filter((rel) => rel.isMinor)
+        ?.details?.application?.releases.filter((rel) => rel.isMinor)
         .map((d) => ({ version: d.version, revision: d.revision }));
 
 // Navigate while keeping search params, returns new navigation url, and a callback function to navigate

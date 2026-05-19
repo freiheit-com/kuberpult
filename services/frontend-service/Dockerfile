@@ -29,8 +29,6 @@ ADD services/frontend-service/.eslintrc /kp/services/frontend-service/
 
 # go:
 WORKDIR /kp/
-COPY go.sum go.mod .
-RUN go mod download
 ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
 ADD services/frontend-service/pkg /kp/services/frontend-service/pkg
 ADD services/frontend-service/src /kp/services/frontend-service/src

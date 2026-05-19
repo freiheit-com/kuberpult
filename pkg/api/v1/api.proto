@@ -184,6 +184,8 @@ message BatchAction {
     // this request is used to just re-render the all the manifests for an environment in the manifest git repository
     // it does not write to the database
     RenderEnvironmentRequest render_environment = 19;
+    CreateManifestLockRequest create_manifest_lock = 20;
+    DeleteManifestLockRequest delete_manifest_lock = 21;
   }
 }
 
@@ -253,6 +255,18 @@ message DeleteEnvironmentTeamLockRequest {
   string environment = 1;
   string team = 2;
   string lock_id = 3;
+}
+
+message CreateManifestLockRequest {
+  string app = 1;
+  string env = 2;
+  string message = 3;
+  optional string suggested_life_time = 4;
+}
+
+message DeleteManifestLockRequest {
+  string app = 1;
+  string env = 2;
 }
 
 
@@ -460,6 +474,18 @@ message GetChangedAppsRequest {}
 
 message GetChangedAppsResponse {
   repeated GetAppDetailsResponse changed_apps = 1;
+  repeated GetBracketDetailsResponse changed_brackets = 2;
+}
+
+message BracketDeployment {
+  string version = 1;
+  google.protobuf.Timestamp deployed_at = 2;
+  string source_commit_id = 3;
+}
+
+message GetBracketDetailsResponse {
+  string bracket_name = 1;
+  map<string, BracketDeployment> deployments = 2;
 }
 
 message GetAllAppLocksRequest {}
