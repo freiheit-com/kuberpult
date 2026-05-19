@@ -213,7 +213,7 @@ func runServer(ctx context.Context) error {
 	if c.AzureEnableAuth {
 		jwks, err = jwksInitAzure(ctx)
 		if err != nil {
-			logging.Fatal(ctx, "Unable to initialize jwks for azure auth")
+			logging.Fatal(ctx, "Unable to initialise jwks for azure auth")
 			return err
 		}
 	}

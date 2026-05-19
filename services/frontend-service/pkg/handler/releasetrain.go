@@ -250,7 +250,7 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 	}
 	jsonStr, err := json.Marshal(response.EnvsPrognoses)
 	if err != nil {
-		_, _ = fmt.Fprintf(w, "error while serializing response, error: %v", err.Error())
+		_, _ = fmt.Fprintf(w, "error while serialising response, error: %v", err.Error())
 		return
 	}
 	w.Write(jsonStr) //nolint:errcheck

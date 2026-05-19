@@ -90,7 +90,7 @@ func TestParseArgsCommitDeployments(t *testing.T) {
 			name:          "invalid number of arguments",
 			args:          []string{"--commit", "1234567890123456789012345678901234abcdef", "extra"},
 			expected:      nil,
-			expecterError: fmt.Errorf("these arguments are not recognized: \"extra\""),
+			expecterError: fmt.Errorf("these arguments are not recognised: \"extra\""),
 		},
 		{
 			name:          "missing commit flag",

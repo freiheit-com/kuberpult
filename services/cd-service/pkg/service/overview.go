@@ -574,7 +574,7 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 			if err := stream.Send(ov); err != nil {
 				// if we don't log this here, the details will be lost - so this is an exception to the rule "either return an error or log it".
 				// for example if there's an invalid encoding, grpc will just give a generic error like
-				// "error while marshaling: string field contains invalid UTF-8"
+				// "error while marshalling: string field contains invalid UTF-8"
 				// but it won't tell us which field has the issue. This is then very hard to debug further.
 				logging.Error(stream.Context(), "error sending overview response.", zap.Error(err), zap.String("overview", fmt.Sprintf("%+v", ov)))
 				return err

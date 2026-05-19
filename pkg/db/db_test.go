@@ -119,7 +119,7 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 
 			}
 			err = tx.Commit()
 			if err != nil {
-				t.Fatalf("Error commiting transaction. Error: %v", err)
+				t.Fatalf("Error committing transaction. Error: %v", err)
 			}
 
 			if diff := cmp.Diff(tc.expectedData, m); diff != "" {
@@ -3645,11 +3645,11 @@ func TestReadEnvironmentBatch(t *testing.T) {
 			}
 
 			environments, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]DBEnvironment, error) {
-				enviroments, err := dbHandler.DBSelectEnvironmentsBatch(ctx, transaction, tc.EnvsToQuery)
+				environmentsAtTime, err := dbHandler.DBSelectEnvironmentsBatch(ctx, transaction, tc.EnvsToQuery)
 				if err != nil {
 					return nil, fmt.Errorf("error while selecting environment batch, error: %w", err)
 				}
-				return enviroments, nil
+				return environmentsAtTime, nil
 			})
 			if err != nil {
 				t.Fatalf("error while running the transaction for selecting the target environment, error: %v", err)
@@ -3828,11 +3828,11 @@ func TestReadEnvironmentBatchAtTimestamp(t *testing.T) {
 			for idx, currStep := range tc.Steps {
 				expectedEnvs := currStep.ExpectedEnvs
 				environments, err := WithTransactionT(dbHandler, ctx, DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*[]DBEnvironment, error) {
-					enviroments, err := dbHandler.DBSelectAllLatestEnvironmentsAtTimestamp(ctx, transaction, *timestamps[idx])
+					environmentsAtTime, err := dbHandler.DBSelectAllLatestEnvironmentsAtTimestamp(ctx, transaction, *timestamps[idx])
 					if err != nil {
 						return nil, fmt.Errorf("error while selecting environment batch, error: %w", err)
 					}
-					return enviroments, nil
+					return environmentsAtTime, nil
 				})
 				if err != nil {
 					t.Fatalf("error while running the transaction for selecting the target environment, error: %v", err)
@@ -6876,7 +6876,7 @@ func TestDBSelectCommitIdAppReleaseVersions(t *testing.T) {
 					versionByApp[tc.App] = tc.Version
 					commitIdByApp, err := dbHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, versionByApp)
 					if err != nil {
-						return fmt.Errorf("error while retriving commit id, error: %w", err)
+						return fmt.Errorf("error while retrieving commit id, error: %w", err)
 					}
 					if len(commitIdByApp) != len(versionByApp) {
 						return fmt.Errorf("commit id map len mismatches len of commitByApp. expected: %v, got: %v", len(versionByApp), len(commitIdByApp))
@@ -6944,7 +6944,7 @@ func TestDBSelectCommitIdAppReleaseVersionsMany(t *testing.T) {
 
 				commitIdByApp, err := dbHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, versionByApp)
 				if err != nil {
-					return fmt.Errorf("error while retriving commit id, error: %w", err)
+					return fmt.Errorf("error while retrieving commit id, error: %w", err)
 				}
 				if len(commitIdByApp) != len(versionByApp) {
 					return fmt.Errorf("commit id map len mismatches len of commitByApp. expected: %v, got: %v", len(versionByApp), len(commitIdByApp))

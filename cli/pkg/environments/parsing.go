@@ -65,7 +65,7 @@ func readDeleteEnvironmentArgs(args []string) (*DeleteEnvironmentCommandLineArgu
 	}
 
 	if len(fs.Args()) != 0 { // kuberpult-cli delete environment does not accept any positional arguments, so this is an error
-		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+		return nil, fmt.Errorf("these arguments are not recognised: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 
 	if ok, msg := argsValidDeleteEnvironment(&cmdArgs); !ok {

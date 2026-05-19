@@ -80,7 +80,7 @@ func readCreateEnvLockArgs(args []string) (*CreateEnvLockCommandLineArguments, e
 	}
 
 	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
-		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+		return nil, fmt.Errorf("these arguments are not recognised: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 
 	if ok, msg := argsValidCreateEnvLock(&cmdArgs); !ok {
@@ -159,7 +159,7 @@ func readDeleteEnvLockArgs(args []string) (*DeleteEnvLockCommandLineArguments, e
 	}
 
 	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
-		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+		return nil, fmt.Errorf("these arguments are not recognised: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 
 	if ok, msg := argsValidDeleteEnvLock(&cmdArgs); !ok {

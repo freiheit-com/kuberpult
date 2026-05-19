@@ -278,7 +278,7 @@ Every state-changing transaction appends exactly one row with a monotonically in
 The eslVersion acts as a cursor: downstream services (e.g. manifest-repo-export-service) replay
 events by reading all rows with eslVersion greater than their last-seen cutoff.
 The event_type column distinguishes transformer kinds (e.g. CreateApplicationVersion).
-The json column stores the full serialized transformer payload.
+The json column stores the full serialised transformer payload.
 */
 const eslTable = "event_sourcing_light"
 

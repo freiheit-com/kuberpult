@@ -186,12 +186,12 @@ func getGrpcClients(_ context.Context, config Config) (api.OverviewServiceClient
 
 	con, err := grpc.NewClient(config.CdServer, grpcClientOpts...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error dialing %s: %w", config.CdServer, err)
+		return nil, nil, fmt.Errorf("error dialling %s: %w", config.CdServer, err)
 	}
 
 	versionServiceCon, err := grpc.NewClient(config.VersionServer, grpcClientOpts...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error dialing %s: %w", config.VersionServer, err)
+		return nil, nil, fmt.Errorf("error dialling %s: %w", config.VersionServer, err)
 	}
 
 	return api.NewOverviewServiceClient(con), api.NewVersionServiceClient(versionServiceCon), nil
@@ -300,7 +300,7 @@ func runServer(ctx context.Context, config Config) error {
 
 	if len(config.ExperimentalBracketsClusters) == 1 && config.ExperimentalBracketsClusters[0] == "" {
 		// If the env var is not set, envconfig.Process would return [""], instead of "".
-		// We want to have the same behavior as in the cd-service, so we overwrite the value with an empty slice.
+		// We want to have the same behaviour as in the cd-service, so we overwrite the value with an empty slice.
 		// "" is also not a valid environment name, so there is no point of having it in this slice.
 		config.ExperimentalBracketsClusters = []string{}
 	}

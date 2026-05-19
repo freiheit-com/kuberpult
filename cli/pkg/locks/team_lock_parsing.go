@@ -84,7 +84,7 @@ func readCreateTeamLockArgs(args []string) (*CreateTeamLockCommandLineArguments,
 	}
 
 	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
-		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+		return nil, fmt.Errorf("these arguments are not recognised: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 
 	if ok, msg := argsValidCreateTeamLock(&cmdArgs); !ok {
@@ -97,7 +97,7 @@ func readCreateTeamLockArgs(args []string) (*CreateTeamLockCommandLineArguments,
 // converts the intermediate representation of the command line flags into the final structure containing parameters for the release endpoint
 func convertToCreateTeamLockParams(cmdArgs CreateTeamLockCommandLineArguments) (LockParameters, error) {
 	if ok, msg := argsValidCreateTeamLock(&cmdArgs); !ok {
-		// this should never happen, as the validation is already peformed by the readArgs function
+		// this should never happen, as the validation is already performed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
@@ -171,7 +171,7 @@ func readDeleteTeamLockArgs(args []string) (*DeleteTeamLockCommandLineArguments,
 	}
 
 	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
-		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+		return nil, fmt.Errorf("these arguments are not recognised: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 
 	if ok, msg := argsValidDeleteTeamLock(&cmdArgs); !ok {
@@ -184,7 +184,7 @@ func readDeleteTeamLockArgs(args []string) (*DeleteTeamLockCommandLineArguments,
 // converts the intermediate representation of the command line flags into the final structure containing parameters for the release endpoint
 func convertToDeleteTeamLockParams(cmdArgs DeleteTeamLockCommandLineArguments) (LockParameters, error) {
 	if ok, msg := argsValidDeleteTeamLock(&cmdArgs); !ok {
-		// this should never happen, as the validation is already peformed by the readArgs function
+		// this should never happen, as the validation is already performed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 
