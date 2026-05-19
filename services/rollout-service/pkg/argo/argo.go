@@ -232,11 +232,8 @@ func (a *ArgoAppProcessor) deleteAppNoCascade(ctx context.Context, knownApps map
 		zap.String("kuberpult.app", appName))
 	f := false
 	_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
-		Cascade:              &f,
-		Name:                 conversion.FromString(argoApp.Name),
-		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
-		XXX_sizecache:        0,
+		Cascade: &f,
+		Name:    conversion.FromString(argoApp.Name),
 	})
 	return err
 }

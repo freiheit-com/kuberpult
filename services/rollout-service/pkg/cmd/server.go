@@ -300,7 +300,7 @@ func runServer(ctx context.Context, config Config) error {
 
 	if len(config.ExperimentalBracketsClusters) == 1 && config.ExperimentalBracketsClusters[0] == "" {
 		// If the env var is not set, envconfig.Process would return [""], instead of "".
-		// We want to have the same behavior as in the cd-service, so we overwrite the value with an empty slice.
+		// We want to have the same behaviour as in the cd-service, so we overwrite the value with an empty slice.
 		// "" is also not a valid environment name, so there is no point of having it in this slice.
 		config.ExperimentalBracketsClusters = []string{}
 	}
