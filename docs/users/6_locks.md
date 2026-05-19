@@ -112,6 +112,8 @@ Only one manifest lock can exist per service/environment combination at a time. 
 
 ### See & Delete Manifest Locks
 Go to the locks page `/ui/locks`. Manifest locks appear in the manifest locks table with a trash icon to delete them.
+When you delete a manifest-lock, kuberpult will ask if you want to re-deploy this service. To ensure that your manifest repository
+is correct, it's recommended to re-deploy. If you manually reverted your change in the manifest-repo, you can skip re-deployment.
 
 ## Suggested Lifetime
 Each lock has a field called 'Suggested Lifetime'. After this time, it won't be deleted automatically, but others may consider removing it.
