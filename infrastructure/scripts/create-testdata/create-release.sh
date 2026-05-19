@@ -116,7 +116,7 @@ fi
 
 debug "useOldApi=$useOldApi"
 if $useOldApi; then
-  curl http://localhost:"${FRONTEND_PORT}"/release \
+  curl ${URL}:"${FRONTEND_PORT}"/release \
     -H "author-email:${EMAIL}" \
     -H "author-name:${AUTHOR}=" \
     "${inputs[@]}" \
@@ -127,7 +127,7 @@ if $useOldApi; then
     "${configuration[@]}" \
     "${manifests[@]}"
 else
-  curl http://localhost:"${FRONTEND_PORT}"/api/release \
+  curl ${URL}:"${FRONTEND_PORT}"/api/release \
     -H "author-email:${EMAIL}" \
     -H "author-name:${AUTHOR}=" \
     -H "client-uuid:${clientUUID}" \

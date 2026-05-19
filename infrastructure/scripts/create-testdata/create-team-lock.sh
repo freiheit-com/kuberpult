@@ -10,7 +10,7 @@ team=${1}
 env=${2:-development}
 lockId=test${RANDOM}
 
-url="http://localhost:${FRONTEND_PORT}/api/environments/${env}/lock/team/${team}/${lockId}"
+url="${URL}${FRONTEND_PORT}/api/environments/${env}/lock/team/${team}/${lockId}"
 
 curl -X PUT "$url" -d '{"message": "test team lock"}' -H 'Content-Type: application/json'
 

@@ -6,7 +6,7 @@ set -o pipefail
 # shellcheck source=ports.sh
 source "$(dirname "$0")/ports.sh"
 env=${1:-fakeprod-ca}
-url="http://localhost:${FRONTEND_PORT}/api/environments/${env}/releasetrain/prognosis"
+url="${URL}${FRONTEND_PORT}/api/environments/${env}/releasetrain/prognosis"
 
 
 curl -X GET "$url"

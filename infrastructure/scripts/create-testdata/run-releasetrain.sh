@@ -10,9 +10,9 @@ clientUUID="12345678-1234-1234-1234-123456789012"
 source "$(dirname "$0")/ports.sh"
 env=${1:-fakeprod-ca}
 if test "$#" -eq 2; then
-  url="http://localhost:${FRONTEND_PORT}/api/environments/${env}/releasetrain?""$2"
+  url="${URL}:${FRONTEND_PORT}/api/environments/${env}/releasetrain?""$2"
 else
-  url="http://localhost:${FRONTEND_PORT}/api/environments/${env}/releasetrain"
+  url="${URL}:${FRONTEND_PORT}/api/environments/${env}/releasetrain"
 fi
 
 

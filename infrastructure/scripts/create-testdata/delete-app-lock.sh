@@ -9,7 +9,7 @@ env=staging
 
 lockId=${2}
 app=${1}
-url="http://localhost:${FRONTEND_PORT}/environments/${env}/applications/${app}/locks/${lockId}"
+url="${URL}${FRONTEND_PORT}/environments/${env}/applications/${app}/locks/${lockId}"
 
 curl -X DELETE "$url" -H 'Content-Type: application/json'
 
