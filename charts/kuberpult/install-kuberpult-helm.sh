@@ -10,6 +10,7 @@ function print() {
 
 print 'installing kuberpult helm chart...'
 
+portForwardAndWait "default" service/argocd-server 5001 443
 token=$(argocd account generate-token --server localhost:5001 --account kuberpult --insecure)
 
 echo "argocd token: $token" # this is only ok because this script is only used locally for a temporary cluster. Never do this on production.

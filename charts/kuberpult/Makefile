@@ -63,6 +63,10 @@ test-helm: $(TGZ_FILE) Chart.yaml
 test: ct-test test-helm
 
 kind-test:
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Error: working tree has uncommitted changes. Run charts/kuberpult/run-kind.sh instead (it rebuilds images from your local source)."; \
+		exit 1; \
+	fi
 	cd ../../ && go test -v ./tests/kind-brackets/ -timeout 20m
 
 clean:

@@ -350,19 +350,6 @@ RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-a
 RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-2 sreteam e
 RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
 
-
-
-if false;
-then
-  for v in $(seq 1 3)
-  do
-     RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-3 sreteam e
-     RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
-
-     #RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
-  done
-fi
-
 print "running bracket stability integration tests..."
 make kind-test
 
