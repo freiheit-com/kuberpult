@@ -10,7 +10,7 @@ function print() {
 
 print 'installing kuberpult helm chart...'
 
-token=$(argocd account generate-token --server localhost:8080 --account kuberpult --insecure)
+token=$(argocd account generate-token --server localhost:5001 --account kuberpult --insecure)
 
 echo "argocd token: $token" # this is only ok because this script is only used locally for a temporary cluster. Never do this on production.
 
@@ -141,9 +141,9 @@ kubectl get pods
 
 print "port forwarding to cd service..."
 waitForDeployment "default" "app=kuberpult-cd-service"
-portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
-portForwardAndWait "default" deployment/kuberpult-cd-service 8083 8443
+portForwardAndWait "default" deployment/kuberpult-cd-service 5003 8080
+portForwardAndWait "default" deployment/kuberpult-cd-service 5004 8443
 
 waitForDeployment "default" "app=kuberpult-frontend-service"
-portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
+portForwardAndWait "default" "deployment/kuberpult-frontend-service" "5002" "8081"
 print "connection to frontend service successful"

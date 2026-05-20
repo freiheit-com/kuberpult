@@ -71,12 +71,12 @@ $GPG --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
 
 print "setting up manifest repo"
 waitForDeployment "git" "app.kubernetes.io/name=server"
-portForwardAndWait "git" "deployment/server" "2222" "22"
+portForwardAndWait "git" "deployment/server" "5000" "22"
 
 rm -f emptyfile
 rm -rf manifests
 print "cloning..."
-GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../services/cd-service/client' git clone ssh://git@localhost:2222/git/repos/manifests
+GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../services/cd-service/client' git clone ssh://git@localhost:5000/git/repos/manifests
 
 cd manifests
 pwd
@@ -207,7 +207,7 @@ print applying app...
 
 #waitForDeployment "default" "app.kubernetes.io/name=argocd-repo-server"
 waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
-portForwardAndWait "default" service/argocd-server 8080 443
+portForwardAndWait "default" service/argocd-server 5001 443
 
 # For now, we are only creating development here
 # This means argo cd will only handle development, including the rollout-status
@@ -309,7 +309,7 @@ argocd_adminpw=$(kubectl -n default get secret argocd-initial-admin-secret -o js
 echo "$argocd_adminpw"
 echo "$argocd_adminpw" > argocd_adminpw.txt
 
-argocd login localhost:8080 --username admin --password "$argocd_adminpw" --insecure
+argocd login localhost:5001 --username admin --password "$argocd_adminpw" --insecure
 
 
 
@@ -330,6 +330,8 @@ print 'checking for pods and waiting for portforwarding to be ready...'
 kubectl get deployment
 kubectl get pods
 
+export FRONTEND_PORT=5002
+export CD_GRPC_PORT=5004
 (cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
 
 START=30
@@ -363,7 +365,6 @@ fi
 
 print "running bracket stability integration tests..."
 make kind-test
-
 
 if "$LOCAL_EXECUTION"
 then
