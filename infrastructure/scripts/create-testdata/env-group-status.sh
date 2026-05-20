@@ -6,7 +6,7 @@ set -x
 # shellcheck source=ports.sh
 source "$(dirname "$0")/ports.sh"
 envGroup="${1:-development}"
-url="http://localhost:${FRONTEND_PORT}/environment-groups/${envGroup}/rollout-status"
+url="${URL}${FRONTEND_PORT}/environment-groups/${envGroup}/rollout-status"
 useSignature=false
 if ${useSignature}
 then

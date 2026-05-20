@@ -5,7 +5,9 @@ source "$(dirname "$0")/lib.sh"
 
 set -eu
 set -o pipefail
-trap 'kill 0' EXIT SIGINT SIGTERM
+
+# avoid infinite trap invocations in shell by resetting trap handler on trap:
+trap 'trap - EXIT SIGINT SIGTERM; kill 0' EXIT SIGINT SIGTERM
 
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
@@ -69,12 +71,12 @@ $GPG --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
 
 print "setting up manifest repo"
 waitForDeployment "git" "app.kubernetes.io/name=server"
-portForwardAndWait "git" "deployment/server" "2222" "22"
+portForwardAndWait "git" "deployment/server" "5000" "22"
 
 rm -f emptyfile
 rm -rf manifests
 print "cloning..."
-GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../services/cd-service/client' git clone ssh://git@localhost:2222/git/repos/manifests
+GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../services/cd-service/client' git clone ssh://git@localhost:5000/git/repos/manifests
 
 cd manifests
 pwd
@@ -205,10 +207,13 @@ print applying app...
 
 #waitForDeployment "default" "app.kubernetes.io/name=argocd-repo-server"
 waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
-portForwardAndWait "default" service/argocd-server 8080 443
+portForwardAndWait "default" service/argocd-server 5001 443
 
 # For now, we are only creating development here
 # This means argo cd will only handle development, including the rollout-status
+
+# when testing on our gke environment, note that the namespace is different:
+#export ARGO_NAMESPACE=tools
 kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -304,7 +309,7 @@ argocd_adminpw=$(kubectl -n default get secret argocd-initial-admin-secret -o js
 echo "$argocd_adminpw"
 echo "$argocd_adminpw" > argocd_adminpw.txt
 
-argocd login localhost:8080 --username admin --password "$argocd_adminpw" --insecure
+argocd login localhost:5001 --username admin --password "$argocd_adminpw" --insecure
 
 
 
@@ -325,11 +330,14 @@ print 'checking for pods and waiting for portforwarding to be ready...'
 kubectl get deployment
 kubectl get pods
 
+export FRONTEND_PORT=5002
+export CD_GRPC_PORT=5004
 (cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
 
 START=30
 NUM_RELEASES=2
 END=$((START + NUM_RELEASES))
+
 for v in $(seq "$START" "$END")
 do
    RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-1 sreteam e
@@ -341,19 +349,6 @@ v=$((v + 1))
 RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-1 sreteam e
 RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-2 sreteam e
 RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
-
-
-
-if false;
-then
-  for v in $(seq 1 3)
-  do
-     RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh echo-3 sreteam e
-     RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
-
-     #RELEASE_VERSION=$v ../../infrastructure/scripts/create-testdata/create-release-allparams.sh foo-1 sreteam f
-  done
-fi
 
 print "running bracket stability integration tests..."
 make kind-test

@@ -10,4 +10,4 @@ set -o pipefail
 source "$(dirname "$0")/ports.sh"
 
 curl  -f -X GET  \
-    "http://localhost:${FRONTEND_PORT}/api/process-delay/" | jq .
+    "${URL}${FRONTEND_PORT}/api/process-delay/" | jq .

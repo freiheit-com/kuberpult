@@ -7,7 +7,7 @@ set -x
 source "$(dirname "$0")/ports.sh"
 env=staging
 lockId=lockIdTest${RANDOM}
-url="http://localhost:${FRONTEND_PORT}/environments/${env}/locks/${lockId}"
+url="${URL}${FRONTEND_PORT}/environments/${env}/locks/${lockId}"
 
 curl -X PUT "$url" -d '{"message": "test env lock"}' -H 'Content-Type: application/json'
 

@@ -150,7 +150,7 @@ EOF
     fi
     index=$((RANDOM % sizeAuthors))
     author="${authors[$index]}"
-      time curl http://localhost:"${FRONTEND_PORT}"/release \
+      time curl ${URL}"${FRONTEND_PORT}"/release \
         -H "author-email:${EMAIL}" \
         -H "author-name:${AUTHOR}=" \
         "${inputs[@]}" \
