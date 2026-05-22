@@ -30,6 +30,7 @@ COMMIT_MSG_FILE := commitlint.msg
 
 export USER_UID := $(shell id -u)
 COMPOSE_PROJECT_NAME ?= kuberpult
+COMPOSE_CMD := docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.datadog.yml
 .install:
 	touch .install
 
@@ -76,7 +77,7 @@ builder:
 	IMAGE_TAG=local make -C infrastructure/docker/builder build
 
 compose-down:
-	docker compose -f docker-compose.yml -f docker-compose.datadog.yml down
+	$(COMPOSE_CMD) down
 
 prepare-git:
 	@if [ ! -d "services/cd-service/repository_remote" ]; then \
@@ -127,10 +128,9 @@ kuberpult: prepare-compose prepare-git prepare-pgp compose-down
 	docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
-	# This deletes the volume of the default db location:
-	docker volume rm $(COMPOSE_PROJECT_NAME)_pgdata
+	$(COMPOSE_CMD) -f docker-compose.persist.yml down -v
 
-kuberpult-freshdb: prepare-compose cleanup-git prepare-git prepare-pgp compose-down
+kuberpult-freshdb: prepare-compose cleanup-git prepare-git prepare-pgp reset-db
 	docker compose --env-file .env.local up
 
 # Run this before starting the unit tests in your IDE:
