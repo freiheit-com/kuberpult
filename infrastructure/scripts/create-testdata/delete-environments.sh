@@ -5,8 +5,6 @@ set -o pipefail
 # ./create-environments.sh [path/to/envs]
 # Note that this just creates files, it doesn't push in git
 
-cd "$(dirname "$0")"
-
 # shellcheck source=ports.sh
 source "$(dirname "$0")/ports.sh"
 env=${1}
