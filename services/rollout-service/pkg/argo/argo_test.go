@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -833,10 +834,13 @@ func TestArgoConsume(t *testing.T) {
 			}
 			hlth := &setup.HealthServer{}
 			argoProcessor := &ArgoAppProcessor{
-				lastOverview:          tc.ArgoOverview,
-				ApplicationClient:     as,
-				trigger:               make(chan *ArgoOverview, 10),
-				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				lastOverview:      tc.ArgoOverview,
+				ApplicationClient: as,
+				trigger:           make(chan argoTrigger, 10),
+				ArgoApps:          make(chan *v1alpha1.ApplicationWatchEvent, 10),
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+
 				ManageArgoAppsEnabled: true,
 				ManageArgoAppsFilter:  []string{"*"},
 				KnownApps:             map[string]map[string]*v1alpha1.Application{},
@@ -853,7 +857,7 @@ func TestArgoConsume(t *testing.T) {
 				errChConsumeArgo <- ConsumeArgo(ctx, hlth.Reporter("consume-argo"), as, argoProcessor.ArgoApps)
 			}()
 
-			err := argoProcessor.Push(ctx, tc.ArgoOverview)
+			err := argoProcessor.Push(ctx, tc.ArgoOverview, 0)
 			if err != nil {
 				t.Fatalf("error running Push: %v", err)
 			}
@@ -987,11 +991,13 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 			argoProcessor := &ArgoAppProcessor{
 				lastOverview:          tc.Overview,
 				ApplicationClient:     as,
-				trigger:               make(chan *ArgoOverview, 10),
+				trigger:               make(chan argoTrigger, 10),
 				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
 				ManageArgoAppsEnabled: tc.ArgoManageEnabled,
 				ManageArgoAppsFilter:  tc.ArgoManageFilter,
 				KnownApps:             map[string]map[string]*v1alpha1.Application{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 
@@ -1775,12 +1781,14 @@ func TestReactToKuberpultEvents(t *testing.T) {
 					argoProcessor := &ArgoAppProcessor{
 						lastOverview:                 tc.ArgoOverview[0],
 						ApplicationClient:            mockClient,
-						trigger:                      make(chan *ArgoOverview, 10),
+						trigger:                      make(chan argoTrigger, 10),
 						ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
 						ManageArgoAppsEnabled:        true,
 						ManageArgoAppsFilter:         []string{"*"},
 						KnownApps:                    map[string]map[string]*v1alpha1.Application{},
 						ExperimentalBracketsClusters: tc.ExperimentalBracketsClusters,
+
+						maxProcessedTransformerEslId: &atomic.Int64{},
 					}
 					argoProcessor.PopulateAppsToKnownApps(tc.KnowArgoApps)
 					mockClient.PopulateApps(tc.KnowArgoApps)
@@ -1789,7 +1797,7 @@ func TestReactToKuberpultEvents(t *testing.T) {
 					errChConsume := make(chan error)
 
 					for _, ov := range tc.ArgoOverview {
-						err := argoProcessor.Push(ctx, ov)
+						err := argoProcessor.Push(ctx, ov, 0)
 						if err != nil {
 							t.Fatalf("unexpected error on Push: %v", err)
 						}
@@ -1919,6 +1927,8 @@ func TestUpdateArgoAppPreservesSyncPolicy(t *testing.T) {
 					ManageArgoAppsEnabled: true,
 					ManageArgoAppsFilter:  []string{"*"},
 					KnownApps:             map[string]map[string]*v1alpha1.Application{},
+
+					maxProcessedTransformerEslId: &atomic.Int64{},
 				}
 
 				overview := &api.GetOverviewResponse{
@@ -2019,6 +2029,8 @@ func TestDrainPendingDeletionsRetryOnError(t *testing.T) {
 						AppName:               appName,
 					},
 				},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 
 			argoProcessor.drainPendingDeletions(ctx, parentEnvName)
@@ -2069,9 +2081,11 @@ func TestBracketMoveNoCascadeDelete(t *testing.T) {
 				ManageArgoAppsFilter:         []string{"*"},
 				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
 				ExperimentalBracketsClusters: []string{"staging"},
-				trigger:                      make(chan *ArgoOverview, 10),
+				trigger:                      make(chan argoTrigger, 10),
 				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
 				pendingDeletions:             []PendingDeletion{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 
 			// Seed KnownApps and mockClient.Apps with the pre-existing bracket1 app.
@@ -2172,8 +2186,10 @@ func TestProcessAppChangeDeferDeletion(t *testing.T) {
 				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
 				ExperimentalBracketsClusters: []string{envName},
 				pendingDeletions:             []PendingDeletion{},
-				trigger:                      make(chan *ArgoOverview, 10),
+				trigger:                      make(chan argoTrigger, 10),
 				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 			appDetails := &api.GetAppDetailsResponse{
 				//exhaustruct:ignore
@@ -2234,9 +2250,11 @@ func TestProcessArgoOverviewSortedOrder(t *testing.T) {
 				ManageArgoAppsFilter:         []string{"*"},
 				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
 				ExperimentalBracketsClusters: []string{"staging"},
-				trigger:                      make(chan *ArgoOverview, 10),
+				trigger:                      make(chan argoTrigger, 10),
 				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
 				pendingDeletions:             []PendingDeletion{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 
 			// Seed KnownApps and mock with all bracket apps.
@@ -2341,6 +2359,8 @@ func TestDrainPendingDeletionsByName(t *testing.T) {
 				pendingDeletions: []PendingDeletion{
 					{EnvironmentName: envName, ParentEnvironmentName: parentEnvName, AppName: appName},
 				},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 
 			argoProcessor.drainPendingDeletions(ctx, parentEnvName)

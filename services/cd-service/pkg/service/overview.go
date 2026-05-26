@@ -640,6 +640,23 @@ func (o *OverviewServiceServer) StreamChangedApps(_ *api.GetChangedAppsRequest,
 				ov.ChangedBrackets = changedBrackets
 			}
 
+			// Include the current max ESL ID so the rollout-service can gate
+			// cascade-deletes: it must not cascade-delete an old bracket until
+			// it has fully processed up to this ESL ID (which means the new
+			// bracket Argo Application has already been created).
+			if err := o.DBHandler.WithTransaction(stream.Context(), true, func(ctx context.Context, tx *sql.Tx) error {
+				row, err := o.DBHandler.DBReadEslEventInternal(ctx, tx, false)
+				if err != nil {
+					return err
+				}
+				if row != nil {
+					ov.TransformerEslId = int64(row.EslVersion)
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("StreamChangedApps: read max ESL version: %w", err)
+			}
+
 			logging.Info(stream.Context(), "StreamChangedApps called", zap.Any("response", ov))
 
 			if err := stream.Send(ov); err != nil {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync/atomic"
 	"testing"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
@@ -220,7 +221,7 @@ func TestProcessOneBatch(t *testing.T) {
 			}
 
 			mock := &mockAppDeleter{deleteCalls: nil, deleteErr: tc.DeleteErr}
-			processed, err := processOneBatch(ctx, dbHandler, mock)
+			processed, err := processOneBatch(ctx, dbHandler, mock, new(atomic.Int64))
 			if err != nil {
 				t.Fatalf("processOneBatch: %v", err)
 			}
@@ -296,7 +297,9 @@ func TestProcessOneBatch_NotBeforeEslId(t *testing.T) {
 			}
 
 			mock := &mockAppDeleter{}
-			processed, err := processOneBatch(ctx, dbHandler, mock)
+			maxProcessed := &atomic.Int64{}
+			maxProcessed.Store(tc.MaxSeenTransformerEslId)
+			processed, err := processOneBatch(ctx, dbHandler, mock, maxProcessed)
 			if err != nil {
 				t.Fatalf("processOneBatch: %v", err)
 			}
@@ -320,7 +323,6 @@ func TestProcessOneBatch_NotBeforeEslId(t *testing.T) {
 			if !tc.WantRowGone && len(rowsAfter) != 1 {
 				t.Errorf("expected row to remain, but got %d rows", len(rowsAfter))
 			}
-			_ = tc.MaxSeenTransformerEslId // TODO: pass to processOneBatch once gating is implemented
 		})
 	}
 }

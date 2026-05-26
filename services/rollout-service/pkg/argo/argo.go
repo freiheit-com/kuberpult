@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"sync/atomic"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
@@ -47,8 +48,17 @@ type SimplifiedApplicationServiceClient interface {
 
 type WriteOnceCh = *chan struct{}
 
+// argoTrigger carries an ArgoOverview together with the ESL ID of the
+// cd-service event that triggered the push. Consume updates
+// maxProcessedTransformerEslId after ProcessArgoOverview returns so the cascade
+// consumer can gate safely.
+type argoTrigger struct {
+	overview *ArgoOverview
+	eslId    int64
+}
+
 type Processor interface {
-	Push(ctx context.Context, last *ArgoOverview) error
+	Push(ctx context.Context, last *ArgoOverview, eslId int64) error
 	Consume(ctx context.Context, hlth *setup.HealthReporter, chPtr WriteOnceCh) error
 	CreateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo)
 	UpdateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo, existingApp *v1alpha1.Application)
@@ -64,8 +74,11 @@ type PendingDeletion struct {
 }
 
 type ArgoAppProcessor struct {
-	trigger                 chan *ArgoOverview
-	lastOverview            *ArgoOverview
+	trigger      chan argoTrigger
+	lastOverview *ArgoOverview
+
+	maxProcessedTransformerEslId *atomic.Int64
+
 	ArgoApps                chan *v1alpha1.ApplicationWatchEvent
 	ApplicationClient       application.ApplicationServiceClient
 	ManageArgoAppsEnabled   bool
@@ -83,19 +96,36 @@ type ArgoAppProcessor struct {
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string) ArgoAppProcessor {
 	return ArgoAppProcessor{
-		lastOverview:            nil,
-		ApplicationClient:       appClient,
-		ManageArgoAppsEnabled:   manageArgoApplicationEnabled,
-		ManageArgoAppsFilter:    manageArgoApplicationFilter,
-		KuberpultMetricsEnabled: kuberpultMetricsEnabled,
-		ArgoAppsMetricsEnabled:  argoAppsMetricsEnabled,
-		trigger:                 make(chan *ArgoOverview, triggerChannelSize),
-		ArgoApps:                make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
-		DDMetrics:               ddMetrics,
-		KnownApps:               map[string]map[string]*v1alpha1.Application{},
+		lastOverview:                nil,
+		ApplicationClient:           appClient,
+		ManageArgoAppsEnabled:       manageArgoApplicationEnabled,
+		ManageArgoAppsFilter:        manageArgoApplicationFilter,
+		KuberpultMetricsEnabled:     kuberpultMetricsEnabled,
+		ArgoAppsMetricsEnabled:      argoAppsMetricsEnabled,
+		trigger:                     make(chan argoTrigger, triggerChannelSize),
+		maxProcessedTransformerEslId: &atomic.Int64{},
+		ArgoApps:                    make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
+		DDMetrics:                   ddMetrics,
+		KnownApps:                   map[string]map[string]*v1alpha1.Application{},
 		//
 		ExperimentalBracketsClusters: experimentalBracketsClusters,
 		pendingDeletions:             []PendingDeletion{},
+	}
+}
+
+// MaxProcessedTransformerEslId returns a pointer to the atomic that tracks the
+// highest transformer ESL ID for which ProcessArgoOverview has fully completed.
+// The cascade consumer reads this to ensure it never cascade-deletes a bracket
+// before the corresponding new bracket Argo Application has been created.
+func (a *ArgoAppProcessor) MaxProcessedTransformerEslId() *atomic.Int64 {
+	return a.maxProcessedTransformerEslId
+}
+
+// updateMaxProcessedEslId advances the max-processed ESL ID if eslId is larger.
+// Only called from Consume (single writer), so a plain Load+Store is safe.
+func (a *ArgoAppProcessor) updateMaxProcessedEslId(eslId int64) {
+	if eslId > a.maxProcessedTransformerEslId.Load() {
+		a.maxProcessedTransformerEslId.Store(eslId)
 	}
 }
 
@@ -107,11 +137,11 @@ func (a *ArgoAppProcessor) GetManageArgoAppsEnabled() bool {
 	return a.ManageArgoAppsEnabled
 }
 
-func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview) error {
+func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview, eslId int64) error {
 	l := logger.FromContext(ctx).With(zap.String("argo-pushing", "ready"))
 	a.lastOverview = last
 	select {
-	case a.trigger <- last:
+	case a.trigger <- argoTrigger{overview: last, eslId: eslId}:
 		l.Info("argocd.pushed")
 		a.GaugeKuberpultEventsQueueFillRate(ctx)
 		return nil
@@ -129,17 +159,19 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
 	for {
 		select {
-		case argoOv := <-a.trigger:
+		case t := <-a.trigger:
 			l.Info("self-manage.trigger")
-			a.ProcessArgoOverview(ctx, l, argoOv)
+			a.ProcessArgoOverview(ctx, l, t.overview)
+			a.updateMaxProcessedEslId(t.eslId)
 			a.GaugeKuberpultEventsQueueFillRate(ctx)
 		case <-ctx.Done():
 			return nil
 		default:
 			select {
-			case argoOv := <-a.trigger:
+			case t := <-a.trigger:
 				l.Info("self-manage.trigger")
-				a.ProcessArgoOverview(ctx, l, argoOv)
+				a.ProcessArgoOverview(ctx, l, t.overview)
+				a.updateMaxProcessedEslId(t.eslId)
 				a.GaugeKuberpultEventsQueueFillRate(ctx)
 			case ev := <-a.ArgoApps:
 				a.ProcessArgoWatchEvent(ctx, l, ev)

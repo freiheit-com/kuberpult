@@ -450,7 +450,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			}
 
 			overview.AppDetails = appsToChange
-			if err := v.ArgoProcessor.Push(ctx, &overview); err != nil {
+			if err := v.ArgoProcessor.Push(ctx, &overview, changedApps.TransformerEslId); err != nil {
 				return fmt.Errorf("argo.push failed: %w", err)
 			}
 			l.Info("version.push")

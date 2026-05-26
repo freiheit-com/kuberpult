@@ -344,7 +344,7 @@ func runServer(ctx context.Context, config Config) error {
 			Shutdown: nil,
 			Name:     "consume rollout undeploy cascade",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return undeploy.ConsumeUndeployCascade(ctx, dbHandler, appClient, health)
+				return undeploy.ConsumeUndeployCascade(ctx, dbHandler, appClient, versionC.GetArgoProcessor().MaxProcessedTransformerEslId(), health)
 			},
 		},
 	}

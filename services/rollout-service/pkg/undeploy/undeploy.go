@@ -28,6 +28,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -66,6 +67,7 @@ func ConsumeUndeployCascade(
 	ctx context.Context,
 	dbHandler *db.DBHandler,
 	appClient argo.ApplicationDeleter,
+	maxProcessedTransformerEslId *atomic.Int64,
 	health *setup.HealthReporter,
 ) error {
 	return health.Retry(ctx, func() error {
@@ -76,7 +78,7 @@ func ConsumeUndeployCascade(
 				return setup.Permanent(nil)
 			default:
 			}
-			processed, err := processOneBatch(ctx, dbHandler, appClient)
+			processed, err := processOneBatch(ctx, dbHandler, appClient, maxProcessedTransformerEslId)
 			if err != nil {
 				return err
 			}
@@ -94,9 +96,10 @@ func ConsumeUndeployCascade(
 }
 
 // processOneBatch reads up to batchSize rows in one transaction, releases the
-// transaction, then processes each row in its own transaction. Returns the
-// number of rows seen so the caller can decide whether to loop or sleep.
-func processOneBatch(ctx context.Context, dbHandler *db.DBHandler, appClient argo.ApplicationDeleter) (int, error) {
+// transaction, then processes each eligible row in its own transaction. Returns
+// the number of rows read (including gated ones) so the caller can decide
+// whether to loop or sleep.
+func processOneBatch(ctx context.Context, dbHandler *db.DBHandler, appClient argo.ApplicationDeleter, maxProcessedTransformerEslId *atomic.Int64) (int, error) {
 	var batch []*db.RolloutShouldUndeployCascade
 	err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := dbHandler.DBReadRolloutUndeployCascadeBatch(ctx, tx, batchSize)
@@ -109,7 +112,15 @@ func processOneBatch(ctx context.Context, dbHandler *db.DBHandler, appClient arg
 	if err != nil {
 		return 0, fmt.Errorf("undeploy: read batch: %w", err)
 	}
+	maxProcessed := maxProcessedTransformerEslId.Load()
 	for _, row := range batch {
+		if int64(row.NotBeforeTransformerEslId) > maxProcessed {
+			// The rollout-service has not yet fully processed the gRPC event
+			// that corresponds to this cascade row. Skip for now; the next
+			// poll (after Consume advances maxProcessedTransformerEslId) will
+			// pick it up.
+			continue
+		}
 		processRow(ctx, dbHandler, appClient, row)
 	}
 	return len(batch), nil
