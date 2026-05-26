@@ -20,7 +20,7 @@ if [ -n "$(git status --porcelain)" ]; then
     git status
     print "WARNING: You may continue safely, if you did not change any SOURCE code, but only tests and scripts."
     print "Press enter to continue."
-    read
+    read -r
 fi
 
 CLUSTER_EXISTS=false
