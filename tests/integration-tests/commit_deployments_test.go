@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	development = "development2"
+	development = "development"
 	staging     = "staging"
 )
 
