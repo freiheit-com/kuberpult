@@ -1170,7 +1170,7 @@ func (u *UndeployApplication) Transform(
 			// name (which matches the com.freiheit.kuberpult/application annotation
 			// on the Argo Application); the rollout-service consumer constructs
 			// the Argo CD Application name as <env>-<argo_app>.
-			err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), env)
+			err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), env, u.TransformerEslVersion)
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication: could not signal cascade-delete for env '%s': %w", env, err)
 			}
@@ -1325,7 +1325,7 @@ func (u *DeleteEnvFromApp) Transform(
 	}
 	// Signal the rollout-service to cascade-delete the Argo Application that
 	// managed this app on this env. See UndeployApplication for the schema note.
-	err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), envName)
+	err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), envName, u.TransformerEslVersion)
 	if err != nil {
 		return "", fmt.Errorf("DeleteEnvFromApp: could not signal cascade-delete: %w", err)
 	}

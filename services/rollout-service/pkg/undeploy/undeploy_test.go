@@ -104,7 +104,7 @@ func TestProcessRow(t *testing.T) {
 
 			// Seed the table with one row at the desired attempts level.
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
-				if err := dbHandler.UpsertRolloutUndeployCascade(ctx, tx, argoApp, envName); err != nil {
+				if err := dbHandler.UpsertRolloutUndeployCascade(ctx, tx, argoApp, envName, 0); err != nil {
 					return err
 				}
 				for i := 0; i < tc.SeedAttempts; i++ {
@@ -209,7 +209,7 @@ func TestProcessOneBatch(t *testing.T) {
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
 				for i := 0; i < tc.SeedRows; i++ {
 					name := "app" + string(rune('1'+i))
-					if err := dbHandler.UpsertRolloutUndeployCascade(ctx, tx, name, "staging"); err != nil {
+					if err := dbHandler.UpsertRolloutUndeployCascade(ctx, tx, name, "staging", 0); err != nil {
 						return err
 					}
 				}
@@ -246,6 +246,81 @@ func TestProcessOneBatch(t *testing.T) {
 			if len(rowsAfter) != tc.WantRowsAfter {
 				t.Errorf("rows after batch: want %d, got %d", tc.WantRowsAfter, len(rowsAfter))
 			}
+		})
+	}
+}
+
+// TestProcessOneBatch_NotBeforeEslId verifies that a cascade row with
+// not_before_transformer_esl_id > maxSeenTransformerEslId is NOT processed.
+// This test will FAIL until the gating logic is implemented (step 7 of the plan).
+func TestProcessOneBatch_NotBeforeEslId(t *testing.T) {
+	tcs := []struct {
+		Name                      string
+		NotBeforeTransformerEslId db.TransformerID
+		MaxSeenTransformerEslId   int64
+		WantArgoCalls             int
+		WantRowGone               bool
+	}{
+		{
+			Name:                      "gated: not_before > max_seen, row must be skipped",
+			NotBeforeTransformerEslId: 100,
+			MaxSeenTransformerEslId:   0,
+			WantArgoCalls:             0,
+			WantRowGone:               false,
+		},
+		{
+			Name:                      "allowed: not_before == max_seen, row must be processed",
+			NotBeforeTransformerEslId: 5,
+			MaxSeenTransformerEslId:   5,
+			WantArgoCalls:             1,
+			WantRowGone:               true,
+		},
+		{
+			Name:                      "allowed: not_before < max_seen, row must be processed",
+			NotBeforeTransformerEslId: 3,
+			MaxSeenTransformerEslId:   10,
+			WantArgoCalls:             1,
+			WantRowGone:               true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			dbHandler := setupDB(t)
+
+			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+				return dbHandler.UpsertRolloutUndeployCascade(ctx, tx, "my-app", "staging", tc.NotBeforeTransformerEslId)
+			})
+			if errW != nil {
+				t.Fatalf("seed: %v", errW)
+			}
+
+			mock := &mockAppDeleter{}
+			processed, err := processOneBatch(ctx, dbHandler, mock)
+			if err != nil {
+				t.Fatalf("processOneBatch: %v", err)
+			}
+
+			if len(mock.deleteCalls) != tc.WantArgoCalls {
+				t.Errorf("Argo Delete calls: want %d, got %d (processed=%d)", tc.WantArgoCalls, len(mock.deleteCalls), processed)
+			}
+
+			var rowsAfter []*db.RolloutShouldUndeployCascade
+			errR := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
+				got, err := dbHandler.DBReadRolloutUndeployCascadeBatch(ctx, tx, 10)
+				rowsAfter = got
+				return err
+			})
+			if errR != nil {
+				t.Fatalf("read after: %v", errR)
+			}
+			if tc.WantRowGone && len(rowsAfter) != 0 {
+				t.Errorf("expected row removed, but %d rows remain", len(rowsAfter))
+			}
+			if !tc.WantRowGone && len(rowsAfter) != 1 {
+				t.Errorf("expected row to remain, but got %d rows", len(rowsAfter))
+			}
+			_ = tc.MaxSeenTransformerEslId // TODO: pass to processOneBatch once gating is implemented
 		})
 	}
 }

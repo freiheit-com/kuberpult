@@ -47,28 +47,33 @@ concatenation <env>-<argo_app>.
 const rolloutShouldUndeployCascadeTable = "rollout_should_undeploy_cascade"
 
 type RolloutShouldUndeployCascade struct {
-	ArgoApp  string
-	Env      types.EnvName
-	Created  time.Time
-	Attempts int
+	ArgoApp                   string
+	Env                       types.EnvName
+	Created                   time.Time
+	Attempts                  int
+	NotBeforeTransformerEslId TransformerID
 }
 
 // UpsertRolloutUndeployCascade inserts a pending cascade-delete row.
 // Used by the cd-service in UndeployApplication / DeleteEnvFromApp transformers.
 // ON CONFLICT DO NOTHING — re-triggering an undeploy must not reset the attempt
 // counter, which would let a permanently-failing row loop forever.
-func (h *DBHandler) UpsertRolloutUndeployCascade(ctx context.Context, tx *sql.Tx, argoApp string, env types.EnvName) (err error) {
+// notBeforeTransformerEslId is the transformer ESL ID of the transformer that
+// writes this row. The rollout-service only processes the row once its gRPC
+// stream has caught up to at least this ESL ID, guaranteeing that any
+// preceding events (e.g. new bracket creation) were processed first.
+func (h *DBHandler) UpsertRolloutUndeployCascade(ctx context.Context, tx *sql.Tx, argoApp string, env types.EnvName, notBeforeTransformerEslId TransformerID) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpsertRolloutUndeployCascade")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO ` + rolloutShouldUndeployCascadeTable + ` (argo_app, env)
-		VALUES (?, ?)
+		INSERT INTO ` + rolloutShouldUndeployCascadeTable + ` (argo_app, env, not_before_transformer_esl_id)
+		VALUES (?, ?, ?)
 		ON CONFLICT(argo_app, env) DO NOTHING;
 	`)
 	span.SetTag("query", upsertQuery)
-	_, err = tx.ExecContext(ctx, upsertQuery, argoApp, env)
+	_, err = tx.ExecContext(ctx, upsertQuery, argoApp, env, notBeforeTransformerEslId)
 	if err != nil {
 		return fmt.Errorf("could not insert rollout undeploy cascade row for argo_app '%s' env '%s': %w", argoApp, env, err)
 	}
@@ -83,7 +88,7 @@ func (h *DBHandler) DBReadRolloutUndeployCascadeBatch(ctx context.Context, tx *s
 		span.Finish(tracer.WithError(err))
 	}()
 	selectQuery := h.AdaptQuery(`
-		SELECT created, argo_app, env, attempts
+		SELECT created, argo_app, env, attempts, not_before_transformer_esl_id
 		FROM ` + rolloutShouldUndeployCascadeTable + `
 		ORDER BY created ASC, argo_app ASC, env ASC
 		LIMIT ?;
@@ -97,13 +102,8 @@ func (h *DBHandler) DBReadRolloutUndeployCascadeBatch(ctx context.Context, tx *s
 
 	result := make([]*RolloutShouldUndeployCascade, 0)
 	for rows.Next() {
-		row := RolloutShouldUndeployCascade{
-			ArgoApp:  "",
-			Env:      "",
-			Created:  time.Time{},
-			Attempts: 0,
-		}
-		if err := rows.Scan(&row.Created, &row.ArgoApp, &row.Env, &row.Attempts); err != nil {
+		row := RolloutShouldUndeployCascade{}
+		if err := rows.Scan(&row.Created, &row.ArgoApp, &row.Env, &row.Attempts, &row.NotBeforeTransformerEslId); err != nil {
 			return nil, fmt.Errorf("could not scan rollout_should_undeploy_cascade row: %w", err)
 		}
 		result = append(result, &row)
