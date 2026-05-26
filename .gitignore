@@ -46,3 +46,5 @@ docker.env
 # docker-compose:
 .env.local
 
+# claude:
+.claude/settings.local.json
