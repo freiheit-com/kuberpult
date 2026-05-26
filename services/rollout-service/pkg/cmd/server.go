@@ -48,6 +48,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/notifier"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/revolution"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/undeploy"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
 
@@ -337,6 +338,13 @@ func runServer(ctx context.Context, config Config) error {
 			Name:     "consume self-manage events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				return versionC.GetArgoProcessor().Consume(ctx, health, nil)
+			},
+		},
+		{
+			Shutdown: nil,
+			Name:     "consume rollout undeploy cascade",
+			Run: func(ctx context.Context, health *setup.HealthReporter) error {
+				return undeploy.ConsumeUndeployCascade(ctx, dbHandler, appClient, health)
 			},
 		},
 	}
