@@ -701,13 +701,7 @@ func TestBracketMoveBetweenBrackets(t *testing.T) {
 
 // TestBracketMoveAndBack is the regression test for the scenario where an app
 // moves from bracket1 to bracket2 and then back to bracket1.
-//
-// The first move (b1→b2) may work due to lucky ArgoCD finalizer timing.
-// The second move (b2→b1) is more likely to fail because bracket1 must be
-// RECREATED (it was deleted after move 1), and bracket2's cascade-delete
-// finalizer may race against bracket1's re-creation and prune the pod.
-//
-// Both moves are checked independently so it is clear which transition fails.
+// Previously this had lead to deployment deletions.
 func TestBracketMoveAndBack(t *testing.T) {
 	cleanupCluster(t)
 	tLogf(t, "runSuffix: %s", runSuffix)
