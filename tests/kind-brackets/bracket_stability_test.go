@@ -28,7 +28,9 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -39,23 +41,49 @@ import (
 var runSuffix = fmt.Sprintf("%d", time.Now().Unix()%100000)
 
 const (
-	kuberpultFrontendPort = "8081"
+	kuberpultFrontendPort = "5002"
 	devNamespace          = "development"
-	dev2Namespace         = "development2"
 	stagingNamespace      = "staging"
 	// Bracket name used for the two test apps.
 	testBracket = "bracket-stability-test"
+
+	// numTestApps is the number of apps used in load-test scenarios.
+	// Increase this to stress-test bracket operations at scale.
+	// 2 is "the default"
+	numTestApps = 2
 
 	// Polling intervals and deadlines.
 	argoAppWaitTimeout  = 2 * time.Minute
 	argoAppGoneTimeout  = 3 * time.Minute
 	argoAppPollInterval = 5 * time.Second
 	podPollInterval     = 3 * time.Second
-	podChurnBuffer      = 20 * time.Second
-	reconcileBuffer     = 30 * time.Second
+	reconcileBuffer     = 10 * time.Second
 	grpcRetryTimeout    = 30 * time.Second
 	grpcRetryInterval   = 2 * time.Second
 )
+
+// deploymentKey identifies a Deployment by namespace and name.
+type deploymentKey struct{ namespace, name string }
+
+// waitForFrontendHTTPReady polls the frontend /health endpoint until it returns
+// a valid HTTP response, covering the race where the port-forward reconnects
+// after pods are replaced. Mirrors the processBatch retry logic.
+func waitForFrontendHTTPReady(t *testing.T) {
+	t.Helper()
+	deadline := time.Now().Add(grpcRetryTimeout)
+	url := "http://localhost:" + kuberpultFrontendPort + "/health"
+	for time.Now().Before(deadline) {
+		resp, err := http.Get(url)
+		if err == nil {
+			if err := resp.Body.Close(); err != nil {
+				tLogf(t, "close health response body: %v", err)
+			}
+			return
+		}
+		time.Sleep(grpcRetryInterval)
+	}
+	t.Fatalf("frontend service at %s not reachable after 30s", url)
+}
 
 // stableManifest returns a Deployment + ConfigMap for app/namespace/version.
 //
@@ -93,9 +121,10 @@ spec:
       labels:
         app: %s-bracket
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: sleep
-        image: alpine:latest
+        image: busybox:latest
         command: ["/bin/sh", "-c", "trap 'exit 0' SIGTERM; while true; do sleep 1000; done"]
         readinessProbe:
           exec:
@@ -140,10 +169,17 @@ func createRelease(t *testing.T, app, team, bracketName, version string, manifes
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Fatalf("POST /api/release for %s v%s: %v", app, version, err)
+		fatalWithServiceLogs(t, "POST /api/release for %s v%s: %v", app, version, err)
 	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("close response body: %v", err)
+		}
+	}()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body for %s v%s: %v", app, version, err)
+	}
 	if resp.StatusCode > 299 {
 		t.Fatalf("POST /api/release for %s v%s: HTTP %d: %s", app, version, resp.StatusCode, body)
 	}
@@ -156,6 +192,50 @@ func mustWriteField(t *testing.T, w *multipart.Writer, key, value string) {
 	}
 }
 
+// dumpKuberpultLogs prints the last 300 log lines (current + previous container)
+// of every pod belonging to the frontend and cd services to stderr.
+// Uses per-pod kubectl calls so all replicas are covered (kubectl logs deployment/X
+// silently picks just one pod when multiple exist).
+func dumpKuberpultLogs(t *testing.T) {
+	t.Helper()
+	fmt.Fprintln(os.Stderr, "=== CRITICAL: dumping kuberpult service logs ===")
+	podsOut, err := exec.Command("kubectl", "get", "pods", "-n", "default", "-o", "name").CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "kubectl get pods: %v\n", err)
+	}
+	for _, dep := range []string{"kuberpult-frontend-service", "kuberpult-cd-service"} {
+		for _, line := range strings.Fields(string(podsOut)) {
+			podName := strings.TrimPrefix(line, "pod/")
+			if !strings.HasPrefix(podName, dep+"-") {
+				continue
+			}
+			for _, prev := range []bool{false, true} {
+				args := []string{"logs", "-n", "default", podName, "--tail=300"}
+				label := podName
+				if prev {
+					args = append(args, "--previous")
+					label = podName + " (previous)"
+				}
+				out, err := exec.Command("kubectl", args...).CombinedOutput()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "kubectl logs %s: %v\n", label, err)
+				} else {
+					fmt.Fprintf(os.Stderr, "=== logs: %s ===\n%s\n", label, out)
+				}
+			}
+		}
+	}
+}
+
+// fatalWithServiceLogs dumps service logs then exits the entire test binary so
+// no further tests run and the cluster stays in its failed state for inspection.
+func fatalWithServiceLogs(t *testing.T, format string, args ...any) {
+	t.Helper()
+	dumpKuberpultLogs(t)
+	fmt.Fprintf(os.Stderr, "FATAL: "+format+"\n", args...)
+	os.Exit(1)
+}
+
 func releaseTrain(t *testing.T, env string) {
 	t.Helper()
 	url := "http://localhost:" + kuberpultFrontendPort + "/api/environments/" + env + "/releasetrain"
@@ -165,37 +245,51 @@ func releaseTrain(t *testing.T, env string) {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Fatalf("PUT release train %s: %v", env, err)
+		fatalWithServiceLogs(t, "PUT release train %s: %v", env, err)
 	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("close response body: %v", err)
+		}
+	}()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read release-train response body for %s: %v", env, err)
+	}
 	if resp.StatusCode > 299 {
 		t.Fatalf("PUT release train %s: HTTP %d: %s", env, resp.StatusCode, body)
 	}
 }
 
-// podStartTime returns the RFC3339 startTime of the first Running pod in
-// namespace matching label app=<app>-bracket. Retries for up to 2 minutes.
-func podStartTime(t *testing.T, namespace, app string) string {
+// deploymentCreationTime returns the creationTimestamp of the named Deployment.
+// Fails the test if the Deployment does not exist.
+func deploymentCreationTime(t *testing.T, namespace, name string) string {
 	t.Helper()
-	label := "app=" + app + "-bracket"
-	deadline := time.Now().Add(argoAppWaitTimeout)
-	for time.Now().Before(deadline) {
-		out, err := exec.Command(
-			"kubectl", "get", "pods",
-			"-n", namespace,
-			"-l", label,
-			"--field-selector=status.phase=Running",
-			"-o", "jsonpath={.items[0].status.startTime}",
-		).Output()
-		s := strings.TrimSpace(string(out))
-		if err == nil && s != "" {
-			return s
-		}
-		time.Sleep(podPollInterval)
+	out, err := exec.Command(
+		"kubectl", "get", "deployment", name,
+		"-n", namespace,
+		"-o", "jsonpath={.metadata.creationTimestamp}",
+	).Output()
+	if err != nil {
+		t.Fatalf("get deployment %s/%s creationTimestamp: %v", namespace, name, err)
 	}
-	t.Fatalf("no Running pod with label %s in namespace %s after 2 minutes", label, namespace)
-	return ""
+	return strings.TrimSpace(string(out))
+}
+
+// assertDeploymentCreationTimesStable checks that no Deployment was deleted+recreated
+// (which would cause downtime) by verifying that creationTimestamps are unchanged.
+func assertDeploymentCreationTimesStable(t *testing.T, times map[deploymentKey]string, context string) {
+	t.Helper()
+	for k, want := range times {
+		got := deploymentCreationTime(t, k.namespace, k.name)
+		if got != want {
+			t.Fatalf("REGRESSION (%s): deployment %s/%s was deleted and recreated\n  before: %s\n  after:  %s",
+				context, k.namespace, k.name, want, got)
+		}
+	}
+	for k, want := range times {
+		tLogf(t, "  OK %s/%s creation time stable at %s", k.namespace, k.name, want)
+	}
 }
 
 // waitForDeploymentAnnotation polls until the named Deployment's annotation
@@ -215,8 +309,108 @@ func waitForDeploymentAnnotation(t *testing.T, namespace, deploymentName, wantVe
 		}
 		time.Sleep(podPollInterval)
 	}
+	if out2, _ := exec.Command("kubectl", "describe", "deployment", deploymentName, "-n", namespace).CombinedOutput(); len(out2) > 0 {
+		tLogf(t, "deployment describe:\n%s", out2)
+	}
+	if out3, _ := exec.Command("kubectl", "get", "pods", "-n", namespace, "-o", "wide").CombinedOutput(); len(out3) > 0 {
+		tLogf(t, "pods in %s:\n%s", namespace, out3)
+	}
 	t.Fatalf("deployment %s/%s annotation release-version never reached %q after 3 minutes",
 		namespace, deploymentName, wantVersion)
+}
+
+// cleanupCluster deletes all ArgoCD applications and all pods/deployments in
+// the three test namespaces, then waits for each deletion to complete.
+// Call this at the start of every test to ensure a clean cluster state.
+func removeAllArgoAppFinalizers(t *testing.T) {
+	names, _ := exec.Command("kubectl", "get", "applications", "-n", "default", "-o", "name").CombinedOutput()
+	for _, name := range strings.Fields(string(names)) {
+		err := exec.Command("kubectl", "patch", "-n", "default", name,
+			"--type=merge", "-p", `{"metadata":{"finalizers":[]}}`).Run()
+		if err != nil {
+			tLog(t, "kubectl patch finalizers failed (continuing)[%s]: %v", name, err)
+		} else {
+			tLog(t, "deleted finalizer for application %s", name)
+		}
+	}
+}
+
+func cleanupCluster(t *testing.T) {
+	t.Helper()
+	tLog(t, "cleanupCluster: deleting all ArgoCD applications")
+	removeAllArgoAppFinalizers(t)
+	out, err := exec.Command("kubectl", "delete", "applications", "--all", "-n", "default", "--wait=true").CombinedOutput()
+	if err != nil {
+		t.Fatalf("kubectl delete applications failed: %v: %s", err, out)
+	}
+	tLogf(t, "  %s", strings.TrimSpace(string(out)))
+	for _, ns := range []string{devNamespace, stagingNamespace} {
+		out2, err := exec.Command("kubectl", "delete", "deployments,pods", "--all", "-n", ns, "--wait=true").CombinedOutput()
+		if err != nil {
+			t.Fatalf("kubectl delete deployment/etc failed: %v: %s", err, out2)
+		}
+		tLogf(t, "  %s: %s", ns, strings.TrimSpace(string(out2)))
+	}
+
+	resetDB(t)
+}
+
+func resetDB(t *testing.T) {
+	t.Helper()
+
+	// Step 1: query all table names in the public schema
+	tLog(t, "resetDB: querying tables")
+	out, err := exec.Command("kubectl", "exec", "deployment/postgres", "-n", "default", "--",
+		"psql", "-U", "postgres", "-d", "kuberpult", "-At",
+		"-c", "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;",
+	).CombinedOutput()
+	if err != nil {
+		t.Fatalf("resetDB: list tables: %v: %s", err, out)
+	}
+	var tables []string
+	for _, line := range strings.Fields(string(out)) {
+		if line != "" && line != "schema_migrations" {
+			tables = append(tables, line)
+		}
+	}
+
+	// Step 2: log which tables will be truncated
+	if len(tables) == 0 {
+		tLog(t, "resetDB: no tables found, db is already empty")
+	} else {
+		tLogf(t, "resetDB: will truncate tables: %s", strings.Join(tables, ", "))
+
+		// Step 3: truncate tables in batches of 5 to reduce kubectl exec calls (~1 sec per call)
+		for batch := range slices.Chunk(tables, 5) {
+			var parts []string
+			for _, table := range batch {
+				parts = append(parts, fmt.Sprintf(`"%s"`, table))
+			}
+			tLogf(t, "resetDB: truncating tables %s", strings.Join(parts, ", "))
+			out2, err2 := exec.Command("kubectl", "exec", "deployment/postgres", "-n", "default", "--",
+				"psql", "-U", "postgres", "-d", "kuberpult", "-c",
+				fmt.Sprintf(`TRUNCATE TABLE %s CASCADE;`, strings.Join(parts, ", ")),
+			).CombinedOutput()
+			if err2 != nil {
+				t.Fatalf("resetDB: truncate %s: %v: %s", strings.Join(parts, ", "), err2, out2)
+			}
+		}
+	}
+
+	// Scale kuberpult services to 0 to clear in-memory state and db connection.
+	// Scale-up is handled by helmUpgrade in each test.
+	tLog(t, "resetDB: scaling kuberpult services to 0")
+	kuberpultDeployments := []string{
+		"deployment/kuberpult-cd-service",
+		"deployment/kuberpult-frontend-service",
+		"deployment/kuberpult-reposerver-service",
+		"deployment/kuberpult-rollout-service",
+	}
+	for _, dep := range kuberpultDeployments {
+		if out3, err3 := exec.Command("kubectl", "scale", dep, "--replicas=0").CombinedOutput(); err3 != nil {
+			t.Fatalf("resetDB: scale %s: %v\n%s", dep, err3, out3)
+		}
+	}
 }
 
 // TestBracketPodStability is the regression test for the seenVersions cascade-
@@ -236,61 +430,48 @@ func waitForDeploymentAnnotation(t *testing.T, namespace, deploymentName, wantVe
 // versions, Kubernetes does NOT roll pods on a version update.  Any change in
 // pod startTime means the Deployment was deleted — the bug.
 func TestBracketPodStability(t *testing.T) {
-	t.Logf("runSuffix: %s", runSuffix)
+	cleanupCluster(t)
+	helmUpgrade(t, true, false, true, 50)
+	tLogf(t, "runSuffix: %s", runSuffix)
 	app1 := "bst-app1-" + runSuffix
 	app2 := "bst-app2-" + runSuffix
 	apps := []string{app1, app2}
 
-	// staging's upstream is development2; development2's upstream is "latest".
-	// We must provide a development2 manifest so that Kuberpult records a
-	// deployment there, enabling the staging release train to pick it up.
-	manifestsV := func(version string) map[string]string {
-		m := map[string]string{}
-		for _, ns := range []string{devNamespace, dev2Namespace, stagingNamespace} {
-			m[ns] = stableManifest("", ns, version) // app filled in by caller
-		}
-		return m
-	}
-
-	t.Log("step 1: create initial releases (version 1)")
+	tLog(t, "step 1: create initial releases (version 1)")
 	for _, app := range apps {
 		manifests := map[string]string{
 			devNamespace:     stableManifest(app, devNamespace, "1"),
-			dev2Namespace:    stableManifest(app, dev2Namespace, "1"),
 			stagingNamespace: stableManifest(app, stagingNamespace, "1"),
 		}
 		createRelease(t, app, "sreteam", testBracket, "1", manifests)
 	}
-	_ = manifestsV // suppress unused warning from the helper above
 
-	// development and development2 both have upstream=latest → auto-deploy v1.
-	// staging needs an explicit release train that reads from development2.
-	t.Log("step 2: run release train for staging (deploys v1 from development2)")
+	// development has upstream=latest → auto-deploy v1.
+	// staging needs an explicit release train that reads from development.
+	tLog(t, "step 2: run release train for staging (deploys v1 from development)")
 	releaseTrain(t, stagingNamespace)
 
-	t.Log("step 3: wait for v1 to be synced in development and staging")
+	tLog(t, "step 3: wait for v1 to be synced in development and staging")
 	for _, app := range apps {
 		for _, ns := range []string{devNamespace, stagingNamespace} {
 			waitForDeploymentAnnotation(t, ns, app+"-bracket-dep", "1")
 		}
 	}
 
-	t.Log("step 4: record pod start times")
-	type podKey struct{ ns, app string }
-	startTimes := map[podKey]string{}
+	tLog(t, "step 4: record deployment creation times")
+	creationTimes := map[deploymentKey]string{}
 	for _, app := range apps {
 		for _, ns := range []string{devNamespace, stagingNamespace} {
-			k := podKey{ns, app}
-			startTimes[k] = podStartTime(t, ns, app)
-			t.Logf("  %s/%s: %s", ns, app, startTimes[k])
+			k := deploymentKey{ns, app + "-bracket-dep"}
+			creationTimes[k] = deploymentCreationTime(t, ns, app+"-bracket-dep")
+			tLogf(t, "  %s/%s: %s", ns, app+"-bracket-dep", creationTimes[k])
 		}
 	}
 
-	t.Log("step 5: create version 2 (annotation changes, pod spec identical)")
+	tLog(t, "step 5: create version 2 (annotation changes, pod spec identical)")
 	for _, app := range apps {
 		createRelease(t, app, "sreteam", testBracket, "2", map[string]string{
 			devNamespace:     stableManifest(app, devNamespace, "2"),
-			dev2Namespace:    stableManifest(app, dev2Namespace, "2"),
 			stagingNamespace: stableManifest(app, stagingNamespace, "2"),
 		})
 	}
@@ -298,25 +479,11 @@ func TestBracketPodStability(t *testing.T) {
 	// Intentionally do NOT run the staging release train: staging stays at v1.
 	// development auto-deploys v2 (upstream=latest).
 	// This is the seenVersions scenario: development changes, staging is stable.
-	t.Log("step 6: wait for development to sync v2 (staging intentionally stays at v1)")
+	tLog(t, "step 6: wait for development to sync v2 (staging intentionally stays at v1)")
 	for _, app := range apps {
 		waitForDeploymentAnnotation(t, devNamespace, app+"-bracket-dep", "2")
 	}
 
-	// Extra buffer: if a pod was deleted give it time to come back, so a
-	// transient absence is reliably caught by the startTime diff.
-	t.Log("step 7: 20s buffer to let any accidental pod churn complete")
-	time.Sleep(podChurnBuffer)
-
-	t.Log("step 8: verify staging pod start times have not changed")
-	for _, app := range apps {
-		k := podKey{stagingNamespace, app}
-		got := podStartTime(t, stagingNamespace, app)
-		if got != startTimes[k] {
-			t.Errorf("REGRESSION: pod %s/%s was restarted unexpectedly\n  before: %s\n  after:  %s",
-				stagingNamespace, app, startTimes[k], got)
-		} else {
-			t.Logf("  OK %s/%s start time stable at %s", stagingNamespace, app, got)
-		}
-	}
+	tLog(t, "step 7: assert staging pod start times stable")
+	assertDeploymentCreationTimesStable(t, creationTimes, "pod stability")
 }
