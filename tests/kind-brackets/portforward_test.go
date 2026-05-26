@@ -25,11 +25,11 @@ import (
 	"time"
 )
 
-// pfManager keeps a kubectl port-forward process alive. When the process exits
+// portForwardManager keeps a kubectl port-forward process alive. When the process exits
 // (pod replaced, network blip) the goroutine restarts it after a short guard
 // delay. Calling restart() kills the current process so the loop immediately
 // connects to the newly rolled-out pod.
-type pfManager struct {
+type portForwardManager struct {
 	mu     sync.Mutex
 	cmd    *exec.Cmd
 	cancel context.CancelFunc
@@ -37,16 +37,16 @@ type pfManager struct {
 
 // startPFManager kills any shell-managed port-forward for kuberpult-frontend-service
 // and starts a self-healing manager that owns port 5002 for the test run.
-func startPFManager() *pfManager {
+func startPFManager() *portForwardManager {
 	// Take ownership from any shell background loop; ignore exit code.
 	_ = exec.Command("pkill", "-f", "port-forward.*kuberpult-frontend-service").Run()
 	ctx, cancel := context.WithCancel(context.Background())
-	m := &pfManager{cancel: cancel}
+	m := &portForwardManager{cancel: cancel}
 	go m.loop(ctx)
 	return m
 }
 
-func (m *pfManager) loop(ctx context.Context) {
+func (m *portForwardManager) loop(ctx context.Context) {
 	for ctx.Err() == nil {
 		cmd := exec.CommandContext(ctx, "kubectl", "port-forward",
 			"-n", "default",
@@ -71,7 +71,7 @@ func (m *pfManager) loop(ctx context.Context) {
 
 // restart kills the running port-forward process so the loop reconnects to the
 // freshly rolled-out pod. The caller should then call waitForFrontendHTTPReady.
-func (m *pfManager) restart() {
+func (m *portForwardManager) restart() {
 	m.mu.Lock()
 	cmd := m.cmd
 	m.mu.Unlock()
@@ -80,6 +80,6 @@ func (m *pfManager) restart() {
 	}
 }
 
-func (m *pfManager) stop() {
+func (m *portForwardManager) stop() {
 	m.cancel()
 }

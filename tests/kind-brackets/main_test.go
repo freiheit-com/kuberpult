@@ -21,7 +21,7 @@ import (
 	"testing"
 )
 
-var globalPFM *pfManager
+var globalPFM *portForwardManager
 
 func TestMain(m *testing.M) {
 	globalPFM = startPFManager()

@@ -35,9 +35,16 @@ import (
 const cdServiceGrpcAddr = "localhost:5004"
 const argoNamespace = "default"
 
+type helmUpgradeParams struct {
+	bracketsEnabled    bool
+	developmentEnabled bool
+	stagingEnabled     bool
+	channelSize        int
+}
+
 // helmUpgrade calls helm upgrade with the given bracket configuration and waits
 // for all services to finish rolling out.
-func helmUpgrade(t *testing.T, bracketsEnabled, developmentEnabled, stagingEnabled bool, channelSize int) {
+func helmUpgrade(t *testing.T, p helmUpgradeParams) {
 	t.Helper()
 	out, err := exec.Command("git", "describe", "--always", "--long", "--tags").Output()
 	if err != nil {
@@ -59,18 +66,18 @@ func helmUpgrade(t *testing.T, bracketsEnabled, developmentEnabled, stagingEnabl
 		return "false"
 	}
 	tLogf(t, "helmUpgrade: enabled=%s development=%s staging=%s channelSize=%d chart=%s",
-		boolStr(bracketsEnabled), boolStr(developmentEnabled), boolStr(stagingEnabled), channelSize, chartPath)
+		boolStr(p.bracketsEnabled), boolStr(p.developmentEnabled), boolStr(p.stagingEnabled), p.channelSize, chartPath)
 
 	cmd := exec.Command("helm", "upgrade", "--install",
 		"--values", valsPath,
-		"--set", "rollout.experimentalBrackets.enabled="+boolStr(bracketsEnabled),
-		"--set", "rollout.experimentalBrackets.clusters.development="+boolStr(developmentEnabled),
-		"--set", "rollout.experimentalBrackets.clusters.staging="+boolStr(stagingEnabled),
-		"--set", fmt.Sprintf("rollout.kuberpultEventsChannelSize=%d", channelSize),
+		"--set", "rollout.experimentalBrackets.enabled="+boolStr(p.bracketsEnabled),
+		"--set", "rollout.experimentalBrackets.clusters.development="+boolStr(p.developmentEnabled),
+		"--set", "rollout.experimentalBrackets.clusters.staging="+boolStr(p.stagingEnabled),
+		"--set", fmt.Sprintf("rollout.kuberpultEventsChannelSize=%d", p.channelSize),
 		"kuberpult-local", chartPath)
 	if out2, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("helm upgrade (enabled=%s dev=%s staging=%s): %v\n%s",
-			boolStr(bracketsEnabled), boolStr(developmentEnabled), boolStr(stagingEnabled), err, out2)
+			boolStr(p.bracketsEnabled), boolStr(p.developmentEnabled), boolStr(p.stagingEnabled), err, out2)
 	}
 
 	for _, dep := range []string{
@@ -150,7 +157,7 @@ func TestBracketMigration(t *testing.T) {
 	//   bracket:    "{env}-{bracketName}" e.g. "staging-bmt-bracket-XXXXX"
 
 	tLog(t, "step 1: upgrade to staging=false (individual Argo apps mode for staging)")
-	helmUpgrade(t, true, false, false, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: false, channelSize: 50})
 
 	tLog(t, "step 2: create v1 releases (dev + staging manifests)")
 	for _, app := range apps {
@@ -184,7 +191,7 @@ func TestBracketMigration(t *testing.T) {
 	}
 
 	tLog(t, "step 7: upgrade to staging=true (migrate to bracket Argo app)")
-	helmUpgrade(t, true, false, true, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
 
 	tLog(t, "step 8: wait for bracket Argo app to appear on staging")
 	waitForArgoApp(t, "staging-"+migrationBracket)
@@ -253,7 +260,7 @@ func TestBracketDeleteEnvFromApp(t *testing.T) {
 	bracket := "bde-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, true, false, true, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
 
 	tLog(t, "step 2: create v1 release (dev + staging manifests)")
 	createRelease(t, app, "sreteam", bracket, "1", map[string]string{
@@ -298,7 +305,7 @@ func TestBracketReverseMigration(t *testing.T) {
 	bracket := "brm-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, true, false, true, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
 
 	tLog(t, "step 2: create v1 releases (dev + staging manifests)")
 	for _, app := range apps {
@@ -328,7 +335,7 @@ func TestBracketReverseMigration(t *testing.T) {
 	}
 
 	tLog(t, "step 7: upgrade to staging=false (revert to individual Argo apps)")
-	helmUpgrade(t, true, false, false, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: false, channelSize: 50})
 
 	tLog(t, "step 8: wait for individual Argo apps to appear on staging")
 	for _, app := range apps {
@@ -361,7 +368,7 @@ func TestBracketAddAppToExistingBracket(t *testing.T) {
 	bracket := "bae-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, true, false, true, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
 
 	tLog(t, "step 2: create v1 release for app1 only")
 	createRelease(t, app1, "sreteam", bracket, "1", map[string]string{
@@ -422,7 +429,7 @@ func TestBracketPartialUpdate(t *testing.T) {
 	bracket := "bpu-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, true, false, true, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
 
 	tLog(t, "step 2: create v1 releases for both apps")
 	for _, app := range []string{app1, app2} {
@@ -483,7 +490,7 @@ func TestBracketUndeploy(t *testing.T) {
 	bracket2 := "bu-bracket2-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, true, false, true, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
 
 	tLog(t, "step 2: create v1 releases for both apps")
 	createRelease(t, app1, "sreteam", bracket1, "1", map[string]string{
@@ -549,7 +556,7 @@ func TestBracketEnableAllClusters(t *testing.T) {
 	bracket := "beac-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to experimentalBrackets.enabled=false (fully disabled brackets)")
-	helmUpgrade(t, false, false, false, 1)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: false, developmentEnabled: false, stagingEnabled: false, channelSize: 1})
 
 	tLog(t, "step 2: create v1 releases (dev + dev2 + staging manifests)")
 	for _, app := range apps {
@@ -597,7 +604,7 @@ func TestBracketEnableAllClusters(t *testing.T) {
 	}
 
 	tLog(t, "step 7: upgrade to experimentalBrackets.enabled=true, development=true, staging=true")
-	helmUpgrade(t, true, true, true, 1)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: true, stagingEnabled: true, channelSize: 1})
 
 	var individualArgoApps []string
 	for _, app := range apps {
@@ -650,7 +657,7 @@ func TestBracketMoveBetweenBrackets(t *testing.T) {
 	bracket2 := "bmb-bracket2-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, true, false, true, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
 
 	tLog(t, "step 2: create v1 release for app in bracket1")
 	createRelease(t, app, "sreteam", bracket1, "1", map[string]string{
@@ -709,7 +716,7 @@ func TestBracketMoveAndBack(t *testing.T) {
 	bracket2 := "bmab-bracket2-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, true, false, true, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
 
 	tLog(t, "step 2: create v1 release for app in bracket1")
 	createRelease(t, app, "sreteam", bracket1, "1", map[string]string{
@@ -787,7 +794,7 @@ func TestBracketMigrateDevelopment(t *testing.T) {
 	bracket := "bmd-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to brackets enabled, development=false (individual-app mode)")
-	helmUpgrade(t, true, false, false, 1)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: false, channelSize: 1})
 
 	tLog(t, "step 2: create v1 releases (dev + dev2 manifests)")
 	for _, app := range apps {
@@ -814,7 +821,7 @@ func TestBracketMigrateDevelopment(t *testing.T) {
 	}
 
 	tLog(t, "step 6: upgrade to development=true (the bug-triggering upgrade)")
-	helmUpgrade(t, true, true, false, 1)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: true, stagingEnabled: false, channelSize: 1})
 
 	tLog(t, "step 7: wait for bracket Argo app to appear on development")
 	waitForArgoApp(t, devNamespace+"-"+bracket)

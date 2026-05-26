@@ -431,7 +431,7 @@ func resetDB(t *testing.T) {
 // pod startTime means the Deployment was deleted — the bug.
 func TestBracketPodStability(t *testing.T) {
 	cleanupCluster(t)
-	helmUpgrade(t, true, false, true, 50)
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
 	tLogf(t, "runSuffix: %s", runSuffix)
 	app1 := "bst-app1-" + runSuffix
 	app2 := "bst-app2-" + runSuffix
