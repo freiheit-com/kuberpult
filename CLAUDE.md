@@ -210,3 +210,11 @@ If we filter by something else, an ORDER BY and LIMIT 1 is required.
 2) Those with potentially a lot of results. These must have an ORDER BY and LIMIT N.
 
 The goal is to make all queries deterministic, including the order of the result.
+
+
+## Kind tests
+The tests in test/kind-brackets are using the cd-, frontend-, reposerver-,
+and rollout-service.
+They do NOT use the manifest-repo-export.
+This means the only service communicating with Argo CD in any way is the
+rollout-service.

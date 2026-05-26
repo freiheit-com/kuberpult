@@ -23,6 +23,7 @@ CHARTS_REGISTRY:=$(DOCKER_REGISTRY_URI)/charts
 CHARTS_BASE_IMAGE_URL:=$(CHARTS_REGISTRY):$(VERSION)
 BUILDER_IMAGE:=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG_KUBERPULT)
 TGZ_FILE := kuberpult-$(VERSION).tgz
+GO_TEST_ARGS?=
 
 build-base-image:
 	@if ! docker image inspect $(CHARTS_BASE_IMAGE_URL) > /dev/null 2>&1; then \
@@ -64,10 +65,15 @@ test: ct-test test-helm
 
 kind-test:
 	@if [ -n "$$(git status --porcelain)" ]; then \
-		echo "Error: working tree has uncommitted changes. Run charts/kuberpult/run-kind.sh instead (it rebuilds images from your local source)."; \
-		exit 1; \
+		echo "WARNING: working tree has uncommitted changes. Run charts/kuberpult/run-kind.sh instead (it rebuilds images from your local source)."; \
 	fi
-	cd ../../ && go test -v ./tests/kind-brackets/ -timeout 20m
+	@bash -euo pipefail -c \
+		'HASH=$$(git rev-parse HEAD); \
+		mkdir -p "$(MAKEFILE_DIR)kind-test-logs/$$HASH"; \
+		LOG="$(MAKEFILE_DIR)kind-test-logs/$$HASH/test-$$(date +%Y%m%d-%H%M%S).log"; \
+		echo "kind-test: logging to $$LOG"; \
+		printf "kuberpult commit: $$HASH\n" | tee "$$LOG"; \
+		cd ../../ && go test -count=1 -v $(GO_TEST_ARGS) ./tests/kind-brackets/ -timeout 20m 2>&1 | tee -a "$$LOG"'
 
 clean:
 	rm -rf Chart.yaml

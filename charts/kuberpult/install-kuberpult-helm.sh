@@ -134,17 +134,15 @@ VALUES
 make release-tag
 
 #helm uninstall kuberpult-local || print kuberpult was not installed
-helm upgrade --install --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz
+helm upgrade --install --history-max 1 --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz || exit 1
 
 
 kubectl get deployment
 kubectl get pods
 
+waitForDeployment "default" "app=kuberpult-frontend-service"
 print "port forwarding to cd service..."
 waitForDeployment "default" "app=kuberpult-cd-service"
 portForwardAndWait "default" deployment/kuberpult-cd-service 5003 8080
 portForwardAndWait "default" deployment/kuberpult-cd-service 5004 8443
 
-waitForDeployment "default" "app=kuberpult-frontend-service"
-portForwardAndWait "default" "deployment/kuberpult-frontend-service" "5002" "8081"
-print "connection to frontend service successful"
