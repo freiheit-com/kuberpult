@@ -3480,6 +3480,141 @@ func TestStreamChangedAppsOnDeleteAppWithBracket(t *testing.T) {
 	}
 }
 
+func TestGetChangedBracketsEmitsEmptiedBracketOnMove(t *testing.T) {
+	bracketEnv := types.EnvName("development")
+	type release struct {
+		App     types.AppName
+		Bracket types.ArgoBracketName
+		Version uint64
+	}
+	tcs := []struct {
+		Name string
+		// Releases are applied in order; each is a CreateApplicationVersion (with the
+		// given bracket) followed by a DeployApplicationVersion to bracketEnv.
+		Releases    []release
+		ChangedApps []types.AppName
+		// WantDeletedBrackets must appear in the result with the BracketVersionDelete
+		// sentinel for bracketEnv (so the rollout-service deletes their Argo app).
+		WantDeletedBrackets []string
+		// WantLiveBrackets must appear with a non-delete, non-empty version.
+		WantLiveBrackets []string
+	}{
+		{
+			Name: "move empties the old bracket",
+			Releases: []release{
+				{App: "app-a", Bracket: "bracket-one", Version: 1},
+				{App: "app-a", Bracket: "bracket-two", Version: 2},
+			},
+			ChangedApps:         []types.AppName{"app-a"},
+			WantDeletedBrackets: []string{"bracket-one"},
+			WantLiveBrackets:    []string{"bracket-two"},
+		},
+		{
+			Name: "no move keeps the bracket alive",
+			Releases: []release{
+				{App: "app-a", Bracket: "bracket-one", Version: 1},
+				{App: "app-a", Bracket: "bracket-one", Version: 2},
+			},
+			ChangedApps:         []types.AppName{"app-a"},
+			WantDeletedBrackets: nil,
+			WantLiveBrackets:    []string{"bracket-one"},
+		},
+		{
+			Name: "move out of a shared bracket does not delete it",
+			Releases: []release{
+				{App: "app-a", Bracket: "bracket-one", Version: 1},
+				{App: "app-b", Bracket: "bracket-one", Version: 1},
+				{App: "app-a", Bracket: "bracket-two", Version: 2},
+			},
+			ChangedApps:         []types.AppName{"app-a"},
+			WantDeletedBrackets: nil,
+			WantLiveBrackets:    []string{"bracket-two"},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, err := setupRepositoryTestWithDB(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx := testutilauth.MakeTestContext()
+
+			transformers := []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: bracketEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					},
+				},
+			}
+			for _, r := range tc.Releases {
+				transformers = append(transformers,
+					&repository.CreateApplicationVersion{
+						Application: r.App,
+						Version:     r.Version,
+						Manifests:   map[types.EnvName]string{bracketEnv: "manifest"},
+						ArgoBracket: r.Bracket,
+					},
+					&repository.DeployApplicationVersion{
+						Application: r.App,
+						Environment: bracketEnv,
+						Version:     r.Version,
+					},
+				)
+			}
+			for _, tr := range transformers {
+				if err := repo.Apply(ctx, tr); err != nil {
+					t.Fatalf("Apply %T: %v", tr, err)
+				}
+			}
+
+			svc := &OverviewServiceServer{
+				Repository:                   repo,
+				DBHandler:                    repo.State().DBHandler,
+				Context:                      ctx,
+				ExperimentalBracketsClusters: []string{string(bracketEnv)},
+			}
+
+			brackets, err := svc.getChangedBrackets(ctx, tc.ChangedApps)
+			if err != nil {
+				t.Fatalf("getChangedBrackets: %v", err)
+			}
+
+			gotVersions := make(map[string]string, len(brackets))
+			for _, b := range brackets {
+				dep, ok := b.Deployments[string(bracketEnv)]
+				if !ok {
+					t.Errorf("bracket %q has no deployment for env %q", b.BracketName, bracketEnv)
+					continue
+				}
+				gotVersions[b.BracketName] = dep.Version
+			}
+
+			for _, name := range tc.WantDeletedBrackets {
+				got, ok := gotVersions[name]
+				if !ok {
+					t.Errorf("expected emptied bracket %q to be emitted, got brackets %v", name, gotVersions)
+				} else if got != string(types.BracketVersionDelete) {
+					t.Errorf("bracket %q version = %q, want delete sentinel %q", name, got, types.BracketVersionDelete)
+				}
+			}
+			for _, name := range tc.WantLiveBrackets {
+				got, ok := gotVersions[name]
+				if !ok {
+					t.Errorf("expected live bracket %q to be emitted, got brackets %v", name, gotVersions)
+				} else if got == "" || got == string(types.BracketVersionDelete) {
+					t.Errorf("bracket %q version = %q, want a live version", name, got)
+				}
+			}
+			wantCount := len(tc.WantDeletedBrackets) + len(tc.WantLiveBrackets)
+			if len(gotVersions) != wantCount {
+				t.Errorf("got %d brackets %v, want %d", len(gotVersions), gotVersions, wantCount)
+			}
+		})
+	}
+}
+
 func TestStreamChangedAppsOnDeleteEnvFromApp(t *testing.T) {
 	t.Parallel()
 	shutdown := make(chan struct{})

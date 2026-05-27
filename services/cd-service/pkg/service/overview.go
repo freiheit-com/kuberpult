@@ -807,7 +807,9 @@ func (o *OverviewServiceServer) getBracketDetails(ctx context.Context, bracketNa
 func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedApps []types.AppName) ([]*api.GetBracketDetailsResponse, error) {
 	type changedBracketsLookup struct {
 		bracketRow         *db.BracketRow
+		prevBracketRow     *db.BracketRow
 		deletedAppBrackets map[types.AppName]types.ArgoBracketName
+		liveApps           map[types.AppName]bool
 	}
 
 	lookup, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, tx *sql.Tx) (*changedBracketsLookup, error) {
@@ -815,7 +817,12 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 		if err != nil {
 			return nil, err
 		}
+		prevBracketRow, err := db.DBSelectBracketHistoryPrevious(ctx, o.DBHandler, tx)
+		if err != nil {
+			return nil, err
+		}
 		deletedAppBrackets := make(map[types.AppName]types.ArgoBracketName)
+		liveApps := make(map[types.AppName]bool)
 		for _, appName := range changedApps {
 			app, err := o.DBHandler.DBSelectApp(ctx, tx, appName)
 			if err != nil {
@@ -824,8 +831,11 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 			if app != nil && app.ArgoBracket != "" {
 				deletedAppBrackets[appName] = app.ArgoBracket
 			}
+			if app != nil && app.StateChange != db.AppStateChangeDelete {
+				liveApps[appName] = true
+			}
 		}
-		return &changedBracketsLookup{bracketRow: bracketRow, deletedAppBrackets: deletedAppBrackets}, nil
+		return &changedBracketsLookup{bracketRow: bracketRow, prevBracketRow: prevBracketRow, deletedAppBrackets: deletedAppBrackets, liveApps: liveApps}, nil
 	})
 	if err != nil {
 		return nil, err
@@ -868,6 +878,28 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 				if !seen[bracketName] {
 					seen[bracketName] = true
 					affectedBrackets = append(affectedBrackets, bracketName)
+				}
+			}
+		}
+		// Include the bracket a still-existing app just *left* if that bracket became
+		// empty (a bracket move). Without this the now-orphaned old bracket Argo app is
+		// never deleted, and its auto-sync prunes the workload the app moved to the new
+		// bracket. A real undeploy (app deleted) is intentionally skipped here — its
+		// resource cleanup goes through the rollout_should_undeploy_cascade path.
+		if lookup.prevBracketRow != nil {
+			prevMap := lookup.prevBracketRow.AllBracketsJsonBlob.BracketMap
+			for _, appName := range changedApps {
+				if !lookup.liveApps[appName] {
+					continue
+				}
+				for prevBracket, apps := range prevMap {
+					if _, stillExists := bracketMap[prevBracket]; stillExists {
+						continue // old bracket still has apps; not emptied
+					}
+					if slices.Contains(apps, appName) && !seen[prevBracket] {
+						seen[prevBracket] = true
+						affectedBrackets = append(affectedBrackets, prevBracket)
+					}
 				}
 			}
 		}
