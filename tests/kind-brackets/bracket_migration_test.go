@@ -765,7 +765,7 @@ func TestBracketMoveAndBack(t *testing.T) {
 	waitForDeploymentAnnotation(t, stagingNamespace, app+"-bracket-dep", "3")
 
 	tLog(t, "step 13: assert pod start time stable after move 2 (b2→b1)")
-	assertDeploymentCreationTimesStable(t, creationTimes, "move 2 (b2→b1)")
+	assertDeploymentCreationTimesStable(t, creationTimes, "move 2 (b2→b1)", "staging-"+bracket1, "staging-"+bracket2)
 }
 
 // TestBracketMigrateDevelopment is the regression test for the bug where enabling
@@ -859,6 +859,12 @@ func dumpBracketDiagnostics(t *testing.T, argoApps []string, namespaces []string
 // bracket-migration window is captured regardless of log volume.
 func dumpBracketDiagnosticsExpanded(t *testing.T, bracketApps []string, individualApps []string, namespaces []string) {
 	t.Helper()
+	// List all Argo apps so we can tell "old bracket app still present" from
+	// "old bracket app already deleted" — a per-app describe silently skips a
+	// NotFound, which would hide that distinction.
+	if out, err := exec.Command("kubectl", "get", "applications", "-n", argoNamespace).CombinedOutput(); err == nil {
+		tLogf(t, "all ArgoCD applications in %s:\n%s", argoNamespace, out)
+	}
 	for _, app := range bracketApps {
 		if out, err := exec.Command("kubectl", "describe", "application", app, "-n", argoNamespace).CombinedOutput(); err == nil {
 			tLogf(t, "ArgoCD app describe %s:\n%s", app, out)

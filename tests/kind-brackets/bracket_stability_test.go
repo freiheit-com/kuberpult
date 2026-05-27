@@ -278,11 +278,20 @@ func deploymentCreationTime(t *testing.T, namespace, name string) string {
 
 // assertDeploymentCreationTimesStable checks that no Deployment was deleted+recreated
 // (which would cause downtime) by verifying that creationTimestamps are unchanged.
-func assertDeploymentCreationTimesStable(t *testing.T, times map[deploymentKey]string, context string) {
+func assertDeploymentCreationTimesStable(t *testing.T, times map[deploymentKey]string, context string, diagArgoApps ...string) {
 	t.Helper()
 	for k, want := range times {
 		got := deploymentCreationTime(t, k.namespace, k.name)
 		if got != want {
+			// Capture diagnostics before failing: the Deployment's current owner
+			// (argocd tracking-id) plus Argo app state and controller/rollout logs
+			// let us confirm what deleted+recreated the Deployment.
+			if out, derr := exec.Command("kubectl", "get", "deployment", k.name, "-n", k.namespace, "-o", "yaml").CombinedOutput(); derr == nil {
+				tLogf(t, "deployment %s/%s yaml at failure:\n%s", k.namespace, k.name, out)
+			}
+			if len(diagArgoApps) > 0 {
+				dumpBracketDiagnosticsExpanded(t, diagArgoApps, nil, []string{k.namespace})
+			}
 			t.Fatalf("REGRESSION (%s): deployment %s/%s was deleted and recreated\n  before: %s\n  after:  %s",
 				context, k.namespace, k.name, want, got)
 		}
