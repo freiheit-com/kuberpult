@@ -14,6 +14,39 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
+/*
+Package argo manages kuberpult's Argo CD Applications from the rollout-service.
+
+# How the rollout is intended to work (especially for brackets) - high level description
+This section describes the main rules for the rollout-service.
+As such it touches on more than just what happens in this module, but also in the cd-service (overview).
+
+For non-bracket apps, kuberpult manages all app creations and deletions,
+including the cascade=true option to remove the k8s resources on undeploy.
+Kuberpult's rollout-service decides about all deletions of argo apps.
+However, what is actually part of a kuberpult app's manifest is up the operator.
+
+For bracket-apps, this is also true, however, when switching from brackets
+back to apps, we do not (necessarily) need to remove the bracket itself, the
+operator can do that.
+
+The cd-service is responsible to send the right brackets to the
+rollout-service. This includes CHANGING brackets. The cd-service sends each change once,
+so that the rollout-service can rely on it.
+
+Kuberpult ensures that the k8s deployment is not deleted, for example when:
+* A service moves to another bracket.
+* An environment is now configured with bracketMode=true.
+* An environment is now configured with bracketMode=false.
+* ...
+
+The only reasons to delete a k8s deployment is when
+* the service is deleted in kuberpult
+* the environment of the service is deleted in kuberpult (delete env from app)
+* the services manifests literally does not contain the deployment anymore (but this is outside our control).
+
+*/
+
 package argo
 
 import (
