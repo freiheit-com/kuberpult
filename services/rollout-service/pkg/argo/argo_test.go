@@ -1973,6 +1973,62 @@ func TestUpdateArgoAppPreservesSyncPolicy(t *testing.T) {
 	}
 }
 
+func TestCreateArgoApplicationAllowEmpty(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		IsBracket      bool
+		WantAllowEmpty bool
+	}{
+		{
+			// Brackets must not auto-prune to empty: that prune-to-empty is what
+			// deletes a moved-away bracket's workload and causes downtime.
+			Name:           "bracket app disables allow-empty",
+			IsBracket:      true,
+			WantAllowEmpty: false,
+		},
+		{
+			Name:           "non-bracket app keeps allow-empty",
+			IsBracket:      false,
+			WantAllowEmpty: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			appInfo := &AppInfo{
+				ApplicationName:       "myapp",
+				TeamName:              "myteam",
+				EnvironmentName:       "staging",
+				ParentEnvironmentName: "staging",
+				IsBracket:             tc.IsBracket,
+				ArgoEnvironmentConfiguration: &api.ArgoCDEnvironmentConfiguration{
+					Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+						Server: "https://kubernetes.default.svc",
+					},
+				},
+			}
+			overview := &api.GetOverviewResponse{
+				ManifestRepoUrl: "https://git.example.com/repo",
+				Branch:          "main",
+			}
+
+			app := CreateArgoApplication(overview, appInfo)
+
+			if app.Spec.SyncPolicy == nil || app.Spec.SyncPolicy.Automated == nil {
+				t.Fatalf("expected an automated sync policy")
+			}
+			if got := app.Spec.SyncPolicy.Automated.AllowEmpty; got != tc.WantAllowEmpty {
+				t.Errorf("AllowEmpty = %v, want %v", got, tc.WantAllowEmpty)
+			}
+			// Prune stays true regardless: within a non-empty app/bracket, Argo still
+			// reconciles removed resources.
+			if !app.Spec.SyncPolicy.Automated.Prune {
+				t.Errorf("Prune = false, want true")
+			}
+		})
+	}
+}
+
 func TestDrainPendingDeletionsRetryOnError(t *testing.T) {
 	tcs := []struct {
 		Name              string

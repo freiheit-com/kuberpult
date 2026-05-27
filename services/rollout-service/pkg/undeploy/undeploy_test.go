@@ -105,7 +105,7 @@ func TestProcessRow(t *testing.T) {
 
 			// Seed the table with one row at the desired attempts level.
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
-				if err := dbHandler.UpsertRolloutUndeployCascade(ctx, tx, argoApp, envName, 0); err != nil {
+				if err := dbHandler.UpsertRolloutUndeployCascade(ctx, tx, argoApp, envName, false, 0); err != nil {
 					return err
 				}
 				for i := 0; i < tc.SeedAttempts; i++ {
@@ -210,7 +210,7 @@ func TestProcessOneBatch(t *testing.T) {
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
 				for i := 0; i < tc.SeedRows; i++ {
 					name := "app" + string(rune('1'+i))
-					if err := dbHandler.UpsertRolloutUndeployCascade(ctx, tx, name, "staging", 0); err != nil {
+					if err := dbHandler.UpsertRolloutUndeployCascade(ctx, tx, name, "staging", false, 0); err != nil {
 						return err
 					}
 				}
@@ -290,7 +290,7 @@ func TestProcessOneBatch_NotBeforeEslId(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
-				return dbHandler.UpsertRolloutUndeployCascade(ctx, tx, "my-app", "staging", tc.NotBeforeTransformerEslId)
+				return dbHandler.UpsertRolloutUndeployCascade(ctx, tx, "my-app", "staging", false, tc.NotBeforeTransformerEslId)
 			})
 			if errW != nil {
 				t.Fatalf("seed: %v", errW)

@@ -43,6 +43,10 @@ argo_app is the value of the com.freiheit.kuberpult/application annotation on
 the Argo Application — i.e. the kuberpult app name for an individual app, or
 the bracket name for a bracket app. The Argo CD Application name is the
 concatenation <env>-<argo_app>.
+
+is_bracket disambiguates the two kinds explicitly: false means argo_app is a plain
+kuberpult app name, true means it is a bracket name. A single queue can therefore
+contain both kinds at once, and each row says which it is.
 */
 const rolloutShouldUndeployCascadeTable = "rollout_should_undeploy_cascade"
 
@@ -52,6 +56,7 @@ type RolloutShouldUndeployCascade struct {
 	Created                   time.Time
 	Attempts                  int
 	NotBeforeTransformerEslId TransformerID
+	IsBracket                 bool
 }
 
 // UpsertRolloutUndeployCascade inserts a pending cascade-delete row.
@@ -62,18 +67,18 @@ type RolloutShouldUndeployCascade struct {
 // writes this row. The rollout-service only processes the row once its gRPC
 // stream has caught up to at least this ESL ID, guaranteeing that any
 // preceding events (e.g. new bracket creation) were processed first.
-func (h *DBHandler) UpsertRolloutUndeployCascade(ctx context.Context, tx *sql.Tx, argoApp string, env types.EnvName, notBeforeTransformerEslId TransformerID) (err error) {
+func (h *DBHandler) UpsertRolloutUndeployCascade(ctx context.Context, tx *sql.Tx, argoApp string, env types.EnvName, isBracket bool, notBeforeTransformerEslId TransformerID) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "UpsertRolloutUndeployCascade")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO ` + rolloutShouldUndeployCascadeTable + ` (argo_app, env, not_before_transformer_esl_id)
-		VALUES (?, ?, ?)
+		INSERT INTO ` + rolloutShouldUndeployCascadeTable + ` (argo_app, env, is_bracket, not_before_transformer_esl_id)
+		VALUES (?, ?, ?, ?)
 		ON CONFLICT(argo_app, env) DO NOTHING;
 	`)
 	span.SetTag("query", upsertQuery)
-	_, err = tx.ExecContext(ctx, upsertQuery, argoApp, env, notBeforeTransformerEslId)
+	_, err = tx.ExecContext(ctx, upsertQuery, argoApp, env, isBracket, notBeforeTransformerEslId)
 	if err != nil {
 		return fmt.Errorf("could not insert rollout undeploy cascade row for argo_app '%s' env '%s': %w", argoApp, env, err)
 	}
@@ -88,7 +93,7 @@ func (h *DBHandler) DBReadRolloutUndeployCascadeBatch(ctx context.Context, tx *s
 		span.Finish(tracer.WithError(err))
 	}()
 	selectQuery := h.AdaptQuery(`
-		SELECT created, argo_app, env, attempts, not_before_transformer_esl_id
+		SELECT created, argo_app, env, attempts, is_bracket, not_before_transformer_esl_id
 		FROM ` + rolloutShouldUndeployCascadeTable + `
 		ORDER BY created ASC, argo_app ASC, env ASC
 		LIMIT ?;
@@ -103,7 +108,7 @@ func (h *DBHandler) DBReadRolloutUndeployCascadeBatch(ctx context.Context, tx *s
 	result := make([]*RolloutShouldUndeployCascade, 0)
 	for rows.Next() {
 		row := RolloutShouldUndeployCascade{}
-		if err := rows.Scan(&row.Created, &row.ArgoApp, &row.Env, &row.Attempts, &row.NotBeforeTransformerEslId); err != nil {
+		if err := rows.Scan(&row.Created, &row.ArgoApp, &row.Env, &row.Attempts, &row.IsBracket, &row.NotBeforeTransformerEslId); err != nil {
 			return nil, fmt.Errorf("could not scan rollout_should_undeploy_cascade row: %w", err)
 		}
 		result = append(result, &row)

@@ -101,6 +101,18 @@ func TestDBRolloutUndeployCascade(t *testing.T) {
 				{ArgoApp: "staging-app2", Env: "staging"},
 			},
 		},
+		{
+			Name: "is_bracket discriminator round-trips for both kinds",
+			UpsertRows: []*RolloutShouldUndeployCascade{
+				{ArgoApp: "plain-app", Env: "staging", IsBracket: false},
+				{ArgoApp: "my-bracket", Env: "staging", IsBracket: true},
+			},
+			BatchLimit: 10,
+			ExpectedRows: []*RolloutShouldUndeployCascade{
+				{ArgoApp: "plain-app", Env: "staging", IsBracket: false},
+				{ArgoApp: "my-bracket", Env: "staging", IsBracket: true},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -109,7 +121,7 @@ func TestDBRolloutUndeployCascade(t *testing.T) {
 
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, row := range tc.UpsertRows {
-					if err := dbHandler.UpsertRolloutUndeployCascade(ctx, transaction, row.ArgoApp, row.Env, row.NotBeforeTransformerEslId); err != nil {
+					if err := dbHandler.UpsertRolloutUndeployCascade(ctx, transaction, row.ArgoApp, row.Env, row.IsBracket, row.NotBeforeTransformerEslId); err != nil {
 						return err
 					}
 				}
@@ -156,11 +168,11 @@ func TestDBRolloutUndeployCascade(t *testing.T) {
 }
 
 // Compile-time guard: the consumer signature is stable so the rollout-service can rely on it.
-var _ = func(h *DBHandler, ctx context.Context, tx *sql.Tx, argoApp string, env types.EnvName, eslId TransformerID) error {
+var _ = func(h *DBHandler, ctx context.Context, tx *sql.Tx, argoApp string, env types.EnvName, isBracket bool, eslId TransformerID) error {
 	if _, err := h.DBReadRolloutUndeployCascadeBatch(ctx, tx, 1); err != nil {
 		return err
 	}
-	if err := h.UpsertRolloutUndeployCascade(ctx, tx, argoApp, env, eslId); err != nil {
+	if err := h.UpsertRolloutUndeployCascade(ctx, tx, argoApp, env, isBracket, eslId); err != nil {
 		return err
 	}
 	if err := h.DBIncrementRolloutUndeployCascadeAttempts(ctx, tx, argoApp, env); err != nil {

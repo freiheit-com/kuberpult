@@ -21,6 +21,9 @@ Package argo manages kuberpult's Argo CD Applications from the rollout-service.
 This section describes the main rules for the rollout-service.
 As such it touches on more than just what happens in this module, but also in the cd-service (overview).
 
+Overarching goal: a running workload must never go down because of a bracket transition, and the
+rollout-service must converge to the correct Argo CD state even after missed messages or restarts.
+
 For non-bracket apps, kuberpult manages all app creations and deletions,
 including the cascade=true option to remove the k8s resources on undeploy.
 Kuberpult's rollout-service decides about all deletions of argo apps.
@@ -30,9 +33,14 @@ For bracket-apps, this is also true, however, when switching from brackets
 back to apps, we do not (necessarily) need to remove the bracket itself, the
 operator can do that.
 
-The cd-service is responsible to send the right brackets to the
-rollout-service. This includes CHANGING brackets. The cd-service sends each change once,
-so that the rollout-service can rely on it.
+The cd-service is responsible to send the right brackets to the rollout-service. This includes
+CHANGING brackets. Each change is sent once, as a fast path.
+
+Reliability does not depend on never missing a message: a deletion (e.g. an emptied bracket) is the
+absence of something and cannot be re-derived from a resync. So the rollout-service must converge by
+reconciling — comparing the brackets that should exist (from the overview) with the Argo apps that
+actually exist, and removing the stragglers — rather than relying solely on the one-shot delete event.
+After a restart, this reconciliation is what restores correctness.
 
 Kuberpult ensures that the k8s deployment is not deleted, for example when:
 * A service moves to another bracket.
@@ -790,8 +798,14 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appInfo *AppInfo) 
 		Automated: &v1alpha1.SyncPolicyAutomated{
 			Prune:    true,
 			SelfHeal: true,
-			// We always allow empty, because it makes it easier to delete apps/environments
-			AllowEmpty: true,
+			// For brackets, AllowEmpty=false is deliberate: it keeps Argo CD's auto-sync from pruning a
+			// bracket down to zero resources when the bracket's source becomes empty (e.g. its only app
+			// moved to another bracket). That auto-prune-to-empty is what caused workload downtime on a
+			// bracket move. Whole-bracket resource removal is instead an explicit, kuberpult-decided
+			// cascade delete via the rollout_should_undeploy_cascade table. Pruning of individual
+			// resources within a still-populated bracket is unaffected (the bracket is not empty).
+			// Non-bracket apps keep AllowEmpty=true (it makes deleting apps/environments easier).
+			AllowEmpty: !appInfo.IsBracket,
 		},
 		SyncOptions: appInfo.ArgoEnvironmentConfiguration.SyncOptions,
 	}
