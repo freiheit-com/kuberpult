@@ -486,9 +486,17 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 						logger.FromContext(ctx).Error("bracket.move.delete.failed",
 							zap.String("app", appInfo.ApplicationName), zap.Error(err))
 					}
-				} else {
+				} else if !appInfo.IsBracket {
+					// Non-bracket app with no deployment: cascade=false safety net for a
+					// transient cd-service overview (e.g. mid helm-upgrade).
 					a.DeleteArgoApps(ctx, ok, appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
 				}
+				// Else: bracket with no deployment AND not a move. Do NOT delete here.
+				// The rollout_should_undeploy_cascade table is the single authority for
+				// removing a bracket together with its workload (cascade=true). A
+				// no-cascade delete from here would beat the ESL-gated cascade=true
+				// consumer to the punch — the app object goes, the cascade=true call
+				// then gets NotFound, and the k8s Deployment is orphaned.
 			}
 		}
 	} else {

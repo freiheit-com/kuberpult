@@ -1696,10 +1696,13 @@ func TestReactToKuberpultEvents(t *testing.T) {
 			},
 		},
 		{
-			// When a bracket becomes fully empty (all apps removed), the bracket ArgoCD app
-			// must be deleted. addEmptyBracketToChange registers the bracket in AppDetails
-			// with no deployment entry, so DeleteArgoApps fires when deployment == nil.
-			Name: "empty bracket: bracket ArgoCD app is deleted when bracket has no apps",
+			// When a bracket becomes fully empty (no member has a deployment in this env), the
+			// rollout-service does NOT delete it from here — that would race ahead of the
+			// ESL-gated cascade=true delete via rollout_should_undeploy_cascade and orphan
+			// the workload. The cascade table is the sole authority for removing an empty
+			// bracket together with its workload. (See argo.go package comment, # Implementation
+			// Details, "per-env bracket existence" rule.)
+			Name: "empty bracket: rollout-service does NOT delete it — cascade table is the authority",
 			KnowArgoApps: []ArgoAppMetadata{
 				{
 					Name:              "bracket-one",
@@ -1748,14 +1751,9 @@ func TestReactToKuberpultEvents(t *testing.T) {
 				},
 			},
 			ExpectedArgoApps: []ArgoAppMetadata{
-				// Bracket app present initially.
+				// Bracket app present, NOT deleted by ProcessArgoOverview. The cascade-table
+				// consumer (undeploy package) is what will eventually cascade=true delete it.
 				{Name: "bracket-one", Environment: "staging", ParentEnvironment: "staging", Event: "ADDED", ManifestPath: "/environments/staging/brackets/bracket-one"},
-				// Bracket app deleted without cascade: rollout-service never cascade-deletes.
-				// Workload resources for the (now empty) bracket are cleaned up by Argo CD's
-				// automated sync with prune when the bracket's manifest path serves no resources.
-				// A genuine app undeploy triggers cascade=true through the rollout-service's
-				// undeploy package, driven by the cd-service writing to rollout_should_undeploy_cascade.
-				{Name: "bracket-one", Environment: "staging", ParentEnvironment: "staging", Event: "DELETED", ManifestPath: "/environments/staging/brackets/bracket-one", NoCascade: true},
 			},
 		},
 	}
@@ -2098,29 +2096,32 @@ func TestDrainPendingDeletionsRetryOnError(t *testing.T) {
 	}
 }
 
-// TestBracketMoveNoCascadeDelete verifies that the rollout-service never
-// cascade-deletes an Argo Application: both the bracket-move case (bracket1
-// replaced by bracket2) and the undeploy-with-no-replacement case use
-// NoCascade=true. Cascading delete on a real undeploy is the responsibility of
-// the undeploy package, triggered by cd-service writes to
-// rollout_should_undeploy_cascade.
+// TestBracketMoveNoCascadeDelete verifies how ProcessArgoOverview handles an empty bracket:
+//   - move case (another bracket has the deployment): ProcessAppChange deletes the old
+//     bracket with NoCascade=true so the new bracket adopts the workload.
+//   - undeploy case (no replacement): ProcessAppChange does NOT delete the bracket; the
+//     rollout_should_undeploy_cascade table is the sole authority for cascade=true delete
+//     of the bracket together with its workload. A no-cascade delete here would race ahead
+//     of the ESL-gated cascade=true consumer and orphan the k8s workload.
 func TestBracketMoveNoCascadeDelete(t *testing.T) {
 	tcs := []struct {
-		Name              string
+		Name string
 		// bracket1 is the pre-existing bracket in KnownApps.
-		// bracket2AppDetails is the replacement (non-nil = move case, nil = undeploy case).
+		// bracket2Deployment is the replacement (non-nil = move case, nil = undeploy case).
 		bracket2Deployment *api.Deployment
-		WantNoCascade      bool
+		WantDeleted        bool // whether ProcessArgoOverview itself should issue a Delete for bracket1
+		WantNoCascade      bool // only checked when WantDeleted is true
 	}{
 		{
-			Name:              "app moves from bracket1 to bracket2: bracket1 deleted without cascade",
+			Name:               "app moves from bracket1 to bracket2: bracket1 deleted without cascade",
 			bracket2Deployment: &api.Deployment{}, //exhaustruct:ignore
-			WantNoCascade:     true,
+			WantDeleted:        true,
+			WantNoCascade:      true,
 		},
 		{
-			Name:              "app undeployed from bracket1 (no replacement): bracket1 still deleted without cascade — DB-driven undeploy handles workload cleanup",
+			Name:               "app undeployed from bracket1 (no replacement): bracket1 NOT deleted by ProcessArgoOverview — cascade table is the authority",
 			bracket2Deployment: nil,
-			WantNoCascade:     true,
+			WantDeleted:        false,
 		},
 	}
 	for _, tc := range tcs {
@@ -2214,11 +2215,15 @@ func TestBracketMoveNoCascadeDelete(t *testing.T) {
 					break
 				}
 			}
-			if bracket1Delete == nil {
-				t.Fatal("bracket1 was not deleted at all")
-			}
-			if diff := cmp.Diff(tc.WantNoCascade, bracket1Delete.NoCascade); diff != "" {
-				t.Errorf("bracket1 NoCascade mismatch (-want +got):\n%s", diff)
+			if tc.WantDeleted {
+				if bracket1Delete == nil {
+					t.Fatal("bracket1 was not deleted at all")
+				}
+				if diff := cmp.Diff(tc.WantNoCascade, bracket1Delete.NoCascade); diff != "" {
+					t.Errorf("bracket1 NoCascade mismatch (-want +got):\n%s", diff)
+				}
+			} else if bracket1Delete != nil {
+				t.Fatalf("bracket1 was deleted by ProcessArgoOverview but the cascade table should be the sole authority (NoCascade=%v)", bracket1Delete.NoCascade)
 			}
 		})
 	}
@@ -2278,20 +2283,26 @@ func TestProcessAppChangeDeferDeletion(t *testing.T) {
 	}
 }
 
-// TestProcessArgoOverviewSortedOrder verifies that ProcessArgoOverview iterates
-// AppDetails in sorted (deterministic) order. Two bracket apps that are both to be
-// deleted (no deployment in the env) must be deleted in alphabetical order of their
-// names, regardless of Go's map iteration randomness.
-func TestProcessArgoOverviewSortedOrder(t *testing.T) {
+// TestProcessArgoOverviewEmptyBracketsNotDeleted verifies the contract documented in
+// the argo.go package comment (# Implementation Details): an empty bracket (no member
+// has a deployment in env E, and no other bracket has it either — i.e. not a move) is
+// NOT deleted by ProcessAppChange. Removing a bracket together with its workload is
+// the exclusive job of the rollout_should_undeploy_cascade table (cascade=true). A
+// no-cascade delete here would race ahead of the ESL-gated cascade=true consumer and
+// orphan the k8s workload (Argo cascade-delete only fires when it deletes the
+// Application object itself; if we already deleted it no-cascade, the resources
+// remain). The AppDetails iteration order is still deterministic (sorting.SortKeys),
+// but it has no observable effect on this path.
+func TestProcessArgoOverviewEmptyBracketsNotDeleted(t *testing.T) {
 	tcs := []struct {
-		Name              string
-		AppKeys           []string // app names added to AppDetails (no deployment — all deleted)
-		WantDeletedOrder  []string // expected argo app names in the order they should appear as DELETED
+		Name             string
+		AppKeys          []string // app names added to AppDetails (no deployment)
+		WantDeletedOrder []string // expected argo app names DELETED by ProcessArgoOverview
 	}{
 		{
-			Name:             "two brackets deleted in alphabetical order",
-			AppKeys:          []string{"bracket-z", "bracket-a"}, // deliberately non-sorted input
-			WantDeletedOrder: []string{"staging-bracket-a", "staging-bracket-z"},
+			Name:             "two empty brackets are NOT deleted here — cascade table is the authority",
+			AppKeys:          []string{"bracket-z", "bracket-a"},
+			WantDeletedOrder: nil,
 		},
 	}
 	for _, tc := range tcs {
