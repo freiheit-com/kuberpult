@@ -121,6 +121,28 @@ func processOneBatch(ctx context.Context, dbHandler *db.DBHandler, appClient arg
 			// pick it up.
 			continue
 		}
+		// Safety check: skip if the app/bracket has been redeployed since this row
+		// was written (e.g. the rollout-service was offline, the app was undeployed
+		// AND redeployed, and now the stale row would destroy the live workload).
+		stalePtr, staleErr := db.WithTransactionT(dbHandler, ctx, 1, true, func(ctx context.Context, tx *sql.Tx) (*bool, error) {
+			s, err := dbHandler.IsCascadeRowStale(ctx, tx, row.ArgoApp, row.Env, row.IsBracket)
+			return &s, err
+		})
+		stale := stalePtr != nil && *stalePtr
+		if staleErr != nil {
+			logger.FromContext(ctx).Error("undeploy: stale-check failed", zap.String("argo_app", row.ArgoApp), zap.Error(staleErr))
+			continue
+		}
+		if stale {
+			logger.FromContext(ctx).Info("undeploy.cascade.skipped.repopulated",
+				zap.String("argo_app", row.ArgoApp),
+				zap.String("env", string(row.Env)),
+				zap.Bool("is_bracket", row.IsBracket))
+			if dbErr := deleteRow(ctx, dbHandler, row); dbErr != nil {
+				logger.FromContext(ctx).Error("undeploy.cascade.stale-row-delete-failed", zap.Error(dbErr))
+			}
+			continue
+		}
 		processRow(ctx, dbHandler, appClient, row)
 	}
 	return len(batch), nil

@@ -158,3 +158,38 @@ func (h *DBHandler) DBIncrementRolloutUndeployCascadeAttempts(ctx context.Contex
 	}
 	return nil
 }
+
+// IsCascadeRowStale reports whether the cascade row is stale — i.e. the app/bracket
+// has been redeployed after the row was written, so firing the cascade delete would
+// destroy a live workload. Called by the rollout-service consumer before issuing the
+// cascade delete: if stale, the row is dropped without action.
+//
+// For plain apps (isBracket=false): stale when the app has an active deployment in env.
+// For brackets (isBracket=true): stale when any member of the bracket has a deployment in env.
+func (h *DBHandler) IsCascadeRowStale(ctx context.Context, tx *sql.Tx, argoApp string, env types.EnvName, isBracket bool) (bool, error) {
+	if !isBracket {
+		dep, err := h.DBSelectLatestDeployment(ctx, tx, types.AppName(argoApp), env)
+		if err != nil {
+			return false, fmt.Errorf("IsCascadeRowStale: %w", err)
+		}
+		return dep != nil && dep.ReleaseNumbers.Version != nil, nil
+	}
+	// Bracket: check if any member has a deployment in this env.
+	bracketRow, err := DBSelectBracketHistoryLatest(ctx, h, tx)
+	if err != nil {
+		return false, fmt.Errorf("IsCascadeRowStale: %w", err)
+	}
+	if bracketRow == nil {
+		return false, nil
+	}
+	for _, app := range bracketRow.AllBracketsJsonBlob.BracketMap[types.ArgoBracketName(argoApp)] {
+		dep, err := h.DBSelectLatestDeployment(ctx, tx, app, env)
+		if err != nil {
+			return false, fmt.Errorf("IsCascadeRowStale: member %q: %w", app, err)
+		}
+		if dep != nil && dep.ReleaseNumbers.Version != nil {
+			return true, nil
+		}
+	}
+	return false, nil
+}

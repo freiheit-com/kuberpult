@@ -22,6 +22,7 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"google.golang.org/grpc"
@@ -322,6 +323,106 @@ func TestProcessOneBatch_NotBeforeEslId(t *testing.T) {
 			}
 			if !tc.WantRowGone && len(rowsAfter) != 1 {
 				t.Errorf("expected row to remain, but got %d rows", len(rowsAfter))
+			}
+		})
+	}
+}
+
+// TestProcessOneBatch_SkipsStaleRows verifies that processOneBatch does NOT issue a
+// cascade Delete when the app/bracket has been repopulated since the cascade row was
+// written (Option 1 safety check). This protects against the rollout-service being
+// offline for a while, during which a bracket/app was undeployed AND redeployed, and
+// then an old stale cascade row firing and destroying the live workload.
+//
+// For a plain-app row (is_bracket=false): if the app has an active deployment in that
+// env, the row is stale → skip Delete, remove row.
+// For a bracket row (is_bracket=true): if any member of the bracket has a deployment
+// in that env, the row is stale → skip Delete, remove row.
+func TestProcessOneBatch_SkipsStaleRows(t *testing.T) {
+	tcs := []struct {
+		Name      string
+		IsBracket bool
+	}{
+		{
+			Name:      "stale plain-app row: app has active deployment, cascade skipped",
+			IsBracket: false,
+		},
+		{
+			Name:      "stale bracket row: bracket member has active deployment, cascade skipped",
+			IsBracket: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			dbHandler := setupDB(t)
+			const appName types.AppName = "my-app"
+			const bracketName types.ArgoBracketName = "my-bracket"
+			const envName types.EnvName = "staging"
+			v := uint64(1)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+				// Seed one ESL event — brackets_history has a FK to event_sourcing_light.
+				if err := dbHandler.DBWriteEslEventInternal(ctx, "empty", tx, interface{}(nil), db.ESLMetadata{}); err != nil {
+					return err
+				}
+				// Seed a release so the deployment FK is satisfied.
+				rel := db.DBReleaseWithMetaData{
+					App:            appName,
+					ReleaseNumbers: types.MakeReleaseNumbers(v, 0),
+					Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{}},
+					Environments:   []types.EnvName{},
+				} //exhaustruct:ignore
+				if err := dbHandler.DBUpdateOrCreateRelease(ctx, tx, rel); err != nil {
+					return err
+				}
+				// Seed an active deployment so the cascade row is "stale".
+				dep := db.Deployment{
+					App:            appName,
+					Env:            envName,
+					ReleaseNumbers: types.MakeReleaseNumbers(v, 0),
+				} //exhaustruct:ignore
+				if err := dbHandler.DBUpdateOrCreateDeployment(ctx, tx, dep); err != nil {
+					return err
+				}
+				if tc.IsBracket {
+					// Also seed bracket membership: appName is a member of bracketName.
+					now := time.Now()
+					if _, err := db.HandleBracketsUpdate(ctx, dbHandler, tx, appName, bracketName, now, 1); err != nil {
+						return err
+					}
+					return dbHandler.UpsertRolloutUndeployCascade(ctx, tx, string(bracketName), envName, true, 0)
+				}
+				return dbHandler.UpsertRolloutUndeployCascade(ctx, tx, string(appName), envName, false, 0)
+			})
+			if err != nil {
+				t.Fatalf("seed: %v", err)
+			}
+
+			mock := &mockAppDeleter{}
+			maxProcessed := &atomic.Int64{}
+			maxProcessed.Store(999) // ESL gate wide open
+			_, batchErr := processOneBatch(ctx, dbHandler, mock, maxProcessed)
+			if batchErr != nil {
+				t.Fatalf("processOneBatch: %v", batchErr)
+			}
+
+			if len(mock.deleteCalls) != 0 {
+				t.Errorf("expected 0 Argo Delete calls (row is stale), got %d", len(mock.deleteCalls))
+			}
+
+			// The stale row must be removed so it doesn't clog the queue.
+			var rowsAfter []*db.RolloutShouldUndeployCascade
+			if err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
+				rows, err := dbHandler.DBReadRolloutUndeployCascadeBatch(ctx, tx, 10)
+				rowsAfter = rows
+				return err
+			}); err != nil {
+				t.Fatalf("read after: %v", err)
+			}
+			if len(rowsAfter) != 0 {
+				t.Errorf("expected stale row removed from queue, got %d rows remaining", len(rowsAfter))
 			}
 		})
 	}
