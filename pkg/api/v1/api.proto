@@ -475,6 +475,7 @@ message GetChangedAppsRequest {}
 message GetChangedAppsResponse {
   repeated GetAppDetailsResponse changed_apps = 1;
   repeated GetBracketDetailsResponse changed_brackets = 2;
+  int64 transformer_esl_id = 3; // max ESL ID from event_sourcing_light at the moment this message was sent
 }
 
 message BracketDeployment {
