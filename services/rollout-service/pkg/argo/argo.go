@@ -396,17 +396,18 @@ func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnv
 			}
 			if err != nil {
 				code := status.Code(err)
-				if code == codes.NotFound {
+				switch code {
+				case codes.NotFound:
 					l.Info("bracket.drain.already-gone",
 						zap.String("app", pd.AppName),
 						zap.String("env", pd.EnvironmentName),
 						zap.String("code", code.String()))
-				} else if code == codes.PermissionDenied {
+				case codes.PermissionDenied:
 					l.Warn("bracket.drain.already-gone",
 						zap.String("app", pd.AppName),
 						zap.String("env", pd.EnvironmentName),
 						zap.String("code", code.String()))
-				} else {
+				default:
 					l.Error("bracket.drain.delete.failed", zap.String("app", pd.AppName), zap.Error(err))
 					remaining = append(remaining, pd)
 				}

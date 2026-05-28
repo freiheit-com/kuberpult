@@ -81,7 +81,6 @@ type mockApplicationServiceClient struct {
 	Apps              []*ArgoApp
 	current           int
 	t                 *testing.T
-	lastEvent         chan *ArgoEvent
 	cancel            context.CancelFunc
 	lastUpdateRequest *application.ApplicationUpdateRequest
 	deleteErr         error
@@ -827,10 +826,9 @@ func TestArgoConsume(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
-				Steps:     tc.Steps,
-				cancel:    cancel,
-				t:         t,
-				lastEvent: make(chan *ArgoEvent, 10),
+				Steps:  tc.Steps,
+				cancel: cancel,
+				t:      t,
 			}
 			hlth := &setup.HealthServer{}
 			argoProcessor := &ArgoAppProcessor{
@@ -983,9 +981,8 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			_, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
-				cancel:    cancel,
-				t:         t,
-				lastEvent: make(chan *ArgoEvent, 10),
+				cancel: cancel,
+				t:      t,
 			}
 			hlth := &setup.HealthServer{}
 			argoProcessor := &ArgoAppProcessor{
@@ -1771,9 +1768,8 @@ func TestReactToKuberpultEvents(t *testing.T) {
 								CancelContext: true,
 							},
 						},
-						cancel:    cancel,
-						t:         t,
-						lastEvent: make(chan *ArgoEvent, 10),
+						cancel: cancel,
+						t:      t,
 					}
 					hlth := &setup.HealthServer{}
 					argoProcessor := &ArgoAppProcessor{
@@ -1916,9 +1912,8 @@ func TestUpdateArgoAppPreservesSyncPolicy(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			testutil.WrapTestRoutine(t, context.Background(), "INFO", func(ctx context.Context) {
 				mockClient := &mockApplicationServiceClient{
-					t:         t,
-					lastEvent: make(chan *ArgoEvent, 10),
-					cancel:    func() {},
+					t:      t,
+					cancel: func() {},
 				}
 				argoProcessor := &ArgoAppProcessor{
 					ApplicationClient:     mockClient,
