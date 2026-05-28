@@ -735,6 +735,7 @@ func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketE
 	result := make(map[string]*api.BracketDeployment)
 	for _, envName := range bracketEnvs {
 		var versionParts []string
+		hasDeployment := false
 		var latestTime time.Time
 		var latestDeployment *api.Deployment
 		var latestAppDetails *api.GetAppDetailsResponse
@@ -745,6 +746,7 @@ func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketE
 				versionParts = append(versionParts, "0")
 				continue
 			}
+			hasDeployment = true
 			versionParts = append(versionParts, fmt.Sprintf("%d", dep.Version))
 
 			if dep.DeploymentMetaData != nil && dep.DeploymentMetaData.DeployTime != nil {
@@ -773,7 +775,12 @@ func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketE
 		}
 
 		version := string(types.JoinBracketVersionFromParts(versionParts))
-		if len(versionParts) == 0 {
+		if !hasDeployment {
+			// No member of this bracket has a deployment in env E. The per-env bracket
+			// Argo app should not exist (see argo.go package comment, "per-env bracket
+			// existence" rule). Emit the delete sentinel so the rollout-service tears
+			// it down — instead of treating all-"0" parts as a live "0:..." version,
+			// which would recreate the app and fight the cascade-delete.
 			version = string(types.BracketVersionDelete)
 		}
 		result[envName] = &api.BracketDeployment{

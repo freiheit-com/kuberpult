@@ -131,6 +131,23 @@ func waitForArgoAppGone(t *testing.T, name string) {
 	t.Fatalf("Argo app %q still present after 3 minutes", name)
 }
 
+// waitForDeploymentGone polls until the named k8s Deployment is no longer present in the
+// given namespace, or the deadline is exceeded. Used to assert that a bracket's workload
+// has been cascade-deleted (the per-env bracket Argo app's resources removed).
+func waitForDeploymentGone(t *testing.T, namespace, name string) {
+	t.Helper()
+	deadline := time.Now().Add(argoAppGoneTimeout)
+	for time.Now().Before(deadline) {
+		_, err := exec.Command("kubectl", "get", "deployment", name, "-n", namespace).Output()
+		if err != nil {
+			tLogf(t, "  Deployment gone: %s/%s", namespace, name)
+			return
+		}
+		time.Sleep(argoAppPollInterval)
+	}
+	t.Fatalf("Deployment %s/%s still present after 3 minutes", namespace, name)
+}
+
 // TestBracketMigration is the regression test for the individual-to-bracket transition.
 //
 // Scenario:
@@ -250,9 +267,11 @@ func deleteEnvFromApp(t *testing.T, env, app string) {
 	}})
 }
 
-// TestBracketDeleteEnvFromApp verifies that removing the last app from a bracket
-// (via deleteEnvFromApp) does not cause the bracket Argo Application to be deleted.
-// The bracket should persist as long as the brackets_history table has an entry.
+// TestBracketDeleteEnvFromApp verifies the per-env bracket existence rule (see argo.go
+// package comment): after the last deployment of a bracket in an env is removed via
+// DeleteEnvFromApp, both the workload Deployment and the per-env bracket Argo app must
+// be gone. The bracket itself persists in brackets_history (the app is still a member
+// globally), so a future deployment can recreate the per-env Argo app.
 func TestBracketDeleteEnvFromApp(t *testing.T) {
 	cleanupCluster(t)
 	tLogf(t, "runSuffix: %s", runSuffix)
@@ -280,11 +299,11 @@ func TestBracketDeleteEnvFromApp(t *testing.T) {
 	tLog(t, "step 6: delete env from app")
 	deleteEnvFromApp(t, stagingNamespace, app)
 
-	tLogf(t, "step 7: %s buffer for rollout-service to reconcile", reconcileBuffer)
-	time.Sleep(reconcileBuffer)
+	tLog(t, "step 7: verify the staging Deployment is gone (workload removed)")
+	waitForDeploymentGone(t, stagingNamespace, app+"-bracket-dep")
 
-	tLog(t, "step 8: verify bracket Argo app still exists (must not be deleted)")
-	waitForArgoApp(t, "staging-"+bracket)
+	tLog(t, "step 8: verify the staging bracket Argo app is gone (per-env existence rule)")
+	waitForArgoAppGone(t, "staging-"+bracket)
 }
 
 // TestBracketReverseMigration is the regression test for the bracket → individual rollback.

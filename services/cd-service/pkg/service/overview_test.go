@@ -3182,21 +3182,21 @@ func TestCombineBracketDeployments(t *testing.T) {
 			WantDeployedEnvs: []string{},
 		},
 		{
-			Name:        "single app with no deployment returns empty version to trigger bracket deletion",
+			Name:        "single app with no deployment returns BracketVersionDelete (per-env existence rule)",
 			Apps:        []*api.GetAppDetailsResponse{app3}, // ccc has no dev deployment
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
-				"dev": "0:",
+				"dev": string(types.BracketVersionDelete),
 			},
 			WantCommit:       map[string]string{"dev": ""},
 			WantDeployedEnvs: []string{"dev"},
 		},
 		{
-			Name:        "all apps with no deployment returns empty version to trigger bracket deletion",
+			Name:        "all apps with no deployment returns BracketVersionDelete (per-env existence rule)",
 			Apps:        []*api.GetAppDetailsResponse{app3, app3}, // both have no dev deployment
 			BracketEnvs: []string{"dev"},
 			WantVersions: map[string]string{
-				"dev": "0:0:",
+				"dev": string(types.BracketVersionDelete),
 			},
 			WantCommit:       map[string]string{"dev": ""},
 			WantDeployedEnvs: []string{"dev"},
