@@ -141,8 +141,7 @@ type PendingDeletion struct {
 }
 
 type ArgoAppProcessor struct {
-	trigger      chan argoTrigger
-	lastOverview *ArgoOverview
+	trigger chan argoTrigger
 
 	maxProcessedTransformerEslId *atomic.Int64
 
@@ -163,7 +162,6 @@ type ArgoAppProcessor struct {
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string) ArgoAppProcessor {
 	return ArgoAppProcessor{
-		lastOverview:                 nil,
 		ApplicationClient:            appClient,
 		ManageArgoAppsEnabled:        manageArgoApplicationEnabled,
 		ManageArgoAppsFilter:         manageArgoApplicationFilter,
@@ -206,7 +204,6 @@ func (a *ArgoAppProcessor) GetManageArgoAppsEnabled() bool {
 
 func (a *ArgoAppProcessor) Push(ctx context.Context, last *ArgoOverview, eslId int64) error {
 	l := logger.FromContext(ctx).With(zap.String("argo-pushing", "ready"))
-	a.lastOverview = last
 	select {
 	case a.trigger <- argoTrigger{overview: last, eslId: eslId}:
 		l.Info("argocd.pushed")

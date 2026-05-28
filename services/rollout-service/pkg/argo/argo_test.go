@@ -832,7 +832,6 @@ func TestArgoConsume(t *testing.T) {
 			}
 			hlth := &setup.HealthServer{}
 			argoProcessor := &ArgoAppProcessor{
-				lastOverview:      tc.ArgoOverview,
 				ApplicationClient: as,
 				trigger:           make(chan argoTrigger, 10),
 				ArgoApps:          make(chan *v1alpha1.ApplicationWatchEvent, 10),
@@ -986,7 +985,6 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 			}
 			hlth := &setup.HealthServer{}
 			argoProcessor := &ArgoAppProcessor{
-				lastOverview:          tc.Overview,
 				ApplicationClient:     as,
 				trigger:               make(chan argoTrigger, 10),
 				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
@@ -1773,7 +1771,6 @@ func TestReactToKuberpultEvents(t *testing.T) {
 					}
 					hlth := &setup.HealthServer{}
 					argoProcessor := &ArgoAppProcessor{
-						lastOverview:                 tc.ArgoOverview[0],
 						ApplicationClient:            mockClient,
 						trigger:                      make(chan argoTrigger, 10),
 						ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
