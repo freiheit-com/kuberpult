@@ -40,7 +40,8 @@ Reliability does not depend on never missing a message: a deletion (e.g. an empt
 absence of something and cannot be re-derived from a resync. So the rollout-service must converge by
 reconciling — comparing the brackets that should exist (from the overview) with the Argo apps that
 actually exist, and removing the stragglers — rather than relying solely on the one-shot delete event.
-After a restart, this reconciliation is what restores correctness.
+After a restart, this reconciliation is what restores correctness. However,
+in some error cases, an empty bracket app may not be removed completely.
 
 The brackets_history table defines which brackets exist GLOBALLY (by member-app membership). A
 per-env bracket Argo Application (<env>-<bracket>) is, however, only required when at least one
@@ -162,17 +163,17 @@ type ArgoAppProcessor struct {
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string) ArgoAppProcessor {
 	return ArgoAppProcessor{
-		lastOverview:                nil,
-		ApplicationClient:           appClient,
-		ManageArgoAppsEnabled:       manageArgoApplicationEnabled,
-		ManageArgoAppsFilter:        manageArgoApplicationFilter,
-		KuberpultMetricsEnabled:     kuberpultMetricsEnabled,
-		ArgoAppsMetricsEnabled:      argoAppsMetricsEnabled,
-		trigger:                     make(chan argoTrigger, triggerChannelSize),
+		lastOverview:                 nil,
+		ApplicationClient:            appClient,
+		ManageArgoAppsEnabled:        manageArgoApplicationEnabled,
+		ManageArgoAppsFilter:         manageArgoApplicationFilter,
+		KuberpultMetricsEnabled:      kuberpultMetricsEnabled,
+		ArgoAppsMetricsEnabled:       argoAppsMetricsEnabled,
+		trigger:                      make(chan argoTrigger, triggerChannelSize),
 		maxProcessedTransformerEslId: &atomic.Int64{},
-		ArgoApps:                    make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
-		DDMetrics:                   ddMetrics,
-		KnownApps:                   map[string]map[string]*v1alpha1.Application{},
+		ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
+		DDMetrics:                    ddMetrics,
+		KnownApps:                    map[string]map[string]*v1alpha1.Application{},
 		//
 		ExperimentalBracketsClusters: experimentalBracketsClusters,
 		pendingDeletions:             []PendingDeletion{},
