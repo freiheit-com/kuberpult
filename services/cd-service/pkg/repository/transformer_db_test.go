@@ -4102,6 +4102,68 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 	}
 }
 
+func TestUndeployBracketCascade(t *testing.T) {
+	const env = envAcceptance
+	tcs := []struct {
+		Name         string
+		Transformers []Transformer
+		// Expected cascade rows (Created/Attempts/eslId ignored).
+		ExpectedRows []*db.RolloutShouldUndeployCascade
+	}{
+		{
+			// Two apps share a bracket. Undeploying the last one empties the bracket, so the
+			// bracket's Argo app must be queued for cascade-delete (is_bracket=true), in addition
+			// to the per-app rows (is_bracket=false).
+			Name: "undeploying the last app in a multi-app bracket queues a bracket cascade",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: env, Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: env, Latest: true}}},
+				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "mybracket", Team: "t", WriteCommitData: true},
+				&CreateApplicationVersion{Application: "app2", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "mybracket", Team: "t", WriteCommitData: true},
+				&CreateUndeployApplicationVersion{Application: "app1"},
+				&UndeployApplication{Application: "app1"},
+				&CreateUndeployApplicationVersion{Application: "app2"},
+				&UndeployApplication{Application: "app2"},
+			},
+			ExpectedRows: []*db.RolloutShouldUndeployCascade{
+				{ArgoApp: "app1", Env: env, IsBracket: false},
+				{ArgoApp: "app2", Env: env, IsBracket: false},
+				{ArgoApp: "mybracket", Env: env, IsBracket: true},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			repo := SetupRepositoryTestWithDB(t)
+			err := repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...); err != nil {
+					return fmt.Errorf("apply: %v", err)
+				}
+				got, err := repo.State().DBHandler.DBReadRolloutUndeployCascadeBatch(ctx, transaction, 100)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.ExpectedRows, got,
+					cmpopts.IgnoreFields(db.RolloutShouldUndeployCascade{}, "Created", "Attempts", "NotBeforeTransformerEslId"),
+					cmpopts.SortSlices(func(a, b *db.RolloutShouldUndeployCascade) bool {
+						if a.ArgoApp != b.ArgoApp {
+							return a.ArgoApp < b.ArgoApp
+						}
+						return a.Env < b.Env
+					}),
+				); diff != "" {
+					t.Errorf("cascade rows mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction: %v", err)
+			}
+		})
+	}
+}
+
 func TestUndeployApplicationDB(t *testing.T) {
 	tcs := []struct {
 		Name          string

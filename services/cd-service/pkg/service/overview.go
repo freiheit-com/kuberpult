@@ -640,6 +640,23 @@ func (o *OverviewServiceServer) StreamChangedApps(_ *api.GetChangedAppsRequest,
 				ov.ChangedBrackets = changedBrackets
 			}
 
+			// Include the current max ESL ID so the rollout-service can gate
+			// cascade-deletes: it must not cascade-delete an old bracket until
+			// it has fully processed up to this ESL ID (which means the new
+			// bracket Argo Application has already been created).
+			if err := o.DBHandler.WithTransaction(stream.Context(), true, func(ctx context.Context, tx *sql.Tx) error {
+				row, err := o.DBHandler.DBReadEslEventInternal(ctx, tx, false)
+				if err != nil {
+					return err
+				}
+				if row != nil {
+					ov.TransformerEslId = int64(row.EslVersion)
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("StreamChangedApps: read max ESL version: %w", err)
+			}
+
 			logging.Info(stream.Context(), "StreamChangedApps called", zap.Any("response", ov))
 
 			if err := stream.Send(ov); err != nil {
@@ -718,6 +735,7 @@ func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketE
 	result := make(map[string]*api.BracketDeployment)
 	for _, envName := range bracketEnvs {
 		var versionParts []string
+		hasDeployment := false
 		var latestTime time.Time
 		var latestDeployment *api.Deployment
 		var latestAppDetails *api.GetAppDetailsResponse
@@ -728,6 +746,7 @@ func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketE
 				versionParts = append(versionParts, "0")
 				continue
 			}
+			hasDeployment = true
 			versionParts = append(versionParts, fmt.Sprintf("%d", dep.Version))
 
 			if dep.DeploymentMetaData != nil && dep.DeploymentMetaData.DeployTime != nil {
@@ -756,7 +775,12 @@ func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketE
 		}
 
 		version := string(types.JoinBracketVersionFromParts(versionParts))
-		if len(versionParts) == 0 {
+		if !hasDeployment {
+			// No member of this bracket has a deployment in env E. The per-env bracket
+			// Argo app should not exist (see argo.go package comment, "per-env bracket
+			// existence" rule). Emit the delete sentinel so the rollout-service tears
+			// it down — instead of treating all-"0" parts as a live "0:..." version,
+			// which would recreate the app and fight the cascade-delete.
 			version = string(types.BracketVersionDelete)
 		}
 		result[envName] = &api.BracketDeployment{
@@ -790,7 +814,9 @@ func (o *OverviewServiceServer) getBracketDetails(ctx context.Context, bracketNa
 func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedApps []types.AppName) ([]*api.GetBracketDetailsResponse, error) {
 	type changedBracketsLookup struct {
 		bracketRow         *db.BracketRow
+		prevBracketRow     *db.BracketRow
 		deletedAppBrackets map[types.AppName]types.ArgoBracketName
+		liveApps           map[types.AppName]bool
 	}
 
 	lookup, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, tx *sql.Tx) (*changedBracketsLookup, error) {
@@ -798,7 +824,12 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 		if err != nil {
 			return nil, err
 		}
+		prevBracketRow, err := db.DBSelectBracketHistoryPrevious(ctx, o.DBHandler, tx)
+		if err != nil {
+			return nil, err
+		}
 		deletedAppBrackets := make(map[types.AppName]types.ArgoBracketName)
+		liveApps := make(map[types.AppName]bool)
 		for _, appName := range changedApps {
 			app, err := o.DBHandler.DBSelectApp(ctx, tx, appName)
 			if err != nil {
@@ -807,8 +838,11 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 			if app != nil && app.ArgoBracket != "" {
 				deletedAppBrackets[appName] = app.ArgoBracket
 			}
+			if app != nil && app.StateChange != db.AppStateChangeDelete {
+				liveApps[appName] = true
+			}
 		}
-		return &changedBracketsLookup{bracketRow: bracketRow, deletedAppBrackets: deletedAppBrackets}, nil
+		return &changedBracketsLookup{bracketRow: bracketRow, prevBracketRow: prevBracketRow, deletedAppBrackets: deletedAppBrackets, liveApps: liveApps}, nil
 	})
 	if err != nil {
 		return nil, err
@@ -851,6 +885,28 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 				if !seen[bracketName] {
 					seen[bracketName] = true
 					affectedBrackets = append(affectedBrackets, bracketName)
+				}
+			}
+		}
+		// Include the bracket a still-existing app just *left* if that bracket became
+		// empty (a bracket move). Without this the now-orphaned old bracket Argo app is
+		// never deleted, and its auto-sync prunes the workload the app moved to the new
+		// bracket. A real undeploy (app deleted) is intentionally skipped here — its
+		// resource cleanup goes through the rollout_should_undeploy_cascade path.
+		if lookup.prevBracketRow != nil {
+			prevMap := lookup.prevBracketRow.AllBracketsJsonBlob.BracketMap
+			for _, appName := range changedApps {
+				if !lookup.liveApps[appName] {
+					continue
+				}
+				for prevBracket, apps := range prevMap {
+					if _, stillExists := bracketMap[prevBracket]; stillExists {
+						continue // old bracket still has apps; not emptied
+					}
+					if slices.Contains(apps, appName) && !seen[prevBracket] {
+						seen[prevBracket] = true
+						affectedBrackets = append(affectedBrackets, prevBracket)
+					}
 				}
 			}
 		}
