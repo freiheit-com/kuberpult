@@ -123,17 +123,57 @@ type bracketResult struct {
 	revision  string
 }
 
+// parseBracketSegment splits the 4th path component into a bracket name and an
+// optional brackets_history.source_transformer_esl_id. The rollout-service appends
+// "@<esl_id>" so the reposerver can read the exact snapshot the Argo CD app was
+// last spec-updated against, even if a newer brackets_history row has already
+// arrived but the rollout-service has not yet refreshed the Argo CD app spec.
+//
+// Returns isLegacyFormat=true when the segment carries no "@<esl_id>" suffix.
+// In that case the caller must fall back to DBSelectBracketHistoryLatest and the
+// returned eslId is meaningless (zero). This handles pre-upgrade Argo CD apps
+// that were created before the rollout-service learned to embed the esl_id;
+// they keep working until the rollout-service refreshes their spec.
+func parseBracketSegment(segment string) (bracketName types.ArgoBracketName, eslId db.TransformerID, isLegacyFormat bool, err error) {
+	at := strings.LastIndex(segment, "@")
+	if at < 0 {
+		return types.ArgoBracketName(segment), 0, true, nil
+	}
+	name := segment[:at]
+	idStr := segment[at+1:]
+	parsed, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return "", 0, false, fmt.Errorf("generateBracketManifest: malformed esl_id in path segment '%s': %w", segment, err)
+	}
+	return types.ArgoBracketName(name), db.TransformerID(parsed), false, nil
+}
+
 func (r *reposerver) generateBracketManifest(ctx context.Context, split []string, req *argorepo.ManifestRequest) (*argorepo.ManifestResponse, error) {
 	envName := types.EnvName(split[1])
-	bracketName := types.ArgoBracketName(split[3])
+	bracketName, eslId, isLegacyFormat, err := parseBracketSegment(split[3])
+	if err != nil {
+		return nil, err
+	}
 
 	result, err := db.WithTransactionT[bracketResult](r.dbHandler, ctx, 3, true, func(ctx context.Context, transaction *sql.Tx) (*bracketResult, error) {
-		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, r.dbHandler, transaction)
-		if err != nil {
-			return nil, fmt.Errorf("generateBracketManifest: could not get bracket history: %w", err)
-		}
-		if bracketRow == nil {
-			return nil, fmt.Errorf("generateBracketManifest: no bracket history found for bracket '%s'", bracketName)
+		var bracketRow *db.BracketRow
+		var err error
+		if isLegacyFormat {
+			bracketRow, err = db.DBSelectBracketHistoryLatest(ctx, r.dbHandler, transaction)
+			if err != nil {
+				return nil, fmt.Errorf("generateBracketManifest: could not get bracket history: %w", err)
+			}
+			if bracketRow == nil {
+				return nil, fmt.Errorf("generateBracketManifest: no bracket history found for bracket '%s'", bracketName)
+			}
+		} else {
+			bracketRow, err = db.DBSelectBracketHistoryById(ctx, r.dbHandler, transaction, eslId)
+			if err != nil {
+				return nil, fmt.Errorf("generateBracketManifest: could not get bracket history at esl_id %d: %w", eslId, err)
+			}
+			if bracketRow == nil {
+				return nil, fmt.Errorf("generateBracketManifest: no bracket history found at esl_id %d for bracket '%s'", eslId, bracketName)
+			}
 		}
 		appNames := bracketRow.AllBracketsJsonBlob.BracketMap[bracketName]
 		sortedAppNames := db.SortAppNames(appNames)
