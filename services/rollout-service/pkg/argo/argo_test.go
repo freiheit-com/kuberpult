@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -79,7 +80,6 @@ type mockApplicationServiceClient struct {
 	Apps              []*ArgoApp
 	current           int
 	t                 *testing.T
-	lastEvent         chan *ArgoEvent
 	cancel            context.CancelFunc
 	lastUpdateRequest *application.ApplicationUpdateRequest
 	deleteErr         error
@@ -818,17 +818,18 @@ func TestArgoConsume(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
-				Steps:     tc.Steps,
-				cancel:    cancel,
-				t:         t,
-				lastEvent: make(chan *ArgoEvent, 10),
+				Steps:  tc.Steps,
+				cancel: cancel,
+				t:      t,
 			}
 			hlth := &setup.HealthServer{}
 			argoProcessor := &ArgoAppProcessor{
-				lastOverview:          tc.ArgoOverview,
-				ApplicationClient:     as,
-				trigger:               make(chan *ArgoOverview, 10),
-				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				ApplicationClient: as,
+				trigger:           make(chan argoTrigger, 10),
+				ArgoApps:          make(chan *v1alpha1.ApplicationWatchEvent, 10),
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+
 				ManageArgoAppsEnabled: true,
 				ManageArgoAppsFilter:  []string{"*"},
 				KnownApps:             map[string]map[string]*v1alpha1.Application{},
@@ -845,7 +846,7 @@ func TestArgoConsume(t *testing.T) {
 				errChConsumeArgo <- ConsumeArgo(ctx, hlth.Reporter("consume-argo"), as, argoProcessor.ArgoApps)
 			}()
 
-			err := argoProcessor.Push(ctx, tc.ArgoOverview)
+			err := argoProcessor.Push(ctx, tc.ArgoOverview, 0)
 			if err != nil {
 				t.Fatalf("error running Push: %v", err)
 			}
@@ -971,19 +972,19 @@ func TestCreateOrUpdateArgoApp(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			_, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
-				cancel:    cancel,
-				t:         t,
-				lastEvent: make(chan *ArgoEvent, 10),
+				cancel: cancel,
+				t:      t,
 			}
 			hlth := &setup.HealthServer{}
 			argoProcessor := &ArgoAppProcessor{
-				lastOverview:          tc.Overview,
 				ApplicationClient:     as,
-				trigger:               make(chan *ArgoOverview, 10),
+				trigger:               make(chan argoTrigger, 10),
 				ArgoApps:              make(chan *v1alpha1.ApplicationWatchEvent, 10),
 				ManageArgoAppsEnabled: tc.ArgoManageEnabled,
 				ManageArgoAppsFilter:  tc.ArgoManageFilter,
 				KnownApps:             map[string]map[string]*v1alpha1.Application{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 
@@ -1748,20 +1749,20 @@ func TestReactToKuberpultEvents(t *testing.T) {
 								CancelContext: true,
 							},
 						},
-						cancel:    cancel,
-						t:         t,
-						lastEvent: make(chan *ArgoEvent, 10),
+						cancel: cancel,
+						t:      t,
 					}
 					hlth := &setup.HealthServer{}
 					argoProcessor := &ArgoAppProcessor{
-						lastOverview:                 tc.ArgoOverview[0],
 						ApplicationClient:            mockClient,
-						trigger:                      make(chan *ArgoOverview, 10),
+						trigger:                      make(chan argoTrigger, 10),
 						ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
 						ManageArgoAppsEnabled:        true,
 						ManageArgoAppsFilter:         []string{"*"},
 						KnownApps:                    map[string]map[string]*v1alpha1.Application{},
 						ExperimentalBracketsClusters: tc.ExperimentalBracketsClusters,
+
+						maxProcessedTransformerEslId: &atomic.Int64{},
 					}
 					argoProcessor.PopulateAppsToKnownApps(tc.KnowArgoApps)
 					mockClient.PopulateApps(tc.KnowArgoApps)
@@ -1770,7 +1771,7 @@ func TestReactToKuberpultEvents(t *testing.T) {
 					errChConsume := make(chan error)
 
 					for _, ov := range tc.ArgoOverview {
-						err := argoProcessor.Push(ctx, ov)
+						err := argoProcessor.Push(ctx, ov, 0)
 						if err != nil {
 							t.Fatalf("unexpected error on Push: %v", err)
 						}
@@ -1891,15 +1892,16 @@ func TestUpdateArgoAppPreservesSyncPolicy(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			testutil.WrapTestRoutine(t, context.Background(), "INFO", func(ctx context.Context) {
 				mockClient := &mockApplicationServiceClient{
-					t:         t,
-					lastEvent: make(chan *ArgoEvent, 10),
-					cancel:    func() {},
+					t:      t,
+					cancel: func() {},
 				}
 				argoProcessor := &ArgoAppProcessor{
 					ApplicationClient:     mockClient,
 					ManageArgoAppsEnabled: true,
 					ManageArgoAppsFilter:  []string{"*"},
 					KnownApps:             map[string]map[string]*v1alpha1.Application{},
+
+					maxProcessedTransformerEslId: &atomic.Int64{},
 				}
 
 				overview := &api.GetOverviewResponse{
