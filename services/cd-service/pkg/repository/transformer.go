@@ -1175,7 +1175,7 @@ func (u *UndeployApplication) Transform(
 	if err != nil {
 		return "", err
 	}
-	var deployedEnvs []types.EnvName
+	var undeployedEnvs []types.EnvName
 	for env := range configs {
 		err := state.checkUserPermissions(ctx, transaction, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig, true)
 		if err != nil {
@@ -1201,7 +1201,7 @@ func (u *UndeployApplication) Transform(
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication: could not signal cascade-delete for env '%s': %w", env, err)
 			}
-			deployedEnvs = append(deployedEnvs, env)
+			undeployedEnvs = append(undeployedEnvs, env)
 		}
 		locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
 		if err != nil {
@@ -1250,7 +1250,7 @@ func (u *UndeployApplication) Transform(
 	// (<env>-<bracket>) must be cascade-deleted too — its workload is no longer
 	// pruned by Argo auto-sync (AllowEmpty=false on brackets). is_bracket=true.
 	if dbApp.ArgoBracket != "" {
-		for _, env := range deployedEnvs {
+		for _, env := range undeployedEnvs {
 			empty, err := bracketEmptyInEnv(ctx, state, transaction, dbApp.ArgoBracket, env)
 			if err != nil {
 				return "", fmt.Errorf("UndeployApplication: could not check bracket emptiness for env '%s': %w", env, err)
