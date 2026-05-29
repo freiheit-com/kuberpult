@@ -95,14 +95,8 @@ done
 # shellcheck source=ports.sh
 source "$(dirname "$0")/ports.sh"
 
-if [[ $(uname -o) == Darwin ]];
-then
-  EMAIL=$(echo -n "script-user@example.com" | base64 -b 0)
-  AUTHOR=$(echo -n "script-user" | base64 -b 0)
-else
-  EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
-  AUTHOR=$(echo -n "script-user" | base64 -w 0)
-fi
+EMAIL=$(echo -n "script-user@example.com" | base64 | tr -d '\n')
+AUTHOR=$(echo -n "script-user" | base64 | tr -d '\n')
 
 inputs=()
 inputs+=(--form-string "application=$name")
