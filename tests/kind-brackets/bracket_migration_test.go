@@ -250,9 +250,10 @@ func deleteEnvFromApp(t *testing.T, env, app string) {
 	}})
 }
 
-// TestBracketDeleteEnvFromApp verifies that removing the last app from a bracket
-// (via deleteEnvFromApp) does not cause the bracket Argo Application to be deleted.
-// The bracket should persist as long as the brackets_history table has an entry.
+// TestBracketDeleteEnvFromApp verifies that removing the last app's env from a bracket
+// (via deleteEnvFromApp) cascade-deletes the per-env bracket Argo Application: once no
+// member of the bracket is deployed in that env, the <env>-<bracket> Argo app is torn
+// down. The bracket itself persists in brackets_history for future deployments.
 func TestBracketDeleteEnvFromApp(t *testing.T) {
 	cleanupCluster(t)
 	tLogf(t, "runSuffix: %s", runSuffix)
@@ -283,8 +284,8 @@ func TestBracketDeleteEnvFromApp(t *testing.T) {
 	tLogf(t, "step 7: %s buffer for rollout-service to reconcile", reconcileBuffer)
 	time.Sleep(reconcileBuffer)
 
-	tLog(t, "step 8: verify bracket Argo app still exists (must not be deleted)")
-	waitForArgoApp(t, "staging-"+bracket)
+	tLog(t, "step 8: verify bracket Argo app is cascade-deleted (no member deployed in env)")
+	waitForArgoAppGone(t, "staging-"+bracket)
 }
 
 // TestBracketReverseMigration is the regression test for the bracket → individual rollback.
