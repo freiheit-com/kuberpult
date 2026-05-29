@@ -31,6 +31,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -2014,6 +2015,70 @@ func TestCreateArgoApplicationAllowEmpty(t *testing.T) {
 			// reconciles removed resources.
 			if !app.Spec.SyncPolicy.Automated.Prune {
 				t.Errorf("Prune = false, want true")
+			}
+		})
+	}
+}
+
+func TestCreateArgoApplicationBracketPath(t *testing.T) {
+	tcs := []struct {
+		Name                 string
+		IsBracket            bool
+		BracketSnapshotEslId db.TransformerID
+		WantPath             string
+	}{
+		{
+			Name:                 "non-bracket app keeps its applications/<app>/manifests path regardless of esl_id",
+			IsBracket:            false,
+			BracketSnapshotEslId: 42,
+			WantPath:             "environments/staging/applications/myapp/manifests",
+		},
+		{
+			Name:                 "bracket with zero esl_id emits legacy path (no @ suffix)",
+			IsBracket:            true,
+			BracketSnapshotEslId: 0,
+			WantPath:             "environments/staging/brackets/myapp",
+		},
+		{
+			Name:                 "bracket with esl_id embeds @<esl_id> for the reposerver",
+			IsBracket:            true,
+			BracketSnapshotEslId: 42,
+			WantPath:             "environments/staging/brackets/myapp@42",
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			appInfo := &AppInfo{
+				ApplicationName:       "myapp",
+				TeamName:              "myteam",
+				EnvironmentName:       "staging",
+				ParentEnvironmentName: "staging",
+				IsBracket:             tc.IsBracket,
+				BracketSnapshotEslId:  tc.BracketSnapshotEslId,
+				ArgoEnvironmentConfiguration: &api.ArgoCDEnvironmentConfiguration{
+					Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+						Server: "https://kubernetes.default.svc",
+					},
+				},
+			}
+			overview := &api.GetOverviewResponse{
+				ManifestRepoUrl: "https://git.example.com/repo",
+				Branch:          "main",
+			}
+
+			app := CreateArgoApplication(overview, appInfo)
+
+			if app.Spec.Source == nil {
+				t.Fatalf("expected non-nil Source")
+			}
+			if got := app.Spec.Source.Path; got != tc.WantPath {
+				t.Errorf("Spec.Source.Path = %q, want %q", got, tc.WantPath)
+			}
+			// The manifest-generate-paths annotation must mirror the source path (with leading /).
+			wantAnnotation := "/" + tc.WantPath
+			if got := app.Annotations["argocd.argoproj.io/manifest-generate-paths"]; got != wantAnnotation {
+				t.Errorf("manifest-generate-paths annotation = %q, want %q", got, wantAnnotation)
 			}
 		})
 	}

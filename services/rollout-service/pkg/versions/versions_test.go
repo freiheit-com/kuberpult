@@ -491,7 +491,7 @@ func TestConsumeEvents(t *testing.T) {
 
 			vc := &versionClient{
 				overviewClient:               mockClient,
-				ArgoProcessor:                argo.New(nil, false, false, false, []string{}, 10, 10, nil, tc.BracketClusters),
+				ArgoProcessor:                argo.New(nil, false, false, false, []string{}, 10, 10, nil, tc.BracketClusters, nil),
 				cache:                        lru.New(20),
 				experimentalBracketsClusters: tc.BracketClusters,
 			}

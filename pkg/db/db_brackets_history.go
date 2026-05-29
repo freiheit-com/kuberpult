@@ -42,8 +42,9 @@ const bracketsHistoryTable = "brackets_history"
 
 // BracketRow represents one row in the table brackets_history
 type BracketRow struct {
-	CreatedAt           time.Time
-	AllBracketsJsonBlob BracketJsonBlob
+	CreatedAt              time.Time
+	AllBracketsJsonBlob    BracketJsonBlob
+	SourceTransformerEslId TransformerID // FK to event_sourcing_light.eslversion; written by HandleBracketsUpdate
 }
 
 type AppNames = []types.AppName
@@ -175,7 +176,7 @@ func DBSelectBracketHistoryLatest(ctx context.Context, h *DBHandler, tx *sql.Tx)
 	}()
 
 	selectQuery := h.AdaptQuery(`
-		SELECT created_at, all_brackets
+		SELECT created_at, all_brackets, source_transformer_esl_id
 		FROM ` + bracketsHistoryTable + `
 		ORDER BY esl_id DESC 	-- order by id
 		LIMIT 1 				-- take only latest entry
@@ -220,7 +221,7 @@ func DBSelectBracketHistoryPrevious(ctx context.Context, h *DBHandler, tx *sql.T
 	}()
 
 	selectQuery := h.AdaptQuery(`
-		SELECT created_at, all_brackets
+		SELECT created_at, all_brackets, source_transformer_esl_id
 		FROM ` + bracketsHistoryTable + `
 		ORDER BY esl_id DESC 	-- order by id
 		LIMIT 1 				-- take only one entry
@@ -237,7 +238,7 @@ func DBSelectBracketHistoryById(ctx context.Context, h *DBHandler, tx *sql.Tx, e
 
 	args := []any{eslVersion}
 	selectQuery := h.AdaptQuery(`
-		SELECT created_at, all_brackets
+		SELECT created_at, all_brackets, source_transformer_esl_id
 		FROM ` + bracketsHistoryTable + `
 		WHERE source_transformer_esl_id = (?) -- get the row that existed at the given transformer ID
 		LIMIT 1            					  -- there can only be one row per transform ID
@@ -253,10 +254,10 @@ func DBSelectBracketHistoryLatestBeforeId(ctx context.Context, h *DBHandler, tx 
 
 	args := []any{maxEslVersion}
 	selectQuery := h.AdaptQuery(`
-		SELECT created_at, all_brackets
+		SELECT created_at, all_brackets, source_transformer_esl_id
 		FROM ` + bracketsHistoryTable + `
 		WHERE source_transformer_esl_id  < (?)   -- get the rows that existed before the given transformer ID
-		ORDER BY source_transformer_esl_id desc  -- sort by biggest(latest) Id first 
+		ORDER BY source_transformer_esl_id desc  -- sort by biggest(latest) Id first
 		LIMIT 1                                  -- only take latest Id
 	;`)
 	return executeSelectQuery(ctx, tx, selectQuery, args...)
@@ -264,8 +265,13 @@ func DBSelectBracketHistoryLatestBeforeId(ctx context.Context, h *DBHandler, tx 
 
 func processBracketHistoryRow(rows *sql.Rows) (*BracketRow, error) {
 	var rawJson []byte
+	// Migration 1776181279323115 added source_transformer_esl_id via ALTER TABLE without a default
+	// or NOT NULL constraint and without backfilling existing rows, so any row inserted before that
+	// migration ran carries NULL here. Subsequent inserts via DBInsertBracketHistory always supply a
+	// value, but the column-level nullability stays, so scan defensively.
+	var sourceTransformerEslId sql.NullInt64
 	result := BracketRow{}
-	err := rows.Scan(&result.CreatedAt, &rawJson)
+	err := rows.Scan(&result.CreatedAt, &rawJson, &sourceTransformerEslId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -277,6 +283,9 @@ func processBracketHistoryRow(rows *sql.Rows) (*BracketRow, error) {
 		return nil, fmt.Errorf("row contains invalid json: <%s>: %w", rawJson, err)
 	}
 	result.AllBracketsJsonBlob = parsedJson
+	if sourceTransformerEslId.Valid {
+		result.SourceTransformerEslId = TransformerID(sourceTransformerEslId.Int64)
+	}
 	return &result, nil
 }
 

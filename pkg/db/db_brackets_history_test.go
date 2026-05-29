@@ -65,6 +65,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 						"b1": {"app1", "app2"},
 					},
 				},
+				SourceTransformerEslId: 1,
 			},
 		},
 		{
@@ -95,6 +96,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 						"b1": {"app3", "app2"},
 					},
 				},
+				SourceTransformerEslId: 2,
 			},
 		},
 		{
@@ -125,6 +127,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 						"b1": {"app1", "app2"},
 					},
 				},
+				SourceTransformerEslId: 1,
 			},
 		},
 	}
@@ -221,6 +224,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"b1": {"app1"},
 					},
 				},
+				SourceTransformerEslId: 10,
 			},
 		},
 		{
@@ -252,6 +256,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"b2": {"app2"},
 					},
 				},
+				SourceTransformerEslId: 12,
 			},
 		},
 		{
@@ -276,6 +281,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{},
 				},
+				SourceTransformerEslId: 20,
 			},
 		},
 		{
@@ -300,6 +306,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{},
 				},
+				SourceTransformerEslId: 20,
 			},
 		},
 		{
@@ -331,6 +338,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"b1": {"app2"},
 					},
 				},
+				SourceTransformerEslId: 20,
 			},
 		},
 		{
@@ -357,6 +365,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"b1": {"app1"},
 					},
 				},
+				SourceTransformerEslId: 20,
 			},
 		},
 		{
@@ -382,6 +391,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"app1": {"app1"},
 					},
 				},
+				SourceTransformerEslId: 11,
 			},
 		},
 		{
@@ -418,6 +428,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"foo": {"app2"},
 					},
 				},
+				SourceTransformerEslId: 13,
 			},
 		},
 	}
@@ -521,6 +532,7 @@ func TestDBSelectBracketHistoryPrevious(t *testing.T) {
 						"b1": {"app1"},
 					},
 				},
+				SourceTransformerEslId: 10,
 			},
 		},
 	}
@@ -622,6 +634,7 @@ func TestHandleBracketDoubleDeletion(t *testing.T) {
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{},
 				},
+				SourceTransformerEslId: 21,
 			},
 		},
 	}

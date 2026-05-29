@@ -85,6 +85,7 @@ package argo
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -103,6 +104,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
@@ -154,6 +156,11 @@ type ArgoAppProcessor struct {
 	ManageArgoAppsFilter    []string
 	DDMetrics               statsd.ClientInterface
 	KnownApps               map[string]map[string]*v1alpha1.Application
+	// DBHandler is read by ProcessArgoOverview to look up the current brackets_history
+	// snapshot so its source_transformer_esl_id can be embedded in each bracket Argo CD
+	// app's Spec.Source.Path (see CreateArgoApplication). Nil in unit tests; non-nil in
+	// production. When nil, the legacy path format (no @<esl_id> suffix) is emitted.
+	DBHandler *db.DBHandler
 	//
 	ExperimentalBracketsClusters []string
 	// The apps that will be recreated as brackets.
@@ -161,7 +168,7 @@ type ArgoAppProcessor struct {
 	pendingDeletions []PendingDeletion
 }
 
-func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string) ArgoAppProcessor {
+func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string, dbHandler *db.DBHandler) ArgoAppProcessor {
 	return ArgoAppProcessor{
 		ApplicationClient:            appClient,
 		ManageArgoAppsEnabled:        manageArgoApplicationEnabled,
@@ -173,6 +180,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
 		DDMetrics:                    ddMetrics,
 		KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+		DBHandler:                    dbHandler,
 		//
 		ExperimentalBracketsClusters: experimentalBracketsClusters,
 		pendingDeletions:             []PendingDeletion{},
@@ -262,6 +270,10 @@ type ArgoOverview struct {
 
 func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, argoOv *ArgoOverview) {
 	overview := argoOv.Overview
+	// All bracket Argo CD apps emitted from this overview tick should pin the same
+	// brackets_history snapshot, so the reposerver can read the exact app list each
+	// bracket was last spec-updated against. Read it once up-front.
+	bracketSnapshotEslId := a.lookupBracketSnapshotEslId(ctx, l)
 	for _, currentApp := range sorting.SortKeys(argoOv.AppDetails) {
 		currentAppDetails := argoOv.AppDetails[currentApp]
 		span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
@@ -282,6 +294,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 							ParentEnvironmentName:        parentEnvironment.Name,
 							ArgoEnvironmentConfiguration: cfg,
 							IsBracket:                    isBracket,
+							BracketSnapshotEslId:         bracketSnapshotEslId,
 						}
 						a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview, argoOv.AppDetails)
 					}
@@ -293,6 +306,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 						ParentEnvironmentName:        parentEnvironment.Name,
 						ArgoEnvironmentConfiguration: parentEnvironment.Config.Argocd,
 						IsBracket:                    isBracket,
+						BracketSnapshotEslId:         bracketSnapshotEslId,
 					}
 					a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview, argoOv.AppDetails)
 				}
@@ -301,6 +315,32 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 		}
 		span.Finish()
 	}
+}
+
+// lookupBracketSnapshotEslId returns the source_transformer_esl_id of the latest
+// brackets_history row, or 0 if the lookup is skipped (no DB handler) or fails
+// (no rows, or DB error). A zero value triggers the legacy path format in
+// CreateArgoApplication, which the reposerver still understands.
+func (a *ArgoAppProcessor) lookupBracketSnapshotEslId(ctx context.Context, l *zap.Logger) db.TransformerID {
+	if a.DBHandler == nil {
+		return 0
+	}
+	var result db.TransformerID
+	err := a.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
+		row, err := db.DBSelectBracketHistoryLatest(ctx, a.DBHandler, tx)
+		if err != nil {
+			return err
+		}
+		if row != nil {
+			result = row.SourceTransformerEslId
+		}
+		return nil
+	})
+	if err != nil {
+		l.Warn("brackets.history.lookup.failed", zap.Error(err))
+		return 0
+	}
+	return result
 }
 
 func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, envName string, argoCDConfig *api.ArgoCDEnvironmentConfiguration) string {
@@ -591,6 +631,11 @@ type AppInfo struct {
 	ParentEnvironmentName        string
 	ArgoEnvironmentConfiguration *api.ArgoCDEnvironmentConfiguration
 	IsBracket                    bool
+	// BracketSnapshotEslId is the brackets_history.source_transformer_esl_id that
+	// will be embedded as "@<esl_id>" in the bracket Argo CD app's Spec.Source.Path.
+	// Zero means "emit the legacy path with no suffix" (e.g. for non-bracket apps
+	// or when the rollout-service runs without DB access in tests).
+	BracketSnapshotEslId db.TransformerID
 }
 
 func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {
@@ -769,7 +814,15 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appInfo *AppInfo) 
 
 	var manifestPath string
 	if appInfo.IsBracket {
-		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "brackets", appInfo.ApplicationName)
+		// Append "@<source_transformer_esl_id>" so the reposerver reads the exact
+		// brackets_history snapshot this Argo CD app was last spec-updated against.
+		// Zero means "no snapshot known yet" (e.g. tests without DB) — emit the legacy
+		// path so the reposerver falls back to DBSelectBracketHistoryLatest.
+		bracketName := appInfo.ApplicationName
+		if appInfo.BracketSnapshotEslId != 0 {
+			bracketName = fmt.Sprintf("%s@%d", bracketName, appInfo.BracketSnapshotEslId)
+		}
+		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "brackets", bracketName)
 	} else {
 		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "applications", appInfo.ApplicationName, "manifests")
 	}
