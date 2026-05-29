@@ -14,6 +14,73 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
+/*
+Package argo manages kuberpult's Argo CD Applications from the rollout-service.
+
+# How the rollout is intended to work (especially for brackets) - high level description
+This section describes the main rules for the rollout-service.
+As such it touches on more than just what happens in this module, but also in the cd-service (overview).
+
+Overarching goal: a running workload must never go down because of a bracket transition, and the
+rollout-service must converge to the correct Argo CD state even after missed messages or restarts.
+
+For non-bracket apps, kuberpult manages all app creations and deletions,
+including the cascade=true option to remove the k8s resources on undeploy.
+Kuberpult's rollout-service decides about all deletions of argo apps.
+However, what is actually part of a kuberpult app's manifest is up the operator.
+
+For bracket-apps, this is also true, however, when switching from brackets
+back to apps, we do not (necessarily) need to remove the bracket itself, the
+operator can do that.
+
+The cd-service is responsible to send the right brackets to the rollout-service. This includes
+CHANGING brackets. Each change is sent once, as a fast path.
+
+Reliability does not depend on never missing a message: a deletion (e.g. an emptied bracket) is the
+absence of something and cannot be re-derived from a resync. So the rollout-service must converge by
+reconciling — comparing the brackets that should exist (from the overview) with the Argo apps that
+actually exist, and removing the stragglers — rather than relying solely on the one-shot delete event.
+After a restart, this reconciliation is what restores correctness. However,
+in some error cases, an empty bracket app may not be removed completely.
+
+The brackets_history table defines which brackets exist GLOBALLY (by member-app membership). A
+per-env bracket Argo Application (<env>-<bracket>) is, however, only required when at least one
+member of the bracket has a deployment in that env. When the last deployment of a bracket in env
+E disappears, kuberpult cascade-deletes the per-env bracket Argo app — removing its workload —
+while the bracket itself persists in brackets_history for future deployments. The Argo Application
+object is not the source of truth; the workload's existence is.
+
+Kuberpult ensures that the k8s deployment is not deleted, for example when:
+* A service moves to another bracket.
+* An environment is now configured with bracketMode=true.
+* An environment is now configured with bracketMode=false.
+* ...
+
+The only reasons to delete a k8s deployment is when
+* the service is deleted in kuberpult
+* the environment of the service is deleted in kuberpult (delete env from app)
+* the services manifests literally does not contain the deployment anymore (but this is outside our control).
+
+# Implementation Details
+
+* All resource-removing (cascade=true) deletions of Argo Applications go through one place: the
+  rollout_should_undeploy_cascade table, written by the cd-service and consumed by the ESL-gated
+  undeploy worker. The is_bracket column says whether the row targets an individual app or a
+  bracket. Argo CD's auto-sync is never the actor that removes a whole bracket's workload.
+* Bracket Argo apps are created with Automated{Prune:true, SelfHeal:true, AllowEmpty:false}.
+  Prune:true reconciles individual resource changes within a populated bracket. AllowEmpty:false
+  prevents Argo CD from auto-pruning a bracket down to zero resources — the prune-to-empty that
+  caused workload downtime on bracket moves. Non-bracket apps keep AllowEmpty:true.
+* The brackets_history table defines which brackets exist globally. A per-env bracket Argo
+  Application exists iff at least one member has a deployment in that env. When the last such
+  deployment goes away (undeploy of the last member, or DeleteEnvFromApp on the last member's
+  only env), kuberpult cascade-deletes the per-env bracket Argo app via the cascade table.
+* combineBracketDeployments (cd-service/pkg/service/overview.go) emits the BracketVersionDelete
+  sentinel for env E when no member has a deployment in E, so the rollout-service tears down the
+  per-env bracket Argo app instead of recreating it.
+
+*/
+
 package argo
 
 import (
@@ -484,6 +551,12 @@ func isAAEnv(config *api.EnvironmentConfig) bool {
 func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, ev *v1alpha1.ApplicationWatchEvent) {
 	envName, appName := getEnvironmentAndName(ev.Application.Annotations)
 	if appName == "" {
+		l.Info("event.ignored",
+			zap.String("source", "argocd"),
+			zap.String("env", envName),
+			zap.String("reason", "app-not-tagged"),
+			zap.Any("annotations", ev.Application.Annotations),
+		)
 		return
 	}
 	if a.KnownApps[envName] == nil {
