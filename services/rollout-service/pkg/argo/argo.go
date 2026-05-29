@@ -544,10 +544,13 @@ func IsSelfManagedFilterActive(team string, processor Processor) (bool, error) {
 }
 
 func calculateFinalizers() []string {
-
-	return []string{
-		"resources-finalizer.argocd.argoproj.io",
-	}
+	// No finalizers: workload cleanup goes through Argo CD's automated sync
+	// (prune=true) when manifests disappear from the source, and through the
+	// explicit cd-service → rollout_should_undeploy_cascade table → consumer
+	// path that issues a cascade=true delete from the undeploy package. The
+	// resources-finalizer is unnecessary and only made flaky helm-upgrade
+	// races destroy workload Deployments.
+	return nil
 }
 
 func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment) {
@@ -652,8 +655,14 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appInfo *AppInfo) 
 		Automated: &v1alpha1.SyncPolicyAutomated{
 			Prune:    true,
 			SelfHeal: true,
-			// We always allow empty, because it makes it easier to delete apps/environments
-			AllowEmpty: true,
+			// For brackets, AllowEmpty=false is deliberate: it keeps Argo CD's auto-sync from pruning a
+			// bracket down to zero resources when the bracket's source becomes empty (e.g. its only app
+			// moved to another bracket). That auto-prune-to-empty is what caused workload downtime on a
+			// bracket move. Whole-bracket resource removal is instead an explicit, kuberpult-decided
+			// cascade delete via the rollout_should_undeploy_cascade table. Pruning of individual
+			// resources within a still-populated bracket is unaffected (the bracket is not empty).
+			// Non-bracket apps keep AllowEmpty=true (it makes deleting apps/environments easier).
+			AllowEmpty: !appInfo.IsBracket,
 		},
 		SyncOptions: appInfo.ArgoEnvironmentConfiguration.SyncOptions,
 	}
