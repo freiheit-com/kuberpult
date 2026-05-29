@@ -959,6 +959,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	logging.Info(ctx, "rendering of environments",
 		zap.Strings("skippedEnvs", types.EnvNamesToStrings(skippedEnvs)),
 		zap.Strings("renderedEnvs", types.EnvNamesToStrings(renderedEnvs)),
+		zap.Any("changedEnvs", changedEnvironments),
 	)
 	return errorGroup.Wait()
 }
@@ -1133,7 +1134,7 @@ func CalculateAppDataWithBrackets(
 	appToTeamMap := appTeamsToMap(appTeams)
 	for bracketName, appNames := range bracketMap {
 		bracketsTeamNames := []string{}
-		//appsInBracket := []argocd.AppTeam{}
+		hasDeployedApp := false
 		for _, appName := range appNames {
 			appsTeamName, ok := appToTeamMap[appName]
 			if !ok {
@@ -1149,7 +1150,14 @@ func CalculateAppDataWithBrackets(
 				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
 				continue
 			}
+			hasDeployedApp = true
 			bracketsTeamNames = append(bracketsTeamNames, appsTeamName)
+		}
+
+		if !hasDeployedApp {
+			// no app in this bracket has a live deployment in this env at the timestamp,
+			// so the bracket must not appear in the env's root app, so we skip:
+			continue
 		}
 
 		appData = append(appData, argocd.AppData{

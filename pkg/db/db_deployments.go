@@ -745,6 +745,32 @@ func (h *DBHandler) DBDeleteDeployment(ctx context.Context, tx *sql.Tx, appName 
 	return nil
 }
 
+// DBDeleteDeploymentWithHistory removes the current deployment for the given app/env and records
+// the un-deployment in the append-only deployments_history table (a row with a nil release
+// version). Callers that delete a deployment should use this instead of DBDeleteDeployment, so
+// timestamped history queries (e.g. DBSelectAppsWithDeploymentInEnvAtTimestamp) reflect the
+// deletion at the transformer's timestamp. The metadata records who performed the deletion.
+func (h *DBHandler) DBDeleteDeploymentWithHistory(ctx context.Context, tx *sql.Tx, appName types.AppName, envName types.EnvName, transformerID TransformerID, metadata DeploymentMetadata) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBDeleteDeploymentWithHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	if err = h.DBDeleteDeployment(ctx, tx, appName, envName); err != nil {
+		return err
+	}
+	return h.insertDeploymentHistoryRow(ctx, tx, Deployment{
+		Created: time.Time{},
+		App:     appName,
+		Env:     envName,
+		ReleaseNumbers: types.ReleaseNumbers{
+			Version:  nil,
+			Revision: 0,
+		},
+		Metadata:      metadata,
+		TransformerID: transformerID,
+	})
+}
+
 func (h *DBHandler) DBMigrationUpdateDeploymentsTimestamp(ctx context.Context, transaction *sql.Tx, application types.AppName, releaseversion uint64, env types.EnvName, createdAt time.Time, revision uint64) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBMigrationUpdateDeploymentsTimestamp")
 	defer func() {

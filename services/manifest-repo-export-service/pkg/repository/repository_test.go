@@ -234,6 +234,54 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 				},
 			},
 		},
+		{
+			// an app that has no (live) deployment in this env must not be rendered into
+			// the env's root app, even if it still has a team/release.
+			Name:          "app without a deployment is not rendered",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "deployed",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "undeployed",
+					TeamName: "t1",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"deployed"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:        "deployed",
+					ReferencedAppTeams: []string{"t1"},
+				},
+			},
+		},
+		{
+			// a bracket in which no contained app has a live deployment must not be rendered.
+			Name: "bracket without any deployed app is not rendered",
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1"},
+				"p1": {"pow1"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{
+					AppName:  "foo1",
+					TeamName: "t1",
+				},
+				{
+					AppName:  "pow1",
+					TeamName: "t2",
+				},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1"}),
+			ExpectedAppData: []argocd.AppData{
+				{
+					ArgoAppName:        "f1",
+					ReferencedAppTeams: []string{"t1"},
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -1077,6 +1125,8 @@ spec:
 					},
 				},
 				{
+					// The app is released but not yet deployed. Since the env's root app only
+					// references apps with a live deployment, only the AppProject is rendered here.
 					Transformers: []Transformer{
 						&CreateApplicationVersion{
 							Application: "test",
@@ -1100,30 +1150,6 @@ spec:
   - server: development
   sourceRepos:
   - '*'
----
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  annotations:
-    argocd.argoproj.io/manifest-generate-paths: ""
-    com.freiheit.kuberpult/aa-parent-environment: production
-    com.freiheit.kuberpult/application: test
-    com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/teams: ""
-  finalizers:
-  - resources-finalizer.argocd.argoproj.io
-  labels:
-    com.freiheit.kuberpult/teams: ""
-  name: production-test
-spec:
-  destination:
-    server: development
-  project: production
-  syncPolicy:
-    automated:
-      allowEmpty: true
-      prune: true
-      selfHeal: true
 `),
 						},
 					},
@@ -1226,6 +1252,8 @@ spec:
 					},
 				},
 				{
+					// The app is released but not yet deployed; only the AppProject is rendered
+					// because the root app references apps with a live deployment.
 					Transformers: []Transformer{
 						&CreateApplicationVersion{
 							Application: "test",
@@ -1257,30 +1285,6 @@ spec:
   - server: development
   sourceRepos:
   - '*'
----
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  annotations:
-    argocd.argoproj.io/manifest-generate-paths: ""
-    com.freiheit.kuberpult/aa-parent-environment: production
-    com.freiheit.kuberpult/application: test
-    com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/teams: ""
-  finalizers:
-  - resources-finalizer.argocd.argoproj.io
-  labels:
-    com.freiheit.kuberpult/teams: ""
-  name: production-test
-spec:
-  destination:
-    server: development
-  project: production
-  syncPolicy:
-    automated:
-      allowEmpty: true
-      prune: true
-      selfHeal: true
 `),
 						},
 					},

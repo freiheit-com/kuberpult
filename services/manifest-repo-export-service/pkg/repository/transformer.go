@@ -1579,16 +1579,24 @@ func (c *DeleteEnvFromApp) Transform(
 	if entries, err := fs.ReadDir(envAppDir); err != nil {
 		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory"))
 	} else if entries == nil {
-		return thisSprintf("environment does not exist."), nil
-	}
+		// environment does not exist, we do not need to delete any dirs
+	} else {
+		appLocksDir := fs.Join(envAppDir, "locks")
 
-	appLocksDir := fs.Join(envAppDir, "locks")
-	if err := fs.Remove(appLocksDir); err != nil {
-		return "", thisErrorf("cannot delete app locks '%v'", appLocksDir)
-	}
+		if _, err := fs.Stat(appLocksDir); err != nil {
+			if !errors.Is(err, os.ErrNotExist) { // only errors other that "not exist" are unexpected => propagate
+				return "", wrapFileError(err, appLocksDir, thisSprintf("Could not open lock directory"))
+			}
+		} else {
+			if err := fs.Remove(appLocksDir); err != nil {
+				return "", thisErrorf("cannot delete app locks '%v'", appLocksDir)
+			}
+		}
 
-	if err := fs.Remove(envAppDir); err != nil {
-		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app."))
+		// we already know envAppDir exists, now just delete it:
+		if err := fs.Remove(envAppDir); err != nil {
+			return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app."))
+		}
 	}
 
 	tCtx.DeleteEnvFromApp(c.Application, c.Environment)
