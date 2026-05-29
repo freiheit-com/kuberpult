@@ -31,6 +31,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
@@ -97,7 +98,7 @@ func (m *mockApplicationServiceClient) ListResourceEvents(ctx context.Context, i
 }
 
 func (m *mockApplicationServiceClient) Get(ctx context.Context, in *application.ApplicationQuery, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
-	panic("implement me")
+	return nil, status.Error(codes.NotFound, "app not found")
 }
 
 func (m *mockApplicationServiceClient) GetApplicationSyncWindows(ctx context.Context, in *application.ApplicationSyncWindowsQuery, opts ...grpc.CallOption) (*application.ApplicationSyncWindowsResponse, error) {
@@ -187,6 +188,7 @@ func (m *mockApplicationServiceClient) ListResourceLinks(ctx context.Context, in
 type ArgoApp struct {
 	App       *v1alpha1.Application
 	LastEvent string
+	NoCascade bool
 }
 
 // Simulates receiving events from ARGO. Sends those to the  argoAppsChannel from the argo app processor.
@@ -235,9 +237,10 @@ func (m *mockApplicationServiceClient) Delete(ctx context.Context, req *applicat
 	if m.deleteErr != nil {
 		return nil, m.deleteErr
 	}
+	noCascade := req.Cascade != nil && !*req.Cascade
 	for _, app := range m.Apps {
 		if app.App.Name == *req.Name {
-			deleteApp := &ArgoApp{App: app.App, LastEvent: "DELETED"}
+			deleteApp := &ArgoApp{App: app.App, LastEvent: "DELETED", NoCascade: noCascade}
 			m.Apps = append(m.Apps, deleteApp)
 			return nil, nil
 		}
@@ -264,11 +267,15 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 		App:       req.Application,
 		LastEvent: "ADDED",
 	}
+	// Only skip creation if the app is currently active (last event was not DELETED).
+	lastEvent := ""
 	for _, existingArgoApp := range m.Apps {
 		if existingArgoApp.App.Name == req.Application.Name {
-			// App already exists
-			return nil, nil
+			lastEvent = existingArgoApp.LastEvent
 		}
+	}
+	if lastEvent == "ADDED" || lastEvent == "MODIFIED" {
+		return nil, nil
 	}
 	m.Apps = append(m.Apps, newApp)
 	return nil, nil
@@ -295,6 +302,7 @@ func ArgoAppToMetaData(app *ArgoApp) ArgoAppMetadata {
 		ParentEnvironment: app.App.Annotations["com.freiheit.kuberpult/aa-parent-environment"],
 		Event:             app.LastEvent,
 		ManifestPath:      app.App.Annotations["argocd.argoproj.io/manifest-generate-paths"],
+		NoCascade:         app.NoCascade,
 	}
 }
 
@@ -1016,6 +1024,7 @@ type ArgoAppMetadata struct {
 	Event             string
 	ManifestPath      string
 	IsBracket         bool
+	NoCascade         bool
 }
 
 // Receiving information kuberpult applications triggers changes in
@@ -1388,11 +1397,14 @@ func TestReactToKuberpultEvents(t *testing.T) {
 					ManifestPath:      "/environments/staging/applications/foo2/manifests",
 				},
 				{
+					// rollout-service no longer cascade-deletes here — cascade=true on real
+					// undeploy is the cd-service → rollout_should_undeploy_cascade path.
 					Name:              "foo",
 					Environment:       "test-staging-de-1",
 					ParentEnvironment: "staging",
 					Event:             "DELETED",
 					ManifestPath:      "/environments/staging/applications/foo/manifests",
+					NoCascade:         true,
 				},
 				{
 					Name:              "foo",
@@ -1400,6 +1412,7 @@ func TestReactToKuberpultEvents(t *testing.T) {
 					ParentEnvironment: "staging",
 					Event:             "DELETED",
 					ManifestPath:      "/environments/staging/applications/foo/manifests",
+					NoCascade:         true,
 				},
 			},
 		},
@@ -1612,8 +1625,8 @@ func TestReactToKuberpultEvents(t *testing.T) {
 		},
 		{
 			// When staging is switched back from true→false and deployment data is present,
-			// the bracket app must be deleted without cascade so k8s resources persist.
-			// Individual app creation is deferred to the next cycle.
+			// the bracket app must be deleted without cascade so k8s resources persist,
+			// and the individual app must be created in the same cycle.
 			Name: "bracket rollback race resolved: bracket app deleted without cascade when deployment exists",
 			KnowArgoApps: []ArgoAppMetadata{
 				{
@@ -1672,14 +1685,19 @@ func TestReactToKuberpultEvents(t *testing.T) {
 				// Bracket app present initially.
 				{Name: "myapp", Environment: "staging", ParentEnvironment: "staging", Event: "ADDED", ManifestPath: "/environments/staging/brackets/myapp"},
 				// Bracket app deleted without cascade (no k8s resource disruption).
-				{Name: "myapp", Environment: "staging", ParentEnvironment: "staging", Event: "DELETED", ManifestPath: "/environments/staging/brackets/myapp"},
+				{Name: "myapp", Environment: "staging", ParentEnvironment: "staging", Event: "DELETED", ManifestPath: "/environments/staging/brackets/myapp", NoCascade: true},
+				// Individual app created in the same cycle.
+				{Name: "myapp", Environment: "staging", ParentEnvironment: "staging", Event: "ADDED", ManifestPath: "/environments/staging/applications/myapp/manifests"},
 			},
 		},
 		{
-			// When a bracket becomes fully empty (all apps removed), the bracket ArgoCD app
-			// must be deleted. addEmptyBracketToChange registers the bracket in AppDetails
-			// with no deployment entry, so DeleteArgoApps fires when deployment == nil.
-			Name: "empty bracket: bracket ArgoCD app is deleted when bracket has no apps",
+			// When a bracket becomes fully empty (no member has a deployment in this env), the
+			// rollout-service does NOT delete it from here — that would race ahead of the
+			// ESL-gated cascade=true delete via rollout_should_undeploy_cascade and orphan
+			// the workload. The cascade table is the sole authority for removing an empty
+			// bracket together with its workload. (See argo.go package comment, # Implementation
+			// Details, "per-env bracket existence" rule.)
+			Name: "empty bracket: rollout-service does NOT delete it — cascade table is the authority",
 			KnowArgoApps: []ArgoAppMetadata{
 				{
 					Name:              "bracket-one",
@@ -1728,10 +1746,9 @@ func TestReactToKuberpultEvents(t *testing.T) {
 				},
 			},
 			ExpectedArgoApps: []ArgoAppMetadata{
-				// Bracket app present initially.
+				// Bracket app present, NOT deleted by ProcessArgoOverview. The cascade-table
+				// consumer (undeploy package) is what will eventually cascade=true delete it.
 				{Name: "bracket-one", Environment: "staging", ParentEnvironment: "staging", Event: "ADDED", ManifestPath: "/environments/staging/brackets/bracket-one"},
-				// Bracket app deleted (cascading) because no apps remain.
-				{Name: "bracket-one", Environment: "staging", ParentEnvironment: "staging", Event: "DELETED", ManifestPath: "/environments/staging/brackets/bracket-one"},
 			},
 		},
 	}
@@ -2058,12 +2075,370 @@ func TestDrainPendingDeletionsRetryOnError(t *testing.T) {
 						AppName:               appName,
 					},
 				},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 
 			argoProcessor.drainPendingDeletions(ctx, parentEnvName)
 
 			if got := len(argoProcessor.pendingDeletions); got != tc.ExpectedRemaining {
 				t.Errorf("pendingDeletions length: want %d, got %d", tc.ExpectedRemaining, got)
+			}
+		})
+	}
+}
+
+// TestBracketMoveNoCascadeDelete verifies how ProcessArgoOverview handles an empty bracket:
+//   - move case (another bracket has the deployment): ProcessAppChange deletes the old
+//     bracket with NoCascade=true so the new bracket adopts the workload.
+//   - undeploy case (no replacement): ProcessAppChange does NOT delete the bracket; the
+//     rollout_should_undeploy_cascade table is the sole authority for cascade=true delete
+//     of the bracket together with its workload. A no-cascade delete here would race ahead
+//     of the ESL-gated cascade=true consumer and orphan the k8s workload.
+func TestBracketMoveNoCascadeDelete(t *testing.T) {
+	tcs := []struct {
+		Name string
+		// bracket1 is the pre-existing bracket in KnownApps.
+		// bracket2Deployment is the replacement (non-nil = move case, nil = undeploy case).
+		bracket2Deployment *api.Deployment
+		WantDeleted        bool // whether ProcessArgoOverview itself should issue a Delete for bracket1
+		WantNoCascade      bool // only checked when WantDeleted is true
+	}{
+		{
+			Name:               "app moves from bracket1 to bracket2: bracket1 deleted without cascade",
+			bracket2Deployment: &api.Deployment{}, //exhaustruct:ignore
+			WantDeleted:        true,
+			WantNoCascade:      true,
+		},
+		{
+			Name:               "app undeployed from bracket1 (no replacement): bracket1 NOT deleted by ProcessArgoOverview — cascade table is the authority",
+			bracket2Deployment: nil,
+			WantDeleted:        false,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+
+			mockClient := &mockApplicationServiceClient{
+				deleteErr: nil,
+			}
+
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient:            mockClient,
+				ManageArgoAppsEnabled:        true,
+				ManageArgoAppsFilter:         []string{"*"},
+				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+				ExperimentalBracketsClusters: []string{"staging"},
+				trigger:                      make(chan argoTrigger, 10),
+				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				pendingDeletions:             []PendingDeletion{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+			}
+
+			// Seed KnownApps and mockClient.Apps with the pre-existing bracket1 app.
+			argoProcessor.PopulateAppsToKnownApps([]ArgoAppMetadata{
+				{
+					Name: "bracket1", Environment: "staging", ParentEnvironment: "staging",
+					Event: "ADDED", ManifestPath: "/environments/staging/brackets/bracket1",
+					IsBracket: true,
+				},
+			})
+			mockClient.PopulateApps([]ArgoAppMetadata{
+				{
+					Name: "bracket1", Environment: "staging", ParentEnvironment: "staging",
+					Event: "ADDED", ManifestPath: "/environments/staging/brackets/bracket1",
+				},
+			})
+
+			// Build AppDetails: bracket1 is empty; bracket2 has a deployment only when
+			// tc.bracket2Deployment != nil (the move case).
+			appDetails := map[string]*api.GetAppDetailsResponse{
+				"bracket1": {
+					//exhaustruct:ignore
+					Application: &api.Application{Name: "bracket1", ArgoBracket: "bracket1"},
+					Deployments: map[string]*api.Deployment{},
+				},
+			}
+			if tc.bracket2Deployment != nil {
+				appDetails["bracket2"] = &api.GetAppDetailsResponse{
+					//exhaustruct:ignore
+					Application: &api.Application{Name: "bracket2", ArgoBracket: "bracket2"},
+					Deployments: map[string]*api.Deployment{"staging": tc.bracket2Deployment},
+				}
+			}
+
+			argoOv := &ArgoOverview{
+				AppDetails: appDetails,
+				Overview: &api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "staging-group",
+							Environments: []*api.Environment{
+								{
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
+									Config: &api.EnvironmentConfig{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+												Name:   "staging",
+												Server: "test-server",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					GitRevision: "1234",
+				},
+			}
+
+			l := logger.FromContext(ctx)
+			argoProcessor.ProcessArgoOverview(ctx, l, argoOv)
+
+			// Find the DELETED entry for bracket1 in mockClient.Apps.
+			var bracket1Delete *ArgoApp
+			for _, app := range mockClient.Apps {
+				name := app.App.Annotations["com.freiheit.kuberpult/application"]
+				if name == "bracket1" && app.LastEvent == "DELETED" {
+					bracket1Delete = app
+					break
+				}
+			}
+			if tc.WantDeleted {
+				if bracket1Delete == nil {
+					t.Fatal("bracket1 was not deleted at all")
+				}
+				if diff := cmp.Diff(tc.WantNoCascade, bracket1Delete.NoCascade); diff != "" {
+					t.Errorf("bracket1 NoCascade mismatch (-want +got):\n%s", diff)
+				}
+			} else if bracket1Delete != nil {
+				t.Fatalf("bracket1 was deleted by ProcessArgoOverview but the cascade table should be the sole authority (NoCascade=%v)", bracket1Delete.NoCascade)
+			}
+		})
+	}
+}
+
+func TestProcessAppChangeDeferDeletion(t *testing.T) {
+	tcs := []struct {
+		Name string
+	}{
+		{Name: "bracket not yet established: app deferred to pendingDeletions"},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			envName := "development"
+			appName := "my-app"
+
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient:            &mockApplicationServiceClient{},
+				ManageArgoAppsEnabled:        false,
+				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+				ExperimentalBracketsClusters: []string{envName},
+				pendingDeletions:             []PendingDeletion{},
+				trigger:                      make(chan argoTrigger, 10),
+				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+			}
+			appDetails := &api.GetAppDetailsResponse{
+				//exhaustruct:ignore
+				Application: &api.Application{Name: appName, Team: "test-team"},
+				Deployments: map[string]*api.Deployment{},
+			}
+			appInfo := &AppInfo{
+				ApplicationName:       appName,
+				EnvironmentName:       envName,
+				ParentEnvironmentName: envName,
+				IsBracket:             false,
+				TeamName:              "test-team",
+				ArgoEnvironmentConfiguration: &api.ArgoCDEnvironmentConfiguration{
+					//exhaustruct:ignore
+					Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+						Name: envName,
+					},
+				},
+			}
+
+			argoProcessor.ProcessAppChange(ctx, appInfo, appDetails, &api.GetOverviewResponse{}, map[string]*api.GetAppDetailsResponse{})
+
+			if got := len(argoProcessor.pendingDeletions); got != 1 {
+				t.Fatalf("pendingDeletions: want 1, got %d", got)
+			}
+			if diff := testutil.CmpDiff(appName, argoProcessor.pendingDeletions[0].AppName); diff != "" {
+				t.Errorf("pendingDeletion AppName mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestProcessArgoOverviewEmptyBracketsNotDeleted verifies the contract documented in
+// the argo.go package comment (# Implementation Details): an empty bracket (no member
+// has a deployment in env E, and no other bracket has it either — i.e. not a move) is
+// NOT deleted by ProcessAppChange. Removing a bracket together with its workload is
+// the exclusive job of the rollout_should_undeploy_cascade table (cascade=true). A
+// no-cascade delete here would race ahead of the ESL-gated cascade=true consumer and
+// orphan the k8s workload (Argo cascade-delete only fires when it deletes the
+// Application object itself; if we already deleted it no-cascade, the resources
+// remain). The AppDetails iteration order is still deterministic (sorting.SortKeys),
+// but it has no observable effect on this path.
+func TestProcessArgoOverviewEmptyBracketsNotDeleted(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		AppKeys          []string // app names added to AppDetails (no deployment)
+		WantDeletedOrder []string // expected argo app names DELETED by ProcessArgoOverview
+	}{
+		{
+			Name:             "two empty brackets are NOT deleted here — cascade table is the authority",
+			AppKeys:          []string{"bracket-z", "bracket-a"},
+			WantDeletedOrder: nil,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+
+			mockClient := &mockApplicationServiceClient{deleteErr: nil}
+
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient:            mockClient,
+				ManageArgoAppsEnabled:        true,
+				ManageArgoAppsFilter:         []string{"*"},
+				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+				ExperimentalBracketsClusters: []string{"staging"},
+				trigger:                      make(chan argoTrigger, 10),
+				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				pendingDeletions:             []PendingDeletion{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+			}
+
+			// Seed KnownApps and mock with all bracket apps.
+			for _, name := range tc.AppKeys {
+				argoProcessor.PopulateAppsToKnownApps([]ArgoAppMetadata{
+					{
+						Name: name, Environment: "staging", ParentEnvironment: "staging",
+						Event: "ADDED", IsBracket: true,
+					},
+				})
+				mockClient.PopulateApps([]ArgoAppMetadata{
+					{Name: name, Environment: "staging", ParentEnvironment: "staging", Event: "ADDED"},
+				})
+			}
+
+			// Build AppDetails: all apps have no deployment in staging.
+			appDetails := map[string]*api.GetAppDetailsResponse{}
+			for _, name := range tc.AppKeys {
+				appDetails[name] = &api.GetAppDetailsResponse{
+					//exhaustruct:ignore
+					Application: &api.Application{Name: name, ArgoBracket: name},
+					Deployments: map[string]*api.Deployment{},
+				}
+			}
+
+			argoOv := &ArgoOverview{
+				AppDetails: appDetails,
+				Overview: &api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "staging-group",
+							Environments: []*api.Environment{
+								{
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
+									Config: &api.EnvironmentConfig{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+												Name:   "staging",
+												Server: "test-server",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					GitRevision: "1234",
+				},
+			}
+
+			l := logger.FromContext(ctx)
+			argoProcessor.ProcessArgoOverview(ctx, l, argoOv)
+
+			// Collect DELETED entries in the order they were appended to mockClient.Apps.
+			var gotOrder []string
+			for _, app := range mockClient.Apps {
+				if app.LastEvent == "DELETED" {
+					gotOrder = append(gotOrder, app.App.Name)
+				}
+			}
+			if diff := testutil.CmpDiff(tc.WantDeletedOrder, gotOrder); diff != "" {
+				t.Errorf("delete order mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestDrainPendingDeletionsByName(t *testing.T) {
+	tcs := []struct {
+		Name string
+	}{
+		{Name: "app not in KnownApps: deleted by constructed name without cascade"},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			appName := "my-app"
+			envName := "staging-1"
+			parentEnvName := "staging"
+			argoAppName := envName + "-" + appName
+
+			mockClient := &mockApplicationServiceClient{}
+			mockClient.PopulateApps([]ArgoAppMetadata{
+				{Name: appName, Environment: envName, ParentEnvironment: parentEnvName, Event: "ADDED"},
+			})
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient: mockClient,
+				KnownApps: map[string]map[string]*v1alpha1.Application{
+					parentEnvName: {
+						"bracket": {
+							//exhaustruct:ignore
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "staging-bracket",
+								Annotations: map[string]string{
+									"com.freiheit.kuberpult/is-bracket": "true",
+								},
+							},
+						},
+					},
+				},
+				pendingDeletions: []PendingDeletion{
+					{EnvironmentName: envName, ParentEnvironmentName: parentEnvName, AppName: appName},
+				},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+			}
+
+			argoProcessor.drainPendingDeletions(ctx, parentEnvName)
+
+			if got := len(argoProcessor.pendingDeletions); got != 0 {
+				t.Errorf("pendingDeletions after drain: want 0, got %d", got)
+			}
+			var deleted *ArgoApp
+			for _, app := range mockClient.Apps {
+				if app.App.Name == argoAppName && app.LastEvent == "DELETED" {
+					deleted = app
+					break
+				}
+			}
+			if deleted == nil {
+				t.Fatalf("expected app %q to be deleted by name, but no DELETED entry found", argoAppName)
+			}
+			if diff := testutil.CmpDiff(true, deleted.NoCascade); diff != "" {
+				t.Errorf("NoCascade mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

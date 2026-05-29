@@ -38,6 +38,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
 )
 
 // this is a simpler version of ApplicationServiceClient from the application package
@@ -191,7 +192,8 @@ type ArgoOverview struct {
 
 func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, argoOv *ArgoOverview) {
 	overview := argoOv.Overview
-	for currentApp, currentAppDetails := range argoOv.AppDetails {
+	for _, currentApp := range sorting.SortKeys(argoOv.AppDetails) {
+		currentAppDetails := argoOv.AppDetails[currentApp]
 		span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
 		defer span.Finish()
 		span.SetTag("kuberpult-app", currentApp)
@@ -211,7 +213,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 							ArgoEnvironmentConfiguration: cfg,
 							IsBracket:                    isBracket,
 						}
-						a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
+						a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview, argoOv.AppDetails)
 					}
 				} else {
 					appInfo := &AppInfo{
@@ -222,7 +224,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 						ArgoEnvironmentConfiguration: parentEnvironment.Config.Argocd,
 						IsBracket:                    isBracket,
 					}
-					a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview)
+					a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview, argoOv.AppDetails)
 				}
 
 			}
@@ -240,12 +242,33 @@ func (a *ArgoAppProcessor) isBracketEnv(envName string) bool {
 }
 
 func (a *ArgoAppProcessor) knowsBracketApp(envName string) bool {
-	for _, app := range a.KnownApps[envName] {
-		if app.Annotations["com.freiheit.kuberpult/is-bracket"] == "true" {
+	for _, appName := range sorting.SortKeys(a.KnownApps[envName]) {
+		if a.KnownApps[envName][appName].Annotations["com.freiheit.kuberpult/is-bracket"] == "true" {
 			return true
 		}
 	}
 	return false
+}
+
+// ApplicationDeleter is the minimal subset of application.ApplicationServiceClient
+// needed by DeleteApplication. Defined so non-argo packages (e.g. undeploy) can
+// pass a small test mock without implementing the full client.
+type ApplicationDeleter interface {
+	Delete(ctx context.Context, in *application.ApplicationDeleteRequest, opts ...grpc.CallOption) (*application.ApplicationResponse, error)
+}
+
+// DeleteApplication is the single point in the rollout-service that calls the
+// Argo CD Application Delete RPC. Every other code path (bracket migration,
+// bracket move, no-cascade deletes inside argo.go, the cascade-true cleanup
+// driven by the undeploy package) goes through here so cascade semantics live
+// in one place and are easy to audit.
+func DeleteApplication(ctx context.Context, client ApplicationDeleter, argoAppName string, cascadeDelete bool) error {
+	cascade := cascadeDelete
+	_, err := client.Delete(ctx, &application.ApplicationDeleteRequest{
+		Cascade: &cascade,
+		Name:    conversion.FromString(argoAppName),
+	})
+	return err
 }
 
 // deleteAppNoCascade deletes an ArgoCD Application object without pruning the k8s resources it manages.
@@ -259,12 +282,20 @@ func (a *ArgoAppProcessor) deleteAppNoCascade(ctx context.Context, knownApps map
 	logger.FromContext(ctx).Info("bracket.delete.no-cascade",
 		zap.String("argo.app", argoApp.Name),
 		zap.String("kuberpult.app", appName))
-	f := false
-	_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
-		Cascade: &f,
-		Name:    conversion.FromString(argoApp.Name),
-	})
-	return err
+	return DeleteApplication(ctx, a.ApplicationClient, argoApp.Name, false)
+}
+
+// deleteAppNoCascadeByName deletes an ArgoCD Application by its constructed name without
+// cascading to k8s resources. Used when the app exists in ArgoCD but its watch event has
+// not yet been received (KnownApps cache is stale after rollout-service restart).
+func (a *ArgoAppProcessor) deleteAppNoCascadeByName(ctx context.Context, argoAppName string) error {
+	logger.FromContext(ctx).Info("bracket.delete.no-cascade.by-name",
+		zap.String("argo.app", argoAppName))
+	err := DeleteApplication(ctx, a.ApplicationClient, argoAppName, false)
+	if err != nil && status.Code(err) != codes.NotFound {
+		return err
+	}
+	return nil
 }
 
 /*
@@ -279,14 +310,38 @@ func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnv
 			l.Info("bracket.drain.pending",
 				zap.String("app", pd.AppName),
 				zap.String("env", pd.EnvironmentName))
-			// if the apps are known by kuberpult (argo cd send us a message)
-			// then we delete the apps with cascade=false, so the brackets take over entirely.
-			if knownApps := a.KnownApps[pd.EnvironmentName]; knownApps != nil {
-				if err := a.deleteAppNoCascade(ctx, knownApps, pd.AppName); err != nil {
+			// Delete with cascade=false so the bracket takes over resource ownership.
+			// If the watch event for this app hasn't arrived yet (e.g. because the rollout-service was restarted), fall back to deleting by constructed name.
+			knownApps := a.KnownApps[pd.EnvironmentName]
+			known := knownApps != nil && knownApps[pd.AppName] != nil
+			l.Info("bracket.drain.attempt",
+				zap.String("app", pd.AppName),
+				zap.String("env", pd.EnvironmentName),
+				zap.Bool("known", known))
+			var err error
+			if known {
+				err = a.deleteAppNoCascade(ctx, knownApps, pd.AppName)
+			} else {
+				err = a.deleteAppNoCascadeByName(ctx, pd.EnvironmentName+"-"+pd.AppName)
+			}
+			if err != nil {
+				code := status.Code(err)
+				switch code {
+				case codes.NotFound:
+					l.Info("bracket.drain.already-gone",
+						zap.String("app", pd.AppName),
+						zap.String("env", pd.EnvironmentName),
+						zap.String("code", code.String()))
+				case codes.PermissionDenied:
+					l.Warn("bracket.drain.already-gone",
+						zap.String("app", pd.AppName),
+						zap.String("env", pd.EnvironmentName),
+						zap.String("code", code.String()))
+				default:
 					l.Error("bracket.drain.delete.failed", zap.String("app", pd.AppName), zap.Error(err))
 					remaining = append(remaining, pd)
-					continue
 				}
+				continue
 			}
 		} else {
 			remaining = append(remaining, pd)
@@ -295,7 +350,7 @@ func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnv
 	a.pendingDeletions = remaining
 }
 
-func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse) {
+func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse, allAppDetails map[string]*api.GetAppDetailsResponse) {
 	logger.FromContext(ctx).Sugar().Debugf("Processing app %q on environment %q", appInfo.ApplicationName, appInfo.EnvironmentName)
 	// Bracket-to-individual transition guard (rollback: staging switched from true→false).
 	// When the existing KnownApp is a bracket (is-bracket=true) but IsBracket=false, we must
@@ -310,13 +365,13 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 						return
 					}
 					// Deployment data available: delete bracket without cascade so k8s resources
-					// persist; the individual app will be created on the next cycle once the
-					// ArgoCD watch event confirms the bracket app has been removed.
+					// persist, then create the individual app in the same cycle.
 					if err := a.deleteAppNoCascade(ctx, knownEnvApps, appInfo.ApplicationName); err != nil {
 						logger.FromContext(ctx).Error("bracket.rollback.delete.failed",
 							zap.String("app", appInfo.ApplicationName), zap.Error(err))
+						return
 					}
-					return
+					delete(knownEnvApps, appInfo.ApplicationName)
 				}
 			}
 		}
@@ -326,6 +381,13 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 	allowDelete := appInfo.IsBracket ||
 		!a.isBracketEnv(appInfo.ParentEnvironmentName) ||
 		a.knowsBracketApp(appInfo.ParentEnvironmentName)
+	logger.FromContext(ctx).Info("ProcessAppChange",
+		zap.Bool("allow_delete", allowDelete),
+		zap.Bool("isBracket", appInfo.IsBracket),
+		zap.Bool("isBracketEnv", a.isBracketEnv(appInfo.ParentEnvironmentName)),
+		zap.Bool("knowsBracket", a.knowsBracketApp(appInfo.ParentEnvironmentName)),
+		zap.String("app", appInfo.ApplicationName),
+		zap.String("env", appInfo.EnvironmentName))
 	if allowDelete {
 		if ok := a.KnownApps[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
 			if !appInfo.IsBracket && a.isBracketEnv(appInfo.ParentEnvironmentName) {
@@ -336,19 +398,59 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 						zap.String("app", appInfo.ApplicationName), zap.Error(err))
 				}
 			} else {
-				a.DeleteArgoApps(ctx, ok, appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
+				// Bracket move detection: if another bracket has a deployment for the same env,
+				// delete without cascade so the new bracket takes over k8s resource ownership.
+				noCascade := false
+				if appInfo.IsBracket {
+					for _, otherApp := range sorting.SortKeys(allAppDetails) {
+						otherDetails := allAppDetails[otherApp]
+						if otherApp != appInfo.ApplicationName &&
+							otherDetails.Application != nil &&
+							otherDetails.Application.ArgoBracket == otherApp &&
+							otherDetails.Deployments[appInfo.ParentEnvironmentName] != nil {
+							noCascade = true
+							break
+						}
+					}
+				}
+				if noCascade {
+					if err := a.deleteAppNoCascade(ctx, ok, appInfo.ApplicationName); err != nil {
+						logger.FromContext(ctx).Error("bracket.move.delete.failed",
+							zap.String("app", appInfo.ApplicationName), zap.Error(err))
+					}
+				} else if !appInfo.IsBracket {
+					// Non-bracket app with no deployment: cascade=false safety net for a
+					// transient cd-service overview (e.g. mid helm-upgrade).
+					a.DeleteArgoApps(ctx, ok, appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
+				}
+				// Else: bracket with no deployment AND not a move. Do NOT delete here.
+				// The rollout_should_undeploy_cascade table is the single authority for
+				// removing a bracket together with its workload (cascade=true). A
+				// no-cascade delete from here would beat the ESL-gated cascade=true
+				// consumer to the punch — the app object goes, the cascade=true call
+				// then gets NotFound, and the k8s Deployment is orphaned.
 			}
 		}
-	} else if a.KnownApps[appInfo.EnvironmentName][appInfo.ApplicationName] != nil {
-		// Bracket app not yet confirmed; record for deletion once it appears in the Watch stream.
-		logger.FromContext(ctx).Info("bracket.defer.deletion",
-			zap.String("app", appInfo.ApplicationName),
-			zap.String("env", appInfo.EnvironmentName))
-		a.pendingDeletions = append(a.pendingDeletions, PendingDeletion{
-			EnvironmentName:       appInfo.EnvironmentName,
-			ParentEnvironmentName: appInfo.ParentEnvironmentName,
-			AppName:               appInfo.ApplicationName,
-		})
+	} else {
+		// Bracket not yet confirmed; defer deletion until its watch ADDED event arrives.
+		// Guard against duplicates so a second overview before drain doesn't double-queue.
+		alreadyPending := false
+		for _, existing := range a.pendingDeletions {
+			if existing.AppName == appInfo.ApplicationName && existing.ParentEnvironmentName == appInfo.ParentEnvironmentName {
+				alreadyPending = true
+				break
+			}
+		}
+		if !alreadyPending {
+			logger.FromContext(ctx).Info("bracket.defer.deletion",
+				zap.String("app", appInfo.ApplicationName),
+				zap.String("env", appInfo.EnvironmentName))
+			a.pendingDeletions = append(a.pendingDeletions, PendingDeletion{
+				EnvironmentName:       appInfo.EnvironmentName,
+				ParentEnvironmentName: appInfo.ParentEnvironmentName,
+				AppName:               appInfo.ApplicationName,
+			})
+		}
 	}
 
 	if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] != nil { //If there is a deployment for this app on this environment
@@ -416,7 +518,8 @@ type AppInfo struct {
 }
 
 func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {
-	for _, argoApp := range appsKnownToArgo {
+	for _, key := range sorting.SortKeys(appsKnownToArgo) {
+		argoApp := appsKnownToArgo[key]
 		if argoApp.Annotations["com.freiheit.kuberpult/application"] == appName && argoApp.Annotations["com.freiheit.kuberpult/environment"] == envName {
 			return argoApp
 		}
@@ -565,18 +668,17 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 		deleteAppSpan.SetTag("application", toDelete[i].Name)
 		deleteAppSpan.SetTag("namespace", toDelete[i].Namespace)
 		deleteAppSpan.SetTag("operation", "delete")
-		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
-			Cascade:              nil,
-			PropagationPolicy:    nil,
-			AppNamespace:         nil,
-			Project:              nil,
-			XXX_NoUnkeyedLiteral: struct{}{},
-			XXX_unrecognized:     nil, //nolint:misspell
-			XXX_sizecache:        0,
-			Name:                 conversion.FromString(toDelete[i].Name),
-		})
-
-		if err != nil {
+		// Cascade=false here is a safety net: this path can fire on a transient
+		// "deployment == nil" in the cd-service overview (e.g. while the
+		// cd-service is being helm-upgraded). Cascading delete on a transient
+		// signal would destroy the workload Deployment we are trying to
+		// protect. Workload cleanup on a *real* undeploy goes through the
+		// rollout_should_undeploy_cascade DB table consumed by the undeploy
+		// package, which issues cascade=true with explicit cd-service intent.
+		logger.FromContext(ctx).Info("argo.delete.no-cascade",
+			zap.String("argo.app", toDelete[i].Name),
+			zap.String("kuberpult.app", appName))
+		if err := DeleteApplication(ctx, a.ApplicationClient, toDelete[i].Name, false); err != nil {
 			logger.FromContext(ctx).Error("deleting application: "+toDelete[i].Name, zap.Error(err))
 		}
 		deleteAppSpan.Finish()
