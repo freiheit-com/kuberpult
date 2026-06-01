@@ -114,7 +114,7 @@ func processOneBatch(ctx context.Context, dbHandler *db.DBHandler, appClient arg
 	}
 	maxProcessed := maxProcessedTransformerEslId.Load()
 	for _, row := range batch {
-		if int64(row.NotBeforeTransformerEslId) > maxProcessed {
+		if int64(row.GatingTransformerEslId) > maxProcessed { // do not skip if they are equal
 			// The rollout-service has not yet fully processed the gRPC event
 			// that corresponds to this cascade row. Skip for now; the next
 			// poll (after Consume advances maxProcessedTransformerEslId) will

@@ -252,37 +252,36 @@ func TestProcessOneBatch(t *testing.T) {
 	}
 }
 
-// TestProcessOneBatch_NotBeforeEslId verifies that a cascade row with
-// not_before_transformer_esl_id > maxSeenTransformerEslId is NOT processed.
-// This test will FAIL until the gating logic is implemented (step 7 of the plan).
-func TestProcessOneBatch_NotBeforeEslId(t *testing.T) {
+// TestProcessOneBatch_GatingEslId verifies that a cascade row with
+// gating_transformer_esl_id > maxSeenTransformerEslId is NOT processed.
+func TestProcessOneBatch_GatingEslId(t *testing.T) {
 	tcs := []struct {
-		Name                      string
-		NotBeforeTransformerEslId db.TransformerID
-		MaxSeenTransformerEslId   int64
-		WantArgoCalls             int
-		WantRowGone               bool
+		Name                    string
+		GatingTransformerEslId  db.TransformerID
+		MaxSeenTransformerEslId int64
+		WantArgoCalls           int
+		WantRowGone             bool
 	}{
 		{
-			Name:                      "gated: not_before > max_seen, row must be skipped",
-			NotBeforeTransformerEslId: 100,
-			MaxSeenTransformerEslId:   0,
-			WantArgoCalls:             0,
-			WantRowGone:               false,
+			Name:                    "gated: gating > max_seen, row must be skipped",
+			GatingTransformerEslId:  100,
+			MaxSeenTransformerEslId: 0,
+			WantArgoCalls:           0,
+			WantRowGone:             false,
 		},
 		{
-			Name:                      "allowed: not_before == max_seen, row must be processed",
-			NotBeforeTransformerEslId: 5,
-			MaxSeenTransformerEslId:   5,
-			WantArgoCalls:             1,
-			WantRowGone:               true,
+			Name:                    "allowed: gating == max_seen, row must be processed",
+			GatingTransformerEslId:  5,
+			MaxSeenTransformerEslId: 5,
+			WantArgoCalls:           1,
+			WantRowGone:             true,
 		},
 		{
-			Name:                      "allowed: not_before < max_seen, row must be processed",
-			NotBeforeTransformerEslId: 3,
-			MaxSeenTransformerEslId:   10,
-			WantArgoCalls:             1,
-			WantRowGone:               true,
+			Name:                    "allowed: gating < max_seen, row must be processed",
+			GatingTransformerEslId:  3,
+			MaxSeenTransformerEslId: 10,
+			WantArgoCalls:           1,
+			WantRowGone:             true,
 		},
 	}
 	for _, tc := range tcs {
@@ -291,7 +290,7 @@ func TestProcessOneBatch_NotBeforeEslId(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
-				return dbHandler.UpsertRolloutUndeployCascade(ctx, tx, "my-app", "staging", false, tc.NotBeforeTransformerEslId)
+				return dbHandler.UpsertRolloutUndeployCascade(ctx, tx, "my-app", "staging", false, tc.GatingTransformerEslId)
 			})
 			if errW != nil {
 				t.Fatalf("seed: %v", errW)

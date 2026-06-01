@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS rollout_should_undeploy_cascade (
   argo_app VARCHAR NOT NULL,
   env VARCHAR NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
-  not_before_transformer_esl_id BIGINT NOT NULL,
+  gating_transformer_esl_id BIGINT NOT NULL, -- acts as a gate to prevent the rollout-service from deleting brackets before creating new brackets
   is_bracket BOOLEAN NOT NULL DEFAULT false,
   PRIMARY KEY (argo_app, env)
 );

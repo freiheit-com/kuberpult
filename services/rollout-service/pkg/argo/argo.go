@@ -76,9 +76,10 @@ type PendingDeletion struct {
 type ArgoAppProcessor struct {
 	trigger chan argoTrigger
 
+	// the eslId stored here signifies that all create/update operations are already done
 	maxProcessedTransformerEslId *atomic.Int64
 
-	ArgoApps chan *v1alpha1.ApplicationWatchEvent
+	ArgoApps                chan *v1alpha1.ApplicationWatchEvent
 	ApplicationClient       application.ApplicationServiceClient
 	ManageArgoAppsEnabled   bool
 	KuberpultMetricsEnabled bool
@@ -121,6 +122,8 @@ func (a *ArgoAppProcessor) MaxProcessedTransformerEslId() *atomic.Int64 {
 
 // updateMaxProcessedEslId advances the max-processed ESL ID if eslId is larger.
 // Only called from Consume (single writer), so a plain Load+Store is safe.
+// This function must only be called when the processing for that eslID
+// - meaning the update/create for argo apps - is already finished
 func (a *ArgoAppProcessor) updateMaxProcessedEslId(eslId int64) {
 	if eslId > a.maxProcessedTransformerEslId.Load() {
 		a.maxProcessedTransformerEslId.Store(eslId)
