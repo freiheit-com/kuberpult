@@ -51,12 +51,12 @@ contain both kinds at once, and each row says which it is.
 const rolloutShouldUndeployCascadeTable = "rollout_should_undeploy_cascade"
 
 type RolloutShouldUndeployCascade struct {
-	ArgoApp                   string
-	Env                       types.EnvName
-	Created                   time.Time
-	Attempts                  int
-	GatingTransformerEslId    TransformerID
-	IsBracket                 bool
+	ArgoApp                string
+	Env                    types.EnvName
+	Created                time.Time
+	Attempts               int
+	GatingTransformerEslId TransformerID
+	IsBracket              bool
 }
 
 // UpsertRolloutUndeployCascade inserts a pending cascade-delete row.
