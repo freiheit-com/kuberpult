@@ -640,6 +640,60 @@ func TestBracketEnableAllClusters(t *testing.T) {
 	assertDeploymentCreationTimesStable(t, creationTimes, "enable all clusters")
 }
 
+func TestBracketDeploymentAndBracketMoveSimultaneous(t *testing.T) {
+	cleanupCluster(t)
+	tLogf(t, "runSuffix: %s", runSuffix)
+	app1 := "bdabms-app1-" + runSuffix
+	app2 := "bdabms-app2-" + runSuffix
+	bracket1 := "bdabms-bracket1-" + runSuffix
+	bracket2 := "bdabms-bracket2-" + runSuffix
+
+	tLog(t, "step 1: upgrade to development=true (bracket mode)")
+	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: true, stagingEnabled: false, channelSize: 50})
+
+	tLog(t, "step 2: create v1 release for app1+2 in bracket1")
+	createRelease(t, app1, "sreteam", bracket1, "1", map[string]string{
+		devNamespace: stableManifest(app1, devNamespace, "1"),
+	})
+	createRelease(t, app2, "sreteam", bracket1, "1", map[string]string{
+		devNamespace: stableManifest(app2, devNamespace, "1"),
+	})
+
+	tLog(t, "step 3: wait for bracket1 Argo app to appear on development")
+	waitForArgoApp(t, "development-"+bracket1)
+
+	tLog(t, "step 4.1: wait for v1 synced in dev (app1)")
+	waitForDeploymentAnnotation(t, devNamespace, app1+"-bracket-dep", "1")
+
+	tLog(t, "step 4.2: wait for v1 synced in dev (app2)")
+	waitForDeploymentAnnotation(t, devNamespace, app2+"-bracket-dep", "1")
+
+	tLog(t, "step 5: record deployment creation time")
+	creationTimes := map[deploymentKey]string{
+		{devNamespace, app1 + "-bracket-dep"}: deploymentCreationTime(t, devNamespace, app1+"-bracket-dep"),
+		{devNamespace, app2 + "-bracket-dep"}: deploymentCreationTime(t, devNamespace, app2+"-bracket-dep"),
+	}
+	tLogf(t, "  %s/%s: %s", devNamespace, app1+"-bracket-dep", creationTimes[deploymentKey{devNamespace, app1 + "-bracket-dep"}])
+	tLogf(t, "  %s/%s: %s", devNamespace, app2+"-bracket-dep", creationTimes[deploymentKey{devNamespace, app2 + "-bracket-dep"}])
+
+	tLog(t, "step 6: create v2 release for app1 in bracket2")
+	createRelease(t, app1, "sreteam", bracket2, "2", map[string]string{
+		devNamespace: stableManifest(app1, devNamespace, "2"),
+	})
+
+	tLog(t, "step 7: wait for bracket2 Argo app to appear on development")
+	waitForArgoApp(t, "development-"+bracket1)
+	waitForArgoApp(t, "development-"+bracket2)
+
+	tLog(t, "step 8: wait for v2 synced in development")
+	waitForDeploymentAnnotation(t, devNamespace, app1+"-bracket-dep", "2") // newer version
+	waitForDeploymentAnnotation(t, devNamespace, app2+"-bracket-dep", "1") // same as before
+
+	tLog(t, "step 9: assert pod start time stable (app moved bracket1→bracket2)")
+	assertDeploymentCreationTimesStable(t, creationTimes, "move bracket1→bracket2")
+
+}
+
 // TestBracketMoveBetweenBrackets is the regression test for the bug where moving
 // an app from one bracket to another causes the deployment to be briefly deleted.
 //

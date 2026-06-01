@@ -14,10 +14,78 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
+/*
+Package argo manages kuberpult's Argo CD Applications from the rollout-service.
+
+# How the rollout is intended to work (especially for brackets) - high level description
+This section describes the main rules for the rollout-service.
+As such it touches on more than just what happens in this module, but also in the cd-service (overview).
+
+Overarching goal: a running workload must never go down because of a bracket transition, and the
+rollout-service must converge to the correct Argo CD state even after missed messages or restarts.
+
+For non-bracket apps, kuberpult manages all app creations and deletions,
+including the cascade=true option to remove the k8s resources on undeploy.
+Kuberpult's rollout-service decides about all deletions of argo apps.
+However, what is actually part of a kuberpult app's manifest is up the operator.
+
+For bracket-apps, this is also true, however, when switching from brackets
+back to apps, we do not (necessarily) need to remove the bracket itself, the
+operator can do that.
+
+The cd-service is responsible to send the right brackets to the rollout-service. This includes
+CHANGING brackets. Each change is sent once, as a fast path.
+
+Reliability does not depend on never missing a message: a deletion (e.g. an emptied bracket) is the
+absence of something and cannot be re-derived from a resync. So the rollout-service must converge by
+reconciling — comparing the brackets that should exist (from the overview) with the Argo apps that
+actually exist, and removing the stragglers — rather than relying solely on the one-shot delete event.
+After a restart, this reconciliation is what restores correctness. However,
+in some error cases, an empty bracket app may not be removed completely.
+
+The brackets_history table defines which brackets exist GLOBALLY (by member-app membership). A
+per-env bracket Argo Application (<env>-<bracket>) is, however, only required when at least one
+member of the bracket has a deployment in that env. When the last deployment of a bracket in env
+E disappears, kuberpult cascade-deletes the per-env bracket Argo app — removing its workload —
+while the bracket itself persists in brackets_history for future deployments. The Argo Application
+object is not the source of truth; the workload's existence is.
+
+Kuberpult ensures that the k8s deployment is not deleted, for example when:
+* A service moves to another bracket.
+* An environment is now configured with bracketMode=true.
+* An environment is now configured with bracketMode=false.
+* ...
+
+The only reasons to delete a k8s deployment is when
+* the service is deleted in kuberpult
+* the environment of the service is deleted in kuberpult (delete env from app)
+* the services manifests literally does not contain the deployment anymore (but this is outside our control).
+
+# Implementation Details
+
+* All resource-removing (cascade=true) deletions of Argo Applications go through one place: the
+  rollout_should_undeploy_cascade table, written by the cd-service and consumed by the ESL-gated
+  undeploy worker. The is_bracket column says whether the row targets an individual app or a
+  bracket. Argo CD's auto-sync is never the actor that removes a whole bracket's workload.
+* Bracket Argo apps are created with Automated{Prune:true, SelfHeal:true, AllowEmpty:false}.
+  Prune:true reconciles individual resource changes within a populated bracket. AllowEmpty:false
+  prevents Argo CD from auto-pruning a bracket down to zero resources — the prune-to-empty that
+  caused workload downtime on bracket moves. Non-bracket apps keep AllowEmpty:true.
+* The brackets_history table defines which brackets exist globally. A per-env bracket Argo
+  Application exists iff at least one member has a deployment in that env. When the last such
+  deployment goes away (undeploy of the last member, or DeleteEnvFromApp on the last member's
+  only env), kuberpult cascade-deletes the per-env bracket Argo app via the cascade table.
+* combineBracketDeployments (cd-service/pkg/service/overview.go) emits the BracketVersionDelete
+  sentinel for env E when no member has a deployment in E, so the rollout-service tears down the
+  per-env bracket Argo app instead of recreating it.
+
+*/
+
 package argo
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -36,6 +104,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
@@ -87,6 +156,11 @@ type ArgoAppProcessor struct {
 	ManageArgoAppsFilter    []string
 	DDMetrics               statsd.ClientInterface
 	KnownApps               map[string]map[string]*v1alpha1.Application
+	// DBHandler is read by ProcessArgoOverview to look up the current brackets_history
+	// snapshot so its source_transformer_esl_id can be embedded in each bracket Argo CD
+	// app's Spec.Source.Path (see CreateArgoApplication). Nil in unit tests; non-nil in
+	// production. When nil, the legacy path format (no @<esl_id> suffix) is emitted.
+	DBHandler *db.DBHandler
 	//
 	ExperimentalBracketsClusters []string
 	// The apps that will be recreated as brackets.
@@ -94,7 +168,7 @@ type ArgoAppProcessor struct {
 	pendingDeletions []PendingDeletion
 }
 
-func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string) ArgoAppProcessor {
+func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string, dbHandler *db.DBHandler) ArgoAppProcessor {
 	return ArgoAppProcessor{
 		ApplicationClient:            appClient,
 		ManageArgoAppsEnabled:        manageArgoApplicationEnabled,
@@ -106,6 +180,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, argoAppsChannelSize),
 		DDMetrics:                    ddMetrics,
 		KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+		DBHandler:                    dbHandler,
 		//
 		ExperimentalBracketsClusters: experimentalBracketsClusters,
 		pendingDeletions:             []PendingDeletion{},
@@ -195,6 +270,10 @@ type ArgoOverview struct {
 
 func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, argoOv *ArgoOverview) {
 	overview := argoOv.Overview
+	// All bracket Argo CD apps emitted from this overview tick should pin the same
+	// brackets_history snapshot, so the reposerver can read the exact app list each
+	// bracket was last spec-updated against. Read it once up-front.
+	bracketSnapshotEslId := a.lookupBracketSnapshotEslId(ctx, l)
 	for _, currentApp := range sorting.SortKeys(argoOv.AppDetails) {
 		currentAppDetails := argoOv.AppDetails[currentApp]
 		span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
@@ -215,6 +294,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 							ParentEnvironmentName:        parentEnvironment.Name,
 							ArgoEnvironmentConfiguration: cfg,
 							IsBracket:                    isBracket,
+							BracketSnapshotEslId:         bracketSnapshotEslId,
 						}
 						a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview, argoOv.AppDetails)
 					}
@@ -226,6 +306,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 						ParentEnvironmentName:        parentEnvironment.Name,
 						ArgoEnvironmentConfiguration: parentEnvironment.Config.Argocd,
 						IsBracket:                    isBracket,
+						BracketSnapshotEslId:         bracketSnapshotEslId,
 					}
 					a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview, argoOv.AppDetails)
 				}
@@ -234,6 +315,32 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 		}
 		span.Finish()
 	}
+}
+
+// lookupBracketSnapshotEslId returns the source_transformer_esl_id of the latest
+// brackets_history row, or 0 if the lookup is skipped (no DB handler) or fails
+// (no rows, or DB error). A zero value triggers the legacy path format in
+// CreateArgoApplication, which the reposerver still understands.
+func (a *ArgoAppProcessor) lookupBracketSnapshotEslId(ctx context.Context, l *zap.Logger) db.TransformerID {
+	if a.DBHandler == nil {
+		return 0
+	}
+	var result db.TransformerID
+	err := a.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
+		row, err := db.DBSelectBracketHistoryLatest(ctx, a.DBHandler, tx)
+		if err != nil {
+			return err
+		}
+		if row != nil {
+			result = row.SourceTransformerEslId
+		}
+		return nil
+	})
+	if err != nil {
+		l.Warn("brackets.history.lookup.failed", zap.Error(err))
+		return 0
+	}
+	return result
 }
 
 func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, envName string, argoCDConfig *api.ArgoCDEnvironmentConfiguration) string {
@@ -484,6 +591,12 @@ func isAAEnv(config *api.EnvironmentConfig) bool {
 func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Logger, ev *v1alpha1.ApplicationWatchEvent) {
 	envName, appName := getEnvironmentAndName(ev.Application.Annotations)
 	if appName == "" {
+		l.Info("event.ignored",
+			zap.String("source", "argocd"),
+			zap.String("env", envName),
+			zap.String("reason", "app-not-tagged"),
+			zap.Any("annotations", ev.Application.Annotations),
+		)
 		return
 	}
 	if a.KnownApps[envName] == nil {
@@ -518,6 +631,11 @@ type AppInfo struct {
 	ParentEnvironmentName        string
 	ArgoEnvironmentConfiguration *api.ArgoCDEnvironmentConfiguration
 	IsBracket                    bool
+	// BracketSnapshotEslId is the brackets_history.source_transformer_esl_id that
+	// will be embedded as "@<esl_id>" in the bracket Argo CD app's Spec.Source.Path.
+	// Zero means "emit the legacy path with no suffix" (e.g. for non-bracket apps
+	// or when the rollout-service runs without DB access in tests).
+	BracketSnapshotEslId db.TransformerID
 }
 
 func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {
@@ -696,7 +814,15 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, appInfo *AppInfo) 
 
 	var manifestPath string
 	if appInfo.IsBracket {
-		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "brackets", appInfo.ApplicationName)
+		// Append "@<source_transformer_esl_id>" so the reposerver reads the exact
+		// brackets_history snapshot this Argo CD app was last spec-updated against.
+		// Zero means "no snapshot known yet" (e.g. tests without DB) — emit the legacy
+		// path so the reposerver falls back to DBSelectBracketHistoryLatest.
+		bracketName := appInfo.ApplicationName
+		if appInfo.BracketSnapshotEslId != 0 {
+			bracketName = fmt.Sprintf("%s@%d", bracketName, appInfo.BracketSnapshotEslId)
+		}
+		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "brackets", bracketName)
 	} else {
 		manifestPath = filepath.Join("environments", appInfo.ParentEnvironmentName, "applications", appInfo.ApplicationName, "manifests")
 	}

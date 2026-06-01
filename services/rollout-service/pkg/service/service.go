@@ -96,6 +96,11 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 			}
 			concreteEnvironment, app, parentEnvironment := getArgoApplicationData(ev.Application.Annotations)
 			if app == "" {
+				logger.FromContext(ctx).Info("event.ignored",
+					zap.String("source", "argocd"),
+					zap.String("reason", "app-not-tagged"),
+					zap.String("type", string(ev.Type)),
+				)
 				continue
 			}
 			if parentEnvironment == "" {
@@ -107,6 +112,12 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 			var eventDiscarded = false
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
+				logger.FromContext(ctx).Info("event.new",
+					zap.String("source", "argocd"),
+					zap.String("app", app),
+					zap.String("env", concreteEnvironment),
+					zap.String("type", string(ev.Type)),
+				)
 				argoEvent := e.Dispatcher.Dispatch(ctx, k, ev)
 				select {
 				case e.ArgoAppProcessor.ArgoApps <- ev:
@@ -148,7 +159,10 @@ func (e *ArgoEventConsumer) ConsumeEvents(ctx context.Context) error {
 					}
 				}
 			case "BOOKMARK":
-				// ignore this event
+				logger.FromContext(ctx).Debug("event.ignored",
+					zap.String("source", "argocd"),
+					zap.String("reason", "bookmark-event"),
+				)
 			default:
 				logger.FromContext(ctx).Warn("argocd.application.unknown_type", zap.String("event.type", string(ev.Type)))
 			}

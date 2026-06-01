@@ -218,3 +218,6 @@ and rollout-service.
 They do NOT use the manifest-repo-export.
 This means the only service communicating with Argo CD in any way is the
 rollout-service.
+
+## Rollout Service
+Details about the rollout-service are in a package-level comment in argo.go.

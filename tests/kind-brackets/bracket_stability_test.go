@@ -323,6 +323,7 @@ func waitForDeploymentAnnotation(t *testing.T, namespace, deploymentName, wantVe
 // the three test namespaces, then waits for each deletion to complete.
 // Call this at the start of every test to ensure a clean cluster state.
 func removeAllArgoAppFinalizers(t *testing.T) {
+	t.Helper()
 	names, _ := exec.Command("kubectl", "get", "applications", "-n", "default", "-o", "name").CombinedOutput()
 	for _, name := range strings.Fields(string(names)) {
 		err := exec.Command("kubectl", "patch", "-n", "default", name,

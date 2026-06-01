@@ -294,12 +294,25 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						deployment, deploymentExists := appDetailsResponse.Deployments[env.Name]
 
 						if !deploymentExists || deployment == nil {
+							l.Debug("event.ignored",
+								zap.String("source", "cd-service"),
+								zap.String("app", appName),
+								zap.String("env", env.Name),
+								zap.String("reason", "no-deployment"),
+							)
 							continue
 						}
 
 						// Deployment exists, do not delete it
 						delete(appSeenVersions, env.Name)
 						if hasVersion && types.RolloutAppBracketVersionFromUint64(deployment.Version) == seenVersion {
+							l.Info("event.ignored",
+								zap.String("source", "cd-service"),
+								zap.String("app", appName),
+								zap.String("env", env.Name),
+								zap.Uint64("version", deployment.Version),
+								zap.String("reason", "version-unchanged"),
+							)
 							continue
 						}
 
@@ -309,7 +322,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 						dt := deployedAt(deployment)
 						sc := sourceCommitId(appDetailsResponse.Application.Releases, deployment)
-						l.Info("version.process", zap.String("application", appName), zap.String("environment", env.Name), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt), zap.String("commitid", sc))
+						l.Info("event.new", zap.String("source", "cd-service"), zap.String("app", appName), zap.String("env", env.Name), zap.Uint64("version", deployment.Version), zap.Time("deployedAt", dt), zap.String("commitid", sc))
 
 						clusters := childEnvironments(env)
 						for _, cluster := range clusters {
@@ -356,17 +369,19 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 				logging.Info(ctx, "changed bracket loop", zap.String("bracketName", bracketName), zap.Any("bracketDetails", bracketDetails.Deployments))
 				for envName, bracketDeployment := range bracketDetails.Deployments {
 					if !slices.Contains(v.experimentalBracketsClusters, envName) {
-						logging.Warn(ctx, "env not in bracketclusters, will ignore env", zap.String("env", envName), zap.Strings("bracketClusters", v.experimentalBracketsClusters))
+						logging.Warn(ctx, "event.ignored", zap.String("source", "cd-service"), zap.String("app", bracketName), zap.String("env", envName), zap.String("reason", "bracket-env-not-configured"), zap.Strings("bracketClusters", v.experimentalBracketsClusters))
 						continue
 					}
 					bracketKey := key{Environment: envName, Application: bracketName}
 					seenVersion, hasVersion := seenVersions[bracketKey]
 					bracketVersion := types.RolloutAppBracketVersion(bracketDeployment.Version)
 					if hasVersion && bracketVersion == seenVersion {
-						logging.Info(ctx, "bracket in same version",
-							zap.Bool("hasVersion", hasVersion),
-							zap.String("bracketVersion", string(bracketVersion)),
-							zap.String("seenVersion", string(seenVersion)),
+						logging.Info(ctx, "event.ignored",
+							zap.String("source", "cd-service"),
+							zap.String("app", bracketName),
+							zap.String("env", envName),
+							zap.String("reason", "version-unchanged"),
+							zap.String("version", string(bracketVersion)),
 						)
 						continue
 					}
@@ -388,7 +403,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						}
 					}
 
-					l.Info("version.process.bracket", zap.String("bracket", bracketName), zap.String("environment", envName), zap.String("version", bracketDeployment.Version))
+					l.Info("event.new", zap.String("source", "cd-service"), zap.String("type", "bracket"), zap.String("app", bracketName), zap.String("env", envName), zap.String("version", bracketDeployment.Version))
 					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
 						Application:       bracketName,
 						Environment:       envName,
@@ -449,7 +464,7 @@ func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, ap
 		cache:          lru.New(20),
 		overviewClient: oclient,
 		versionClient:  vclient,
-		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics, experimentalBracketsClusters),
+		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled, manageArgoApplicationFilter, triggerChannelSize, argoAppsChannelSize, ddMetrics, experimentalBracketsClusters, &dbHandler),
 		db:             dbHandler,
 
 		experimentalBracketsClusters: experimentalBracketsClusters,
