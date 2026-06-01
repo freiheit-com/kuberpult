@@ -5308,6 +5308,21 @@ func TestUndeployDBState(t *testing.T) {
 			expectedAllReleases: []types.ReleaseNumbers{},
 			expectedDeployments: []db.Deployment{
 				{
+					// UndeployApplication deletes the deployment and records the un-deployment
+					// in history as a row with a nil release version.
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  nil,
+					},
+					Metadata: db.DeploymentMetadata{
+						DeployedByEmail: "testmail@example.com",
+						DeployedByName:  "test tester",
+					},
+					TransformerID: 4,
+				},
+				{
 					App: appName,
 					Env: envProduction,
 					ReleaseNumbers: types.ReleaseNumbers{

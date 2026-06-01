@@ -1497,7 +1497,11 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 	for deploymentBatch := range slices.Chunk(orphanDeployments, MaxDeleteBatchSize) {
 		err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 			for _, deployment := range deploymentBatch {
-				err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
+				err = h.DBDeleteDeploymentWithHistory(ctx, transaction, deployment.App, deployment.Env, deployment.TransformerID, DeploymentMetadata{
+					DeployedByName:  "",
+					DeployedByEmail: "",
+					CiLink:          "",
+				})
 			}
 			return nil
 		})
@@ -1524,12 +1528,20 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 					return fmt.Errorf("could not fetch release %v for app %s: %w", deployment.ReleaseNumbers, deployment.App, err)
 				}
 				if release == nil { // release does not exist
-					err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
+					err = h.DBDeleteDeploymentWithHistory(ctx, transaction, deployment.App, deployment.Env, deployment.TransformerID, DeploymentMetadata{
+						DeployedByName:  "",
+						DeployedByEmail: "",
+						CiLink:          "",
+					})
 					if err != nil {
 						return fmt.Errorf("could not delete deployment for app %s in env %s: %w", deployment.App, deployment.Env, err)
 					}
 				} else if _, ok := release.Manifests.Manifests[deployment.Env]; !ok {
-					err = h.DBDeleteDeployment(ctx, transaction, deployment.App, deployment.Env)
+					err = h.DBDeleteDeploymentWithHistory(ctx, transaction, deployment.App, deployment.Env, deployment.TransformerID, DeploymentMetadata{
+						DeployedByName:  "",
+						DeployedByEmail: "",
+						CiLink:          "",
+					})
 					if err != nil {
 						return fmt.Errorf("could not delete deployment for app %s in env %s: %w", deployment.App, deployment.Env, err)
 					}

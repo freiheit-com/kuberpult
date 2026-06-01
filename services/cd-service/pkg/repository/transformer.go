@@ -1187,8 +1187,16 @@ func (u *UndeployApplication) Transform(
 		}
 
 		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
+			user, err := auth.ReadUserFromContext(ctx)
+			if err != nil {
+				return "", err
+			}
 			// delete deployment
-			err := state.DBHandler.DBDeleteDeployment(ctx, transaction, deployment.App, env)
+			err = state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, deployment.App, env, u.TransformerEslVersion, db.DeploymentMetadata{
+				DeployedByName:  user.Name,
+				DeployedByEmail: user.Email,
+				CiLink:          "",
+			})
 			if err != nil {
 				return "", err
 			}
@@ -1358,7 +1366,7 @@ func (u *DeleteEnvFromApp) Transform(
 				Created:      *now,
 				Manifests:    db.DBReleaseManifests{Manifests: newManifests},
 				Metadata:     dbReleaseWithMetadata.Metadata,
-				Environments: []types.EnvName{},
+				Environments: []types.EnvName{}, // filled by DBUpdateOrCreateRelease
 			}
 			err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
 			if err != nil {
@@ -1366,7 +1374,15 @@ func (u *DeleteEnvFromApp) Transform(
 			}
 		}
 	}
-	if err := state.DBHandler.DBDeleteDeployment(ctx, transaction, u.Application, envName); err != nil {
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+	if err := state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, u.Application, envName, u.TransformerEslVersion, db.DeploymentMetadata{
+		DeployedByName:  user.Name,
+		DeployedByEmail: user.Email,
+		CiLink:          "",
+	}); err != nil {
 		return "", fmt.Errorf("DeleteEnvFromApp: could not delete deployment for app '%s' env '%s': %w", u.Application, envName, err)
 	}
 	// Signal the rollout-service to cascade-delete the Argo Application that
@@ -1504,7 +1520,11 @@ func (c *CleanupOldApplicationVersions) Transform(
 	for envName, releaseNums := range allDeployments {
 		// clean up deployments of old environments:
 		if _, envExists := activeEnvs[envName]; !envExists {
-			if err := state.DBHandler.DBDeleteDeployment(ctx, transaction, c.Application, envName); err != nil {
+			if err := state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, c.Application, envName, c.TransformerEslVersion, db.DeploymentMetadata{
+				DeployedByName:  "",
+				DeployedByEmail: "",
+				CiLink:          "",
+			}); err != nil {
 				return "", err
 			}
 			msg = fmt.Sprintf("%sremoved zombie deployment of app %v on deleted env %v\n", msg, c.Application, envName)
@@ -1517,7 +1537,11 @@ func (c *CleanupOldApplicationVersions) Transform(
 			return "", fmt.Errorf("cleanup: could not get release %v for app '%s': %w", releaseNums, c.Application, err)
 		}
 		if release == nil {
-			if err := state.DBHandler.DBDeleteDeployment(ctx, transaction, c.Application, envName); err != nil {
+			if err := state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, c.Application, envName, c.TransformerEslVersion, db.DeploymentMetadata{
+				DeployedByName:  "",
+				DeployedByEmail: "",
+				CiLink:          "",
+			}); err != nil {
 				return "", err
 			}
 			msg = fmt.Sprintf("%sremoved dangling deployment of app %v on env %v (release %v does not exist)\n", msg, c.Application, envName, releaseNums)
