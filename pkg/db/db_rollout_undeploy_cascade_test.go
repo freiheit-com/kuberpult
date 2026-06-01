@@ -121,7 +121,7 @@ func TestDBRolloutUndeployCascade(t *testing.T) {
 
 			errW := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, row := range tc.UpsertRows {
-					if err := dbHandler.UpsertRolloutUndeployCascade(ctx, transaction, row.ArgoApp, row.Env, row.IsBracket, row.NotBeforeTransformerEslId); err != nil {
+					if err := dbHandler.UpsertRolloutUndeployCascade(ctx, transaction, row.ArgoApp, row.Env, row.IsBracket, row.GatingTransformerEslId); err != nil {
 						return err
 					}
 				}

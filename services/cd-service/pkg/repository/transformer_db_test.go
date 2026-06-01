@@ -4145,7 +4145,7 @@ func TestUndeployBracketCascade(t *testing.T) {
 					return err
 				}
 				if diff := cmp.Diff(tc.ExpectedRows, got,
-					cmpopts.IgnoreFields(db.RolloutShouldUndeployCascade{}, "Created", "Attempts", "NotBeforeTransformerEslId"),
+					cmpopts.IgnoreFields(db.RolloutShouldUndeployCascade{}, "Created", "Attempts", "GatingTransformerEslId"),
 					cmpopts.SortSlices(func(a, b *db.RolloutShouldUndeployCascade) bool {
 						if a.ArgoApp != b.ArgoApp {
 							return a.ArgoApp < b.ArgoApp
