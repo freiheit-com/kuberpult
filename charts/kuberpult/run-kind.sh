@@ -239,6 +239,19 @@ YAML
 
 echo "installing argocd $(cat ./argocd-values.yml)"
 
+# In kind mode, clean up any ArgoCD installation with a different release name/namespace.
+# Helm refuses to adopt CRDs owned by a different release; removing them here lets
+# the install below start clean. On GKE the cluster pre-owns ArgoCD, so skip this.
+if [ "${ARGO_NAMESPACE}" = "default" ] && helm -n tools status argo-cd > /dev/null 2>&1; then
+    print "Found conflicting ArgoCD release 'argo-cd' in namespace 'tools'. Removing it..."
+    helm -n tools uninstall argo-cd || true
+    kubectl delete crd \
+        applications.argoproj.io \
+        applicationsets.argoproj.io \
+        appprojects.argoproj.io \
+        2>/dev/null || true
+fi
+
 helm upgrade --install --history-max 1 argocd argo-cd/argo-cd --values argocd-values.yml --version 5.36.0 || exit 1
 
 print applying app...
