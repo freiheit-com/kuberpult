@@ -185,6 +185,14 @@ func EnsurePortForwards(tb TB, cfg Config) {
 		tb.Logf("EnsurePortForwards: both ports already reachable, skipping restart")
 		return
 	}
+	// Kind mode: portForwardManagers (started in TestMain) handle restart automatically.
+	// pkilling them races with their restart loop — just wait for them to reconnect.
+	if cfg.Mode == ModeKind {
+		tb.Logf("EnsurePortForwards: kind mode — waiting for managers to reconnect")
+		WaitForFrontendReady(tb)
+		waitForTCPPort(tb, "127.0.0.1:5004", 30*time.Second)
+		return
+	}
 	for _, target := range []string{"kuberpult-frontend-service", "kuberpult-cd-service"} {
 		tb.Logf("EnsurePortForwards: pkill port-forward.*%s", target)
 		_ = exec.Command("pkill", "-f", "port-forward.*"+target).Run()
