@@ -21,11 +21,16 @@ import (
 	"testing"
 )
 
-var globalPFM *portForwardManager
+var globalPFM   *portForwardManager
+var globalCDPFM *portForwardManager
+var globalCfg   testConfig
 
 func TestMain(m *testing.M) {
-	globalPFM = startPFManager()
+	globalCfg = mustLoadConfig()
+	globalPFM = startPFManager(globalCfg, "deployment/kuberpult-frontend-service", "5002:8081")
+	globalCDPFM = startPFManager(globalCfg, "deployment/kuberpult-cd-service", "5004:8443")
 	code := m.Run()
 	globalPFM.stop()
+	globalCDPFM.stop()
 	os.Exit(code)
 }
