@@ -141,6 +141,9 @@ func (h *DBHandler) DBSelectAllActiveAppLocksForApp(ctx context.Context, tx *sql
 		ORDER BY lockId;`)
 
 	rows, err := tx.QueryContext(ctx, selectQuery, appName)
+	if err != nil {
+		return nil, fmt.Errorf("could not query application locks table from DB. Error: %w", err)
+	}
 	defer closeRowsAndLog(rows, ctx, "DBSelectAllActiveAppLocksForApp")
 	return h.processAppLockRows(ctx, err, rows)
 }
