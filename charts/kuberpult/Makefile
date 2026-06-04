@@ -14,7 +14,7 @@
 
 # Copyright freiheit.com
 
-.PHONY: build-base-image push-base-image clean release-tag ct-test test-helm test kind-test
+.PHONY: build-base-image push-base-image clean release-tag ct-test test-helm test kind-test kind-test-gke
 include ../../Makefile.variables
 MAKEFILE_PATH := $(abspath $(word 1, $(MAKEFILE_LIST)))
 MAKEFILE_DIR := $(dir $(MAKEFILE_PATH))
@@ -74,6 +74,18 @@ kind-test:
 		echo "kind-test: logging to $$LOG"; \
 		printf "kuberpult commit: $$HASH\n" | tee "$$LOG"; \
 		cd ../../ && go test -count=1 -v $(GO_TEST_ARGS) ./tests/kind-brackets/ -timeout 20m 2>&1 | tee -a "$$LOG"'
+
+kind-test-gke:
+	@if [ -z "$(KUBERPULT_TEST_VERSION)" ]; then \
+		echo "ERROR: KUBERPULT_TEST_VERSION is required for GKE mode (e.g. v13.52.0)"; \
+		exit 1; \
+	fi
+	@bash -euo pipefail -c \
+		'mkdir -p "$(MAKEFILE_DIR)kind-test-logs/$(KUBERPULT_TEST_VERSION)"; \
+		LOG="$(MAKEFILE_DIR)kind-test-logs/$(KUBERPULT_TEST_VERSION)/test-$$(date +%Y%m%d-%H%M%S).log"; \
+		echo "kind-test-gke: logging to $$LOG"; \
+		printf "kuberpult version: $(KUBERPULT_TEST_VERSION)\n" | tee "$$LOG"; \
+		cd ../../ && KUBERPULT_TEST_MODE=gke KUBERPULT_TEST_VERSION="$(KUBERPULT_TEST_VERSION)" go test -count=1 -v $(GO_TEST_ARGS) ./tests/kind-brackets/ -timeout 20m 2>&1 | tee -a "$$LOG"'
 
 clean:
 	rm -rf Chart.yaml

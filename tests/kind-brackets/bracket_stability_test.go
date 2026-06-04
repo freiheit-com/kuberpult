@@ -23,11 +23,7 @@ Copyright freiheit.com*/
 package kindbracketstest
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"mime/multipart"
-	"net/http"
 	"os"
 	"os/exec"
 	"slices"
@@ -70,19 +66,7 @@ type deploymentKey struct{ namespace, name string }
 // after pods are replaced. Mirrors the processBatch retry logic.
 func waitForFrontendHTTPReady(t *testing.T) {
 	t.Helper()
-	deadline := time.Now().Add(grpcRetryTimeout)
-	url := "http://localhost:" + kuberpultFrontendPort + "/health"
-	for time.Now().Before(deadline) {
-		resp, err := http.Get(url)
-		if err == nil {
-			if err := resp.Body.Close(); err != nil {
-				tLogf(t, "close health response body: %v", err)
-			}
-			return
-		}
-		time.Sleep(grpcRetryInterval)
-	}
-	t.Fatalf("frontend service at %s not reachable after 30s", url)
+	WaitForFrontendReady(t)
 }
 
 // stableManifest returns a Deployment + ConfigMap for app/namespace/version.
@@ -95,101 +79,12 @@ func waitForFrontendHTTPReady(t *testing.T) {
 // This means: if a pod's startTime changes between versions, its Deployment was
 // deleted (i.e. the bracket Argo app was cascade-deleted unexpectedly).
 func stableManifest(app, namespace, version string) string {
-	return fmt.Sprintf(`---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: %s-bracket-cfg
-  namespace: %s
-data:
-  version: "%s"
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: %s-bracket-dep
-  namespace: %s
-  annotations:
-    kuberpult.freiheit.com/release-version: "%s"
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: %s-bracket
-  template:
-    metadata:
-      labels:
-        app: %s-bracket
-    spec:
-      terminationGracePeriodSeconds: 0
-      containers:
-      - name: sleep
-        image: busybox:latest
-        command: ["/bin/sh", "-c", "trap 'exit 0' SIGTERM; while true; do sleep 1000; done"]
-        readinessProbe:
-          exec:
-            command: ["ls", "/"]
-          initialDelaySeconds: 3
-          periodSeconds: 5
-        resources:
-          limits:
-            cpu: 100m
-            memory: 32Mi
-`, app, namespace, version, app, namespace, version, app, app)
+	return StableManifest(app, namespace, version)
 }
 
 func createRelease(t *testing.T, app, team, bracketName, version string, manifests map[string]string) {
 	t.Helper()
-	var b bytes.Buffer
-	w := multipart.NewWriter(&b)
-	mustWriteField(t, w, "application", app)
-	mustWriteField(t, w, "version", version)
-	mustWriteField(t, w, "team", team)
-	if bracketName != "" {
-		mustWriteField(t, w, "experimentalArgoBracket", bracketName)
-	}
-	for env, manifest := range manifests {
-		fw, err := w.CreateFormFile("manifests["+env+"]", "manifests["+env+"]")
-		if err != nil {
-			t.Fatalf("create form file: %v", err)
-		}
-		if _, err := io.WriteString(fw, manifest); err != nil {
-			t.Fatalf("write manifest: %v", err)
-		}
-	}
-	if err := w.Close(); err != nil {
-		t.Fatalf("close multipart writer: %v", err)
-	}
-
-	req, err := http.NewRequest("POST", "http://localhost:"+kuberpultFrontendPort+"/api/release", &b)
-	if err != nil {
-		t.Fatalf("build release request: %v", err)
-	}
-	req.Header.Set("Content-Type", w.FormDataContentType())
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fatalWithServiceLogs(t, "POST /api/release for %s v%s: %v", app, version, err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			t.Errorf("close response body: %v", err)
-		}
-	}()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("read response body for %s v%s: %v", app, version, err)
-	}
-	if resp.StatusCode > 299 {
-		t.Fatalf("POST /api/release for %s v%s: HTTP %d: %s", app, version, resp.StatusCode, body)
-	}
-}
-
-func mustWriteField(t *testing.T, w *multipart.Writer, key, value string) {
-	t.Helper()
-	if err := w.WriteField(key, value); err != nil {
-		t.Fatalf("write field %s: %v", key, err)
-	}
+	CreateRelease(t, app, team, bracketName, version, manifests)
 }
 
 // dumpKuberpultLogs prints the last 300 log lines (current + previous container)
@@ -199,7 +94,7 @@ func mustWriteField(t *testing.T, w *multipart.Writer, key, value string) {
 func dumpKuberpultLogs(t *testing.T) {
 	t.Helper()
 	fmt.Fprintln(os.Stderr, "=== CRITICAL: dumping kuberpult service logs ===")
-	podsOut, err := exec.Command("kubectl", "get", "pods", "-n", "default", "-o", "name").CombinedOutput()
+	podsOut, err := exec.Command("kubectl", "get", "pods", "-n", globalCfg.KuberpultNamespace, "-o", "name").CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "kubectl get pods: %v\n", err)
 	}
@@ -210,7 +105,7 @@ func dumpKuberpultLogs(t *testing.T) {
 				continue
 			}
 			for _, prev := range []bool{false, true} {
-				args := []string{"logs", "-n", "default", podName, "--tail=300"}
+				args := []string{"logs", "-n", globalCfg.KuberpultNamespace, podName, "--tail=300"}
 				label := podName
 				if prev {
 					args = append(args, "--previous")
@@ -238,27 +133,7 @@ func fatalWithServiceLogs(t *testing.T, format string, args ...any) {
 
 func releaseTrain(t *testing.T, env string) {
 	t.Helper()
-	url := "http://localhost:" + kuberpultFrontendPort + "/api/environments/" + env + "/releasetrain"
-	req, err := http.NewRequest("PUT", url, nil)
-	if err != nil {
-		t.Fatalf("build release-train request for %s: %v", env, err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fatalWithServiceLogs(t, "PUT release train %s: %v", env, err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			t.Errorf("close response body: %v", err)
-		}
-	}()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("read release-train response body for %s: %v", env, err)
-	}
-	if resp.StatusCode > 299 {
-		t.Fatalf("PUT release train %s: HTTP %d: %s", env, resp.StatusCode, body)
-	}
+	ReleaseTrain(t, env)
 }
 
 // deploymentCreationTime returns the creationTimestamp of the named Deployment.
@@ -324,9 +199,9 @@ func waitForDeploymentAnnotation(t *testing.T, namespace, deploymentName, wantVe
 // Call this at the start of every test to ensure a clean cluster state.
 func removeAllArgoAppFinalizers(t *testing.T) {
 	t.Helper()
-	names, _ := exec.Command("kubectl", "get", "applications", "-n", "default", "-o", "name").CombinedOutput()
+	names, _ := exec.Command("kubectl", "get", "applications", "-n", globalCfg.KuberpultNamespace, "-o", "name").CombinedOutput()
 	for _, name := range strings.Fields(string(names)) {
-		err := exec.Command("kubectl", "patch", "-n", "default", name,
+		err := exec.Command("kubectl", "patch", "-n", globalCfg.KuberpultNamespace, name,
 			"--type=merge", "-p", `{"metadata":{"finalizers":[]}}`).Run()
 		if err != nil {
 			tLog(t, "kubectl patch finalizers failed (continuing)[%s]: %v", name, err)
@@ -340,7 +215,7 @@ func cleanupCluster(t *testing.T) {
 	t.Helper()
 	tLog(t, "cleanupCluster: deleting all ArgoCD applications")
 	removeAllArgoAppFinalizers(t)
-	out, err := exec.Command("kubectl", "delete", "applications", "--all", "-n", "default", "--wait=true").CombinedOutput()
+	out, err := exec.Command("kubectl", "delete", "applications", "--all", "-n", globalCfg.KuberpultNamespace, "--wait=true").CombinedOutput()
 	if err != nil {
 		t.Fatalf("kubectl delete applications failed: %v: %s", err, out)
 	}
@@ -359,12 +234,12 @@ func cleanupCluster(t *testing.T) {
 func resetDB(t *testing.T) {
 	t.Helper()
 
+	stopDBPF := globalCfg.startDBPortForward(t)
+	defer stopDBPF()
+
 	// Step 1: query all table names in the public schema
 	tLog(t, "resetDB: querying tables")
-	out, err := exec.Command("kubectl", "exec", "deployment/postgres", "-n", "default", "--",
-		"psql", "-U", "postgres", "-d", "kuberpult", "-At",
-		"-c", "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;",
-	).CombinedOutput()
+	out, err := globalCfg.runPsql("-At", "-c", "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;")
 	if err != nil {
 		t.Fatalf("resetDB: list tables: %v: %s", err, out)
 	}
@@ -381,17 +256,14 @@ func resetDB(t *testing.T) {
 	} else {
 		tLogf(t, "resetDB: will truncate tables: %s", strings.Join(tables, ", "))
 
-		// Step 3: truncate tables in batches of 5 to reduce kubectl exec calls (~1 sec per call)
+		// Step 3: truncate tables in batches of 5 to reduce round-trips (~1 sec per call)
 		for batch := range slices.Chunk(tables, 5) {
 			var parts []string
 			for _, table := range batch {
 				parts = append(parts, fmt.Sprintf(`"%s"`, table))
 			}
 			tLogf(t, "resetDB: truncating tables %s", strings.Join(parts, ", "))
-			out2, err2 := exec.Command("kubectl", "exec", "deployment/postgres", "-n", "default", "--",
-				"psql", "-U", "postgres", "-d", "kuberpult", "-c",
-				fmt.Sprintf(`TRUNCATE TABLE %s CASCADE;`, strings.Join(parts, ", ")),
-			).CombinedOutput()
+			out2, err2 := globalCfg.runPsql("-c", fmt.Sprintf(`TRUNCATE TABLE %s CASCADE;`, strings.Join(parts, ", ")))
 			if err2 != nil {
 				t.Fatalf("resetDB: truncate %s: %v: %s", strings.Join(parts, ", "), err2, out2)
 			}
@@ -408,7 +280,7 @@ func resetDB(t *testing.T) {
 		"deployment/kuberpult-rollout-service",
 	}
 	for _, dep := range kuberpultDeployments {
-		if out3, err3 := exec.Command("kubectl", "scale", dep, "--replicas=0").CombinedOutput(); err3 != nil {
+		if out3, err3 := exec.Command("kubectl", "scale", dep, "-n", globalCfg.KuberpultNamespace, "--replicas=0").CombinedOutput(); err3 != nil {
 			t.Fatalf("resetDB: scale %s: %v\n%s", dep, err3, out3)
 		}
 	}

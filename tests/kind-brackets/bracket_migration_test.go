@@ -33,8 +33,8 @@ import (
 )
 
 const cdServiceGrpcAddr = "localhost:5004"
-const argoNamespace = "default"
 
+// helmUpgradeParams uses unexported fields so test call sites are unchanged.
 type helmUpgradeParams struct {
 	bracketsEnabled    bool
 	developmentEnabled bool
@@ -42,63 +42,17 @@ type helmUpgradeParams struct {
 	channelSize        int
 }
 
-// helmUpgrade calls helm upgrade with the given bracket configuration and waits
-// for all services to finish rolling out.
+// helmUpgrade restarts the port-forward, then delegates to the shared HelmUpgrade.
 func helmUpgrade(t *testing.T, p helmUpgradeParams) {
 	t.Helper()
-	out, err := exec.Command("git", "describe", "--always", "--long", "--tags").Output()
-	if err != nil {
-		t.Fatalf("git describe: %v", err)
-	}
-	version := strings.TrimSpace(string(out))
-	repoRoot, err2 := exec.Command("git", "rev-parse", "--show-toplevel").Output()
-	if err2 != nil {
-		t.Fatalf("git rev-parse: %v", err2)
-	}
-	root := strings.TrimSpace(string(repoRoot))
-	chartPath := root + "/charts/kuberpult/kuberpult-" + version + ".tgz"
-	valsPath := root + "/charts/kuberpult/vals.yaml"
-
-	boolStr := func(b bool) string {
-		if b {
-			return "true"
-		}
-		return "false"
-	}
-	tLogf(t, "helmUpgrade: enabled=%s development=%s staging=%s channelSize=%d chart=%s",
-		boolStr(p.bracketsEnabled), boolStr(p.developmentEnabled), boolStr(p.stagingEnabled), p.channelSize, chartPath)
-
-	cmd := exec.Command("helm", "upgrade", "--install",
-		"--values", valsPath,
-		"--set", "rollout.experimentalBrackets.enabled="+boolStr(p.bracketsEnabled),
-		"--set", "rollout.experimentalBrackets.clusters.development="+boolStr(p.developmentEnabled),
-		"--set", "rollout.experimentalBrackets.clusters.staging="+boolStr(p.stagingEnabled),
-		"--set", fmt.Sprintf("rollout.kuberpultEventsChannelSize=%d", p.channelSize),
-		"kuberpult-local", chartPath)
-	if out2, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("helm upgrade (enabled=%s dev=%s staging=%s): %v\n%s",
-			boolStr(p.bracketsEnabled), boolStr(p.developmentEnabled), boolStr(p.stagingEnabled), err, out2)
-	}
-
-	for _, dep := range []string{
-		"deployment/kuberpult-rollout-service",
-		"deployment/kuberpult-cd-service",
-		"deployment/kuberpult-frontend-service",
-		"deployment/kuberpult-reposerver-service",
-	} {
-		out3, err := exec.Command("kubectl", "rollout", "status", dep, "--timeout=3m").CombinedOutput()
-		if err != nil {
-			t.Fatalf("kubectl rollout status %s: %v\n%s", dep, err, out3)
-		}
-		tLogf(t, "%s rolled out: %s", dep, strings.TrimSpace(string(out3)))
-	}
 	globalPFM.restart()
-	waitForFrontendHTTPReady(t)
-	scriptPath := root + "/infrastructure/scripts/create-testdata/create-environments.sh"
-	if out4, err := exec.Command("bash", scriptPath).CombinedOutput(); err != nil {
-		t.Fatalf("create-environments: %v\n%s", err, out4)
-	}
-	tLog(t, "create-environments: done")
+	globalCDPFM.restart()
+	HelmUpgrade(t, globalCfg.Config, HelmUpgradeParams{
+		BracketsEnabled:    p.bracketsEnabled,
+		DevelopmentEnabled: p.developmentEnabled,
+		StagingEnabled:     p.stagingEnabled,
+		ChannelSize:        p.channelSize,
+	})
 }
 
 // waitForArgoApp polls until the named Argo Application exists in the default namespace.
@@ -106,7 +60,7 @@ func waitForArgoApp(t *testing.T, name string) {
 	t.Helper()
 	deadline := time.Now().Add(argoAppWaitTimeout)
 	for time.Now().Before(deadline) {
-		out, err := exec.Command("kubectl", "get", "application", name, "-n", argoNamespace).Output()
+		out, err := exec.Command("kubectl", "get", "application", name, "-n", globalCfg.KuberpultNamespace).Output()
 		if err == nil && strings.Contains(string(out), name) {
 			tLogf(t, "  Argo app present: %s", name)
 			return
@@ -121,7 +75,7 @@ func waitForArgoAppGone(t *testing.T, name string) {
 	t.Helper()
 	deadline := time.Now().Add(argoAppGoneTimeout)
 	for time.Now().Before(deadline) {
-		_, err := exec.Command("kubectl", "get", "application", name, "-n", argoNamespace).Output()
+		_, err := exec.Command("kubectl", "get", "application", name, "-n", globalCfg.KuberpultNamespace).Output()
 		if err != nil {
 			tLogf(t, "  Argo app gone: %s", name)
 			return
@@ -571,13 +525,13 @@ func TestBracketEnableAllClusters(t *testing.T) {
 	releaseTrain(t, stagingNamespace)
 
 	// diagnostic: show what ArgoCD apps and staging deployments exist after release train
-	if out, err := exec.Command("kubectl", "get", "applications", "-n", argoNamespace, "--no-headers").CombinedOutput(); err == nil {
+	if out, err := exec.Command("kubectl", "get", "applications", "-n", globalCfg.KuberpultNamespace, "--no-headers").CombinedOutput(); err == nil {
 		tLogf(t, "ArgoCD apps after releaseTrain:\n%s", out)
 	}
 	if out, err := exec.Command("kubectl", "get", "deployments", "-n", stagingNamespace, "--no-headers").CombinedOutput(); err == nil {
 		tLogf(t, "Deployments in staging after releaseTrain:\n%s", out)
 	}
-	if out, err := exec.Command("kubectl", "logs", "-n", argoNamespace, "deployment/kuberpult-rollout-service", "--tail=40").CombinedOutput(); err == nil {
+	if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, "deployment/kuberpult-rollout-service", "--tail=40").CombinedOutput(); err == nil {
 		tLogf(t, "rollout-service tail after releaseTrain:\n%s", out)
 	}
 
@@ -889,7 +843,7 @@ func TestBracketMigrateDevelopment(t *testing.T) {
 func dumpBracketDiagnostics(t *testing.T, argoApps []string, namespaces []string) {
 	t.Helper()
 	for _, app := range argoApps {
-		if out, err := exec.Command("kubectl", "describe", "application", app, "-n", argoNamespace).CombinedOutput(); err == nil {
+		if out, err := exec.Command("kubectl", "describe", "application", app, "-n", globalCfg.KuberpultNamespace).CombinedOutput(); err == nil {
 			tLogf(t, "ArgoCD app describe %s:\n%s", app, out)
 		}
 	}
@@ -900,11 +854,11 @@ func dumpBracketDiagnostics(t *testing.T, argoApps []string, namespaces []string
 	}
 	for _, svc := range []string{"rollout-service", "manifest-repo-export-service"} {
 		dep := "deployment/kuberpult-" + svc
-		if out, err := exec.Command("kubectl", "logs", "-n", argoNamespace, dep, "--tail=100").CombinedOutput(); err == nil {
+		if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, dep, "--tail=100").CombinedOutput(); err == nil {
 			tLogf(t, "%s logs (tail 100):\n%s", svc, out)
 		}
 	}
-	if out, err := exec.Command("kubectl", "logs", "-n", argoNamespace, "statefulset/argocd-application-controller", "--tail=100").CombinedOutput(); err == nil {
+	if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, "statefulset/argocd-application-controller", "--tail=100").CombinedOutput(); err == nil {
 		tLogf(t, "argocd-application-controller logs (tail 100):\n%s", out)
 	}
 }
@@ -915,12 +869,12 @@ func dumpBracketDiagnostics(t *testing.T, argoApps []string, namespaces []string
 func dumpBracketDiagnosticsExpanded(t *testing.T, bracketApps []string, individualApps []string, namespaces []string) {
 	t.Helper()
 	for _, app := range bracketApps {
-		if out, err := exec.Command("kubectl", "describe", "application", app, "-n", argoNamespace).CombinedOutput(); err == nil {
+		if out, err := exec.Command("kubectl", "describe", "application", app, "-n", globalCfg.KuberpultNamespace).CombinedOutput(); err == nil {
 			tLogf(t, "ArgoCD app describe %s:\n%s", app, out)
 		}
 	}
 	for _, app := range individualApps {
-		if out, err := exec.Command("kubectl", "describe", "application", app, "-n", argoNamespace).CombinedOutput(); err == nil {
+		if out, err := exec.Command("kubectl", "describe", "application", app, "-n", globalCfg.KuberpultNamespace).CombinedOutput(); err == nil {
 			tLogf(t, "ArgoCD app describe (individual) %s:\n%s", app, out)
 		}
 	}
@@ -929,22 +883,22 @@ func dumpBracketDiagnosticsExpanded(t *testing.T, bracketApps []string, individu
 			tLogf(t, "events in %s:\n%s", ns, out)
 		}
 	}
-	if out, err := exec.Command("kubectl", "logs", "-n", argoNamespace, "deployment/kuberpult-rollout-service", "--since=5m").CombinedOutput(); err == nil {
+	if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, "deployment/kuberpult-rollout-service", "--since=5m").CombinedOutput(); err == nil {
 		tLogf(t, "rollout-service logs (since 5m):\n%s", out)
 	}
-	if out, err := exec.Command("kubectl", "logs", "-n", argoNamespace, "statefulset/argocd-application-controller", "--since=5m").CombinedOutput(); err == nil {
+	if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, "statefulset/argocd-application-controller", "--since=5m").CombinedOutput(); err == nil {
 		tLogf(t, "argocd-application-controller logs (since 5m):\n%s", out)
 	}
-	if out, err := exec.Command("kubectl", "logs", "-n", argoNamespace, "deployment/argocd-server", "--since=5m").CombinedOutput(); err == nil {
+	if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, "deployment/argocd-server", "--since=5m").CombinedOutput(); err == nil {
 		tLogf(t, "argocd-server logs (since 5m):\n%s", out)
 	}
-	if out, err := exec.Command("kubectl", "logs", "-n", argoNamespace, "deployment/kuberpult-reposerver-service", "--since=5m").CombinedOutput(); err == nil {
+	if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, "deployment/kuberpult-reposerver-service", "--since=5m").CombinedOutput(); err == nil {
 		tLogf(t, "kuberpult-reposerver-service logs (since 5m):\n%s", out)
 	}
-	if out, err := exec.Command("kubectl", "logs", "-n", argoNamespace, "deployment/kuberpult-rollout-service", "--since=5m", "--previous").CombinedOutput(); err == nil {
+	if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, "deployment/kuberpult-rollout-service", "--since=5m", "--previous").CombinedOutput(); err == nil {
 		tLogf(t, "rollout-service logs (previous container, since 5m):\n%s", out)
 	}
-	if out, err := exec.Command("kubectl", "get", "appprojects", "-n", argoNamespace, "-o", "yaml").CombinedOutput(); err == nil {
-		tLogf(t, "AppProjects in %s:\n%s", argoNamespace, out)
+	if out, err := exec.Command("kubectl", "get", "appprojects", "-n", globalCfg.KuberpultNamespace, "-o", "yaml").CombinedOutput(); err == nil {
+		tLogf(t, "AppProjects in %s:\n%s", globalCfg.KuberpultNamespace, out)
 	}
 }

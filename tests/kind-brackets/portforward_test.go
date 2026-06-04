@@ -35,23 +35,25 @@ type portForwardManager struct {
 	cancel context.CancelFunc
 }
 
-// startPFManager kills any shell-managed port-forward for kuberpult-frontend-service
-// and starts a self-healing manager that owns port 5002 for the test run.
-func startPFManager() *portForwardManager {
+// startPFManager kills any shell-managed port-forward for the given target and
+// starts a self-healing manager for the test run.
+// target is e.g. "deployment/kuberpult-frontend-service".
+// portMapping is e.g. "5002:8081".
+func startPFManager(cfg testConfig, target, portMapping string) *portForwardManager {
 	// Take ownership from any shell background loop; ignore exit code.
-	_ = exec.Command("pkill", "-f", "port-forward.*kuberpult-frontend-service").Run()
+	_ = exec.Command("pkill", "-f", "port-forward.*"+target).Run()
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &portForwardManager{cancel: cancel}
-	go m.loop(ctx)
+	go m.loop(ctx, cfg, target, portMapping)
 	return m
 }
 
-func (m *portForwardManager) loop(ctx context.Context) {
+func (m *portForwardManager) loop(ctx context.Context, cfg testConfig, target, portMapping string) {
 	for ctx.Err() == nil {
 		cmd := exec.CommandContext(ctx, "kubectl", "port-forward",
-			"-n", "default",
-			"deployment/kuberpult-frontend-service",
-			"5002:8081")
+			"-n", cfg.KuberpultNamespace,
+			target,
+			portMapping)
 		m.mu.Lock()
 		m.cmd = cmd
 		m.mu.Unlock()
