@@ -74,10 +74,14 @@ type HelmUpgradeParams struct {
 	BracketsEnabled    bool
 	DevelopmentEnabled bool
 	StagingEnabled     bool
-	ChannelSize        int
+	// AATestEnabled toggles bracket mode for the active-active "aa-test" env.
+	AATestEnabled bool
+	ChannelSize   int
 	// OldVersion, if non-empty, installs this specific chart version from GitHub
 	// releases instead of the locally built chart. Kind mode only: images for
 	// that version are pulled from the public registry and loaded into kind.
+	// Example: "v13.47.6"
+	// If not set, the current version will be used.
 	OldVersion string
 }
 
@@ -379,8 +383,8 @@ func HelmUpgrade(tb TB, cfg Config, p HelmUpgradeParams) {
 		}
 		return "false"
 	}
-	tb.Logf("HelmUpgrade: brackets=%s development=%s staging=%s channelSize=%d",
-		boolStr(p.BracketsEnabled), boolStr(p.DevelopmentEnabled), boolStr(p.StagingEnabled), p.ChannelSize)
+	tb.Logf("HelmUpgrade: brackets=%s development=%s staging=%s aa-test=%s channelSize=%d",
+		boolStr(p.BracketsEnabled), boolStr(p.DevelopmentEnabled), boolStr(p.StagingEnabled), boolStr(p.AATestEnabled), p.ChannelSize)
 
 	var cmd *exec.Cmd
 	switch cfg.Mode {
@@ -407,6 +411,7 @@ func HelmUpgrade(tb TB, cfg Config, p HelmUpgradeParams) {
 				"--set", "rollout.experimentalBrackets.enabled="+boolStr(p.BracketsEnabled),
 				"--set", "rollout.experimentalBrackets.clusters.development="+boolStr(p.DevelopmentEnabled),
 				"--set", "rollout.experimentalBrackets.clusters.staging="+boolStr(p.StagingEnabled),
+				"--set", "rollout.experimentalBrackets.clusters.aa-test="+boolStr(p.AATestEnabled),
 				"--set", fmt.Sprintf("rollout.kuberpultEventsChannelSize=%d", p.ChannelSize),
 				cfg.HelmReleaseName, chartPath)
 		}
@@ -420,6 +425,7 @@ func HelmUpgrade(tb TB, cfg Config, p HelmUpgradeParams) {
 			"--set", "rollout.experimentalBrackets.enabled="+boolStr(p.BracketsEnabled),
 			"--set", "rollout.experimentalBrackets.clusters.development="+boolStr(p.DevelopmentEnabled),
 			"--set", "rollout.experimentalBrackets.clusters.staging="+boolStr(p.StagingEnabled),
+			"--set", "rollout.experimentalBrackets.clusters.aa-test="+boolStr(p.AATestEnabled),
 			"--set", fmt.Sprintf("rollout.kuberpultEventsChannelSize=%d", p.ChannelSize),
 			cfg.HelmReleaseName, chartPath)
 	}

@@ -34,27 +34,12 @@ import (
 
 const cdServiceGrpcAddr = "localhost:5004"
 
-// helmUpgradeParams uses unexported fields so test call sites are unchanged.
-type helmUpgradeParams struct {
-	bracketsEnabled    bool
-	developmentEnabled bool
-	stagingEnabled     bool
-	channelSize        int
-	oldVersion         string // if non-empty, installs this specific chart version
-}
-
 // helmUpgrade restarts the port-forward, then delegates to the shared HelmUpgrade.
-func helmUpgrade(t *testing.T, p helmUpgradeParams) {
+func helmUpgrade(t *testing.T, p HelmUpgradeParams) {
 	t.Helper()
 	globalPFM.restart()
 	globalCDPFM.restart()
-	HelmUpgrade(t, globalCfg.Config, HelmUpgradeParams{
-		BracketsEnabled:    p.bracketsEnabled,
-		DevelopmentEnabled: p.developmentEnabled,
-		StagingEnabled:     p.stagingEnabled,
-		ChannelSize:        p.channelSize,
-		OldVersion:         p.oldVersion,
-	})
+	HelmUpgrade(t, globalCfg.Config, p)
 }
 
 // waitForArgoApp polls until the named Argo Application exists in the default namespace.
@@ -113,7 +98,7 @@ func TestBracketMigration(t *testing.T) {
 	//   bracket:    "{env}-{bracketName}" e.g. "staging-bmt-bracket-XXXXX"
 
 	tLog(t, "step 1: upgrade to staging=false (individual Argo apps mode for staging)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: false, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: false, ChannelSize: 50})
 
 	tLog(t, "step 2: create v1 releases (dev + staging manifests)")
 	for _, app := range apps {
@@ -147,7 +132,7 @@ func TestBracketMigration(t *testing.T) {
 	}
 
 	tLog(t, "step 7: upgrade to staging=true (migrate to bracket Argo app)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: true, ChannelSize: 50})
 
 	tLog(t, "step 8: wait for bracket Argo app to appear on staging")
 	waitForArgoApp(t, "staging-"+migrationBracket)
@@ -210,38 +195,94 @@ func deleteEnvFromApp(t *testing.T, env, app string) {
 // (via deleteEnvFromApp) cascade-deletes the per-env bracket Argo Application: once no
 // member of the bracket is deployed in that env, the <env>-<bracket> Argo app is torn
 // down. The bracket itself persists in brackets_history for future deployments.
+// TestBracketDeleteEnvFromApp verifies deleting the staging env from app1:
+//   - "sole member": app1 is the only member of the bracket, so the staging bracket
+//     Argo app is cascade-deleted (bracketEmptyInEnv == true).
+//   - "shared bracket": app2 is also a member, so the staging bracket Argo app
+//     SURVIVES and only app1's staging resources are pruned (bracketEmptyInEnv == false).
+//
+// In both cases app1 stays deployed on development (only its staging env is removed).
 func TestBracketDeleteEnvFromApp(t *testing.T) {
-	cleanupCluster(t)
-	tLogf(t, "runSuffix: %s", runSuffix)
-	app := "bde-app1-" + runSuffix
-	bracket := "bde-bracket-" + runSuffix
+	tcs := []struct {
+		Name string
+		// WithSecondApp keeps app2 in the bracket, so it stays populated on staging.
+		WithSecondApp bool
+	}{
+		{
+			Name:          "one app",
+			WithSecondApp: false,
+		},
+		{
+			Name:          "two apps",
+			WithSecondApp: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			cleanupCluster(t)
+			tLogf(t, "runSuffix: %s", runSuffix)
+			app1 := "bde-app1-" + runSuffix
+			app2 := "bde-app2-" + runSuffix // shared case only: second member of the bracket
+			bracket := "bde-bracket-" + runSuffix
 
-	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
+			tLog(t, "step 1: upgrade to staging=true (bracket mode)")
+			helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: true, ChannelSize: 50})
 
-	tLog(t, "step 2: create v1 release (dev + staging manifests)")
-	createRelease(t, app, "sreteam", bracket, "1", map[string]string{
-		devNamespace:     stableManifest(app, devNamespace, "1"),
-		stagingNamespace: stableManifest(app, stagingNamespace, "1"),
-	})
+			tLog(t, "step 2: create v1 release(s) (dev + staging manifests)")
+			createRelease(t, app1, "sreteam", bracket, "1", map[string]string{
+				devNamespace:     stableManifest(app1, devNamespace, "1"),
+				stagingNamespace: stableManifest(app1, stagingNamespace, "1"),
+			})
+			if tc.WithSecondApp {
+				createRelease(t, app2, "sreteam", bracket, "1", map[string]string{
+					devNamespace:     stableManifest(app2, devNamespace, "1"),
+					stagingNamespace: stableManifest(app2, stagingNamespace, "1"),
+				})
+			}
 
-	tLog(t, "step 3: run staging release train")
-	releaseTrain(t, stagingNamespace)
+			tLog(t, "step 3: run staging release train")
+			releaseTrain(t, stagingNamespace)
 
-	tLog(t, "step 4: wait for v1 synced in staging")
-	waitForDeploymentAnnotation(t, stagingNamespace, app+"-bracket-dep", "1")
+			tLog(t, "step 4: wait for v1 synced in staging + bracket Argo app present")
+			waitForDeploymentAnnotation(t, stagingNamespace, app1+"-bracket-dep", "1")
+			waitForArgoApp(t, "staging-"+bracket)
+			if tc.WithSecondApp {
+				waitForDeploymentAnnotation(t, stagingNamespace, app2+"-bracket-dep", "1")
+			}
 
-	tLog(t, "step 5: wait for bracket Argo app to appear on staging")
-	waitForArgoApp(t, "staging-"+bracket)
+			tLog(t, "step 5: record creation times (app1 on dev always survives; app2 staging when shared)")
+			creationTimes := map[deploymentKey]string{
+				{devNamespace, app1 + "-bracket-dep"}: deploymentCreationTime(t, devNamespace, app1+"-bracket-dep"),
+			}
+			if tc.WithSecondApp {
+				k := deploymentKey{stagingNamespace, app2 + "-bracket-dep"}
+				creationTimes[k] = deploymentCreationTime(t, stagingNamespace, app2+"-bracket-dep")
+			}
 
-	tLog(t, "step 6: delete env from app")
-	deleteEnvFromApp(t, stagingNamespace, app)
+			tLog(t, "step 6: delete staging env from app1")
+			deleteEnvFromApp(t, stagingNamespace, app1)
 
-	tLogf(t, "step 7: %s buffer for rollout-service to reconcile", reconcileBuffer)
-	time.Sleep(reconcileBuffer)
+			tLogf(t, "step 7: %s buffer for rollout-service to reconcile", reconcileBuffer)
+			time.Sleep(reconcileBuffer)
 
-	tLog(t, "step 8: verify bracket Argo app is cascade-deleted (no member deployed in env)")
-	waitForArgoAppGone(t, "staging-"+bracket)
+			if tc.WithSecondApp {
+				tLog(t, "step 8: staging bracket survives (app2 remains) but stops tracking app1")
+				waitForArgoApp(t, "staging-"+bracket)
+				waitForArgoAppNotTracking(t, "staging-"+bracket, "Deployment/"+app1+"-bracket-dep")
+				resources := argoAppTrackedResources(t, "staging-"+bracket)
+				if !strings.Contains(resources, "Deployment/"+app2+"-bracket-dep\n") {
+					t.Errorf("staging bracket Argo app lost app2's deployment, tracked resources:\n%s", resources)
+				}
+			} else {
+				tLog(t, "step 8: verify staging bracket Argo app is cascade-deleted (no member deployed in env)")
+				waitForArgoAppGone(t, "staging-"+bracket)
+			}
+
+			tLog(t, "step 9: app1 still deployed on development; pods stable")
+			waitForDeploymentAnnotation(t, devNamespace, app1+"-bracket-dep", "1")
+			assertDeploymentCreationTimesStable(t, creationTimes, "delete staging env from app1 should not bother dev or siblings")
+		})
+	}
 }
 
 // TestBracketReverseMigration is the regression test for the bracket → individual rollback.
@@ -262,7 +303,7 @@ func TestBracketReverseMigration(t *testing.T) {
 	bracket := "brm-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: true, ChannelSize: 50})
 
 	tLog(t, "step 2: create v1 releases (dev + staging manifests)")
 	for _, app := range apps {
@@ -292,7 +333,7 @@ func TestBracketReverseMigration(t *testing.T) {
 	}
 
 	tLog(t, "step 7: upgrade to staging=false (revert to individual Argo apps)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: false, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: false, ChannelSize: 50})
 
 	tLog(t, "step 8: wait for individual Argo apps to appear on staging")
 	for _, app := range apps {
@@ -325,7 +366,7 @@ func TestBracketAddAppToExistingBracket(t *testing.T) {
 	bracket := "bae-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: true, ChannelSize: 50})
 
 	tLog(t, "step 2: create v1 release for app1 only")
 	createRelease(t, app1, "sreteam", bracket, "1", map[string]string{
@@ -386,7 +427,7 @@ func TestBracketPartialUpdate(t *testing.T) {
 	bracket := "bpu-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: true, ChannelSize: 50})
 
 	tLog(t, "step 2: create v1 releases for both apps")
 	for _, app := range []string{app1, app2} {
@@ -435,59 +476,102 @@ func undeployApp(t *testing.T, app string) {
 	}})
 }
 
-// TestBracketUndeploy verifies that undeploying the only app in bracket1:
-// (a) deletes the bracket1 Argo Application, and
-// (b) does not restart pods belonging to a separate bracket2.
+// TestBracketUndeploy verifies undeploying app1 from bracket1:
+//   - "sole member": app1 is the only member of bracket1, so the bracket1 Argo app
+//     is cascade-deleted (the bracketEmptyInEnv == true branch).
+//   - "shared bracket": app3 is also a member of bracket1, so the bracket1 Argo app
+//     SURVIVES and only app1's resources are pruned from it (bracketEmptyInEnv == false).
+//
+// In both cases a separate bracket2 (app2) must be completely untouched.
 func TestBracketUndeploy(t *testing.T) {
-	cleanupCluster(t)
-	tLogf(t, "runSuffix: %s", runSuffix)
-	app1 := "bu-app1-" + runSuffix
-	bracket1 := "bu-bracket1-" + runSuffix
-	app2 := "bu-app2-" + runSuffix
-	bracket2 := "bu-bracket2-" + runSuffix
-
-	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
-
-	tLog(t, "step 2: create v1 releases for both apps")
-	createRelease(t, app1, "sreteam", bracket1, "1", map[string]string{
-		devNamespace:     stableManifest(app1, devNamespace, "1"),
-		stagingNamespace: stableManifest(app1, stagingNamespace, "1"),
-	})
-	createRelease(t, app2, "sreteam", bracket2, "1", map[string]string{
-		devNamespace:     stableManifest(app2, devNamespace, "1"),
-		stagingNamespace: stableManifest(app2, stagingNamespace, "1"),
-	})
-
-	tLog(t, "step 3: run staging release train (deploys both apps)")
-	releaseTrain(t, stagingNamespace)
-
-	tLog(t, "step 4: wait for both bracket Argo apps to appear on staging")
-	waitForArgoApp(t, "staging-"+bracket1)
-	waitForArgoApp(t, "staging-"+bracket2)
-
-	waitForDeploymentAnnotation(t, stagingNamespace, app2+"-bracket-dep", "1")
-	waitForDeploymentAnnotation(t, devNamespace, app2+"-bracket-dep", "1")
-
-	tLog(t, "step 5: record deployment creation times for app2")
-	creationTimes := map[deploymentKey]string{
-		{stagingNamespace, app2 + "-bracket-dep"}: deploymentCreationTime(t, stagingNamespace, app2+"-bracket-dep"),
-		{devNamespace, app2 + "-bracket-dep"}:     deploymentCreationTime(t, devNamespace, app2+"-bracket-dep"),
+	tcs := []struct {
+		Name string
+		// WithThirdApp keeps app3 in bracket1, so it stays populated after app1's undeploy.
+		WithThirdApp bool
+	}{
+		{
+			Name:         "sole member: bracket cascade-deleted",
+			WithThirdApp: false,
+		},
+		{
+			Name:         "shared bracket: survives, sibling untouched",
+			WithThirdApp: true,
+		},
 	}
-	tLogf(t, "  %s/%s: %s", stagingNamespace, app2+"-bracket-dep", creationTimes[deploymentKey{stagingNamespace, app2 + "-bracket-dep"}])
-	tLogf(t, "  %s/%s: %s", devNamespace, app2+"-bracket-dep", creationTimes[deploymentKey{devNamespace, app2 + "-bracket-dep"}])
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			cleanupCluster(t)
+			tLogf(t, "runSuffix: %s", runSuffix)
+			app1 := "bu-app1-" + runSuffix
+			bracket1 := "bu-bracket1-" + runSuffix
+			app2 := "bu-app2-" + runSuffix
+			bracket2 := "bu-bracket2-" + runSuffix
+			app3 := "bu-app3-" + runSuffix // shared case only: second member of bracket1
 
-	tLog(t, "step 6: undeploy app1 entirely")
-	undeployApp(t, app1)
+			tLog(t, "step 1: upgrade to staging=true (bracket mode)")
+			helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: true, ChannelSize: 50})
 
-	tLogf(t, "step 7: %s buffer for rollout-service to reconcile", reconcileBuffer)
-	time.Sleep(reconcileBuffer)
+			tLog(t, "step 2: create v1 releases")
+			createRelease(t, app1, "sreteam", bracket1, "1", map[string]string{
+				devNamespace:     stableManifest(app1, devNamespace, "1"),
+				stagingNamespace: stableManifest(app1, stagingNamespace, "1"),
+			})
+			createRelease(t, app2, "sreteam", bracket2, "1", map[string]string{
+				devNamespace:     stableManifest(app2, devNamespace, "1"),
+				stagingNamespace: stableManifest(app2, stagingNamespace, "1"),
+			})
+			if tc.WithThirdApp {
+				createRelease(t, app3, "sreteam", bracket1, "1", map[string]string{
+					devNamespace:     stableManifest(app3, devNamespace, "1"),
+					stagingNamespace: stableManifest(app3, stagingNamespace, "1"),
+				})
+			}
 
-	tLog(t, "step 8: verify bracket1 Argo app is deleted on staging (no apps remain)")
-	waitForArgoAppGone(t, "staging-"+bracket1)
+			tLog(t, "step 3: run staging release train (deploys all apps)")
+			releaseTrain(t, stagingNamespace)
 
-	tLog(t, "step 9: assert pod start times stable after undeploy of app1")
-	assertDeploymentCreationTimesStable(t, creationTimes, "undeploy app1 should not bother app2")
+			tLog(t, "step 4: wait for bracket Argo apps + v1 synced")
+			waitForArgoApp(t, "staging-"+bracket1)
+			waitForArgoApp(t, "staging-"+bracket2)
+			waitForDeploymentAnnotation(t, stagingNamespace, app2+"-bracket-dep", "1")
+			waitForDeploymentAnnotation(t, devNamespace, app2+"-bracket-dep", "1")
+			if tc.WithThirdApp {
+				waitForDeploymentAnnotation(t, stagingNamespace, app3+"-bracket-dep", "1")
+			}
+
+			tLog(t, "step 5: record deployment creation times (control app2; app3 when shared)")
+			creationTimes := map[deploymentKey]string{
+				{stagingNamespace, app2 + "-bracket-dep"}: deploymentCreationTime(t, stagingNamespace, app2+"-bracket-dep"),
+				{devNamespace, app2 + "-bracket-dep"}:     deploymentCreationTime(t, devNamespace, app2+"-bracket-dep"),
+			}
+			if tc.WithThirdApp {
+				k := deploymentKey{stagingNamespace, app3 + "-bracket-dep"}
+				creationTimes[k] = deploymentCreationTime(t, stagingNamespace, app3+"-bracket-dep")
+			}
+
+			tLog(t, "step 6: undeploy app1 entirely")
+			undeployApp(t, app1)
+
+			tLogf(t, "step 7: %s buffer for rollout-service to reconcile", reconcileBuffer)
+			time.Sleep(reconcileBuffer)
+
+			if tc.WithThirdApp {
+				tLog(t, "step 8: bracket1 survives (app3 remains) but stops tracking app1")
+				waitForArgoApp(t, "staging-"+bracket1)
+				waitForArgoAppNotTracking(t, "staging-"+bracket1, "Deployment/"+app1+"-bracket-dep")
+				resources := argoAppTrackedResources(t, "staging-"+bracket1)
+				if !strings.Contains(resources, "Deployment/"+app3+"-bracket-dep\n") {
+					t.Errorf("bracket1 Argo app lost app3's deployment, tracked resources:\n%s", resources)
+				}
+			} else {
+				tLog(t, "step 8: verify bracket1 Argo app is cascade-deleted (no apps remain)")
+				waitForArgoAppGone(t, "staging-"+bracket1)
+			}
+
+			tLog(t, "step 9: assert pod start times stable after undeploy of app1")
+			assertDeploymentCreationTimesStable(t, creationTimes, "undeploy app1 should not bother siblings")
+		})
+	}
 }
 
 // TestBracketEnableAllClusters is the regression test for the bug where enabling
@@ -513,7 +597,7 @@ func TestBracketEnableAllClusters(t *testing.T) {
 	bracket := "beac-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to experimentalBrackets.enabled=false (fully disabled brackets)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: false, developmentEnabled: false, stagingEnabled: false, channelSize: 1})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: false, DevelopmentEnabled: false, StagingEnabled: false, ChannelSize: 1})
 
 	tLog(t, "step 2: create v1 releases (dev + dev2 + staging manifests)")
 	for _, app := range apps {
@@ -561,7 +645,7 @@ func TestBracketEnableAllClusters(t *testing.T) {
 	}
 
 	tLog(t, "step 7: upgrade to experimentalBrackets.enabled=true, development=true, staging=true")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: true, stagingEnabled: true, channelSize: 1})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: true, StagingEnabled: true, ChannelSize: 1})
 
 	var individualArgoApps []string
 	for _, app := range apps {
@@ -605,7 +689,7 @@ func TestBracketDeploymentAndBracketMoveSimultaneous(t *testing.T) {
 	bracket2 := "bdabms-bracket2-" + runSuffix
 
 	tLog(t, "step 1: upgrade to development=true (bracket mode)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: true, stagingEnabled: false, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: true, StagingEnabled: false, ChannelSize: 50})
 
 	tLog(t, "step 2: create v1 release for app1+2 in bracket1")
 	createRelease(t, app1, "sreteam", bracket1, "1", map[string]string{
@@ -675,7 +759,7 @@ func TestRealityCheck(t *testing.T) {
 	allApps := []string{app1, app2, app3, app4}
 
 	tLog(t, "step 1: install v13.47.6 (no rollout-service bracket support)")
-	helmUpgrade(t, helmUpgradeParams{oldVersion: "v13.47.6", channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{OldVersion: "v13.47.6", ChannelSize: 50})
 
 	tLog(t, "step 2: create v1 releases — bracket1 (app1+app2) and bracket2 (app3+app4)")
 	for _, app := range []string{app1, app2} {
@@ -712,13 +796,13 @@ func TestRealityCheck(t *testing.T) {
 	}
 
 	tLog(t, "step 6: upgrade to new version — brackets disabled in all clusters")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: false, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: false, ChannelSize: 50})
 
 	tLog(t, "step 7: assert creation times unchanged after kuberpult upgrade")
 	assertDeploymentCreationTimesStable(t, creationTimes, "upgrade to new version")
 
 	tLog(t, "step 8: enable brackets on dev only")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: true, stagingEnabled: false, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: true, StagingEnabled: false, ChannelSize: 50})
 
 	tLog(t, "step 9: wait for bracket Argo apps to appear on dev")
 	waitForArgoApp(t, devNamespace+"-"+bracket1)
@@ -751,7 +835,7 @@ func TestBracketMoveBetweenBrackets(t *testing.T) {
 	bracket2 := "bmb-bracket2-" + runSuffix
 
 	tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: true, ChannelSize: 50})
 
 	tLog(t, "step 2: create v1 release for app in bracket1")
 	createRelease(t, app, "sreteam", bracket1, "1", map[string]string{
@@ -817,7 +901,7 @@ func TestBracketMoveAndBack(t *testing.T) {
 			bracket2 := "bmab-bracket2-" + runSuffix
 
 			tLog(t, "step 1: upgrade to staging=true (bracket mode)")
-			helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
+			helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: true, ChannelSize: 50})
 
 			tLog(t, "step 2: create v1 releases for all apps in bracket1")
 			for _, app := range apps {
@@ -923,6 +1007,24 @@ func waitForArgoAppNotTracking(t *testing.T, argoApp, kindSlashName string) {
 	t.Fatalf("Argo app %q still tracks %q after 3 minutes — the old bracket was never spec-refreshed after the move", argoApp, kindSlashName)
 }
 
+// waitForArgoAppTracking polls until the named Argo Application DOES track the
+// given "Kind/name" resource in .status.resources (the inverse of
+// waitForArgoAppNotTracking) — e.g. a gainer bracket adopting a moved app.
+func waitForArgoAppTracking(t *testing.T, argoApp, kindSlashName string) {
+	t.Helper()
+	deadline := time.Now().Add(argoAppGoneTimeout)
+	for time.Now().Before(deadline) {
+		resources := argoAppTrackedResources(t, argoApp)
+		if strings.Contains(resources, kindSlashName+"\n") {
+			tLogf(t, "  Argo app %s tracks %s", argoApp, kindSlashName)
+			return
+		}
+		time.Sleep(argoAppPollInterval)
+	}
+	dumpBracketDiagnostics(t, []string{argoApp}, []string{devNamespace})
+	t.Fatalf("Argo app %q never tracked %q after 3 minutes", argoApp, kindSlashName)
+}
+
 // TestBracketMoveOutOfSharedBracket is the regression test for the bug where
 // moving an app OUT of a bracket that still has other members left the app in
 // BOTH brackets: the old bracket's Argo app spec was never refreshed (it kept
@@ -944,7 +1046,7 @@ func TestBracketMoveOutOfSharedBracket(t *testing.T) {
 	bracket2 := "bmosb-bracket2-" + runSuffix
 
 	tLog(t, "step 1: upgrade to development=true (bracket mode)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: true, stagingEnabled: false, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: true, StagingEnabled: false, ChannelSize: 50})
 
 	tLog(t, "step 2: create v1 releases for app1+app2 in bracket1")
 	createRelease(t, app1, "sreteam", bracket1, "1", map[string]string{
@@ -992,6 +1094,165 @@ func TestBracketMoveOutOfSharedBracket(t *testing.T) {
 	assertDeploymentCreationTimesStable(t, creationTimes, "move out of shared bracket")
 }
 
+// TestBracketMoveIntoPopulatedBracket verifies that moving an app INTO a bracket
+// that already owns a live member adopts the moved app without disturbing the
+// existing member, while the loser bracket (still populated) stops tracking the
+// moved app. All three workloads must stay up (no pod restart).
+//
+// Scenario (development, bracket mode):
+//   - app1 and app2 share bracket1; appX is the sole member of bracket2. All deployed.
+//   - app1 gets a new release assigned to bracket2 (bracket1 keeps app2).
+//   - Expected: bracket2 tracks BOTH appX and app1; bracket1 stops tracking app1 but
+//     keeps app2; and app1, app2, appX Deployment creationTimestamps are unchanged.
+func TestBracketMoveIntoPopulatedBracket(t *testing.T) {
+	cleanupCluster(t)
+	tLogf(t, "runSuffix: %s", runSuffix)
+	app1 := "bmip-app1-" + runSuffix
+	app2 := "bmip-app2-" + runSuffix
+	appX := "bmip-appx-" + runSuffix
+	bracket1 := "bmip-bracket1-" + runSuffix
+	bracket2 := "bmip-bracket2-" + runSuffix
+
+	tLog(t, "step 1: upgrade to development=true (bracket mode)")
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: true, StagingEnabled: false, ChannelSize: 50})
+
+	tLog(t, "step 2: create v1 releases — app1+app2 in bracket1, appX in bracket2")
+	createRelease(t, app1, "sreteam", bracket1, "1", map[string]string{
+		devNamespace: stableManifest(app1, devNamespace, "1"),
+	})
+	createRelease(t, app2, "sreteam", bracket1, "1", map[string]string{
+		devNamespace: stableManifest(app2, devNamespace, "1"),
+	})
+	createRelease(t, appX, "sreteam", bracket2, "1", map[string]string{
+		devNamespace: stableManifest(appX, devNamespace, "1"),
+	})
+
+	tLog(t, "step 3: wait for both bracket Argo apps and v1 synced in dev")
+	waitForArgoApp(t, devNamespace+"-"+bracket1)
+	waitForArgoApp(t, devNamespace+"-"+bracket2)
+	waitForDeploymentAnnotation(t, devNamespace, app1+"-bracket-dep", "1")
+	waitForDeploymentAnnotation(t, devNamespace, app2+"-bracket-dep", "1")
+	waitForDeploymentAnnotation(t, devNamespace, appX+"-bracket-dep", "1")
+
+	tLog(t, "step 4: record deployment creation times for all three apps")
+	creationTimes := map[deploymentKey]string{
+		{devNamespace, app1 + "-bracket-dep"}: deploymentCreationTime(t, devNamespace, app1+"-bracket-dep"),
+		{devNamespace, app2 + "-bracket-dep"}: deploymentCreationTime(t, devNamespace, app2+"-bracket-dep"),
+		{devNamespace, appX + "-bracket-dep"}: deploymentCreationTime(t, devNamespace, appX+"-bracket-dep"),
+	}
+
+	tLog(t, "step 5: create v2 for app1, now in bracket2 (already holding appX); bracket1 keeps app2")
+	createRelease(t, app1, "sreteam", bracket2, "2", map[string]string{
+		devNamespace: stableManifest(app1, devNamespace, "2"),
+	})
+
+	tLog(t, "step 6: wait for app1 v2 synced (adopted by bracket2)")
+	waitForDeploymentAnnotation(t, devNamespace, app1+"-bracket-dep", "2")
+
+	tLog(t, "step 7: bracket2 (populated gainer) tracks BOTH appX and app1")
+	waitForArgoAppTracking(t, devNamespace+"-"+bracket2, "Deployment/"+app1+"-bracket-dep")
+	b2 := argoAppTrackedResources(t, devNamespace+"-"+bracket2)
+	if !strings.Contains(b2, "Deployment/"+appX+"-bracket-dep\n") {
+		t.Errorf("gainer bracket2 lost its existing member appX, tracked resources:\n%s", b2)
+	}
+
+	tLog(t, "step 8: bracket1 (loser, still populated) stops tracking app1 but keeps app2")
+	waitForArgoAppNotTracking(t, devNamespace+"-"+bracket1, "Deployment/"+app1+"-bracket-dep")
+	b1 := argoAppTrackedResources(t, devNamespace+"-"+bracket1)
+	if !strings.Contains(b1, "Deployment/"+app2+"-bracket-dep\n") {
+		t.Errorf("loser bracket1 lost app2's deployment, tracked resources:\n%s", b1)
+	}
+
+	tLog(t, "step 9: assert pod start times stable (gainer's member, moved app, loser's member)")
+	assertDeploymentCreationTimesStable(t, creationTimes, "move into populated bracket")
+}
+
+// TestBracketMoveOutOfSharedBracketActiveActive is the active-active variant of
+// TestBracketMoveOutOfSharedBracket. The bracket lives in the AA env "aa-test"
+// (commonEnvPrefix "aa", concrete configs "dev-1"/"dev-2"), so each bracket is
+// realized as TWO Argo Applications (aa-aa-test-dev-1-<bracket>,
+// aa-aa-test-dev-2-<bracket>) that both render the same bracket manifest path and,
+// in the single kind cluster, both manage the one Deployment per app in ns aa-test.
+//
+// The pause/retarget/resume protocol runs per Argo Application, so a move must keep
+// EVERY concrete app consistent — if one concrete app lagged, it would prune the
+// moved app's workload mid-handover. This test moves app2 out of a shared bracket1
+// and asserts, for BOTH concrete envs, that bracket1 stops tracking app2 (keeps
+// app1) and bracket2 adopts app2, with no Deployment delete+recreate.
+//
+// aa-test upstreams from development2 (upstream.latest), so releases are created with
+// a development2 manifest (auto-deployed there) and promoted into aa-test via a
+// release train.
+func TestBracketMoveOutOfSharedBracketActiveActive(t *testing.T) {
+	cleanupCluster(t)
+	tLogf(t, "runSuffix: %s", runSuffix)
+	app1 := "bmaa-a1-" + runSuffix
+	app2 := "bmaa-a2-" + runSuffix
+	bracket1 := "bmaa-b1-" + runSuffix
+	bracket2 := "bmaa-b2-" + runSuffix
+	// Concrete env names from aa-test/config.json. The bracket Argo app name is
+	// "aa-<aaNamespace>-<concrete>-<bracket>" (commonEnvPrefix-env-concrete-bracket).
+	concreteEnvs := []string{"dev-1", "dev-2"}
+	aaBracketApp := func(concrete, bracket string) string {
+		return fmt.Sprintf("aa-%s-%s-%s", aaNamespace, concrete, bracket)
+	}
+
+	tLog(t, "step 1: enable bracket mode on the active-active aa-test env")
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, AATestEnabled: true, ChannelSize: 50})
+
+	tLog(t, "step 2: create v1 releases for app1+app2 in bracket1 (development2 upstream + aa-test)")
+	for _, app := range []string{app1, app2} {
+		createRelease(t, app, "sreteam", bracket1, "1", map[string]string{
+			devTwoNamespace: stableManifest(app, devTwoNamespace, "1"),
+			aaNamespace:     stableManifest(app, aaNamespace, "1"),
+		})
+	}
+
+	tLog(t, "step 3: release train into aa-test (promotes v1 from development2)")
+	releaseTrain(t, aaNamespace)
+
+	tLog(t, "step 4: wait for both concrete bracket1 Argo apps + v1 synced on aa-test")
+	for _, c := range concreteEnvs {
+		waitForArgoApp(t, aaBracketApp(c, bracket1))
+	}
+	waitForDeploymentAnnotation(t, aaNamespace, app1+"-bracket-dep", "1")
+	waitForDeploymentAnnotation(t, aaNamespace, app2+"-bracket-dep", "1")
+
+	tLog(t, "step 5: record creation times (one shared Deployment per app in ns aa-test)")
+	creationTimes := map[deploymentKey]string{
+		{aaNamespace, app1 + "-bracket-dep"}: deploymentCreationTime(t, aaNamespace, app1+"-bracket-dep"),
+		{aaNamespace, app2 + "-bracket-dep"}: deploymentCreationTime(t, aaNamespace, app2+"-bracket-dep"),
+	}
+
+	tLog(t, "step 6: move app2 to bracket2 (bracket1 keeps app1)")
+	createRelease(t, app2, "sreteam", bracket2, "2", map[string]string{
+		devTwoNamespace: stableManifest(app2, devTwoNamespace, "2"),
+		aaNamespace:     stableManifest(app2, aaNamespace, "2"),
+	})
+
+	tLog(t, "step 7: release train into aa-test (promotes app2 v2 into bracket2)")
+	releaseTrain(t, aaNamespace)
+
+	tLog(t, "step 8: wait for both concrete bracket2 Argo apps + app2 v2 synced")
+	for _, c := range concreteEnvs {
+		waitForArgoApp(t, aaBracketApp(c, bracket2))
+	}
+	waitForDeploymentAnnotation(t, aaNamespace, app2+"-bracket-dep", "2")
+
+	tLog(t, "step 9: each concrete env — bracket1 stops tracking app2 (keeps app1), bracket2 tracks app2")
+	for _, c := range concreteEnvs {
+		waitForArgoAppNotTracking(t, aaBracketApp(c, bracket1), "Deployment/"+app2+"-bracket-dep")
+		b1 := argoAppTrackedResources(t, aaBracketApp(c, bracket1))
+		if !strings.Contains(b1, "Deployment/"+app1+"-bracket-dep\n") {
+			t.Errorf("[%s] bracket1 lost app1's deployment, tracked resources:\n%s", c, b1)
+		}
+		waitForArgoAppTracking(t, aaBracketApp(c, bracket2), "Deployment/"+app2+"-bracket-dep")
+	}
+
+	tLog(t, "step 10: assert pod start times stable (per-concrete pause protocol kept both Argo apps consistent)")
+	assertDeploymentCreationTimesStable(t, creationTimes, "active-active move out of shared bracket")
+}
+
 // TestBracketMigrateDevelopment is the regression test for the bug where enabling
 // experimentalBrackets for the development cluster (while staging stays disabled)
 // caused all development apps to vanish without bracket apps replacing them.
@@ -1012,7 +1273,7 @@ func TestBracketMigrateDevelopment(t *testing.T) {
 	bracket := "bmd-bracket-" + runSuffix
 
 	tLog(t, "step 1: upgrade to brackets enabled, development=false (individual-app mode)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: false, channelSize: 1})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: false, ChannelSize: 1})
 
 	tLog(t, "step 2: create v1 releases (dev + dev2 manifests)")
 	for _, app := range apps {
@@ -1039,7 +1300,7 @@ func TestBracketMigrateDevelopment(t *testing.T) {
 	}
 
 	tLog(t, "step 6: upgrade to development=true (the bug-triggering upgrade)")
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: true, stagingEnabled: false, channelSize: 1})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: true, StagingEnabled: false, ChannelSize: 1})
 
 	tLog(t, "step 7: wait for bracket Argo app to appear on development")
 	waitForArgoApp(t, devNamespace+"-"+bracket)

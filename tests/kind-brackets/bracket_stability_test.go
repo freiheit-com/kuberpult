@@ -40,6 +40,10 @@ const (
 	kuberpultFrontendPort = "5002"
 	devNamespace          = "development"
 	stagingNamespace      = "staging"
+	// devTwoNamespace is the upstream env of the active-active aa-test env;
+	// aaNamespace is the active-active env itself (both pre-created by run-kind.sh).
+	devTwoNamespace = "development2"
+	aaNamespace     = "aa-test"
 	// Bracket name used for the two test apps.
 	testBracket = "bracket-stability-test"
 
@@ -306,7 +310,7 @@ func resetDB(t *testing.T) {
 // pod startTime means the Deployment was deleted — the bug.
 func TestBracketPodStability(t *testing.T) {
 	cleanupCluster(t)
-	helmUpgrade(t, helmUpgradeParams{bracketsEnabled: true, developmentEnabled: false, stagingEnabled: true, channelSize: 50})
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: true, ChannelSize: 50})
 	tLogf(t, "runSuffix: %s", runSuffix)
 	app1 := "bst-app1-" + runSuffix
 	app2 := "bst-app2-" + runSuffix

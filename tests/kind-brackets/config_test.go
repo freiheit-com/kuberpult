@@ -113,7 +113,7 @@ func (c testConfig) startDBPortForward(t *testing.T) func() {
 		"-o", "jsonpath={.status.readyReplicas}").Output()
 	if r := strings.TrimSpace(string(readyOut)); r == "" || r == "0" {
 		t.Logf("startDBPortForward: services at 0 replicas, running recovery helmUpgrade")
-		helmUpgrade(t, helmUpgradeParams{bracketsEnabled: false, channelSize: 50})
+		helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: false, ChannelSize: 50})
 	}
 
 	pf := exec.Command("kubectl", "port-forward",
