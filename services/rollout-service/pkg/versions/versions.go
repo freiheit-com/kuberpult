@@ -269,8 +269,9 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			)
 
 			overview := argo.ArgoOverview{
-				Overview:   ov,
-				AppDetails: nil,
+				Overview:      ov,
+				AppDetails:    nil,
+				LostMembersTo: nil,
 			}
 
 			for _, appDetailsResponse := range changedApps.ChangedApps {
@@ -366,6 +367,12 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 			for _, bracketDetails := range changedApps.ChangedBrackets {
 				bracketName := bracketDetails.BracketName
+				if len(bracketDetails.LostMembersTo) > 0 {
+					if overview.LostMembersTo == nil {
+						overview.LostMembersTo = make(map[string][]string)
+					}
+					overview.LostMembersTo[bracketName] = bracketDetails.LostMembersTo
+				}
 				logging.Info(ctx, "changed bracket loop", zap.String("bracketName", bracketName), zap.Any("bracketDetails", bracketDetails.Deployments))
 				for envName, bracketDeployment := range bracketDetails.Deployments {
 					if !slices.Contains(v.experimentalBracketsClusters, envName) {

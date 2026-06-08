@@ -84,7 +84,13 @@ type mockApplicationServiceClient struct {
 	t                 *testing.T
 	cancel            context.CancelFunc
 	lastUpdateRequest *application.ApplicationUpdateRequest
+	updateRequests    []*application.ApplicationUpdateRequest
 	deleteErr         error
+	// updateErr makes Update fail with this error (the request is still recorded).
+	updateErr error
+	// createConflictOnExisting makes Create fail with InvalidArgument for apps
+	// that already exist, like the real Argo CD server does when the specs differ.
+	createConflictOnExisting bool
 	grpc.ClientStream
 }
 
@@ -99,6 +105,16 @@ func (m *mockApplicationServiceClient) ListResourceEvents(ctx context.Context, i
 }
 
 func (m *mockApplicationServiceClient) Get(ctx context.Context, in *application.ApplicationQuery, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
+	if in.Name != nil {
+		for i := len(m.Apps) - 1; i >= 0; i-- {
+			if m.Apps[i].App.Name == *in.Name {
+				if m.Apps[i].LastEvent == "DELETED" {
+					break
+				}
+				return m.Apps[i].App, nil
+			}
+		}
+	}
 	return nil, status.Error(codes.NotFound, "app not found")
 }
 
@@ -251,6 +267,10 @@ func (m *mockApplicationServiceClient) Delete(ctx context.Context, req *applicat
 
 func (m *mockApplicationServiceClient) Update(ctx context.Context, req *application.ApplicationUpdateRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
 	m.lastUpdateRequest = req
+	m.updateRequests = append(m.updateRequests, req)
+	if m.updateErr != nil {
+		return nil, m.updateErr
+	}
 	for _, a := range m.Apps {
 		if a.App.Name == req.Application.Name {
 			updateApp := &ArgoApp{App: a.App, LastEvent: "MODIFIED"}
@@ -276,6 +296,9 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 		}
 	}
 	if lastEvent == "ADDED" || lastEvent == "MODIFIED" {
+		if m.createConflictOnExisting {
+			return nil, status.Error(codes.InvalidArgument, "existing application spec is different, use upsert flag to force update")
+		}
 		return nil, nil
 	}
 	m.Apps = append(m.Apps, newApp)
@@ -2281,6 +2304,631 @@ func TestBracketMoveNoCascadeDelete(t *testing.T) {
 				}
 			} else if bracket1Delete != nil {
 				t.Fatalf("bracket1 was deleted by ProcessArgoOverview but the cascade table should be the sole authority (NoCascade=%v)", bracket1Delete.NoCascade)
+			}
+		})
+	}
+}
+
+// TestBracketMoveDefersLoserSpecUpdate verifies the prune-vs-adopt protection on a
+// bracket move (the "pause protocol"): a bracket that lost members to another
+// bracket (LostMembersTo) is first PAUSED in place (auto-sync disabled, path
+// unchanged — an in-flight sync operation executes against the spec path at
+// execution time, so the path must not move while one can be running), then
+// RETARGETED to the new snapshot once it is provably quiet (controller reconciled
+// the paused spec — refresh annotation cleared — and no operation is running),
+// and auto-sync is RESUMED only once its own sync status proves the moved
+// resources are no longer attributed to it (compared against the new path, no
+// entry requires pruning).
+func TestBracketMoveDefersLoserSpecUpdate(t *testing.T) {
+	// The old pinned path of the live bracket1 app, and the path
+	// CreateArgoApplication emits with no DB handler (snapshot id 0 = legacy format).
+	oldPath := "environments/staging/brackets/bracket1@1"
+	newPath := "environments/staging/brackets/bracket1"
+	type watchEvent struct {
+		RefreshPending  bool // the argocd refresh annotation is still on the app
+		OpRunning       bool
+		ComparedToPath  string
+		RequiresPruning bool
+		// WantUpdates is the total number of update requests expected after this
+		// event was processed (1 = only the pause, 2 = +retarget, 3 = +resume).
+		WantUpdates int
+	}
+	tcs := []struct {
+		Name   string
+		Events []watchEvent
+	}{
+		{
+			Name: "retarget only once quiet, resume only after disown",
+			Events: []watchEvent{
+				// Controller has not reconciled the paused spec yet: no retarget.
+				{RefreshPending: true, OpRunning: false, ComparedToPath: oldPath, RequiresPruning: false, WantUpdates: 1},
+				// Pre-pause sync operation still running: no retarget.
+				{RefreshPending: false, OpRunning: true, ComparedToPath: oldPath, RequiresPruning: false, WantUpdates: 1},
+				// Quiet: retarget fires.
+				{RefreshPending: false, OpRunning: false, ComparedToPath: oldPath, RequiresPruning: false, WantUpdates: 2},
+				// Still attributed the moved resources: no resume.
+				{RefreshPending: false, OpRunning: false, ComparedToPath: newPath, RequiresPruning: true, WantUpdates: 2},
+				// Disowned: resume fires.
+				{RefreshPending: false, OpRunning: false, ComparedToPath: newPath, RequiresPruning: false, WantUpdates: 3},
+			},
+		},
+		{
+			Name: "stale comparison against the old pinned path never resumes",
+			Events: []watchEvent{
+				{RefreshPending: false, OpRunning: false, ComparedToPath: oldPath, RequiresPruning: false, WantUpdates: 2},
+				{RefreshPending: false, OpRunning: false, ComparedToPath: oldPath, RequiresPruning: false, WantUpdates: 2},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+
+			mockClient := &mockApplicationServiceClient{
+				deleteErr: nil,
+			}
+
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient:            mockClient,
+				ManageArgoAppsEnabled:        true,
+				ManageArgoAppsFilter:         []string{"*"},
+				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+				ExperimentalBracketsClusters: []string{"staging"},
+				trigger:                      make(chan argoTrigger, 10),
+				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				pendingDeletions:             []PendingDeletion{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+			}
+
+			// Seed KnownApps and mockClient.Apps with the pre-existing bracket1 app.
+			argoProcessor.PopulateAppsToKnownApps([]ArgoAppMetadata{
+				{
+					Name: "bracket1", Environment: "staging", ParentEnvironment: "staging",
+					Event: "ADDED", ManifestPath: "/environments/staging/brackets/bracket1",
+					IsBracket: true,
+				},
+			})
+			mockClient.PopulateApps([]ArgoAppMetadata{
+				{
+					Name: "bracket1", Environment: "staging", ParentEnvironment: "staging",
+					Event: "ADDED", ManifestPath: "/environments/staging/brackets/bracket1",
+				},
+			})
+			// The live bracket1 app pins the old snapshot path.
+			//exhaustruct:ignore
+			argoProcessor.KnownApps["staging"]["bracket1"].Spec.Source = &v1alpha1.ApplicationSource{Path: oldPath}
+
+			// Both brackets are live: app moved from bracket1 to bracket2, but bracket1
+			// still has another member deployed.
+			appDetails := map[string]*api.GetAppDetailsResponse{
+				"bracket1": {
+					//exhaustruct:ignore
+					Application: &api.Application{Name: "bracket1", ArgoBracket: "bracket1"},
+					Deployments: map[string]*api.Deployment{"staging": {}}, //exhaustruct:ignore
+				},
+				"bracket2": {
+					//exhaustruct:ignore
+					Application: &api.Application{Name: "bracket2", ArgoBracket: "bracket2"},
+					Deployments: map[string]*api.Deployment{"staging": {}}, //exhaustruct:ignore
+				},
+			}
+
+			argoOv := &ArgoOverview{
+				AppDetails:    appDetails,
+				LostMembersTo: map[string][]string{"bracket1": {"bracket2"}},
+				Overview: &api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "staging-group",
+							Environments: []*api.Environment{
+								{
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
+									Config: &api.EnvironmentConfig{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+												Name:   "staging",
+												Server: "test-server",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					GitRevision: "1234",
+				},
+			}
+
+			l := logger.FromContext(ctx)
+			argoProcessor.ProcessArgoOverview(ctx, l, argoOv)
+
+			// PAUSE: exactly one update — bracket1 with auto-sync disabled, path
+			// UNCHANGED (an in-flight sync op executes against the live spec path),
+			// the paused marker, and a refresh request so the quiet check can prove
+			// the controller reconciled the paused spec.
+			if got := len(mockClient.updateRequests); got != 1 {
+				t.Fatalf("got %d update requests in the move tick, want exactly 1 (pause)", got)
+			}
+			paused := mockClient.updateRequests[0].Application
+			if paused.Name != "staging-bracket1" {
+				t.Fatalf("pause update targeted %q, want %q", paused.Name, "staging-bracket1")
+			}
+			if got := paused.Spec.Source.Path; got != oldPath {
+				t.Errorf("pause update path = %q, want unchanged old path %q", got, oldPath)
+			}
+			if paused.Spec.SyncPolicy != nil && paused.Spec.SyncPolicy.Automated != nil {
+				t.Errorf("pause update must disable auto-sync (Automated=nil), got %+v", paused.Spec.SyncPolicy)
+			}
+			if got := paused.Annotations[BracketPausedForMoveAnnotation]; got != BracketMovePhasePaused {
+				t.Errorf("pause update annotation %q = %q, want %q", BracketPausedForMoveAnnotation, got, BracketMovePhasePaused)
+			}
+			if got := paused.Annotations[argocdRefreshAnnotation]; got == "" {
+				t.Errorf("pause update must request a refresh via the %q annotation", argocdRefreshAnnotation)
+			}
+
+			for i, ev := range tc.Events {
+				marker := BracketMovePhasePaused
+				if len(mockClient.updateRequests) >= 2 {
+					marker = BracketMovePhaseRetargeted
+				}
+				annotations := map[string]string{
+					"com.freiheit.kuberpult/application": "bracket1",
+					"com.freiheit.kuberpult/environment": "staging",
+					"com.freiheit.kuberpult/is-bracket":  "true",
+					BracketPausedForMoveAnnotation:       marker,
+				}
+				if ev.RefreshPending {
+					annotations[argocdRefreshAnnotation] = "normal"
+				}
+				var opState *v1alpha1.OperationState
+				if ev.OpRunning {
+					//exhaustruct:ignore
+					opState = &v1alpha1.OperationState{Phase: "Running"}
+				}
+				argoProcessor.ProcessArgoWatchEvent(ctx, l, &v1alpha1.ApplicationWatchEvent{
+					Type: "MODIFIED",
+					//exhaustruct:ignore
+					Application: v1alpha1.Application{
+						//exhaustruct:ignore
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "staging-bracket1",
+							Annotations: annotations,
+						},
+						//exhaustruct:ignore
+						Spec: v1alpha1.ApplicationSpec{
+							//exhaustruct:ignore
+							Source: &v1alpha1.ApplicationSource{Path: oldPath},
+						},
+						//exhaustruct:ignore
+						Status: v1alpha1.ApplicationStatus{
+							OperationState: opState,
+							//exhaustruct:ignore
+							Sync: v1alpha1.SyncStatus{
+								Status: v1alpha1.SyncStatusCodeSynced,
+								//exhaustruct:ignore
+								ComparedTo: v1alpha1.ComparedTo{
+									//exhaustruct:ignore
+									Source: v1alpha1.ApplicationSource{Path: ev.ComparedToPath},
+								},
+							},
+							Resources: []v1alpha1.ResourceStatus{
+								//exhaustruct:ignore
+								{Kind: "Deployment", Name: "app1-dep", RequiresPruning: ev.RequiresPruning},
+							},
+						},
+					},
+				})
+				if got := len(mockClient.updateRequests); got != ev.WantUpdates {
+					t.Fatalf("after event %d: got %d update requests, want %d", i+1, got, ev.WantUpdates)
+				}
+			}
+
+			if len(mockClient.updateRequests) >= 2 {
+				// RETARGET: new path, still paused, marker advanced.
+				retargeted := mockClient.updateRequests[1].Application
+				if got := retargeted.Spec.Source.Path; got != newPath {
+					t.Errorf("retarget update path = %q, want %q", got, newPath)
+				}
+				if retargeted.Spec.SyncPolicy == nil || retargeted.Spec.SyncPolicy.Automated != nil {
+					t.Errorf("retarget update must keep auto-sync disabled, got %+v", retargeted.Spec.SyncPolicy)
+				}
+				if got := retargeted.Annotations[BracketPausedForMoveAnnotation]; got != BracketMovePhaseRetargeted {
+					t.Errorf("retarget update annotation = %q, want %q", got, BracketMovePhaseRetargeted)
+				}
+			}
+			if len(mockClient.updateRequests) >= 3 {
+				// RESUME: policy restored, marker removed.
+				resumed := mockClient.updateRequests[2].Application
+				if resumed.Spec.SyncPolicy == nil {
+					t.Fatal("resume update has no SyncPolicy")
+				}
+				wantPolicy := &v1alpha1.SyncPolicyAutomated{Prune: true, SelfHeal: true, AllowEmpty: false}
+				if diff := cmp.Diff(wantPolicy, resumed.Spec.SyncPolicy.Automated); diff != "" {
+					t.Errorf("resume Automated policy mismatch (-want, +got):\n%s", diff)
+				}
+				if _, ok := resumed.Annotations[BracketPausedForMoveAnnotation]; ok {
+					t.Errorf("resume update must remove the %q annotation", BracketPausedForMoveAnnotation)
+				}
+			}
+		})
+	}
+}
+
+// TestBracketMovePauseRecoveryAfterRestart verifies that a rollout-service restart
+// does not strand a paused bracket: the watch ADDED replay re-enters the disown
+// wait for any bracket app carrying the paused-for-move annotation.
+func TestBracketMovePauseRecoveryAfterRestart(t *testing.T) {
+	pausedPath := "environments/staging/brackets/bracket1"
+	tcs := []struct {
+		Name            string
+		Marker          string
+		RequiresPruning bool
+		WantResume      bool
+	}{
+		{
+			Name:            "retargeted, still attributed the moved resources: stays paused",
+			Marker:          BracketMovePhaseRetargeted,
+			RequiresPruning: true,
+			WantResume:      false,
+		},
+		{
+			Name:            "retargeted and already disowned: resumes immediately",
+			Marker:          BracketMovePhaseRetargeted,
+			RequiresPruning: false,
+			WantResume:      true,
+		},
+		{
+			Name: "paused but not yet retargeted: stays paused until the next tick",
+			// The retarget payload was lost with the restart; only a new overview
+			// tick can rebuild it, so recovery must not resume here.
+			Marker:          BracketMovePhasePaused,
+			RequiresPruning: false,
+			WantResume:      false,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+
+			mockClient := &mockApplicationServiceClient{
+				deleteErr: nil,
+			}
+
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient:            mockClient,
+				ManageArgoAppsEnabled:        true,
+				ManageArgoAppsFilter:         []string{"*"},
+				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+				ExperimentalBracketsClusters: []string{"staging"},
+				trigger:                      make(chan argoTrigger, 10),
+				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				pendingDeletions:             []PendingDeletion{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+			}
+
+			l := logger.FromContext(ctx)
+			argoProcessor.ProcessArgoWatchEvent(ctx, l, &v1alpha1.ApplicationWatchEvent{
+				Type: "ADDED",
+				//exhaustruct:ignore
+				Application: v1alpha1.Application{
+					//exhaustruct:ignore
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "staging-bracket1",
+						Annotations: map[string]string{
+							"com.freiheit.kuberpult/application": "bracket1",
+							"com.freiheit.kuberpult/environment": "staging",
+							"com.freiheit.kuberpult/is-bracket":  "true",
+							BracketPausedForMoveAnnotation:       tc.Marker,
+						},
+					},
+					//exhaustruct:ignore
+					Spec: v1alpha1.ApplicationSpec{
+						//exhaustruct:ignore
+						Source: &v1alpha1.ApplicationSource{Path: pausedPath},
+					},
+					//exhaustruct:ignore
+					Status: v1alpha1.ApplicationStatus{
+						//exhaustruct:ignore
+						Sync: v1alpha1.SyncStatus{
+							Status: v1alpha1.SyncStatusCodeSynced,
+							//exhaustruct:ignore
+							ComparedTo: v1alpha1.ComparedTo{
+								//exhaustruct:ignore
+								Source: v1alpha1.ApplicationSource{Path: pausedPath},
+							},
+						},
+						Resources: []v1alpha1.ResourceStatus{
+							//exhaustruct:ignore
+							{Kind: "Deployment", Name: "app1-dep", RequiresPruning: tc.RequiresPruning},
+						},
+					},
+				},
+			})
+
+			wantUpdates := 0
+			if tc.WantResume {
+				wantUpdates = 1
+			}
+			if got := len(mockClient.updateRequests); got != wantUpdates {
+				t.Fatalf("got %d update requests after recovery event, want %d", got, wantUpdates)
+			}
+			if tc.WantResume {
+				resumed := mockClient.updateRequests[0].Application
+				if resumed.Spec.SyncPolicy == nil || resumed.Spec.SyncPolicy.Automated == nil || !resumed.Spec.SyncPolicy.Automated.Prune {
+					t.Errorf("resume update must restore the Automated sync policy, got %+v", resumed.Spec.SyncPolicy)
+				}
+				if _, ok := resumed.Annotations[BracketPausedForMoveAnnotation]; ok {
+					t.Errorf("resume update must remove the %q annotation", BracketPausedForMoveAnnotation)
+				}
+			}
+		})
+	}
+}
+
+// TestCreateConflictFallsBackToUpdate verifies that a spec change is not lost
+// when the Argo app already exists but its watch event has not arrived yet
+// (KnownApps lag): ProcessAppChange then takes the create path and Argo rejects
+// the create with InvalidArgument ("existing application spec is different").
+// The rollout-service must fall back to updating the app with its desired spec —
+// except when the existing app is paused for a bracket move, in which case the
+// pause protocol takes over via a recovered pending entry.
+func TestCreateConflictFallsBackToUpdate(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		ExistingPaused   bool
+		WantUpdate       bool
+		WantPendingEntry bool
+	}{
+		{
+			Name:             "existing app: create conflict falls back to update",
+			ExistingPaused:   false,
+			WantUpdate:       true,
+			WantPendingEntry: false,
+		},
+		{
+			Name:             "existing paused app: pause protocol recovered instead",
+			ExistingPaused:   true,
+			WantUpdate:       false,
+			WantPendingEntry: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+
+			mockClient := &mockApplicationServiceClient{
+				deleteErr:                nil,
+				createConflictOnExisting: true,
+			}
+
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient:            mockClient,
+				ManageArgoAppsEnabled:        true,
+				ManageArgoAppsFilter:         []string{"*"},
+				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+				ExperimentalBracketsClusters: []string{"staging"},
+				trigger:                      make(chan argoTrigger, 10),
+				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				pendingDeletions:             []PendingDeletion{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+			}
+
+			// The app exists in Argo CD, but its watch event has not arrived yet:
+			// it is in mockClient.Apps but NOT in KnownApps.
+			mockClient.PopulateApps([]ArgoAppMetadata{
+				{
+					Name: "bracket1", Environment: "staging", ParentEnvironment: "staging",
+					Event: "ADDED", ManifestPath: "/environments/staging/brackets/bracket1",
+				},
+			})
+			if tc.ExistingPaused {
+				existing := mockClient.Apps[0].App
+				existing.Annotations[BracketPausedForMoveAnnotation] = BracketMovePhaseRetargeted
+				//exhaustruct:ignore
+				existing.Spec.Source = &v1alpha1.ApplicationSource{Path: "environments/staging/brackets/bracket1"}
+			}
+
+			appDetails := map[string]*api.GetAppDetailsResponse{
+				"bracket1": {
+					//exhaustruct:ignore
+					Application: &api.Application{Name: "bracket1", ArgoBracket: "bracket1"},
+					Deployments: map[string]*api.Deployment{"staging": {}}, //exhaustruct:ignore
+				},
+			}
+
+			argoOv := &ArgoOverview{
+				AppDetails:    appDetails,
+				LostMembersTo: nil,
+				Overview: &api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "staging-group",
+							Environments: []*api.Environment{
+								{
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
+									Config: &api.EnvironmentConfig{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+												Name:   "staging",
+												Server: "test-server",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					GitRevision: "1234",
+				},
+			}
+
+			l := logger.FromContext(ctx)
+			argoProcessor.ProcessArgoOverview(ctx, l, argoOv)
+
+			wantUpdates := 0
+			if tc.WantUpdate {
+				wantUpdates = 1
+			}
+			if got := len(mockClient.updateRequests); got != wantUpdates {
+				t.Fatalf("got %d update requests, want %d", got, wantUpdates)
+			}
+			if tc.WantUpdate {
+				if got := mockClient.updateRequests[0].Application.Name; got != "staging-bracket1" {
+					t.Errorf("conflict fallback updated %q, want %q", got, "staging-bracket1")
+				}
+			}
+			wantPending := 0
+			if tc.WantPendingEntry {
+				wantPending = 1
+			}
+			if got := len(argoProcessor.pendingSpecUpdates); got != wantPending {
+				t.Errorf("got %d pending spec updates, want %d", got, wantPending)
+			}
+		})
+	}
+}
+
+// TestVanishedAppFallsBackToCreate verifies that a spec change is not lost when
+// the Argo app was deleted but its DELETED watch event has not been processed
+// yet (stale KnownApps; e.g. the event is queued behind a burst of overview
+// ticks). The update then fails with NotFound/PermissionDenied and the app must
+// be recreated: in the paused-retargeted state when it is going through the
+// pause protocol, with the normal spec otherwise.
+func TestVanishedAppFallsBackToCreate(t *testing.T) {
+	newPath := "environments/staging/brackets/bracket1"
+	tcs := []struct {
+		Name             string
+		WithPendingEntry bool
+		WantPausedCreate bool
+	}{
+		{
+			Name:             "stale pause-protocol entry: recreated paused at the target path",
+			WithPendingEntry: true,
+			WantPausedCreate: true,
+		},
+		{
+			Name:             "no pending entry: recreated with the normal spec",
+			WithPendingEntry: false,
+			WantPausedCreate: false,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+
+			mockClient := &mockApplicationServiceClient{
+				deleteErr: nil,
+				updateErr: status.Error(codes.PermissionDenied, "permission denied"),
+			}
+
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient:            mockClient,
+				ManageArgoAppsEnabled:        true,
+				ManageArgoAppsFilter:         []string{"*"},
+				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+				ExperimentalBracketsClusters: []string{"staging"},
+				trigger:                      make(chan argoTrigger, 10),
+				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+				pendingDeletions:             []PendingDeletion{},
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+			}
+
+			// KnownApps still contains bracket1, but the app is gone from Argo CD
+			// (mockClient.Apps is empty): the DELETED watch event is still queued.
+			argoProcessor.PopulateAppsToKnownApps([]ArgoAppMetadata{
+				{
+					Name: "bracket1", Environment: "staging", ParentEnvironment: "staging",
+					Event: "ADDED", ManifestPath: "/environments/staging/brackets/bracket1",
+					IsBracket: true,
+				},
+			})
+			if tc.WithPendingEntry {
+				argoProcessor.pendingSpecUpdates = []*PendingSpecUpdate{
+					{
+						EnvironmentName: "staging",
+						ApplicationName: "bracket1",
+						ExpectedPath:    "environments/staging/brackets/bracket1@1",
+						Phase:           BracketMovePhaseRetargeted,
+						Retarget:        nil,
+					},
+				}
+			}
+
+			appDetails := map[string]*api.GetAppDetailsResponse{
+				"bracket1": {
+					//exhaustruct:ignore
+					Application: &api.Application{Name: "bracket1", ArgoBracket: "bracket1"},
+					Deployments: map[string]*api.Deployment{"staging": {}}, //exhaustruct:ignore
+				},
+			}
+
+			argoOv := &ArgoOverview{
+				AppDetails:    appDetails,
+				LostMembersTo: nil,
+				Overview: &api.GetOverviewResponse{
+					EnvironmentGroups: []*api.EnvironmentGroup{
+						{
+							EnvironmentGroupName: "staging-group",
+							Environments: []*api.Environment{
+								{
+									Name:     "staging",
+									Priority: api.Priority_UPSTREAM,
+									Config: &api.EnvironmentConfig{
+										Argocd: &api.ArgoCDEnvironmentConfiguration{
+											Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+												Name:   "staging",
+												Server: "test-server",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					GitRevision: "1234",
+				},
+			}
+
+			l := logger.FromContext(ctx)
+			argoProcessor.ProcessArgoOverview(ctx, l, argoOv)
+
+			if got := len(mockClient.Apps); got != 1 {
+				t.Fatalf("got %d apps in Argo after the tick, want 1 (recreated)", got)
+			}
+			created := mockClient.Apps[0]
+			if created.LastEvent != "ADDED" {
+				t.Fatalf("app event = %q, want ADDED", created.LastEvent)
+			}
+			if created.App.Name != "staging-bracket1" {
+				t.Fatalf("created app %q, want %q", created.App.Name, "staging-bracket1")
+			}
+			if got := created.App.Spec.Source.Path; got != newPath {
+				t.Errorf("created app path = %q, want %q", got, newPath)
+			}
+			marker := created.App.Annotations[BracketPausedForMoveAnnotation]
+			if tc.WantPausedCreate {
+				if marker != BracketMovePhaseRetargeted {
+					t.Errorf("created app marker = %q, want %q", marker, BracketMovePhaseRetargeted)
+				}
+				if created.App.Spec.SyncPolicy == nil || created.App.Spec.SyncPolicy.Automated != nil {
+					t.Errorf("created app must be paused (Automated=nil), got %+v", created.App.Spec.SyncPolicy)
+				}
+				if got := len(argoProcessor.pendingSpecUpdates); got != 1 {
+					t.Errorf("got %d pending spec updates, want 1", got)
+				}
+			} else {
+				if marker != "" {
+					t.Errorf("created app must not carry the paused marker, got %q", marker)
+				}
+				if created.App.Spec.SyncPolicy == nil || created.App.Spec.SyncPolicy.Automated == nil || !created.App.Spec.SyncPolicy.Automated.Prune {
+					t.Errorf("created app must have the normal Automated policy, got %+v", created.App.Spec.SyncPolicy)
+				}
 			}
 		})
 	}

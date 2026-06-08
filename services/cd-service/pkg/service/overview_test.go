@@ -3498,6 +3498,10 @@ func TestGetChangedBracketsEmitsEmptiedBracketOnMove(t *testing.T) {
 		WantDeletedBrackets []string
 		// WantLiveBrackets must appear with a non-delete, non-empty version.
 		WantLiveBrackets []string
+		// WantLostMembersTo maps each emitted bracket to the brackets that gained
+		// members it lost (the LostMembersTo field). Brackets without an entry must
+		// have an empty LostMembersTo.
+		WantLostMembersTo map[string][]string
 	}{
 		{
 			Name: "move empties the old bracket",
@@ -3508,6 +3512,7 @@ func TestGetChangedBracketsEmitsEmptiedBracketOnMove(t *testing.T) {
 			ChangedApps:         []types.AppName{"app-a"},
 			WantDeletedBrackets: []string{"bracket-one"},
 			WantLiveBrackets:    []string{"bracket-two"},
+			WantLostMembersTo:   map[string][]string{"bracket-one": {"bracket-two"}},
 		},
 		{
 			Name: "no move keeps the bracket alive",
@@ -3518,9 +3523,10 @@ func TestGetChangedBracketsEmitsEmptiedBracketOnMove(t *testing.T) {
 			ChangedApps:         []types.AppName{"app-a"},
 			WantDeletedBrackets: nil,
 			WantLiveBrackets:    []string{"bracket-one"},
+			WantLostMembersTo:   map[string][]string{},
 		},
 		{
-			Name: "move out of a shared bracket does not delete it",
+			Name: "move out of a shared bracket does not delete it but re-emits it",
 			Releases: []release{
 				{App: "app-a", Bracket: "bracket-one", Version: 1},
 				{App: "app-b", Bracket: "bracket-one", Version: 1},
@@ -3528,7 +3534,11 @@ func TestGetChangedBracketsEmitsEmptiedBracketOnMove(t *testing.T) {
 			},
 			ChangedApps:         []types.AppName{"app-a"},
 			WantDeletedBrackets: nil,
-			WantLiveBrackets:    []string{"bracket-two"},
+			// bracket-one must be re-emitted (live, with only app-b remaining) so the
+			// rollout-service refreshes its Argo app spec — otherwise the old bracket
+			// keeps rendering app-a's manifests from its stale pinned snapshot.
+			WantLiveBrackets:  []string{"bracket-one", "bracket-two"},
+			WantLostMembersTo: map[string][]string{"bracket-one": {"bracket-two"}},
 		},
 	}
 	for _, tc := range tcs {
@@ -3610,6 +3620,15 @@ func TestGetChangedBracketsEmitsEmptiedBracketOnMove(t *testing.T) {
 			wantCount := len(tc.WantDeletedBrackets) + len(tc.WantLiveBrackets)
 			if len(gotVersions) != wantCount {
 				t.Errorf("got %d brackets %v, want %d", len(gotVersions), gotVersions, wantCount)
+			}
+			gotLostMembersTo := make(map[string][]string)
+			for _, b := range brackets {
+				if len(b.LostMembersTo) > 0 {
+					gotLostMembersTo[b.BracketName] = b.LostMembersTo
+				}
+			}
+			if diff := cmp.Diff(tc.WantLostMembersTo, gotLostMembersTo, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("LostMembersTo mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}

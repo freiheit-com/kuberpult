@@ -487,6 +487,11 @@ message BracketDeployment {
 message GetBracketDetailsResponse {
   string bracket_name = 1;
   map<string, BracketDeployment> deployments = 2;
+  // Names of brackets that gained some members that this bracket lost in this change.
+  // The rollout-service must not refresh this bracket's Argo app spec (which
+  // would prune the moved apps' resources) until each named bracket has
+  // adopted them (reported Synced by Argo CD).
+  repeated string lost_members_to = 3;
 }
 
 message GetAllAppLocksRequest {}
