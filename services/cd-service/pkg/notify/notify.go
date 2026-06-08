@@ -17,6 +17,7 @@ Copyright freiheit.com*/
 package notify
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -79,6 +80,26 @@ func (n *Notify) SubscribeChangesApps() (<-chan ChangedAppNames, Unsubscribe) {
 	}
 }
 
+// mergeChangedAppNames unions a still-pending notification with the next one.
+// An empty list is the "all apps" sentinel (see SubscribeChangesApps), which
+// already covers any concrete list. The result is deduped and sorted.
+func mergeChangedAppNames(pending, next ChangedAppNames) ChangedAppNames {
+	if len(pending) == 0 {
+		return pending // sentinel: all apps
+	}
+	if len(next) == 0 {
+		return next // sentinel: all apps
+	}
+	merged := slices.Clone(pending)
+	for _, app := range next {
+		if !slices.Contains(merged, app) {
+			merged = append(merged, app)
+		}
+	}
+	slices.Sort(merged)
+	return merged
+}
+
 func (n *Notify) NotifyChangedApps(changedApps ChangedAppNames) {
 	n.mx.Lock()
 	defer n.mx.Unlock()
@@ -86,6 +107,28 @@ func (n *Notify) NotifyChangedApps(changedApps ChangedAppNames) {
 		select {
 		case ch <- changedApps:
 		default:
+			// The subscriber has not consumed the previous notification yet.
+			// Dropping the new one would lose those app names for good — the
+			// fast path sends each change exactly once — so merge the two
+			// notifications instead.
+			var pending ChangedAppNames
+			hadPending := false
+			select {
+			case pending = <-ch:
+				hadPending = true
+			default:
+				// The subscriber consumed it just now; the buffer is free again.
+			}
+			merged := changedApps
+			if hadPending {
+				merged = mergeChangedAppNames(pending, changedApps)
+			}
+			select {
+			case ch <- merged:
+			default:
+				// Cannot happen: all senders hold n.mx and the only buffer slot
+				// was just drained.
+			}
 		}
 	}
 }

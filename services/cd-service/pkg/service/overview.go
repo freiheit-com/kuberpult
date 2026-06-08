@@ -792,7 +792,7 @@ func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketE
 	return result
 }
 
-func (o *OverviewServiceServer) getBracketDetails(ctx context.Context, bracketName types.ArgoBracketName, appNames db.AppNames) (*api.GetBracketDetailsResponse, error) {
+func (o *OverviewServiceServer) getBracketDetails(ctx context.Context, bracketName types.ArgoBracketName, appNames db.AppNames, lostMembersTo []string) (*api.GetBracketDetailsResponse, error) {
 	appDetails := make([]*api.GetAppDetailsResponse, 0, len(appNames))
 	for _, appName := range appNames {
 		detail, err := o.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: string(appName)})
@@ -806,8 +806,9 @@ func (o *OverviewServiceServer) getBracketDetails(ctx context.Context, bracketNa
 		appDetails = append(appDetails, detail)
 	}
 	return &api.GetBracketDetailsResponse{
-		BracketName: string(bracketName),
-		Deployments: combineBracketDeployments(appDetails, o.ExperimentalBracketsClusters),
+		BracketName:   string(bracketName),
+		Deployments:   combineBracketDeployments(appDetails, o.ExperimentalBracketsClusters),
+		LostMembersTo: lostMembersTo,
 	}, nil
 }
 
@@ -858,6 +859,9 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 
 	// Determine which brackets to update.
 	var affectedBrackets []types.ArgoBracketName
+	// lostMembersTo maps a bracket to the brackets that gained members it lost in
+	// this change (see GetBracketDetailsResponse.lost_members_to).
+	lostMembersTo := make(map[types.ArgoBracketName][]string)
 	if len(changedApps) == 0 {
 		// Initial load: include all brackets.
 		for bracketName := range bracketMap {
@@ -888,10 +892,14 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 				}
 			}
 		}
-		// Include the bracket a still-existing app just *left* if that bracket became
-		// empty (a bracket move). Without this the now-orphaned old bracket Argo app is
-		// never deleted, and its auto-sync prunes the workload the app moved to the new
-		// bracket. A real undeploy (app deleted) is intentionally skipped here — its
+		// Include the bracket a still-existing app just *left* (a bracket move).
+		// If the old bracket became empty, it is emitted with the delete sentinel so
+		// its now-orphaned Argo app is torn down. If the old bracket still has other
+		// members, it must be re-emitted anyway: its Argo app spec pins the
+		// brackets_history snapshot it was last updated against, and without a spec
+		// refresh the reposerver keeps rendering the moved app's manifests in the old
+		// bracket — both brackets then own the app and Argo CD fights over its
+		// resources. A real undeploy (app deleted) is intentionally skipped here — its
 		// resource cleanup goes through the rollout_should_undeploy_cascade path.
 		if lookup.prevBracketRow != nil {
 			prevMap := lookup.prevBracketRow.AllBracketsJsonBlob.BracketMap
@@ -900,8 +908,18 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 					continue
 				}
 				for prevBracket, apps := range prevMap {
-					if _, stillExists := bracketMap[prevBracket]; stillExists {
-						continue // old bracket still has apps; not emptied
+					if slices.Contains(bracketMap[prevBracket], appName) {
+						continue // app is still a member of this bracket; it did not leave it
+					}
+					if slices.Contains(apps, appName) {
+						// Record which bracket gained the app, so the rollout-service can
+						// defer this bracket's Argo app spec refresh until the gainer has
+						// adopted the app's resources (Argo would otherwise prune them).
+						for gainer, gainerApps := range bracketMap {
+							if slices.Contains(gainerApps, appName) && !slices.Contains(lostMembersTo[prevBracket], string(gainer)) {
+								lostMembersTo[prevBracket] = append(lostMembersTo[prevBracket], string(gainer))
+							}
+						}
 					}
 					if slices.Contains(apps, appName) && !seen[prevBracket] {
 						seen[prevBracket] = true
@@ -915,7 +933,9 @@ func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedA
 
 	result := make([]*api.GetBracketDetailsResponse, 0, len(affectedBrackets))
 	for _, bracketName := range affectedBrackets {
-		detail, err := o.getBracketDetails(ctx, bracketName, bracketMap[bracketName])
+		lost := lostMembersTo[bracketName]
+		sort.Strings(lost) // deterministic order (gainers were collected in map order)
+		detail, err := o.getBracketDetails(ctx, bracketName, bracketMap[bracketName], lost)
 		if err != nil {
 			return nil, err
 		}

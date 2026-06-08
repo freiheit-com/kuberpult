@@ -78,6 +78,28 @@ The only reasons to delete a k8s deployment is when
 * combineBracketDeployments (cd-service/pkg/service/overview.go) emits the BracketVersionDelete
   sentinel for env E when no member has a deployment in E, so the rollout-service tears down the
   per-env bracket Argo app instead of recreating it.
+* The pause protocol (prune-vs-adopt protection on bracket moves): while a bracket that lost a
+  member still pins its old snapshot, BOTH the losing and the gaining bracket render the moved
+  app's manifests — each apply steals Argo's resource tracking, the other side goes OutOfSync
+  and re-steals after sync backoff, and a spec refresh of the loser during such a flap prunes
+  the moved app's workload. The cd-service names the gainers in
+  GetBracketDetailsResponse.lost_members_to; for such a loser, ProcessAppChange replaces the
+  normal spec refresh with a three-step handover (pendingSpecUpdates, advanced on watch events):
+  1. PAUSE in place — auto-sync disabled, manifest path unchanged. An Argo sync operation
+     executes against the spec path read at execution time (with the prune flag from its
+     initiation), so the path must not move while an operation can be running.
+  2. RETARGET — once the app is provably quiet (controller reconciled the paused spec: the
+     refresh annotation requested by the pause is gone, and no operation is requested or
+     running), the path moves to the new snapshot, still paused.
+  3. RESUME — auto-sync is restored only once the loser's own sync status (compared against the
+     new path) reports no resource as requiring pruning — derived from the same cluster cache
+     that computes prune tasks, so the resume is provably prune-free.
+  The paused-for-move marker annotation records the phase, driving recovery after a
+  rollout-service restart via the watch ADDED replay (a loser recovered in the paused phase
+  stays paused until the next overview tick rebuilds the retarget payload). Known limitation:
+  an unrelated member resource legitimately requiring pruning during the move window blocks
+  the resume ("bracket.resume.blocked" log) until a later change resolves it; the workload is
+  unaffected.
 
 */
 
@@ -109,6 +131,30 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 )
+
+// BracketPausedForMoveAnnotation marks a bracket Argo app whose auto-sync has been
+// temporarily disabled while another bracket adopts members it lost (bracket move).
+// Its value is the protocol phase (BracketMovePhase*), which makes the paused state
+// recoverable after a rollout-service restart via the watch ADDED replay.
+const BracketPausedForMoveAnnotation = "com.freiheit.kuberpult/paused-for-move"
+
+// The pause-protocol phases stored as BracketPausedForMoveAnnotation values.
+const (
+	// BracketMovePhasePaused: auto-sync disabled, manifest path still the old
+	// snapshot. An in-flight sync operation executes against the spec path at
+	// execution time, so the path may only move once the app is provably quiet.
+	BracketMovePhasePaused = "paused"
+	// BracketMovePhaseRetargeted: still paused, manifest path moved to the new
+	// snapshot; waiting for the disown before auto-sync is restored.
+	BracketMovePhaseRetargeted = "retargeted"
+)
+
+// argocdRefreshAnnotation requests an app reconcile from the Argo CD application
+// controller, which removes the annotation when it processes the request. The
+// pause update sets it so the quiet check can prove the controller has reconciled
+// the paused spec (per-app reconciles are serialised, so once it is removed no
+// reconcile of the pre-pause spec can still initiate a sync operation).
+const argocdRefreshAnnotation = "argocd.argoproj.io/refresh"
 
 // this is a simpler version of ApplicationServiceClient from the application package
 type SimplifiedApplicationServiceClient interface {
@@ -142,6 +188,25 @@ type PendingDeletion struct {
 	AppName               string
 }
 
+// PendingSpecUpdate tracks a bracket Argo app that lost members to other brackets
+// (a bracket move) and is going through the pause protocol (see the package
+// comment): paused in place, retargeted to the new snapshot once quiet, and
+// resumed once its own sync status — compared against ExpectedPath — no longer
+// attributes any resource as requiring pruning, i.e. the gainers have adopted the
+// moved resources and the controller's cluster cache has registered it.
+type PendingSpecUpdate struct {
+	EnvironmentName string
+	ApplicationName string
+	// ExpectedPath is the manifest path the app is (or will be) retargeted to.
+	ExpectedPath string
+	// Phase is BracketMovePhasePaused (waiting for quiet, then send Retarget) or
+	// BracketMovePhaseRetargeted (waiting for the disown, then resume).
+	Phase string
+	// Retarget is the prepared paused application at the new path. Nil after a
+	// restart recovery in the paused phase — rebuilt by the next overview tick.
+	Retarget *v1alpha1.Application
+}
+
 type ArgoAppProcessor struct {
 	trigger chan argoTrigger
 
@@ -166,6 +231,9 @@ type ArgoAppProcessor struct {
 	// The apps that will be recreated as brackets.
 	// We store them, so we can delete them only once the bracket is there.
 	pendingDeletions []PendingDeletion
+	// Brackets paused for a member move, waiting to have auto-sync restored
+	// once they no longer own the moved resources (see PendingSpecUpdate).
+	pendingSpecUpdates []*PendingSpecUpdate
 }
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled, kuberpultMetricsEnabled, argoAppsMetricsEnabled bool, manageArgoApplicationFilter []string, triggerChannelSize, argoAppsChannelSize int, ddMetrics statsd.ClientInterface, experimentalBracketsClusters []string, dbHandler *db.DBHandler) ArgoAppProcessor {
@@ -184,6 +252,7 @@ func New(appClient application.ApplicationServiceClient, manageArgoApplicationEn
 		//
 		ExperimentalBracketsClusters: experimentalBracketsClusters,
 		pendingDeletions:             []PendingDeletion{},
+		pendingSpecUpdates:           []*PendingSpecUpdate{},
 	}
 }
 
@@ -266,6 +335,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 type ArgoOverview struct {
 	AppDetails map[string]*api.GetAppDetailsResponse //Map from appName to app Details. Gets filled with information based on what apps have changed.
 	Overview   *api.GetOverviewResponse              //Standard overview. Only information regarding environments should be retrieved from this overview.
+	// LostMembersTo maps a bracket name to the brackets that gained members it
+	// lost in this change (GetBracketDetailsResponse.lost_members_to). The
+	// loser's Argo app spec refresh is deferred until those gainers are Synced.
+	LostMembersTo map[string][]string
 }
 
 func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, argoOv *ArgoOverview) {
@@ -295,6 +368,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 							ArgoEnvironmentConfiguration: cfg,
 							IsBracket:                    isBracket,
 							BracketSnapshotEslId:         bracketSnapshotEslId,
+							LostMembersTo:                argoOv.LostMembersTo[currentApp],
 						}
 						a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview, argoOv.AppDetails)
 					}
@@ -307,6 +381,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 						ArgoEnvironmentConfiguration: parentEnvironment.Config.Argocd,
 						IsBracket:                    isBracket,
 						BracketSnapshotEslId:         bracketSnapshotEslId,
+						LostMembersTo:                argoOv.LostMembersTo[currentApp],
 					}
 					a.ProcessAppChange(ctx, appInfo, currentAppDetails, overview, argoOv.AppDetails)
 				}
@@ -460,6 +535,338 @@ func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnv
 	a.pendingDeletions = remaining
 }
 
+// bracketDisowned reports whether the paused bracket app's sync status —
+// computed against expectedPath — no longer attributes any resource as
+// requiring pruning. RequiresPruning is derived from the same cluster cache the
+// application controller computes prune tasks from, so once it is clear,
+// re-enabling auto-sync cannot prune the moved resources. The path check guards
+// against reading a stale status from before the retarget (whose desired
+// manifests still contained the moved apps — "nothing to prune" for the wrong
+// reason).
+func bracketDisowned(app *v1alpha1.Application, expectedPath string) bool {
+	if app.Status.Sync.ComparedTo.Source.Path != expectedPath {
+		return false
+	}
+	for _, res := range app.Status.Resources {
+		if res.RequiresPruning {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *ArgoAppProcessor) findPendingSpecUpdate(envName, appName string) *PendingSpecUpdate {
+	for _, pu := range a.pendingSpecUpdates {
+		if pu.EnvironmentName == envName && pu.ApplicationName == appName {
+			return pu
+		}
+	}
+	return nil
+}
+
+func (a *ArgoAppProcessor) removePendingSpecUpdate(envName, appName string) {
+	remaining := a.pendingSpecUpdates[:0]
+	for _, pu := range a.pendingSpecUpdates {
+		if pu.EnvironmentName != envName || pu.ApplicationName != appName {
+			remaining = append(remaining, pu)
+		}
+	}
+	a.pendingSpecUpdates = remaining
+}
+
+// bracketPausedAndQuiet reports whether the watched app provably can no longer
+// start a sync operation: the spec is paused (no automated sync policy), the
+// controller has reconciled the paused spec — it removed the refresh annotation
+// the pause update requested, and per-app reconciles are serialised, so no
+// reconcile of the pre-pause spec can still initiate an operation — and no
+// requested or running operation remains. Only then is it safe to move the
+// manifest path: an in-flight sync operation executes against the spec path at
+// execution time, with the prune flag it was initiated with.
+func bracketPausedAndQuiet(app *v1alpha1.Application) bool {
+	if app.Spec.SyncPolicy != nil && app.Spec.SyncPolicy.Automated != nil {
+		return false
+	}
+	if _, refreshPending := app.Annotations[argocdRefreshAnnotation]; refreshPending {
+		return false
+	}
+	if app.Operation != nil {
+		return false
+	}
+	if state := app.Status.OperationState; state != nil {
+		if state.Phase == "Running" || state.Phase == "Terminating" {
+			return false
+		}
+	}
+	return true
+}
+
+// recoverPendingSpecUpdate re-enters the pause protocol for an app carrying the
+// paused-for-move marker when no pending entry exists for it (e.g. after a
+// rollout-service restart). In the retargeted phase the disown-wait condition is
+// fully derivable from the app's status; in the paused phase the retarget
+// payload is gone and only the next overview tick can rebuild it — until then
+// the app stays safely paused. Returns true when the app is in the protocol.
+func (a *ArgoAppProcessor) recoverPendingSpecUpdate(ctx context.Context, envName, appName string, app *v1alpha1.Application) bool {
+	marker := app.Annotations[BracketPausedForMoveAnnotation]
+	if marker == "" {
+		return false
+	}
+	if a.findPendingSpecUpdate(envName, appName) != nil {
+		return true
+	}
+	expectedPath := ""
+	phase := BracketMovePhaseRetargeted
+	if marker == BracketMovePhasePaused {
+		phase = BracketMovePhasePaused
+	} else if app.Spec.Source != nil {
+		expectedPath = app.Spec.Source.Path
+	}
+	logger.FromContext(ctx).Info("bracket.move.pause.recovered",
+		zap.String("app", appName),
+		zap.String("env", envName),
+		zap.String("phase", phase),
+		zap.String("expected-path", expectedPath))
+	a.pendingSpecUpdates = append(a.pendingSpecUpdates, &PendingSpecUpdate{
+		EnvironmentName: envName,
+		ApplicationName: appName,
+		ExpectedPath:    expectedPath,
+		Phase:           phase,
+		Retarget:        nil,
+	})
+	return true
+}
+
+// upsertExistingArgoApp resolves a create conflict: the app already exists in
+// Argo CD but its watch event has not arrived yet, so it is missing from
+// KnownApps and ProcessAppChange took the create path. Dropping the change
+// would pin the app to its old spec forever — the fast path sends each change
+// exactly once — so the desired spec is applied as an update instead. An app
+// paused for a bracket move is handed back to the pause protocol.
+func (a *ArgoAppProcessor) upsertExistingArgoApp(ctx context.Context, appInfo *AppInfo, desired *v1alpha1.Application) {
+	//exhaustruct:ignore
+	existing, err := a.ApplicationClient.Get(ctx, &application.ApplicationQuery{Name: conversion.FromString(desired.Name)})
+	if err != nil {
+		logger.FromContext(ctx).Error("argo.create.conflict.get.failed",
+			zap.String("argo.app", desired.Name), zap.Error(err))
+		return
+	}
+	if a.recoverPendingSpecUpdate(ctx, appInfo.EnvironmentName, appInfo.ApplicationName, existing) {
+		return
+	}
+	_ = a.updateApplication(ctx, desired, "argo.create.conflict.update")
+}
+
+// isGoneErr reports whether an application RPC failed because the app does not
+// exist. Argo CD reports operations on unknown apps as PermissionDenied (it
+// hides existence from unauthorised callers), so both codes mean "gone" here.
+func isGoneErr(err error) bool {
+	code := status.Code(err)
+	return code == codes.NotFound || code == codes.PermissionDenied
+}
+
+// createPausedApplication creates (upsert) an application in its paused
+// pause-protocol state, e.g. when the loser's app object is unknown or has
+// vanished underneath the protocol. A fresh app with the same name re-owns any
+// still-labelled k8s resources, so it must not sync before the disown either.
+func (a *ArgoAppProcessor) createPausedApplication(ctx context.Context, paused *v1alpha1.Application) {
+	upsert := true
+	validate := false
+	appCreateRequest := &application.ApplicationCreateRequest{
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil, //nolint:misspell
+		XXX_sizecache:        0,
+		Application:          paused,
+		Upsert:               &upsert,
+		Validate:             &validate,
+	}
+	logger.FromContext(ctx).Info("bracket.move.pause.create",
+		zap.String("argo.app", paused.Name))
+	if _, err := a.ApplicationClient.Create(ctx, appCreateRequest); err != nil {
+		logger.FromContext(ctx).Error("bracket.move.pause.create.failed",
+			zap.String("argo.app", paused.Name), zap.Error(err))
+	}
+}
+
+// updateApplication sends an application update for the pause protocol and logs it.
+func (a *ArgoAppProcessor) updateApplication(ctx context.Context, app *v1alpha1.Application, logMsg string) error {
+	path := ""
+	if app.Spec.Source != nil {
+		path = app.Spec.Source.Path
+	}
+	logger.FromContext(ctx).Info(logMsg,
+		zap.String("argo.app", app.Name),
+		zap.String("path", path))
+	appUpdateRequest := &application.ApplicationUpdateRequest{
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil, //nolint:misspell
+		XXX_sizecache:        0,
+		Validate:             conversion.Bool(false),
+		Application:          app,
+		Project:              conversion.FromString(app.Spec.Project),
+	}
+	_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
+	if err != nil {
+		logger.FromContext(ctx).Error(logMsg+".failed", zap.String("argo.app", app.Name), zap.Error(err))
+	}
+	return err
+}
+
+// deferSpecUpdateIfWaiting implements the PAUSE step of the pause protocol for a
+// bracket that lost members to other brackets (a bracket move). Instead of the
+// normal spec refresh — whose auto-sync would prune the moved apps' resources
+// while Argo's tracking ownership is still in flux — the bracket's auto-sync is
+// disabled in place (path unchanged) and the prepared retarget to the new
+// snapshot is stored on the pending entry; drainPendingSpecUpdates applies it
+// once the app is provably quiet. Returns true when the normal create/update
+// must be skipped. A bracket with a pending entry always stays in the protocol,
+// even when a later tick carries no member loss, so sequential moves cannot
+// bypass an unfinished handover.
+func (a *ArgoAppProcessor) deferSpecUpdateIfWaiting(ctx context.Context, appInfo *AppInfo, overview *api.GetOverviewResponse) bool {
+	existing := a.findPendingSpecUpdate(appInfo.EnvironmentName, appInfo.ApplicationName)
+	if existing == nil && len(appInfo.LostMembersTo) == 0 {
+		return false
+	}
+	retarget := CreateArgoApplication(overview, appInfo)
+	retarget.Spec.SyncPolicy.Automated = nil
+	retarget.Annotations[BracketPausedForMoveAnnotation] = BracketMovePhaseRetargeted
+	path := retarget.Spec.Source.Path
+	if existing != nil {
+		// Merge: the newest payload wins. If the target moved on after the
+		// retarget was already applied, re-send it so the disown check matches
+		// the spec on the cluster.
+		resend := existing.Phase == BracketMovePhaseRetargeted && existing.ExpectedPath != path
+		existing.Retarget = retarget
+		existing.ExpectedPath = path
+		if resend {
+			if err := a.updateApplication(ctx, retarget, "bracket.move.retarget"); err != nil && isGoneErr(err) {
+				// The app vanished underneath the protocol (e.g. it was emptied
+				// and deleted while its DELETED watch event is still queued
+				// behind this burst of overview ticks). Recreate it paused at
+				// the target path; the drain resumes it once its own status
+				// shows nothing to prune.
+				a.createPausedApplication(ctx, retarget)
+			}
+		}
+		return true
+	}
+	logger.FromContext(ctx).Info("bracket.move.pause",
+		zap.String("app", appInfo.ApplicationName),
+		zap.String("env", appInfo.EnvironmentName),
+		zap.String("target-path", path),
+		zap.Strings("lost-members-to", appInfo.LostMembersTo))
+	argoApp := a.isKnownArgoApp(appInfo.ApplicationName, appInfo.EnvironmentName, a.KnownApps[appInfo.EnvironmentName])
+	if argoApp == nil {
+		// The loser's Argo app object is unknown (e.g. lost watch state after a
+		// restart). Create it directly in the retargeted paused state: a fresh
+		// app has no in-flight sync operations.
+		a.createPausedApplication(ctx, retarget)
+		a.pendingSpecUpdates = append(a.pendingSpecUpdates, &PendingSpecUpdate{
+			EnvironmentName: appInfo.EnvironmentName,
+			ApplicationName: appInfo.ApplicationName,
+			ExpectedPath:    path,
+			Phase:           BracketMovePhaseRetargeted,
+			Retarget:        retarget,
+		})
+		return true
+	}
+	// PAUSE in place: disable auto-sync without touching the path — an in-flight
+	// sync operation executes against the spec path at execution time, so the
+	// path may only move once the app is provably quiet (bracketPausedAndQuiet).
+	pausedApp := argoApp.DeepCopy()
+	if pausedApp.Spec.SyncPolicy != nil {
+		pausedApp.Spec.SyncPolicy.Automated = nil
+	}
+	if pausedApp.Annotations == nil {
+		pausedApp.Annotations = map[string]string{}
+	}
+	pausedApp.Annotations[BracketPausedForMoveAnnotation] = BracketMovePhasePaused
+	pausedApp.Annotations[argocdRefreshAnnotation] = "normal"
+	phase := BracketMovePhasePaused
+	if err := a.updateApplication(ctx, pausedApp, "bracket.move.pause.update"); err != nil && isGoneErr(err) {
+		// The app vanished underneath us (stale KnownApps): skip the in-place
+		// pause and create it paused at the target path directly — a fresh app
+		// has no in-flight sync operations.
+		a.createPausedApplication(ctx, retarget)
+		phase = BracketMovePhaseRetargeted
+	}
+	a.pendingSpecUpdates = append(a.pendingSpecUpdates, &PendingSpecUpdate{
+		EnvironmentName: appInfo.EnvironmentName,
+		ApplicationName: appInfo.ApplicationName,
+		ExpectedPath:    path,
+		Phase:           phase,
+		Retarget:        retarget,
+	})
+	return true
+}
+
+// resumeBracketAutoSync re-enables auto-sync on a paused bracket app and removes
+// the paused-for-move marker (the RESUME step of the pause protocol).
+func (a *ArgoAppProcessor) resumeBracketAutoSync(ctx context.Context, app *v1alpha1.Application) error {
+	resumed := app.DeepCopy()
+	if resumed.Spec.SyncPolicy == nil {
+		//exhaustruct:ignore
+		resumed.Spec.SyncPolicy = &v1alpha1.SyncPolicy{}
+	}
+	resumed.Spec.SyncPolicy.Automated = &v1alpha1.SyncPolicyAutomated{
+		Prune:    true,
+		SelfHeal: true,
+		// AllowEmpty=false is the bracket default, see CreateArgoApplication.
+		AllowEmpty: false,
+	}
+	delete(resumed.Annotations, BracketPausedForMoveAnnotation)
+	return a.updateApplication(ctx, resumed, "bracket.move.resume")
+}
+
+// drainPendingSpecUpdates advances the pause protocol on watch events: paused
+// brackets are retargeted to the new snapshot once provably quiet, and
+// retargeted brackets get auto-sync restored once their own sync status proves
+// the moved resources are no longer attributed to them.
+func (a *ArgoAppProcessor) drainPendingSpecUpdates(ctx context.Context) {
+	l := logger.FromContext(ctx)
+	remaining := a.pendingSpecUpdates[:0]
+	for _, pu := range a.pendingSpecUpdates {
+		var app *v1alpha1.Application
+		if knownApps := a.KnownApps[pu.EnvironmentName]; knownApps != nil {
+			app = knownApps[pu.ApplicationName]
+		}
+		if app == nil {
+			remaining = append(remaining, pu)
+			continue
+		}
+		switch pu.Phase {
+		case BracketMovePhasePaused:
+			if !bracketPausedAndQuiet(app) || pu.Retarget == nil {
+				l.Info("bracket.retarget.blocked",
+					zap.String("app", pu.ApplicationName),
+					zap.String("env", pu.EnvironmentName),
+					zap.Bool("retarget-known", pu.Retarget != nil))
+				remaining = append(remaining, pu)
+				continue
+			}
+			if err := a.updateApplication(ctx, pu.Retarget, "bracket.move.retarget"); err != nil {
+				remaining = append(remaining, pu)
+				continue
+			}
+			pu.Phase = BracketMovePhaseRetargeted
+			remaining = append(remaining, pu)
+		default: // BracketMovePhaseRetargeted
+			if !bracketDisowned(app, pu.ExpectedPath) {
+				l.Info("bracket.resume.blocked",
+					zap.String("app", pu.ApplicationName),
+					zap.String("env", pu.EnvironmentName),
+					zap.String("expected-path", pu.ExpectedPath))
+				remaining = append(remaining, pu)
+				continue
+			}
+			if err := a.resumeBracketAutoSync(ctx, app); err != nil {
+				remaining = append(remaining, pu)
+				continue
+			}
+		}
+	}
+	a.pendingSpecUpdates = remaining
+}
+
 func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse, allAppDetails map[string]*api.GetAppDetailsResponse) {
 	logger.FromContext(ctx).Sugar().Debugf("Processing app %q on environment %q", appInfo.ApplicationName, appInfo.EnvironmentName)
 	// Bracket-to-individual transition guard (rollback: staging switched from true→false).
@@ -510,20 +917,21 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 			} else {
 				// Bracket move detection: if another bracket has a deployment for the same env,
 				// delete without cascade so the new bracket takes over k8s resource ownership.
-				noCascade := false
-				if appInfo.IsBracket {
+				deleteWithNoCascade := false
+				// only consider deletion, if the current app is not deployed anymore:
+				if appInfo.IsBracket && currentAppDetails.Deployments[appInfo.ParentEnvironmentName] == nil {
 					for _, otherApp := range sorting.SortKeys(allAppDetails) {
 						otherDetails := allAppDetails[otherApp]
 						if otherApp != appInfo.ApplicationName &&
 							otherDetails.Application != nil &&
 							otherDetails.Application.ArgoBracket == otherApp &&
 							otherDetails.Deployments[appInfo.ParentEnvironmentName] != nil {
-							noCascade = true
+							deleteWithNoCascade = true
 							break
 						}
 					}
 				}
-				if noCascade {
+				if deleteWithNoCascade {
 					if err := a.deleteAppNoCascade(ctx, ok, appInfo.ApplicationName); err != nil {
 						logger.FromContext(ctx).Error("bracket.move.delete.failed",
 							zap.String("app", appInfo.ApplicationName), zap.Error(err))
@@ -564,6 +972,12 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 	}
 
 	if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] != nil { //If there is a deployment for this app on this environment
+		// Pause protocol (prune-vs-adopt protection on bracket moves): a bracket
+		// that lost members is retargeted with auto-sync disabled instead of the
+		// normal refresh — see the package comment and deferSpecUpdateIfWaiting.
+		if appInfo.IsBracket && a.deferSpecUpdateIfWaiting(ctx, appInfo, overview) {
+			return
+		}
 		argoApp := a.isKnownArgoApp(appInfo.ApplicationName, appInfo.EnvironmentName, a.KnownApps[appInfo.EnvironmentName])
 		if argoApp == nil {
 			a.CreateArgoApp(ctx, overview, appInfo)
@@ -616,11 +1030,19 @@ func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Log
 				zap.String("sync", string(ev.Application.Status.Sync.Status)),
 				zap.String("health", string(ev.Application.Status.Health.Status)),
 				zap.Int("pending.deletions", len(a.pendingDeletions)))
+			// Restart recovery for the pause protocol: a bracket paused for a move
+			// whose pending entry was lost (rollout-service restart) re-enters the
+			// protocol at the phase recorded in the marker annotation.
+			a.recoverPendingSpecUpdate(ctx, envName, appName, &ev.Application)
 			a.drainPendingDeletions(ctx, envName)
+			a.drainPendingSpecUpdates(ctx)
 		}
 	case "DELETED":
 		l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
 		delete(a.KnownApps[envName], appName)
+		// Drop any pause-protocol entry for the deleted app — e.g. the bracket
+		// was emptied mid-move and the delete-sentinel path removed its object.
+		a.removePendingSpecUpdate(envName, appName)
 	}
 }
 
@@ -636,6 +1058,9 @@ type AppInfo struct {
 	// Zero means "emit the legacy path with no suffix" (e.g. for non-bracket apps
 	// or when the rollout-service runs without DB access in tests).
 	BracketSnapshotEslId db.TransformerID
+	// LostMembersTo names the brackets that gained members this bracket lost in
+	// the current change (only set for bracket apps; see ArgoOverview.LostMembersTo).
+	LostMembersTo []string
 }
 
 func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {
@@ -672,10 +1097,12 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 		}
 		_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
 		if err != nil {
-			// We check if the application was created in the meantime
 			if status.Code(err) != codes.InvalidArgument {
-
 				logger.FromContext(ctx).Sugar().Errorf("creating %s, env %s: %v", appToCreate.Name, appInfo.EnvironmentName, err)
+			} else {
+				// The app exists with a different spec — its watch event has not
+				// arrived yet (KnownApps lag), so the update path was missed.
+				a.upsertExistingArgoApp(ctx, appInfo, appToCreate)
 			}
 		}
 		createSpan.Finish()
@@ -712,6 +1139,14 @@ func (a *ArgoAppProcessor) UpdateArgoApp(ctx context.Context, overview *api.GetO
 		_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 		if err != nil {
 			logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+appInfo.EnvironmentName, zap.Error(err))
+			if isGoneErr(err) {
+				// The app vanished underneath us (stale KnownApps; e.g. its
+				// DELETED watch event is still queued behind a burst of overview
+				// ticks). Recreate it with the desired spec — the change would
+				// otherwise be lost for good (the fast path sends each change
+				// exactly once).
+				a.CreateArgoApp(ctx, overview, appInfo)
+			}
 		}
 		updateSpan.Finish()
 	}
