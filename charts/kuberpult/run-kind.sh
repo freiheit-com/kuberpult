@@ -19,8 +19,7 @@ if [ -n "$(git status --porcelain)" ]; then
     print "WARNING: working tree has uncommitted changes. Commit or stash them before running this script."
     git status
     print "WARNING: You may continue safely, if you did not change any SOURCE code, but only tests and scripts."
-    print "Press enter to continue."
-    read -r
+    sleep 3; exit 1
 fi
 
 CLUSTER_EXISTS=false
