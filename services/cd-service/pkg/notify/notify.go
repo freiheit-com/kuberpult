@@ -65,7 +65,7 @@ type ChangedAppNames []types.AppName
 
 func (n *Notify) SubscribeChangesApps() (<-chan ChangedAppNames, Unsubscribe) {
 	ch := make(chan ChangedAppNames, 1)
-	ch <- ChangedAppNames{}
+	ch <- ChangedAppNames{} // trigger complete reset by leaving changedApps empty
 
 	n.mx.Lock()
 	defer n.mx.Unlock()
@@ -80,7 +80,8 @@ func (n *Notify) SubscribeChangesApps() (<-chan ChangedAppNames, Unsubscribe) {
 	}
 }
 
-// mergeChangedAppNames unions a still-pending notification with the next one.
+// mergeChangedAppNames unions a still-pending notification with the next one,
+// in case one message was skipped.
 // An empty list is the "all apps" sentinel (see SubscribeChangesApps), which
 // already covers any concrete list. The result is deduped and sorted.
 func mergeChangedAppNames(pending, next ChangedAppNames) ChangedAppNames {
