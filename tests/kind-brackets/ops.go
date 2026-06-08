@@ -30,6 +30,7 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -55,6 +56,9 @@ const FrontendPort = "5002"
 // GKEContext is the required kubectl context when running in GKE mode.
 const GKEContext = "gke_fdc-standard-setup-dev-env_europe-west1-d_tools-migrationtest"
 
+// imageRegistry is the public GCP Artifact Registry that hosts all kuberpult service images.
+const imageRegistry = "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+
 // Config holds all infrastructure-dependent settings needed by the shared ops.
 // Test code uses this embedded inside testConfig, which adds DB-access fields.
 type Config struct {
@@ -71,6 +75,10 @@ type HelmUpgradeParams struct {
 	DevelopmentEnabled bool
 	StagingEnabled     bool
 	ChannelSize        int
+	// OldVersion, if non-empty, installs this specific chart version from GitHub
+	// releases instead of the locally built chart. Kind mode only: images for
+	// that version are pulled from the public registry and loaded into kind.
+	OldVersion string
 }
 
 // MustLoadConfig reads KUBERPULT_TEST_MODE and derives all cluster settings
@@ -309,6 +317,49 @@ spec:
 	}
 }
 
+// kindLoadOldImages pulls service images for the given kuberpult version from the
+// public registry and loads them into the kind cluster. Pulls run sequentially
+// to preserve clear per-image error output; loads run in parallel.
+func kindLoadOldImages(tb TB, version string) {
+	tb.Helper()
+	services := []string{
+		"kuberpult-cd-service",
+		"kuberpult-frontend-service",
+		"kuberpult-rollout-service",
+		"kuberpult-reposerver-service",
+	}
+	for _, svc := range services {
+		img := imageRegistry + "/" + svc + ":" + version
+		tb.Logf("kindLoadOldImages: docker pull %s", img)
+		if out, err := exec.Command("docker", "pull", img).CombinedOutput(); err != nil {
+			tb.Fatalf("docker pull %s: %v\n%s", img, err, out)
+		}
+	}
+	type loadResult struct {
+		image string
+		out   []byte
+		err   error
+	}
+	results := make([]loadResult, len(services))
+	var wg sync.WaitGroup
+	for i, svc := range services {
+		img := imageRegistry + "/" + svc + ":" + version
+		wg.Add(1)
+		go func(idx int, image string) {
+			defer wg.Done()
+			tb.Logf("kindLoadOldImages: kind load docker-image %s", image)
+			out, err := exec.Command("kind", "load", "docker-image", image).CombinedOutput()
+			results[idx] = loadResult{image, out, err}
+		}(i, img)
+	}
+	wg.Wait()
+	for _, r := range results {
+		if r.err != nil {
+			tb.Fatalf("kind load docker-image %s: %v\n%s", r.image, r.err, r.out)
+		}
+	}
+}
+
 // HelmUpgrade runs helm upgrade with the given bracket parameters, waits for
 // all service rollouts, ensures port-forwards are up, waits for the frontend
 // to be reachable, and runs the create-environments script.
@@ -334,19 +385,31 @@ func HelmUpgrade(tb TB, cfg Config, p HelmUpgradeParams) {
 	var cmd *exec.Cmd
 	switch cfg.Mode {
 	case ModeKind:
-		out, err2 := exec.Command("git", "describe", "--always", "--long", "--tags").Output()
-		if err2 != nil {
-			tb.Fatalf("git describe: %v", err2)
-		}
-		chartPath := root + "/charts/kuberpult/kuberpult-" + strings.TrimSpace(string(out)) + ".tgz"
 		valsPath := root + "/charts/kuberpult/vals.yaml"
-		cmd = exec.Command("helm", "upgrade", "--install",
-			"--values", valsPath,
-			"--set", "rollout.experimentalBrackets.enabled="+boolStr(p.BracketsEnabled),
-			"--set", "rollout.experimentalBrackets.clusters.development="+boolStr(p.DevelopmentEnabled),
-			"--set", "rollout.experimentalBrackets.clusters.staging="+boolStr(p.StagingEnabled),
-			"--set", fmt.Sprintf("rollout.kuberpultEventsChannelSize=%d", p.ChannelSize),
-			cfg.HelmReleaseName, chartPath)
+		var chartPath string
+		if p.OldVersion != "" {
+			kindLoadOldImages(tb, p.OldVersion)
+			v := p.OldVersion
+			chartPath = "https://github.com/freiheit-com/kuberpult/releases/download/" + v + "/kuberpult-" + v + ".tgz"
+			// Old chart predates rollout.experimentalBrackets — skip those flags.
+			cmd = exec.Command("helm", "upgrade", "--install",
+				"--values", valsPath,
+				"--set", fmt.Sprintf("rollout.kuberpultEventsChannelSize=%d", p.ChannelSize),
+				cfg.HelmReleaseName, chartPath)
+		} else {
+			out, err2 := exec.Command("git", "describe", "--always", "--long", "--tags").Output()
+			if err2 != nil {
+				tb.Fatalf("git describe: %v", err2)
+			}
+			chartPath = root + "/charts/kuberpult/kuberpult-" + strings.TrimSpace(string(out)) + ".tgz"
+			cmd = exec.Command("helm", "upgrade", "--install",
+				"--values", valsPath,
+				"--set", "rollout.experimentalBrackets.enabled="+boolStr(p.BracketsEnabled),
+				"--set", "rollout.experimentalBrackets.clusters.development="+boolStr(p.DevelopmentEnabled),
+				"--set", "rollout.experimentalBrackets.clusters.staging="+boolStr(p.StagingEnabled),
+				"--set", fmt.Sprintf("rollout.kuberpultEventsChannelSize=%d", p.ChannelSize),
+				cfg.HelmReleaseName, chartPath)
+		}
 	case ModeGKE:
 		v := cfg.TestVersion
 		chartPath := "https://github.com/freiheit-com/kuberpult/releases/download/" + v + "/kuberpult-" + v + ".tgz"
@@ -488,11 +551,26 @@ func ResetDB(tb TB, cfg Config, db DBCreds) {
 	}
 	tb.Logf("ResetDB: deleting all ArgoCD applications")
 	out, err := exec.Command("kubectl", "delete", "applications", "--all",
-		"-n", cfg.KuberpultNamespace, "--wait=true").CombinedOutput()
+		"-n", cfg.KuberpultNamespace, "--wait=true", "--cascade=true").CombinedOutput()
 	if err != nil {
 		tb.Fatalf("ResetDB: delete applications: %v: %s", err, out)
 	}
 	tb.Logf("ResetDB: %s", strings.TrimSpace(string(out)))
+
+	// In GKE mode, postgres is accessed via the cloud-sql-proxy sidecar in the
+	// cd-service pod. If a previous reset-db run scaled cd-service to 0, there
+	// are no pods to port-forward to. Bring it back up before opening the tunnel.
+	if cfg.Mode == ModeGKE {
+		tb.Logf("ResetDB: ensuring kuberpult-cd-service has at least 1 replica for cloud-sql-proxy access")
+		if out2, err2 := exec.Command("kubectl", "scale", "deployment/kuberpult-cd-service",
+			"-n", cfg.KuberpultNamespace, "--replicas=1").CombinedOutput(); err2 != nil {
+			tb.Fatalf("ResetDB: scale cd-service to 1: %v\n%s", err2, out2)
+		}
+		if out2, err2 := exec.Command("kubectl", "rollout", "status", "deployment/kuberpult-cd-service",
+			"-n", cfg.KuberpultNamespace, "--timeout=3m").CombinedOutput(); err2 != nil {
+			tb.Fatalf("ResetDB: wait for cd-service rollout: %v\n%s", err2, out2)
+		}
+	}
 
 	stopDBPF := openDBPortForward(tb, cfg, db)
 	defer stopDBPF()

@@ -245,27 +245,29 @@ func resetDB(t *testing.T) {
 	}
 	var tables []string
 	for _, line := range strings.Fields(string(out)) {
-		if line != "" && line != "schema_migrations" {
+		if line != "" {
 			tables = append(tables, line)
 		}
 	}
 
-	// Step 2: log which tables will be truncated
+	// Step 2: log which tables will be dropped
 	if len(tables) == 0 {
 		tLog(t, "resetDB: no tables found, db is already empty")
 	} else {
-		tLogf(t, "resetDB: will truncate tables: %s", strings.Join(tables, ", "))
+		tLogf(t, "resetDB: will drop tables: %s", strings.Join(tables, ", "))
 
-		// Step 3: truncate tables in batches of 5 to reduce round-trips (~1 sec per call)
-		for batch := range slices.Chunk(tables, 5) {
+		// Step 3: drop tables in batches of 10 to reduce round-trips (~1 sec per call).
+		// Dropping (instead of truncating) includes schema_migrations, so each
+		// deployed kuberpult version re-creates the schema from its own migration set.
+		for batch := range slices.Chunk(tables, 10) {
 			var parts []string
 			for _, table := range batch {
 				parts = append(parts, fmt.Sprintf(`"%s"`, table))
 			}
-			tLogf(t, "resetDB: truncating tables %s", strings.Join(parts, ", "))
-			out2, err2 := globalCfg.runPsql("-c", fmt.Sprintf(`TRUNCATE TABLE %s CASCADE;`, strings.Join(parts, ", ")))
+			tLogf(t, "resetDB: dropping tables %s", strings.Join(parts, ", "))
+			out2, err2 := globalCfg.runPsql("-c", fmt.Sprintf(`DROP TABLE IF EXISTS %s CASCADE;`, strings.Join(parts, ", ")))
 			if err2 != nil {
-				t.Fatalf("resetDB: truncate %s: %v: %s", strings.Join(parts, ", "), err2, out2)
+				t.Fatalf("resetDB: drop %s: %v: %s", strings.Join(parts, ", "), err2, out2)
 			}
 		}
 	}
