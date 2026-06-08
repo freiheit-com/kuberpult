@@ -491,6 +491,8 @@ message GetBracketDetailsResponse {
   // The rollout-service must not refresh this bracket's Argo app spec (which
   // would prune the moved apps' resources) until each named bracket has
   // adopted them (reported Synced by Argo CD).
+  // For example we move b1/app1 -> b2/app2:
+  // in this case b1 would have a "lost_members_to=b2"
   repeated string lost_members_to = 3;
 }
 
