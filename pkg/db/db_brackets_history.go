@@ -213,7 +213,8 @@ func executeSelectQuery(ctx context.Context, tx *sql.Tx, selectQuery string, arg
 // DBSelectBracketHistoryPrevious returns the bracket snapshot immediately before
 // the latest one (the second-newest row). It is used to detect which bracket an
 // app just left: comparing the previous snapshot with the latest reveals brackets
-// that became empty, so the rollout-service can delete their now-orphaned Argo app.
+// the app moved out of, so the rollout-service can delete their now-orphaned Argo
+// app (bracket emptied) or refresh its spec (bracket still has other members).
 func DBSelectBracketHistoryPrevious(ctx context.Context, h *DBHandler, tx *sql.Tx) (result *BracketRow, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryPrevious")
 	defer func() {
