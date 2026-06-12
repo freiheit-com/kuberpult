@@ -754,3 +754,84 @@ func TestBuildTransformerBatch(t *testing.T) {
 		})
 	}
 }
+
+// TestProcessOneEventBatchFailureFallback verifies that when a batch fails to apply (here the 2nd of
+// three CreateApplicationVersion events has invalid JSON), ProcessOneEvent falls back to processing
+// one event at a time: the preceding good event still processes, the offending event lands in
+// esl_failed_events with the cutoff advancing past it, and the trailing event is not poisoned
+// (Task 5 / R-2).
+func TestProcessOneEventBatchFailureFallback(t *testing.T) {
+	const minSleep = time.Nanosecond * 1
+	const maxSleep = time.Nanosecond * 1000
+	tcs := []struct {
+		Name                  string
+		maxBatchSize          int
+		expectedFinalCutoff   db.EslVersion
+		expectedFailedVersion db.EslVersion
+	}{
+		{
+			Name:                  "second event in a batch of three fails and is isolated",
+			maxBatchSize:          3,
+			expectedFinalCutoff:   3,
+			expectedFailedVersion: 2,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+
+			// Apply the environment setup directly (as the cd-service would), then seed three
+			// CreateApplicationVersion esl events. The second one carries invalid JSON so building
+			// its transformer fails during apply.
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, transformer := range makeSetupTransformer() {
+					if applyErr := repo.Apply(ctx, transaction, transformer); applyErr != nil {
+						t.Fatalf("Unexpected error applying setup transformers: %v", applyErr)
+					}
+				}
+				meta := db.ESLMetadata{AuthorName: "author", AuthorEmail: "email"}
+				if err := dbHandler.DBWriteEslEventInternal(ctx, db.EvtCreateApplicationVersion, transaction, interface{}(nil), meta); err != nil {
+					t.Fatalf("seeding event 1: %v", err)
+				}
+				if err := dbHandler.DBWriteEslEventWithJson(ctx, transaction, db.EvtCreateApplicationVersion, `{ this is not valid json`); err != nil {
+					t.Fatalf("seeding event 2: %v", err)
+				}
+				if err := dbHandler.DBWriteEslEventInternal(ctx, db.EvtCreateApplicationVersion, transaction, interface{}(nil), meta); err != nil {
+					t.Fatalf("seeding event 3: %v", err)
+				}
+				return nil
+			})
+
+			// Drive the loop a few times; three events means at most three successful iterations.
+			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
+			for i := 0; i < 5; i++ {
+				if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, tc.maxBatchSize); err != nil {
+					t.Fatalf("ProcessOneEvent iteration %d returned error: %v", i, err)
+				}
+			}
+
+			_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				cutoff, err := db.DBReadCutoff(dbHandler, ctx, transaction)
+				if err != nil {
+					t.Fatalf("DBReadCutoff: %v", err)
+				}
+				if cutoff == nil || *cutoff != tc.expectedFinalCutoff {
+					t.Errorf("expected final cutoff %d, got %v", tc.expectedFinalCutoff, cutoff)
+				}
+				failed, err := dbHandler.DBReadLastFailedEslEvents(ctx, transaction, 10, 0)
+				if err != nil {
+					t.Fatalf("DBReadLastFailedEslEvents: %v", err)
+				}
+				gotFailed := make([]db.EslVersion, 0, len(failed))
+				for _, f := range failed {
+					gotFailed = append(gotFailed, f.TransformerEslVersion)
+				}
+				if diff := testutil.CmpDiff([]db.EslVersion{tc.expectedFailedVersion}, gotFailed); diff != "" {
+					t.Errorf("failed-event versions mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+		})
+	}
+}

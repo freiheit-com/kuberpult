@@ -573,11 +573,19 @@ func ProcessOneEvent(
 			logging.Error(ctx, "skipping esl event, because we could not construct esl object.", zap.Error(err))
 			return 0, err
 		}
+		if len(esls) > 1 {
+			// A batch of more than one event failed. Fall back to processing one event at a time so
+			// the preceding good events still commit individually and only the offending event is
+			// failed (preserving the existing at-least-once / skip-poison-event semantics with no new
+			// failure modes). Task 4a's reset means this retry starts from a known-good HEAD even if
+			// the batch error triggered a FetchAndReset that moved HEAD (R-2). This call processes
+			// exactly the first event (maxBatchSize 1); the processEsls loop drains the rest of the
+			// former batch on subsequent iterations.
+			logging.Info(ctx, "batch apply failed, falling back to single-event processing.", zap.Error(err))
+			return ProcessOneEvent(ctx, repo, dbHandler, ddMetrics, sleepDuration, failOnErrorWithGitPushTags, 1)
+		}
 		logging.Error(ctx, "skipping esl event, because it returned an error.", zap.Error(err))
-		// after this many tries, we can just skip it.
-		// TODO(Task 5): on a batch error, fall back to processing the batch one event at a time so
-		// only the offending event is failed and the preceding good events still commit. Until then
-		// we fail the first event of the batch (correct while maxBatchSize == 1).
+		// after this many tries, we can just skip it:
 		err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, esls[0], err.Error())
 		if err2 != nil {
 			return 0, fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
