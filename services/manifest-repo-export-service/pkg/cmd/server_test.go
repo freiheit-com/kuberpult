@@ -563,3 +563,135 @@ func DBReadGitSyncStatusAll(ctx context.Context, h *db.DBHandler, tx *sql.Tx, id
 	}
 	return allCombinations, nil
 }
+
+// cmpDiff is a type-safe wrapper around cmp.Diff (per CLAUDE.md: prefer cmpDiff over cmp.Diff).
+func cmpDiff[T any](want, got T, opts ...cmp.Option) string {
+	return cmp.Diff(want, got, opts...)
+}
+
+// makeEslEvents builds esl event rows with consecutive eslVersions starting at 1 and the given
+// types. Only the version and type are relevant for selectBatch, so nothing else is set.
+func makeEslEvents(types ...db.EventType) []*db.EslEventRow {
+	rows := make([]*db.EslEventRow, 0, len(types))
+	for i, t := range types {
+		//exhaustruct:ignore
+		rows = append(rows, &db.EslEventRow{
+			EslVersion: db.EslVersion(i + 1),
+			EventType:  t,
+		})
+	}
+	return rows
+}
+
+// batchShape is the (version, type) projection of a batch, used so assertions compare Go objects.
+type batchShape struct {
+	EslVersion db.EslVersion
+	EventType  db.EventType
+}
+
+func shapeOf(rows []*db.EslEventRow) []batchShape {
+	out := make([]batchShape, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, batchShape{EslVersion: r.EslVersion, EventType: r.EventType})
+	}
+	return out
+}
+
+func TestSelectBatch(t *testing.T) {
+	const create = db.EvtCreateApplicationVersion
+	const deploy = db.EvtDeployApplicationVersion
+	const undeploy = db.EvtUndeployApplication
+	tcs := []struct {
+		Name         string
+		Input        []db.EventType
+		MaxBatchSize int
+		Expected     []batchShape
+	}{
+		{
+			Name:         "empty input yields empty batch",
+			Input:        nil,
+			MaxBatchSize: 5,
+			Expected:     []batchShape{},
+		},
+		{
+			Name:         "single CreateApplicationVersion yields batch of 1",
+			Input:        []db.EventType{create},
+			MaxBatchSize: 5,
+			Expected:     []batchShape{{1, create}},
+		},
+		{
+			Name:         "single non-Create yields batch of 1",
+			Input:        []db.EventType{deploy},
+			MaxBatchSize: 5,
+			Expected:     []batchShape{{1, deploy}},
+		},
+		{
+			Name:         "run of creates shorter than max yields full run",
+			Input:        []db.EventType{create, create, create},
+			MaxBatchSize: 5,
+			Expected:     []batchShape{{1, create}, {2, create}, {3, create}},
+		},
+		{
+			Name:         "run longer than max is capped at max",
+			Input:        []db.EventType{create, create, create, create},
+			MaxBatchSize: 2,
+			Expected:     []batchShape{{1, create}, {2, create}},
+		},
+		{
+			Name:         "stops at first non-Create (Create,Create,Undeploy,Create)",
+			Input:        []db.EventType{create, create, undeploy, create},
+			MaxBatchSize: 5,
+			Expected:     []batchShape{{1, create}, {2, create}},
+		},
+		{
+			Name:         "screenshot example Create,Undeploy,Create yields batch of 1",
+			Input:        []db.EventType{create, undeploy, create},
+			MaxBatchSize: 5,
+			Expected:     []batchShape{{1, create}},
+		},
+		{
+			Name:         "leading non-Create yields batch of 1 (never reorders/skips)",
+			Input:        []db.EventType{undeploy, create, create},
+			MaxBatchSize: 5,
+			Expected:     []batchShape{{1, undeploy}},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			batch := selectBatch(makeEslEvents(tc.Input...), tc.MaxBatchSize)
+			actual := shapeOf(batch)
+			if diff := cmpDiff(tc.Expected, actual); diff != "" {
+				t.Errorf("batch mismatch (-want, +got):\n%s", diff)
+			}
+			// Invariant: returned versions are strictly contiguous and ascending.
+			for i := 1; i < len(actual); i++ {
+				if actual[i].EslVersion != actual[i-1].EslVersion+1 {
+					t.Errorf("batch not strictly contiguous at index %d: %v", i, actual)
+				}
+			}
+		})
+	}
+}
+
+func TestSelectBatchMaxSizeBoundary(t *testing.T) {
+	const create = db.EvtCreateApplicationVersion
+	tcs := []struct {
+		Name         string
+		MaxBatchSize int
+	}{
+		{Name: "maxBatchSize 0 treated as 1", MaxBatchSize: 0},
+		{Name: "maxBatchSize 1 yields batch of 1", MaxBatchSize: 1},
+		{Name: "negative maxBatchSize treated as 1", MaxBatchSize: -3},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// three contiguous creates; with an effective max of 1, only the first is taken.
+			batch := selectBatch(makeEslEvents(create, create, create), tc.MaxBatchSize)
+			if len(batch) != 1 {
+				t.Errorf("expected batch of 1 (== today's behavior), got %d", len(batch))
+			}
+		})
+	}
+}

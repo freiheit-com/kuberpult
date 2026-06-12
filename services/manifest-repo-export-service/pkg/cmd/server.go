@@ -849,6 +849,39 @@ func getTransformer(_ context.Context, eslEventType db.EventType) (repository.Tr
 	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
 }
 
+// selectBatch returns the contiguous prefix of events that should be processed together with a
+// single push. The input must be the events as returned by DBReadEslEventBatch: all events with
+// eslVersion > cutoff, in ascending eslVersion order, with NO event_type filter applied (see the
+// note on DBReadEslEventBatch). This is what lets the returned slice stay strictly contiguous in
+// eslVersion — we never skip over an interleaved non-matching event.
+//
+// The rule:
+//   - empty input -> empty batch.
+//   - if the first unprocessed event is not a CreateApplicationVersion -> batch of exactly 1
+//     (today's single-event behavior, unchanged).
+//   - if the first unprocessed event is a CreateApplicationVersion -> the maximal contiguous prefix
+//     of CreateApplicationVersion events, capped at maxBatchSize. We stop at the first event of any
+//     other type.
+//
+// maxBatchSize < 1 is treated as 1, so a batch size of 0/1/negative reproduces today's behavior and
+// acts as a safe rollback switch.
+func selectBatch(events []*db.EslEventRow, maxBatchSize int) []*db.EslEventRow {
+	if maxBatchSize < 1 {
+		maxBatchSize = 1
+	}
+	if len(events) == 0 {
+		return events
+	}
+	if events[0].EventType != db.EvtCreateApplicationVersion {
+		return events[:1]
+	}
+	n := 0
+	for n < len(events) && n < maxBatchSize && events[n].EventType == db.EvtCreateApplicationVersion {
+		n++
+	}
+	return events[:n]
+}
+
 func checkReleaseVersionLimit(limit uint) error {
 	if limit < minReleaseVersionsLimit || limit > maxReleaseVersionsLimit {
 		return releaseVersionsLimitError{limit: limit}
