@@ -32,6 +32,8 @@ import (
 
 	"github.com/MicahParks/keyfunc/v2"
 	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/armor"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
@@ -721,6 +723,157 @@ func TestGetRequestAuthorFromAzure(t *testing.T) {
 			if diff := cmp.Diff(tc.ExpectedUser, got); diff != "" {
 				t.Errorf("user mismatch (-want, +got):\n%s", diff)
 			}
+		})
+	}
+}
+
+// makeTestPgpKeyringFile creates a temporary armored PGP public-key file and returns its path.
+// Required when running the server with AzureEnableAuth=true.
+func makeTestPgpKeyringFile(t *testing.T) string {
+	t.Helper()
+	entity, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
+	if err != nil {
+		t.Fatalf("failed to create PGP entity: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "keyring.asc")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("failed to create PGP keyring file: %v", err)
+	}
+	defer f.Close()
+	w, err := armor.Encode(f, openpgp.PublicKeyType, nil)
+	if err != nil {
+		t.Fatalf("failed to create armor encoder: %v", err)
+	}
+	if err := entity.Serialize(w); err != nil {
+		t.Fatalf("failed to serialize PGP entity: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close armor writer: %v", err)
+	}
+	return path
+}
+
+func TestServerApiEnableDespiteNoAuthWithAzure(t *testing.T) {
+	tcs := []struct {
+		Name                   string
+		AzureEnableAuth        bool
+		ApiEnableDespiteNoAuth bool
+		ExpectedUnauthorized   bool
+	}{
+		{
+			// Bug: the Azure middleware rejects /api/release before ApiEnableDespiteNoAuth is checked.
+			// This case should NOT return 401 once the bug is fixed.
+			Name:                   "Azure=true, ApiNoAuth=true - should pass through Azure middleware",
+			AzureEnableAuth:        true,
+			ApiEnableDespiteNoAuth: true,
+			ExpectedUnauthorized:   false,
+		},
+		{
+			Name:                   "Azure=true, ApiNoAuth=false - Azure blocks unauthenticated request",
+			AzureEnableAuth:        true,
+			ApiEnableDespiteNoAuth: false,
+			ExpectedUnauthorized:   true,
+		},
+		{
+			Name:                   "Azure=false, ApiNoAuth=true - request reaches handler",
+			AzureEnableAuth:        false,
+			ApiEnableDespiteNoAuth: true,
+			ExpectedUnauthorized:   false,
+		},
+		{
+			Name:                   "Azure=false, ApiNoAuth=false - /api unavailable without auth method",
+			AzureEnableAuth:        false,
+			ApiEnableDespiteNoAuth: false,
+			ExpectedUnauthorized:   true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		// NOTE: subtests must NOT run in parallel — they share port 8081 and jwksInitAzure.
+		t.Run(tc.Name, func(t *testing.T) {
+			if tc.AzureEnableAuth {
+				orig := jwksInitAzure
+				jwksInitAzure = func(_ context.Context) (*keyfunc.JWKS, error) {
+					return makeAzureTestJWKS()
+				}
+				defer func() { jwksInitAzure = orig }()
+
+				t.Setenv("KUBERPULT_AZURE_ENABLE_AUTH", "true")
+				t.Setenv("KUBERPULT_AZURE_CLIENT_ID", "testClientId")
+				t.Setenv("KUBERPULT_AZURE_TENANT_ID", "testTenantId")
+				t.Setenv("KUBERPULT_PGP_KEY_RING_PATH", makeTestPgpKeyringFile(t))
+			}
+			if tc.ApiEnableDespiteNoAuth {
+				t.Setenv("KUBERPULT_API_ENABLE_DESPITE_NO_AUTH", "true")
+			}
+
+			var wg sync.WaitGroup
+			ctx, cancel := context.WithCancel(context.Background())
+			wg.Add(1)
+			go func(t *testing.T) {
+				defer wg.Done()
+				defer cancel()
+				for {
+					res, err := http.Get("http://localhost:8081/healthz")
+					if err != nil {
+						t.Logf("unhealthy: %q", err)
+						<-time.After(1 * time.Second)
+						continue
+					}
+					if res.StatusCode != 200 {
+						<-time.After(1 * time.Second)
+						_ = res.Body.Close()
+						continue
+					}
+					_ = res.Body.Close()
+					break
+				}
+
+				req, err := http.NewRequest(http.MethodPost, "http://localhost:8081/api/release", nil)
+				if err != nil {
+					t.Errorf("failed to create request: %v", err)
+					return
+				}
+				res, err := http.DefaultClient.Do(req)
+				if err != nil {
+					t.Errorf("failed to do request: %v", err)
+					return
+				}
+				defer res.Body.Close()
+				body, _ := io.ReadAll(res.Body)
+				t.Logf("status: %d, body: %q", res.StatusCode, body)
+
+				if tc.ExpectedUnauthorized {
+					if res.StatusCode != http.StatusUnauthorized {
+						t.Errorf("expected 401 Unauthorized but got %d (body: %q)", res.StatusCode, body)
+					}
+				} else {
+					if res.StatusCode == http.StatusUnauthorized {
+						t.Errorf("expected request to pass auth but got 401 Unauthorized (body: %q)", body)
+					}
+				}
+			}(t)
+
+			td := t.TempDir()
+			if err := os.Mkdir(filepath.Join(td, "build"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(td, "build", "index.html"), []byte(`<!doctype html><html lang="en"></html>`), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chdir(td); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("KUBERPULT_GIT_AUTHOR_EMAIL", "mail2")
+			t.Setenv("KUBERPULT_GIT_AUTHOR_NAME", "name1")
+			t.Setenv("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE", "4")
+
+			if err := runServer(ctx); err != nil {
+				t.Fatalf("runServer returned unexpected error: %q", err)
+			}
+			wg.Wait()
 		})
 	}
 }

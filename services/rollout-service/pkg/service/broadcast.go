@@ -25,6 +25,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -124,6 +125,12 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) *ArgoEve
 	logger.FromContext(ctx).Sugar().Infof("Received current argo event: %v", ev)
 	msg := b.state[k].applyArgoEvent(&ev)
 	if msg == nil {
+		logger.FromContext(ctx).Info("event.ignored",
+			zap.String("source", "argocd"),
+			zap.String("app", ev.Application),
+			zap.String("env", ev.Environment),
+			zap.String("reason", "no-state-change"),
+		)
 		return nil
 	}
 	logger.FromContext(ctx).Sugar().Infof("argo event Applied! broadcasting: %v", ev)
@@ -155,6 +162,12 @@ func (b *Broadcast) ProcessKuberpultEvent(ctx context.Context, ev versions.Kuber
 	}
 	msg := b.state[k].applyKuberpultEvent(&ev)
 	if msg == nil {
+		logger.FromContext(ctx).Info("event.ignored",
+			zap.String("source", "cd-service"),
+			zap.String("app", ev.Application),
+			zap.String("env", ev.Environment),
+			zap.String("reason", "no-state-change"),
+		)
 		return
 	}
 	desub := []chan *BroadcastEvent{}
@@ -331,7 +344,7 @@ type BroadcastEvent struct {
 func streamStatus(b *BroadcastEvent) *api.StreamStatusResponse {
 	version := uint64(0)
 	if b.ArgocdVersion != nil {
-		version = b.ArgocdVersion.Version
+		version, _ = b.ArgocdVersion.Version.ToUint64()
 	}
 	return &api.StreamStatusResponse{
 		Environment:   b.Environment,

@@ -184,6 +184,8 @@ message BatchAction {
     // this request is used to just re-render the all the manifests for an environment in the manifest git repository
     // it does not write to the database
     RenderEnvironmentRequest render_environment = 19;
+    CreateManifestLockRequest create_manifest_lock = 20;
+    DeleteManifestLockRequest delete_manifest_lock = 21;
   }
 }
 
@@ -253,6 +255,18 @@ message DeleteEnvironmentTeamLockRequest {
   string environment = 1;
   string team = 2;
   string lock_id = 3;
+}
+
+message CreateManifestLockRequest {
+  string app = 1;
+  string env = 2;
+  string message = 3;
+  optional string suggested_life_time = 4;
+}
+
+message DeleteManifestLockRequest {
+  string app = 1;
+  string env = 2;
 }
 
 
@@ -429,20 +443,7 @@ message GetFrontendConfigResponse {
   bool revisions_enabled = 7;
 }
 
-message GetVersionRequest {
-  string git_revision = 1;
-  string application = 2;
-  string environment = 3;
-}
-
-message GetVersionResponse {
-  uint64 version = 1;
-  google.protobuf.Timestamp deployed_at = 2;
-  string source_commit_id = 3;
-}
-
 service VersionService {
-  rpc GetVersion (GetVersionRequest) returns (GetVersionResponse) {}
   rpc GetManifests (GetManifestsRequest) returns (GetManifestsResponse) {}
 }
 
@@ -460,6 +461,7 @@ service OverviewService {
   rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
   rpc GetAllAppLocks (GetAllAppLocksRequest) returns (GetAllAppLocksResponse) {}
   rpc GetAllEnvTeamLocks (GetAllEnvTeamLocksRequest) returns (GetAllEnvTeamLocksResponse) {}
+  rpc GetAllManifestLocks (GetAllManifestLocksRequest) returns (GetAllManifestLocksResponse) {}
 
   rpc StreamDeploymentHistory (DeploymentHistoryRequest) returns (stream DeploymentHistoryResponse) {}
 }
@@ -472,6 +474,26 @@ message GetChangedAppsRequest {}
 
 message GetChangedAppsResponse {
   repeated GetAppDetailsResponse changed_apps = 1;
+  repeated GetBracketDetailsResponse changed_brackets = 2;
+  int64 transformer_esl_id = 3; // max ESL ID from event_sourcing_light at the moment this message was sent
+}
+
+message BracketDeployment {
+  string version = 1;
+  google.protobuf.Timestamp deployed_at = 2;
+  string source_commit_id = 3;
+}
+
+message GetBracketDetailsResponse {
+  string bracket_name = 1;
+  map<string, BracketDeployment> deployments = 2;
+  // Names of brackets that gained some members that this bracket lost in this change.
+  // The rollout-service must not refresh this bracket's Argo app spec (which
+  // would prune the moved apps' resources) until each named bracket has
+  // adopted them (reported Synced by Argo CD).
+  // For example we move b1/app1 -> b2/app2:
+  // in this case b1 would have a "lost_members_to=b2"
+  repeated string lost_members_to = 3;
 }
 
 message GetAllAppLocksRequest {}
@@ -500,6 +522,18 @@ message GetAllEnvTeamLocksRequest {}
 message GetAllEnvTeamLocksResponse {
   map<string, Locks> all_env_locks = 1; //EnvName -> All env locks for that env
   map<string, AllTeamLocks> all_team_locks = 2; //EnvName -> All team locks for that env
+}
+
+message GetAllManifestLocksRequest {}
+
+message GetAllManifestLocksResponse {
+  repeated ManifestLockInfo manifest_locks = 1;
+}
+
+message ManifestLockInfo {
+  string app = 1;
+  string env = 2;
+  Lock   lock = 3;
 }
 
 message DeploymentHistoryRequest {

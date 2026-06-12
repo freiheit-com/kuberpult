@@ -56,13 +56,32 @@ type DBAppWithMetaData struct {
 	ArgoBracket types.ArgoBracketName
 }
 
+/*
+apps is the current-state table for application metadata: one row per app name, upserted on every change.
+apps_history is the append-only counterpart; every create/update/delete writes a new row here.
+Together they follow kuberpult's standard current+history pattern:
+'apps' for fast point-in-time lookups, 'apps_history' for full audit and time-travel queries.
+The stateChange column records AppStateChangeCreate, AppStateChangeUpdate, or AppStateChangeDelete.
+*/
+const appsTable = "apps"
+const appsHistoryTable = "apps_history"
+
+/*
+apps_teams_history stores the global app-to-team mapping as an append-only JSON blob.
+Unlike most history tables, each row holds the COMPLETE map of ALL apps to ALL teams — not one app's entry.
+A new row is written whenever any app's team assignment changes.
+Callers reconstruct the full team snapshot by reading the latest row, or a historical snapshot
+by reading the latest row created_at <= a given timestamp.
+*/
+const appsTeamsHistoryTable = "apps_teams_history"
+
 // SELECTS
 
 func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (*DBAppWithMetaData, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT appName, stateChange, metadata, argoBracket
-		FROM apps
-		WHERE appName=? 
+		FROM ` + appsTable + `
+		WHERE appName=?
 		LIMIT 1;
 	`)
 
@@ -74,6 +93,27 @@ func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName types.A
 	return h.processAppsRow(ctx, rows, err)
 }
 
+func (h *DBHandler) DBSelectAllAppsMetadataAtTimestamp(ctx context.Context, tx *sql.Tx, ts time.Time) (_ map[types.AppName]*DBAppWithMetaData, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadataAtTimestamp")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	selectQuery := h.AdaptQuery(`
+	SELECT DISTINCT
+		ON (appname) appname,
+		stateChange,
+		metadata,
+		argoBracket
+	FROM ` + appsHistoryTable + `
+	WHERE
+		created <= ?
+	ORDER BY appname, created DESC;
+	`)
+	span.SetTag("query", selectQuery)
+	rows, err := tx.QueryContext(ctx, selectQuery, ts)
+	return h.processAppsRows(ctx, rows, err)
+}
+
 func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (_ map[types.AppName]*DBAppWithMetaData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllAppsMetadata")
 	defer func() {
@@ -81,7 +121,7 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (_ 
 	}()
 	selectQuery := h.AdaptQuery(`
 		SELECT appname, stateChange, metadata, argoBracket
-		FROM apps
+		FROM ` + appsTable + `
 		WHERE stateChange <> 'AppStateChangeDelete'
 		ORDER BY appname;
 	`)
@@ -94,9 +134,9 @@ func (h *DBHandler) DBSelectAllAppsMetadata(ctx context.Context, tx *sql.Tx) (_ 
 func (h *DBHandler) DBSelectAppAtTimestamp(ctx context.Context, tx *sql.Tx, appName types.AppName, ts time.Time) (*DBAppWithMetaData, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT appName, stateChange, metadata, argoBracket
-		FROM apps_history
+		FROM ` + appsHistoryTable + `
 		WHERE appName=? AND created <= ?
-		ORDER BY version DESC 
+		ORDER BY version DESC
 		LIMIT 1;
 	`)
 
@@ -136,7 +176,7 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sq
 	}()
 	query := h.AdaptQuery(`
 		SELECT appname
-		FROM apps
+		FROM ` + appsTable + `
 		WHERE stateChange <> 'AppStateChangeDelete'
 		ORDER BY appname;
 	`)
@@ -232,7 +272,7 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, 
 	var appsHistoryRows []AppHistoryRow
 	selectQuery := h.AdaptQuery(`
 		SELECT created, appName, stateChange, metadata
-		FROM apps_history
+		FROM ` + appsHistoryTable + `
 		ORDER BY version ASC;
 	`)
 	rows, err := tx.QueryContext(
@@ -273,7 +313,7 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, 
 
 func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO apps_teams_history (created_at, apps_teams)
+		INSERT INTO ` + appsTeamsHistoryTable + ` (created_at, apps_teams)
 		VALUES (?, ?);
 	`)
 
@@ -338,7 +378,7 @@ func (h *DBHandler) DBSelectAppsWithReleasesAtTimestamp(ctx context.Context, tra
 func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transaction *sql.Tx) (_ []AppWithTeam, err error) {
 	query := h.AdaptQuery(`
 		SELECT apps_teams
-		FROM apps_teams_history
+		FROM ` + appsTeamsHistoryTable + `
 		ORDER BY id DESC
 		LIMIT 1;
 	`)
@@ -349,7 +389,7 @@ func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transact
 func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) (_ []AppWithTeam, err error) {
 	query := h.AdaptQuery(`
 		SELECT apps_teams
-		FROM apps_teams_history
+		FROM ` + appsTeamsHistoryTable + `
 		WHERE created_at <= ?
 		ORDER BY id DESC
 		LIMIT 1;
@@ -383,7 +423,7 @@ func (h *DBHandler) processAppsTeamsRow(rows *sql.Rows, err error) ([]AppWithTea
 // actual changes in tables
 func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData, argoBracket types.ArgoBracketName) (err error) {
 	upsertQuery := h.AdaptQuery(`
-		INSERT INTO apps (created, appName, stateChange, metadata, argoBracket)
+		INSERT INTO ` + appsTable + ` (created, appName, stateChange, metadata, argoBracket)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(appname)
 		DO UPDATE SET created = excluded.created,
@@ -419,7 +459,7 @@ func (h *DBHandler) upsertAppsRow(ctx context.Context, transaction *sql.Tx, appN
 
 func (h *DBHandler) insertAppsHistoryRow(ctx context.Context, transaction *sql.Tx, appName types.AppName, stateChange AppStateChange, metaData DBAppMetaData, argoBracket types.ArgoBracketName) (err error) {
 	insertQuery := h.AdaptQuery(`
-		INSERT INTO apps_history (created, appName, stateChange, metadata, argoBracket)
+		INSERT INTO ` + appsHistoryTable + ` (created, appName, stateChange, metadata, argoBracket)
 		VALUES (?, ?, ?, ?, ?);
 	`)
 

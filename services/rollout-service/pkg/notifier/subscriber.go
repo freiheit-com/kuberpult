@@ -20,7 +20,11 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 )
 
@@ -64,7 +68,7 @@ type key struct {
 }
 
 type notifyStatus struct {
-	targetVersion uint64
+	targetVersion types.RolloutAppBracketVersion
 }
 
 type subscriber struct {
@@ -73,18 +77,41 @@ type subscriber struct {
 }
 
 func (s *subscriber) maybeSend(ctx context.Context, ev *service.BroadcastEvent) {
+	l := logger.FromContext(ctx)
 	// skip cases where we don't know the kuberpult version
 	if ev.KuberpultVersion == nil {
+		l.Info("event.ignored",
+			zap.String("source", "notifier"),
+			zap.String("app", ev.Application),
+			zap.String("env", ev.Environment),
+			zap.String("reason", "kuberpult-version-unknown"),
+		)
 		return
 	}
 	// also don't notify when the version in argocd is already the right one
 	if ev.ArgocdVersion == ev.KuberpultVersion {
+		l.Info("event.ignored",
+			zap.String("source", "notifier"),
+			zap.String("app", ev.Application),
+			zap.String("env", ev.Environment),
+			zap.String("reason", "already-at-target-version"),
+			zap.Any("argocd.version", ev.ArgocdVersion),
+			zap.Any("kuberpult.version", ev.KuberpultVersion),
+		)
 		return
 	}
 	// also don't send events for the same version again
 	k := key{ev.Environment, ev.Application}
 	ns := s.notifyStatus[k]
 	if ns != nil && ns.targetVersion == ev.KuberpultVersion.Version {
+		l.Info("event.ignored",
+			zap.String("source", "notifier"),
+			zap.String("app", ev.Application),
+			zap.String("env", ev.Environment),
+			zap.String("reason", "notification-already-sent"),
+			zap.String("target.version", string(ns.targetVersion)),
+			zap.String("kuberpult.version", string(ev.KuberpultVersion.Version)),
+		)
 		return
 	}
 	s.notifyStatus[k] = &notifyStatus{

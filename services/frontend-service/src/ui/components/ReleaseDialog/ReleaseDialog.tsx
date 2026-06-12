@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 import classNames from 'classnames';
-import React, { ReactElement, useCallback, useMemo } from 'react';
+import React, { ReactElement, useCallback, useMemo, useState } from 'react';
 import { Deployment, Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
@@ -49,7 +49,7 @@ import {
     DisplayCommitHistoryLink,
 } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
-import { PlainDialog } from '../dialog/ConfirmationDialog';
+import { ConfirmationDialog, PlainDialog } from '../dialog/ConfirmationDialog';
 import { DeployLockButtons } from '../button/DeployLockButtons';
 import {
     AAEnvironmentRolloutDescription,
@@ -184,6 +184,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             action.action.createEnvironmentApplicationLock.environment === env.name
     );
     const alreadyPlanned = lockAlreadyPlanned && deployAlreadyPlanned;
+    const [showSameVersionWarning, setShowSameVersionWarning] = useState<boolean | undefined>(undefined);
 
     const queueInfo =
         queuedVersion === 0 ? null : (
@@ -198,8 +199,10 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             </div>
         );
     const otherRelease = useReleaseOptional(app, env);
+    const isSameVersion =
+        !!otherRelease && otherRelease.version === release.version && otherRelease.revision === release.revision;
     const appDetails = useAppDetailsForApp(app);
-    const deployment = appDetails.details?.deployments[env.name];
+    const deployment = appDetails?.details?.deployments[env.name];
     const hasEnv = release.environments.indexOf(env.name) >= 0;
 
     const getDeploymentMetadata = (): [JSX.Element, JSX.Element] => {
@@ -346,18 +349,29 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         ]
     );
 
-    const allowDeployment: boolean = ((): boolean => {
-        if (release.isPrepublish) {
-            return false;
+    const allowDeployment: boolean = !release.isPrepublish && hasEnv;
+
+    const handleDeployAndLockClick = useCallback(
+        (shouldLockToo: boolean) => {
+            if (isSameVersion) {
+                setShowSameVersionWarning(shouldLockToo);
+                return;
+            }
+            deployAndLockClick(shouldLockToo);
+        },
+        [isSameVersion, deployAndLockClick]
+    );
+
+    const handleSameVersionConfirm = useCallback((): void => {
+        setShowSameVersionWarning(undefined);
+        if (showSameVersionWarning !== undefined) {
+            deployAndLockClick(showSameVersionWarning);
         }
-        if (!hasEnv) {
-            return false;
-        }
-        if (!otherRelease) {
-            return true;
-        }
-        return otherRelease.version !== release.version || otherRelease.revision !== release.revision;
-    })();
+    }, [showSameVersionWarning, deployAndLockClick]);
+
+    const handleSameVersionCancel = useCallback((): void => {
+        setShowSameVersionWarning(undefined);
+    }, []);
 
     const releaseDifference = useReleaseDifference(
         { version: release.version, revision: release.revision },
@@ -470,7 +484,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                 'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version.'
                             }>
                             <DeployLockButtons
-                                onClickSubmit={deployAndLockClick}
+                                onClickSubmit={handleDeployAndLockClick}
                                 onClickLock={createAppLock}
                                 releaseDifference={releaseDifference}
                                 disabled={!allowDeployment}
@@ -478,11 +492,25 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                 lockAlreadyPlanned={lockAlreadyPlanned}
                                 hasLocks={appEnvLocks.length > 0}
                                 unlockAlreadyPlanned={unlockAlreadyPlanned}
+                                isRedeploy={isSameVersion}
                             />
                         </div>
                     </div>
                 </div>
             </div>
+            <ConfirmationDialog
+                open={showSameVersionWarning !== undefined}
+                headerLabel={'Re-deploy same version?'}
+                confirmLabel={'Re-deploy'}
+                classNames={'same-version-warning-dialog'}
+                onConfirm={handleSameVersionConfirm}
+                onCancel={handleSameVersionCancel}>
+                <span>
+                    {
+                        'This version is already deployed here. A re-deployment usually has no effect unless you have manual changes in the manifest repository.'
+                    }
+                </span>
+            </ConfirmationDialog>
         </li>
     );
 };
@@ -515,7 +543,7 @@ export const undeployTooltipExplanation =
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
     const appDetails = useAppDetailsForApp(app);
-    const linkTarget: string = appDetails.details?.application?.argoBracket || app;
+    const linkTarget: string = appDetails?.details?.application?.argoBracket || app;
     const team = useTeamFromApplication(app) || '';
     const closeReleaseDialog = useCloseReleaseDialog();
     if (!appDetails) {
@@ -614,7 +642,9 @@ export const EnvironmentGroupLane: React.FC<{
     // all envs in the same group have the same priority
     const priorityClassName = getPriorityClassName(environmentGroup);
     const [isCollapsed, setIsCollapsed] = React.useState(false);
-    const [allowGroupDeployment, setAllowGroupDeployment] = React.useState(true);
+    const [showGroupSameVersionWarning, setShowGroupSameVersionWarning] = React.useState<boolean | undefined>(
+        undefined
+    );
     const appDetails = useAppDetailsForApp(app);
     const collapse = useCallback(() => {
         setIsCollapsed(!isCollapsed);
@@ -682,13 +712,19 @@ export const EnvironmentGroupLane: React.FC<{
             });
         });
     }, [environmentGroup, app, envsWithPlannedLocks, locksAlreadyPlanned]);
+    const isSameVersionGroup =
+        allReleases !== undefined &&
+        allReleases.length !== 0 &&
+        JSON.stringify(allReleases[0].environments) === JSON.stringify(environmentGroup.environments);
+
     const deployAndLockClick = React.useCallback(
-        (shouldLockToo: boolean) => {
+        (shouldLockToo: boolean, forceDeploy: boolean = false) => {
             const envsWithoutPlans = new Set([...envsWithoutPlannedDeployments, ...envsWithoutPlannedLocks]);
             var skippedEnvs: string[] = alreadyPlanned ? [] : envsWithPlannedDeploysLocks.map((env) => env.name);
             const envs = alreadyPlanned ? environmentGroup.environments : envsWithoutPlans;
             envs.forEach((environment) => {
                 if (
+                    !forceDeploy &&
                     allReleases &&
                     allReleases.length !== 0 &&
                     allReleases[0].environments.find((env) => env === environment)
@@ -767,21 +803,27 @@ export const EnvironmentGroupLane: React.FC<{
         ]
     );
 
-    React.useEffect(() => {
-        //If current release is deployed on all envs of env group, we disable the groupDeploy button
-        if (allReleases === undefined) {
-            setAllowGroupDeployment(true);
-            return;
-        }
+    const handleGroupDeployAndLockClick = React.useCallback(
+        (shouldLockToo: boolean) => {
+            if (isSameVersionGroup) {
+                setShowGroupSameVersionWarning(shouldLockToo);
+                return;
+            }
+            deployAndLockClick(shouldLockToo);
+        },
+        [isSameVersionGroup, deployAndLockClick]
+    );
 
-        if (allReleases.length === 0) {
-            setAllowGroupDeployment(true);
-        } else {
-            setAllowGroupDeployment(
-                JSON.stringify(allReleases[0].environments) !== JSON.stringify(environmentGroup.environments)
-            );
+    const handleGroupSameVersionConfirm = React.useCallback((): void => {
+        setShowGroupSameVersionWarning(undefined);
+        if (showGroupSameVersionWarning !== undefined) {
+            deployAndLockClick(showGroupSameVersionWarning, true);
         }
-    }, [allReleases, environmentGroup]);
+    }, [showGroupSameVersionWarning, deployAndLockClick]);
+
+    const handleGroupSameVersionCancel = React.useCallback((): void => {
+        setShowGroupSameVersionWarning(undefined);
+    }, []);
 
     return (
         <div className="release-dialog-environment-group-lane">
@@ -807,18 +849,32 @@ export const EnvironmentGroupLane: React.FC<{
                             'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version.'
                         }>
                         <DeployLockButtons
-                            onClickSubmit={deployAndLockClick}
+                            onClickSubmit={handleGroupDeployAndLockClick}
                             onClickLock={createEnvGroupLock}
-                            disabled={!allowGroupDeployment}
+                            disabled={false}
                             releaseDifference={0}
                             deployAlreadyPlanned={deploysAlreadyPlanned}
                             lockAlreadyPlanned={locksAlreadyPlanned}
                             hasLocks={false}
                             unlockAlreadyPlanned={false}
+                            isRedeploy={isSameVersionGroup}
                         />
                     </div>
                 </div>
             </div>
+            <ConfirmationDialog
+                open={showGroupSameVersionWarning !== undefined}
+                headerLabel={'Re-deploy same version?'}
+                confirmLabel={'Re-deploy'}
+                classNames={'same-version-warning-dialog'}
+                onConfirm={handleGroupSameVersionConfirm}
+                onCancel={handleGroupSameVersionCancel}>
+                <span>
+                    {
+                        'This version is already deployed on all environments in this group. A re-deployment usually has no effect unless you have manual changes in the manifest repository.'
+                    }
+                </span>
+            </ConfirmationDialog>
             {isCollapsed ? (
                 <div className={'release-dialog-environment-group-lane__body__collapsed'}></div>
             ) : (
@@ -833,8 +889,8 @@ export const EnvironmentGroupLane: React.FC<{
                             team={team}
                             className={priorityClassName}
                             queuedVersion={
-                                appDetails.details?.deployments[env.name]
-                                    ? appDetails.details?.deployments[env.name].queuedVersion
+                                appDetails?.details?.deployments[env.name]
+                                    ? appDetails?.details?.deployments[env.name].queuedVersion
                                     : 0
                             }
                         />

@@ -48,6 +48,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/notifier"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/revolution"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/undeploy"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
 
@@ -104,6 +105,8 @@ type Config struct {
 
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
+
+	ExperimentalBracketsClusters []string `split_words:"true" default:""`
 }
 
 func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
@@ -184,12 +187,12 @@ func getGrpcClients(_ context.Context, config Config) (api.OverviewServiceClient
 
 	con, err := grpc.NewClient(config.CdServer, grpcClientOpts...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error dialing %s: %w", config.CdServer, err)
+		return nil, nil, fmt.Errorf("error dialling %s: %w", config.CdServer, err)
 	}
 
 	versionServiceCon, err := grpc.NewClient(config.VersionServer, grpcClientOpts...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error dialing %s: %w", config.VersionServer, err)
+		return nil, nil, fmt.Errorf("error dialling %s: %w", config.VersionServer, err)
 	}
 
 	return api.NewOverviewServiceClient(con), api.NewVersionServiceClient(versionServiceCon), nil
@@ -296,7 +299,13 @@ func runServer(ctx context.Context, config Config) error {
 		logger.FromContext(ctx).Sugar().Warn("Application filter feature is deprecated. In the future, either all applications will be self managed or none at all, regardless of team.")
 	}
 
-	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.KuberpultEventsMetricsEnabled, config.ArgoEventsMetricsEnabled, config.ManageArgoApplicationsFilter, *dbHandler, config.KuberpultEventsChannelSize, config.ArgoEventsChannelSize, ddMetrics)
+	if len(config.ExperimentalBracketsClusters) == 1 && config.ExperimentalBracketsClusters[0] == "" {
+		// If the env var is not set, envconfig.Process would return [""], instead of "".
+		// We want to have the same behaviour as in the cd-service, so we overwrite the value with an empty slice.
+		// "" is also not a valid environment name, so there is no point of having it in this slice.
+		config.ExperimentalBracketsClusters = []string{}
+	}
+	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.KuberpultEventsMetricsEnabled, config.ArgoEventsMetricsEnabled, config.ManageArgoApplicationsFilter, *dbHandler, config.KuberpultEventsChannelSize, config.ArgoEventsChannelSize, ddMetrics, config.ExperimentalBracketsClusters)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
 	ArgoEventConsumer := service.ArgoEventConsumer{
 		AppClient:           appClient,
@@ -329,6 +338,13 @@ func runServer(ctx context.Context, config Config) error {
 			Name:     "consume self-manage events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				return versionC.GetArgoProcessor().Consume(ctx, health, nil)
+			},
+		},
+		{
+			Shutdown: nil,
+			Name:     "consume rollout undeploy cascade",
+			Run: func(ctx context.Context, health *setup.HealthReporter) error {
+				return undeploy.ConsumeUndeployCascade(ctx, dbHandler, appClient, versionC.GetArgoProcessor().MaxProcessedTransformerEslId(), health)
 			},
 		},
 	}

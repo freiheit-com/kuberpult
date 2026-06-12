@@ -122,7 +122,7 @@ const useDeploymentStatus = (
         const groups: { [envGroup: string]: RolloutStatus } = {};
         deployedAt.forEach((envGroup) => {
             const status = envGroup.environments.reduce((cur: RolloutStatus | undefined, env) => {
-                const appVersion = appDetails.details?.deployments[env.name].version;
+                const appVersion = appDetails?.details?.deployments[env.name]?.version;
                 let status: RolloutStatus | undefined;
                 if (!IsAAEnvironment(env.config)) {
                     status = getter.getAppStatus(app, appVersion, env.name);

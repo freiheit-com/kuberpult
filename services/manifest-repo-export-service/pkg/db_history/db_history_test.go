@@ -277,6 +277,102 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 	}
 }
 
+// TestDBDeleteDeploymentWithHistoryReflectsInTimestampQuery ensures that deleting a deployment via
+// the history-aware wrapper makes the timestamped history query stop reporting the app as deployed.
+// A plain DBDeleteDeployment (current table only) would leave the history showing the old version,
+// which is the bug that kept deleted apps in the env's argocd root app.
+func TestDBDeleteDeploymentWithHistoryReflectsInTimestampQuery(t *testing.T) {
+	const app = types.AppName("foo")
+	const dev = types.EnvName("dev")
+	tcs := []struct {
+		Name          string
+		DeployVersion uint64
+	}{
+		{
+			Name:          "deleting a deployment marks it un-deployed in history",
+			DeployVersion: 1,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			// GIVEN: an app deployed to dev
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteEnvironment(ctx, transaction, dev, config.EnvironmentConfig{}); err != nil {
+					return err
+				}
+				if err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+					ReleaseNumbers: types.MakeReleaseNumberVersion(tc.DeployVersion),
+					App:            app,
+					Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest"}},
+				}); err != nil {
+					return err
+				}
+				return dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+					Created:        time.Time{},
+					App:            app,
+					Env:            dev,
+					ReleaseNumbers: types.MakeReleaseNumbers(tc.DeployVersion, 0),
+					Metadata:       db.DeploymentMetadata{},
+					TransformerID:  0,
+				})
+			})
+			if err != nil {
+				t.Fatalf("setup: %v", err)
+			}
+
+			// sanity check: the app is reported as deployed before deletion
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				ts, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				res, err := DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, dbHandler, transaction, dev, *ts)
+				if err != nil {
+					return err
+				}
+				if dep, ok := res[app]; !ok || dep.ReleaseNumbers.Version == nil {
+					t.Fatalf("expected app %q to be deployed before deletion, got: %v", app, res)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("sanity: %v", err)
+			}
+
+			// WHEN: the deployment is deleted via the history-aware wrapper
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return dbHandler.DBDeleteDeploymentWithHistory(ctx, transaction, app, dev, 0, db.DeploymentMetadata{})
+			})
+			if err != nil {
+				t.Fatalf("delete: %v", err)
+			}
+
+			// THEN: the timestamped history query no longer reports the app as deployed
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				ts, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				res, err := DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, dbHandler, transaction, dev, *ts)
+				if err != nil {
+					return err
+				}
+				if dep, ok := res[app]; ok && dep.ReleaseNumbers.Version != nil {
+					t.Errorf("expected app %q to be un-deployed after deletion, but it still has version %d", app, *dep.ReleaseNumbers.Version)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("verify: %v", err)
+			}
+		})
+	}
+}
+
 // setupDB returns a new DBHandler with a tmp directory every time, so tests are completely independent
 func setupDB(t *testing.T) *db.DBHandler {
 	ctx := context.Background()

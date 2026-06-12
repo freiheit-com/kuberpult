@@ -130,7 +130,7 @@ const (
 )
 
 type repository struct {
-	// Mutex gurading the writer
+	// Mutex guarding the writer
 	writeLock sync.Mutex
 	config    *RepositoryConfig
 
@@ -167,7 +167,7 @@ type RepositoryConfig struct {
 	DBHandler *db.DBHandler
 }
 
-// Opens a repository. The repository is initialized and updated in the background.
+// Opens a repository. The repository is initialised and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
 	if ddMetricsFromCtx != nil {
@@ -219,6 +219,12 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	return result, nil
 }
 
+// isManifestLockTransformer returns true for transformers that bypass the ESL table.
+// Manifest locks are stored directly in manifest_locks_history and must not appear in ESL.
+func isManifestLockTransformer(t Transformer) bool {
+	return t.GetDBEventType() == db.EvtCreateManifestLock || t.GetDBEventType() == db.EvtDeleteManifestLock
+}
+
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformers ...Transformer) (_ []string, _ *State, _ []*TransformerResult, applyErr *TransformerBatchApplyError) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ApplyTransformersInternal")
 	defer func() {
@@ -257,30 +263,31 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 				AuthorEmail: user.Email,
 			}
 			transfomerId := db.EslVersion(0)
-			err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
-			if err != nil {
-				return nil, nil, nil, &TransformerBatchApplyError{
-					TransformerError: err,
-					Index:            i,
+			if !isManifestLockTransformer(t) {
+				err = r.DB.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, eventMetadata)
+				if err != nil {
+					return nil, nil, nil, &TransformerBatchApplyError{
+						TransformerError: err,
+						Index:            i,
+					}
 				}
-			}
-			// read the last written event, so we can get the primary key (eslVersion):
-			internal, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
-			if err != nil {
-				return nil, nil, nil, &TransformerBatchApplyError{
-					TransformerError: err,
-					Index:            i,
+				// read the last written event, so we can get the primary key (eslVersion):
+				internal, err := r.DB.DBReadEslEventInternal(ctx, transaction, false)
+				if err != nil {
+					return nil, nil, nil, &TransformerBatchApplyError{
+						TransformerError: err,
+						Index:            i,
+					}
 				}
-			}
-			if internal == nil {
-				return nil, nil, nil, &TransformerBatchApplyError{
-					TransformerError: fmt.Errorf("could not find esl event that was just inserted with event type %v", t.GetDBEventType()),
-					Index:            i,
+				if internal == nil {
+					return nil, nil, nil, &TransformerBatchApplyError{
+						TransformerError: fmt.Errorf("could not find esl event that was just inserted with event type %v", t.GetDBEventType()),
+						Index:            i,
+					}
 				}
+				t.SetEslVersion(db.TransformerID(internal.EslVersion))
+				transfomerId = internal.EslVersion
 			}
-			t.SetEslVersion(db.TransformerID(internal.EslVersion))
-
-			transfomerId = internal.EslVersion
 
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state, transaction); err != nil {
 				applyErr := TransformerBatchApplyError{
@@ -449,6 +456,12 @@ func (r *repository) notifyChangedApps(changes *TransformerResult) {
 	var changedAppNames []types.AppName
 	var seen = make(map[types.AppName]bool)
 	for _, app := range changes.ChangedApps {
+		if _, ok := seen[app.App]; !ok {
+			seen[app.App] = true
+			changedAppNames = append(changedAppNames, app.App)
+		}
+	}
+	for _, app := range changes.DeletedApps {
 		if _, ok := seen[app.App]; !ok {
 			seen[app.App] = true
 			changedAppNames = append(changedAppNames, app.App)
@@ -675,12 +688,44 @@ func (s *State) DeleteQueuedVersion(ctx context.Context, transaction *sql.Tx, en
 func (s *State) DeleteQueuedVersionIfExists(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) error {
 	return s.DeleteQueuedVersion(ctx, transaction, environment, application)
 }
-func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (map[types.AppName]types.ReleaseNumbers, error) {
+
+func (s *State) GetCommitHashTimestamp(ctx context.Context, transaction *sql.Tx, commitHash string) (*time.Time, error) {
+	if commitHash == "" {
+		return nil, nil
+	}
+	ts, err := s.DBHandler.DBReadCommitHashTransactionTimestamp(ctx, transaction, commitHash)
+	if err != nil {
+		return nil, err
+	}
+	return ts, nil
+}
+
+func (s *State) GetAllLatestDeployments(ctx context.Context, transaction *sql.Tx, environment types.EnvName, ts *time.Time) (map[types.AppName]types.ReleaseNumbers, error) {
+	if ts != nil {
+		return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironmentAtTimestamp(ctx, transaction, environment, *ts)
+	}
 	return s.DBHandler.DBSelectAllLatestDeploymentsOnEnvironment(ctx, transaction, environment)
 }
 
-func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx) (map[types.AppName][]types.ReleaseNumbers, error) {
+func (s *State) GetCommitIdFromAppReleaseVersions(ctx context.Context, transaction *sql.Tx, appReleaseVersions map[types.AppName]types.ReleaseNumbers, ts *time.Time) (map[types.AppName]string, error) {
+	if ts != nil {
+		return s.DBHandler.DBSelectCommitIdAppReleaseVersionsAtTimestamp(ctx, transaction, appReleaseVersions, *ts)
+	}
+	return s.DBHandler.DBSelectCommitIdAppReleaseVersions(ctx, transaction, appReleaseVersions)
+}
+
+func (s *State) GetAllLatestReleases(ctx context.Context, transaction *sql.Tx, ts *time.Time) (map[types.AppName][]types.ReleaseNumbers, error) {
+	if ts != nil {
+		return s.DBHandler.DBSelectAllReleasesOfAllAppsAtTimestamp(ctx, transaction, *ts)
+	}
 	return s.DBHandler.DBSelectAllReleasesOfAllApps(ctx, transaction)
+}
+
+func (s *State) GetAllEnvironmentsForAllLatestReleases(ctx context.Context, transaction *sql.Tx, ts *time.Time) (_ db.AppVersionEnvironments, err error) {
+	if ts != nil {
+		return s.DBHandler.DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctx, transaction, *ts)
+	}
+	return s.DBHandler.DBSelectAllEnvironmentsForAllReleases(ctx, transaction)
 }
 
 func (s *State) GetEnvironmentApplicationVersion(ctx context.Context, transaction *sql.Tx, environment types.EnvName, application types.AppName) (*uint64, error) {
@@ -1012,12 +1057,20 @@ func (s *State) GetApplicationTeamOwner(ctx context.Context, transaction *sql.Tx
 	return app.Metadata.Team, nil
 }
 
-func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx) (map[types.AppName]string, error) {
+func (s *State) GetAllApplicationsTeamOwner(ctx context.Context, transaction *sql.Tx, ts *time.Time) (map[types.AppName]string, error) {
 	result := make(map[types.AppName]string)
-	apps, err := s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
+	var apps map[types.AppName]*db.DBAppWithMetaData
+	var err error
+
+	if ts != nil {
+		apps, err = s.DBHandler.DBSelectAllAppsMetadataAtTimestamp(ctx, transaction, *ts)
+	} else {
+		apps, err = s.DBHandler.DBSelectAllAppsMetadata(ctx, transaction)
+	}
 	if err != nil {
 		return result, fmt.Errorf("could not get team of all apps: %w", err)
 	}
+
 	for _, app := range apps {
 		result[app.App] = app.Metadata.Team
 	}

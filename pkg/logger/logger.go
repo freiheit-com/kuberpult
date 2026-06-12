@@ -66,13 +66,12 @@ func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 	return ctxzap.ToContext(ctx, logger)
 }
 
-func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
+func Wrap(ctx context.Context, inner func(ctx context.Context) error) (err error) {
 	format := os.Getenv("LOG_FORMAT")
 	envLevel := os.Getenv("LOG_LEVEL")
 	var (
 		logger *zap.Logger
 		level  = zapcore.WarnLevel
-		err    error
 	)
 	if envLevel != "" {
 		err = level.Set(envLevel)
@@ -99,8 +98,7 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
 		}
 	}()
 	err = inner(WithLogger(ctx, logger))
-
-	return err
+	return
 }
 
 func DisableLogging() []grpc_zap.Option {

@@ -113,3 +113,7 @@ Copyright freiheit.com*/
         margin-top: 8px;
     }
 }
+
+.app-lock-summary.app-lock-summary-manifest-lock {
+    background-color: var(--mdc-theme-error);
+}

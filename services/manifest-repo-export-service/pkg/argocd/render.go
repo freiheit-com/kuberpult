@@ -35,7 +35,14 @@ type RenderOptions struct {
 	RenderApps      bool // do we render apps?
 	RenderBrackets  bool // do we render brackets?
 	PointToBrackets bool // do we point the root app to brackets?
+
+	RootAppFiltering RootAppFiltering
 }
+type RootAppFiltering struct {
+	Enabled             bool // if false, render all root apps
+	EnabledEnvironments []types.EnvName
+}
+
 type ApiVersion string
 
 const V1Alpha1 ApiVersion = "v1alpha1"

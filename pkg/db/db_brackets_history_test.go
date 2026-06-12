@@ -65,6 +65,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 						"b1": {"app1", "app2"},
 					},
 				},
+				SourceTransformerEslId: 1,
 			},
 		},
 		{
@@ -95,6 +96,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 						"b1": {"app3", "app2"},
 					},
 				},
+				SourceTransformerEslId: 2,
 			},
 		},
 		{
@@ -125,6 +127,7 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 						"b1": {"app1", "app2"},
 					},
 				},
+				SourceTransformerEslId: 1,
 			},
 		},
 	}
@@ -221,6 +224,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"b1": {"app1"},
 					},
 				},
+				SourceTransformerEslId: 10,
 			},
 		},
 		{
@@ -252,6 +256,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"b2": {"app2"},
 					},
 				},
+				SourceTransformerEslId: 12,
 			},
 		},
 		{
@@ -276,6 +281,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{},
 				},
+				SourceTransformerEslId: 20,
 			},
 		},
 		{
@@ -300,6 +306,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{},
 				},
+				SourceTransformerEslId: 20,
 			},
 		},
 		{
@@ -331,6 +338,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"b1": {"app2"},
 					},
 				},
+				SourceTransformerEslId: 20,
 			},
 		},
 		{
@@ -357,6 +365,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"b1": {"app1"},
 					},
 				},
+				SourceTransformerEslId: 20,
 			},
 		},
 		{
@@ -382,6 +391,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"app1": {"app1"},
 					},
 				},
+				SourceTransformerEslId: 11,
 			},
 		},
 		{
@@ -418,6 +428,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 						"foo": {"app2"},
 					},
 				},
+				SourceTransformerEslId: 13,
 			},
 		},
 	}
@@ -481,6 +492,94 @@ func TestHandleBracketUpdates(t *testing.T) {
 	}
 }
 
+func TestDBSelectBracketHistoryPrevious(t *testing.T) {
+	calcTime := func(sec int) time.Time { return time.Date(2000, 1, 1, 0, 0, sec, 0, time.UTC) }
+	timeFirst := calcTime(1)
+	timeSecond := calcTime(2)
+	type AppBracketTime struct {
+		App     types.AppName
+		Bracket types.ArgoBracketName
+		Time    time.Time
+	}
+	tcs := []struct {
+		Name           string
+		AddAppBrackets []AppBracketTime
+		// Then: the second-newest snapshot (the state before the latest change).
+		ExpectedBracketRow *BracketRow
+	}{
+		{
+			Name:               "no history has no previous",
+			AddAppBrackets:     []AppBracketTime{},
+			ExpectedBracketRow: nil,
+		},
+		{
+			Name: "a single snapshot has no previous",
+			AddAppBrackets: []AppBracketTime{
+				{App: "app1", Bracket: "b1", Time: timeFirst},
+			},
+			ExpectedBracketRow: nil,
+		},
+		{
+			Name: "a move returns the pre-move snapshot",
+			AddAppBrackets: []AppBracketTime{
+				{App: "app1", Bracket: "b1", Time: timeFirst},
+				{App: "app1", Bracket: "b2", Time: timeSecond},
+			},
+			ExpectedBracketRow: &BracketRow{
+				CreatedAt: timeFirst,
+				AllBracketsJsonBlob: BracketJsonBlob{
+					BracketMap: map[types.ArgoBracketName]AppNames{
+						"b1": {"app1"},
+					},
+				},
+				SourceTransformerEslId: 10,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for range 30 {
+					if err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(nil), ESLMetadata{}); err != nil {
+						return fmt.Errorf("error while writing esl event, error: %w", err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for index, appBracket := range tc.AddAppBrackets {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time, TransformerID(10+index))
+					return err
+				})
+				if err != nil {
+					t.Fatalf("HandleBracketsUpdate: %v", err)
+				}
+			}
+
+			err = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				bracketRow, err := DBSelectBracketHistoryPrevious(ctx, dbHandler, transaction)
+				if err != nil {
+					return err
+				}
+				testutil.DiffOrFail(t, "bracketRow", tc.ExpectedBracketRow, bracketRow)
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction: %v", err)
+			}
+		})
+	}
+}
+
 // TestHandleBracketDoubleDeletion is about the case where 2 apps are deleted at the same time - within one transaction
 func TestHandleBracketDoubleDeletion(t *testing.T) {
 	calcTime := func(sec int) time.Time { return time.Date(2000, 1, 1, 0, 0, sec, 0, time.UTC) }
@@ -535,6 +634,7 @@ func TestHandleBracketDoubleDeletion(t *testing.T) {
 				AllBracketsJsonBlob: BracketJsonBlob{
 					BracketMap: map[types.ArgoBracketName]AppNames{},
 				},
+				SourceTransformerEslId: 21,
 			},
 		},
 	}

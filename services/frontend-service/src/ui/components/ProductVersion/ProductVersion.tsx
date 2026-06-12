@@ -38,7 +38,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../button';
 import { useApi } from '../../utils/GrpcApi';
-import { EnvSelectionDialog } from '../SelectionDialog/SelectionDialogs';
+import { EnvSelectionDialogTrain } from '../SelectionDialog/SelectionDialogs';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export type TableProps = {
@@ -113,7 +113,6 @@ const splitCombinedGroupName = (envName: string): string[] => {
 const useEnvironmentGroupCombinations = (envGroupResponse: EnvironmentGroup[]): string[] => {
     const envList: string[] = [];
     for (let i = 0; i < envGroupResponse.length; i++) {
-        envList.push(envGroupResponse[i].environmentGroupName);
         for (let j = 0; j < envGroupResponse[i].environments.length; j++) {
             envList.push(envGroupResponse[i].environmentGroupName + '/' + envGroupResponse[i].environments[j].name);
         }
@@ -222,12 +221,13 @@ export const ProductVersion: React.FC = () => {
                                 commitHash: selectedTag,
                                 team: '',
                                 ciLink: '',
-                                targetType: ReleaseTrainRequest_TargetType.UNKNOWN,
+                                targetType: ReleaseTrainRequest_TargetType.ENVIRONMENT,
                                 gitTag: '',
                             },
                         },
                     });
                 });
+                setShowReleaseTrainEnvs(false);
                 return;
             }
             if (teams.length > 1) {
@@ -281,12 +281,12 @@ export const ProductVersion: React.FC = () => {
     const envsFiltered = envsList.filter((env) => groupName === env.config?.upstream?.environment);
 
     const dialog = (
-        <EnvSelectionDialog
+        <EnvSelectionDialogTrain
             environments={envsFiltered.map((env) => env.name)}
             open={showReleaseTrainEnvs}
             onCancel={handleClose}
             onSubmit={confirmReleaseTrainFunction}
-            envSelectionDialog={false}
+            multiSelect={false}
         />
     );
     return (
@@ -316,7 +316,7 @@ export const ProductVersion: React.FC = () => {
                         </select>
                         <select className="env_drop_down" onChange={changeEnv} value={environment}>
                             <option value="default" disabled>
-                                Select an Environment or Environment Group
+                                Select a source Environment
                             </option>
                             {envList.map((env) => (
                                 <option value={env} key={env}>

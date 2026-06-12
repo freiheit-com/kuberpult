@@ -22,12 +22,13 @@ import {
     updateAppDetails,
     useAppDetailsForApp,
     useEnvironments,
+    useManifestsLockForApp,
     useMinorsForApp,
     useNavigateWithSearchParams,
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
-import { DeleteWhite, HistoryWhite } from '../../../images';
-import { OverviewApplication } from '../../../api/api';
+import { DeleteWhite, HistoryWhite, LocksWhiteSmall } from '../../../images';
+import { ManifestLockInfo, OverviewApplication } from '../../../api/api';
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
@@ -40,6 +41,7 @@ import { Button } from '../button';
 import { useSearchParams } from 'react-router-dom';
 import { Tooltip } from '../tooltip/tooltip';
 import { EnvDelDialog } from '../dialog/EnvDelDialog';
+import { ManifestLockDialog } from '../dialog/ManifestLockDialog';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -157,14 +159,14 @@ export const ServiceLane: React.FC<{
 
 function getAppDetailsIfInView(
     componentRef: React.MutableRefObject<any>,
-    appDetails: AppDetailsResponse,
+    appDetails: AppDetailsResponse | undefined,
     authHeader: AuthHeader,
     appName: string
 ): void {
     if (componentRef.current !== null) {
         const rect = componentRef.current.getBoundingClientRect();
         if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-            if (appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
+            if (!appDetails || appDetails.appDetailState === AppDetailsState.NOTREQUESTED) {
                 getAppDetails(appName, authHeader);
             }
         }
@@ -174,7 +176,7 @@ function getAppDetailsIfInView(
 export const GeneralServiceLane: React.FC<{
     application: OverviewApplication;
     hideMinors: boolean;
-    allAppData: AppDetailsResponse;
+    allAppData: AppDetailsResponse | undefined;
 }> = (props) => {
     const onReload = useCallback(() => {
         const details = updateAppDetails.get();
@@ -189,7 +191,7 @@ export const GeneralServiceLane: React.FC<{
 
     let buttonClassName: string;
 
-    switch (props.allAppData.appDetailState) {
+    switch (props.allAppData?.appDetailState) {
         case AppDetailsState.ERROR: {
             buttonClassName = 'servicelane__reload__error';
             break;
@@ -212,18 +214,18 @@ export const GeneralServiceLane: React.FC<{
             onClick={onReload}
         />
     );
-    if (props.allAppData.appDetailState === AppDetailsState.READY) {
+    if (props.allAppData?.appDetailState === AppDetailsState.READY) {
         return (
             <ReadyServiceLane
                 application={props.application}
                 hideMinors={props.hideMinors}
                 allAppData={props.allAppData}></ReadyServiceLane>
         );
-    } else if (props.allAppData.appDetailState === AppDetailsState.NOTFOUND) {
+    } else if (props.allAppData?.appDetailState === AppDetailsState.NOTFOUND) {
         return <NoDataServiceLane application={props.application} reloadButton={reloadButton}></NoDataServiceLane>;
-    } else if (props.allAppData.appDetailState === AppDetailsState.NOTREQUESTED) {
+    } else if (!props.allAppData || props.allAppData.appDetailState === AppDetailsState.NOTREQUESTED) {
         return <NotRequestedServiceLane application={props.application}></NotRequestedServiceLane>;
-    } else if (props.allAppData.appDetailState === AppDetailsState.ERROR) {
+    } else if (props.allAppData?.appDetailState === AppDetailsState.ERROR) {
         return (
             <ErrorServiceLane
                 application={props.application}
@@ -234,7 +236,7 @@ export const GeneralServiceLane: React.FC<{
                         : 'no error message was provided.'
                 }></ErrorServiceLane>
         );
-    } else if (props.allAppData.appDetailState === AppDetailsState.LOADING) {
+    } else if (props.allAppData?.appDetailState === AppDetailsState.LOADING) {
         return <LoadingServiceLane application={props.application}></LoadingServiceLane>;
     }
     return <LoadingServiceLane application={props.application}></LoadingServiceLane>;
@@ -404,6 +406,10 @@ export const ReadyServiceLane: React.FC<{
     const finishEnvAppDelete = useCallback(() => {
         setShowEnvSelectionDialog(false);
     }, []);
+    const [showManifestLockDialog, setShowManifestLockDialog] = useState(false);
+    const finishManifestLockDialog = useCallback(() => {
+        setShowManifestLockDialog(false);
+    }, []);
     const onReload = useCallback(() => {
         const details = updateAppDetails.get();
         details[application.name] = {
@@ -434,10 +440,18 @@ export const ReadyServiceLane: React.FC<{
             icon: <DeleteWhite />,
             onClick: undeploy,
         },
+        {
+            label: 'Create Manifest Lock',
+            icon: <LocksWhiteSmall />,
+            onClick: (): void => {
+                setShowManifestLockDialog(true);
+            },
+        },
     ];
     const dotsMenu = <DotsMenu buttons={buttons} />;
     const appLocks = Object.values(appDetails?.appLocks ? appDetails.appLocks : []);
     const teamLocks = Object.values(appDetails?.teamLocks ? appDetails.teamLocks : []);
+    const manifestLocks: ManifestLockInfo[] = useManifestsLockForApp(application.name);
     const app = appDetails?.application ? appDetails?.application?.name : '';
     const dialog = (
         <EnvDelDialog
@@ -458,14 +472,38 @@ export const ReadyServiceLane: React.FC<{
         />
     );
 
+    const manifestLockDialog = (
+        <ManifestLockDialog
+            open={showManifestLockDialog}
+            onClose={finishManifestLockDialog}
+            app={application.name}
+            envs={useEnvironments().map((e) => e.name)}
+            lockedEnvs={manifestLocks.map((l) => l.env)}
+        />
+    );
+
     return (
         <div className="service-lane">
             {dialog}
+            {manifestLockDialog}
             <div className="service-lane__header">
                 <div className="service-lane-wrapper">
                     {appLocks.length + teamLocks.length >= 1 && (
                         <div className={'test-app-lock-summary'}>
-                            <AppLockSummary app={application.name} numLocks={appLocks.length + teamLocks.length} />
+                            <AppLockSummary
+                                app={application.name}
+                                numLocks={appLocks.length + teamLocks.length}
+                                isManifestLock={false}
+                            />
+                        </div>
+                    )}
+                    {manifestLocks.length >= 1 && (
+                        <div className={'test-app-lock-summary'}>
+                            <AppLockSummary
+                                app={application.name}
+                                numLocks={manifestLocks.length}
+                                isManifestLock={true}
+                            />
                         </div>
                     )}
                     <ServiceLaneHeaderData application={props.application}></ServiceLaneHeaderData>

@@ -29,8 +29,6 @@ ADD services/frontend-service/.eslintrc /kp/services/frontend-service/
 
 # go:
 WORKDIR /kp/
-COPY go.sum go.mod .
-RUN go mod download
 ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
 ADD services/frontend-service/pkg /kp/services/frontend-service/pkg
 ADD services/frontend-service/src /kp/services/frontend-service/src
@@ -45,7 +43,7 @@ WORKDIR /kp/
 ADD Makefile.variables .
 ADD Makefile .
 RUN make -C pkg gen SKIP_BUILDER=1 PKG_WITHOUT_DOCKER=1
-RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/frontend-service/cmd/server/main.go
+RUN GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/frontend-service/cmd/server/main.go
 
 # Build js:
 RUN cd /kp/services/frontend-service && pnpm i

@@ -25,7 +25,6 @@ import (
 	"os/exec"
 	"path"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -38,7 +37,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/event"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -91,14 +89,13 @@ func setupRepositoryTestWithPath(t *testing.T, argoRenderOpts ...func(*argocd.Re
 	}
 
 	repoCfg := RepositoryConfig{
-		URL:                  remoteDir,
-		Path:                 localDir,
-		CommitterEmail:       "kuberpult@freiheit.com",
-		CommitterName:        "kuberpult",
-		ArgoCdGenerateFiles:  true,
-		ReleaseVersionLimit:  2,
-		MinimizeExportedData: false,
-		ArgoRenderOptions:    testRenderOptions(),
+		URL:                 remoteDir,
+		Path:                localDir,
+		CommitterEmail:      "kuberpult@freiheit.com",
+		CommitterName:       "kuberpult",
+		ArgoCdGenerateFiles: true,
+		ReleaseVersionLimit: 2,
+		ArgoRenderOptions:   testRenderOptions(),
 	}
 
 	for _, mod := range argoRenderOpts {
@@ -131,326 +128,6 @@ func setupRepositoryTestWithPath(t *testing.T, argoRenderOpts ...func(*argocd.Re
 type FilenameAndData struct {
 	path     string
 	fileData []byte
-}
-
-func TestTransformerWorksWithDb(t *testing.T) {
-	const appName = "myapp"
-	const authorName = "testAuthorName"
-	const authorEmail = "testAuthorEmail@example.com"
-	tcs := []struct {
-		Name                string
-		Transformers        []Transformer
-		ExpectedError       error
-		ExpectedApp         *db.DBAppWithMetaData
-		ExpectedAllReleases *db.DBReleaseWithMetaData
-		ExpectedFile        []*FilenameAndData
-		ExpectedAuthor      *map[types.EnvName]string
-		ExpectedDeletedFile string
-	}{
-		{
-			// as of now we only have the DeployApplicationVersion transformer,
-			// so we can test only this error case.
-			// As soon as we have the other transformers (especially CreateEnvironment and CreateApplicationVersion)
-			// we need to add more tests here.
-			Name: "generates only deployed manifest",
-			Transformers: []Transformer{
-				&DeployApplicationVersion{
-					Authentication:        Authentication{},
-					Environment:           envAcceptance,
-					Application:           appName,
-					Version:               7,
-					LockBehaviour:         0,
-					WriteCommitData:       false,
-					SourceTrain:           nil,
-					Author:                "",
-					TransformerEslVersion: 1,
-				},
-			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error at index 0 of transformer batch: " +
-				"release of app myapp with version 7 (revision 0) not found",
-			},
-			ExpectedApp:  nil,
-			ExpectedFile: nil,
-		},
-		{
-			// as of now we only have the DeployApplicationVersion transformer,
-			// so we can test only this error case.
-			// As soon as we have the other transformers (especially CreateEnvironment and CreateApplicationVersion)
-			// we need to add more tests here.
-			Name: "creates a new release",
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        7,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			ExpectedError: nil,
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/team",
-					fileData: []byte("team-123"),
-				},
-			},
-			ExpectedApp: &db.DBAppWithMetaData{
-				App: appName,
-				Metadata: db.DBAppMetaData{
-					Team: "team-123",
-				},
-			},
-			ExpectedAuthor: &map[types.EnvName]string{
-				"Name":  authorName,
-				"Email": authorEmail,
-			},
-		},
-		{
-			Name: "Should give an error when the metadata is nil",
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        7,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-				},
-			},
-			ExpectedError: errMatcher{"first apply failed, aborting: error not specific to one transformer of this batch: " +
-				"transformer metadata is empty",
-			},
-		},
-		{
-			Name: "Create a single environment",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "development",
-					Config:      testutil.MakeEnvConfigLatest(nil),
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path: "/environments/development/config.json",
-					fileData: []byte(
-						`{
-  "upstream": {
-    "latest": true
-  }
-}
-`),
-				},
-			},
-		},
-		{
-			Name: "Create a single environment twice",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatest(nil),
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironment{
-					Environment: "staging",
-					Config:      testutil.MakeEnvConfigUpstream("development", nil),
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path: "/environments/staging/config.json",
-					fileData: []byte(
-						`{
-  "upstream": {
-    "environment": "development"
-  }
-}
-`),
-				},
-			},
-		},
-		{
-			Name: "Create an environment and delete it",
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:        "abcdef",
-					SourceAuthor:          "",
-					SourceMessage:         "",
-					Team:                  "team-123",
-					DisplayVersion:        "",
-					WriteCommitData:       false,
-					PreviousCommit:        "",
-					TransformerEslVersion: 1,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironment{
-					Environment: "staging",
-					Config:      testutil.MakeEnvConfigLatest(nil),
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 2,
-				},
-				&DeployApplicationVersion{
-					Authentication:        Authentication{},
-					Environment:           "staging",
-					Application:           appName,
-					Version:               1,
-					LockBehaviour:         0,
-					WriteCommitData:       true,
-					SourceTrain:           nil,
-					Author:                authorEmail,
-					TransformerEslVersion: 3,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&DeleteEnvFromApp{
-					Environment: "staging",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					Application:           appName,
-					TransformerEslVersion: 4,
-				},
-			},
-			ExpectedDeletedFile: "/environments/staging/applications/" + appName + "/deployed_by",
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo, _ := setupRepositoryTestWithPath(t)
-			ctx := context.Background()
-
-			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				// setup:
-				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
-				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-				if err != nil {
-					return err
-				}
-				for idx, t := range tc.Transformers {
-					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
-					if err != nil {
-						return err
-					}
-					if t.GetDBEventType() == db.EvtDeployApplicationVersion {
-						err = dbHandler.DBWriteDeploymentEvent(ctx, transaction, 0, "00000000-0000-0000-0000-00000000000"+strconv.Itoa(idx+1), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.Deployment{Application: appName, Environment: "staging"})
-						if err != nil {
-							return err
-						}
-					}
-				}
-
-				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
-					Team: "team-123",
-				}, appName)
-				if err != nil {
-					return err
-				}
-				version := uint64(1)
-				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  &version,
-						Revision: 0,
-					},
-					Created:   time.Time{},
-					App:       appName,
-					Manifests: db.DBReleaseManifests{},
-					Metadata:  db.DBReleaseMetaData{},
-				})
-				if err != nil {
-					return err
-				}
-				// actual transformer to be tested:
-				err = repo.Apply(ctx, transaction, tc.Transformers...)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
-			}
-			if tc.ExpectedFile != nil {
-				for i := range tc.ExpectedFile {
-					expectedFile := tc.ExpectedFile[i]
-					updatedState := repo.State()
-					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
-					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
-
-					if !cmp.Equal(actualFileData, expectedFile.fileData) {
-						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
-					}
-					if tc.ExpectedAuthor != nil {
-						if !cmp.Equal(updatedState.Commit.Author().Name, (*tc.ExpectedAuthor)["Name"]) {
-							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Name"], updatedState.Commit.Author().Name)
-						}
-						if !cmp.Equal(updatedState.Commit.Author().Email, (*tc.ExpectedAuthor)["Email"]) {
-							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Email"], updatedState.Commit.Author().Email)
-						}
-					}
-				}
-			}
-			if tc.ExpectedDeletedFile != "" {
-				updatedState := repo.State()
-				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.ExpectedDeletedFile)
-				_, err := util.ReadFile(updatedState.Filesystem, fullPath)
-				if err == nil {
-					t.Fatalf("Expected file to be deleted but it exists: %s", fullPath)
-				}
-			}
-		})
-	}
 }
 
 func verifyContent(fs billy.Filesystem, required []*FilenameAndData) error {
@@ -496,1636 +173,6 @@ func listFilesHelper(fs billy.Filesystem, path string) []string {
 	}
 
 	return ret
-}
-
-func TestCleanupOldApplicationVersions(t *testing.T) {
-	const appName = "myapp"
-	const authorName = "testAuthorName"
-	const authorEmail = "testAuthorEmail@example.com"
-	tcs := []struct {
-		Name                string
-		Transformers        []Transformer
-		MinorRelease        uint64
-		PrepublishRelease   uint64
-		ExpectedError       error
-		ExpectedFile        []*FilenameAndData
-		ExpectedAuthor      *map[types.EnvName]string
-		ExpectedDeletedFile string
-	}{
-		{
-			Name: "CleanupOldApplicationVersion without deleting any", //ReleaseLimit is 2
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        2,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 2,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        3,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 3,
-				},
-				&CleanupOldApplicationVersions{
-					Application: appName,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 4,
-				},
-			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-			},
-			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
-		},
-		{
-			Name: "CleanupOldApplicationVersions deleting one", //ReleaseLimit is 2
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        2,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 2,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        3,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 3,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        4,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 4,
-				},
-				&CleanupOldApplicationVersions{
-					Application: appName,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 5,
-				},
-			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-			},
-			ExpectedAuthor:      &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
-			ExpectedDeletedFile: "/applications/" + appName + "/releases/1.0/source_commit_id",
-		},
-		{
-			Name: "CleanupOldApplicationVersions with a minor release", //ReleaseLimit is 2
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        2,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 2,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        3,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 3,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        4,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 4,
-				},
-				&CleanupOldApplicationVersions{
-					Application: appName,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 5,
-				},
-			},
-			MinorRelease: 3,
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
-					fileData: []byte("123456789"),
-				},
-			},
-			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
-		},
-		{
-			Name: "CleanupOldApplicationVersions with a prepublish release", //ReleaseLimit is 2
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        2,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 2,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        3,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 3,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        4,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-						envDev:        "mani-1-dev",
-					},
-					SourceCommitId:  "123456789abcdef",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 4,
-				},
-				&CleanupOldApplicationVersions{
-					Application: appName,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 5,
-				},
-			},
-			PrepublishRelease: 3,
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "/applications/" + appName + "/releases/3.0/source_commit_id",
-					fileData: []byte("123456789abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/2.0/source_commit_id",
-					fileData: []byte("abcdef"),
-				},
-				{
-					path:     "/applications/" + appName + "/releases/1.0/source_commit_id",
-					fileData: []byte("123456789"),
-				},
-			},
-			ExpectedAuthor: &map[types.EnvName]string{"Name": authorName, "Email": authorEmail},
-		},
-	}
-	for _, tc := range tcs {
-
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo, _ := setupRepositoryTestWithPath(t)
-			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
-
-			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				// setup:
-				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
-				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-				if err != nil {
-					return err
-				}
-
-				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
-					Team: "team-123",
-				}, appName)
-				if err != nil {
-					return err
-				}
-				version := uint64(1)
-				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  &version,
-						Revision: 0,
-					},
-					Created:   time.Time{},
-					App:       appName,
-					Manifests: db.DBReleaseManifests{},
-					Metadata:  db.DBReleaseMetaData{},
-				})
-
-				if tc.MinorRelease != 0 {
-					err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  &tc.MinorRelease,
-							Revision: 0,
-						},
-						Created:   time.Time{},
-						App:       appName,
-						Manifests: db.DBReleaseManifests{},
-						Metadata: db.DBReleaseMetaData{
-							IsMinor: true,
-						},
-					})
-				}
-				if tc.PrepublishRelease != 0 {
-					err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-						ReleaseNumbers: types.ReleaseNumbers{
-							Version:  &tc.PrepublishRelease,
-							Revision: 0,
-						},
-						Created:   time.Time{},
-						App:       appName,
-						Manifests: db.DBReleaseManifests{},
-						Metadata: db.DBReleaseMetaData{
-							IsPrepublish: true,
-						},
-					})
-				}
-
-				if err != nil {
-					return err
-				}
-				// actual transformer to be tested:
-				err = repo.Apply(ctx, transaction, tc.Transformers...)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
-			}
-			updatedState := repo.State()
-			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
-				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
-			}
-
-			if tc.ExpectedFile != nil {
-				for i := range tc.ExpectedFile {
-					expectedFile := tc.ExpectedFile[i]
-					updatedState := repo.State()
-					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
-					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-					if err != nil {
-						t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-					}
-
-					if !cmp.Equal(actualFileData, expectedFile.fileData) {
-						t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
-					}
-					if tc.ExpectedAuthor != nil {
-						if !cmp.Equal(updatedState.Commit.Author().Name, (*tc.ExpectedAuthor)["Name"]) {
-							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Name"], updatedState.Commit.Author().Name)
-						}
-						if !cmp.Equal(updatedState.Commit.Author().Email, (*tc.ExpectedAuthor)["Email"]) {
-							t.Fatalf("Expected '%v', got '%v'", (*tc.ExpectedAuthor)["Email"], updatedState.Commit.Author().Email)
-						}
-					}
-				}
-			}
-			if tc.ExpectedDeletedFile != "" {
-				updatedState := repo.State()
-				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.ExpectedDeletedFile)
-				_, err := util.ReadFile(updatedState.Filesystem, fullPath)
-				if err == nil {
-					t.Fatalf("Expected file to be deleted but it exists: %s", fullPath)
-				}
-			}
-		})
-	}
-}
-
-func TestCreateUndeployApplicationVersion(t *testing.T) {
-	const appName = "app1"
-	const authorName = "testAuthorName"
-	const authorEmail = "testAuthorEmail@example.com"
-	tcs := []struct {
-		Name          string
-		Transformers  []Transformer
-		expectedError error
-		expectedData  []*FilenameAndData
-	}{
-		{
-			Name: "successfully create undeploy version - should work",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Application: appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "acceptance",
-					},
-					WriteCommitData: true,
-					Version:         1,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					SourceCommitId:        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					TransformerEslVersion: 2,
-					Team:                  "team-123",
-				},
-				&CreateUndeployApplicationVersion{
-					Application: appName,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 3,
-				},
-			},
-			expectedData: []*FilenameAndData{
-				{
-					path:     "applications/app1/releases/2.0/environments/acceptance/manifests.yaml",
-					fileData: []byte(" "),
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo, _ := setupRepositoryTestWithPath(t)
-			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
-
-			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				// setup:
-				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
-				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-				if err != nil {
-					return err
-				}
-				for _, t := range tc.Transformers {
-					err := dbHandler.DBWriteEslEventInternal(ctx, t.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: t.GetMetadata().AuthorName, AuthorEmail: t.GetMetadata().AuthorEmail})
-					if err != nil {
-						return err
-					}
-				}
-
-				envConfig := config.EnvironmentConfig{
-					Upstream:         nil,
-					ArgoCd:           nil,
-					EnvironmentGroup: nil,
-				}
-				err = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envConfig)
-				if err != nil {
-					return err
-				}
-
-				err = dbHandler.DBWriteNewReleaseEvent(ctx, transaction, 2, types.ReleaseNumbers{Version: &versionOne, Revision: 0}, "00000000-0000-0000-0000-000000000001", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", &event.NewRelease{})
-				if err != nil {
-					return err
-				}
-
-				err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, db.AppStateChangeCreate, db.DBAppMetaData{
-					Team: "team-123",
-				}, appName)
-				if err != nil {
-					return err
-				}
-
-				v1 := uint64(1)
-				v2 := uint64(2)
-				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  &v1,
-						Revision: 0,
-					},
-					Created:   time.Time{},
-					App:       appName,
-					Manifests: db.DBReleaseManifests{},
-					Metadata:  db.DBReleaseMetaData{},
-				})
-				if err != nil {
-					return err
-				}
-				err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  &v2,
-						Revision: 0,
-					},
-					Created:   time.Time{},
-					App:       appName,
-					Manifests: db.DBReleaseManifests{},
-					Metadata:  db.DBReleaseMetaData{},
-				})
-				if err != nil {
-					return err
-				}
-				err = repo.Apply(ctx, transaction, tc.Transformers...)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			updatedState := repo.State()
-			if err := verifyContent(updatedState.Filesystem, tc.expectedData); err != nil {
-				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
-			}
-			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-			}
-		})
-	}
-}
-
-func TestLocks(t *testing.T) {
-	const appName = "app1"
-	const authorName = "testAuthorName"
-	const authorEmail = "testAuthorEmail@example.com"
-	tcs := []struct {
-		Name            string
-		Transformers    []Transformer
-		expectedData    []*FilenameAndData
-		expectedMissing []*FilenameAndData
-		expectedMessage string
-		expectedError   error
-	}{
-		{
-			Name: "Create environment lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateEnvironmentLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Message:               "none",
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			expectedData: []*FilenameAndData{
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
-		},
-		{
-			Name: "Create environment lock - env does not exist",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateEnvironmentLock{
-					Environment:           "non-existent-env",
-					LockId:                "l123",
-					Message:               "none",
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			expectedError: errMatcher{msg: "first apply failed, aborting: error at index 0 of transformer batch: could not access environment information on: 'environments/non-existent-env': file does not exist"},
-			expectedMissing: []*FilenameAndData{
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
-		},
-		{
-			Name: "Delete environment lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateEnvironmentLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Message:               "none",
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&DeleteEnvironmentLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					TransformerEslVersion: 3,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			expectedMissing: []*FilenameAndData{
-				{
-					path: "/environments/acceptance/locks/l123/created_by_email",
-				},
-				{
-					path: "/environments/acceptance/locks/l123/created_by_name",
-				},
-				{
-					path: "/environments/acceptance/locks/l123/message",
-				},
-			},
-		},
-		{
-			Name: "Create App lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironmentApplicationLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Application:           appName,
-					Message:               "none",
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			expectedData: []*FilenameAndData{
-				{
-
-					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
-		},
-		{
-			Name: "Delete App lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance:  "mani-1-acc",
-						envAcceptance2: "e2",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironmentApplicationLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Application:           appName,
-					Message:               "none",
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&DeleteEnvironmentApplicationLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Application:           appName,
-					TransformerEslVersion: 3,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			expectedMissing: []*FilenameAndData{
-				{
-
-					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
-		},
-		{
-			Name: "Create Team lock",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironmentTeamLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Team:                  "team-123",
-					Message:               "none",
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			expectedData: []*FilenameAndData{
-				{
-
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
-		},
-		{
-			Name: "Delete Team lock - team does not exist",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironmentTeamLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Team:                  "team-123",
-					Message:               "none",
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&DeleteEnvironmentTeamLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Team:                  "team-123",
-					TransformerEslVersion: 3,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			expectedError: errMatcher{
-				msg: "first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
-			},
-			expectedMissing: []*FilenameAndData{
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
-		},
-		{
-			Name: "Delete Team lock - team does not exist",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironmentTeamLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Team:                  "team-123",
-					Message:               "none",
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&DeleteEnvironmentTeamLock{
-					Environment:           envAcceptance,
-					LockId:                "l123",
-					Team:                  "team-",
-					TransformerEslVersion: 3,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			expectedError: errMatcher{
-				msg: "first apply failed, aborting: error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = cannot delete environment team lock: invalid team: 'team-'",
-			},
-			expectedData: []*FilenameAndData{
-				{
-
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_email",
-					fileData: []byte(authorEmail),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/created_by_name",
-					fileData: []byte(authorName),
-				},
-				{
-					path:     "/environments/acceptance/teams/team-123/locks/l123/message",
-					fileData: []byte("none"),
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo, _ := setupRepositoryTestWithPath(t)
-			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
-
-			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				// setup:
-				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
-				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-				if err2 != nil {
-					t.Fatal(err2)
-
-				}
-				//populate the database
-				for _, tr := range tc.Transformers {
-					err2 := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
-					if err2 != nil {
-						t.Fatal(err2)
-					}
-					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
-						concreteTransformer := tr.(*CreateEnvironmentLock)
-						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
-							CreatedByName:  concreteTransformer.AuthorName,
-							CreatedByEmail: concreteTransformer.AuthorEmail,
-							Message:        concreteTransformer.Message,
-							CiLink:         "", //not transported to repo
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-					if tr.GetDBEventType() == db.EvtDeleteEnvironmentLock {
-						concreteTransformer := tr.(*DeleteEnvironmentLock)
-						err2 = dbHandler.DBDeleteEnvironmentLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), concreteTransformer.LockId, db.LockDeletionMetadata{DeletedByUser: authorName, DeletedByEmail: authorEmail})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
-						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, types.ArgoBracketName(concreteTransformer.Application))
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumbers: types.ReleaseNumbers{
-								Version:  &concreteTransformer.Version,
-								Revision: 0,
-							},
-							App: types.AppName(concreteTransformer.Application),
-							Manifests: db.DBReleaseManifests{
-								Manifests: concreteTransformer.Manifests,
-							},
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-					if tr.GetDBEventType() == db.EvtCreateEnvironmentApplicationLock {
-						concreteTransformer := tr.(*CreateEnvironmentApplicationLock)
-						err2 = dbHandler.DBWriteApplicationLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), types.AppName(concreteTransformer.Application), db.LockMetadata{
-							CreatedByName:  concreteTransformer.AuthorName,
-							CreatedByEmail: concreteTransformer.AuthorEmail,
-							Message:        concreteTransformer.Message,
-							CiLink:         "", //not transported to repo
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-					if tr.GetDBEventType() == db.EvtDeleteEnvironmentApplicationLock {
-						concreteTransformer := tr.(*DeleteEnvironmentApplicationLock)
-						err2 = dbHandler.DBDeleteApplicationLock(ctx, transaction, types.EnvName(concreteTransformer.Environment), types.AppName(concreteTransformer.Application), concreteTransformer.LockId, db.LockDeletionMetadata{
-							DeletedByEmail: authorEmail,
-							DeletedByUser:  authorName,
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-					if tr.GetDBEventType() == db.EvtCreateEnvironmentTeamLock {
-						concreteTransformer := tr.(*CreateEnvironmentTeamLock)
-
-						err2 = dbHandler.DBWriteTeamLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), concreteTransformer.Team, db.LockMetadata{
-							CreatedByName:  concreteTransformer.AuthorName,
-							CreatedByEmail: concreteTransformer.AuthorEmail,
-							Message:        concreteTransformer.Message,
-							CiLink:         "", //not transported to repo
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-					if tr.GetDBEventType() == db.EvtDeleteEnvironmentTeamLock {
-						concreteTransformer := tr.(*DeleteEnvironmentTeamLock)
-						err2 = dbHandler.DBDeleteTeamLock(ctx,
-							transaction,
-							types.EnvName(concreteTransformer.Environment),
-							concreteTransformer.Team,
-							concreteTransformer.LockId,
-							db.LockDeletionMetadata{
-								DeletedByUser:  concreteTransformer.AuthorEmail,
-								DeletedByEmail: concreteTransformer.AuthorEmail,
-							})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-				}
-				var commitMsg []string
-				err := repo.Apply(ctx, transaction, tc.Transformers...)
-				if err != nil {
-					return err
-				}
-				actualMsg := ""
-				// note that we only check the LAST error here:
-				if len(commitMsg) > 0 {
-					actualMsg = commitMsg[len(commitMsg)-1]
-				}
-				if diff := cmp.Diff(tc.expectedMessage, actualMsg); diff != "" {
-					t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
-			}
-			updatedState := repo.State()
-
-			if err := verifyContent(updatedState.Filesystem, tc.expectedData); err != nil {
-				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
-			}
-			if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
-				t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
-			}
-		})
-	}
-}
-
-func TestCreateUndeployLogic(t *testing.T) {
-	const appName = "app1"
-	const authorName = "testAuthorName"
-	const authorEmail = "testAuthorEmail@example.com"
-	envAcceptanceConfig := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}}
-	envAcceptance2Config := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance2, Latest: true}}
-	tcs := []struct {
-		Name            string
-		Transformers    []Transformer
-		expectedData    []*FilenameAndData
-		expectedMissing []*FilenameAndData
-	}{
-		{
-			Name: "Create undeploy application version and deploy it",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      envAcceptanceConfig,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance: "mani-1-acc",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 2,
-				},
-				&CreateUndeployApplicationVersion{
-					Authentication:  Authentication{},
-					Application:     appName,
-					WriteCommitData: false,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 3,
-				},
-			},
-			expectedData: []*FilenameAndData{
-				{
-					path:     "/applications/app1/releases/2.0/undeploy",
-					fileData: []byte(""),
-				},
-				{
-					path:     "/environments/acceptance/applications/app1/version/undeploy",
-					fileData: []byte(""),
-				},
-			},
-		},
-		{
-			Name: "Try Create undeploy application version, but it is locked",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      envAcceptanceConfig,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateEnvironment{
-					Environment: envAcceptance2,
-					Config:      envAcceptance2Config,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 2,
-				},
-				&CreateApplicationVersion{
-					Authentication: Authentication{},
-					Version:        1,
-					Application:    appName,
-					Manifests: map[types.EnvName]string{
-						envAcceptance:  "mani-1-acc",
-						envAcceptance2: "e2",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					Team:            "team-123",
-					DisplayVersion:  "",
-					WriteCommitData: false,
-					PreviousCommit:  "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 3,
-				},
-				//We need to deploy manually due to discrepancy between DB and manifest on testing env, causing locks to not work as the previous version isn't the lastest
-				&DeployApplicationVersion{
-					Application:     appName,
-					Environment:     envAcceptance,
-					Version:         1,
-					LockBehaviour:   2,
-					WriteCommitData: false,
-					SourceTrain:     nil,
-					Author:          "",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&DeployApplicationVersion{
-					Application:     appName,
-					Environment:     envAcceptance2,
-					Version:         1,
-					LockBehaviour:   api.LockBehavior_RECORD,
-					WriteCommitData: false,
-					SourceTrain:     nil,
-					Author:          "",
-
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironmentLock{
-					Environment:           envAcceptance2,
-					LockId:                "my-lock",
-					Message:               "Acceptance 2 is locked",
-					TransformerEslVersion: 4,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateUndeployApplicationVersion{
-					Authentication:  Authentication{},
-					Application:     appName,
-					WriteCommitData: false,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-
-					TransformerEslVersion: 5,
-				},
-			},
-			expectedData: []*FilenameAndData{
-				{ //There is an undeploy version
-					path:     "/applications/app1/releases/2.0/undeploy",
-					fileData: []byte(""),
-				},
-				{ //The first env has the undeploy version deployed
-					path:     "environments/acceptance/applications/app1/version/undeploy",
-					fileData: []byte(""),
-				},
-				{ //The second env still has an undeploy, event with a lock
-					path:     "environments/acceptance2/applications/app1/version/undeploy",
-					fileData: []byte(""),
-				},
-			},
-			expectedMissing: []*FilenameAndData{},
-		},
-	}
-	for _, tc := range tcs {
-
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo, _ := setupRepositoryTestWithPath(t)
-			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
-
-			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				// setup:
-				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
-				err2 := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-				if err2 != nil {
-					t.Fatal(err2)
-				}
-
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance, envAcceptanceConfig)
-				if err2 != nil {
-					return err2
-				}
-				err2 = dbHandler.DBWriteEnvironment(ctx, transaction, envAcceptance2, envAcceptance2Config)
-				if err2 != nil {
-					return err2
-				}
-
-				//populate the database
-				for _, tr := range tc.Transformers {
-					err2 := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
-					if err2 != nil {
-						t.Fatal(err2)
-					}
-					if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
-						concreteTransformer := tr.(*CreateApplicationVersion)
-						err2 = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, types.ArgoBracketName(concreteTransformer.Application))
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumbers: types.ReleaseNumbers{
-								Version:  &concreteTransformer.Version,
-								Revision: 0,
-							},
-							App: types.AppName(concreteTransformer.Application),
-							Manifests: db.DBReleaseManifests{
-								Manifests: concreteTransformer.Manifests,
-							},
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-
-					if tr.GetDBEventType() == db.EvtCreateEnvironmentLock {
-						concreteTransformer := tr.(*CreateEnvironmentLock)
-						err2 = dbHandler.DBWriteEnvironmentLock(ctx, transaction, concreteTransformer.LockId, types.EnvName(concreteTransformer.Environment), db.LockMetadata{
-							CreatedByName:  concreteTransformer.AuthorName,
-							CreatedByEmail: concreteTransformer.AuthorEmail,
-							Message:        concreteTransformer.Message,
-							CiLink:         "", //not transported to repo
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-					var version uint64 = 2
-					if tr.GetDBEventType() == db.EvtCreateUndeployApplicationVersion {
-						err2 = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-							ReleaseNumbers: types.ReleaseNumbers{
-								Version:  &version,
-								Revision: 0,
-							},
-							App: appName,
-							Manifests: db.DBReleaseManifests{
-								Manifests: map[types.EnvName]string{ //empty manifest
-									envAcceptance:  "",
-									envAcceptance2: "",
-								},
-							},
-							Metadata: db.DBReleaseMetaData{
-								SourceAuthor:    "",
-								SourceCommitId:  "",
-								SourceMessage:   "",
-								DisplayVersion:  "",
-								UndeployVersion: true,
-							},
-							Created: time.Now(),
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-
-						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							ReleaseNumbers: types.ReleaseNumbers{
-								Version:  &version,
-								Revision: 0,
-							},
-							App:           appName,
-							Env:           envAcceptance,
-							Metadata:      db.DeploymentMetadata{},
-							Created:       time.Now(),
-							TransformerID: tr.GetEslVersion(),
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-						err2 = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
-							ReleaseNumbers: types.ReleaseNumbers{
-								Version:  &version,
-								Revision: 0,
-							},
-							App:           appName,
-							Env:           envAcceptance2,
-							Metadata:      db.DeploymentMetadata{},
-							Created:       time.Now(),
-							TransformerID: tr.GetEslVersion(),
-						})
-						if err2 != nil {
-							t.Fatal(err2)
-						}
-					}
-				}
-				err := repo.Apply(ctx, transaction, tc.Transformers...)
-				if err != nil {
-					return err
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				t.Fatalf("error not expected but got: \n%v", err)
-
-			}
-			updatedState := repo.State()
-
-			if err := verifyContent(updatedState.Filesystem, tc.expectedData); err != nil {
-				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
-			}
-			if err := verifyMissing(updatedState.Filesystem, tc.expectedMissing); err != nil {
-				t.Fatalf("Error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
-			}
-		})
-	}
 }
 
 func TestUndeployLogic(t *testing.T) {
@@ -2700,48 +747,6 @@ spec:
 			expectedMessage: "delete environment \"acceptance\"",
 		},
 		{
-			Name: "create same environment twice updates it",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      envAcceptanceConfig,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 1,
-				},
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config:      envAcceptance2Config,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-					TransformerEslVersion: 2,
-				},
-			},
-			expectedData: []*FilenameAndData{
-				{
-					path: "/environments/acceptance/config.json",
-					fileData: []byte(`{
-  "upstream": {
-    "environment": "acceptance2",
-    "latest": true
-  },
-  "argocd": {
-    "destination": {
-      "name": "",
-      "server": ""
-    }
-  }
-}
-`),
-				},
-			},
-			expectedMessage: "create environment \"acceptance\"",
-		},
-		{
 			Name: "delete an environment that does not exist",
 			Transformers: []Transformer{
 				&DeleteEnvironment{
@@ -3123,27 +1128,27 @@ spec:
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
 				if err != nil {
-					return err
+					return fmt.Errorf("migration error: %w", err)
 				}
-				for _, tr := range tc.SetupTransformers {
+				for index, tr := range tc.SetupTransformers {
 					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
 					if err != nil {
-						return err
+						return fmt.Errorf("setup transformer[%d] failed: %w", index, err)
 					}
 					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
 				}
 
-				for _, t := range tc.SetupTransformers {
+				for index, t := range tc.SetupTransformers {
 					err := repo.Apply(ctx, transaction, t)
 					if err != nil {
-						return err
+						return fmt.Errorf("apply[%d] failed: %w", index, err)
 					}
 					// just for testing, we push each transformer change separately.
 					// if you need to debug this test, you can git clone the repo
 					// and we will only see anything if we push.
 					err = repo.PushRepo(ctx)
 					if err != nil {
-						return err
+						return fmt.Errorf("push[%d] failed: %w", index, err)
 					}
 				}
 				return nil
@@ -3197,6 +1202,9 @@ spec:
 				}
 				return nil
 			})
+			if err != nil {
+				t.Fatalf("failed to execute transaction: %v", err)
+			}
 
 			updatedState = repo.State()
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
@@ -3219,90 +1227,6 @@ func TestReleasesAndDeployments(t *testing.T) {
 		ExpectedError error
 		ExpectedFile  []*FilenameAndData
 	}{
-		{
-			Name: "Create two releases with revisions and check their manifests",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "production",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: "staging",
-						},
-					},
-					TransformerEslVersion: 1,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: "staging",
-							Latest:      true,
-						},
-					},
-					TransformerEslVersion: 2,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateApplicationVersion{
-					Application:    appName,
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[types.EnvName]string{
-						"production": "some production manifest 1.0",
-						"staging":    "some staging manifest 1.0",
-					},
-					WriteCommitData:       false,
-					Version:               1,
-					Revision:              0,
-					TransformerEslVersion: 3,
-					Team:                  "team-123",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&CreateApplicationVersion{
-					Application:    appName,
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Manifests: map[types.EnvName]string{
-						"production": "some production manifest 1.1",
-						"staging":    "some staging manifest 1.1",
-					},
-					WriteCommitData:       false,
-					Version:               1,
-					Revision:              1,
-					TransformerEslVersion: 4,
-					Team:                  "team-123",
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path:     "applications/" + appName + "/releases/1.0/environments/production/manifests.yaml",
-					fileData: []byte("some production manifest 1.0"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.0/environments/staging/manifests.yaml",
-					fileData: []byte("some staging manifest 1.0"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.1/environments/production/manifests.yaml",
-					fileData: []byte("some production manifest 1.1"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.1/environments/staging/manifests.yaml",
-					fileData: []byte("some staging manifest 1.1"),
-				},
-			},
-		},
 		{
 			Name: "Check deployments",
 			Transformers: []Transformer{
@@ -3402,24 +1326,12 @@ func TestReleasesAndDeployments(t *testing.T) {
 			},
 			ExpectedFile: []*FilenameAndData{
 				{
-					path:     "applications/" + appName + "/releases/1.0/environments/production/manifests.yaml",
+					path:     "environments/production/applications/" + appName + "/manifests/manifests.yaml",
 					fileData: []byte("some production manifest 1.0"),
 				},
 				{
-					path:     "applications/" + appName + "/releases/1.0/environments/staging/manifests.yaml",
-					fileData: []byte("some staging manifest 1.0"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.1/environments/production/manifests.yaml",
-					fileData: []byte("some production manifest 1.1"),
-				},
-				{
-					path:     "applications/" + appName + "/releases/1.1/environments/staging/manifests.yaml",
+					path:     "environments/staging/applications/" + appName + "/manifests/manifests.yaml",
 					fileData: []byte("some staging manifest 1.1"),
-				},
-				{
-					path:     "environments/production/applications/myapp/manifests/manifests.yaml",
-					fileData: []byte("some production manifest 1.0"),
 				},
 			},
 		},
@@ -3834,141 +1746,6 @@ spec:
 	}
 }
 
-func TestExtendAAEnvironmentTransformer(t *testing.T) {
-	const authorName = "testAuthorName"
-	const authorEmail = "testAuthorEmail@example.com"
-	var aaEnvName = "aa"
-	tcs := []struct {
-		Name          string
-		Transformers  []Transformer
-		ExpectedError error
-		ExpectedFile  []*FilenameAndData
-	}{
-		{
-			Name: "Create an environment and extend it with some argo cd configuration",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "production",
-					Config: config.EnvironmentConfig{
-						ArgoCdConfigs: &config.ArgoCDConfigs{
-							CommonEnvPrefix: &aaEnvName,
-
-							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
-								{
-									Destination: config.ArgoCdDestination{
-										Name:   "some-destination-1",
-										Server: "some-server",
-									},
-									ConcreteEnvName: "some-concrete-env-name-1",
-								},
-							},
-						},
-					},
-					TransformerEslVersion: 1,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-				&ExtendAAEnvironment{
-					Environment: "production",
-					ArgoCDConfig: config.EnvironmentConfigArgoCd{
-						Destination: config.ArgoCdDestination{
-							Name:   "some-destination-2",
-							Server: "some-server",
-						},
-						ConcreteEnvName: "some-concrete-env-name-2",
-					},
-					TransformerEslVersion: 1,
-					TransformerMetadata: TransformerMetadata{
-						AuthorName:  authorName,
-						AuthorEmail: authorEmail,
-					},
-				},
-			},
-			ExpectedFile: []*FilenameAndData{
-				{
-					path: "environments/production/config.json",
-					fileData: []byte(
-						`{
-  "argocdConfigs": {
-    "ArgoCdConfigurations": [
-      {
-        "destination": {
-          "name": "some-destination-1",
-          "server": "some-server"
-        },
-        "name": "some-concrete-env-name-1"
-      },
-      {
-        "destination": {
-          "name": "some-destination-2",
-          "server": "some-server"
-        },
-        "name": "some-concrete-env-name-2"
-      }
-    ],
-    "CommonEnvPrefix": "aa"
-  }
-}
-`),
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo, _, _ := SetupRepositoryTestWithDB(t)
-			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
-
-			dbHandler := repo.State().DBHandler
-			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				// setup:
-				// this 'INSERT INTO' would be done one the cd-server side, so we emulate it here:
-				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-				if err != nil {
-					return err
-				}
-				for _, tr := range tc.Transformers {
-					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
-					if err != nil {
-						return err
-					}
-					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
-				}
-
-				// actual transformer to be tested:
-				err = repo.Apply(ctx, transaction, tc.Transformers...)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
-			}
-			updatedState := repo.State()
-			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFile); err != nil {
-				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
-			}
-			for i := range tc.ExpectedFile {
-				expectedFile := tc.ExpectedFile[i]
-				updatedState := repo.State()
-				fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
-				actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
-				if err != nil {
-					t.Fatalf("Expected no error: %v path=%s", err, fullPath)
-				}
-
-				if !cmp.Equal(expectedFile.fileData, actualFileData) {
-					t.Fatalf("Expected '%v', got '%v'", string(expectedFile.fileData), string(actualFileData))
-				}
-			}
-		})
-	}
-}
-
 func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr Transformer, dbHandler *db.DBHandler, t *testing.T, authorEmail string, authorName string) {
 	now, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
 	if err != nil {
@@ -4096,4 +1873,299 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr T
 		}
 	}
 
+}
+
+func TestManifestLockRedeployAfterDelete(t *testing.T) {
+	const appName = "myapp"
+	const envName types.EnvName = "development"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name              string
+		ArgoRenderOptions func(*argocd.RenderOptions)
+		ExpectedFiles     []*FilenameAndData
+	}{
+		{
+			Name: "manifests.yaml written after lock deleted and same-version redeploy",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{path: "environments/development/applications/myapp/manifests/manifests.yaml", fileData: []byte("normal manifest")},
+			},
+		},
+		{
+			Name: "bracket file written after lock deleted and same-version redeploy",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{path: "environments/development/brackets/myapp/myapp.yaml", fileData: []byte("normal manifest")},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t, tc.ArgoRenderOptions)
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+
+			setupTransformers := []Transformer{
+				&CreateEnvironment{
+					Environment: envName,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{Server: string(envName)},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						envName: "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+			}
+			deployTransformer := &DeployApplicationVersion{
+				Authentication:        Authentication{},
+				Environment:           envName,
+				Application:           appName,
+				Version:               1,
+				Revision:              0,
+				LockBehaviour:         1,
+				WriteCommitData:       false,
+				TransformerEslVersion: 3,
+				TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+			}
+			redeployTransformer := &DeployApplicationVersion{
+				Authentication:        Authentication{},
+				Environment:           envName,
+				Application:           appName,
+				Version:               1,
+				Revision:              0,
+				LockBehaviour:         1,
+				WriteCommitData:       false,
+				TransformerEslVersion: 4,
+				TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+			}
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction); err != nil {
+					return err
+				}
+				for _, tr := range setupTransformers {
+					if err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail}); err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+				// First deploy while lock is active: files should NOT be written
+				if err := dbHandler.DBWriteEslEventInternal(ctx, deployTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: authorName, AuthorEmail: authorEmail}); err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, deployTransformer, dbHandler, t, authorEmail, authorName)
+				if err := dbHandler.DBWriteManifestLock(ctx, transaction, types.AppName(appName), envName, db.LockMetadata{
+					CreatedByName:  authorName,
+					CreatedByEmail: authorEmail,
+					Message:        "test lock",
+				}); err != nil {
+					return err
+				}
+
+				for _, tr := range setupTransformers {
+					if err := repo.Apply(ctx, transaction, tr); err != nil {
+						return err
+					}
+				}
+				if err := repo.Apply(ctx, transaction, deployTransformer); err != nil {
+					return err
+				}
+
+				// Now delete the lock and do a same-version redeploy: files SHOULD be written
+				if err := dbHandler.DBDeleteManifestLock(ctx, transaction, types.AppName(appName), envName); err != nil {
+					return err
+				}
+				if err := dbHandler.DBWriteEslEventInternal(ctx, redeployTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: authorName, AuthorEmail: authorEmail}); err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, redeployTransformer, dbHandler, t, authorEmail, authorName)
+				return repo.Apply(ctx, transaction, redeployTransformer)
+			})
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Fatalf("error verifying content: %v\nFiles:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+func TestManifestLockBlocksDeploy(t *testing.T) {
+	const appName = "myapp"
+	const envName types.EnvName = "development"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name              string
+		HasManifestLock   bool
+		ArgoRenderOptions func(*argocd.RenderOptions)
+		ExpectedFiles     []*FilenameAndData
+		UnexpectedFiles   []*FilenameAndData
+	}{
+		{
+			Name:            "manifests.yaml not written when manifest lock exists",
+			HasManifestLock: true,
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+			},
+			UnexpectedFiles: []*FilenameAndData{
+				{path: "environments/development/applications/myapp/manifests/manifests.yaml"},
+			},
+		},
+		{
+			Name:            "bracket file not written when manifest lock exists",
+			HasManifestLock: true,
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			UnexpectedFiles: []*FilenameAndData{
+				{path: "environments/development/brackets/myapp/myapp.yaml"},
+			},
+		},
+		{
+			Name:            "manifests.yaml is written when no manifest lock",
+			HasManifestLock: false,
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{path: "environments/development/applications/myapp/manifests/manifests.yaml", fileData: []byte("normal manifest")},
+			},
+		},
+		{
+			Name:            "bracket file is written when no manifest lock",
+			HasManifestLock: false,
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{path: "environments/development/brackets/myapp/myapp.yaml", fileData: []byte("normal manifest")},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t, tc.ArgoRenderOptions)
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+
+			setupTransformers := []Transformer{
+				&CreateEnvironment{
+					Environment: envName,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{Server: string(envName)},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						envName: "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+			}
+			deployTransformer := &DeployApplicationVersion{
+				Authentication:        Authentication{},
+				Environment:           envName,
+				Application:           appName,
+				Version:               1,
+				Revision:              0,
+				LockBehaviour:         1,
+				WriteCommitData:       false,
+				TransformerEslVersion: 3,
+				TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+			}
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction); err != nil {
+					return err
+				}
+				for _, tr := range setupTransformers {
+					if err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail}); err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+				if err := dbHandler.DBWriteEslEventInternal(ctx, deployTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: authorName, AuthorEmail: authorEmail}); err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, deployTransformer, dbHandler, t, authorEmail, authorName)
+
+				if tc.HasManifestLock {
+					if err := dbHandler.DBWriteManifestLock(ctx, transaction, types.AppName(appName), envName, db.LockMetadata{
+						CreatedByName:  authorName,
+						CreatedByEmail: authorEmail,
+						Message:        "test lock",
+					}); err != nil {
+						return err
+					}
+				}
+
+				for _, tr := range setupTransformers {
+					if err := repo.Apply(ctx, transaction, tr); err != nil {
+						return err
+					}
+				}
+				return repo.Apply(ctx, transaction, deployTransformer)
+			})
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Fatalf("error verifying content: %v\nFiles:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.UnexpectedFiles); err != nil {
+				t.Fatalf("error verifying missing files: %v\nFiles:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
 }

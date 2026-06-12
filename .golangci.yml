@@ -12,9 +12,22 @@ linters:
     - unconvert
     - gocritic
     - revive
+    - misspell
   exclusions:
     paths:
       - pkg/publicapi
+    rules:
+      # MINIMIZE refers to the env var KUBERPULT_MINIMIZE_GIT_DATA — cannot use UK spelling there
+      - linters: [misspell]
+        path: "services/manifest-repo-export-service/pkg/cmd/server.go"
+        text: "MINIMIZE"
+      # rollout-service misspellings are not fixed intentionally (US-English proto/gRPC names) because the service is deprecated
+      - linters: [misspell]
+        path: "services/rollout-service/pkg/service/broadcast.go"
+        text: "wheter"
+      - linters: [misspell]
+        path: "services/rollout-service"
+        text: "SUCCESFUL"
   settings:
     gocritic:
       disable-all: true
@@ -25,6 +38,8 @@ linters:
         - name: redundant-import-alias
           severity: error
           disabled: false
+    misspell:
+      locale: UK
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0

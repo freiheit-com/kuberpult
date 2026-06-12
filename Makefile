@@ -29,6 +29,8 @@ INTEGRATION_TEST_CONFIG_FILE := $(INTEGRATION_TEST_CONFIG_DIR)/kubeconfig.yaml
 COMMIT_MSG_FILE := commitlint.msg
 
 export USER_UID := $(shell id -u)
+COMPOSE_PROJECT_NAME ?= kuberpult
+COMPOSE_CMD := docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.datadog.yml
 .install:
 	touch .install
 
@@ -56,6 +58,7 @@ all: $(addsuffix /all,$(MAKEDIRS))
 init:
 
 .PHONY: release  $(addsuffix /release,$(MAKEDIRS)) all $(addsuffix /all,$(MAKEDIRS)) clean $(addsuffix /clean,$(MAKEDIRS))
+.PHONY: prepare-compose prepare-compose-cd-service prepare-compose-manifest-repo-export-service prepare-compose-frontend-service prepare-compose-ui
 
 .PHONY: version
 version:
@@ -74,31 +77,61 @@ builder:
 	IMAGE_TAG=local make -C infrastructure/docker/builder build
 
 compose-down:
-	docker compose -f docker-compose.yml -f docker-compose.datadog.yml down
+	$(COMPOSE_CMD) down
 
-prepare-compose: builder
-	make -C pkg gen
+prepare-git:
+	@if [ ! -d "services/cd-service/repository_remote" ]; then \
+		echo "Initializing bare git repository for local development..."; \
+		git init --bare services/cd-service/repository_remote --initial-branch=master && \
+		git clone services/cd-service/repository_remote services/cd-service/repository_checkedout && \
+		git -C services/cd-service/repository_checkedout commit --allow-empty -m 'initial commit' && \
+		git -C services/cd-service/repository_checkedout push origin master; \
+	fi
+
+cleanup-git:
+	rm -rf services/cd-service/repository_remote
+	rm -rf services/cd-service/repository_checkedout
+
+prepare-pgp:
+	@if [ ! -f "services/cd-service/test_pgp_keyring.asc" ]; then \
+		echo "Generating test PGP key ring for local development..."; \
+		GNUPGHOME=$$(mktemp -d); \
+		printf "Key-Type: RSA\nKey-Length: 2048\nName-Real: Local Dev\nName-Email: dev@example.com\nExpire-Date: 0\n%%no-protection\n%%commit\n" | gpg --batch --gen-key --homedir "$$GNUPGHOME"; \
+		gpg --homedir "$$GNUPGHOME" --armor --export dev@example.com > services/cd-service/test_pgp_keyring.asc; \
+		rm -rf "$$GNUPGHOME"; \
+	fi
+
+prepare-compose-cd-service:
 	IMAGE_TAG=local make -C services/cd-service docker
+
+prepare-compose-manifest-repo-export-service:
 	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
+
+prepare-compose-frontend-service:
 	IMAGE_TAG=local make -C services/frontend-service docker gen-api
+
+prepare-compose-ui:
 	make -C infrastructure/docker/ui build-pr
 
-kuberpult-datadog: prepare-compose compose-down
+prepare-compose: builder
+	BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:local make -C pkg gen
+	$(MAKE) -j4 prepare-compose-cd-service prepare-compose-manifest-repo-export-service prepare-compose-frontend-service prepare-compose-ui
+
+kuberpult-datadog: prepare-compose prepare-git prepare-pgp compose-down
 ifndef DD_ENV
 	$(error "DD_ENV should be set to execute this target. E.g., DD_ENV=example-local-nov7-a make kuberpult-datadog")
 else
 	DD_ENV=$(DD_ENV) docker compose -f docker-compose.datadog.yml -f docker-compose.yml -f docker-compose.persist.yml up
 endif
 
-kuberpult: prepare-compose compose-down
-	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
+kuberpult: prepare-compose prepare-git prepare-pgp compose-down
+	docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
-	# This deletes the volume of the default db location:
-	docker volume rm kuberpult_pgdata
+	$(COMPOSE_CMD) -f docker-compose.persist.yml down -v
 
-kuberpult-freshdb: prepare-compose compose-down
-	docker compose up
+kuberpult-freshdb: prepare-compose cleanup-git prepare-git prepare-pgp reset-db
+	docker compose --env-file .env.local up
 
 # Run this before starting the unit tests in your IDE:
 unit-test-db:

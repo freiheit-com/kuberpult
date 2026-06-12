@@ -389,6 +389,8 @@ type CreateApplicationVersion struct {
 	DeployToDownstreamEnvironments []types.EnvName          `json:"deployToDownstreamEnvironments"`
 	Revision                       uint64                   `json:"revision"`
 	ArgoBracket                    types.ArgoBracketName    `json:"argoBracket"`
+	SkipDeployment                 bool                     `json:"skipDeployment"`
+	Override                       bool                     `json:"override"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -686,7 +688,7 @@ func (c *CreateApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		envIsConfiguredLatest := hasUpstream && cfg.Upstream.Latest && isLatest
 		downstreamDeploymentRequested := slices.Contains(c.DeployToDownstreamEnvironments, env)
-		if (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
+		if !c.SkipDeployment && (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
@@ -848,6 +850,11 @@ func writeCommitData(ctx context.Context, h *db.DBHandler, transaction *sql.Tx, 
 		return nil
 	}
 
+	err := h.DBWriteCommitHistoryRow(ctx, transaction, sourceCommitId, previousCommitId)
+	if err != nil {
+		return fmt.Errorf("error while writing commit history: %v", err)
+	}
+
 	envMap := make(map[string]struct{}, len(environments))
 	for _, env := range environments {
 		envMap[string(env)] = struct{}{}
@@ -875,8 +882,8 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 		if err != nil {
 			return types.MakeEmptyReleaseNumbers(), fmt.Errorf("could not calculate version, error: %v", err)
 		}
-		if metaData == nil {
-			// this is the usual success case
+		if metaData == nil || c.Override {
+			// this is the usual success case: release doesn't yet exist, or the override flag is enabled
 			return types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, nil
 		}
 		// check if version differs, if it's the same, that's ok
@@ -1124,6 +1131,32 @@ func (c *UndeployApplication) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
+// bracketEmptyInEnv reports whether no app currently assigned to bracketName has a live
+// deployment in env. Used after an undeploy / delete-env to decide whether the bracket's
+// Argo Application (<env>-<bracketName>) must be cascade-deleted to remove its workload:
+// bracket Argo apps run with AllowEmpty=false, so Argo CD's auto-sync no longer prunes a
+// bracket down to empty — kuberpult must drive that whole-bracket removal explicitly via
+// the rollout_should_undeploy_cascade table.
+func bracketEmptyInEnv(ctx context.Context, state *State, transaction *sql.Tx, bracketName types.ArgoBracketName, env types.EnvName) (bool, error) {
+	bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, state.DBHandler, transaction)
+	if err != nil {
+		return false, err
+	}
+	if bracketRow == nil {
+		return true, nil
+	}
+	for _, app := range bracketRow.AllBracketsJsonBlob.BracketMap[bracketName] {
+		deployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, app, env)
+		if err != nil {
+			return false, err
+		}
+		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (u *UndeployApplication) Transform(
 	ctx context.Context,
 	state *State,
@@ -1142,6 +1175,7 @@ func (u *UndeployApplication) Transform(
 	if err != nil {
 		return "", err
 	}
+	var undeployedEnvs []types.EnvName
 	for env := range configs {
 		err := state.checkUserPermissions(ctx, transaction, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig, true)
 		if err != nil {
@@ -1153,11 +1187,29 @@ func (u *UndeployApplication) Transform(
 		}
 
 		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
-			// delete deployment
-			err := state.DBHandler.DBDeleteDeployment(ctx, transaction, deployment.App, env)
+			user, err := auth.ReadUserFromContext(ctx)
 			if err != nil {
 				return "", err
 			}
+			// delete deployment
+			err = state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, deployment.App, env, u.TransformerEslVersion, db.DeploymentMetadata{
+				DeployedByName:  user.Name,
+				DeployedByEmail: user.Email,
+				CiLink:          "",
+			})
+			if err != nil {
+				return "", err
+			}
+			// Signal the rollout-service to cascade-delete the Argo Application
+			// that managed this app's workload. argo_app is the kuberpult app
+			// name (which matches the com.freiheit.kuberpult/application annotation
+			// on the Argo Application); the rollout-service consumer constructs
+			// the Argo CD Application name as <env>-<argo_app>.
+			err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), env, false, u.TransformerEslVersion)
+			if err != nil {
+				return "", fmt.Errorf("UndeployApplication: could not signal cascade-delete for env '%s': %w", env, err)
+			}
+			undeployedEnvs = append(undeployedEnvs, env)
 		}
 		locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
 		if err != nil {
@@ -1200,6 +1252,24 @@ func (u *UndeployApplication) Transform(
 	err = db.HandleDeleteAppFromBracket(ctx, state.DBHandler, transaction, u.Application, dbApp.ArgoBracket, *now, u.GetEslVersion())
 	if err != nil {
 		return "", fmt.Errorf("UndeployApplication: could not handle bracket deletion for app '%s': %v", u.Application, err)
+	}
+
+	// If removing this app emptied its bracket in an env, the bracket's Argo app
+	// (<env>-<bracket>) must be cascade-deleted too — its workload is no longer
+	// pruned by Argo auto-sync (AllowEmpty=false on brackets). is_bracket=true.
+	if dbApp.ArgoBracket != "" {
+		for _, env := range undeployedEnvs {
+			empty, err := bracketEmptyInEnv(ctx, state, transaction, dbApp.ArgoBracket, env)
+			if err != nil {
+				return "", fmt.Errorf("UndeployApplication: could not check bracket emptiness for env '%s': %w", env, err)
+			}
+			if empty {
+				err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(dbApp.ArgoBracket), env, true, u.TransformerEslVersion)
+				if err != nil {
+					return "", fmt.Errorf("UndeployApplication: could not signal bracket cascade-delete for env '%s': %w", env, err)
+				}
+			}
+		}
 	}
 
 	err = state.DBHandler.DBClearReleases(ctx, transaction, u.Application)
@@ -1296,11 +1366,49 @@ func (u *DeleteEnvFromApp) Transform(
 				Created:      *now,
 				Manifests:    db.DBReleaseManifests{Manifests: newManifests},
 				Metadata:     dbReleaseWithMetadata.Metadata,
-				Environments: []types.EnvName{},
+				Environments: []types.EnvName{}, // filled by DBUpdateOrCreateRelease
 			}
 			err = state.DBHandler.DBUpdateOrCreateRelease(ctx, transaction, newRelease)
 			if err != nil {
 				return "", fmt.Errorf("update release: %w", err)
+			}
+		}
+	}
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+	if err := state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, u.Application, envName, u.TransformerEslVersion, db.DeploymentMetadata{
+		DeployedByName:  user.Name,
+		DeployedByEmail: user.Email,
+		CiLink:          "",
+	}); err != nil {
+		return "", fmt.Errorf("DeleteEnvFromApp: could not delete deployment for app '%s' env '%s': %w", u.Application, envName, err)
+	}
+	// Signal the rollout-service to cascade-delete the Argo Application that
+	// managed this app on this env. See UndeployApplication for the schema note.
+	err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), envName, false, u.TransformerEslVersion)
+	if err != nil {
+		return "", fmt.Errorf("DeleteEnvFromApp: could not signal cascade-delete: %w", err)
+	}
+
+	// Removing this env may have emptied the app's bracket in this env (no app in the
+	// bracket is deployed here anymore). If so, cascade-delete the bracket's Argo app
+	// (<env>-<bracket>) too — its workload is no longer pruned by Argo auto-sync
+	// (AllowEmpty=false on brackets). is_bracket=true.
+	dbApp, err := state.DBHandler.DBSelectApp(ctx, transaction, u.Application)
+	if err != nil {
+		return "", fmt.Errorf("DeleteEnvFromApp: could not select app '%s': %w", u.Application, err)
+	}
+	if dbApp != nil && dbApp.ArgoBracket != "" {
+		empty, err := bracketEmptyInEnv(ctx, state, transaction, dbApp.ArgoBracket, envName)
+		if err != nil {
+			return "", fmt.Errorf("DeleteEnvFromApp: could not check bracket emptiness for env '%s': %w", envName, err)
+		}
+		if empty {
+			err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(dbApp.ArgoBracket), envName, true, u.TransformerEslVersion)
+			if err != nil {
+				return "", fmt.Errorf("DeleteEnvFromApp: could not signal bracket cascade-delete: %w", err)
 			}
 		}
 	}
@@ -1392,12 +1500,61 @@ func (c *CleanupOldApplicationVersions) Transform(
 		span.Finish(tracer.WithError(err))
 	}()
 
+	// Remove deployments for this app that reference environments no longer active.
+	// Such zombie deployments prevent findOldApplicationVersions from cleaning up old releases,
+	// because the old version appears "still deployed" to the deleted environment.
+	allDeployments, err := state.GetAllDeploymentsForAppFromDB(ctx, transaction, c.Application)
+	if err != nil {
+		return "", fmt.Errorf("cleanup: could not get deployments for app '%s': %w", c.Application, err)
+	}
+	activeEnvNames, err := state.DBHandler.DBSelectAllEnvironments(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("cleanup: could not get active environments: %w", err)
+	}
+	activeEnvs := make(map[types.EnvName]struct{}, len(activeEnvNames))
+	for _, envName := range activeEnvNames {
+		activeEnvs[envName] = struct{}{}
+	}
+	msg := ""
+	numCleanedUpDeployments := 0
+	for envName, releaseNums := range allDeployments {
+		// clean up deployments of old environments:
+		if _, envExists := activeEnvs[envName]; !envExists {
+			if err := state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, c.Application, envName, c.TransformerEslVersion, db.DeploymentMetadata{
+				DeployedByName:  "",
+				DeployedByEmail: "",
+				CiLink:          "",
+			}); err != nil {
+				return "", err
+			}
+			msg = fmt.Sprintf("%sremoved zombie deployment of app %v on deleted env %v\n", msg, c.Application, envName)
+			numCleanedUpDeployments++
+			continue // deployment is gone; no need to check whether the release exists
+		}
+		// delete deployments that have no corresponding release:
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, releaseNums, false)
+		if err != nil {
+			return "", fmt.Errorf("cleanup: could not get release %v for app '%s': %w", releaseNums, c.Application, err)
+		}
+		if release == nil {
+			if err := state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, c.Application, envName, c.TransformerEslVersion, db.DeploymentMetadata{
+				DeployedByName:  "",
+				DeployedByEmail: "",
+				CiLink:          "",
+			}); err != nil {
+				return "", err
+			}
+			msg = fmt.Sprintf("%sremoved dangling deployment of app %v on env %v (release %v does not exist)\n", msg, c.Application, envName, releaseNums)
+			numCleanedUpDeployments++
+		}
+	}
+	span.SetTag("numCleanedUpDeployments", numCleanedUpDeployments)
+
 	oldVersions, err := findOldApplicationVersions(ctx, transaction, state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
 
-	msg := ""
 	for _, oldRelease := range oldVersions {
 		//'Delete' from releases table
 		if err := state.DBHandler.DBDeleteFromReleases(ctx, transaction, c.Application, oldRelease); err != nil {
@@ -1983,6 +2140,109 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
 }
 
+type CreateManifestLock struct {
+	Authentication        `json:"-"`
+	App                   types.AppName    `json:"app"`
+	Env                   types.EnvName    `json:"env"`
+	Message               string           `json:"message"`
+	SuggestedLifeTime     *string          `json:"suggestedLifeTime"`
+	TransformerEslVersion db.TransformerID `json:"-"`
+}
+
+func (c *CreateManifestLock) GetDBEventType() db.EventType {
+	return db.EvtCreateManifestLock
+}
+
+func (c *CreateManifestLock) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *CreateManifestLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *CreateManifestLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	if !valid.ApplicationName(c.App) {
+		return "", grpc.InvalidArgument(ctx, fmt.Errorf("cannot create manifest lock: invalid application name: '%s'", c.App))
+	}
+	if !valid.EnvironmentName(c.Env) {
+		return "", grpc.InvalidArgument(ctx, fmt.Errorf("cannot create manifest lock: invalid environment name: '%s'", c.Env))
+	}
+	hasLock, err := state.DBHandler.DBHasActiveManifestLock(ctx, transaction, c.App, c.Env)
+	if err != nil {
+		return "", fmt.Errorf("CreateManifestLock: could not check for existing lock: %w", err)
+	}
+	if hasLock {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("manifest lock already exists for app %q on environment %q", c.App, c.Env))
+	}
+	if c.SuggestedLifeTime != nil && *c.SuggestedLifeTime != "" && !isValidLifeTime(*c.SuggestedLifeTime) {
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("suggested life time: %s is not a valid lifetime. It should be a number followed by h, d or w", *c.SuggestedLifeTime))
+	}
+	now, err := state.DBHandler.DBReadTransactionTimestamp(ctx, transaction)
+	if err != nil {
+		return "", fmt.Errorf("could not get transaction timestamp")
+	}
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+	metadata := db.LockMetadata{
+		Message:        c.Message,
+		CreatedByName:  user.Name,
+		CreatedByEmail: user.Email,
+		CreatedAt:      *now,
+	}
+	if c.SuggestedLifeTime != nil {
+		metadata.SuggestedLifeTime = *c.SuggestedLifeTime
+	}
+	if err := state.DBHandler.DBWriteManifestLock(ctx, transaction, c.App, c.Env, metadata); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Created manifest lock for app %q on environment %q", c.App, c.Env), nil
+}
+
+type DeleteManifestLock struct {
+	Authentication        `json:"-"`
+	App                   types.AppName    `json:"app"`
+	Env                   types.EnvName    `json:"env"`
+	TransformerEslVersion db.TransformerID `json:"-"`
+}
+
+func (c *DeleteManifestLock) GetDBEventType() db.EventType {
+	return db.EvtDeleteManifestLock
+}
+
+func (c *DeleteManifestLock) SetEslVersion(id db.TransformerID) {
+	c.TransformerEslVersion = id
+}
+
+func (c *DeleteManifestLock) GetEslVersion() db.TransformerID {
+	return c.TransformerEslVersion
+}
+
+func (c *DeleteManifestLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+	transaction *sql.Tx,
+) (string, error) {
+	if !valid.ApplicationName(c.App) {
+		return "", grpc.InvalidArgument(ctx, fmt.Errorf("cannot delete manifest lock: invalid application name: '%s'", c.App))
+	}
+	if !valid.EnvironmentName(c.Env) {
+		return "", grpc.InvalidArgument(ctx, fmt.Errorf("cannot delete manifest lock: invalid environment name: '%s'", c.Env))
+	}
+	if err := state.DBHandler.DBDeleteManifestLock(ctx, transaction, c.App, c.Env); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Deleted manifest lock for app %q on environment %q", c.App, c.Env), nil
+}
+
 type RenderEnvironment struct {
 	Authentication        `json:"-"`
 	Environment           types.EnvName    `json:"env"`
@@ -2352,7 +2612,7 @@ func (c *DeleteAAEnvironmentConfig) Transform(
 		}
 	}
 
-	//We don't error out when we don't find this concrete enviroment config to make this operation idempotent
+	//We don't error out when we don't find this concrete environment config to make this operation idempotent
 	if foundIdx != -1 {
 		configs = append(configs[:foundIdx], configs[foundIdx+1:]...)
 		slices.SortFunc(configs, func(d1 *config.EnvironmentConfigArgoCd, d2 *config.EnvironmentConfigArgoCd) int {

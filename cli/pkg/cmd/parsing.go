@@ -42,7 +42,7 @@ func readArgs(args []string) (*commandLineArguments, []string, error) {
 
 	fs.Var(&cmdArgs.url, "url", "the URL of the Kuberpult instance (must be set exactly once)")
 	fs.Var(&cmdArgs.authorName, "author_name", "the name of the git author who eventually will write to the manifest repo (must be set at most once)")
-	fs.Var(&cmdArgs.authorEmail, "author_email", "the email of the git author who eventially will write to the manifest repo (must be set at most once)")
+	fs.Var(&cmdArgs.authorEmail, "author_email", "the email of the git author who eventually will write to the manifest repo (must be set at most once)")
 	fs.Var(&cmdArgs.clientUUID, "client_uuid", "the unique client id, used for debugging purpose (must be set at most once)")
 	fs.Var(&cmdArgs.retries, "retries", "number of times the cli will retry http requests to kuberpult upon failure (must be set at most once) - default=3")
 	fs.Var(&cmdArgs.timeout, "timeout", "requests timeout seconds (must be set at most once) - default=180")

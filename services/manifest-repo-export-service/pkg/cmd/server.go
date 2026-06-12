@@ -153,10 +153,6 @@ func Run(ctx context.Context) error {
 	if err := checkReleaseVersionLimit(uint(releaseVersionLimit)); err != nil {
 		return fmt.Errorf("error parsing KUBERPULT_RELEASE_VERSIONS_LIMIT, error: %w", err)
 	}
-	minimizeExportedData, err := valid.ReadEnvVarBool("KUBERPULT_MINIMIZE_EXPORTED_DATA")
-	if err != nil {
-		return err
-	}
 
 	var eslProcessingIdleTimeSeconds int64
 	if val, exists := os.LookupEnv("KUBERPULT_ESL_PROCESSING_BACKOFF"); !exists {
@@ -270,6 +266,17 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
+	renderOptions.RootAppFiltering.Enabled, err = valid.ReadEnvVarBool("KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED")
+	if err != nil {
+		return err
+	}
+	tmp, err := valid.ReadEnvVarAsList("KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENVIRONMENTS", ",")
+	if err != nil {
+		return err
+	}
+	renderOptions.RootAppFiltering.EnabledEnvironments = types.StringsToEnvNames(tmp)
+	logging.Info(ctx, "root app filter", zap.Any("filter", renderOptions.RootAppFiltering))
+
 	dbCfg := db.DBConfig{
 		DbHost:         dbLocation,
 		DbPort:         dbAuthProxyPort,
@@ -310,11 +317,10 @@ func Run(ctx context.Context) error {
 		Certificates: repository.Certificates{
 			KnownHostsFile: gitSshKnownHosts,
 		},
-		Branch:               gitBranch,
-		NetworkTimeout:       time.Duration(networkTimeoutSeconds) * time.Second,
-		ReleaseVersionLimit:  uint(releaseVersionLimit),
-		ArgoCdGenerateFiles:  argoCdGenerateFiles,
-		MinimizeExportedData: minimizeExportedData,
+		Branch:              gitBranch,
+		NetworkTimeout:      time.Duration(networkTimeoutSeconds) * time.Second,
+		ReleaseVersionLimit: uint(releaseVersionLimit),
+		ArgoCdGenerateFiles: argoCdGenerateFiles,
 
 		DBHandler: dbHandler,
 
@@ -431,7 +437,6 @@ func Run(ctx context.Context) error {
 				grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 			},
 			Register: func(srv *grpc.Server) {
-				api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 				api.RegisterManifestExportGitServiceServer(srv, &service.GitServer{
 					Repository: repo,
 					Config:     cfg,
@@ -532,7 +537,7 @@ func ProcessOneEvent(
 	var esl *db.EslEventRow = nil
 	const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
 
-	// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation.
+	// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation. //nolint:misspell
 	// This means that there is a possibility that two transaction timestamps collide with the same git hash.
 	// As such, before executing any transformer, we get the current commit hash so that we can then compare it with the
 	// (possibly) new commit hash

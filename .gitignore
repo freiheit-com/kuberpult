@@ -31,6 +31,7 @@ repository_remote
 services/cd-service/client
 services/cd-service/host
 services/cd-service/known_hosts
+services/cd-service/test_pgp_keyring.asc
 services/cd-service/repository_checked_out/
 CHANGELOG.tmp.md
 vendor/
@@ -39,4 +40,11 @@ docker.env
 
 # local setup
 .direnv
+
+# nix:
 .envrc.local
+# docker-compose:
+.env.local
+
+# claude:
+.claude/settings.local.json

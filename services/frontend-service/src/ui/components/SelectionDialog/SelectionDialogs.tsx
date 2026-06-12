@@ -23,10 +23,10 @@ export type EnvSelectionDialogProps = {
     onSubmit: (selectedEnvs: string[]) => void;
     onCancel: () => void;
     open: boolean;
-    envSelectionDialog: boolean; // false if release train dialog
+    multiSelect: boolean;
 };
 
-export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => {
+export const EnvSelectionDialogTrain: React.FC<EnvSelectionDialogProps> = (props) => {
     const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
 
     const onConfirm = React.useCallback(() => {
@@ -43,13 +43,10 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
         setSelectedEnvs([]);
     }, [props]);
 
-    const headerLabel = props.envSelectionDialog
-        ? 'Select all environments to be removed:'
-        : 'Select which environments to run release train to:';
-    const confirmLabel = props.envSelectionDialog ? 'Remove app from environments' : 'Release Train';
-    const onEmptyLabel = props.envSelectionDialog
-        ? 'There are no environments to list'
-        : 'There are no available environments to run a release train to based on the current environment/environmentGroup';
+    const headerLabel = 'Select which environments to run release train to:';
+    const confirmLabel = 'Release Train';
+    const onEmptyLabel =
+        'There are no available environments to run a release train to based on the current environment/environmentGroup';
 
     return (
         <GenericSelectionDialog
@@ -57,7 +54,7 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
             open={props.open}
             onSubmit={onConfirm}
             onCancel={onCancel}
-            multiSelect={props.envSelectionDialog}
+            multiSelect={props.multiSelect}
             confirmLabel={confirmLabel}
             headerLabel={headerLabel}
             onEmptyLabel={onEmptyLabel}

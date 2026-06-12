@@ -155,8 +155,6 @@ type RepositoryConfig struct {
 
 	ReleaseVersionLimit uint
 
-	MinimizeExportedData bool
-
 	DDMetrics statsd.ClientInterface
 	TagsPath  string
 
@@ -354,7 +352,10 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 		// So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
 		defer logging.HandlePanic(true)
 		defer remote.Disconnect()
-		errCh <- callback(remote)
+		start := time.Now()
+		cbErr := callback(remote)
+		logging.Info(ctx, "useRemote callback duration", zap.Duration("elapsed", time.Since(start)), zap.Error(cbErr))
+		errCh <- cbErr
 	}()
 	select {
 	case <-ctx.Done():
@@ -447,6 +448,13 @@ func (r *repository) PushRepo(ctx context.Context) error {
 		CredentialsCallback:         r.credentials.CredentialsCallback(ctx),
 		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(ctx),
 		PushUpdateReferenceCallback: commitPushUpdate(r.config.Branch, &pushSuccess),
+		SidebandProgressCallback: func(str string) error {
+			if str == "" {
+				return nil
+			}
+			logging.Info(ctx, "git push repo progress", zap.String("str", str))
+			return nil
+		},
 	}
 	pushOptions := git.PushOptions{
 		PbParallelism: 0,
@@ -503,7 +511,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 			}
 			return nil, nil, nil, &applyErr
 		}
-		msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction, r.config.MinimizeExportedData)
+		msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction)
 		if err != nil {
 			applyErr := TransformerBatchApplyError{
 				TransformerError: err,
@@ -758,9 +766,6 @@ func (r *repository) makeGitSignature() *git.Signature {
 }
 
 func (r *repository) shouldCreateNewCommit(commitMessages []string) bool {
-	if !r.config.MinimizeExportedData {
-		return true
-	}
 	for _, currCommitMessage := range commitMessages {
 		if !strings.Contains(currCommitMessage, NoOpMessage) { //Transformers that generate no commits always return a message beginning with $NoOpMessage
 			return true
@@ -852,7 +857,10 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 		func() error {
 			span, _ := tracer.StartSpanFromContext(ctx, "Push")
 			defer span.Finish()
+			start := time.Now()
 			err := pushAction()
+			elapsed := time.Since(start)
+			logging.Info(ctx, "push attempt duration", zap.Duration("elapsed", elapsed), zap.Error(err))
 			if err != nil {
 				gerr, ok := err.(*git.GitError)
 				if ok && gerr.Code == git.ErrorCodeNonFastForward {
@@ -933,13 +941,13 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	fsMutex := sync.Mutex{}
 	skippedEnvs := []types.EnvName{}
 	renderedEnvs := []types.EnvName{}
-	for env, config := range configs {
-		if config.ArgoCd != nil || config.ArgoCdConfigs != nil {
+	for env, cfg := range configs {
+		if cfg.ArgoCd != nil || cfg.ArgoCdConfigs != nil {
 			_, envHasChanged := changedEnvironments[env]
 			if envHasChanged {
 				errorGroup.Go(func() error {
 					return r.State().DBHandler.WithTransaction(ctx, true, func(ctx context.Context, tx *sql.Tx) error {
-						return r.updateArgoCdApps(ctx, tx, &state, env, config, ts, eslVersion, &fsMutex)
+						return r.updateArgoCdApps(ctx, tx, &state, env, cfg, ts, eslVersion, &fsMutex)
 					})
 				})
 				renderedEnvs = append(renderedEnvs, env)
@@ -951,6 +959,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	logging.Info(ctx, "rendering of environments",
 		zap.Strings("skippedEnvs", types.EnvNamesToStrings(skippedEnvs)),
 		zap.Strings("renderedEnvs", types.EnvNamesToStrings(renderedEnvs)),
+		zap.Any("changedEnvs", changedEnvironments),
 	)
 	return errorGroup.Wait()
 }
@@ -965,14 +974,26 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 		return nil
 	}
 
+	opts := r.config.ArgoRenderOptions
 	if config.IsAAEnv(&cfg) {
 		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
+			if opts != nil && opts.RootAppFiltering.Enabled {
+				aaEnvName := types.EnvName(*cfg.ArgoCdConfigs.CommonEnvPrefix + "-" + string(env) + "-" + currentArgoCdConfiguration.ConcreteEnvName)
+				if !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, aaEnvName) {
+					logging.Info(ctx, "rootAppFiltering enabled for active/active env", zap.String("env", string(aaEnvName)))
+					continue
+				}
+			}
 			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts, eslVersion, fsMutex)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
+		if opts != nil && opts.RootAppFiltering.Enabled && !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, env) {
+			logging.Info(ctx, "rootAppFiltering enabled for normal env", zap.String("env", string(env)))
+			return nil
+		}
 		if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
 			logging.Error(ctx, "No argo cd configuration found for environment.", zap.String("env", string(env)))
 			return nil
@@ -1113,7 +1134,7 @@ func CalculateAppDataWithBrackets(
 	appToTeamMap := appTeamsToMap(appTeams)
 	for bracketName, appNames := range bracketMap {
 		bracketsTeamNames := []string{}
-		//appsInBracket := []argocd.AppTeam{}
+		hasDeployedApp := false
 		for _, appName := range appNames {
 			appsTeamName, ok := appToTeamMap[appName]
 			if !ok {
@@ -1129,7 +1150,14 @@ func CalculateAppDataWithBrackets(
 				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
 				continue
 			}
+			hasDeployedApp = true
 			bracketsTeamNames = append(bracketsTeamNames, appsTeamName)
+		}
+
+		if !hasDeployedApp {
+			// no app in this bracket has a live deployment in this env at the timestamp,
+			// so the bracket must not appear in the env's root app, so we skip:
+			continue
 		}
 
 		appData = append(appData, argocd.AppData{

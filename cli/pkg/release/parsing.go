@@ -228,7 +228,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 	}
 
 	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
-		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
+		return nil, fmt.Errorf("these arguments are not recognised: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 
 	if ok, msg := environmentsManifestsPaired(args); !ok {
@@ -251,7 +251,7 @@ func readArgs(args []string) (*commandLineArguments, error) {
 // converts the intermediate representation of the command line flags into the final structure containing parameters for the release endpoint
 func convertToParams(cmdArgs commandLineArguments) (*ReleaseParameters, error) {
 	if ok, msg := argsValid(&cmdArgs); !ok {
-		// this should never happen, as the validation is already peformed by the readArgs function
+		// this should never happen, as the validation is already performed by the readArgs function
 		return nil, fmt.Errorf("the provided command line arguments structure is invalid, cause: %s", msg)
 	}
 

@@ -52,16 +52,20 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 	span, ctx := tracer.StartSpanFromContext(ctx, "GenerateManifest")
 	defer span.Finish()
 
-	var mn []string
-
-	// Extract the env and app from the path.
-	// We expect the path to have this form:
-	// "environments/$env/applications/$app/manifests",
+	// Extract the env and app/bracket from the path.
+	// Normal app:  "environments/$env/applications/$app/manifests" (5 parts)
+	// Bracket app: "environments/$env/brackets/$bracket"           (4 parts)
 	include := req.ApplicationSource.Path
 	split := strings.Split(include, "/")
-	if len(split) != 5 {
+
+	if len(split) == 4 && split[2] == "brackets" {
+		return r.generateBracketManifest(ctx, split, req)
+	}
+	if len(split) != 5 || split[2] != "applications" || split[4] != "manifests" {
 		return nil, fmt.Errorf("unexpected path: '%s'", include)
 	}
+
+	var mn []string
 	envName := types.EnvName(split[1])
 	appName := split[3]
 
@@ -105,13 +109,124 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 		Server:               "",
 		VerifyResult:         "",
 		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
+		XXX_unrecognized:     nil, //nolint:misspell
 		XXX_sizecache:        0,
 		Manifests:            mn,
 		Revision:             ToRevision(releaseResult.releaseVersion),
 		SourceType:           "Directory",
 	}
 	return resp, nil
+}
+
+type bracketResult struct {
+	manifests []string
+	revision  string
+}
+
+// parseBracketSegment splits the 4th path component into a bracket name and an
+// optional brackets_history.source_transformer_esl_id. The rollout-service appends
+// "@<esl_id>" so the reposerver can read the exact snapshot the Argo CD app was
+// last spec-updated against, even if a newer brackets_history row has already
+// arrived but the rollout-service has not yet refreshed the Argo CD app spec.
+//
+// Returns isLegacyFormat=true when the segment carries no "@<esl_id>" suffix.
+// In that case the caller must fall back to DBSelectBracketHistoryLatest and the
+// returned eslId is meaningless (zero). This handles pre-upgrade Argo CD apps
+// that were created before the rollout-service learned to embed the esl_id;
+// they keep working until the rollout-service refreshes their spec.
+func parseBracketSegment(segment string) (bracketName types.ArgoBracketName, eslId db.TransformerID, isLegacyFormat bool, err error) {
+	at := strings.LastIndex(segment, "@")
+	if at < 0 {
+		return types.ArgoBracketName(segment), 0, true, nil
+	}
+	name := segment[:at]
+	idStr := segment[at+1:]
+	parsed, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return "", 0, false, fmt.Errorf("generateBracketManifest: malformed esl_id in path segment '%s': %w", segment, err)
+	}
+	return types.ArgoBracketName(name), db.TransformerID(parsed), false, nil
+}
+
+func (r *reposerver) generateBracketManifest(ctx context.Context, split []string, req *argorepo.ManifestRequest) (*argorepo.ManifestResponse, error) {
+	envName := types.EnvName(split[1])
+	bracketName, eslId, isLegacyFormat, err := parseBracketSegment(split[3])
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := db.WithTransactionT[bracketResult](r.dbHandler, ctx, 3, true, func(ctx context.Context, transaction *sql.Tx) (*bracketResult, error) {
+		var bracketRow *db.BracketRow
+		var err error
+		if isLegacyFormat {
+			bracketRow, err = db.DBSelectBracketHistoryLatest(ctx, r.dbHandler, transaction)
+			if err != nil {
+				return nil, fmt.Errorf("generateBracketManifest: could not get bracket history: %w", err)
+			}
+			if bracketRow == nil {
+				return nil, fmt.Errorf("generateBracketManifest: no bracket history found for bracket '%s'", bracketName)
+			}
+		} else {
+			bracketRow, err = db.DBSelectBracketHistoryById(ctx, r.dbHandler, transaction, eslId)
+			if err != nil {
+				return nil, fmt.Errorf("generateBracketManifest: could not get bracket history at esl_id %d: %w", eslId, err)
+			}
+			if bracketRow == nil {
+				return nil, fmt.Errorf("generateBracketManifest: no bracket history found at esl_id %d for bracket '%s'", eslId, bracketName)
+			}
+		}
+		appNames := bracketRow.AllBracketsJsonBlob.BracketMap[bracketName]
+		sortedAppNames := db.SortAppNames(appNames)
+
+		var versionParts []string
+		var rawManifests []string
+
+		for _, appName := range sortedAppNames {
+			deployment, err := r.dbHandler.DBSelectLatestDeployment(ctx, transaction, appName, envName)
+			if err != nil {
+				return nil, fmt.Errorf("generateBracketManifest: could not get deployment for app=%s: %w", appName, err)
+			}
+			if deployment == nil || deployment.ReleaseNumbers.Version == nil {
+				// deployment does not belong to any release => ignore it
+				continue
+			}
+			release, err := r.dbHandler.DBSelectReleaseByVersion(ctx, transaction, appName, deployment.ReleaseNumbers, true)
+			if err != nil {
+				return nil, fmt.Errorf("generateBracketManifest: could not get release for app=%s: %w", appName, err)
+			}
+			if release == nil {
+				// release does not exist for the given deployment => ignore it
+				continue
+			}
+			manifest := release.Manifests.Manifests[envName]
+			if manifest != "" {
+				rawManifests = append(rawManifests, manifest)
+			}
+			versionParts = append(versionParts, fmt.Sprintf("%d", *deployment.ReleaseNumbers.Version))
+		}
+
+		combinedYAML := strings.Join(rawManifests, "\n---\n")
+		mn, err := splitManifest([]byte(combinedYAML), req)
+		if err != nil {
+			return nil, fmt.Errorf("generateBracketManifest: could not split manifests: %w", err)
+		}
+
+		return &bracketResult{
+			manifests: mn,
+			revision:  string(types.JoinBracketVersionFromParts(versionParts)),
+		}, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not load all data to generate bracket manifests: %w", err)
+	}
+	if result == nil {
+		return nil, fmt.Errorf("nil result when generating bracket manifests: %w", err)
+	}
+	return &argorepo.ManifestResponse{
+		Manifests:  result.manifests,
+		Revision:   result.revision,
+		SourceType: "Directory",
+	}, nil
 }
 
 type PseudoRevision = string
@@ -202,7 +317,7 @@ func (r *reposerver) ResolveRevision(ctx context.Context, req *argorepo.ResolveR
 	const commitID = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 	return &argorepo.ResolveRevisionResponse{
 		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
+		XXX_unrecognized:     nil, //nolint:misspell
 		XXX_sizecache:        0,
 		Revision:             commitID,
 		AmbiguousRevision:    fmt.Sprintf("%s (%s)", req.AmbiguousRevision, commitID),

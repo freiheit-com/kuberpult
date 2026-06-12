@@ -3,11 +3,13 @@ set -eu
 set -o pipefail
 set -x
 
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 envGroup=prod
 lockId=lockIdTest${RANDOM}
 lockId=lockIdIntegration0
-url="http://localhost:8081/environment-groups/${envGroup}/locks/${lockId}"
-echo $url
+url="${URL}${FRONTEND_PORT}/environment-groups/${envGroup}/locks/${lockId}"
+echo "$url"
 useSignature=false
 if ${useSignature}
 then
