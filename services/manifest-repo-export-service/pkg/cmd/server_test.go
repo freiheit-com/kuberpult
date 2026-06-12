@@ -264,7 +264,7 @@ func TestHandleOneTransformer(t *testing.T) {
 				return nil
 			})
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				actualTransformers, actualRows, actualError := HandleOneTransformer(ctx, transaction, dbHandler, nil, repo, 1)
+				actualTransformers, actualRows, _, actualError := HandleOneTransformer(ctx, transaction, dbHandler, nil, repo, 1)
 				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}

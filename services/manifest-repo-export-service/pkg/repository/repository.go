@@ -64,6 +64,13 @@ import (
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error
+	// ApplyWithCommitIds applies the transformers in order and returns, for each transformer, the
+	// hash of the commit it produced ("" if it produced none, e.g. a NoOp). The returned slice has
+	// one entry per input transformer, in order.
+	ApplyWithCommitIds(ctx context.Context, tx *sql.Tx, transformers ...Transformer) ([]string, error)
+	// ResetHardTo moves the working branch ref back to the given commit, discarding any commits made
+	// on top of it. A nil oid is a no-op (e.g. a brand-new repo with no branch ref yet).
+	ResetHardTo(ctx context.Context, oid *git.Oid) error
 	Push(ctx context.Context, pushAction func() error) error
 	PushTag(ctx context.Context, tag types.GitTag) error
 	ApplyTransformersInternal(ctx context.Context, transaction *sql.Tx, transformer Transformer) ([]string, *State, *TransformerResult, *TransformerBatchApplyError)
@@ -420,7 +427,9 @@ func PushTagsActionCallback(_ context.Context, pushOptions git.PushOptions, r *r
 
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
-func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sql.Tx) error {
+// ProcessQueueOnce applies a single transformer and returns the id of the commit it produced, or
+// nil if it produced no commit (e.g. a NoOp transformer).
+func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sql.Tx) (*git.Oid, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessQueueOnce")
 	defer span.Finish()
 
@@ -434,11 +443,14 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, t Transformer, tx *sq
 		return changes, nil
 	}
 
-	_, err := apply()
+	changes, err := apply()
 	if err != nil {
-		return fmt.Errorf("first apply failed, aborting: %v", err)
+		return nil, fmt.Errorf("first apply failed, aborting: %v", err)
 	}
-	return nil
+	if changes != nil && changes.Commits != nil {
+		return changes.Commits.Current, nil
+	}
+	return nil, nil
 }
 
 func (r *repository) PushRepo(ctx context.Context) error {
@@ -836,14 +848,49 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 }
 
 func (r *repository) Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error {
+	_, err := r.ApplyWithCommitIds(ctx, tx, transformers...)
+	return err
+}
+
+func (r *repository) ApplyWithCommitIds(ctx context.Context, tx *sql.Tx, transformers ...Transformer) ([]string, error) {
+	commitHashes := make([]string, 0, len(transformers))
 	for i := range transformers {
 		t := transformers[i]
-		err := r.ProcessQueueOnce(ctx, t, tx)
+		commitId, err := r.ProcessQueueOnce(ctx, t, tx)
 		if err != nil {
-			return err
+			return nil, err
+		}
+		// A NoOp transformer creates no commit; record an empty hash so the slice stays aligned
+		// one-to-one with the input transformers.
+		if commitId == nil {
+			commitHashes = append(commitHashes, "")
+		} else {
+			commitHashes = append(commitHashes, commitId.String())
 		}
 	}
-	return nil
+	return commitHashes, nil
+}
+
+func (r *repository) ResetHardTo(ctx context.Context, oid *git.Oid) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "ResetHardTo")
+	defer span.Finish()
+	if oid == nil {
+		// Nothing to reset to (e.g. a brand-new repo with no branch ref yet).
+		return nil
+	}
+	if _, err := r.repository.References.Create(fmt.Sprintf("refs/heads/%s", r.config.Branch), oid, true, "reset to pre-batch HEAD"); err != nil {
+		return err
+	}
+	obj, err := r.repository.Lookup(oid)
+	if err != nil {
+		return err
+	}
+	commit, err := obj.AsCommit()
+	if err != nil {
+		return err
+	}
+	//exhaustruct:ignore
+	return r.repository.ResetToCommit(commit, git.ResetSoft, &git.CheckoutOptions{Strategy: git.CheckoutForce})
 }
 
 // Push returns an 'error' for typing reasons, really it is always a git.GitError
