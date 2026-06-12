@@ -7025,11 +7025,6 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 	return nil
 }
 
-// cmpDiff is a type-safe wrapper around cmp.Diff (per CLAUDE.md: prefer cmpDiff over cmp.Diff).
-func cmpDiff[T any](want, got T, opts ...cmp.Option) string {
-	return cmp.Diff(want, got, opts...)
-}
-
 func TestDBReadEslEventBatch(t *testing.T) {
 	// only the count of events written and the read parameters vary per case.
 	type batchEntry struct {
@@ -7120,7 +7115,7 @@ func TestDBReadEslEventBatch(t *testing.T) {
 				for _, r := range rows {
 					actual = append(actual, batchEntry{EslVersion: r.EslVersion, EventType: r.EventType})
 				}
-				if diff := cmpDiff(tc.Expected, actual); diff != "" {
+				if diff := testutil.CmpDiff(tc.Expected, actual); diff != "" {
 					t.Errorf("batch mismatch (-want, +got):\n%s", diff)
 				}
 				return nil

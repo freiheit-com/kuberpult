@@ -210,18 +210,18 @@ func TestHandleOneTransformer(t *testing.T) {
 		metadata  db.ESLMetadata
 	}
 	tcs := []struct {
-		Name                string
-		withCutoff          *CutoffData
-		expectedError       error
-		expectedTransformer repository.Transformer
-		expectedRow         *db.EslEventRow
+		Name                 string
+		withCutoff           *CutoffData
+		expectedError        error
+		expectedTransformers []repository.Transformer
+		expectedRows         []*db.EslEventRow
 	}{
 		{
-			Name:                "does nothing when there is no read cutoff",
-			withCutoff:          nil,
-			expectedError:       nil,
-			expectedTransformer: nil,
-			expectedRow:         nil,
+			Name:                 "does nothing when there is no read cutoff",
+			withCutoff:           nil,
+			expectedError:        nil,
+			expectedTransformers: nil,
+			expectedRows:         nil,
 		},
 		{
 			Name: "finds the cutoff",
@@ -230,9 +230,9 @@ func TestHandleOneTransformer(t *testing.T) {
 				data:      nil,
 				metadata:  db.ESLMetadata{},
 			},
-			expectedError:       nil,
-			expectedTransformer: nil,
-			expectedRow:         nil,
+			expectedError:        nil,
+			expectedTransformers: nil,
+			expectedRows:         nil,
 		},
 	}
 	for _, tc := range tcs {
@@ -264,14 +264,14 @@ func TestHandleOneTransformer(t *testing.T) {
 				return nil
 			})
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				actualTransformer, actualRow, actualError := HandleOneTransformer(ctx, transaction, dbHandler, nil, repo)
+				actualTransformers, actualRows, actualError := HandleOneTransformer(ctx, transaction, dbHandler, nil, repo, 1)
 				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
-				if diff := cmp.Diff(tc.expectedTransformer, actualTransformer); diff != "" {
+				if diff := cmp.Diff(tc.expectedTransformers, actualTransformers); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
-				if diff := cmp.Diff(tc.expectedRow, actualRow); diff != "" {
+				if diff := cmp.Diff(tc.expectedRows, actualRows); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 
@@ -475,7 +475,7 @@ func TestProcessOneEvent(t *testing.T) {
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
-				actualSleepDuration, actualError := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true)
+				actualSleepDuration, actualError := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1)
 				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
@@ -562,11 +562,6 @@ func DBReadGitSyncStatusAll(ctx context.Context, h *db.DBHandler, tx *sql.Tx, id
 		return nil, fmt.Errorf("row has error: %v", err)
 	}
 	return allCombinations, nil
-}
-
-// cmpDiff is a type-safe wrapper around cmp.Diff (per CLAUDE.md: prefer cmpDiff over cmp.Diff).
-func cmpDiff[T any](want, got T, opts ...cmp.Option) string {
-	return cmp.Diff(want, got, opts...)
 }
 
 // makeEslEvents builds esl event rows with consecutive eslVersions starting at 1 and the given
@@ -661,7 +656,7 @@ func TestSelectBatch(t *testing.T) {
 			t.Parallel()
 			batch := selectBatch(makeEslEvents(tc.Input...), tc.MaxBatchSize)
 			actual := shapeOf(batch)
-			if diff := cmpDiff(tc.Expected, actual); diff != "" {
+			if diff := testutil.CmpDiff(tc.Expected, actual); diff != "" {
 				t.Errorf("batch mismatch (-want, +got):\n%s", diff)
 			}
 			// Invariant: returned versions are strictly contiguous and ascending.
@@ -691,6 +686,70 @@ func TestSelectBatchMaxSizeBoundary(t *testing.T) {
 			batch := selectBatch(makeEslEvents(create, create, create), tc.MaxBatchSize)
 			if len(batch) != 1 {
 				t.Errorf("expected batch of 1 (== today's behavior), got %d", len(batch))
+			}
+		})
+	}
+}
+
+func TestBuildTransformerBatch(t *testing.T) {
+	created := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+	// buildTransformer sets EslVersion/CreationTimestamp from the row and resolves the concrete
+	// transformer type from the event type; we project to those observable properties so the
+	// assertion compares Go objects rather than unexported transformer internals.
+	type transformerShape struct {
+		GoType     string
+		EventType  db.EventType
+		EslVersion db.TransformerID
+		Created    time.Time
+	}
+	tcs := []struct {
+		Name     string
+		Input    []db.EventType
+		Expected []transformerShape
+	}{
+		{
+			Name:  "batch of CreateApplicationVersion events",
+			Input: []db.EventType{db.EvtCreateApplicationVersion, db.EvtCreateApplicationVersion},
+			Expected: []transformerShape{
+				{"*repository.CreateApplicationVersion", db.EvtCreateApplicationVersion, 1, created},
+				{"*repository.CreateApplicationVersion", db.EvtCreateApplicationVersion, 2, created},
+			},
+		},
+		{
+			Name:  "mixed types build the matching concrete type in order",
+			Input: []db.EventType{db.EvtDeployApplicationVersion, db.EvtCreateEnvironmentLock},
+			Expected: []transformerShape{
+				{"*repository.DeployApplicationVersion", db.EvtDeployApplicationVersion, 1, created},
+				{"*repository.CreateEnvironmentLock", db.EvtCreateEnvironmentLock, 2, created},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			actual := make([]transformerShape, 0, len(tc.Input))
+			for i, et := range tc.Input {
+				//exhaustruct:ignore
+				row := &db.EslEventRow{
+					EslVersion: db.EslVersion(i + 1),
+					EventType:  et,
+					EventJson:  "{}",
+					Created:    created,
+				}
+				transformer, err := buildTransformer(ctx, row)
+				if err != nil {
+					t.Fatalf("buildTransformer error for %s: %v", et, err)
+				}
+				actual = append(actual, transformerShape{
+					GoType:     fmt.Sprintf("%T", transformer),
+					EventType:  transformer.GetDBEventType(),
+					EslVersion: transformer.GetEslVersion(),
+					Created:    transformer.GetCreationTimestamp(),
+				})
+			}
+			if diff := testutil.CmpDiff(tc.Expected, actual); diff != "" {
+				t.Errorf("transformer construction mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
