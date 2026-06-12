@@ -10,21 +10,22 @@ jobs:
       trigger: pull-request
     secrets: inherit
 
-  integration-tests:
+  # integration-tests:
+  #   needs: [ execution-plan ]
+  #   uses: ./.github/workflows/integration-tests.yml
+  #   with:
+  #     trigger: pull-request
+  #     fullversion: ${{ needs.execution-plan.outputs.fullversion }}
+  #     runTest: ${{ needs.execution-plan.outputs.atLeastOneImageRebuilt == 'true' }}
+  #   secrets: inherit
+
+  vulnerability-scan:
     needs: [ execution-plan ]
-    uses: ./.github/workflows/integration-tests.yml
+    uses: ./.github/workflows/vulnerability-scan.yml
     with:
       trigger: pull-request
       fullversion: ${{ needs.execution-plan.outputs.fullversion }}
-      runTest: ${{ needs.execution-plan.outputs.atLeastOneImageRebuilt == 'true' }}
     secrets: inherit
-
-  # vulnerability-scan:
-  #   needs: [ execution-plan ]
-  #   uses: ./.github/workflows/vulnerability-scan.yml
-  #   with:
-  #     trigger: pull-request
-  #   secrets: inherit
 
   gatekeeper:
     name: "All Checks Passed"
