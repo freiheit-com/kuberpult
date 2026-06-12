@@ -495,6 +495,69 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 	return row, nil
 }
 
+// DBReadEslEventBatch returns up to maxBatchSize consecutive esl events with eslVersion > cutoff,
+// in ascending eslVersion order. When cutoff is nil, it starts at the beginning of the table.
+//
+// NOTE: this deliberately does NOT filter by event_type. The "strictly contiguous, never skip an
+// interleaved event" guarantee that the batching logic relies on depends on this read returning ALL
+// events > cutoff in ascending order; selecting a same-type prefix is the caller's job (selectBatch),
+// not the query's. A WHERE event_type = ... filter would silently skip interleaved events while still
+// looking contiguous.
+func (h *DBHandler) DBReadEslEventBatch(ctx context.Context, tx *sql.Tx, cutoff *EslVersion, maxBatchSize int) (_ []*EslEventRow, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslEventBatch")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	if maxBatchSize < 1 {
+		maxBatchSize = 1
+	}
+	// When there is no cutoff yet we have to start from the beginning of time, i.e. eslVersion >= 0.
+	// All valid esl versions are > 0, so a cutoff of 0 is equivalent to "no cutoff".
+	var fromVersion EslVersion = 0
+	if cutoff != nil {
+		fromVersion = *cutoff
+	}
+	selectQuery := h.AdaptQuery(`
+		SELECT eslVersion, created, event_type, json, trace_id, span_id
+		FROM ` + eslTable + `
+		WHERE eslVersion > (?)
+		ORDER BY eslVersion ASC
+		LIMIT (?);
+	`)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		fromVersion,
+		maxBatchSize,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
+	}
+	defer closeRowsAndLog(rows, ctx, "DBReadEslEventBatch")
+	result := make([]*EslEventRow, 0, maxBatchSize)
+	for rows.Next() {
+		zeroTrace := uint64(0)
+		zeroSpan := uint64(0)
+		row := &EslEventRow{
+			EslVersion: 0,
+			Created:    time.Unix(0, 0),
+			EventType:  "",
+			EventJson:  "",
+			TraceId:    &zeroTrace,
+			SpanId:     &zeroSpan,
+		}
+		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
+		if err != nil {
+			return nil, fmt.Errorf("event_sourcing_light: Error scanning row from DB. Error: %w", err)
+		}
+		result = append(result, row)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("event_sourcing_light: Error iterating rows from DB. Error: %w", err)
+	}
+	return result, nil
+}
+
 func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *EslVersion) (*EslEventRow, error) {
 	if eslVersion == nil {
 		logging.Info(ctx, "no cutoff found, starting at the beginning of time.")
