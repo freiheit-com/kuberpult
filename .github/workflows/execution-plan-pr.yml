@@ -10,14 +10,14 @@ jobs:
       trigger: pull-request
     secrets: inherit
 
-  # integration-tests:
-  #   needs: [ execution-plan ]
-  #   uses: ./.github/workflows/integration-tests.yml
-  #   with:
-  #     trigger: pull-request
-  #     fullversion: ${{ needs.execution-plan.outputs.fullversion }}
-  #     runTest: ${{ needs.execution-plan.outputs.atLeastOneImageRebuilt == 'true' }}
-  #   secrets: inherit
+  integration-tests:
+    needs: [ execution-plan ]
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      trigger: pull-request
+      fullversion: ${{ needs.execution-plan.outputs.fullversion }}
+      runTest: ${{ needs.execution-plan.outputs.atLeastOneImageRebuilt == 'true' }}
+    secrets: inherit
 
   vulnerability-scan:
     needs: [ execution-plan ]
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - execution-plan
-      #- integration-tests
+      - integration-tests
       - vulnerability-scan
 
     # always() ensures this job runs even if a previous job fails or is skipped.

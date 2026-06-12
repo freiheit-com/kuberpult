@@ -74,7 +74,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.semrel.outputs.version }}
-# TODO: nice to have
 #      - name: Append vulnerability reports to release
 #        run: |
 #          echo $VERSION

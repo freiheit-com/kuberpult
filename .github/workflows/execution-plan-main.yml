@@ -33,9 +33,11 @@ jobs:
     uses: ./.github/workflows/release.yml
     secrets: inherit
 
-#  vulnerability-scan:
-#    needs: [execution-plan]
-#    uses: ./.github/workflows/vulnerability-scan.yml
-#    with:
-#      trigger: main
-#    secrets: inherit
+  vulnerability-scan:
+    needs: [ execution-plan ]
+    uses: ./.github/workflows/vulnerability-scan.yml
+    with:
+      trigger: main
+      fullversion: ${{ needs.execution-plan.outputs.fullversion }}
+    secrets: inherit
+
