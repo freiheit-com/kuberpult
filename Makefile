@@ -187,13 +187,6 @@ commitlint: $(COMMIT_MSG_FILE)
 $(COMMIT_MSG_FILE):
 	git log -1 --pretty=%B > $(COMMIT_MSG_FILE)
 
-.PHONY: pull-trivy check-secrets
-pull-trivy:
-	docker pull aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256)
-
-check-secrets:
-	docker run aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256) fs --scanners=secret .
-
 .git/hooks/pre-commit: hooks/pre-commit
 	cp $< $@
 
