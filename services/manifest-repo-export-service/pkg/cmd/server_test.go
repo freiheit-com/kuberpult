@@ -339,6 +339,7 @@ func SetupRepositoryTestWithDB(t *testing.T, ctx context.Context) (repository.Re
 		CommitterEmail:      "kuberpult@freiheit.com",
 		CommitterName:       "kuberpult",
 		ArgoCdGenerateFiles: true,
+		ArgoRenderOptions:   &argocd.RenderOptions{RenderApps: true},
 		DBHandler:           dbHandler,
 		Branch:              "master",
 	}
@@ -832,6 +833,328 @@ func TestProcessOneEventBatchFailureFallback(t *testing.T) {
 				}
 				return nil
 			})
+		})
+	}
+}
+
+// pushCountingRepo wraps a Repository to count how many times PushRepo is called, so a test can
+// assert a batch results in exactly one push.
+type pushCountingRepo struct {
+	repository.Repository
+	pushCount int
+}
+
+func (p *pushCountingRepo) PushRepo(ctx context.Context) error {
+	p.pushCount++
+	return p.Repository.PushRepo(ctx)
+}
+
+// seedCommittingCreateApp writes a CreateApplicationVersion esl event plus the DB state (app,
+// release, and — when withDeployment is true — a deployment keyed to the event's eslVersion) needed
+// for the export to actually deploy and commit when it replays the event. Without a deployment the
+// event replays as a NoOp (R-3). Events get sequential esl versions, so call this in order. Returns
+// the assigned eslVersion.
+func seedCommittingCreateApp(ctx context.Context, t *testing.T, dbHandler *db.DBHandler, tx *sql.Tx, app types.AppName, env types.EnvName, withDeployment bool) db.EslVersion {
+	const author = "author"
+	const email = "email@example.com"
+	//exhaustruct:ignore
+	cav := &repository.CreateApplicationVersion{
+		Application: string(app),
+		Manifests:   map[types.EnvName]string{env: "manifest-" + string(app)},
+		Version:     1,
+	}
+	if err := dbHandler.DBWriteEslEventInternal(ctx, db.EvtCreateApplicationVersion, tx, cav, db.ESLMetadata{AuthorName: author, AuthorEmail: email}); err != nil {
+		t.Fatalf("write esl event: %v", err)
+	}
+	row, err := dbHandler.DBReadEslEventInternal(ctx, tx, false) // false => last (highest) row
+	if err != nil {
+		t.Fatalf("read esl event: %v", err)
+	}
+	eslVersion := row.EslVersion
+	if err := dbHandler.DBInsertOrUpdateApplication(ctx, tx, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"}, types.ArgoBracketName(app)); err != nil {
+		t.Fatalf("insert app: %v", err)
+	}
+	v := uint64(1)
+	if err := dbHandler.DBUpdateOrCreateRelease(ctx, tx, db.DBReleaseWithMetaData{
+		ReleaseNumbers: types.ReleaseNumbers{Version: &v, Revision: 0},
+		App:            app,
+		Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{env: "manifest-" + string(app)}},
+	}); err != nil {
+		t.Fatalf("create release: %v", err)
+	}
+	if withDeployment {
+		if err := dbHandler.DBUpdateOrCreateDeployment(ctx, tx, db.Deployment{
+			App:            app,
+			Env:            env,
+			ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+			Metadata:       db.DeploymentMetadata{DeployedByEmail: email, DeployedByName: author},
+			TransformerID:  db.TransformerID(eslVersion),
+		}); err != nil {
+			t.Fatalf("create deployment: %v", err)
+		}
+	}
+	return eslVersion
+}
+
+// TestProcessOneEventBatchedPushEndToEnd drives ProcessOneEvent over a batch of adjacent
+// CreateApplicationVersion events and asserts the batch is collapsed into a single push, the cutoff
+// advances to the highest version, the expected number of commits are created (NoOp events produce
+// none, R-3) and every batched app ends up SYNCED (Tasks 11 / 11b).
+func TestProcessOneEventBatchedPushEndToEnd(t *testing.T) {
+	const minSleep = time.Nanosecond * 1
+	const maxSleep = time.Nanosecond * 1000
+	const env = types.EnvName("production")
+	tcs := []struct {
+		Name             string
+		deploys          []bool // one entry per app in the batch; true => deploys (commits), false => NoOp
+		expectedCommits  int
+		expectedCutoff   db.EslVersion
+		expectedPushes   int
+	}{
+		{
+			Name:            "batch of three releases, one push, three commits",
+			deploys:         []bool{true, true, true},
+			expectedCommits: 3,
+			expectedCutoff:  3,
+			expectedPushes:  1,
+		},
+		{
+			Name:            "NoOp in the middle still one push, two commits",
+			deploys:         []bool{true, false, true},
+			expectedCommits: 2,
+			expectedCutoff:  3,
+			expectedPushes:  1,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			baseRepo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+			repo := &pushCountingRepo{Repository: baseRepo}
+
+			envConfig := config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+				ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "prod-server"}},
+			}
+			// Seed the env (DB) and the batch's apps/releases/deployments, then apply the env to git
+			// so there is a base commit for the batch to build on.
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteEnvironment(ctx, transaction, env, envConfig); err != nil {
+					t.Fatalf("write env: %v", err)
+				}
+				for i, deploy := range tc.deploys {
+					seedCommittingCreateApp(ctx, t, dbHandler, transaction, types.AppName(fmt.Sprintf("app-%d", i+1)), env, deploy)
+				}
+				return nil
+			})
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return baseRepo.Apply(ctx, transaction, &repository.CreateEnvironment{
+					Environment:         env,
+					Config:              envConfig,
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "author", AuthorEmail: "email@example.com"},
+				})
+			})
+
+			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
+			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, len(tc.deploys)); err != nil {
+				t.Fatalf("ProcessOneEvent: %v", err)
+			}
+
+			if repo.pushCount != tc.expectedPushes {
+				t.Errorf("expected %d push(es), got %d", tc.expectedPushes, repo.pushCount)
+			}
+			// One commit_transaction_timestamps row is written per commit (Task 4 / Task 14), so the
+			// row count is the number of commits the batch produced (NoOp events produce none, R-3).
+			if got := countCommitTimestamps(ctx, t, dbHandler); got != tc.expectedCommits {
+				t.Errorf("expected %d commit-timestamp rows (= commits), got %d", tc.expectedCommits, got)
+			}
+			_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				cutoff, err := db.DBReadCutoff(dbHandler, ctx, transaction)
+				if err != nil {
+					t.Fatalf("read cutoff: %v", err)
+				}
+				if cutoff == nil || *cutoff != tc.expectedCutoff {
+					t.Errorf("expected cutoff %d, got %v", tc.expectedCutoff, cutoff)
+				}
+				return nil
+			})
+		})
+	}
+}
+
+// countCommitTimestamps returns the number of rows in commit_transaction_timestamps, which equals
+// the number of commits the export has produced (one row written per commit).
+func countCommitTimestamps(ctx context.Context, t *testing.T, dbHandler *db.DBHandler) int {
+	t.Helper()
+	count := 0
+	if err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		row := transaction.QueryRowContext(ctx, "SELECT COUNT(*) FROM commit_transaction_timestamps;")
+		return row.Scan(&count)
+	}); err != nil {
+		t.Fatalf("count commit_transaction_timestamps: %v", err)
+	}
+	return count
+}
+
+// failingPushRepo wraps a Repository and makes PushRepo fail while fail is true, to exercise the
+// push-failure path. It also counts push attempts.
+type failingPushRepo struct {
+	repository.Repository
+	fail      bool
+	pushCount int
+}
+
+func (f *failingPushRepo) PushRepo(ctx context.Context) error {
+	f.pushCount++
+	if f.fail {
+		return fmt.Errorf("simulated push failure")
+	}
+	return f.Repository.PushRepo(ctx)
+}
+
+// TestProcessOneEventBatchPushFailureReprocesses asserts that when a batch's push fails the cutoff
+// does NOT advance, and once the push recovers the whole batch reprocesses cleanly (Task 14b / R-6).
+func TestProcessOneEventBatchPushFailureReprocesses(t *testing.T) {
+	const minSleep = time.Nanosecond * 1
+	const maxSleep = time.Nanosecond * 1000
+	const env = types.EnvName("production")
+	ctx := context.Background()
+	baseRepo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+	repo := &failingPushRepo{Repository: baseRepo, fail: true}
+
+	envConfig := config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+		ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "prod-server"}},
+	}
+	_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		if err := dbHandler.DBWriteEnvironment(ctx, transaction, env, envConfig); err != nil {
+			t.Fatalf("write env: %v", err)
+		}
+		seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-1", env, true)
+		seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-2", env, true)
+		return nil
+	})
+	_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		return baseRepo.Apply(ctx, transaction, &repository.CreateEnvironment{
+			Environment:         env,
+			Config:              envConfig,
+			TransformerMetadata: repository.TransformerMetadata{AuthorName: "author", AuthorEmail: "email@example.com"},
+		})
+	})
+
+	// First iteration: the push fails, so the cutoff must not advance and no commit timestamps are
+	// written.
+	sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
+	if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 2); err != nil {
+		t.Fatalf("ProcessOneEvent (failing push): %v", err)
+	}
+	_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		cutoff, err := db.DBReadCutoff(dbHandler, ctx, transaction)
+		if err != nil {
+			t.Fatalf("read cutoff: %v", err)
+		}
+		if cutoff != nil {
+			t.Errorf("expected cutoff to NOT advance after a failed push, got %v", *cutoff)
+		}
+		return nil
+	})
+	if got := countCommitTimestamps(ctx, t, dbHandler); got != 0 {
+		t.Errorf("expected no commit-timestamp rows after a failed push, got %d", got)
+	}
+
+	// Recover: the next iteration reprocesses the whole batch cleanly.
+	repo.fail = false
+	sleepDuration.Reset()
+	if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 2); err != nil {
+		t.Fatalf("ProcessOneEvent (recovered push): %v", err)
+	}
+	_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		cutoff, err := db.DBReadCutoff(dbHandler, ctx, transaction)
+		if err != nil {
+			t.Fatalf("read cutoff: %v", err)
+		}
+		if cutoff == nil || *cutoff != 2 {
+			t.Errorf("expected cutoff 2 after recovery, got %v", cutoff)
+		}
+		return nil
+	})
+	if got := countCommitTimestamps(ctx, t, dbHandler); got != 2 {
+		t.Errorf("expected 2 commit-timestamp rows after recovery, got %d", got)
+	}
+}
+
+// TestProcessOneEventMixedSequence asserts the loop splits a mixed sequence correctly: a run of
+// CreateApplicationVersion events is batched into one push, a following non-Create event is processed
+// on its own, and a trailing Create is processed separately (Task 12).
+func TestProcessOneEventMixedSequence(t *testing.T) {
+	const minSleep = time.Nanosecond * 1
+	const maxSleep = time.Nanosecond * 1000
+	const env = types.EnvName("production")
+	const env2 = types.EnvName("staging")
+	ctx := context.Background()
+	baseRepo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+	repo := &pushCountingRepo{Repository: baseRepo}
+
+	envConfig := config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+		ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "prod-server"}},
+	}
+	env2Config := config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+		ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "staging-server"}},
+	}
+	// Sequence: Create(app-1), Create(app-2), CreateEnvironment(staging), Create(app-3).
+	_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		if err := dbHandler.DBWriteEnvironment(ctx, transaction, env, envConfig); err != nil {
+			t.Fatalf("write env: %v", err)
+		}
+		seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-1", env, true)
+		seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-2", env, true)
+		// a non-Create event between the runs of creates
+		if err := dbHandler.DBWriteEnvironment(ctx, transaction, env2, env2Config); err != nil {
+			t.Fatalf("write env2: %v", err)
+		}
+		//exhaustruct:ignore
+		if err := dbHandler.DBWriteEslEventInternal(ctx, db.EvtCreateEnvironment, transaction, &repository.CreateEnvironment{Environment: env2, Config: env2Config}, db.ESLMetadata{AuthorName: "author", AuthorEmail: "email@example.com"}); err != nil {
+			t.Fatalf("write CreateEnvironment esl event: %v", err)
+		}
+		seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-3", env, true)
+		return nil
+	})
+	_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		return baseRepo.Apply(ctx, transaction, &repository.CreateEnvironment{
+			Environment:         env,
+			Config:              envConfig,
+			TransformerMetadata: repository.TransformerMetadata{AuthorName: "author", AuthorEmail: "email@example.com"},
+		})
+	})
+
+	// iteration -> expected total push count after it and expected cutoff after it
+	steps := []struct {
+		expectedPushes int
+		expectedCutoff db.EslVersion
+	}{
+		{expectedPushes: 1, expectedCutoff: 2}, // batches the two creates
+		{expectedPushes: 2, expectedCutoff: 3}, // the CreateEnvironment alone
+		{expectedPushes: 3, expectedCutoff: 4}, // the trailing create
+	}
+	sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
+	for i, step := range steps {
+		if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 10); err != nil {
+			t.Fatalf("ProcessOneEvent iteration %d: %v", i, err)
+		}
+		if repo.pushCount != step.expectedPushes {
+			t.Errorf("after iteration %d expected %d total pushes, got %d", i, step.expectedPushes, repo.pushCount)
+		}
+		_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+			cutoff, err := db.DBReadCutoff(dbHandler, ctx, transaction)
+			if err != nil {
+				t.Fatalf("read cutoff: %v", err)
+			}
+			if cutoff == nil || *cutoff != step.expectedCutoff {
+				t.Errorf("after iteration %d expected cutoff %d, got %v", i, step.expectedCutoff, cutoff)
+			}
+			return nil
 		})
 	}
 }
