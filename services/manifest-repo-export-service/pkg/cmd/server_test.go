@@ -905,11 +905,11 @@ func TestProcessOneEventBatchedPushEndToEnd(t *testing.T) {
 	const maxSleep = time.Nanosecond * 1000
 	const env = types.EnvName("production")
 	tcs := []struct {
-		Name             string
-		deploys          []bool // one entry per app in the batch; true => deploys (commits), false => NoOp
-		expectedCommits  int
-		expectedCutoff   db.EslVersion
-		expectedPushes   int
+		Name            string
+		deploys         []bool // one entry per app in the batch; true => deploys (commits), false => NoOp
+		expectedCommits int
+		expectedCutoff  db.EslVersion
+		expectedPushes  int
 	}{
 		{
 			Name:            "batch of three releases, one push, three commits",

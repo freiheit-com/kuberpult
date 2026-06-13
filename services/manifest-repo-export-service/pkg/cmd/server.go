@@ -183,7 +183,7 @@ func Run(ctx context.Context) error {
 	logging.Info(ctx, "eslProcessingTimeSeconds", zap.Int("eslProcessingTimeSeconds", int(eslProcessingIdleTimeSeconds)))
 
 	// maxExportBatchSize caps how many adjacent CreateApplicationVersion events are processed in a
-	// single push. Setting it to 1 reproduces exactly the old single-event behavior (safe rollback
+	// single push. Setting it to 1 reproduces exactly the old single-event behaviour (safe rollback
 	// switch). The cap must keep a batch's single push comfortably within
 	// KUBERPULT_NETWORK_TIMEOUT_SECONDS (see below); a batch still transfers all its commits' objects,
 	// so an oversized batch can trip the push timeout and force the whole batch to reprocess
@@ -800,12 +800,13 @@ func measureDelays(ctx context.Context, ddMetrics statsd.ClientInterface, delayS
 		}
 	}
 }
+
 // HandleOneTransformer reads the next batch of esl events to process (a contiguous run of
 // CreateApplicationVersion events, or a single event of any other type — see selectBatch), builds a
 // transformer for each, and applies the whole batch in a single repo.Apply. It returns the built
 // transformers together with the esl rows of the batch they came from, so the caller can write one
 // push + one cutoff for the batch. The returned esl rows are also populated on error so the caller
-// can react to the failure (e.g. mark it failed). A batch of size 1 reproduces today's behavior.
+// can react to the failure (e.g. mark it failed). A batch of size 1 reproduces today's behaviour.
 // HandleOneTransformer additionally returns, aligned one-to-one with the returned esl rows, the
 // hash of the commit each event produced ("" for a NoOp event that produced none), so the caller can
 // write one commit-transaction-timestamp per commit.
@@ -979,12 +980,12 @@ func getTransformer(_ context.Context, eslEventType db.EventType) (repository.Tr
 // The rule:
 //   - empty input -> empty batch.
 //   - if the first unprocessed event is not a CreateApplicationVersion -> batch of exactly 1
-//     (today's single-event behavior, unchanged).
+//     (today's single-event behaviour, unchanged).
 //   - if the first unprocessed event is a CreateApplicationVersion -> the maximal contiguous prefix
 //     of CreateApplicationVersion events, capped at maxBatchSize. We stop at the first event of any
 //     other type.
 //
-// maxBatchSize < 1 is treated as 1, so a batch size of 0/1/negative reproduces today's behavior and
+// maxBatchSize < 1 is treated as 1, so a batch size of 0/1/negative reproduces today's behaviour and
 // acts as a safe rollback switch.
 func selectBatch(events []*db.EslEventRow, maxBatchSize int) []*db.EslEventRow {
 	if maxBatchSize < 1 {
