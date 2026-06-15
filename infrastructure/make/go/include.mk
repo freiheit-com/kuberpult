@@ -60,7 +60,7 @@ docker: # no dependencies here!
 release:
 	test -n "$(MAIN_PATH)" || exit 0; docker push $(IMAGE_NAME)
 
-release-main:
+release-main: release
 	@echo "Tagging the PR image as main image"
 ifndef SKIP_UNVERSIONED_BUILDS
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
