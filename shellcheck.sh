@@ -20,7 +20,7 @@ do
         continue
     fi
 
-    if ! shellcheck -f "$format" "$shell_script"
+    if ! shellcheck -x -P SCRIPTDIR -f "$format" "$shell_script"
     then
         RET_CODE=1
         if [ "$format" = "quiet" ]; then

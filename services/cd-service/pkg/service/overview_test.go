@@ -2960,7 +2960,7 @@ func TestDeploymentHistory(t *testing.T) {
 					if envName != tc.Request.Environment {
 						continue
 					}
-// Note that we only get precision down to the second here
+					// Note that we only get precision down to the second here
 					line := fmt.Sprintf("%s,%s", createdAt.Format(time.RFC3339), tc.ExpectedCsvLines[writtenCsvLines])
 					expectedLinesWithCreated = append(expectedLinesWithCreated, line)
 					writtenCsvLines++
@@ -3056,4 +3056,668 @@ func getOverviewIgnoredTypes() cmp.Option {
 		api.OverviewApplication{},
 		api.Deployment{},
 		api.Locks{})
+}
+
+type mockStreamChangedAppsServer struct {
+	grpc.ServerStream
+	Results chan *api.GetChangedAppsResponse
+	Ctx     context.Context
+}
+
+func (m *mockStreamChangedAppsServer) Send(msg *api.GetChangedAppsResponse) error {
+	m.Results <- msg
+	return nil
+}
+
+func (m *mockStreamChangedAppsServer) Context() context.Context {
+	return m.Ctx
+}
+
+func TestCombineBracketDeployments(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	earlier := now.Add(-1 * time.Hour)
+
+	app1 := &api.GetAppDetailsResponse{
+		Application: &api.Application{
+			Name: "aaa",
+			Releases: []*api.Release{
+				{Version: 1, SourceCommitId: "commit-aaa-1"},
+				{Version: 2, SourceCommitId: "commit-aaa-2"},
+			},
+		},
+		Deployments: map[string]*api.Deployment{
+			"dev": {
+				Version: 1,
+				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+					DeployTime: timestamppb.New(earlier),
+				},
+			},
+		},
+	}
+	app2 := &api.GetAppDetailsResponse{
+		Application: &api.Application{
+			Name: "bbb",
+			Releases: []*api.Release{
+				{Version: 3, SourceCommitId: "commit-bbb-3"},
+			},
+		},
+		Deployments: map[string]*api.Deployment{
+			"dev": {
+				Version: 3,
+				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+					DeployTime: timestamppb.New(now),
+				},
+			},
+			// "staging" only in bbb, not in aaa
+			"staging": {
+				Version: 3,
+				DeploymentMetaData: &api.Deployment_DeploymentMetaData{
+					DeployTime: timestamppb.New(now),
+				},
+			},
+		},
+	}
+	app3 := &api.GetAppDetailsResponse{
+		Application: &api.Application{
+			Name: "ccc",
+			Releases: []*api.Release{
+				{Version: 2, SourceCommitId: "commit-ccc-2"},
+			},
+		},
+		Deployments: map[string]*api.Deployment{
+			// ccc not deployed in "dev"
+		},
+	}
+
+	tcs := []struct {
+		Name             string
+		Apps             []*api.GetAppDetailsResponse
+		BracketEnvs      []string
+		WantVersions     map[string]string
+		WantCommit       map[string]string
+		WantDeployedEnvs []string
+	}{
+		{
+			Name:        "combines versions from sorted apps, uses latest deployedAt and commit",
+			Apps:        []*api.GetAppDetailsResponse{app1, app2, app3},
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": "1:3:0:", // aaa→1, bbb→3, ccc→0 (not deployed)
+			},
+			WantCommit: map[string]string{
+				"dev": "commit-bbb-3", // bbb has latest deploy_time
+			},
+			WantDeployedEnvs: []string{"dev"},
+		},
+		{
+			Name:        "sorts apps by name even when given in reverse order",
+			Apps:        []*api.GetAppDetailsResponse{app3, app2, app1}, // ccc, bbb, aaa — reversed
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": "1:3:0:", // sorted: aaa→1, bbb→3, ccc→0
+			},
+			WantCommit: map[string]string{
+				"dev": "commit-bbb-3",
+			},
+			WantDeployedEnvs: []string{"dev"},
+		},
+		{
+			Name:        "only includes bracket-enabled envs, not staging",
+			Apps:        []*api.GetAppDetailsResponse{app1, app2},
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": "1:3:",
+			},
+			WantCommit: map[string]string{
+				"dev": "commit-bbb-3",
+			},
+			WantDeployedEnvs: []string{"dev"},
+		},
+		{
+			Name:             "no bracket envs returns empty map",
+			Apps:             []*api.GetAppDetailsResponse{app1, app2},
+			BracketEnvs:      []string{},
+			WantVersions:     map[string]string{},
+			WantCommit:       map[string]string{},
+			WantDeployedEnvs: []string{},
+		},
+		{
+			Name:        "single app with no deployment returns BracketVersionDelete (per-env existence rule)",
+			Apps:        []*api.GetAppDetailsResponse{app3}, // ccc has no dev deployment
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": string(types.BracketVersionDelete),
+			},
+			WantCommit:       map[string]string{"dev": ""},
+			WantDeployedEnvs: []string{"dev"},
+		},
+		{
+			Name:        "all apps with no deployment returns BracketVersionDelete (per-env existence rule)",
+			Apps:        []*api.GetAppDetailsResponse{app3, app3}, // both have no dev deployment
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": string(types.BracketVersionDelete),
+			},
+			WantCommit:       map[string]string{"dev": ""},
+			WantDeployedEnvs: []string{"dev"},
+		},
+		{
+			Name:        "no apps in bracket env returns BracketVersionDelete sentinel",
+			Apps:        []*api.GetAppDetailsResponse{},
+			BracketEnvs: []string{"dev"},
+			WantVersions: map[string]string{
+				"dev": string(types.BracketVersionDelete),
+			},
+			WantCommit:       map[string]string{"dev": ""},
+			WantDeployedEnvs: []string{"dev"},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			result := combineBracketDeployments(tc.Apps, tc.BracketEnvs)
+			if len(result) != len(tc.WantDeployedEnvs) {
+				t.Errorf("expected %d envs, got %d: %v", len(tc.WantDeployedEnvs), len(result), result)
+			}
+			for _, env := range tc.WantDeployedEnvs {
+				dep, ok := result[env]
+				if !ok {
+					t.Errorf("expected env %q in result", env)
+					continue
+				}
+				if dep.Version != tc.WantVersions[env] {
+					t.Errorf("env %q: version = %q, want %q", env, dep.Version, tc.WantVersions[env])
+				}
+				if dep.SourceCommitId != tc.WantCommit[env] {
+					t.Errorf("env %q: source_commit_id = %q, want %q", env, dep.SourceCommitId, tc.WantCommit[env])
+				}
+			}
+		})
+	}
+}
+
+func TestStreamChangedAppsWithBrackets(t *testing.T) {
+	tcs := []struct {
+		Name                         string
+		BracketEnv                   string
+		ExperimentalBracketsClusters []string
+		WantBrackets                 bool
+		WantAppHasBracketEnv         bool
+	}{
+		{
+			Name:                         "brackets enabled: response has changed_brackets and app strips bracket env",
+			BracketEnv:                   "development",
+			ExperimentalBracketsClusters: []string{"development"},
+			WantBrackets:                 true,
+			WantAppHasBracketEnv:         false,
+		},
+		{
+			Name:                         "brackets disabled: response has no changed_brackets and app keeps all envs",
+			BracketEnv:                   "development",
+			ExperimentalBracketsClusters: []string{},
+			WantBrackets:                 false,
+			WantAppHasBracketEnv:         true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			shutdown := make(chan struct{}, 1)
+			repo, err := setupRepositoryTestWithDB(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx := testutilauth.MakeTestContext()
+			bracketEnv := types.EnvName(tc.BracketEnv)
+
+			transformers := []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: bracketEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application:    "app-a",
+					Version:        1,
+					Manifests:      map[types.EnvName]string{bracketEnv: "manifest-a"},
+					SourceCommitId: "aaaa000100000000000000000000000000000000",
+					ArgoBracket:    "bracket-one",
+				},
+				&repository.CreateApplicationVersion{
+					Application:    "app-b",
+					Version:        1,
+					Manifests:      map[types.EnvName]string{bracketEnv: "manifest-b"},
+					SourceCommitId: "bbbb000100000000000000000000000000000000",
+					ArgoBracket:    "bracket-one",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "app-a",
+					Environment: bracketEnv,
+					Version:     1,
+				},
+				&repository.DeployApplicationVersion{
+					Application: "app-b",
+					Environment: bracketEnv,
+					Version:     1,
+				},
+			}
+			for _, tr := range transformers {
+				if err := repo.Apply(ctx, tr); err != nil {
+					t.Fatalf("Apply %T: %v", tr, err)
+				}
+			}
+
+			svc := &OverviewServiceServer{
+				Repository:                   repo,
+				Shutdown:                     shutdown,
+				DBHandler:                    repo.State().DBHandler,
+				Context:                      ctx,
+				ExperimentalBracketsClusters: tc.ExperimentalBracketsClusters,
+			}
+
+			resultCh := make(chan *api.GetChangedAppsResponse, 1)
+			mockStream := &mockStreamChangedAppsServer{
+				Results: resultCh,
+				Ctx:     ctx,
+			}
+
+			go func() {
+				_ = svc.StreamChangedApps(&api.GetChangedAppsRequest{}, mockStream)
+			}()
+
+			var response *api.GetChangedAppsResponse
+			select {
+			case response = <-resultCh:
+			case <-time.After(10 * time.Second):
+				t.Fatal("timed out waiting for StreamChangedApps response")
+			}
+			close(shutdown)
+
+			// Check bracket presence
+			if tc.WantBrackets {
+				if len(response.ChangedBrackets) == 0 {
+					t.Errorf("expected changed_brackets to be non-empty")
+				} else {
+					bracket := response.ChangedBrackets[0]
+					if bracket.BracketName != "bracket-one" {
+						t.Errorf("bracket_name = %q, want %q", bracket.BracketName, "bracket-one")
+					}
+					dep, ok := bracket.Deployments[tc.BracketEnv]
+					if !ok {
+						t.Errorf("expected bracket deployment for env %q", tc.BracketEnv)
+					} else if dep.Version == "" {
+						t.Errorf("bracket deployment version should not be empty")
+					}
+				}
+			} else {
+				if len(response.ChangedBrackets) != 0 {
+					t.Errorf("expected changed_brackets to be empty, got %d entries", len(response.ChangedBrackets))
+				}
+			}
+
+			// Check that bracket-env is stripped from app deployments when brackets enabled
+			for _, appDetail := range response.ChangedApps {
+				_, hasBracketEnv := appDetail.Deployments[tc.BracketEnv]
+				if tc.WantAppHasBracketEnv && !hasBracketEnv {
+					t.Errorf("app %q should have deployment for env %q but doesn't", appDetail.Application.Name, tc.BracketEnv)
+				}
+				if !tc.WantAppHasBracketEnv && hasBracketEnv {
+					t.Errorf("app %q should NOT have deployment for env %q (bracket env) but does", appDetail.Application.Name, tc.BracketEnv)
+				}
+			}
+		})
+	}
+}
+
+func TestStreamChangedAppsOnDeleteAppWithBracket(t *testing.T) {
+	t.Parallel()
+	shutdown := make(chan struct{})
+	repo, err := setupRepositoryTestWithDB(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := testutilauth.MakeTestContext()
+	bracketEnv := types.EnvName("development")
+	bracketName := "bracket-one"
+
+	for _, tr := range []repository.Transformer{
+		&repository.CreateEnvironment{
+			Environment: bracketEnv,
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+			},
+		},
+		&repository.CreateApplicationVersion{
+			Application: "app-a",
+			Version:     1,
+			Manifests:   map[types.EnvName]string{bracketEnv: "manifest-a"},
+			ArgoBracket: types.ArgoBracketName(bracketName),
+		},
+		&repository.CreateApplicationVersion{
+			Application: "app-b",
+			Version:     1,
+			Manifests:   map[types.EnvName]string{bracketEnv: "manifest-b"},
+			ArgoBracket: types.ArgoBracketName(bracketName),
+		},
+		&repository.DeployApplicationVersion{
+			Application: "app-a",
+			Environment: bracketEnv,
+			Version:     1,
+		},
+		&repository.DeployApplicationVersion{
+			Application: "app-b",
+			Environment: bracketEnv,
+			Version:     1,
+		},
+		&repository.CreateUndeployApplicationVersion{
+			Application: "app-a",
+		},
+	} {
+		if err := repo.Apply(ctx, tr); err != nil {
+			t.Fatalf("Apply setup %T: %v", tr, err)
+		}
+	}
+
+	svc := &OverviewServiceServer{
+		Repository:                   repo,
+		Shutdown:                     shutdown,
+		DBHandler:                    repo.State().DBHandler,
+		Context:                      ctx,
+		ExperimentalBracketsClusters: []string{string(bracketEnv)},
+	}
+
+	resultCh := make(chan *api.GetChangedAppsResponse, 2)
+	mockStream := &mockStreamChangedAppsServer{
+		Results: resultCh,
+		Ctx:     ctx,
+	}
+
+	go func() {
+		_ = svc.StreamChangedApps(&api.GetChangedAppsRequest{}, mockStream)
+	}()
+
+	// Drain the initial notification.
+	select {
+	case <-resultCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for initial StreamChangedApps response")
+	}
+
+	// Delete app-a entirely.
+	if err := repo.Apply(ctx, &repository.UndeployApplication{
+		Application: "app-a",
+	}); err != nil {
+		t.Fatalf("Apply UndeployApplication: %v", err)
+	}
+
+	var response *api.GetChangedAppsResponse
+	select {
+	case response = <-resultCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for post-delete StreamChangedApps response")
+	}
+	close(shutdown)
+
+	// The bracket notification must reflect that only app-b remains.
+	var foundBracket bool
+	for _, bd := range response.ChangedBrackets {
+		if bd.BracketName == bracketName {
+			foundBracket = true
+			dep, ok := bd.Deployments[string(bracketEnv)]
+			if !ok {
+				t.Errorf("bracket %q: expected deployment for env %q", bracketName, bracketEnv)
+				break
+			}
+			// app-a was removed; only app-b (version 1) should remain.
+			// The bracket version string is "1" (only app-b, sorted first since app-a gone).
+			if dep.Version == "" {
+				t.Errorf("bracket %q: expected non-empty version after partial deletion", bracketName)
+			}
+		}
+	}
+	if !foundBracket {
+		t.Errorf("bracket %q not found in ChangedBrackets after deleting app-a — bracket was not notified", bracketName)
+	}
+}
+
+func TestGetChangedBracketsEmitsEmptiedBracketOnMove(t *testing.T) {
+	bracketEnv := types.EnvName("development")
+	type release struct {
+		App     types.AppName
+		Bracket types.ArgoBracketName
+		Version uint64
+	}
+	tcs := []struct {
+		Name string
+		// Releases are applied in order; each is a CreateApplicationVersion (with the
+		// given bracket) followed by a DeployApplicationVersion to bracketEnv.
+		Releases    []release
+		ChangedApps []types.AppName
+		// WantDeletedBrackets must appear in the result with the BracketVersionDelete
+		// sentinel for bracketEnv (so the rollout-service deletes their Argo app).
+		WantDeletedBrackets []string
+		// WantLiveBrackets must appear with a non-delete, non-empty version.
+		WantLiveBrackets []string
+		// WantLostMembersTo maps each emitted bracket to the brackets that gained
+		// members it lost (the LostMembersTo field). Brackets without an entry must
+		// have an empty LostMembersTo.
+		WantLostMembersTo map[string][]string
+	}{
+		{
+			Name: "move empties the old bracket",
+			Releases: []release{
+				{App: "app-a", Bracket: "bracket-one", Version: 1},
+				{App: "app-a", Bracket: "bracket-two", Version: 2},
+			},
+			ChangedApps:         []types.AppName{"app-a"},
+			WantDeletedBrackets: []string{"bracket-one"},
+			WantLiveBrackets:    []string{"bracket-two"},
+			WantLostMembersTo:   map[string][]string{"bracket-one": {"bracket-two"}},
+		},
+		{
+			Name: "no move keeps the bracket alive",
+			Releases: []release{
+				{App: "app-a", Bracket: "bracket-one", Version: 1},
+				{App: "app-a", Bracket: "bracket-one", Version: 2},
+			},
+			ChangedApps:         []types.AppName{"app-a"},
+			WantDeletedBrackets: nil,
+			WantLiveBrackets:    []string{"bracket-one"},
+			WantLostMembersTo:   map[string][]string{},
+		},
+		{
+			Name: "move out of a shared bracket does not delete it but re-emits it",
+			Releases: []release{
+				{App: "app-a", Bracket: "bracket-one", Version: 1},
+				{App: "app-b", Bracket: "bracket-one", Version: 1},
+				{App: "app-a", Bracket: "bracket-two", Version: 2},
+			},
+			ChangedApps:         []types.AppName{"app-a"},
+			WantDeletedBrackets: nil,
+			// bracket-one must be re-emitted (live, with only app-b remaining) so the
+			// rollout-service refreshes its Argo app spec — otherwise the old bracket
+			// keeps rendering app-a's manifests from its stale pinned snapshot.
+			WantLiveBrackets:  []string{"bracket-one", "bracket-two"},
+			WantLostMembersTo: map[string][]string{"bracket-one": {"bracket-two"}},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, err := setupRepositoryTestWithDB(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx := testutilauth.MakeTestContext()
+
+			transformers := []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: bracketEnv,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					},
+				},
+			}
+			for _, r := range tc.Releases {
+				transformers = append(transformers,
+					&repository.CreateApplicationVersion{
+						Application: r.App,
+						Version:     r.Version,
+						Manifests:   map[types.EnvName]string{bracketEnv: "manifest"},
+						ArgoBracket: r.Bracket,
+					},
+					&repository.DeployApplicationVersion{
+						Application: r.App,
+						Environment: bracketEnv,
+						Version:     r.Version,
+					},
+				)
+			}
+			for _, tr := range transformers {
+				if err := repo.Apply(ctx, tr); err != nil {
+					t.Fatalf("Apply %T: %v", tr, err)
+				}
+			}
+
+			svc := &OverviewServiceServer{
+				Repository:                   repo,
+				DBHandler:                    repo.State().DBHandler,
+				Context:                      ctx,
+				ExperimentalBracketsClusters: []string{string(bracketEnv)},
+			}
+
+			brackets, err := svc.getChangedBrackets(ctx, tc.ChangedApps)
+			if err != nil {
+				t.Fatalf("getChangedBrackets: %v", err)
+			}
+
+			gotVersions := make(map[string]string, len(brackets))
+			for _, b := range brackets {
+				dep, ok := b.Deployments[string(bracketEnv)]
+				if !ok {
+					t.Errorf("bracket %q has no deployment for env %q", b.BracketName, bracketEnv)
+					continue
+				}
+				gotVersions[b.BracketName] = dep.Version
+			}
+
+			for _, name := range tc.WantDeletedBrackets {
+				got, ok := gotVersions[name]
+				if !ok {
+					t.Errorf("expected emptied bracket %q to be emitted, got brackets %v", name, gotVersions)
+				} else if got != string(types.BracketVersionDelete) {
+					t.Errorf("bracket %q version = %q, want delete sentinel %q", name, got, types.BracketVersionDelete)
+				}
+			}
+			for _, name := range tc.WantLiveBrackets {
+				got, ok := gotVersions[name]
+				if !ok {
+					t.Errorf("expected live bracket %q to be emitted, got brackets %v", name, gotVersions)
+				} else if got == "" || got == string(types.BracketVersionDelete) {
+					t.Errorf("bracket %q version = %q, want a live version", name, got)
+				}
+			}
+			wantCount := len(tc.WantDeletedBrackets) + len(tc.WantLiveBrackets)
+			if len(gotVersions) != wantCount {
+				t.Errorf("got %d brackets %v, want %d", len(gotVersions), gotVersions, wantCount)
+			}
+			gotLostMembersTo := make(map[string][]string)
+			for _, b := range brackets {
+				if len(b.LostMembersTo) > 0 {
+					gotLostMembersTo[b.BracketName] = b.LostMembersTo
+				}
+			}
+			if diff := cmp.Diff(tc.WantLostMembersTo, gotLostMembersTo, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("LostMembersTo mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestStreamChangedAppsOnDeleteEnvFromApp(t *testing.T) {
+	t.Parallel()
+	shutdown := make(chan struct{})
+	repo, err := setupRepositoryTestWithDB(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := testutilauth.MakeTestContext()
+	env := types.EnvName("dev")
+	appName := types.AppName("myapp")
+
+	for _, tr := range []repository.Transformer{
+		&repository.CreateEnvironment{
+			Environment: env,
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+			},
+		},
+		&repository.CreateApplicationVersion{
+			Application: appName,
+			Version:     1,
+			Manifests:   map[types.EnvName]string{env: "manifest"},
+		},
+		&repository.DeployApplicationVersion{
+			Application: appName,
+			Environment: env,
+			Version:     1,
+		},
+	} {
+		if err := repo.Apply(ctx, tr); err != nil {
+			t.Fatalf("Apply setup %T: %v", tr, err)
+		}
+	}
+
+	svc := &OverviewServiceServer{
+		Repository: repo,
+		Shutdown:   shutdown,
+		DBHandler:  repo.State().DBHandler,
+		Context:    ctx,
+	}
+
+	resultCh := make(chan *api.GetChangedAppsResponse, 2)
+	mockStream := &mockStreamChangedAppsServer{
+		Results: resultCh,
+		Ctx:     ctx,
+	}
+
+	go func() {
+		_ = svc.StreamChangedApps(&api.GetChangedAppsRequest{}, mockStream)
+	}()
+
+	// Drain the initial notification (all apps sent on first subscribe)
+	select {
+	case <-resultCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for initial StreamChangedApps response")
+	}
+
+	// Deleting the env from the app must trigger a second stream notification.
+	if err := repo.Apply(ctx, &repository.DeleteEnvFromApp{
+		Application: appName,
+		Environment: env,
+	}); err != nil {
+		t.Fatalf("Apply DeleteEnvFromApp: %v", err)
+	}
+
+	var response *api.GetChangedAppsResponse
+	select {
+	case response = <-resultCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for post-delete StreamChangedApps response — notification was not sent for DeleteEnvFromApp")
+	}
+	close(shutdown)
+
+	var found bool
+	for _, app := range response.ChangedApps {
+		if app.Application.Name == string(appName) {
+			found = true
+			if _, hasEnv := app.Deployments[string(env)]; hasEnv {
+				t.Errorf("env %q still present in deployments after DeleteEnvFromApp", env)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("app %q not found in stream notification after DeleteEnvFromApp", appName)
+	}
 }

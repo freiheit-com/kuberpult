@@ -18,6 +18,7 @@ import { LocksPage } from './LocksPage';
 import {
     DisplayLock,
     UpdateAllApplicationLocks,
+    UpdateAllManifestLocks,
     UpdateOverview,
     updateAllEnvLocks,
     useAllLocks,
@@ -28,6 +29,7 @@ import { MemoryRouter } from 'react-router-dom';
 import {
     AllAppLocks,
     Environment,
+    ManifestLockInfo,
     OverviewApplication,
     Priority,
     Locks,
@@ -799,4 +801,68 @@ describe('Test Team locks', () => {
             expect(obtained.map((lock) => lock.lockId)).toStrictEqual(testcase.expectedLockIDs);
         });
     });
+});
+
+describe('Test manifest locks filter', () => {
+    const twoManifestLocks: ManifestLockInfo[] = [
+        {
+            app: 'app-alpha',
+            env: 'dev',
+            lock: { lockId: 'manifest-lock-1', message: 'lock alpha', ciLink: '', suggestedLifetime: '', createdAt: new Date(2024, 0, 1), createdBy: undefined },
+        },
+        {
+            app: 'app-beta',
+            env: 'dev',
+            lock: { lockId: 'manifest-lock-2', message: 'lock beta', ciLink: '', suggestedLifetime: '', createdAt: new Date(2024, 0, 2), createdBy: undefined },
+        },
+    ];
+
+    interface dataT {
+        name: string;
+        urlPath: string;
+        expectedLockIDs: string[];
+    }
+
+    const tcs: dataT[] = [
+        {
+            name: 'no filter shows all manifest locks',
+            urlPath: '/',
+            expectedLockIDs: ['manifest-lock-1', 'manifest-lock-2'],
+        },
+        {
+            name: 'filter matching one app shows only that lock',
+            urlPath: '/?application=app-alpha',
+            expectedLockIDs: ['manifest-lock-1'],
+        },
+        {
+            name: 'filter matching no app shows no manifest locks',
+            urlPath: '/?application=no-match',
+            expectedLockIDs: [],
+        },
+    ];
+
+    for (const tc of tcs) {
+        it(tc.name, () => {
+            // given
+            fakeLoadEverything(true);
+            UpdateAllManifestLocks.set({ response: { manifestLocks: twoManifestLocks } });
+            const { container } = render(
+                <MemoryRouter initialEntries={[tc.urlPath]}>
+                    <LocksPage />
+                </MemoryRouter>
+            );
+            // when
+            const manifestTable = Array.from(container.getElementsByClassName('mdc-data-table')).find((el) =>
+                el.textContent?.includes('Manifest Locks')
+            );
+            // then
+            const shownLockIDs = tc.expectedLockIDs.every((id) => manifestTable?.textContent?.includes(id));
+            const hiddenLockIDs = twoManifestLocks
+                .map((l) => l.lock?.lockId ?? '')
+                .filter((id) => !tc.expectedLockIDs.includes(id))
+                .every((id) => !manifestTable?.textContent?.includes(id));
+            expect(shownLockIDs).toBe(true);
+            expect(hiddenLockIDs).toBe(true);
+        });
+    }
 });

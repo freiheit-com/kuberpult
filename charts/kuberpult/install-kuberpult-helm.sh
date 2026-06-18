@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck source=/dev/null
+source "$(dirname "$0")/lib.sh"
+
 # prefix every call to "echo" with the name of the script:
 function print() {
   /bin/echo "$0:" "$@"
@@ -7,10 +10,14 @@ function print() {
 
 print 'installing kuberpult helm chart...'
 
-LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
+portForwardAndWait "default" service/argocd-server 5001 443
+token=$(argocd account generate-token --server localhost:5001 --account kuberpult --insecure)
+
+echo "argocd token: $token" # this is only ok because this script is only used locally for a temporary cluster. Never do this on production.
+
+
 GIT_NAMESPACE=${GIT_NAMESPACE:-git}
 ARGO_NAMESPACE=${ARGO_NAMESPACE:-default}
-token=${TOKEN:-invalid-i-dont-care}
 VERSION=$(git describe --always --long --tags || echo 0.0.1)
 
 set -eu
@@ -45,7 +52,13 @@ frontend:
       memory: 200Mi
       cpu: 0.05
 rollout:
-  enabled: false
+  experimentalBrackets:
+    enabled: true
+    clusters:
+      development: false
+      staging: false
+      aa-aa-test-dev-1: false
+  enabled: true
   grpcMaxRecvMsgSize: 4
   resources:
     limits:
@@ -67,6 +80,7 @@ reposerver:
       memory: 200Mi
       cpu: 0.05
 manifestRepoExport:
+  enabled: false
   eslProcessingIdleTimeSeconds: 10
   resources:
     limits:
@@ -119,5 +133,16 @@ VALUES
 
 make release-tag
 
-helm uninstall kuberpult-local || print kuberpult was not installed
-helm install --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz
+#helm uninstall kuberpult-local || print kuberpult was not installed
+helm upgrade --install --history-max 1 --values vals.yaml kuberpult-local kuberpult-"$VERSION".tgz || exit 1
+
+
+kubectl get deployment
+kubectl get pods
+
+waitForDeployment "default" "app=kuberpult-frontend-service"
+print "port forwarding to cd service..."
+waitForDeployment "default" "app=kuberpult-cd-service"
+portForwardAndWait "default" deployment/kuberpult-cd-service 5003 8080
+portForwardAndWait "default" deployment/kuberpult-cd-service 5004 8443
+

@@ -26,6 +26,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
@@ -103,7 +104,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -112,7 +113,7 @@ func TestBroadcast(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					},
 
 					ExpectStatus: &RolloutStatusSuccesful,
@@ -126,7 +127,7 @@ func TestBroadcast(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 2},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					},
 
 					ExpectStatus: &RolloutStatusUnknown,
@@ -140,7 +141,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -167,7 +168,7 @@ func TestBroadcast(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					},
 
 					ExpectStatus: &RolloutStatusUnknown,
@@ -176,7 +177,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -187,7 +188,7 @@ func TestBroadcast(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 2},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					},
 
 					ExpectStatus: &RolloutStatusPending,
@@ -196,7 +197,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 2},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -207,7 +208,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 2},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusProgressing,
 					},
@@ -218,7 +219,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 2},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -234,7 +235,7 @@ func TestBroadcast(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					},
 
 					ExpectStatus: &RolloutStatusUnknown,
@@ -243,7 +244,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -254,7 +255,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusDegraded,
 					},
@@ -265,7 +266,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -281,7 +282,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusHealthy,
 						OperationState: &v1alpha1.OperationState{
@@ -300,7 +301,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusHealthy,
 						OperationState: &v1alpha1.OperationState{
@@ -319,7 +320,7 @@ func TestBroadcast(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 1},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					},
 
 					ExpectStatus: &RolloutStatusUnknown,
@@ -328,7 +329,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -339,7 +340,7 @@ func TestBroadcast(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     &versions.VersionInfo{Version: 2},
+						Version:     &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					},
 
 					ExpectStatus: &RolloutStatusPending,
@@ -348,7 +349,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 2},
+						Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -518,7 +519,7 @@ func TestBroadcastDoesntGetStuck(t *testing.T) {
 					Environment:      "doesntmatter",
 					HealthStatusCode: health.HealthStatusHealthy,
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
-					Version:          &versions.VersionInfo{Version: 1},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 				})
 				select {
 				case resp := <-ch2:
@@ -580,14 +581,14 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 2},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
 				{
 					Application:      "foo",
 					Environment:      "prd",
-					Version:          &versions.VersionInfo{Version: 1},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
@@ -596,13 +597,13 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					EnvironmentGroup: "dev-group",
 				},
 				{
 					Application:      "foo",
 					Environment:      "prd",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					EnvironmentGroup: "prd-group",
 				},
 			},
@@ -626,7 +627,7 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 2},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
@@ -635,7 +636,7 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					EnvironmentGroup: "dev-group",
 				},
 			},
@@ -644,7 +645,7 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
@@ -664,7 +665,7 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 2},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
@@ -673,7 +674,7 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					EnvironmentGroup: "dev-group",
 				},
 			},
@@ -682,7 +683,7 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusDegraded,
 					OperationState: &v1alpha1.OperationState{
@@ -711,14 +712,14 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 2},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
 				{
 					Application:      "bar",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 1},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
@@ -727,13 +728,13 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					EnvironmentGroup: "dev-group",
 				},
 				{
 					Application:      "bar",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 1},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					EnvironmentGroup: "dev-group",
 				},
 			},
@@ -757,14 +758,14 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 2},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(2)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
 				{
 					Application:      "foo",
 					Environment:      "prd",
-					Version:          &versions.VersionInfo{Version: 1},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(1)},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
@@ -773,21 +774,21 @@ func TestGetStatus(t *testing.T) {
 				{
 					Application:      "foo",
 					Environment:      "dev",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					EnvironmentGroup: "dev-group",
 					Team:             "a",
 				},
 				{
 					Application:      "foo",
 					Environment:      "bar",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					EnvironmentGroup: "dev-group",
 					Team:             "b",
 				},
 				{
 					Application:      "foo",
 					Environment:      "prd",
-					Version:          &versions.VersionInfo{Version: 3},
+					Version:          &versions.VersionInfo{Version: types.RolloutAppBracketVersionFromUint64(3)},
 					EnvironmentGroup: "prd-group",
 				},
 			},

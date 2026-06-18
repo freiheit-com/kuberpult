@@ -155,8 +155,6 @@ type RepositoryConfig struct {
 
 	ReleaseVersionLimit uint
 
-	MinimizeExportedData bool
-
 	DDMetrics statsd.ClientInterface
 	TagsPath  string
 
@@ -513,7 +511,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transaction 
 			}
 			return nil, nil, nil, &applyErr
 		}
-		msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction, r.config.MinimizeExportedData)
+		msg, subChanges, err := RunTransformer(ctxWithTime, transformer, state, transaction)
 		if err != nil {
 			applyErr := TransformerBatchApplyError{
 				TransformerError: err,
@@ -768,9 +766,6 @@ func (r *repository) makeGitSignature() *git.Signature {
 }
 
 func (r *repository) shouldCreateNewCommit(commitMessages []string) bool {
-	if !r.config.MinimizeExportedData {
-		return true
-	}
 	for _, currCommitMessage := range commitMessages {
 		if !strings.Contains(currCommitMessage, NoOpMessage) { //Transformers that generate no commits always return a message beginning with $NoOpMessage
 			return true
@@ -964,6 +959,7 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	logging.Info(ctx, "rendering of environments",
 		zap.Strings("skippedEnvs", types.EnvNamesToStrings(skippedEnvs)),
 		zap.Strings("renderedEnvs", types.EnvNamesToStrings(renderedEnvs)),
+		zap.Any("changedEnvs", changedEnvironments),
 	)
 	return errorGroup.Wait()
 }
@@ -1138,7 +1134,7 @@ func CalculateAppDataWithBrackets(
 	appToTeamMap := appTeamsToMap(appTeams)
 	for bracketName, appNames := range bracketMap {
 		bracketsTeamNames := []string{}
-		//appsInBracket := []argocd.AppTeam{}
+		hasDeployedApp := false
 		for _, appName := range appNames {
 			appsTeamName, ok := appToTeamMap[appName]
 			if !ok {
@@ -1154,7 +1150,14 @@ func CalculateAppDataWithBrackets(
 				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
 				continue
 			}
+			hasDeployedApp = true
 			bracketsTeamNames = append(bracketsTeamNames, appsTeamName)
+		}
+
+		if !hasDeployedApp {
+			// no app in this bracket has a live deployment in this env at the timestamp,
+			// so the bracket must not appear in the env's root app, so we skip:
+			continue
 		}
 
 		appData = append(appData, argocd.AppData{

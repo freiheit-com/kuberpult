@@ -16,6 +16,9 @@ Copyright freiheit.com*/
 
 .checkbox-wrapper {
     @extend .text-medium;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
     .mdc-button__label {
         // this is the actual checkbox part of the checkbox component
         @extend .headline1;

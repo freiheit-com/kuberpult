@@ -40,7 +40,7 @@ func simpleHash(s string) string {
 	return fmt.Sprintf("%08d", hash)
 }
 
-// CreateMigrationsPath detects if it's running withing earthly/CI or locally and adapts the path to the migrations accordingly
+// CreateMigrationsPath detects if it's running within CI or locally and adapts the path to the migrations accordingly
 func CreateMigrationsPath(numDirs int) (string, error) {
 	const subDir = "/database/migrations/postgres"
 	_, err := os.Stat("/kp")

@@ -42,6 +42,7 @@ import (
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
@@ -74,7 +75,7 @@ func TestRevolution(t *testing.T) {
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
@@ -84,7 +85,7 @@ func TestRevolution(t *testing.T) {
 						Application:  "bar",
 						IsProduction: true,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
@@ -107,7 +108,7 @@ func TestRevolution(t *testing.T) {
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusDegraded,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
@@ -128,7 +129,7 @@ func TestRevolution(t *testing.T) {
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusDegraded,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Date(2024, 2, 14, 12, 15, 0, 0, time.UTC),
 						},
@@ -139,7 +140,7 @@ func TestRevolution(t *testing.T) {
 						Application:  "bar",
 						IsProduction: true,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Date(2024, 2, 15, 12, 15, 0, 0, time.UTC),
 						},
@@ -161,7 +162,7 @@ func TestRevolution(t *testing.T) {
 						IsProduction:     true,
 						Team:             "bar",
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
@@ -181,7 +182,7 @@ func TestRevolution(t *testing.T) {
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusDegraded,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
@@ -201,7 +202,7 @@ func TestRevolution(t *testing.T) {
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
@@ -211,7 +212,7 @@ func TestRevolution(t *testing.T) {
 						Application:  "bar",
 						IsProduction: false,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
@@ -231,7 +232,7 @@ func TestRevolution(t *testing.T) {
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
@@ -241,7 +242,7 @@ func TestRevolution(t *testing.T) {
 						Application:  "bar",
 						IsProduction: false,
 						Version: &versions.VersionInfo{
-							Version:        1,
+							Version:        types.RolloutAppBracketVersionFromUint64(1),
 							SourceCommitId: "123456",
 							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},

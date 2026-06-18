@@ -33,6 +33,7 @@ import (
 	"github.com/lib/pq"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
@@ -1855,6 +1856,69 @@ func TestCleanupOldVersionDB(t *testing.T) {
 				types.MakeReleaseNumberVersion(5),
 			},
 		},
+		{
+			Name:                "should remove old versions after environment is deleted",
+			ReleaseVersionLimit: 2,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{},
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     1,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+						envProduction: "{}",
+					},
+					Team: "myteam",
+				},
+				&DeployApplicationVersion{
+					Environment:   envProduction,
+					Application:   appName,
+					Version:       1,
+					LockBehaviour: api.LockBehavior_FAIL,
+					SkipCleanup:   true,
+				},
+				&DeleteEnvironment{
+					Environment: envProduction,
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     2,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     3,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Version:     4,
+					Manifests: map[types.EnvName]string{
+						envAcceptance: "{}",
+					},
+					Team: "myteam",
+				},
+			},
+			ExpectedActiveReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(4),
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -1879,6 +1943,504 @@ func TestCleanupOldVersionDB(t *testing.T) {
 			})
 			if err3 != nil {
 				t.Fatalf("expected no error, got %v", err3)
+			}
+		})
+	}
+}
+
+func TestCleanupZombieDeploymentsDB(t *testing.T) {
+	const appName types.AppName = "app1"
+	const envOld types.EnvName = "envOld"
+	tcs := []struct {
+		Name                   string
+		ReleaseVersionLimit    uint
+		ExpectedActiveReleases []types.ReleaseNumbers
+		ExpectedDeployments    map[types.EnvName]types.ReleaseNumbers
+	}{
+		{
+			Name:                "should clean up zombie deployment and old releases",
+			ReleaseVersionLimit: 2,
+			// After cleanup: zombie deployment for envOld removed, v1 cleaned up because
+			// oldest remaining deployment is v3 (envAcceptance), which is beyond the limit.
+			ExpectedActiveReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
+			},
+			ExpectedDeployments: map[types.EnvName]types.ReleaseNumbers{
+				envAcceptance: types.MakeReleaseNumberVersion(3),
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
+
+			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// Set up: two envs, three releases; v1 deployed to envOld, v3 to envAcceptance
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction,
+					&CreateEnvironment{
+						Environment: envOld,
+						Config:      config.EnvironmentConfig{},
+					},
+					&CreateEnvironment{
+						Environment: envAcceptance,
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						},
+					},
+					&CreateApplicationVersion{
+						Application: appName,
+						Version:     1,
+						Manifests: map[types.EnvName]string{
+							envOld:        "{}",
+							envAcceptance: "{}",
+						},
+						Team: "myteam",
+					},
+					&DeployApplicationVersion{
+						Application: appName,
+						Environment: envOld,
+						Version:     1,
+					},
+					&CreateApplicationVersion{
+						Application: appName,
+						Version:     2,
+						Manifests:   map[types.EnvName]string{envAcceptance: "{}"},
+						Team:        "myteam",
+					},
+					&CreateApplicationVersion{
+						Application: appName,
+						Version:     3,
+						Manifests:   map[types.EnvName]string{envAcceptance: "{}"},
+						Team:        "myteam",
+					},
+				)
+				if err != nil {
+					t.Fatalf("setup transformers failed: %v", err)
+				}
+
+				// Simulate a zombie: delete envOld directly, bypassing DeleteEnvironment's cascade
+				if err := state.DBHandler.DBDeleteEnvironment(ctx, transaction, envOld); err != nil {
+					return fmt.Errorf("DBDeleteEnvironment: %w", err)
+				}
+
+				// Run cleanup
+				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction,
+					&CleanupOldApplicationVersions{Application: appName},
+				); err != nil {
+					return fmt.Errorf("CleanupOldApplicationVersions: %w", err)
+				}
+
+				// Assert active releases
+				releases, err2 := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err2 != nil {
+					return fmt.Errorf("DBSelectAllReleasesOfApp: %w", err2)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedActiveReleases, releases); diff != "" {
+					t.Errorf("releases mismatch (-want, +got):\n%s", diff)
+				}
+
+				// Assert deployments: zombie gone, active deployment intact
+				deployments, err3 := state.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
+				if err3 != nil {
+					return fmt.Errorf("GetAllDeploymentsForAppFromDB: %w", err3)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedDeployments, deployments, cmpopts.EquateEmpty()); diff != "" {
+					t.Errorf("deployments mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestCleanupDanglingDeploymentDB(t *testing.T) {
+	const appName types.AppName = "app1"
+	const envDangling types.EnvName = "envDangling"
+	tcs := []struct {
+		Name                   string
+		ReleaseVersionLimit    uint
+		ExpectedActiveReleases []types.ReleaseNumbers
+		ExpectedDeployments    map[types.EnvName]types.ReleaseNumbers
+	}{
+		{
+			Name:                "should clean up dangling deployment referencing non-existent release",
+			ReleaseVersionLimit: 2,
+			// After cleanup: dangling deployment for envDangling (v99) removed, v1 cleaned up because
+			// oldest active deployment is v3 on envAcceptance.
+			ExpectedActiveReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(2),
+				types.MakeReleaseNumberVersion(3),
+			},
+			ExpectedDeployments: map[types.EnvName]types.ReleaseNumbers{
+				envAcceptance: types.MakeReleaseNumberVersion(3),
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
+
+			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction,
+					&CreateEnvironment{
+						Environment: envAcceptance,
+						Config:      config.EnvironmentConfig{},
+					},
+					&CreateEnvironment{
+						Environment: envDangling,
+						Config:      config.EnvironmentConfig{},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        1,
+						Manifests:      map[types.EnvName]string{envAcceptance: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        2,
+						Manifests:      map[types.EnvName]string{envAcceptance: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        3,
+						Manifests:      map[types.EnvName]string{envAcceptance: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&DeployApplicationVersion{
+						Application: appName,
+						Environment: envAcceptance,
+						Version:     3,
+						SkipCleanup: true,
+					},
+				)
+				if err != nil {
+					t.Fatalf("setup transformers failed: %v", err)
+				}
+
+				// Inject a deployment pointing to a non-existent release (v99) to simulate
+				// legacy data from before the fk_releases_deployments constraint was added.
+				// Disable FK-enforcement triggers so we can insert a row that violates the FK.
+				if _, err := transaction.ExecContext(ctx, "ALTER TABLE deployments DISABLE TRIGGER ALL"); err != nil {
+					return fmt.Errorf("disable triggers: %w", err)
+				}
+				injectQuery := state.DBHandler.AdaptQuery(`
+					INSERT INTO deployments (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision)
+					VALUES (current_timestamp, 99, ?, ?, '{}', 0, 0)
+					ON CONFLICT (appName, envName) DO UPDATE
+					SET created=current_timestamp, releaseVersion=99, metadata='{}', transformereslVersion=0, revision=0;
+				`)
+				if _, err := transaction.ExecContext(ctx, injectQuery, appName, envDangling); err != nil {
+					return fmt.Errorf("inject dangling deployment: %w", err)
+				}
+				if _, err := transaction.ExecContext(ctx, "ALTER TABLE deployments ENABLE TRIGGER ALL"); err != nil {
+					return fmt.Errorf("enable triggers: %w", err)
+				}
+
+				// Run cleanup
+				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction,
+					&CleanupOldApplicationVersions{Application: appName},
+				); err != nil {
+					return fmt.Errorf("CleanupOldApplicationVersions: %w", err)
+				}
+
+				// Assert active releases
+				releases, err2 := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err2 != nil {
+					return fmt.Errorf("DBSelectAllReleasesOfApp: %w", err2)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedActiveReleases, releases); diff != "" {
+					t.Errorf("releases mismatch (-want, +got):\n%s", diff)
+				}
+
+				// Assert deployments: dangling deployment gone, active deployment intact
+				deployments, err3 := state.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
+				if err3 != nil {
+					return fmt.Errorf("GetAllDeploymentsForAppFromDB: %w", err3)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedDeployments, deployments, cmpopts.EquateEmpty()); diff != "" {
+					t.Errorf("deployments mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestCleanupV0DeploymentDB(t *testing.T) {
+	const appName types.AppName = "app1"
+	const envV0 types.EnvName = "envV0"
+	tcs := []struct {
+		Name                   string
+		ReleaseVersionLimit    uint
+		ExpectedActiveReleases []types.ReleaseNumbers
+		ExpectedDeployments    map[types.EnvName]types.ReleaseNumbers
+	}{
+		{
+			Name:                "version=0 deployment blocks cleanup and should be removed",
+			ReleaseVersionLimit: 2,
+			// With the fix: v0 deployment removed (no release 0 exists), then v1+v2 cleaned up
+			// because oldest active deployment is v4 on envAcceptance.
+			ExpectedActiveReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(4),
+			},
+			ExpectedDeployments: map[types.EnvName]types.ReleaseNumbers{
+				envAcceptance: types.MakeReleaseNumberVersion(4),
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
+
+			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction,
+					&CreateEnvironment{
+						Environment: envAcceptance,
+						Config:      config.EnvironmentConfig{},
+					},
+					&CreateEnvironment{
+						Environment: envV0,
+						Config:      config.EnvironmentConfig{},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        1,
+						Manifests:      map[types.EnvName]string{envAcceptance: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        2,
+						Manifests:      map[types.EnvName]string{envAcceptance: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        3,
+						Manifests:      map[types.EnvName]string{envAcceptance: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        4,
+						Manifests:      map[types.EnvName]string{envAcceptance: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&DeployApplicationVersion{
+						Application: appName,
+						Environment: envAcceptance,
+						Version:     4,
+						SkipCleanup: true,
+					},
+				)
+				if err != nil {
+					t.Fatalf("setup transformers failed: %v", err)
+				}
+
+				// Inject a deployment with releaseVersion=0, bypassing the FK constraint.
+				// A v0 deployment has no matching release and, being the minimum possible version,
+				// it causes slices.MinFunc to always return 0 — permanently blocking cleanup.
+				if _, err := transaction.ExecContext(ctx, "ALTER TABLE deployments DISABLE TRIGGER ALL"); err != nil {
+					return fmt.Errorf("disable triggers: %w", err)
+				}
+				injectQuery := state.DBHandler.AdaptQuery(`
+					INSERT INTO deployments (created, releaseVersion, appName, envName, metadata, transformereslVersion, revision)
+					VALUES (current_timestamp, 0, ?, ?, '{}', 0, 0)
+					ON CONFLICT (appName, envName) DO UPDATE
+					SET created=current_timestamp, releaseVersion=0, metadata='{}', transformereslVersion=0, revision=0;
+				`)
+				if _, err := transaction.ExecContext(ctx, injectQuery, appName, envV0); err != nil {
+					return fmt.Errorf("inject v0 deployment: %w", err)
+				}
+				if _, err := transaction.ExecContext(ctx, "ALTER TABLE deployments ENABLE TRIGGER ALL"); err != nil {
+					return fmt.Errorf("enable triggers: %w", err)
+				}
+
+				// Run cleanup
+				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction,
+					&CleanupOldApplicationVersions{Application: appName},
+				); err != nil {
+					return fmt.Errorf("CleanupOldApplicationVersions: %w", err)
+				}
+
+				// Assert active releases
+				releases, err2 := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err2 != nil {
+					return fmt.Errorf("DBSelectAllReleasesOfApp: %w", err2)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedActiveReleases, releases); diff != "" {
+					t.Errorf("releases mismatch (-want, +got):\n%s", diff)
+				}
+
+				// Assert deployments: v0 deployment removed, active deployment intact
+				deployments, err3 := state.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
+				if err3 != nil {
+					return fmt.Errorf("GetAllDeploymentsForAppFromDB: %w", err3)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedDeployments, deployments, cmpopts.EquateEmpty()); diff != "" {
+					t.Errorf("deployments mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+		})
+	}
+}
+
+// TestCleanupAfterDeleteEnvFromAppDB tests cleanup.
+// After an env has been deleted from our app,
+// deployments on that env do not count towards the cleanup-logic.
+func TestCleanupAfterDeleteEnvFromAppDB(t *testing.T) {
+	const appName types.AppName = "app1"
+	const envDev types.EnvName = "envDev"
+	const envStaging types.EnvName = "envStaging"
+	tcs := []struct {
+		Name                   string
+		ReleaseVersionLimit    uint
+		ExpectedActiveReleases []types.ReleaseNumbers
+		ExpectedDeployments    map[types.EnvName]types.ReleaseNumbers
+	}{
+		{
+			Name:                "Cleanup considers only remaining env after DeleteEnvFromApp",
+			ReleaseVersionLimit: 2,
+			ExpectedActiveReleases: []types.ReleaseNumbers{
+				types.MakeReleaseNumberVersion(3),
+				types.MakeReleaseNumberVersion(4),
+			},
+			ExpectedDeployments: map[types.EnvName]types.ReleaseNumbers{
+				envDev: types.MakeReleaseNumberVersion(4),
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctxWithTime := time.WithTimeNow(testutilauth.MakeTestContext(), timeNowOld)
+			repo := SetupRepositoryTestWithDB(t)
+			repo.(*repository).config.ReleaseVersionsLimit = tc.ReleaseVersionLimit
+
+			err := repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, state, _, err := repo.ApplyTransformersInternal(ctx, transaction,
+					&CreateEnvironment{
+						Environment: envDev,
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						},
+					},
+					&CreateEnvironment{
+						Environment: envStaging,
+						Config:      config.EnvironmentConfig{},
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        1,
+						Manifests:      map[types.EnvName]string{envDev: "{}", envStaging: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        2,
+						Manifests:      map[types.EnvName]string{envDev: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        3,
+						Manifests:      map[types.EnvName]string{envDev: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&CreateApplicationVersion{
+						Application:    appName,
+						Version:        4,
+						Manifests:      map[types.EnvName]string{envDev: "{}"},
+						Team:           "myteam",
+						SkipDeployment: true,
+					},
+					&DeployApplicationVersion{
+						Application: appName,
+						Environment: envStaging,
+						Version:     1,
+						SkipCleanup: true,
+					},
+					&DeployApplicationVersion{
+						Application: appName,
+						Environment: envDev,
+						Version:     4,
+						SkipCleanup: true,
+					},
+					&DeleteEnvFromApp{
+						Application: appName,
+						Environment: envStaging,
+					},
+				)
+				if err != nil {
+					t.Fatalf("setup transformers failed: %v", err)
+				}
+
+				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction,
+					&CleanupOldApplicationVersions{Application: appName},
+				); err != nil {
+					return fmt.Errorf("CleanupOldApplicationVersions: %w", err)
+				}
+
+				releases, err2 := state.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
+				if err2 != nil {
+					return fmt.Errorf("DBSelectAllReleasesOfApp: %w", err2)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedActiveReleases, releases); diff != "" {
+					t.Errorf("releases mismatch (-want, +got):\n%s", diff)
+				}
+
+				deployments, err3 := state.GetAllDeploymentsForAppFromDB(ctx, transaction, appName)
+				if err3 != nil {
+					return fmt.Errorf("GetAllDeploymentsForAppFromDB: %w", err3)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedDeployments, deployments, cmpopts.EquateEmpty()); diff != "" {
+					t.Errorf("deployments mismatch (-want, +got):\n%s", diff)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
 			}
 		})
 	}
@@ -3540,6 +4102,68 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 	}
 }
 
+func TestUndeployBracketCascade(t *testing.T) {
+	const env = envAcceptance
+	tcs := []struct {
+		Name         string
+		Transformers []Transformer
+		// Expected cascade rows (Created/Attempts/eslId ignored).
+		ExpectedRows []*db.RolloutShouldUndeployCascade
+	}{
+		{
+			// Two apps share a bracket. Undeploying the last one empties the bracket, so the
+			// bracket's Argo app must be queued for cascade-delete (is_bracket=true), in addition
+			// to the per-app rows (is_bracket=false).
+			Name: "undeploying the last app in a multi-app bracket queues a bracket cascade",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: env, Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: env, Latest: true}}},
+				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "mybracket", Team: "t", WriteCommitData: true},
+				&CreateApplicationVersion{Application: "app2", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "mybracket", Team: "t", WriteCommitData: true},
+				&CreateUndeployApplicationVersion{Application: "app1"},
+				&UndeployApplication{Application: "app1"},
+				&CreateUndeployApplicationVersion{Application: "app2"},
+				&UndeployApplication{Application: "app2"},
+			},
+			ExpectedRows: []*db.RolloutShouldUndeployCascade{
+				{ArgoApp: "app1", Env: env, IsBracket: false},
+				{ArgoApp: "app2", Env: env, IsBracket: false},
+				{ArgoApp: "mybracket", Env: env, IsBracket: true},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			repo := SetupRepositoryTestWithDB(t)
+			err := repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, tc.Transformers...); err != nil {
+					return fmt.Errorf("apply: %v", err)
+				}
+				got, err := repo.State().DBHandler.DBReadRolloutUndeployCascadeBatch(ctx, transaction, 100)
+				if err != nil {
+					return err
+				}
+				if diff := cmp.Diff(tc.ExpectedRows, got,
+					cmpopts.IgnoreFields(db.RolloutShouldUndeployCascade{}, "Created", "Attempts", "GatingTransformerEslId"),
+					cmpopts.SortSlices(func(a, b *db.RolloutShouldUndeployCascade) bool {
+						if a.ArgoApp != b.ArgoApp {
+							return a.ArgoApp < b.ArgoApp
+						}
+						return a.Env < b.Env
+					}),
+				); diff != "" {
+					t.Errorf("cascade rows mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction: %v", err)
+			}
+		})
+	}
+}
+
 func TestUndeployApplicationDB(t *testing.T) {
 	tcs := []struct {
 		Name          string
@@ -4683,6 +5307,21 @@ func TestUndeployDBState(t *testing.T) {
 			},
 			expectedAllReleases: []types.ReleaseNumbers{},
 			expectedDeployments: []db.Deployment{
+				{
+					// UndeployApplication deletes the deployment and records the un-deployment
+					// in history as a row with a nil release version.
+					App: appName,
+					Env: envProduction,
+					ReleaseNumbers: types.ReleaseNumbers{
+						Revision: 0,
+						Version:  nil,
+					},
+					Metadata: db.DeploymentMetadata{
+						DeployedByEmail: "testmail@example.com",
+						DeployedByName:  "test tester",
+					},
+					TransformerID: 4,
+				},
 				{
 					App: appName,
 					Env: envProduction,

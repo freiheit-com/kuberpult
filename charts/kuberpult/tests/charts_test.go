@@ -631,6 +631,43 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test experimental brackets clusters default (empty) for cd-service",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test experimental brackets clusters with one env enabled for cd-service",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  experimentalBrackets:
+    enabled: true
+    clusters:
+      staging: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "staging",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -987,43 +1024,6 @@ manifestRepoExport:
 				{
 					Name:  "KUBERPULT_NETWORK_TIMEOUT_SECONDS",
 					Value: "300",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Git MinimizeExportData mode explicitely set",
-			Values: `
-git:
-  url:  "testURL"
-  minimizeExportedData: true
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  sslMode: disable
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_MINIMIZE_EXPORTED_DATA",
-					Value: "true",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Git MinimizeExportData mode default value",
-			Values: `
-git:
-  url:  "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-db:
-  sslMode: disable
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_MINIMIZE_EXPORTED_DATA",
-					Value: "false",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
@@ -1696,6 +1696,108 @@ argocd:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test experimental brackets clusters default (empty)",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test experimental brackets clusters with one env enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  experimentalBrackets:
+    enabled: true
+    clusters:
+      production: true
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "production",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test experimental brackets clusters with multiple envs, some disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  experimentalBrackets:
+    enabled: true
+    clusters:
+      staging: true
+      production: true
+      dev: false
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "production,staging",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Test experimental brackets clusters ignored when enabled is false",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+  experimentalBrackets:
+    enabled: false
+    clusters:
+      production: true
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
+					Value: "",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -2284,19 +2386,23 @@ manifestRepoExport:
 			ExpectedError: infixErrMatcher{"Cannot point to apps when not rendering apps"},
 		},
 		{
-			Name: "Invalid rendering settings: cannot maximize git with brackets",
+			Name: "experimental brackets require manageArgoApplications.filter to be wildcard",
 			Values: `
 git:
   url: "testURL"
-  minimizeExportedData: false
-manifestRepoExport:
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  experimentalBrackets:
+    enabled: true
+manageArgoApplications:
   enabled: true
-  rendering:
-    experimentalRenderApps: true
-    experimentalRenderBrackets: true
-    experimentalRootAppsPointToBrackets: false
+  filter:
+    - "team1"
 `,
-			ExpectedError: infixErrMatcher{"Cannot render brackets with minimizeExportedData=false"},
+			ExpectedError: ContainsErrMatcher{
+				Messages: []string{"bracket apps have no team and cannot be managed under a team-specific filter"},
+			},
 		},
 	}
 

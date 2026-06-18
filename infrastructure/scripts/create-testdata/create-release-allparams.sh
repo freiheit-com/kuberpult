@@ -61,8 +61,10 @@ case "${RELEASE_VERSION:-}" in
 	*) release_version+=('--form-string' "version=${RELEASE_VERSION:-}");;
 esac
 
-rev=${REVISION:-"0"}
-revision=('--form-string' "revision=${rev}")
+revision=()
+if [ -n "${REVISION:-}" ]; then
+  revision=('--form-string' "revision=${REVISION}")
+fi
 
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
@@ -87,7 +89,7 @@ metadata:
 data:
   key: value
   random: "${randomValue}"
-  releaseVersion: "${release_version[@]}"
+  releaseVersion: "${RELEASE_VERSION}"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -103,6 +105,7 @@ spec:
     metadata:
       labels:
         app: $name-sleep
+        releaseVersion: "${RELEASE_VERSION}"
     spec:
       containers:
       - name: $name-sleep-container
@@ -139,7 +142,8 @@ done
 
 echo "manifest is in $file"
 
-FRONTEND_PORT=8081 # see docker-compose.yml
+# shellcheck source=ports.sh
+source "$(dirname "$0")/ports.sh"
 
 if [[ $(uname -o) == Darwin ]];
 then
@@ -156,7 +160,7 @@ inputs+=(--form-string "source_commit_id=$commit_id")
 inputs+=(--form-string "source_author=$author")
 inputs+=(--form-string "previous_commit_id=${prev_commit_id}")
 
-curl http://localhost:${FRONTEND_PORT}/api/release \
+curl ${URL}:"${FRONTEND_PORT}"/api/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
   "${inputs[@]}" \

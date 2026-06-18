@@ -188,7 +188,7 @@ func getCommitStatus(commitReleaseNumber uint64, environmentReleases map[types.E
 	commitStatus := make(CommitStatus)
 	if commitReleaseNumber == 0 {
 		// Since 0 is the default value for uint64, it might mean that the release version was not known when the commit was created.
-		// In this case, the commit status is unkown for all environments.
+		// In this case, the commit status is unknown for all environments.
 		for _, env := range allEnvironments {
 			commitStatus[string(env)] = api.CommitDeploymentStatus_UNKNOWN
 		}

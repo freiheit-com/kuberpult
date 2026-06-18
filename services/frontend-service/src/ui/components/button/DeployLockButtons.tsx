@@ -33,6 +33,7 @@ export type DeployLockButtonsProps = {
     lockAlreadyPlanned: boolean;
     hasLocks: boolean;
     unlockAlreadyPlanned: boolean;
+    isRedeploy?: boolean;
 };
 
 export const DeployLockButtons = (props: DeployLockButtonsProps): JSX.Element => {
@@ -50,7 +51,13 @@ export const DeployLockButtons = (props: DeployLockButtonsProps): JSX.Element =>
         onClickSubmit(!deployAlreadyPlanned && !lockAlreadyPlanned);
     }, [onClickSubmit, deployAlreadyPlanned, lockAlreadyPlanned]);
 
-    const deployType = releaseDifference < 0 ? 'Update' : releaseDifference === 0 ? 'Deploy' : 'Rollback';
+    const deployType = props.isRedeploy
+        ? 'Re-deploy'
+        : releaseDifference < 0
+          ? 'Update'
+          : releaseDifference === 0
+            ? 'Deploy'
+            : 'Rollback';
     const deployOnly = lockAlreadyPlanned ? '' : ' and Lock';
     const deployLabel = deployAlreadyPlanned ? `Cancel ${deployType}` : `${deployType}${deployOnly}`;
 

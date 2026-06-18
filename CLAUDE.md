@@ -35,30 +35,31 @@ Build a single service Docker image:
 IMAGE_TAG=local make -C services/cd-service docker
 ```
 
+## Docker Concept
+Our "builder" Dockerfile contains the go.mod and runs go mod download.
+Other Dockerfiles that depend on it, should not use go mod download again. They just copy from the builder.
+
 ## Testing
 
 Tests run inside Docker using the builder image and connect to a test PostgreSQL instance.
+Most tests require the DB.
 
 ```bash
 make test                          # Run all tests (all services + pkg)
 make -C services/cd-service test   # Test a single service
 make -C pkg test                   # Test shared packages
+make -C services/manifest-repo-export-service test GO_TEST_ARGS="-run TestParseEnvironmentOverrides -v" # Run specific test verbose
 ```
 
-For IDE/local test runs (without Docker), the test database must be reachable:
-1. Start the test database: `make unit-test-db`
-2. Run tests directly: `go test ./... -v` inside the service directory
+Do not try to run `go test` directly - it will likely fail, either because of the Database, or because of libgit2 issues.
 
-Run a single Go test:
-```bash
-go test -run TestFunctionName ./path/to/package -v
-```
 
 Frontend tests (inside `services/frontend-service`):
 ```bash
 pnpm test              # Watch mode
 pnpm test-ci           # CI mode (no watch)
 ```
+
 
 ## Linting
 
@@ -79,11 +80,16 @@ pnpm lint-fix
 ## Code Coverage Thresholds
 
 Coverage is enforced at test time and the build fails if thresholds are not met.
-The coverage thresholds are defined in the services Makefile, see "MIN_COVERAGE".
+The coverage thresholds are defined in each service's `services/<service-name>/Makefile`, look for `MIN_COVERAGE`.
 
 ## Go Test Patterns
 
 All Go tests must follow these conventions:
+
+- Even for the simplest test, immediately create a "table" (go slice) so that testing different variations is easy in the future.
+- In a table-driven test, only put the really relevant parts into the table data. Data that is identical for all cases should not be part of the table.
+- Don't use function-typed fields in the table struct (e.g. `fn func() error`). Keep all logic inline in the test loop body.
+- Omit the line `tc := tc` at the beginning of test loops — it is outdated (Go 1.22+ handles loop variable capture correctly).
 
 **Table-driven tests:**
 ```go
@@ -98,16 +104,17 @@ for _, tc := range tcs {
 }
 ```
 
-**Assertions with `cmp.Diff`:**
+**Assertions with `cmpDiff`:**
 ```go
-if diff := cmp.Diff(expected, actual); diff != "" {
+if diff := cmpDiff(expected, actual); diff != "" {
     t.Errorf("mismatch (-want, +got):\n%s", diff)
 }
 ```
+Always use cmpDiff, never use cmp.Diff, as it is not type-safe.
 
 **Proto message comparison:**
 ```go
-if diff := cmp.Diff(expected, actual, protocmp.Transform()); diff != "" {
+if diff := cmpDiff(expected, actual, protocmp.Transform()); diff != "" {
     t.Errorf("mismatch (-want, +got):\n%s", diff)
 }
 ```
@@ -147,3 +154,66 @@ The Helm chart is in `charts/kuberpult/`. Critical values:
 When introducing new fields into structs, consider defining a new custom type as in `pkg/types/types.go`.
 This is especially important for unique concepts, that cannot mix with anything else.
 For example, there is no point in comparing an envName to an appName, so they should be separate types.
+
+## Sleep
+Invoking functions like `time.Sleep` in Go is generally an antipattern.
+It should be avoided in all code, including setup, request handlers, and test code.
+Always replace it with a concrete signal: a channel receive, `sync.WaitGroup.Wait()`, context cancellation, or restructured code that only proceeds when the awaited event actually occurs. The right mechanism is case-by-case.
+
+## Database Approach
+In Kuberpult we never want to lose data. Most data is relevant to keep forever.
+This includes deployment data, as well as metadata. But also lock information should never be lost.
+Therefore, we rarely use `DELETE` SQL statements.
+Currently most database entities like apps and releases have two tables: A current version, and a history version.
+The current version only stores data that is needed, but the history keeps everything.
+Never delete anything from a history table!
+
+
+## TypeScript
+When calling a grpc API, always supply the authHeader parameter:
+```typescript
+const subscription = api
+    .overviewService()
+    .StreamOverview({}, authHeader)
+```
+
+The only exceptions are early calls that happen before the Authentication happens, for example the GetConfig call:
+```typescript
+api.configService()
+    .GetConfig({}) // the config service does not require authorisation
+```
+
+## Nil Checks in DB code
+Do not add nil checks for DBHandler (h) or sql.Tx (tx/transaction) in DB package functions.
+**Why:** They are bloating the code too much. In the unlikely case that one is nil, we can deal with the panic.
+**How to apply:** When writing any new function in `pkg/db/`,
+skip the `if h == nil { return nil }` and `if tx == nil { return fmt.Errorf(...) }` guard clauses entirely.
+
+## Database Queries
+Format database queries in go code like this:
+```go
+	selectQuery := h.AdaptQuery(`
+		SELECT created, name, json, applications
+		FROM environments
+		LIMIT 1;
+	`)
+```
+Each main sql keyword gets its own line.
+
+There are 2 kinds of select queries:
+1) Those with exactly 1 or 0 results. If we filter for the primary key, then we do not need an ORDER BY.
+If we filter by something else, an ORDER BY and LIMIT 1 is required.
+2) Those with potentially a lot of results. These must have an ORDER BY and LIMIT N.
+
+The goal is to make all queries deterministic, including the order of the result.
+
+
+## Kind tests
+The tests in test/kind-brackets are using the cd-, frontend-, reposerver-,
+and rollout-service.
+They do NOT use the manifest-repo-export.
+This means the only service communicating with Argo CD in any way is the
+rollout-service.
+
+## Rollout Service
+Details about the rollout-service are in a package-level comment in argo.go.

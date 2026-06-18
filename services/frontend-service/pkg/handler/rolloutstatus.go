@@ -125,8 +125,8 @@ func (s Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req *
 
 func statusName(a api.RolloutStatus) string {
 	switch a {
-	case api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL:
-		return "succesful"
+	case api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL: //nolint:misspell
+		return "successful"
 	case api.RolloutStatus_ROLLOUT_STATUS_PROGRESSING:
 		return "progressing"
 	case api.RolloutStatus_ROLLOUT_STATUS_ERROR:

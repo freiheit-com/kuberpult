@@ -12,7 +12,6 @@ SERVICE_DIR?=/kp/services/$(SERVICE)
 MIN_COVERAGE?=99.9 # should be overwritten by every service
 MAX_DOCKER_SIZE_MB?=1
 CONTEXT?=../../
-SKIP_TRIVY?=0
 SKIP_RETAG_MAIN_AS_PR?=0
 SKIP_BUILDER?=0
 MAKEFLAGS += --no-builtin-rules
@@ -61,7 +60,7 @@ docker: # no dependencies here!
 release:
 	test -n "$(MAIN_PATH)" || exit 0; docker push $(IMAGE_NAME)
 
-release-main:
+release-main: release
 	@echo "Tagging the PR image as main image"
 ifndef SKIP_UNVERSIONED_BUILDS
 	test -n "$(MAIN_PATH)" || exit 0; docker tag $(IMAGE_NAME) $(MAIN_IMAGE_NAME); docker push $(MAIN_IMAGE_NAME)
@@ -76,15 +75,6 @@ else
 	test -n "$(MAIN_PATH)" || exit 0; docker pull $(MAIN_IMAGE_NAME) && docker tag $(MAIN_IMAGE_NAME) $(IMAGE_NAME) && docker push $(IMAGE_NAME)
 endif
 
-
-trivy-scan: release
-#ifeq ($(SKIP_TRIVY),1)
-#	@echo "Skipping trivy"
-#else
-#	@echo "Starting trivy check for $(IMAGE_NAME)"
-#	KUBERPULT_SERVICE_IMAGE=$(IMAGE_NAME) $(MAKE) -C $(ROOT_DIR)/trivy scan-service-pr
-#endif
-
 .PHONY: datadog-wrapper
 datadog-wrapper:
 	docker run --rm -v "datadog-init:/datadog-init" datadog/serverless-init:1-alpine
@@ -94,12 +84,12 @@ gen-pkg:
 
 test: gen-pkg unit-test
 
-build-pr-internal: gen-pkg lint unit-test bench-test docker release trivy-scan
+build-pr-internal: gen-pkg lint unit-test bench-test docker release
 
 build-pr:
 	IMAGE_TAG=pr-$(VERSION) BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION) $(MAKE) build-pr-internal
 
-build-main-internal: gen-pkg lint unit-test bench-test docker release-main trivy-scan
+build-main-internal: gen-pkg lint unit-test bench-test docker release-main
 
 build-main:
 	IMAGE_TAG=main-$(VERSION) $(MAKE) build-main-internal

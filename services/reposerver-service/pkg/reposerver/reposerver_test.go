@@ -258,9 +258,372 @@ func TestGetRevisionMetadata(t *testing.T) {
 	}
 }
 
+func TestGenerateManifestBracket(t *testing.T) {
+	t.Parallel()
+
+	var vA uint64 = 2
+	var vB uint64 = 5
+
+	tcs := []struct {
+		Name             string
+		BracketEnv       types.EnvName
+		BracketName      types.ArgoBracketName
+		Apps             []types.AppName
+		Releases         []db.DBReleaseWithMetaData
+		Deployments      []db.Deployment
+		BracketMap       map[types.ArgoBracketName]db.AppNames
+		RequestPath      string
+		ExpectedRevision string
+		ExpectedManifests int
+	}{
+		{
+			Name:        "two-app bracket returns combined manifests and colon-separated revision",
+			BracketEnv:  "development",
+			BracketName: "my-bracket",
+			Apps:        []types.AppName{"app-a", "app-b"},
+			Releases: []db.DBReleaseWithMetaData{
+				{
+					ReleaseNumbers: types.ReleaseNumbers{Version: &vA, Revision: 0},
+					App:            "app-a",
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
+						"development": `api: v1
+kind: ConfigMap
+metadata:
+  name: app-a-config
+  namespace: default
+data:
+  key: a`,
+					}},
+				},
+				{
+					ReleaseNumbers: types.ReleaseNumbers{Version: &vB, Revision: 0},
+					App:            "app-b",
+					Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
+						"development": `api: v1
+kind: ConfigMap
+metadata:
+  name: app-b-config
+  namespace: default
+data:
+  key: b`,
+					}},
+				},
+			},
+			Deployments: []db.Deployment{
+				{App: "app-a", Env: "development", ReleaseNumbers: types.ReleaseNumbers{Version: &vA, Revision: 0}},
+				{App: "app-b", Env: "development", ReleaseNumbers: types.ReleaseNumbers{Version: &vB, Revision: 0}},
+			},
+			BracketMap: map[types.ArgoBracketName]db.AppNames{
+				"my-bracket": {"app-a", "app-b"},
+			},
+			RequestPath:       "environments/development/brackets/my-bracket",
+			ExpectedRevision:  "2:5:",
+			ExpectedManifests: 2,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			dbHandler := SetupRepositoryTestWithDBOptions(t)
+			ctx := context.Background()
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+				if err := dbHandler.DBWriteMigrationsTransformer(ctx, tx); err != nil {
+					return err
+				}
+				if err := dbHandler.DBWriteEnvironment(ctx, tx, tc.BracketEnv, devEnvironment.Config); err != nil {
+					return err
+				}
+				for _, appName := range tc.Apps {
+					if err := dbHandler.DBInsertOrUpdateApplication(ctx, tx, appName, db.AppStateChangeCreate, db.DBAppMetaData{}, tc.BracketName); err != nil {
+						return err
+					}
+				}
+				for _, r := range tc.Releases {
+					if err := dbHandler.DBUpdateOrCreateRelease(ctx, tx, r); err != nil {
+						return err
+					}
+				}
+				for _, d := range tc.Deployments {
+					if err := dbHandler.DBUpdateOrCreateDeployment(ctx, tx, d); err != nil {
+						return err
+					}
+				}
+				return db.DBInsertBracketHistory(ctx, dbHandler, tx, db.BracketRow{
+					AllBracketsJsonBlob: db.BracketJsonBlob{BracketMap: tc.BracketMap},
+				}, 0)
+			})
+
+			srv := New(dbHandler)
+			resp, err := srv.GenerateManifest(ctx, &argorepo.ManifestRequest{
+				Revision: "master",
+				Repo:     &v1alpha1.Repository{Repo: "<the-repo-url>"},
+				ApplicationSource: &v1alpha1.ApplicationSource{Path: tc.RequestPath},
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if resp.Revision != tc.ExpectedRevision {
+				t.Errorf("expected Revision=%q, got %q", tc.ExpectedRevision, resp.Revision)
+			}
+			if len(resp.Manifests) != tc.ExpectedManifests {
+				t.Errorf("expected %d manifests, got %d", tc.ExpectedManifests, len(resp.Manifests))
+			}
+		})
+	}
+}
+
+func TestGenerateManifestBracketWithEslId(t *testing.T) {
+	t.Parallel()
+
+	var vA1 uint64 = 1
+	var vA2 uint64 = 2
+	var vB uint64 = 5
+
+	releaseFor := func(app types.AppName, version *uint64, configName string) db.DBReleaseWithMetaData {
+		return db.DBReleaseWithMetaData{
+			ReleaseNumbers: types.ReleaseNumbers{Version: version, Revision: 0},
+			App:            app,
+			Manifests: db.DBReleaseManifests{Manifests: map[types.EnvName]string{
+				"development": fmt.Sprintf(`api: v1
+kind: ConfigMap
+metadata:
+  name: %s
+  namespace: default
+data:
+  key: x`, configName),
+			}},
+		}
+	}
+
+	type bracketHistoryInsert struct {
+		BracketMap             map[types.ArgoBracketName]db.AppNames
+		SourceTransformerEslId db.TransformerID
+	}
+
+	tcs := []struct {
+		Name              string
+		Apps              []types.AppName
+		Releases          []db.DBReleaseWithMetaData
+		Deployments       []db.Deployment
+		BracketInserts    []bracketHistoryInsert
+		RequestPath       string
+		ExpectedRevision  string
+		ExpectedManifests int
+		ExpectError       bool
+	}{
+		{
+			Name: "new format: happy path — single bracket history row, esl_id resolves it",
+			Apps: []types.AppName{"app-a"},
+			Releases: []db.DBReleaseWithMetaData{
+				releaseFor("app-a", &vA1, "app-a-v1"),
+			},
+			Deployments: []db.Deployment{
+				{App: "app-a", Env: "development", ReleaseNumbers: types.ReleaseNumbers{Version: &vA1, Revision: 0}},
+			},
+			BracketInserts: []bracketHistoryInsert{
+				{
+					BracketMap:             map[types.ArgoBracketName]db.AppNames{"my-bracket": {"app-a"}},
+					SourceTransformerEslId: 42,
+				},
+			},
+			RequestPath:       "environments/development/brackets/my-bracket@42",
+			ExpectedRevision:  "1:",
+			ExpectedManifests: 1,
+		},
+		{
+			Name: "new format: PARTIAL-MOVE race window — path points to older snapshot where bracket had both apps",
+			Apps: []types.AppName{"app-a", "app-b"},
+			Releases: []db.DBReleaseWithMetaData{
+				releaseFor("app-a", &vA2, "app-a-v2"),
+				releaseFor("app-b", &vB, "app-b"),
+			},
+			// app-a was bumped to v2 (and conceptually moved to other-bracket); app-b stays at v5 in my-bracket
+			Deployments: []db.Deployment{
+				{App: "app-a", Env: "development", ReleaseNumbers: types.ReleaseNumbers{Version: &vA2, Revision: 0}},
+				{App: "app-b", Env: "development", ReleaseNumbers: types.ReleaseNumbers{Version: &vB, Revision: 0}},
+			},
+			BracketInserts: []bracketHistoryInsert{
+				// Snapshot 42: my-bracket contained both apps. Argo CD app for my-bracket was created with path @42.
+				{
+					BracketMap:             map[types.ArgoBracketName]db.AppNames{"my-bracket": {"app-a", "app-b"}},
+					SourceTransformerEslId: 42,
+				},
+				// Snapshot 43 (latest): app-a moved out. Argo CD has NOT yet been updated by the rollout-service.
+				{
+					BracketMap: map[types.ArgoBracketName]db.AppNames{
+						"my-bracket":    {"app-b"},
+						"other-bracket": {"app-a"},
+					},
+					SourceTransformerEslId: 43,
+				},
+			},
+			// Reposerver should consult snapshot 42 (as the path says), find both apps, and serve their CURRENT deployments.
+			// Without the fix, the reposerver would consult the LATEST snapshot (43), see only app-b, and Argo CD would prune app-a → downtime.
+			RequestPath:       "environments/development/brackets/my-bracket@42",
+			ExpectedRevision:  "2:5:",
+			ExpectedManifests: 2,
+		},
+		{
+			Name: "new format: genuine deletion — historical app has no current deployment",
+			Apps: []types.AppName{"app-a"},
+			Releases: []db.DBReleaseWithMetaData{
+				releaseFor("app-a", &vA1, "app-a-v1"),
+			},
+			// no deployments — simulates the deployment row being absent (genuine undeploy)
+			Deployments: []db.Deployment{},
+			BracketInserts: []bracketHistoryInsert{
+				{
+					BracketMap:             map[types.ArgoBracketName]db.AppNames{"my-bracket": {"app-a"}},
+					SourceTransformerEslId: 42,
+				},
+			},
+			RequestPath:       "environments/development/brackets/my-bracket@42",
+			ExpectedRevision:  ":", // JoinBracketVersionFromParts([]) returns ":"
+			ExpectedManifests: 0,
+		},
+		{
+			Name:        "new format: malformed esl_id is an error",
+			RequestPath: "environments/development/brackets/my-bracket@not-a-number",
+			ExpectError: true,
+		},
+		{
+			Name: "new format: esl_id points to non-existent snapshot is an error",
+			BracketInserts: []bracketHistoryInsert{
+				{
+					BracketMap:             map[types.ArgoBracketName]db.AppNames{"my-bracket": {"app-a"}},
+					SourceTransformerEslId: 42,
+				},
+			},
+			RequestPath: "environments/development/brackets/my-bracket@999",
+			ExpectError: true,
+		},
+		{
+			Name: "legacy format (no @) still works",
+			Apps: []types.AppName{"app-a"},
+			Releases: []db.DBReleaseWithMetaData{
+				releaseFor("app-a", &vA1, "app-a-v1"),
+			},
+			Deployments: []db.Deployment{
+				{App: "app-a", Env: "development", ReleaseNumbers: types.ReleaseNumbers{Version: &vA1, Revision: 0}},
+			},
+			BracketInserts: []bracketHistoryInsert{
+				{
+					BracketMap:             map[types.ArgoBracketName]db.AppNames{"my-bracket": {"app-a"}},
+					SourceTransformerEslId: 42,
+				},
+			},
+			RequestPath:       "environments/development/brackets/my-bracket",
+			ExpectedRevision:  "1:",
+			ExpectedManifests: 1,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			dbHandler := SetupRepositoryTestWithDBOptions(t)
+			ctx := context.Background()
+
+			setupErr := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, tx *sql.Tx) error {
+				if err := dbHandler.DBWriteMigrationsTransformer(ctx, tx); err != nil {
+					return err
+				}
+				if err := dbHandler.DBWriteEnvironment(ctx, tx, "development", devEnvironment.Config); err != nil {
+					return err
+				}
+				for _, appName := range tc.Apps {
+					if err := dbHandler.DBInsertOrUpdateApplication(ctx, tx, appName, db.AppStateChangeCreate, db.DBAppMetaData{}, "my-bracket"); err != nil {
+						return err
+					}
+				}
+				for _, r := range tc.Releases {
+					if err := dbHandler.DBUpdateOrCreateRelease(ctx, tx, r); err != nil {
+						return err
+					}
+				}
+				for _, d := range tc.Deployments {
+					if err := dbHandler.DBUpdateOrCreateDeployment(ctx, tx, d); err != nil {
+						return err
+					}
+				}
+				// brackets_history.source_transformer_esl_id has a FK to event_sourcing_light(eslversion);
+				// pre-seed the referenced ESL rows with the explicit versions we plan to use.
+				eslInsert := dbHandler.AdaptQuery("INSERT INTO event_sourcing_light (eslversion, created, event_type, json) VALUES (?, NOW(), 'TestEvent', '{}');")
+				for _, insert := range tc.BracketInserts {
+					if _, err := tx.ExecContext(ctx, eslInsert, insert.SourceTransformerEslId); err != nil {
+						return err
+					}
+					if err := db.DBInsertBracketHistory(ctx, dbHandler, tx, db.BracketRow{
+						AllBracketsJsonBlob: db.BracketJsonBlob{BracketMap: insert.BracketMap},
+					}, insert.SourceTransformerEslId); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if setupErr != nil {
+				t.Fatalf("setup failed: %v", setupErr)
+			}
+
+			srv := New(dbHandler)
+			resp, err := srv.GenerateManifest(ctx, &argorepo.ManifestRequest{
+				Revision:          "master",
+				Repo:              &v1alpha1.Repository{Repo: "<the-repo-url>"},
+				ApplicationSource: &v1alpha1.ApplicationSource{Path: tc.RequestPath},
+			})
+			if tc.ExpectError {
+				if err == nil {
+					t.Errorf("expected error but got none, resp=%+v", resp)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if resp.Revision != tc.ExpectedRevision {
+				t.Errorf("expected Revision=%q, got %q", tc.ExpectedRevision, resp.Revision)
+			}
+			if len(resp.Manifests) != tc.ExpectedManifests {
+				t.Errorf("expected %d manifests, got %d", tc.ExpectedManifests, len(resp.Manifests))
+			}
+		})
+	}
+}
+
+func TestGenerateManifest_InvalidPath(t *testing.T) {
+	tcs := []struct {
+		Name string
+		Path string
+	}{
+		{Name: "wrong keyword 5-part", Path: "environments/dev/configs/app/manifests"},
+		{Name: "wrong end 5-part", Path: "environments/dev/applications/app/something"},
+		{Name: "wrong keyword 4-part", Path: "environments/dev/applications/app"},
+		{Name: "too long", Path: "environments/dev/applications/app/manifests/extra"},
+		{Name: "3-part path", Path: "environments/dev/applications"},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// nil dbHandler is safe here since invalid paths are rejected before any DB access.
+			srv := New(nil)
+			_, err := srv.GenerateManifest(context.Background(), &argorepo.ManifestRequest{
+				Repo:              &v1alpha1.Repository{Repo: "<the-repo-url>"},
+				ApplicationSource: &v1alpha1.ApplicationSource{Path: tc.Path},
+			})
+			if err == nil {
+				t.Errorf("expected error for path %q but got none", tc.Path)
+			}
+		})
+	}
+}
+
 func SetupRepositoryTestWithDBOptions(t *testing.T) *db.DBHandler {
 	ctx := context.Background()
-	migrationsPath, err := db.CreateMigrationsPath(5)
+	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
 		t.Fatalf("CreateMigrationsPath error: %v", err)
 	}

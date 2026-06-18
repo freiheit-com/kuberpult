@@ -104,5 +104,5 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://kuberpult-frontend-service:8081"
+  "proxy": "http://frontend-service:8081"
 }

@@ -188,7 +188,7 @@ type Repository struct {
 		GistsURL          string `json:"gists_url"`
 		StarredURL        string `json:"starred_url"`
 		SubscriptionsURL  string `json:"subscriptions_url"`
-		OrganizationsURL  string `json:"organizations_url"`
+		OrganisationsURL  string `json:"organizations_url"` //nolint:misspell
 		ReposURL          string `json:"repos_url"`
 		EventsURL         string `json:"events_url"`
 		ReceivedEventsURL string `json:"received_events_url"`
@@ -314,7 +314,7 @@ type PushPayload struct {
 		GistsURL          string `json:"gists_url"`
 		StarredURL        string `json:"starred_url"`
 		SubscriptionsURL  string `json:"subscriptions_url"`
-		OrganizationsURL  string `json:"organizations_url"`
+		OrganisationsURL  string `json:"organizations_url"` //nolint:misspell
 		ReposURL          string `json:"repos_url"`
 		EventsURL         string `json:"events_url"`
 		ReceivedEventsURL string `json:"received_events_url"`

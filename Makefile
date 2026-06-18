@@ -29,6 +29,8 @@ INTEGRATION_TEST_CONFIG_FILE := $(INTEGRATION_TEST_CONFIG_DIR)/kubeconfig.yaml
 COMMIT_MSG_FILE := commitlint.msg
 
 export USER_UID := $(shell id -u)
+COMPOSE_PROJECT_NAME ?= kuberpult
+COMPOSE_CMD := docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.datadog.yml
 .install:
 	touch .install
 
@@ -56,6 +58,7 @@ all: $(addsuffix /all,$(MAKEDIRS))
 init:
 
 .PHONY: release  $(addsuffix /release,$(MAKEDIRS)) all $(addsuffix /all,$(MAKEDIRS)) clean $(addsuffix /clean,$(MAKEDIRS))
+.PHONY: prepare-compose prepare-compose-cd-service prepare-compose-manifest-repo-export-service prepare-compose-frontend-service prepare-compose-ui
 
 .PHONY: version
 version:
@@ -74,7 +77,7 @@ builder:
 	IMAGE_TAG=local make -C infrastructure/docker/builder build
 
 compose-down:
-	docker compose -f docker-compose.yml -f docker-compose.datadog.yml down
+	$(COMPOSE_CMD) down
 
 prepare-git:
 	@if [ ! -d "services/cd-service/repository_remote" ]; then \
@@ -98,12 +101,21 @@ prepare-pgp:
 		rm -rf "$$GNUPGHOME"; \
 	fi
 
+prepare-compose-cd-service:
+	IMAGE_TAG=local make -C services/cd-service docker
+
+prepare-compose-manifest-repo-export-service:
+	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
+
+prepare-compose-frontend-service:
+	IMAGE_TAG=local make -C services/frontend-service docker gen-api
+
+prepare-compose-ui:
+	make -C infrastructure/docker/ui build-pr
+
 prepare-compose: builder
 	BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:local make -C pkg gen
-	IMAGE_TAG=local make -C services/cd-service docker
-	IMAGE_TAG=local make -C services/manifest-repo-export-service docker
-	IMAGE_TAG=local make -C services/frontend-service docker gen-api
-	make -C infrastructure/docker/ui build-pr
+	$(MAKE) -j4 prepare-compose-cd-service prepare-compose-manifest-repo-export-service prepare-compose-frontend-service prepare-compose-ui
 
 kuberpult-datadog: prepare-compose prepare-git prepare-pgp compose-down
 ifndef DD_ENV
@@ -113,14 +125,13 @@ else
 endif
 
 kuberpult: prepare-compose prepare-git prepare-pgp compose-down
-	docker compose -f docker-compose.yml -f docker-compose.persist.yml up
+	docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.persist.yml up
 
 reset-db: compose-down
-	# This deletes the volume of the default db location:
-	docker volume rm kuberpult_pgdata
+	$(COMPOSE_CMD) -f docker-compose.persist.yml down -v
 
-kuberpult-freshdb: prepare-compose cleanup-git prepare-git prepare-pgp compose-down
-	docker compose up
+kuberpult-freshdb: prepare-compose cleanup-git prepare-git prepare-pgp reset-db
+	docker compose --env-file .env.local up
 
 # Run this before starting the unit tests in your IDE:
 unit-test-db:
@@ -175,13 +186,6 @@ commitlint: $(COMMIT_MSG_FILE)
 
 $(COMMIT_MSG_FILE):
 	git log -1 --pretty=%B > $(COMMIT_MSG_FILE)
-
-.PHONY: pull-trivy check-secrets
-pull-trivy:
-	docker pull aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256)
-
-check-secrets:
-	docker run aquasec/trivy@sha256:$$(cat ./.trivy-image.SHA256) fs --scanners=secret .
 
 .git/hooks/pre-commit: hooks/pre-commit
 	cp $< $@

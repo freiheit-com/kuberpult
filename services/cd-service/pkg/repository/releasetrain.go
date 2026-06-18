@@ -734,7 +734,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 				logging.Info(ctx, "app appears to have no releases on env, so it is skipped.", zap.String("application", string(appName)), zap.String("environment", string(envName)))
 				continue
 			}
-			versionToDeploy = allLatestReleases[appName][0] //Releases come ordered version DESC, revision DESC (also garanteed to have at least 1 element)
+			versionToDeploy = allLatestReleases[appName][0] //Releases come ordered version DESC, revision DESC (also guaranteed to have at least 1 element)
 		} else {
 			upstreamVersion := allLatestDeploymentsUpstreamEnv[appName]
 
@@ -1101,7 +1101,7 @@ func (c *envReleaseTrain) applyPrognosis(
 				SourceCommitId:        revivedRelease.Metadata.SourceCommitId,
 				SourceAuthor:          revivedRelease.Metadata.SourceAuthor,
 				SourceMessage:         revivedRelease.Metadata.SourceMessage,
-				PreviousCommit:        "", // we don't have previousCommitId for releases in database for now
+				PreviousCommit:        "",
 				Team:                  appPrognosis.Team,
 				DisplayVersion:        revivedRelease.Metadata.DisplayVersion,
 				Authentication:        c.Parent.Authentication,
@@ -1195,7 +1195,7 @@ func (c *envReleaseTrain) renderEnvironmentSkipCause() func(SkipCause *api.Relea
 		case api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED:
 			return fmt.Sprintf("Target Environment '%s' is locked - skipping.", c.Env)
 		default:
-			return fmt.Sprintf("Environment '%s' is skipped for an unrecognized reason", c.Env)
+			return fmt.Sprintf("Environment '%s' is skipped for an unrecognised reason", c.Env)
 		}
 	}
 }
@@ -1225,7 +1225,7 @@ func (c *envReleaseTrain) renderApplicationSkipCause(
 		case api.ReleaseTrainAppSkipCause_NO_TEAM_PERMISSION:
 			return fmt.Sprintf("skipping application %q in environment %q because the user team %q is not the same as the apllication", appName, c.Env, Prognosis.Team)
 		default:
-			return fmt.Sprintf("skipping application %q in environment %q for an unrecognized reason", appName, c.Env)
+			return fmt.Sprintf("skipping application %q in environment %q for an unrecognised reason", appName, c.Env)
 		}
 	}
 }

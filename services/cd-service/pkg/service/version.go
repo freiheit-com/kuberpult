@@ -34,12 +34,6 @@ type VersionServiceServer struct {
 	Repository repository.Repository
 }
 
-func (o *VersionServiceServer) GetVersion(
-	ctx context.Context,
-	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
-}
-
 func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
 	if req.Application == "" {
 		return nil, status.Error(codes.InvalidArgument, "no application specified")

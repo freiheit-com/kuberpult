@@ -70,7 +70,7 @@ func JWKSInitAzure(ctx context.Context) (*keyfunc.JWKS, error) {
 func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId string) (jwt.MapClaims, error) {
 	var token *jwt.Token
 	if jwks == nil {
-		return nil, fmt.Errorf("jwks not initialized")
+		return nil, fmt.Errorf("jwks not initialised")
 	}
 	claims := jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(jwtB64, claims, jwks.Keyfunc)

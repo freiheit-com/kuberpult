@@ -19,8 +19,10 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,6 +42,8 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
+var ErrAppNotFound = errors.New("app not found")
+
 type OverviewServiceServer struct {
 	Repository       repository.Repository
 	RepositoryConfig repository.RepositoryConfig
@@ -51,7 +55,8 @@ type OverviewServiceServer struct {
 	changedAppsStreamingInitFunc sync.Once
 	response                     atomic.Value
 
-	DBHandler *db.DBHandler
+	DBHandler                    *db.DBHandler
+	ExperimentalBracketsClusters []string
 }
 
 func (o *OverviewServiceServer) GetAppDetails(
@@ -94,7 +99,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			return nil, fmt.Errorf("error finding app: %s: %w", appName, err)
 		}
 		if appWithMetadata == nil {
-			return nil, fmt.Errorf("app not found: %s", appName)
+			return nil, fmt.Errorf("%w: %s", ErrAppNotFound, appName)
 		}
 		if appWithMetadata.ArgoBracket == "" {
 			// if there is no bracket, the appname is the bracket
@@ -413,6 +418,44 @@ func (o *OverviewServiceServer) GetAllEnvTeamLocks(ctx context.Context,
 	})
 }
 
+func (o *OverviewServiceServer) GetAllManifestLocks(ctx context.Context,
+	in *api.GetAllManifestLocksRequest) (*api.GetAllManifestLocksResponse, error) {
+
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetAllManifestLocks")
+	defer span.Finish()
+
+	return db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) (*api.GetAllManifestLocksResponse, error) {
+		locks, err := o.DBHandler.DBSelectAllActiveManifestLocks(ctx, transaction)
+		if err != nil {
+			return nil, err
+		}
+		response := api.GetAllManifestLocksResponse{
+			ManifestLocks: make([]*api.ManifestLockInfo, 0, len(locks)),
+		}
+		if locks == nil {
+			return &response, nil
+		}
+		for _, l := range locks {
+			response.ManifestLocks = append(response.ManifestLocks, &api.ManifestLockInfo{
+				App: string(l.App),
+				Env: string(l.Env),
+				Lock: &api.Lock{
+					LockId:    fmt.Sprintf("%d", l.LockID),
+					Message:   l.Metadata.Message,
+					CreatedAt: timestamppb.New(l.Metadata.CreatedAt),
+					CreatedBy: &api.Actor{
+						Name:  l.Metadata.CreatedByName,
+						Email: l.Metadata.CreatedByEmail,
+					},
+					CiLink:            l.Metadata.CiLink,
+					SuggestedLifetime: l.Metadata.SuggestedLifeTime,
+				},
+			})
+		}
+		return &response, nil
+	})
+}
+
 func (o *OverviewServiceServer) getOverviewDB(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
@@ -531,7 +574,7 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 			if err := stream.Send(ov); err != nil {
 				// if we don't log this here, the details will be lost - so this is an exception to the rule "either return an error or log it".
 				// for example if there's an invalid encoding, grpc will just give a generic error like
-				// "error while marshaling: string field contains invalid UTF-8"
+				// "error while marshalling: string field contains invalid UTF-8"
 				// but it won't tell us which field has the issue. This is then very hard to debug further.
 				logging.Error(stream.Context(), "error sending overview response.", zap.Error(err), zap.String("overview", fmt.Sprintf("%+v", ov)))
 				return err
@@ -543,7 +586,7 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 	}
 }
 
-func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
+func (o *OverviewServiceServer) StreamChangedApps(_ *api.GetChangedAppsRequest,
 	stream api.OverviewService_StreamChangedAppsServer) error {
 	ch, unsubscribe := o.subscribeChangedApps()
 	defer unsubscribe()
@@ -566,10 +609,55 @@ func (o *OverviewServiceServer) StreamChangedApps(in *api.GetChangedAppsRequest,
 			for idx, appName := range changedAppsNames {
 				response, err := o.GetAppDetails(stream.Context(), &api.GetAppDetailsRequest{AppName: string(appName)})
 				if err != nil {
-					return err
+					if errors.Is(err, ErrAppNotFound) {
+						// App was fully deleted; send an empty response so the rollout-service
+						// can clean up any ArgoCD Applications it still tracks for this app.
+						response = &api.GetAppDetailsResponse{
+							Application: &api.Application{Name: string(appName)},
+							AppLocks:    make(map[string]*api.Locks),
+							Deployments: make(map[string]*api.Deployment),
+							TeamLocks:   make(map[string]*api.Locks),
+						}
+					} else {
+						return err
+					}
+				}
+				// Strip bracket-enabled envs from app deployments so the rollout-service
+				// does not track individual apps for those envs.
+				for envName := range response.Deployments {
+					if isBracketEnv(o.ExperimentalBracketsClusters, envName) {
+						delete(response.Deployments, envName) // safe: Go allows map deletion during range
+					}
 				}
 				ov.ChangedApps[idx] = response
 			}
+
+			if len(o.ExperimentalBracketsClusters) > 0 {
+				changedBrackets, err := o.getChangedBrackets(stream.Context(), changedAppsNames)
+				if err != nil {
+					return err
+				}
+				ov.ChangedBrackets = changedBrackets
+			}
+
+			// Include the current max ESL ID so the rollout-service can gate
+			// cascade-deletes: it must not cascade-delete an old bracket until
+			// it has fully processed up to this ESL ID (which means the new
+			// bracket Argo Application has already been created).
+			if err := o.DBHandler.WithTransaction(stream.Context(), true, func(ctx context.Context, tx *sql.Tx) error {
+				row, err := o.DBHandler.DBReadEslEventInternal(ctx, tx, false)
+				if err != nil {
+					return err
+				}
+				if row != nil {
+					ov.TransformerEslId = int64(row.EslVersion)
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("StreamChangedApps: read max ESL version: %w", err)
+			}
+
+			logging.Info(stream.Context(), "StreamChangedApps called", zap.Any("response", ov))
 
 			if err := stream.Send(ov); err != nil {
 				logging.Error(stream.Context(), "error sending changed apps.", zap.Error(err), zap.String("changedAppsNames", fmt.Sprintf("%+v", ov)))
@@ -634,6 +722,226 @@ func (o *OverviewServiceServer) getAllAppNames(ctx context.Context) ([]types.App
 	return db.WithTransactionMultipleEntriesT(o.DBHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]types.AppName, error) {
 		return o.Repository.State().GetApplications(ctx, transaction)
 	})
+}
+
+func isBracketEnv(clusters []string, env string) bool {
+	return slices.Contains(clusters, env)
+}
+
+func combineBracketDeployments(appDetails []*api.GetAppDetailsResponse, bracketEnvs []string) map[string]*api.BracketDeployment {
+	sort.Slice(appDetails, func(i, j int) bool {
+		return appDetails[i].Application.Name < appDetails[j].Application.Name
+	})
+	result := make(map[string]*api.BracketDeployment)
+	for _, envName := range bracketEnvs {
+		var versionParts []string
+		hasDeployment := false
+		var latestTime time.Time
+		var latestDeployment *api.Deployment
+		var latestAppDetails *api.GetAppDetailsResponse
+
+		for _, appDetail := range appDetails {
+			dep := appDetail.Deployments[envName]
+			if dep == nil {
+				versionParts = append(versionParts, "0")
+				continue
+			}
+			hasDeployment = true
+			versionParts = append(versionParts, fmt.Sprintf("%d", dep.Version))
+
+			if dep.DeploymentMetaData != nil && dep.DeploymentMetaData.DeployTime != nil {
+				t := dep.DeploymentMetaData.DeployTime.AsTime()
+				if t.After(latestTime) {
+					latestTime = t
+					latestDeployment = dep
+					latestAppDetails = appDetail
+				}
+			}
+		}
+
+		var deployedAt *timestamppb.Timestamp
+		if !latestTime.IsZero() {
+			deployedAt = timestamppb.New(latestTime)
+		}
+
+		var sourceCommitId string
+		if latestDeployment != nil && latestAppDetails != nil {
+			for _, rel := range latestAppDetails.Application.Releases {
+				if rel.Version == latestDeployment.Version {
+					sourceCommitId = rel.SourceCommitId
+					break
+				}
+			}
+		}
+
+		version := string(types.JoinBracketVersionFromParts(versionParts))
+		if !hasDeployment {
+			// No member of this bracket has a deployment in env E. The per-env bracket
+			// Argo app should not exist (see argo.go package comment, "per-env bracket
+			// existence" rule). Emit the delete sentinel so the rollout-service tears
+			// it down — instead of treating all-"0" parts as a live "0:..." version,
+			// which would recreate the app and fight the cascade-delete.
+			version = string(types.BracketVersionDelete)
+		}
+		result[envName] = &api.BracketDeployment{
+			Version:        version,
+			DeployedAt:     deployedAt,
+			SourceCommitId: sourceCommitId,
+		}
+	}
+	return result
+}
+
+func (o *OverviewServiceServer) getBracketDetails(ctx context.Context, bracketName types.ArgoBracketName, appNames db.AppNames, lostMembersTo []string) (*api.GetBracketDetailsResponse, error) {
+	appDetails := make([]*api.GetAppDetailsResponse, 0, len(appNames))
+	for _, appName := range appNames {
+		detail, err := o.GetAppDetails(ctx, &api.GetAppDetailsRequest{AppName: string(appName)})
+		if err != nil {
+			return nil, err
+		}
+		if detail.Application == nil || detail.Application.Name == "" {
+			logging.Error(ctx, "getBracketDetails: app detail has no application name, skipping", zap.String("appName", string(appName)))
+			continue
+		}
+		appDetails = append(appDetails, detail)
+	}
+	return &api.GetBracketDetailsResponse{
+		BracketName:   string(bracketName),
+		Deployments:   combineBracketDeployments(appDetails, o.ExperimentalBracketsClusters),
+		LostMembersTo: lostMembersTo,
+	}, nil
+}
+
+func (o *OverviewServiceServer) getChangedBrackets(ctx context.Context, changedApps []types.AppName) ([]*api.GetBracketDetailsResponse, error) {
+	type changedBracketsLookup struct {
+		bracketRow         *db.BracketRow
+		prevBracketRow     *db.BracketRow
+		deletedAppBrackets map[types.AppName]types.ArgoBracketName
+		liveApps           map[types.AppName]bool
+	}
+
+	lookup, err := db.WithTransactionT(o.DBHandler, ctx, 2, true, func(ctx context.Context, tx *sql.Tx) (*changedBracketsLookup, error) {
+		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, o.DBHandler, tx)
+		if err != nil {
+			return nil, err
+		}
+		prevBracketRow, err := db.DBSelectBracketHistoryPrevious(ctx, o.DBHandler, tx)
+		if err != nil {
+			return nil, err
+		}
+		deletedAppBrackets := make(map[types.AppName]types.ArgoBracketName)
+		liveApps := make(map[types.AppName]bool)
+		for _, appName := range changedApps {
+			app, err := o.DBHandler.DBSelectApp(ctx, tx, appName)
+			if err != nil {
+				return nil, err
+			}
+			if app != nil && app.ArgoBracket != "" {
+				deletedAppBrackets[appName] = app.ArgoBracket
+			}
+			if app != nil && app.StateChange != db.AppStateChangeDelete {
+				liveApps[appName] = true
+			}
+		}
+		return &changedBracketsLookup{bracketRow: bracketRow, prevBracketRow: prevBracketRow, deletedAppBrackets: deletedAppBrackets, liveApps: liveApps}, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if lookup == nil {
+		return nil, nil
+	}
+
+	var bracketMap map[types.ArgoBracketName]db.AppNames
+	if lookup.bracketRow != nil {
+		bracketMap = lookup.bracketRow.AllBracketsJsonBlob.BracketMap
+	}
+
+	// Determine which brackets to update.
+	var affectedBrackets []types.ArgoBracketName
+	// lostMembersTo maps a bracket to the brackets that gained members it lost in
+	// this change (see GetBracketDetailsResponse.lost_members_to).
+	lostMembersTo := make(map[types.ArgoBracketName][]string)
+	if len(changedApps) == 0 {
+		// Initial load: include all brackets.
+		for bracketName := range bracketMap {
+			affectedBrackets = append(affectedBrackets, bracketName)
+		}
+	} else {
+		seen := make(map[types.ArgoBracketName]bool)
+		// Find brackets that still contain a changed app.
+		for bracketName, apps := range bracketMap {
+			for _, changedApp := range changedApps {
+				for _, app := range apps {
+					if app == changedApp {
+						if !seen[bracketName] {
+							seen[bracketName] = true
+							affectedBrackets = append(affectedBrackets, bracketName)
+						}
+						break
+					}
+				}
+			}
+		}
+		// Also include brackets for deleted apps (no longer in bracketMap).
+		for _, appName := range changedApps {
+			if bracketName, ok := lookup.deletedAppBrackets[appName]; ok {
+				if !seen[bracketName] {
+					seen[bracketName] = true
+					affectedBrackets = append(affectedBrackets, bracketName)
+				}
+			}
+		}
+		// Include the bracket a still-existing app just *left* (a bracket move).
+		// If the old bracket became empty, it is emitted with the delete sentinel so
+		// its now-orphaned Argo app is torn down. If the old bracket still has other
+		// members, it must be re-emitted anyway: its Argo app spec pins the
+		// brackets_history snapshot it was last updated against, and without a spec
+		// refresh the reposerver keeps rendering the moved app's manifests in the old
+		// bracket — both brackets then own the app and Argo CD fights over its
+		// resources. A real undeploy (app deleted) is intentionally skipped here — its
+		// resource cleanup goes through the rollout_should_undeploy_cascade path.
+		if lookup.prevBracketRow != nil {
+			prevMap := lookup.prevBracketRow.AllBracketsJsonBlob.BracketMap
+			for _, appName := range changedApps {
+				if !lookup.liveApps[appName] {
+					continue
+				}
+				for prevBracket, apps := range prevMap {
+					if slices.Contains(bracketMap[prevBracket], appName) {
+						continue // app is still a member of this bracket; it did not leave it
+					}
+					if slices.Contains(apps, appName) {
+						// Record which bracket gained the app, so the rollout-service can
+						// defer this bracket's Argo app spec refresh until the gainer has
+						// adopted the app's resources (Argo would otherwise prune them).
+						for gainer, gainerApps := range bracketMap {
+							if slices.Contains(gainerApps, appName) && !slices.Contains(lostMembersTo[prevBracket], string(gainer)) {
+								lostMembersTo[prevBracket] = append(lostMembersTo[prevBracket], string(gainer))
+							}
+						}
+					}
+					if slices.Contains(apps, appName) && !seen[prevBracket] {
+						seen[prevBracket] = true
+						affectedBrackets = append(affectedBrackets, prevBracket)
+					}
+				}
+			}
+		}
+	}
+	sort.Slice(affectedBrackets, func(i, j int) bool { return string(affectedBrackets[i]) < string(affectedBrackets[j]) })
+
+	result := make([]*api.GetBracketDetailsResponse, 0, len(affectedBrackets))
+	for _, bracketName := range affectedBrackets {
+		lost := lostMembersTo[bracketName]
+		sort.Strings(lost) // deterministic order (gainers were collected in map order)
+		detail, err := o.getBracketDetails(ctx, bracketName, bracketMap[bracketName], lost)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, detail)
+	}
+	return result, nil
 }
 
 func (o *OverviewServiceServer) update(s *repository.State) {

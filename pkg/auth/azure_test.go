@@ -72,7 +72,7 @@ func TestValidateTokenStatic(t *testing.T) {
 			Name:          "Not initialized",
 			Token:         "asdf",
 			noInit:        true,
-			ExpectedError: errMatcher{"jwks not initialized"},
+			ExpectedError: errMatcher{"jwks not initialised"},
 		},
 		{
 			Name:          "Not a token 2",

@@ -38,7 +38,7 @@ func TestReadArgsAppLock(t *testing.T) {
 			name: "some unrecognized positional arguments",
 			args: []string{"potato", "tomato"},
 			expectedError: errMatcher{
-				msg: "these arguments are not recognized: \"potato tomato\"",
+				msg: "these arguments are not recognised: \"potato tomato\"",
 			},
 		},
 		{
@@ -196,7 +196,7 @@ func TestReadArgsDeleteAppLock(t *testing.T) {
 			name: "some unrecognized positional arguments",
 			args: []string{"potato", "tomato"},
 			expectedError: errMatcher{
-				msg: "these arguments are not recognized: \"potato tomato\"",
+				msg: "these arguments are not recognised: \"potato tomato\"",
 			},
 		},
 		{
