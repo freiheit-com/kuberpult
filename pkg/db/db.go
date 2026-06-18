@@ -236,6 +236,10 @@ func closeRows(rows *sql.Rows) error {
 }
 
 func closeRowsAndLog(rows *sql.Rows, ctx context.Context, function string) {
+	if rows == nil {
+		// rows is nil when the query itself failed, so there is nothing to close
+		return
+	}
 	err := rows.Close()
 	if err != nil {
 		logging.Error(ctx, "rows could not be closed.", zap.String("function", function), zap.Error(err))

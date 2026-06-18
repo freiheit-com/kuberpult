@@ -2186,6 +2186,25 @@ func TestReadAllActiveApplicationLock(t *testing.T) {
 	}
 }
 
+// TestReadAllActiveApplicationLockQueryFailure ensures there is no panic in DBSelectAllActiveAppLocksForApp
+func TestReadAllActiveApplicationLockQueryFailure(t *testing.T) {
+	t.Parallel()
+	ctx := testutilauth.MakeTestContext()
+
+	dbHandler := setupDB(t)
+	err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+		// the cancelled context makes the query fail,
+		// which must result in an error, not a panic (nil pointer dereference on rows.Close):
+		cancelledCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		_, err := dbHandler.DBSelectAllActiveAppLocksForApp(cancelledCtx, transaction, "my-app")
+		return err
+	})
+	if err == nil {
+		t.Fatalf("expected an error because the query context was cancelled, but got none")
+	}
+}
+
 func TestReadAllActiveApplicationLockForApps(t *testing.T) {
 
 	type testLockInfo struct {
