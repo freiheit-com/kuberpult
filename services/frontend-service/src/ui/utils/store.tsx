@@ -226,6 +226,12 @@ export const useAllWarningsAllApps = (): Warning => useWarnings((map) => map);
 
 export const getAppDetails = (appName: string, authHeader: AuthHeader): void => {
     const details = updateAppDetails.get();
+
+    // if app details are already loading, do not request again
+    if (details[appName] && details[appName].appDetailState === AppDetailsState.LOADING) {
+        return;
+    }
+
     details[appName] = {
         details: details[appName] ? details[appName].details : undefined,
         appDetailState: AppDetailsState.LOADING,
