@@ -25,7 +25,7 @@ TEAM="sre"
 for v in $(seq 1 "$NUM_VERSIONS"); do
     echo "$v"
     REVISION=$v RELEASE_VERSION=$((START_VERSION + v)) \
-        "${SCRIPT_DIR}/create-release.sh" "${APP_NAME}" "${TEAM}" "" "${ARGO_BRACKET}"
+        "${SCRIPT_DIR}/create-release-allparams.sh" "${APP_NAME}" "${TEAM}" "${ARGO_BRACKET}"
     NEXT_VERSION=$((START_VERSION + v + 1))
 done
 
@@ -33,4 +33,4 @@ done
 
 # One extra release so not all apps are in the same state
 REVISION=6 RELEASE_VERSION=$NEXT_VERSION \
-    "${SCRIPT_DIR}/create-release.sh" "${APP_NAME}" "${TEAM}" "" "${ARGO_BRACKET}"
+    "${SCRIPT_DIR}/create-release-allparams.sh" "${APP_NAME}" "${TEAM}" "${ARGO_BRACKET}"

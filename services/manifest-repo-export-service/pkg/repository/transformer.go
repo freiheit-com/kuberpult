@@ -104,15 +104,16 @@ func writeManifests(fs billy.Filesystem, completeFilePath string, envManifest st
 	return nil
 }
 
-func writeManifestsIfNoManifestLock(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx, fs billy.Filesystem, completePath string, envManifest string, app types.AppName, env types.EnvName) error {
+// writeManifestsIfNoManifestLock returns true if we have confirmed there is a manifest-lock
+func writeManifestsIfNoManifestLock(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx, fs billy.Filesystem, completePath string, envManifest string, app types.AppName, env types.EnvName) (bool, error) {
 	hasLock, err := dbHandler.DBHasActiveManifestLock(ctx, transaction, app, env)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if hasLock {
-		return nil
+		return true, nil
 	}
-	return writeManifests(fs, completePath, envManifest)
+	return false, writeManifests(fs, completePath, envManifest)
 }
 
 // releasesDirectoryWithVersion returns applications/<app>/releases/<version>
@@ -409,7 +410,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if state.ArgoRenderOptions.RenderApps {
-		if err := writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, fsys.Join(manifestsDir, "manifests.yaml"), manifestContent, types.AppName(c.Application), c.Environment); err != nil {
+		if _, err := writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, fsys.Join(manifestsDir, "manifests.yaml"), manifestContent, types.AppName(c.Application), c.Environment); err != nil {
 			return "", err
 		}
 	}
@@ -485,7 +486,7 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 	if err := fsys.MkdirAll(dir.BracketDirectory, 0777); err != nil {
 		return fmt.Errorf("could not create directory %s: %v", dir.BracketDirectory, err)
 	}
-	err = writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, dir.BracketPath, string(manifestContent), types.AppName(c.Application), c.Environment)
+	_, err = writeManifestsIfNoManifestLock(ctx, state.DBHandler, transaction, fsys, dir.BracketPath, string(manifestContent), types.AppName(c.Application), c.Environment)
 	if err != nil {
 		return fmt.Errorf("could not write bracket for deployment of app %s on env %s: %v", c.Application, envName, err)
 	}
@@ -1029,6 +1030,7 @@ func (c *RenderEnvironment) Transform(
 
 	fs := state.Filesystem
 	appToManifestMap := make(map[types.AppName]string)
+	appsWithManifestLock := []types.AppName{}
 	for appName, releaseNumbers := range deployments {
 		release, err := state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, tx, appName, releaseNumbers, false, c.CreationTimestamp)
 		if err != nil {
@@ -1063,15 +1065,18 @@ func (c *RenderEnvironment) Transform(
 			if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
 				return "", fmt.Errorf("could not create directory %s: %v", manifestsDir, err)
 			}
-
-			if err := writeManifests(fs, fs.Join(manifestsDir, "manifests.yaml"), envManifest); err != nil {
-				return "", fmt.Errorf("could not write manifests for app '%s' on env '%s': %v", appName, c.Environment, err)
+			lockExists, err := writeManifestsIfNoManifestLock(ctx, state.DBHandler, tx, fs, fs.Join(manifestsDir, "manifests.yaml"), envManifest, appName, c.Environment)
+			if err != nil {
+				return "", err
 			}
-
+			if lockExists {
+				appsWithManifestLock = append(appsWithManifestLock, appName)
+			}
 			tCtx.AddAppEnv(string(appName), c.Environment)
 		}
 	}
 
+	extraMessages := []string{}
 	// re-render brackets for all the apps in the environment (if brackets are enabled)
 	if state.ArgoRenderOptions.RenderBrackets {
 		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, state.DBHandler, tx)
@@ -1081,6 +1086,11 @@ func (c *RenderEnvironment) Transform(
 		if bracketRow != nil {
 			for bracketName, appNames := range bracketRow.AllBracketsJsonBlob.BracketMap {
 				for _, appName := range appNames {
+					if slices.Contains(appsWithManifestLock, appName) {
+						extraMessages = append(extraMessages, fmt.Sprintf("bracket %s skipped due to app %s's manifest-lock", bracketName, appName))
+						break // on to the next bracket
+					}
+
 					// as an app can be moved to a different bracket,
 					// we have to clean up all old brackes for this app on this env before rendering new brackets
 					if err := cleanupBracketFile(ctx, state, tx, fs, c.Environment, appName, c.TransformerEslVersion); err != nil {
@@ -1109,7 +1119,8 @@ func (c *RenderEnvironment) Transform(
 		}
 	}
 
-	return "re-render all deployed apps for environment " + string(c.Environment), nil
+	extra := "\n" + strings.Join(extraMessages, "\n")
+	return "re-render all deployed apps for environment " + string(c.Environment) + extra, nil
 }
 
 type CreateEnvironment struct {

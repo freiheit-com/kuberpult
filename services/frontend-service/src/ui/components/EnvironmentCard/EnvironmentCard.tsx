@@ -13,7 +13,13 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { addAction, getPriorityClassName, useFilteredEnvironmentLockIDs, useTeamNames } from '../../utils/store';
+import {
+    addAction,
+    getPriorityClassName,
+    useFilteredEnvironmentLockIDs,
+    useKuberpultVersion,
+    useTeamNames,
+} from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
@@ -100,6 +106,8 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
             multiselect={true}></TeamSelectionDialog>
     );
 
+    const kuberpultVersion: string = useKuberpultVersion();
+
     return (
         <div className="environment-lane">
             {dialog}
@@ -136,16 +144,25 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         onClick={popupSelectTeams}
                         highlightEffect={false}
                     />
-                    <span
-                        title={
-                            'Kuberpult generally renders all necessary files automatically.\nRe-rendering is useful if you did manual changes in the manifest repository, and you want to restore the content.\nNote that "re-render" ignores all locks except manifest-locks.'
-                        }>
+                    <span className={'re-render-group'}>
                         <Button
-                            className="environment-action"
+                            className="environment-action re-render-button"
                             label={'Re-render environment ' + environment.name}
                             onClick={renderEnvironment}
                             highlightEffect={false}
                         />
+                        <a
+                            className={'re-render-info-link'}
+                            href={
+                                'https://github.com/freiheit-com/kuberpult/blob/' +
+                                kuberpultVersion +
+                                '/docs/users/61_rerender_with_locks.md'
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label="Re-render documentation">
+                            ⓘ
+                        </a>
                     </span>
                     <Button
                         className="environment-action service-action--show-config"
