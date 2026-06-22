@@ -138,7 +138,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                     />
                     <span
                         title={
-                            'Kuberpult generally renders all necessary files automatically.\nRe-rendering is useful if you did manual changes in the manifest repository.'
+                            'Kuberpult generally renders all necessary files automatically.\nRe-rendering is useful if you did manual changes in the manifest repository, and you want to restore the content.\nNote that "re-render" ignores all locks except manifest-locks.'
                         }>
                         <Button
                             className="environment-action"
