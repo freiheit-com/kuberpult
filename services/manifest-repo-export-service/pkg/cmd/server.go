@@ -179,7 +179,7 @@ func Run(ctx context.Context) error {
 	// single push. Setting it to 1 reproduces exactly the old single-event behaviour (safe rollback
 	// switch). The cap must keep a batch's single push comfortably within
 	// KUBERPULT_NETWORK_TIMEOUT_SECONDS (see below); a batch still transfers all its commits' objects,
-	// so an oversized batch can trip the push timeout and force the whole batch to reprocess (R-6/R-7).
+	// so an oversized batch can trip the push timeout and force the whole batch to reprocess.
 	// It is required (set via the helm chart value manifestRepoExport.maxExportBatchSize) — the service
 	// has no default and fails to start if it is unset.
 	maxExportBatchSize, err := valid.ReadEnvVarUInt("KUBERPULT_MAX_EXPORT_BATCH_SIZE")
@@ -575,7 +575,7 @@ func ProcessOneEvent(
 	}
 	err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
 		// Git commits are NOT rolled back when this read transaction retries, so a retry would
-		// re-apply on top of the previous attempt's commits and stack duplicates (R-1). Resetting to
+		// re-apply on top of the previous attempt's commits and stack duplicates. Resetting to
 		// the pre-batch HEAD at the top of EVERY attempt makes the apply idempotent across retries.
 		// This must be inside the closure (WithTransactionR retries by re-invoking it), not before it.
 		if resetErr := repo.ResetHardTo(ctx, oldCommitId); resetErr != nil {
@@ -591,13 +591,10 @@ func ProcessOneEvent(
 			return 0, err
 		}
 		if len(batch) > 1 {
-			// A batch of more than one event failed. Fall back to processing one event at a time so
-			// the preceding good events still commit individually and only the offending event is
-			// failed (preserving the existing at-least-once / skip-poison-event semantics with no new
-			// failure modes). Task 4a's reset means this retry starts from a known-good HEAD even if
-			// the batch error triggered a FetchAndReset that moved HEAD (R-2). This call processes
-			// exactly the first event (maxBatchSize 1); the processEsls loop drains the rest of the
-			// former batch on subsequent iterations.
+			// The batch failed as a whole. Retry it one event at a time: the good events then commit
+			// individually, and a single event that keeps failing is recorded and skipped by
+			// handleFailedEvent below instead of blocking the rest. This call processes only the first
+			// event; processEsls drains the rest on later iterations.
 			logging.Info(ctx, "batch apply failed, falling back to single-event processing.", zap.Error(err))
 			return ProcessOneEvent(ctx, repo, dbHandler, ddMetrics, sleepDuration, failOnErrorWithGitPushTags, 1)
 		}
@@ -638,8 +635,8 @@ func ProcessOneEvent(
 
 			// A batch produces a chain of <= N commits. Write one commit-transaction-timestamp per
 			// commit, using that event's own Created time. Events that produced no commit (NoOp) have
-			// an empty hash and are skipped (R-3/R-4). Head-only is not viable: intermediate commits
-			// are looked up by hash elsewhere and would otherwise have no timestamp row.
+			// an empty hash and are skipped. Writing only the head commit is not enough: intermediate
+			// commits are looked up by hash elsewhere and would otherwise have no timestamp row.
 			anyCommit := false
 			for i := range batch {
 				if batch[i].CommitHash == "" {
@@ -655,9 +652,9 @@ func ProcessOneEvent(
 				logging.Warn(ctx, "no commit was created, tagging skipped")
 				return nil
 			}
-			// Push each transformer's git tag (R-11). The export's CreateApplicationVersion carries
-			// no tag today, so this loop is a no-op for batched releases, but we loop per transformer
-			// (not just the last) so release-level tags work if they are ever wired in.
+			// Push each transformer's git tag. The export's CreateApplicationVersion carries no tag
+			// today, so this loop is a no-op for batched releases, but we loop per transformer (not
+			// just the last) so release-level tags work if they are ever wired in.
 			for i := range batch {
 				gitTag := batch[i].Transformer.GetGitTag()
 				if gitTag == "" {
