@@ -582,7 +582,7 @@ func ProcessOneEvent(
 			return resetErr
 		}
 		var err2 error
-		batch, err2 = HandleOneTransformer(ctx, transaction, dbHandler, ddMetrics, repo, maxBatchSize)
+		batch, err2 = HandleBatchEvents(ctx, transaction, dbHandler, ddMetrics, repo, maxBatchSize)
 		return err2
 	})
 	if err != nil {
@@ -785,13 +785,13 @@ func measureDelays(ctx context.Context, ddMetrics statsd.ClientInterface, delayS
 	}
 }
 
-// HandleOneTransformer reads the next batch of esl events to process (a contiguous run of
+// HandleBatchEvents reads the next batch of esl events to process (a contiguous run of
 // CreateApplicationVersion events, or a single event of any other type — see selectBatch), builds a
 // transformer for each, and applies the whole batch in a single repo.Apply. It returns the built
 // transformers together with the esl rows of the batch they came from, so the caller can write one
 // push + one cutoff for the batch. The returned esl rows are also populated on error so the caller
 // can react to the failure (e.g. mark it failed). A batch of size 1 reproduces today's behaviour.
-// HandleOneTransformer additionally returns, aligned one-to-one with the returned esl rows, the
+// HandleBatchEvents additionally returns, aligned one-to-one with the returned esl rows, the
 // hash of the commit each event produced ("" for a NoOp event that produced none), so the caller can
 // write one commit-transaction-timestamp per commit.
 // batchedEvent bundles one esl event with the transformer built from it and the hash of the commit
@@ -804,7 +804,7 @@ type batchedEvent struct {
 	CommitHash  string
 }
 
-func HandleOneTransformer(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository, maxBatchSize int) ([]batchedEvent, error) {
+func HandleBatchEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository, maxBatchSize int) ([]batchedEvent, error) {
 	if ddMetrics != nil {
 		delaySeconds, delayEvents, err := dbHandler.GetCurrentDelays(ctx, transaction)
 		if err != nil {
