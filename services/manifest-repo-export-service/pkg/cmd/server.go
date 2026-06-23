@@ -589,10 +589,23 @@ func ProcessOneEvent(
 			return 0, err
 		}
 		if len(batch) > 1 {
-			// The batch failed as a whole. Retry it one event at a time: the good events then commit
-			// individually, and a single event that keeps failing is recorded and skipped by
-			// handleFailedEvent below instead of blocking the rest. This call processes only the first
-			// event; processEsls drains the rest on later iterations.
+			// The batch failed as a whole. A failed apply can leave partial commits on the branch
+			// (ApplyWithCommitIds stops at the first failing transformer without removing the commits
+			// earlier ones already created), so restore the pre-batch HEAD before retrying. Otherwise
+			// the recursive call below would capture the dirty HEAD as its own baseline and push those
+			// leftover commits.
+			if resetErr := repo.ResetHardTo(ctx, oldCommitId); resetErr != nil {
+				d := sleepDuration.NextBackOff()
+				if sleepDuration.IsAtMax() {
+					return 0, resetErr
+				}
+				logging.Info(ctx, "error resetting before single-event fallback, will try again.", zap.Error(resetErr))
+				return d, nil
+			}
+			// Retry it one event at a time: the good events then commit individually, and a single
+			// event that keeps failing is recorded and skipped by handleFailedEvent below instead of
+			// blocking the rest. This call processes only the first event; processEsls drains the rest
+			// on later iterations.
 			logging.Info(ctx, "batch apply failed, falling back to single-event processing.", zap.Error(err))
 			return ProcessOneEvent(ctx, repo, dbHandler, ddMetrics, sleepDuration, failOnErrorWithGitPushTags, 1)
 		}
