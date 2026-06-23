@@ -264,9 +264,15 @@ func TestHandleOneTransformer(t *testing.T) {
 				return nil
 			})
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				actualTransformers, actualRows, _, actualError := HandleOneTransformer(ctx, transaction, dbHandler, nil, repo, 1)
+				actualBatch, actualError := HandleOneTransformer(ctx, transaction, dbHandler, nil, repo, 1)
 				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				var actualTransformers []repository.Transformer
+				var actualRows []*db.EslEventRow
+				for _, b := range actualBatch {
+					actualTransformers = append(actualTransformers, b.Transformer)
+					actualRows = append(actualRows, b.Esl)
 				}
 				if diff := cmp.Diff(tc.expectedTransformers, actualTransformers); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
