@@ -53,9 +53,7 @@ const (
 
 	maxEslProcessingTimeSeconds int64 = 600 // see eslProcessingIdleTimeSeconds in values.yaml
 
-	// maxExportBatchSizeLimit is a hard upper bound on KUBERPULT_MAX_EXPORT_BATCH_SIZE. The right
-	// operational value is much smaller and bounded against push time (R-6); this just guards against
-	// absurd configuration.
+	// maxExportBatchSizeLimit is a hard upper bound on KUBERPULT_MAX_EXPORT_BATCH_SIZE.
 	maxExportBatchSizeLimit = 100
 
 	// defaultMaxExportBatchSize is the batch cap used when KUBERPULT_MAX_EXPORT_BATCH_SIZE is unset.
