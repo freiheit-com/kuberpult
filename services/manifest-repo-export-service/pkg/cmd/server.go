@@ -637,18 +637,18 @@ func ProcessOneEvent(
 			// commit, using that event's own Created time. Events that produced no commit (NoOp) have
 			// an empty hash and are skipped. Writing only the head commit is not enough: intermediate
 			// commits are looked up by hash elsewhere and would otherwise have no timestamp row.
-			anyCommit := false
+			anyCommitCreated := false
 			for i := range batch {
 				if batch[i].CommitHash == "" {
 					continue
 				}
-				anyCommit = true
+				anyCommitCreated = true
 				if err3 := dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, batch[i].CommitHash, batch[i].Esl.Created); err3 != nil {
 					return err3
 				}
 			}
 
-			if !anyCommit {
+			if !anyCommitCreated {
 				logging.Warn(ctx, "no commit was created, tagging skipped")
 				return nil
 			}
