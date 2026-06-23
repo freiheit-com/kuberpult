@@ -260,13 +260,16 @@ manifestRepoExport:
   networkTimeoutSeconds: 120
 
   # Maximum number of adjacent CreateApplicationVersion events the export processes in a single
-  # `git push` (batching). Set to 1 to disable batching and reproduce the original behavior of one
+  # `git push` (batching). Required — the service has no built-in default and fails to start if this
+  # is unset. Set to 1 to disable batching and reproduce the original behavior of one
   # push per event — a safe rollback switch.
-  # The default is deliberately conservative. A batch still transfers all its commits' objects, so
+  # The value below is deliberately conservative. A batch still transfers all its commits' objects, so
   # its single push must finish comfortably within `networkTimeoutSeconds` above (NOT
   # `git.networkTimeout`, which governs the cd-service). An oversized batch that trips the timeout
-  # forces the whole batch to reprocess, which is strictly worse than not batching.
-  # For details, view `docs/operators/timeouts.md`. Tune up with evidence.
+  # forces the whole batch to reprocess, which is strictly worse than not
+  # batching. Must be between 1 and 100 (inclusive); the service rejects values
+  # above 100. This is a hard guard against having a excessive configuration.
+  # For details, view `docs/operators/timeouts.md`.
   maxExportBatchSize: 10
 
   # This flag only applies when the "gitTag" query parameter in the release train api is used.

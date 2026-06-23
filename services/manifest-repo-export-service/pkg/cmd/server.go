@@ -55,11 +55,6 @@ const (
 
 	// maxExportBatchSizeLimit is a hard upper bound on KUBERPULT_MAX_EXPORT_BATCH_SIZE.
 	maxExportBatchSizeLimit = 100
-
-	// defaultMaxExportBatchSize is the batch cap used when KUBERPULT_MAX_EXPORT_BATCH_SIZE is unset.
-	// It is intentionally conservative (one push covers a small run of releases); set the env var to
-	// 1 to disable batching entirely as a rollback switch.
-	defaultMaxExportBatchSize = 10
 )
 
 func RunServer() {
@@ -184,16 +179,16 @@ func Run(ctx context.Context) error {
 	// single push. Setting it to 1 reproduces exactly the old single-event behaviour (safe rollback
 	// switch). The cap must keep a batch's single push comfortably within
 	// KUBERPULT_NETWORK_TIMEOUT_SECONDS (see below); a batch still transfers all its commits' objects,
-	// so an oversized batch can trip the push timeout and force the whole batch to reprocess
-	// (R-6/R-7). The default below is deliberately conservative — tune up with evidence.
-	maxExportBatchSize := defaultMaxExportBatchSize
-	if val, exists := os.LookupEnv("KUBERPULT_MAX_EXPORT_BATCH_SIZE"); exists {
-		maxExportBatchSize, err = strconv.Atoi(val)
-		if err != nil {
-			return fmt.Errorf("error converting KUBERPULT_MAX_EXPORT_BATCH_SIZE, error: %w", err)
-		}
-	} else {
-		logging.Info(ctx, "environment variable KUBERPULT_MAX_EXPORT_BATCH_SIZE is not set, using conservative default", zap.Int("default", defaultMaxExportBatchSize))
+	// so an oversized batch can trip the push timeout and force the whole batch to reprocess (R-6/R-7).
+	// It is required (set via the helm chart value manifestRepoExport.maxExportBatchSize) — the service
+	// has no default and fails to start if it is unset.
+	maxExportBatchSizeStr, err := valid.ReadEnvVar("KUBERPULT_MAX_EXPORT_BATCH_SIZE")
+	if err != nil {
+		return err
+	}
+	maxExportBatchSize, err := strconv.Atoi(maxExportBatchSizeStr)
+	if err != nil {
+		return fmt.Errorf("error converting KUBERPULT_MAX_EXPORT_BATCH_SIZE, error: %w", err)
 	}
 	if maxExportBatchSize < 1 {
 		return fmt.Errorf("error KUBERPULT_MAX_EXPORT_BATCH_SIZE must be >=1 but was: %v", maxExportBatchSize)
