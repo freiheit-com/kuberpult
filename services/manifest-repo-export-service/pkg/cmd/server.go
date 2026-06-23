@@ -182,21 +182,17 @@ func Run(ctx context.Context) error {
 	// so an oversized batch can trip the push timeout and force the whole batch to reprocess (R-6/R-7).
 	// It is required (set via the helm chart value manifestRepoExport.maxExportBatchSize) — the service
 	// has no default and fails to start if it is unset.
-	maxExportBatchSizeStr, err := valid.ReadEnvVar("KUBERPULT_MAX_EXPORT_BATCH_SIZE")
+	maxExportBatchSize, err := valid.ReadEnvVarUInt("KUBERPULT_MAX_EXPORT_BATCH_SIZE")
 	if err != nil {
 		return err
 	}
-	maxExportBatchSize, err := strconv.Atoi(maxExportBatchSizeStr)
-	if err != nil {
-		return fmt.Errorf("error converting KUBERPULT_MAX_EXPORT_BATCH_SIZE, error: %w", err)
-	}
-	if maxExportBatchSize < 1 {
+	if maxExportBatchSize == 0 {
 		return fmt.Errorf("error KUBERPULT_MAX_EXPORT_BATCH_SIZE must be >=1 but was: %v", maxExportBatchSize)
 	}
 	if maxExportBatchSize > maxExportBatchSizeLimit {
 		return fmt.Errorf("error KUBERPULT_MAX_EXPORT_BATCH_SIZE must be <=%v but was: %v", maxExportBatchSizeLimit, maxExportBatchSize)
 	}
-	logging.Info(ctx, "maxExportBatchSize", zap.Int("maxExportBatchSize", maxExportBatchSize))
+	logging.Info(ctx, "maxExportBatchSize", zap.Uint("maxExportBatchSize", maxExportBatchSize))
 
 	networkTimeoutSecondsStr, err := valid.ReadEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
 	if err != nil {
@@ -483,7 +479,7 @@ func Run(ctx context.Context) error {
 				Name:     "processEsls",
 				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 					reporter.ReportReady("Processing Esls")
-					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds, failOnErrorWithGitPushTags, maxExportBatchSize)
+					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds, failOnErrorWithGitPushTags, int(maxExportBatchSize))
 				},
 			},
 		},
