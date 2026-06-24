@@ -440,9 +440,16 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 		span.Finish(tracer.WithError(err))
 	}()
 
+	// We use deploymentsHistoryTable instead of deploymentsTable.
+	// Either would technically work.
+	// The issue with the deploymentsTable is that
+	// the manifest-export would generate fewer commits.
+	// E.g. if we have 2 events "deploy v1", and "deploy v1"
+	// The manifest-export would collapse them into one commit.
+	// This would make the commit history hard to read.
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
-		FROM ` + deploymentsTable + `
+		FROM ` + deploymentsHistoryTable + `
 		WHERE transformereslVersion=?;
 	`)
 
