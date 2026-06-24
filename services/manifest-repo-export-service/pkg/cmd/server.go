@@ -652,9 +652,9 @@ func ProcessOneEvent(
 				logging.Warn(ctx, "no commit was created, tagging skipped")
 				return nil
 			}
-			// Push each transformer's git tag. The export's CreateApplicationVersion carries no tag
-			// today, so this loop is a no-op for batched releases, but we loop per transformer (not
-			// just the last) so release-level tags work if they are ever wired in.
+			// Push each transformer's git tag. The export's CreateApplicationVersion carries no tag,
+			// so this loop is a no-op for batched releases, but we loop per transformer (not
+			// just the last) so tags work in general.
 			for i := range batch {
 				gitTag := batch[i].Transformer.GetGitTag()
 				if gitTag == "" {
