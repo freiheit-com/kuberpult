@@ -560,9 +560,7 @@ func ProcessOneEvent(
 	var batch []batchedEvent
 	const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
 
-	// Capture the current HEAD before applying anything. We use it for two purposes:
-	//   1. to reset the branch back to this commit at the start of every apply attempt (see below);
-	//   2. KUBERPULT_MINIMIZE_GIT_DATA: NoOp events create no commit, so per-commit timestamps are //nolint:misspell
+	// Capture the current HEAD before applying anything. We use it to reset the branch back to this commit at the start of every apply attempt (see below);
 	//      only written for events that actually produced one.
 	oldCommitId, err := repo.GetHeadCommitId()
 	if err != nil {
