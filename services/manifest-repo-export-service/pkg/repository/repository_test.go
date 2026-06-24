@@ -3092,8 +3092,8 @@ func TestManifestLockPreventsDeploymentInBracketMode(t *testing.T) {
 }
 
 // TestApplyWithCommitIds verifies that ApplyWithCommitIds returns, per transformer, the hash of the
-// commit it produced and that those hashes form a chain (R-4), and that ResetHardTo moves the
-// working branch back to a given commit so a re-apply does not stack duplicate commits (R-1).
+// commit it produced and that those hashes form a chain, and that ResetHardTo moves the
+// working branch back to a given commit so a re-apply does not stack duplicate commits.
 func TestApplyWithCommitIds(t *testing.T) {
 	const author = "test"
 	const email = "test@test.com"
@@ -3107,7 +3107,7 @@ func TestApplyWithCommitIds(t *testing.T) {
 		TransformerEslVersion: 1,
 	}
 	// A CreateApplicationVersion only produces a commit if a deployment keyed to its eslVersion is
-	// the "latest" one for its app/env (otherwise Transform returns a NoOp — R-3). The "deployments"
+	// the "latest" one for its app/env (otherwise Transform returns a NoOp). The "deployments"
 	// table keeps one row per (app,env), so to get N distinct commits in one batch we release N
 	// distinct apps (each to "dev"); each then has its own latest deployment keyed by its eslVersion.
 	// The eslVersion must also have a matching esl row (FK for the bracket history).
@@ -3134,7 +3134,6 @@ func TestApplyWithCommitIds(t *testing.T) {
 			repo := r.(*repository)
 			ctx := testutilauth.MakeTestContext()
 
-			// esl event 1 is the env; events 2..BatchSize+1 are the releases (one app each).
 			batch := make([]Transformer, 0, tc.BatchSize)
 			for i := 0; i < tc.BatchSize; i++ {
 				batch = append(batch, makeCreateApp(fmt.Sprintf("myapp-%d", i+1), db.TransformerID(i+2)))
@@ -3184,7 +3183,7 @@ func TestApplyWithCommitIds(t *testing.T) {
 				return nil
 			})
 
-			// One hash per transformer, all non-empty and distinct (R-4).
+			// One hash per transformer, all non-empty and distinct.
 			if len(batchHashes) != tc.BatchSize {
 				t.Fatalf("expected %d commit hashes, got %d: %v", tc.BatchSize, len(batchHashes), batchHashes)
 			}
@@ -3212,7 +3211,7 @@ func TestApplyWithCommitIds(t *testing.T) {
 				t.Errorf("expected head to be %d commits ahead of base, got %d", tc.BatchSize, ahead)
 			}
 
-			// ResetHardTo moves the branch back to the base commit (R-1 reset mechanism).
+			// ResetHardTo moves the branch back to the base commit.
 			if err := repo.ResetHardTo(ctx, baseHead); err != nil {
 				t.Fatalf("ResetHardTo: %v", err)
 			}

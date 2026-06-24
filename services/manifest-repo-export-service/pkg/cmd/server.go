@@ -176,9 +176,9 @@ func Run(ctx context.Context) error {
 	logging.Info(ctx, "eslProcessingTimeSeconds", zap.Int("eslProcessingTimeSeconds", int(eslProcessingIdleTimeSeconds)))
 
 	// maxExportBatchSize caps how many adjacent CreateApplicationVersion events are processed in a
-	// single push. Setting it to 1 reproduces exactly the old single-event behaviour (safe rollback
-	// switch). The cap must keep a batch's single push comfortably within
-	// KUBERPULT_NETWORK_TIMEOUT_SECONDS (see below); a batch still transfers all its commits' objects,
+	// single push. Setting it to 1 reproduces exactly the old single-event behaviour
+	// The cap must keep a batch's single push comfortably within
+	// KUBERPULT_NETWORK_TIMEOUT_SECONDS. A batch still transfers all its commits' objects,
 	// so an oversized batch can trip the push timeout and force the whole batch to reprocess.
 	// It is required (set via the helm chart value manifestRepoExport.maxExportBatchSize) — the service
 	// has no default and fails to start if it is unset.
@@ -560,8 +560,8 @@ func ProcessOneEvent(
 	var batch []batchedEvent
 	const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
 
-	// Capture the current HEAD before applying anything. We use it to reset the branch back to this commit at the start of every apply attempt (see below);
-	//      only written for events that actually produced one.
+	// Capture the current HEAD before applying anything. We use it to reset the branch back to this commit
+	//  at the start of every apply attempt
 	oldCommitId, err := repo.GetHeadCommitId()
 	if err != nil {
 		d := sleepDuration.NextBackOff()
@@ -575,7 +575,6 @@ func ProcessOneEvent(
 		// Git commits are NOT rolled back when this read transaction retries, so a retry would
 		// re-apply on top of the previous attempt's commits and stack duplicates. Resetting to
 		// the pre-batch HEAD at the top of EVERY attempt makes the apply idempotent across retries.
-		// This must be inside the closure (WithTransactionR retries by re-invoking it), not before it.
 		if resetErr := repo.ResetHardTo(ctx, oldCommitId); resetErr != nil {
 			return resetErr
 		}
@@ -796,25 +795,21 @@ func measureDelays(ctx context.Context, ddMetrics statsd.ClientInterface, delayS
 	}
 }
 
-// HandleBatchEvents reads the next batch of esl events to process (a contiguous run of
-// CreateApplicationVersion events, or a single event of any other type — see selectBatch), builds a
-// transformer for each, and applies the whole batch in a single repo.Apply. It returns the built
-// transformers together with the esl rows of the batch they came from, so the caller can write one
-// push + one cutoff for the batch. The returned esl rows are also populated on error so the caller
-// can react to the failure (e.g. mark it failed). A batch of size 1 reproduces today's behaviour.
-// HandleBatchEvents additionally returns, aligned one-to-one with the returned esl rows, the
-// hash of the commit each event produced ("" for a NoOp event that produced none), so the caller can
-// write one commit-transaction-timestamp per commit.
-// batchedEvent bundles one esl event with the transformer built from it and the hash of the commit
-// that transformer produced ("" when it produced none, e.g. a NoOp). Every field describes the same
-// event, so a single []batchedEvent replaces what used to be three parallel slices
-// (esls/transformers/commitHashes) that were all aligned one-to-one.
 type batchedEvent struct {
 	Esl         *db.EslEventRow
 	Transformer repository.Transformer
 	CommitHash  string
 }
 
+// HandleBatchEvents reads the next batch of esl events to process (a contiguous run of
+// CreateApplicationVersion events, or a single event of any other type — see selectBatch), builds a
+// transformer for each, and applies the whole batch in a single repo.Apply. It returns the built
+// transformers together with the esl rows of the batch they came from, so the caller can write one
+// push + one cutoff for the batch. The returned esl rows are also populated on error so the caller
+// can react to the failure (e.g. mark it failed).
+// HandleBatchEvents additionally returns, aligned one-to-one with the returned esl rows, the
+// hash of the commit each event produced ("" for a NoOp event that produced none), so the caller can
+// write one commit-transaction-timestamp per commit.
 func HandleBatchEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository, maxBatchSize int) ([]batchedEvent, error) {
 	if ddMetrics != nil {
 		delaySeconds, delayEvents, err := dbHandler.GetCurrentDelays(ctx, transaction)
@@ -993,13 +988,10 @@ func getTransformer(_ context.Context, eslEventType db.EventType) (repository.Tr
 // The rule:
 //   - empty input -> empty batch.
 //   - if the first unprocessed event is not a CreateApplicationVersion -> batch of exactly 1
-//     (today's single-event behaviour, unchanged).
+//     (single-event behaviour).
 //   - if the first unprocessed event is a CreateApplicationVersion -> the maximal contiguous prefix
 //     of CreateApplicationVersion events, capped at maxBatchSize. We stop at the first event of any
 //     other type.
-//
-// maxBatchSize < 1 is treated as 1, so a batch size of 0/1/negative reproduces today's behaviour and
-// acts as a safe rollback switch.
 func selectBatch(events []*db.EslEventRow, maxBatchSize int) []*db.EslEventRow {
 	if maxBatchSize < 1 {
 		maxBatchSize = 1

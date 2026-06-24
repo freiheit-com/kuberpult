@@ -498,16 +498,8 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 // DBReadEslEventBatch returns up to maxBatchSize consecutive esl events with eslVersion > cutoff,
 // in ascending eslVersion order. When cutoff is nil, it starts at the beginning of the table.
 //
-// NOTE: this deliberately does NOT filter by event_type. The "strictly contiguous, never skip an
-// interleaved event" guarantee that the batching logic relies on depends on this read returning ALL
-// events > cutoff in ascending order; selecting a same-type prefix is the caller's job (selectBatch),
-// not the query's. A WHERE event_type = ... filter would silently skip interleaved events while still
-// looking contiguous.
+// NOTE: this deliberately does NOT filter by event_type.
 func (h *DBHandler) DBReadEslEventBatch(ctx context.Context, tx *sql.Tx, cutoff *EslVersion, maxBatchSize int) (_ []*EslEventRow, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBReadEslEventBatch")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
 	if maxBatchSize < 1 {
 		maxBatchSize = 1
 	}

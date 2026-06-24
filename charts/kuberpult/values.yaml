@@ -262,7 +262,7 @@ manifestRepoExport:
   # Maximum number of adjacent CreateApplicationVersion events the export processes in a single
   # `git push` (batching). Required — the service has no built-in default and fails to start if this
   # is unset. Set to 1 to disable batching and reproduce the original behavior of one
-  # push per event — a safe rollback switch.
+  # push per event.
   # The value below is deliberately conservative. A batch still transfers all its commits' objects, so
   # its single push must finish comfortably within `networkTimeoutSeconds` above (NOT
   # `git.networkTimeout`, which governs the cd-service). An oversized batch that trips the timeout
@@ -270,7 +270,7 @@ manifestRepoExport:
   # batching. Must be between 1 and 100 (inclusive); the service rejects values
   # above 100. This is a hard guard against having a excessive configuration.
   # For details, view `docs/operators/timeouts.md`.
-  maxExportBatchSize: 10
+  maxExportBatchSize: 1
 
   # This flag only applies when the "gitTag" query parameter in the release train api is used.
   # It handles what happens, if the git tag cannot be pushed to the remote of the manifest-repo:

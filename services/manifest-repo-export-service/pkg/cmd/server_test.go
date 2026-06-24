@@ -765,8 +765,7 @@ func TestBuildTransformerBatch(t *testing.T) {
 // TestProcessOneEventBatchFailureFallback verifies that when a batch fails to apply (here the 2nd of
 // three CreateApplicationVersion events has invalid JSON), ProcessOneEvent falls back to processing
 // one event at a time: the preceding good event still processes, the offending event lands in
-// esl_failed_events with the cutoff advancing past it, and the trailing event is not poisoned
-// (Task 5 / R-2).
+// esl_failed_events with the cutoff advancing past it, and the trailing event is not poisoned.
 func TestProcessOneEventBatchFailureFallback(t *testing.T) {
 	const minSleep = time.Nanosecond * 1
 	const maxSleep = time.Nanosecond * 1000
@@ -858,7 +857,7 @@ func (p *pushCountingRepo) PushRepo(ctx context.Context) error {
 // seedCommittingCreateApp writes a CreateApplicationVersion esl event plus the DB state (app,
 // release, and — when withDeployment is true — a deployment keyed to the event's eslVersion) needed
 // for the export to actually deploy and commit when it replays the event. Without a deployment the
-// event replays as a NoOp (R-3). Events get sequential esl versions, so call this in order. Returns
+// event replays as a NoOp. Events get sequential esl versions, so call this in order. Returns
 // the assigned eslVersion.
 func seedCommittingCreateApp(ctx context.Context, t *testing.T, dbHandler *db.DBHandler, tx *sql.Tx, app types.AppName, env types.EnvName, withDeployment bool) db.EslVersion {
 	const author = "author"
@@ -905,7 +904,7 @@ func seedCommittingCreateApp(ctx context.Context, t *testing.T, dbHandler *db.DB
 // TestProcessOneEventBatchedPushEndToEnd drives ProcessOneEvent over a batch of adjacent
 // CreateApplicationVersion events and asserts the batch is collapsed into a single push, the cutoff
 // advances to the highest version, the expected number of commits are created (NoOp events produce
-// none, R-3) and every batched app ends up SYNCED (Tasks 11 / 11b).
+// none) and every batched app ends up SYNCED.
 func TestProcessOneEventBatchedPushEndToEnd(t *testing.T) {
 	const minSleep = time.Nanosecond * 1
 	const maxSleep = time.Nanosecond * 1000
@@ -969,8 +968,8 @@ func TestProcessOneEventBatchedPushEndToEnd(t *testing.T) {
 			if repo.pushCount != tc.expectedPushes {
 				t.Errorf("expected %d push(es), got %d", tc.expectedPushes, repo.pushCount)
 			}
-			// One commit_transaction_timestamps row is written per commit (Task 4 / Task 14), so the
-			// row count is the number of commits the batch produced (NoOp events produce none, R-3).
+			// One commit_transaction_timestamps row is written per commit, so the
+			// row count is the number of commits the batch produced (NoOp events produce none).
 			if got := countCommitTimestamps(ctx, t, dbHandler); got != tc.expectedCommits {
 				t.Errorf("expected %d commit-timestamp rows (= commits), got %d", tc.expectedCommits, got)
 			}
@@ -1019,7 +1018,7 @@ func (f *failingPushRepo) PushRepo(ctx context.Context) error {
 }
 
 // TestProcessOneEventBatchPushFailureReprocesses asserts that when a batch's push fails the cutoff
-// does NOT advance, and once the push recovers the whole batch reprocesses cleanly (Task 14b / R-6).
+// does NOT advance, and once the push recovers the whole batch reprocesses cleanly.
 func TestProcessOneEventBatchPushFailureReprocesses(t *testing.T) {
 	const minSleep = time.Nanosecond * 1
 	const maxSleep = time.Nanosecond * 1000
@@ -1091,7 +1090,7 @@ func TestProcessOneEventBatchPushFailureReprocesses(t *testing.T) {
 
 // TestProcessOneEventMixedSequence asserts the loop splits a mixed sequence correctly: a run of
 // CreateApplicationVersion events is batched into one push, a following non-Create event is processed
-// on its own, and a trailing Create is processed separately (Task 12).
+// on its own, and a trailing Create is processed separately.
 func TestProcessOneEventMixedSequence(t *testing.T) {
 	const minSleep = time.Nanosecond * 1
 	const maxSleep = time.Nanosecond * 1000

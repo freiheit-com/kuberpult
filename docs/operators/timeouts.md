@@ -15,7 +15,7 @@ Note that for big repositories, it can take over a minute to push!
 
 This is the timeout (in seconds, env var `KUBERPULT_NETWORK_TIMEOUT_SECONDS`) for the
 manifest-repo-export-service's own git network operations, including its `push`. This is the timeout
-that governs the export push — not `git.networkTimeout`, which is a separate cd-service knob.
+that governs the export push — not `git.networkTimeout`, which is a separate cd-service configuration.
 
 ### `manifestRepoExport.maxExportBatchSize`
 

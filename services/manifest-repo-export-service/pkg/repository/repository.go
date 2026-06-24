@@ -64,12 +64,7 @@ import (
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, tx *sql.Tx, transformers ...Transformer) error
-	// ApplyWithCommitIds applies the transformers in order and returns, for each transformer, the
-	// hash of the commit it produced ("" if it produced none, e.g. a NoOp). The returned slice has
-	// one entry per input transformer, in order.
 	ApplyWithCommitIds(ctx context.Context, tx *sql.Tx, transformers ...Transformer) ([]string, error)
-	// ResetHardTo moves the working branch ref back to the given commit, discarding any commits made
-	// on top of it. A nil oid is a no-op (e.g. a brand-new repo with no branch ref yet).
 	ResetHardTo(ctx context.Context, oid *git.Oid) error
 	Push(ctx context.Context, pushAction func() error) error
 	PushTag(ctx context.Context, tag types.GitTag) error
