@@ -120,4 +120,26 @@ Copyright freiheit.com*/
     a:active {
         color: var(--mdc-theme-anchor-on-surface);
     }
+
+    .re-render-group {
+        display: inline-flex;
+        align-items: stretch;
+        margin: $environment-buttons-column-margin;
+
+        .re-render-button {
+            margin: 0;
+            //border-right: none;
+            border-radius: $environment-add-lock-button-border-radius 0 0 $environment-add-lock-button-border-radius;
+        }
+        .re-render-info-link {
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            border: $environment-add-lock-button-border;
+            border-left: none;
+            border-radius: 0 $environment-add-lock-button-border-radius $environment-add-lock-button-border-radius 0;
+            border-color: var(--mdc-theme-on-surface-light);
+            text-decoration: none;
+        }
+    }
 }

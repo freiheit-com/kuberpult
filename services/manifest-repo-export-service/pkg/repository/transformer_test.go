@@ -1217,6 +1217,212 @@ spec:
 	}
 }
 
+// TestRerenderEnvironmentFailures is very similar to TestRerenderEnvironment, but it handles the case when
+// writing the file was interrupted (by a manifest lock).
+// And it tests the before and after states of the files, which in this test are different.
+func TestRerenderEnvironmentFailures(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	const brokenManifest = "this file is broken now"
+	tcs := []struct {
+		Name                 string
+		SetupTransformers    []Transformer
+		RenderEnvTransformer Transformer
+		ExpectedFilesBefore  []*FilenameAndData
+		ExpectedFilesAfter   []*FilenameAndData
+		ArgoRenderOptions    func(*argocd.RenderOptions)
+	}{
+		{
+			Name: "should not re-render application and bracket manifests due to manifest-lock",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"development": "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 4,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			ExpectedFilesBefore: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/myapp/myapp.yaml",
+					fileData: []byte("normal manifest"),
+				},
+				{
+					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
+					fileData: []byte("normal manifest"),
+				},
+			},
+			ExpectedFilesAfter: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/myapp/myapp.yaml",
+					fileData: []byte("this file is broken now"),
+				},
+				{
+					path:     "environments/development/applications/myapp/manifests/manifests.yaml",
+					fileData: []byte("this file is broken now"),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t, tc.ArgoRenderOptions)
+
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("migration error: %w", err)
+				}
+				for index, tr := range tc.SetupTransformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return fmt.Errorf("setup transformer[%d] failed: %w", index, err)
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+
+				for index, t := range tc.SetupTransformers {
+					err := repo.Apply(ctx, transaction, t)
+					if err != nil {
+						return fmt.Errorf("apply[%d] failed: %w", index, err)
+					}
+					// just for testing, we push each transformer change separately.
+					// if you need to debug this test, you can git clone the repo
+					// and we will only see anything if we push.
+					err = repo.PushRepo(ctx)
+					if err != nil {
+						return fmt.Errorf("push[%d] failed: %w", index, err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Errorf("error: %v", err)
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFilesBefore); err != nil {
+				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+
+			// Manually modify the manifests.yml in Git
+			if tc.ExpectedFilesBefore != nil {
+				for i := range tc.ExpectedFilesBefore {
+					expectedFile := tc.ExpectedFilesBefore[i]
+					updatedState := repo.State()
+					fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFile.path)
+
+					if err := util.WriteFile(updatedState.Filesystem, fullPath, []byte(brokenManifest), 0666); err != nil {
+						t.Fatalf("failed to write file: %v path=%s", err, fullPath)
+					}
+
+					_, _, applyError := repo.createCommit(ctx, updatedState, tc.SetupTransformers[i], []string{"broken content"})
+					if applyError != nil {
+						t.Fatalf("failed to create commit: %v", applyError)
+					}
+
+					actualFileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+					if err != nil {
+						t.Fatalf("failed to read file: %v path=%s", err, fullPath)
+					}
+
+					if !cmp.Equal(string(actualFileData), brokenManifest) {
+						t.Fatalf("expected '%v', got '%v'", brokenManifest, string(actualFileData))
+					}
+				}
+			}
+
+			// RenderEnvironment transformer should re-render the state of manifests.yml in Git (data fetched from database)
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err = dbHandler.DBWriteManifestLock(ctx, transaction, appName, "development", db.LockMetadata{})
+				if err != nil {
+					return fmt.Errorf("failed to write manifest lock: %w", err)
+				}
+				err := dbHandler.DBWriteEslEventInternal(ctx, tc.RenderEnvTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tc.RenderEnvTransformer.GetMetadata().AuthorName, AuthorEmail: tc.RenderEnvTransformer.GetMetadata().AuthorEmail})
+				if err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, tc.RenderEnvTransformer, dbHandler, t, authorEmail, authorName)
+
+				err = repo.Apply(ctx, transaction, tc.RenderEnvTransformer)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("failed to execute transaction: %v", err)
+			}
+
+			updatedState = repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFilesAfter); err != nil {
+				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
 func TestReleasesAndDeployments(t *testing.T) {
 	const appName = "myapp"
 	const authorName = "testAuthorName"
