@@ -297,6 +297,11 @@ func (h *DBHandler) DBBulkUpdateAllDeployments(ctx context.Context, tx *sql.Tx, 
 	if err != nil {
 		return fmt.Errorf("could not update deployments from %q to %q. Error: %w", oldId, newId, err)
 	}
+	query = h.AdaptQuery("UPDATE deployments_history SET transformereslversion = ? WHERE transformereslversion= ?;")
+	_, err = tx.ExecContext(ctx, query, newId, oldId)
+	if err != nil {
+		return fmt.Errorf("could not update deployments from %q to %q. Error: %w", oldId, newId, err)
+	}
 	return nil
 }
 
