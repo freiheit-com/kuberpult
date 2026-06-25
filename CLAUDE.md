@@ -217,3 +217,47 @@ rollout-service.
 
 ## Rollout Service
 Details about the rollout-service are in a package-level comment in argo.go.
+
+
+## Requirements for bracket moves in the manifest-repo-export
+1) No downtime of pods is allowed at any point, especially including bracket changes.
+   1.1) the workload is provably never pruned before adoption
+2) Ideally we do the move within 2 commits. If that's not possible 3 commits are an option.
+3) Complicated cases must work fully automatic, for example
+   3.1) many different moves at once
+   3.2) Swapping, meaning switching 2 apps between 2 brackets
+   3.3) Removing empty brackets automatically
+4) All of this must happen in a reasonable time frame. It's ok to say a bracket move takes 5 minutes. But we can't spend
+   5 minutes per bracket move, if done sequentially
+5) Important constraint: Each event that he manifest-export processes can change at most one app's bracket.
+   This is because the bracket is part of the /release endpoint, which only accepts one app.
+
+
+### Observations
+We already observed argocd, and how it behaves in different cases.
+#### Approach 1: prune=false, move, prune=true
+commit1: prune loser bracket
+commit2: remove app from loser and app app to winner
+=> This is a problem, because the winner does not have time to take ownership of the app before the loser deletes it
+
+
+#### Approach 2: prune=false & add app, rm app, prune=true
+commit1: prune=false loser bracket, add app to winner
+=> This is a problem, because the 2 argo apps fight over the app. Manageable, but tricky, because we have to avoid version bumps during bracket moves => 1 extra commit at least.
+commit2: remove from loser
+commit3: prune=true
+
+#### Approach 3: prune=false, add app, rm app
+commit1: prune=false in loser bracket
+commit2: add app to winner. Unconfirmed expectation: now the winner should take ownership
+=> There is flapping between the 2 argo apps.
+(commit3: rm app from loser, and prune=true)
+
+
+#### Approach 4: move/evict/finalize
+commit1(move): deploy new version to both brackets, set loser prune=false
+commit2(evict): delete app from loser bracket
+=> Flapping happens, but between identical deployments. Works!
+commit3(finalize): set prune=true
+
+This is the solution we want to implement!
