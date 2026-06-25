@@ -6292,7 +6292,6 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()
@@ -6324,7 +6323,7 @@ func TestDbUpdateAllDeployments(t *testing.T) {
 						return err
 					}
 
-					err = dbHandler.upsertDeploymentRow(ctx, transaction, deployment)
+					err = dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, deployment)
 					if err != nil {
 						return fmt.Errorf("error while writing deployment, error: %w", err)
 					}

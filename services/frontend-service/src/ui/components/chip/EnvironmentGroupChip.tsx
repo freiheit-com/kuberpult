@@ -43,7 +43,8 @@ export const AppLockSummary: React.FC<{
     const cssClass: string = isManifestLock ? 'app-lock-summary-manifest-lock' : '';
     const message: string = isManifestLock ? 'M-Locked' : 'Locked';
     const title: string = isManifestLock
-        ? 'Go to the locks page on /ui/locks to see details. Note that for Manifest-Locks in brackets, the entire bracket is locked!'
+        ? '\nGo to the locks page on /ui/locks to see details.' +
+          '\nNote that for Manifest-Locks in brackets, the entire bracket is locked!'
         : 'Click on a tile to see details.';
     return (
         <div
