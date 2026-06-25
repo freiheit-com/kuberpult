@@ -3090,3 +3090,161 @@ func TestManifestLockPreventsDeploymentInBracketMode(t *testing.T) {
 		})
 	}
 }
+
+// TestApplyWithCommitIds verifies that ApplyWithCommitIds returns, per transformer, the hash of the
+// commit it produced and that those hashes form a chain, and that ResetHardTo moves the
+// working branch back to a given commit so a re-apply does not stack duplicate commits.
+func TestApplyWithCommitIds(t *testing.T) {
+	const author = "test"
+	const email = "test@test.com"
+	devEnv := &CreateEnvironment{
+		Environment: "dev",
+		Config: config.EnvironmentConfig{
+			Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+			ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "dev-server"}},
+		},
+		TransformerMetadata:   TransformerMetadata{AuthorName: author, AuthorEmail: email},
+		TransformerEslVersion: 1,
+	}
+	// A CreateApplicationVersion only produces a commit if a deployment keyed to its eslVersion is
+	// the "latest" one for its app/env (otherwise Transform returns a NoOp). The "deployments"
+	// table keeps one row per (app,env), so to get N distinct commits in one batch we release N
+	// distinct apps (each to "dev"); each then has its own latest deployment keyed by its eslVersion.
+	// The eslVersion must also have a matching esl row (FK for the bracket history).
+	makeCreateApp := func(app string, eslVersion db.TransformerID) *CreateApplicationVersion {
+		return &CreateApplicationVersion{
+			Application:           app,
+			Manifests:             map[types.EnvName]string{"dev": fmt.Sprintf("manifest-%s", app)},
+			Version:               1,
+			WriteCommitData:       false,
+			TransformerMetadata:   TransformerMetadata{AuthorName: author, AuthorEmail: email},
+			TransformerEslVersion: eslVersion,
+		}
+	}
+	tcs := []struct {
+		Name      string
+		BatchSize int
+	}{
+		{Name: "batch of 2 create-version events", BatchSize: 2},
+		{Name: "batch of 3 create-version events", BatchSize: 3},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			ctx := testutilauth.MakeTestContext()
+
+			batch := make([]Transformer, 0, tc.BatchSize)
+			for i := 0; i < tc.BatchSize; i++ {
+				batch = append(batch, makeCreateApp(fmt.Sprintf("myapp-%d", i+1), db.TransformerID(i+2)))
+			}
+
+			// Seed the DB the way the cd-service would: esl events (so transformer ids exist as FKs),
+			// the env, each release, and a deployment per release keyed to its eslVersion (so each
+			// CreateApplicationVersion actually deploys and therefore commits).
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i := 0; i < tc.BatchSize+1; i++ {
+					if err := dbHandler.DBWriteEslEventInternal(ctx, db.EvtCreateApplicationVersion, transaction, interface{}(nil), db.ESLMetadata{}); err != nil {
+						t.Fatalf("writing esl event: %v", err)
+					}
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, devEnv, dbHandler, t, email, author)
+				for _, tr := range batch {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, email, author)
+					cav := tr.(*CreateApplicationVersion)
+					if err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+						App:            types.AppName(cav.Application),
+						Env:            "dev",
+						ReleaseNumbers: types.MakeReleaseNumbers(cav.Version, 0),
+						Metadata:       db.DeploymentMetadata{DeployedByEmail: email, DeployedByName: author},
+						TransformerID:  cav.TransformerEslVersion,
+					}); err != nil {
+						t.Fatalf("seeding deployment: %v", err)
+					}
+				}
+				return nil
+			})
+
+			var baseHead *git.Oid
+			var batchHashes []string
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if _, err := repo.ApplyWithCommitIds(ctx, transaction, devEnv); err != nil {
+					t.Fatalf("applying env: %v", err)
+				}
+				var err error
+				baseHead, err = repo.GetHeadCommitId()
+				if err != nil {
+					t.Fatalf("get base head: %v", err)
+				}
+				batchHashes, err = repo.ApplyWithCommitIds(ctx, transaction, batch...)
+				if err != nil {
+					t.Fatalf("applying batch: %v", err)
+				}
+				return nil
+			})
+
+			// One hash per transformer, all non-empty and distinct.
+			if len(batchHashes) != tc.BatchSize {
+				t.Fatalf("expected %d commit hashes, got %d: %v", tc.BatchSize, len(batchHashes), batchHashes)
+			}
+			seen := map[string]bool{baseHead.String(): true}
+			for i, h := range batchHashes {
+				if h == "" {
+					t.Errorf("commit hash %d is empty, expected a real commit", i)
+				}
+				if seen[h] {
+					t.Errorf("commit hash %d (%s) is not distinct", i, h)
+				}
+				seen[h] = true
+			}
+
+			// The head is the last batched commit, and the chain is exactly BatchSize commits ahead
+			// of the base (each transformer committed on top of the previous).
+			head, err := repo.GetHeadCommitId()
+			if err != nil {
+				t.Fatalf("get head: %v", err)
+			}
+			if head.String() != batchHashes[len(batchHashes)-1] {
+				t.Errorf("head %s != last batch hash %s", head.String(), batchHashes[len(batchHashes)-1])
+			}
+			if ahead := countCommitsAhead(t, repo, head, baseHead); ahead != tc.BatchSize {
+				t.Errorf("expected head to be %d commits ahead of base, got %d", tc.BatchSize, ahead)
+			}
+
+			// ResetHardTo moves the branch back to the base commit.
+			if err := repo.ResetHardTo(ctx, baseHead); err != nil {
+				t.Fatalf("ResetHardTo: %v", err)
+			}
+			afterReset, err := repo.GetHeadCommitId()
+			if err != nil {
+				t.Fatalf("get head after reset: %v", err)
+			}
+			if afterReset.String() != baseHead.String() {
+				t.Errorf("after reset head %s != base %s (commits were not discarded)", afterReset.String(), baseHead.String())
+			}
+		})
+	}
+}
+
+// countCommitsAhead returns how many commits head is ahead of base, following first parents.
+func countCommitsAhead(t *testing.T, repo *repository, head, base *git.Oid) int {
+	t.Helper()
+	count := 0
+	cur := head
+	for cur != nil && cur.String() != base.String() {
+		obj, err := repo.repository.Lookup(cur)
+		if err != nil {
+			t.Fatalf("lookup commit %s: %v", cur.String(), err)
+		}
+		commit, err := obj.AsCommit()
+		if err != nil {
+			t.Fatalf("as commit %s: %v", cur.String(), err)
+		}
+		count++
+		if commit.ParentCount() == 0 {
+			break
+		}
+		cur = commit.ParentId(0)
+	}
+	return count
+}

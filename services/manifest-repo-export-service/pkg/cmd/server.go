@@ -52,6 +52,9 @@ const (
 	maxReleaseVersionsLimit = 30
 
 	maxEslProcessingTimeSeconds int64 = 600 // see eslProcessingIdleTimeSeconds in values.yaml
+
+	// maxExportBatchSizeLimit is a hard upper bound on KUBERPULT_MAX_EXPORT_BATCH_SIZE.
+	maxExportBatchSizeLimit = 100
 )
 
 func RunServer() {
@@ -171,6 +174,25 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("error KUBERPULT_ESL_PROCESSING_BACKOFF must be <=%v but was: %v", maxEslProcessingTimeSeconds, eslProcessingIdleTimeSeconds)
 	}
 	logging.Info(ctx, "eslProcessingTimeSeconds", zap.Int("eslProcessingTimeSeconds", int(eslProcessingIdleTimeSeconds)))
+
+	// maxExportBatchSize caps how many adjacent CreateApplicationVersion events are processed in a
+	// single push. Setting it to 1 reproduces exactly the old single-event behaviour
+	// The cap must keep a batch's single push comfortably within
+	// KUBERPULT_NETWORK_TIMEOUT_SECONDS. A batch still transfers all its commits' objects,
+	// so an oversized batch can trip the push timeout and force the whole batch to reprocess.
+	// It is required (set via the helm chart value manifestRepoExport.maxExportBatchSize) — the service
+	// has no default and fails to start if it is unset.
+	maxExportBatchSize, err := valid.ReadEnvVarUInt("KUBERPULT_MAX_EXPORT_BATCH_SIZE")
+	if err != nil {
+		return err
+	}
+	if maxExportBatchSize == 0 {
+		return fmt.Errorf("error KUBERPULT_MAX_EXPORT_BATCH_SIZE must be >=1 but was: %v", maxExportBatchSize)
+	}
+	if maxExportBatchSize > maxExportBatchSizeLimit {
+		return fmt.Errorf("error KUBERPULT_MAX_EXPORT_BATCH_SIZE must be <=%v but was: %v", maxExportBatchSizeLimit, maxExportBatchSize)
+	}
+	logging.Info(ctx, "maxExportBatchSize", zap.Uint("maxExportBatchSize", maxExportBatchSize))
 
 	networkTimeoutSecondsStr, err := valid.ReadEnvVar("KUBERPULT_NETWORK_TIMEOUT_SECONDS")
 	if err != nil {
@@ -457,7 +479,7 @@ func Run(ctx context.Context) error {
 				Name:     "processEsls",
 				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 					reporter.ReportReady("Processing Esls")
-					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds, failOnErrorWithGitPushTags)
+					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds, failOnErrorWithGitPushTags, int(maxExportBatchSize))
 				},
 			},
 		},
@@ -502,6 +524,7 @@ func processEsls(
 	ddMetrics statsd.ClientInterface,
 	eslProcessingIdleTimeSeconds int64,
 	failOnErrorWithGitPushTags bool,
+	maxBatchSize int,
 ) error {
 	var sleepDuration = backoff.MakeSimpleBackoff(
 		time.Second*time.Duration(eslProcessingIdleTimeSeconds),
@@ -509,7 +532,7 @@ func processEsls(
 	)
 	for {
 		span, ctxOneEvent := tracer.StartSpanFromContext(ctx, "processOneEvent")
-		wantedSleepTime, err := ProcessOneEvent(ctxOneEvent, repo, dbHandler, ddMetrics, &sleepDuration, failOnErrorWithGitPushTags)
+		wantedSleepTime, err := ProcessOneEvent(ctxOneEvent, repo, dbHandler, ddMetrics, &sleepDuration, failOnErrorWithGitPushTags, maxBatchSize)
 		span.Finish(tracer.WithError(err))
 		if err != nil {
 			return err
@@ -528,19 +551,17 @@ func ProcessOneEvent(
 	ddMetrics statsd.ClientInterface,
 	sleepDuration *backoff.SimpleBackoff,
 	failOnErrorWithGitPushTags bool,
+	maxBatchSize int,
 ) (
 	time.Duration,
 	error,
 ) {
 	const transactionRetries = 10
-	var transformer repository.Transformer = nil
-	var esl *db.EslEventRow = nil
+	var batch []batchedEvent
 	const readonly = true // we just handle the reading here, there's another transaction for writing the result to the db/git
 
-	// If KUBERPULT_MINIMIZE_GIT_DATA is enabled, we don't commit on NoOp events, such as lock creation. //nolint:misspell
-	// This means that there is a possibility that two transaction timestamps collide with the same git hash.
-	// As such, before executing any transformer, we get the current commit hash so that we can then compare it with the
-	// (possibly) new commit hash
+	// Capture the current HEAD before applying anything. We use it to reset the branch back to this commit
+	//  at the start of every apply attempt
 	oldCommitId, err := repo.GetHeadCommitId()
 	if err != nil {
 		d := sleepDuration.NextBackOff()
@@ -551,33 +572,63 @@ func ProcessOneEvent(
 		return d, nil
 	}
 	err = dbHandler.WithTransactionR(ctx, transactionRetries, readonly, func(ctx context.Context, transaction *sql.Tx) error {
+		// Git commits are NOT rolled back when this read transaction retries, so a retry would
+		// re-apply on top of the previous attempt's commits and stack duplicates. Resetting to
+		// the pre-batch HEAD at the top of EVERY attempt makes the apply idempotent across retries.
+		if resetErr := repo.ResetHardTo(ctx, oldCommitId); resetErr != nil {
+			return resetErr
+		}
 		var err2 error
-		transformer, esl, err2 = HandleOneTransformer(ctx, transaction, dbHandler, ddMetrics, repo)
+		batch, err2 = HandleBatchEvents(ctx, transaction, dbHandler, ddMetrics, repo, maxBatchSize)
 		return err2
 	})
 	if err != nil {
-		if esl == nil {
+		if len(batch) == 0 {
 			logging.Error(ctx, "skipping esl event, because we could not construct esl object.", zap.Error(err))
 			return 0, err
 		}
+		if len(batch) > 1 {
+			// The batch failed as a whole. A failed apply can leave partial commits on the branch
+			// (ApplyWithCommitIds stops at the first failing transformer without removing the commits
+			// earlier ones already created), so restore the pre-batch HEAD before retrying. Otherwise
+			// the recursive call below would capture the dirty HEAD as its own baseline and push those
+			// leftover commits.
+			if resetErr := repo.ResetHardTo(ctx, oldCommitId); resetErr != nil {
+				d := sleepDuration.NextBackOff()
+				if sleepDuration.IsAtMax() {
+					return 0, resetErr
+				}
+				logging.Info(ctx, "error resetting before single-event fallback, will try again.", zap.Error(resetErr))
+				return d, nil
+			}
+			// Retry it one event at a time: the good events then commit individually, and a single
+			// event that keeps failing is recorded and skipped by handleFailedEvent below instead of
+			// blocking the rest. This call processes only the first event; processEsls drains the rest
+			// on later iterations.
+			logging.Info(ctx, "batch apply failed, falling back to single-event processing.", zap.Error(err))
+			return ProcessOneEvent(ctx, repo, dbHandler, ddMetrics, sleepDuration, failOnErrorWithGitPushTags, 1)
+		}
 		logging.Error(ctx, "skipping esl event, because it returned an error.", zap.Error(err))
 		// after this many tries, we can just skip it:
-		err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, esl, err.Error())
+		err2 := handleFailedEvent(ctx, dbHandler, transactionRetries, batch[0].Esl, err.Error())
 		if err2 != nil {
 			return 0, fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
 		}
 		sleepDuration.Reset()
 	} else {
-		if transformer == nil {
+		if len(batch) == 0 {
 			sleepDuration.Reset()
 			d := sleepDuration.NextBackOff()
 			measureGitPushFailures(ctx, ddMetrics, false)
 			logging.Info(ctx, "event processing skipped, will try again.")
 			return d, nil
 		}
+		// The cutoff is a single cursor; writing the highest version of the batch marks the whole
+		// batch as processed.
+		highestEsl := batch[len(batch)-1].Esl
 		logging.Info(ctx, "event processed successfully, now writing to cutoff and pushing...")
 		err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-			err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, esl.EslVersion)
+			err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, highestEsl.EslVersion)
 			if err2 != nil {
 				return err2
 			}
@@ -592,35 +643,52 @@ func ProcessOneEvent(
 				measureGitPushFailures(ctx, ddMetrics, false)
 			}
 
-			//Get latest commit. Write esl timestamp and commit hash.
-			commitId, err := repo.GetHeadCommitId()
-			if err != nil {
-				return err
-			}
-
-			if oldCommitId.String() != commitId.String() { // We only want to write a transaction timestamp if it resulted in a new commit.
-				var err3 = dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, commitId.String(), esl.Created)
-				if err3 != nil {
+			// A batch produces a chain of <= N commits. Write one commit-transaction-timestamp per
+			// commit, using that event's own Created time. Events that produced no commit (NoOp) have
+			// an empty hash and are skipped. Writing only the head commit is not enough: intermediate
+			// commits are looked up by hash elsewhere and would otherwise have no timestamp row.
+			anyCommitCreated := false
+			for i := range batch {
+				if batch[i].CommitHash == "" {
+					continue
+				}
+				anyCommitCreated = true
+				if err3 := dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, batch[i].CommitHash, batch[i].Esl.Created); err3 != nil {
 					return err3
 				}
-				var gitTag = transformer.GetGitTag()
-				if gitTag != "" {
-					pushErr := HandleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
-					if pushErr != nil {
-						return handleFailedEvent(ctx, dbHandler, transactionRetries, esl,
-							fmt.Sprintf("error while pushing the git tag '%s': %v", gitTag, pushErr.Error()))
-					}
-				}
+			}
+
+			if !anyCommitCreated {
+				logging.Warn(ctx, "no commit was created, tagging skipped")
 				return nil
-			} else {
-				logging.Warn(ctx, "no commit was created, tagging skipped", zap.String("gitTag", string(transformer.GetGitTag())))
+			}
+			// Push each transformer's git tag. The export's CreateApplicationVersion carries no tag,
+			// so this loop is a no-op for batched releases, but we loop per transformer (not
+			// just the last) so tags work in general.
+			for i := range batch {
+				gitTag := batch[i].Transformer.GetGitTag()
+				if gitTag == "" {
+					continue
+				}
+				pushErr := HandleGitTagPush(ctx, repo, gitTag, ddMetrics, failOnErrorWithGitPushTags)
+				if pushErr != nil {
+					return handleFailedEvent(ctx, dbHandler, transactionRetries, batch[i].Esl,
+						fmt.Sprintf("error while pushing the git tag '%s': %v", gitTag, pushErr.Error()))
+				}
 			}
 			return nil
 		})
 		if err != nil {
-			//If we fail to push to repo or to update the cutoff, we say that SYNC has failed
+			// If we fail to push to repo or to update the cutoff, we say that SYNC has failed. Each
+			// event's unsynced apps are keyed under its own transformer id, so we must loop over every
+			// esl version in the batch (not just the highest).
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-				return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
+				for _, b := range batch {
+					if e := dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(b.Esl.EslVersion), db.SYNC_FAILED); e != nil {
+						return e
+					}
+				}
+				return nil
 			})
 			logging.Error(ctx, "error updating state for ui.", zap.Error(err))
 			err3 := repo.FetchAndReset(ctx)
@@ -630,9 +698,15 @@ func ProcessOneEvent(
 				return d, nil
 			}
 		} else {
-			//After a successful transformer processing and pushing to manifest repo, we write that apps are now SYNCED
+			// After a successful push, mark all batched events' apps SYNCED. Loop per esl version for
+			// the same reason as the SYNC_FAILED path above.
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-				return dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNCED)
+				for _, b := range batch {
+					if e := dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(b.Esl.EslVersion), db.SYNCED); e != nil {
+						return e
+					}
+				}
+				return nil
 			})
 			if err != nil {
 				logging.Error(ctx, "Failed writing sync status after successful operation! Repo has been updated, but sync status has not.", zap.Error(err))
@@ -720,38 +794,58 @@ func measureDelays(ctx context.Context, ddMetrics statsd.ClientInterface, delayS
 		}
 	}
 }
-func HandleOneTransformer(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository) (repository.Transformer, *db.EslEventRow, error) {
+
+type batchedEvent struct {
+	Esl         *db.EslEventRow
+	Transformer repository.Transformer
+	CommitHash  string
+}
+
+// HandleBatchEvents reads the next batch of esl events to process (a contiguous run of
+// CreateApplicationVersion events, or a single event of any other type — see selectBatch), builds a
+// transformer for each, and applies the whole batch in a single repo.Apply. It returns the built
+// transformers together with the esl rows of the batch they came from, so the caller can write one
+// push + one cutoff for the batch. The returned esl rows are also populated on error so the caller
+// can react to the failure (e.g. mark it failed).
+// HandleBatchEvents additionally returns, aligned one-to-one with the returned esl rows, the
+// hash of the commit each event produced ("" for a NoOp event that produced none), so the caller can
+// write one commit-transaction-timestamp per commit.
+func HandleBatchEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository, maxBatchSize int) ([]batchedEvent, error) {
 	if ddMetrics != nil {
 		delaySeconds, delayEvents, err := dbHandler.GetCurrentDelays(ctx, transaction)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error in GetCurrentDelays: %v", err)
+			return nil, fmt.Errorf("error in GetCurrentDelays: %v", err)
 		}
 		measureDelays(ctx, ddMetrics, delaySeconds, delayEvents)
 	}
 	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error in DBReadCutoff: %v", err)
+		return nil, fmt.Errorf("error in DBReadCutoff: %v", err)
 	}
 	if eslVersion == nil {
 		logging.Info(ctx, "did not find cutoff")
 	}
-	esl, err := dbHandler.DBReadEslEvent(ctx, transaction, eslVersion)
+	events, err := dbHandler.DBReadEslEventBatch(ctx, transaction, eslVersion, maxBatchSize)
 	if err != nil {
-		return nil, esl, fmt.Errorf("error in readEslEvent %v", err)
+		return nil, fmt.Errorf("error in readEslEventBatch %v", err)
 	}
-	if esl == nil {
+	if len(events) == 0 {
 		// no event found
-		return nil, nil, nil
+		return nil, nil
 	}
-	transformer, err := processEslEvent(ctx, repo, esl, transaction)
-	return transformer, esl, err
+	batch := selectBatch(events, maxBatchSize)
+	return processEslEventBatch(ctx, repo, batch, transaction)
 }
 
-func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.EslEventRow, tx *sql.Tx) (repository.Transformer, error) {
+// buildTransformer constructs the concrete transformer for a single esl event: it resolves the
+// transformer type from the event type, unmarshals the event JSON into it, and sets the per-event
+// EslVersion and CreationTimestamp. It does NOT apply the transformer, so it is a pure function of
+// the esl row and can be unit tested without a DB or git repo. Returns (nil, nil) if the event type
+// has no associated transformer.
+func buildTransformer(ctx context.Context, esl *db.EslEventRow) (repository.Transformer, error) {
 	if esl == nil {
 		return nil, fmt.Errorf("esl event nil")
 	}
-	var t repository.Transformer
 	t, err := getTransformer(ctx, esl.EventType)
 	if err != nil {
 		return nil, fmt.Errorf("get transformer error %v", err)
@@ -764,22 +858,58 @@ func processEslEvent(ctx context.Context, repo repository.Repository, esl *db.Es
 	if err != nil {
 		return nil, err
 	}
-	var span tracer.Span
-	if esl.TraceId != nil && esl.SpanId != nil {
-		links := []ddtrace.SpanLink{{TraceID: *esl.TraceId, SpanID: *esl.SpanId}}
-		span, ctx = tracer.StartSpanFromContext(ctx, "processEslEvent", tracer.WithSpanLinks(links))
-	} else {
-		span, ctx = tracer.StartSpanFromContext(ctx, "processEslEvent")
-	}
-	defer span.Finish()
 	t.SetEslVersion(db.TransformerID(esl.EslVersion))
 	t.SetCreationTimestamp(esl.Created)
-	err = repo.Apply(ctx, tx, t)
-	if err != nil {
-		return nil, fmt.Errorf("error while running repo apply: %v", err)
-	}
-
 	return t, nil
+}
+
+// processEslEventBatch builds the transformer for every event in the batch and applies them in order
+// via a single repo.Apply call. repo.Apply is variadic and builds the commit chain across the
+// transformers (each commits on top of the previous), so a batch of N produces a chain of <= N
+// commits (a NoOp CreateApplicationVersion produces none) that a single later push ships. Per-event
+// trace/span links are preserved by opening a linked span per event.
+// It returns one batchedEvent per batch event. On success every field is set; on error the returned
+// slice still has every Esl set (Transformer/CommitHash left zero), so the caller can fall back to
+// single-event processing or report the failing event.
+func processEslEventBatch(ctx context.Context, repo repository.Repository, batch []*db.EslEventRow, tx *sql.Tx) ([]batchedEvent, error) {
+	if len(batch) == 0 {
+		return nil, nil
+	}
+	result := make([]batchedEvent, len(batch))
+	for i := range batch {
+		result[i].Esl = batch[i]
+	}
+	transformers := make([]repository.Transformer, 0, len(batch))
+	for _, esl := range batch {
+		t, err := buildTransformer(ctx, esl)
+		if err != nil {
+			return result, err
+		}
+		if t == nil {
+			// Every known event type has a transformer; a nil here is unexpected and would break
+			// the one-to-one alignment between events, transformers and commit hashes.
+			return result, fmt.Errorf("no transformer for event type %q at eslVersion %d", esl.EventType, esl.EslVersion)
+		}
+		// Preserve the per-event trace/span link from the originating service.
+		var span tracer.Span
+		if esl.TraceId != nil && esl.SpanId != nil {
+			links := []ddtrace.SpanLink{{TraceID: *esl.TraceId, SpanID: *esl.SpanId}}
+			span, _ = tracer.StartSpanFromContext(ctx, "processEslEvent", tracer.WithSpanLinks(links))
+		} else {
+			span, _ = tracer.StartSpanFromContext(ctx, "processEslEvent")
+		}
+		span.Finish()
+		transformers = append(transformers, t)
+	}
+	commitHashes, err := repo.ApplyWithCommitIds(ctx, tx, transformers...)
+	if err != nil {
+		return result, fmt.Errorf("error while running repo apply: %v", err)
+	}
+	for i := range result {
+		result[i].Transformer = transformers[i]
+		result[i].CommitHash = commitHashes[i]
+	}
+	return result, nil
 }
 
 // getTransformer returns an empty transformer of the type according to esl.EventType
@@ -847,6 +977,36 @@ func getTransformer(_ context.Context, eslEventType db.EventType) (repository.Tr
 		return &repository.RenderEnvironment{}, nil
 	}
 	return nil, fmt.Errorf("could not find transformer for event type %v", eslEventType)
+}
+
+// selectBatch returns the contiguous prefix of events that should be processed together with a
+// single push. The input must be the events as returned by DBReadEslEventBatch: all events with
+// eslVersion > cutoff, in ascending eslVersion order, with NO event_type filter applied (see the
+// note on DBReadEslEventBatch). This is what lets the returned slice stay strictly contiguous in
+// eslVersion — we never skip over an interleaved non-matching event.
+//
+// The rule:
+//   - empty input -> empty batch.
+//   - if the first unprocessed event is not a CreateApplicationVersion -> batch of exactly 1
+//     (single-event behaviour).
+//   - if the first unprocessed event is a CreateApplicationVersion -> the maximal contiguous prefix
+//     of CreateApplicationVersion events, capped at maxBatchSize. We stop at the first event of any
+//     other type.
+func selectBatch(events []*db.EslEventRow, maxBatchSize int) []*db.EslEventRow {
+	if maxBatchSize < 1 {
+		maxBatchSize = 1
+	}
+	if len(events) == 0 {
+		return events
+	}
+	if events[0].EventType != db.EvtCreateApplicationVersion {
+		return events[:1]
+	}
+	n := 0
+	for n < len(events) && n < maxBatchSize && events[n].EventType == db.EvtCreateApplicationVersion {
+		n++
+	}
+	return events[:n]
 }
 
 func checkReleaseVersionLimit(limit uint) error {

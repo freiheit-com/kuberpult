@@ -7023,3 +7023,109 @@ func (h *DBHandler) DBInsertReleaseWithoutEnvironment(ctx context.Context, trans
 
 	return nil
 }
+
+func TestDBReadEslEventBatch(t *testing.T) {
+	// only the count of events written and the read parameters vary per case.
+	type batchEntry struct {
+		EslVersion EslVersion
+		EventType  EventType
+	}
+	tcs := []struct {
+		Name         string
+		NumEvents    int
+		Cutoff       *EslVersion
+		MaxBatchSize int
+		Expected     []batchEntry
+	}{
+		{
+			Name:         "empty table returns empty batch",
+			NumEvents:    0,
+			Cutoff:       nil,
+			MaxBatchSize: 5,
+			Expected:     []batchEntry{},
+		},
+		{
+			Name:         "fewer events than batch size returns all",
+			NumEvents:    2,
+			Cutoff:       nil,
+			MaxBatchSize: 5,
+			Expected: []batchEntry{
+				{EslVersion: 1, EventType: EvtCreateApplicationVersion},
+				{EslVersion: 2, EventType: EvtCreateApplicationVersion},
+			},
+		},
+		{
+			Name:         "exactly batch size",
+			NumEvents:    3,
+			Cutoff:       nil,
+			MaxBatchSize: 3,
+			Expected: []batchEntry{
+				{EslVersion: 1, EventType: EvtCreateApplicationVersion},
+				{EslVersion: 2, EventType: EvtCreateApplicationVersion},
+				{EslVersion: 3, EventType: EvtCreateApplicationVersion},
+			},
+		},
+		{
+			Name:         "more events than batch size is capped",
+			NumEvents:    5,
+			Cutoff:       nil,
+			MaxBatchSize: 2,
+			Expected: []batchEntry{
+				{EslVersion: 1, EventType: EvtCreateApplicationVersion},
+				{EslVersion: 2, EventType: EvtCreateApplicationVersion},
+			},
+		},
+		{
+			Name:         "respects cutoff",
+			NumEvents:    4,
+			Cutoff:       eslVersionPtr(2),
+			MaxBatchSize: 10,
+			Expected: []batchEntry{
+				{EslVersion: 3, EventType: EvtCreateApplicationVersion},
+				{EslVersion: 4, EventType: EvtCreateApplicationVersion},
+			},
+		},
+		{
+			Name:         "maxBatchSize below 1 is treated as 1",
+			NumEvents:    3,
+			Cutoff:       nil,
+			MaxBatchSize: 0,
+			Expected: []batchEntry{
+				{EslVersion: 1, EventType: EvtCreateApplicationVersion},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i := 0; i < tc.NumEvents; i++ {
+					if err := dbHandler.DBWriteEslEventInternal(ctx, EvtCreateApplicationVersion, transaction, interface{}(nil), ESLMetadata{}); err != nil {
+						return err
+					}
+				}
+				rows, err := dbHandler.DBReadEslEventBatch(ctx, transaction, tc.Cutoff, tc.MaxBatchSize)
+				if err != nil {
+					return err
+				}
+				actual := make([]batchEntry, 0, len(rows))
+				for _, r := range rows {
+					actual = append(actual, batchEntry{EslVersion: r.EslVersion, EventType: r.EventType})
+				}
+				if diff := testutil.CmpDiff(tc.Expected, actual); diff != "" {
+					t.Errorf("batch mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func eslVersionPtr(v EslVersion) *EslVersion {
+	return &v
+}

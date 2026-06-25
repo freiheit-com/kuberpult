@@ -964,6 +964,24 @@ ingress:
 			},
 		},
 		{
+			Name: "max export batch size is set",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+
+manifestRepoExport:
+  maxExportBatchSize: 7
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_MAX_EXPORT_BATCH_SIZE",
+					Value: "7",
+				},
+			},
+		},
+		{
 			Name: "Release version limit set",
 			Values: `
 git:

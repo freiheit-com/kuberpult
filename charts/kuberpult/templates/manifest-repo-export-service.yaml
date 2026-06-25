@@ -163,6 +163,8 @@ spec:
         - name: KUBERPULT_ESL_PROCESSING_BACKOFF
           value: {{ .Values.manifestRepoExport.eslProcessingIdleTimeSeconds| quote }}
 {{- end }}
+        - name: KUBERPULT_MAX_EXPORT_BATCH_SIZE
+          value: {{ .Values.manifestRepoExport.maxExportBatchSize | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:
