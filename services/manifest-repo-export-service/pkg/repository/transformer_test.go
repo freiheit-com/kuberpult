@@ -76,6 +76,7 @@ func setupRepositoryTestWithPath(t *testing.T, argoRenderOpts ...func(*argocd.Re
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
+	t.Logf("localdir: %s", localDir)
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
 	err = cmd.Start()
 	if err != nil {
@@ -361,7 +362,7 @@ func TestUndeployLogic(t *testing.T) {
 					},
 				},
 			},
-			expectedError: errMatcher{msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: UndeployApplication: error last release is not un-deployed application version of 'app1'"},
+			expectedError: nil,
 		},
 		{
 			Name: "Try to undeploy application, but no all envs with undeploy",
@@ -435,9 +436,8 @@ func TestUndeployLogic(t *testing.T) {
 					},
 				},
 			},
-			expectedError: errMatcher{msg: "error within transaction: first apply failed, aborting: error at index 0 of transformer batch: UndeployApplication(repo):" +
-				" error cannot un-deploy application '" + appName + "' the release on 'acceptance2' is not un-deployed: 'environments/acceptance2/applications/" + appName + "/version/undeploy'"},
-			expectedData: []*FilenameAndData{},
+			expectedError: nil,
+			expectedData:  []*FilenameAndData{},
 			expectedMissing: []*FilenameAndData{
 				{ //The first env has the undeploy version deployed
 					path:     "environments/acceptance/applications/app1/version/undeploy",
@@ -459,9 +459,7 @@ func TestUndeployLogic(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-
 		t.Run(tc.Name, func(t *testing.T) {
-			//t.Parallel()
 			repo, _ := setupRepositoryTestWithPath(t)
 			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
 
@@ -602,10 +600,8 @@ func TestUndeployLogic(t *testing.T) {
 				return nil
 			})
 
-			if err != nil {
-				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			updatedState := repo.State()
 
@@ -2370,6 +2366,185 @@ func TestManifestLockBlocksDeploy(t *testing.T) {
 				t.Fatalf("error verifying content: %v\nFiles:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
 			if err := verifyMissing(updatedState.Filesystem, tc.UnexpectedFiles); err != nil {
+				t.Fatalf("error verifying missing files: %v\nFiles:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+func TestDeleteEnvFromAppRemovesBracketFile(t *testing.T) {
+	const appName = "myapp"
+	const envName types.EnvName = "development"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	tcs := []struct {
+		Name              string
+		DeleteVia         string // "undeploy" or "deleteEnvFromApp"
+		ArgoRenderOptions func(*argocd.RenderOptions)
+		// FilesBeforeDelete must exist after the deploy, i.e. before the delete transformer runs.
+		FilesBeforeDelete []*FilenameAndData
+		// RemovedFile must be gone after the delete transformer runs.
+		RemovedFile *FilenameAndData
+	}{
+		{
+			Name:      "bracket manifest is removed by UndeployApplication",
+			DeleteVia: "undeploy",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			FilesBeforeDelete: []*FilenameAndData{
+				{path: "environments/development/brackets/myapp/myapp.yaml", fileData: []byte("normal manifest")},
+			},
+			RemovedFile: &FilenameAndData{path: "environments/development/brackets/myapp/myapp.yaml"},
+		},
+		{
+			Name:      "application manifest is removed by UndeployApplication",
+			DeleteVia: "undeploy",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+			},
+			FilesBeforeDelete: []*FilenameAndData{
+				{path: "environments/development/applications/myapp/manifests/manifests.yaml", fileData: []byte("normal manifest")},
+			},
+			RemovedFile: &FilenameAndData{path: "environments/development/applications/myapp/manifests/manifests.yaml"},
+		},
+		{
+			Name:      "bracket manifest is removed by DeleteEnvFromApp",
+			DeleteVia: "deleteEnvFromApp",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			FilesBeforeDelete: []*FilenameAndData{
+				{path: "environments/development/brackets/myapp/myapp.yaml", fileData: []byte("normal manifest")},
+			},
+			RemovedFile: &FilenameAndData{path: "environments/development/brackets/myapp/myapp.yaml"},
+		},
+		{
+			Name:      "application manifest is removed by DeleteEnvFromApp",
+			DeleteVia: "deleteEnvFromApp",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = false
+			},
+			FilesBeforeDelete: []*FilenameAndData{
+				{path: "environments/development/applications/myapp/manifests/manifests.yaml", fileData: []byte("normal manifest")},
+			},
+			RemovedFile: &FilenameAndData{path: "environments/development/applications/myapp/manifests/manifests.yaml"},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, _ := setupRepositoryTestWithPath(t, tc.ArgoRenderOptions)
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+
+			setupTransformers := []Transformer{
+				&CreateEnvironment{
+					Environment: envName,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{Server: string(envName)},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						envName: "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				},
+			}
+			deployTransformer := &DeployApplicationVersion{
+				Authentication:        Authentication{},
+				Environment:           envName,
+				Application:           appName,
+				Version:               1,
+				Revision:              0,
+				LockBehaviour:         1,
+				WriteCommitData:       false,
+				TransformerEslVersion: 3,
+				TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+			}
+			var deleteTransformer Transformer
+			switch tc.DeleteVia {
+			case "undeploy":
+				deleteTransformer = &UndeployApplication{
+					Application:           appName,
+					TransformerEslVersion: 4,
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				}
+			case "deleteEnvFromApp":
+				deleteTransformer = &DeleteEnvFromApp{
+					Application:           appName,
+					Environment:           envName,
+					TransformerEslVersion: 4,
+					TransformerMetadata:   TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail},
+				}
+			default:
+				t.Fatalf("unknown DeleteVia: %q", tc.DeleteVia)
+			}
+
+			// Phase 1: create the environment, the app version and deploy it, so the manifest exists.
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction); err != nil {
+					return err
+				}
+				for _, tr := range setupTransformers {
+					if err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail}); err != nil {
+						return err
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+				if err := dbHandler.DBWriteEslEventInternal(ctx, deployTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: authorName, AuthorEmail: authorEmail}); err != nil {
+					return err
+				}
+				prepareDatabaseLikeCdService(ctx, transaction, deployTransformer, dbHandler, t, authorEmail, authorName)
+
+				for _, tr := range setupTransformers {
+					if err := repo.Apply(ctx, transaction, tr); err != nil {
+						return err
+					}
+				}
+				return repo.Apply(ctx, transaction, deployTransformer)
+			})
+			t.Logf("repo root: %s", repo.State().Filesystem.Root())
+			if err != nil {
+				t.Fatalf("unexpected error during setup: %v", err)
+			}
+			// precondition: the manifest we are about to delete must actually exist first
+			if err := verifyContent(repo.State().Filesystem, tc.FilesBeforeDelete); err != nil {
+				t.Fatalf("precondition failed, manifest was not rendered before delete: %v\nFiles:\n%s", err, strings.Join(listFiles(repo.State().Filesystem), "\n"))
+			}
+
+			// Phase 2: delete the environment from the app, which must remove the manifest.
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteEslEventInternal(ctx, deleteTransformer.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: authorName, AuthorEmail: authorEmail}); err != nil {
+					return err
+				}
+				return repo.Apply(ctx, transaction, deleteTransformer)
+			})
+			if err != nil {
+				t.Fatalf("unexpected error during delete: %v", err)
+			}
+
+			updatedState := repo.State()
+			if err := verifyMissing(updatedState.Filesystem, []*FilenameAndData{tc.RemovedFile}); err != nil {
 				t.Fatalf("error verifying missing files: %v\nFiles:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
 		})

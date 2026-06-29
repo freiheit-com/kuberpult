@@ -86,8 +86,8 @@ func applicationDirectory(fs billy.Filesystem, application string) string {
 }
 
 // environmentApplicationDirectory returns environments/<env>/applications/<app>/
-func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvName, application string) string {
-	return fs.Join("environments", string(environment), "applications", application)
+func environmentApplicationDirectory(fs billy.Filesystem, environment types.EnvName, application types.AppName) string {
+	return fs.Join("environments", string(environment), "applications", string(application))
 }
 
 // writeManifests writes the manifests.yaml file to the given parent path
@@ -167,7 +167,7 @@ type Transformer interface {
 }
 
 type TransformerContext interface {
-	AddAppEnv(app string, env types.EnvName)
+	AddAppEnv(app types.AppName, env types.EnvName)
 	Execute(ctx context.Context, t Transformer, transaction *sql.Tx) error
 	DeleteEnvFromApp(app string, env types.EnvName)
 	ChangeEnvironment(environment types.EnvName)
@@ -252,9 +252,9 @@ func (r *transformerRunner) ChangeEnvironment(environment types.EnvName) {
 	r.EnvironmentsToRender = append(r.EnvironmentsToRender, EnvironmentToRender{environment})
 }
 
-func (r *transformerRunner) AddAppEnv(app string, env types.EnvName) {
+func (r *transformerRunner) AddAppEnv(app types.AppName, env types.EnvName) {
 	r.ChangedApps = append(r.ChangedApps, AppEnvToRender{
-		App: app,
+		App: string(app),
 		Env: env,
 	})
 }
@@ -415,7 +415,7 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 
-	tCtx.AddAppEnv(c.Application, c.Environment)
+	tCtx.AddAppEnv(types.AppName(c.Application), c.Environment)
 
 	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, types.AppName(c.Application), envName)
 	if err != nil {
@@ -1060,7 +1060,7 @@ func (c *RenderEnvironment) Transform(
 		appToManifestMap[appName] = envManifest
 
 		if state.ArgoRenderOptions.RenderApps {
-			envAppDir := environmentApplicationDirectory(fs, c.Environment, string(appName))
+			envAppDir := environmentApplicationDirectory(fs, c.Environment, appName)
 			manifestsDir := fs.Join(envAppDir, "manifests")
 			if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
 				return "", fmt.Errorf("could not create directory %s: %v", manifestsDir, err)
@@ -1072,7 +1072,7 @@ func (c *RenderEnvironment) Transform(
 			if lockExists {
 				appsWithManifestLock = append(appsWithManifestLock, appName)
 			}
-			tCtx.AddAppEnv(string(appName), c.Environment)
+			tCtx.AddAppEnv(appName, c.Environment)
 		}
 	}
 
@@ -1092,7 +1092,7 @@ func (c *RenderEnvironment) Transform(
 					}
 
 					// as an app can be moved to a different bracket,
-					// we have to clean up all old brackes for this app on this env before rendering new brackets
+					// we have to clean up all old brackets for this app on this env before rendering new brackets
 					if err := cleanupBracketFile(ctx, state, tx, fs, c.Environment, appName, c.TransformerEslVersion); err != nil {
 						return "", fmt.Errorf("error while cleaning up old brackets: %v", err)
 					}
@@ -1198,11 +1198,11 @@ func commitDirectory(fs billy.Filesystem, commit string) string {
 	return fs.Join("commits", commit[:2], commit[2:])
 }
 
-func commitApplicationDirectory(fs billy.Filesystem, commit, application string) string {
-	return fs.Join(commitDirectory(fs, commit), "applications", application)
+func commitApplicationDirectory(fs billy.Filesystem, commit string, application types.AppName) string {
+	return fs.Join(commitDirectory(fs, commit), "applications", string(application))
 }
 
-func removeCommit(fs billy.Filesystem, commitID, application string) error {
+func removeCommit(fs billy.Filesystem, commitID string, application types.AppName) error {
 	errorTemplate := func(message string, err error) error {
 		return fmt.Errorf("while removing application %s from commit %s and error was encountered, message: %s, error %w", application, commitID, message, err)
 	}
@@ -1324,7 +1324,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 			} else {
 				commitID := string(dat)
 				if valid.SHA1CommitID(commitID) {
-					if err := removeCommit(fs, commitID, c.Application); err != nil {
+					if err := removeCommit(fs, commitID, types.AppName(c.Application)); err != nil {
 						return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not remove commit path")
 					}
 				}
@@ -1530,7 +1530,7 @@ func (c *MigrationTransformer) SetEslVersion(eslVersion db.TransformerID) {
 type DeleteEnvFromApp struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Application           string           `json:"app"`
+	Application           types.AppName    `json:"app"`
 	Environment           types.EnvName    `json:"env"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 	CreationTimestamp     time.Time        `json:"-"`
@@ -1610,9 +1610,37 @@ func (c *DeleteEnvFromApp) Transform(
 		}
 	}
 
-	tCtx.DeleteEnvFromApp(c.Application, c.Environment)
+	err := deleteBracketOfAppEnv(ctx, state.DBHandler, transaction, c.Application, c.Environment, fs)
+	if err != nil {
+		return "", fmt.Errorf("DeleteEnvFromApp: %w", err)
+	}
+	tCtx.DeleteEnvFromApp(string(c.Application), c.Environment)
 
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", c.Environment, c.Application), nil
+}
+
+func deleteBracketOfAppEnv(ctx context.Context, dbHandler *db.DBHandler, tx *sql.Tx, app types.AppName, env types.EnvName, fs billy.Filesystem) error {
+	appData, err := dbHandler.DBSelectApp(ctx, tx, app)
+	if err != nil {
+		return err
+	}
+	if appData == nil {
+		return fmt.Errorf("deleteBracketOfAppEnv: cannot find app '%s'", app)
+	}
+	bracket := appData.ArgoBracket
+	if bracket != "" {
+		dir := argocd.BracketPaths(env, bracket, app)
+		logging.Info(ctx,
+			"trying to delete path",
+			zap.String("bracketPath", dir.BracketPath),
+			zap.String("bracketDir", dir.BracketDirectory),
+		)
+		err = fs.Remove(dir.BracketPath)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("deleteBracketOfAppEnv: error removing bracket path %s: %v", dir.BracketPath, err)
+		}
+	}
+	return nil
 }
 
 type CreateUndeployApplicationVersion struct {
@@ -1681,7 +1709,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			hasUpstream = cfg.Upstream != nil
 		}
 
-		tCtx.AddAppEnv(c.Application, env)
+		tCtx.AddAppEnv(types.AppName(c.Application), env)
 		if _, exists := deploymentsMap[env]; !exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			continue
 		}
@@ -1720,7 +1748,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 type UndeployApplication struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
-	Application           string           `json:"app"`
+	Application           types.AppName    `json:"app"`
 	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
 	CreationTimestamp     time.Time        `json:"-"`
 }
@@ -1750,8 +1778,8 @@ func (u *UndeployApplication) SetEslVersion(id db.TransformerID) {
 	u.TransformerEslVersion = id
 }
 
-func removeApplication(fs billy.Filesystem, application string) error {
-	appDir := applicationDirectory(fs, application)
+func removeApplication(fs billy.Filesystem, application types.AppName) error {
+	appDir := applicationDirectory(fs, string(application))
 	releasesDir := fs.Join(appDir, "releases")
 	files, err := fs.ReadDir(releasesDir)
 	if err != nil {
@@ -1786,7 +1814,7 @@ func removeApplication(fs billy.Filesystem, application string) error {
 func removeApplicationFromEnvs(fs billy.Filesystem, application types.AppName, configs *map[types.EnvName]config.EnvironmentConfig) ([]types.EnvName, error) {
 	result := make([]types.EnvName, 0)
 	for env := range *configs {
-		appDir := environmentApplicationDirectory(fs, env, string(application))
+		appDir := environmentApplicationDirectory(fs, env, application)
 		result = append(result, env)
 		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return result, fmt.Errorf("unexpected error application '%v' environment '%v': '%w'", application, env, err)
@@ -1808,36 +1836,9 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("could not get environment configs: %w", err)
 	}
 	for env := range configs {
-		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
-		entries, err := fs.ReadDir(envAppDir)
+		err = deleteBracketOfAppEnv(ctx, state.DBHandler, transaction, u.Application, env, fs)
 		if err != nil {
-			return "", wrapFileError(err, envAppDir, "UndeployApplication: Could not open application directory. Does the app exist?")
-		}
-		if entries == nil {
-			// app was never deployed on this env, so we must ignore it!
-			continue
-		}
-
-		appLocksDir := fs.Join(envAppDir, "locks")
-		err = fs.Remove(appLocksDir)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: cannot delete app locks '%v'", appLocksDir)
-		}
-
-		versionDir := fs.Join(envAppDir, "version")
-
-		_, err = fs.Stat(versionDir)
-		if err != nil && errors.Is(err, os.ErrNotExist) {
-			// if the app was never deployed here, that's not a reason to stop
-			continue
-		}
-
-		undeployFile := fs.Join(versionDir, "undeploy")
-		_, err = fs.Stat(undeployFile)
-		if err != nil { //Undeploy version does not exist if we minimise git data
-			if !errors.Is(err, os.ErrNotExist) {
-				return "", fmt.Errorf("UndeployApplication: Error while checking for undeploy file: %w", err)
-			}
+			return "", fmt.Errorf("DeleteEnvFromApp: %w", err)
 		}
 	}
 
@@ -1845,7 +1846,7 @@ func (u *UndeployApplication) Transform(
 		return "", err
 	}
 
-	if envs, err := removeApplicationFromEnvs(fs, types.AppName(u.Application), &configs); err == nil {
+	if envs, err := removeApplicationFromEnvs(fs, u.Application, &configs); err == nil {
 		for _, env := range envs {
 			t.AddAppEnv(u.Application, env)
 		}
