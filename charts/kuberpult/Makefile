@@ -59,7 +59,6 @@ else
 endif
 
 test-helm: $(TGZ_FILE) Chart.yaml
-	echo "IMAGE_TAG_KUBERPULT=$(IMAGE_TAG_KUBERPULT)"
 	docker run --rm -w /kp -v "$(MAKEFILE_DIR)$(TGZ_FILE):/kp/$(TGZ_FILE)" -v "$(MAKEFILE_DIR)Chart.yaml:/kp/Chart.yaml" -v "$(MAKEFILE_DIR)values.yaml:/kp/values.yaml" -v "$(MAKEFILE_DIR)templates:/kp/templates" -v "$(MAKEFILE_DIR)tests:/kp/tests" $(BUILDER_IMAGE) sh -c "helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com && helm dependency build && cd tests && go mod tidy && go test ./..."
 
 test: ct-test test-helm
