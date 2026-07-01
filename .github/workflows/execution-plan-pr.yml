@@ -10,6 +10,13 @@ jobs:
       trigger: pull-request
     secrets: inherit
 
+  test-helm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run helm chart tests
+        run: |
+          IMAGE_TAG_KUBERPULT="main-$(make version)" make -C charts/kuberpult test-helm
+
   integration-tests:
     needs: [ execution-plan ]
     uses: ./.github/workflows/integration-tests.yml
@@ -31,6 +38,7 @@ jobs:
     name: "All Checks Passed"
     runs-on: ubuntu-latest
     needs:
+      - test-helm
       - execution-plan
       - integration-tests
       - vulnerability-scan
