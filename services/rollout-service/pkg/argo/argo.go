@@ -177,7 +177,7 @@ type Processor interface {
 	Consume(ctx context.Context, hlth *setup.HealthReporter, chPtr WriteOnceCh) error
 	CreateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo)
 	UpdateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo, existingApp *v1alpha1.Application)
-	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName, envName string, deployment *api.Deployment)
+	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName, envName, parentEnvName string, deployment *api.Deployment)
 	GetManageArgoAppsFilter() []string
 	GetManageArgoAppsEnabled() bool
 }
@@ -826,7 +826,7 @@ func (a *ArgoAppProcessor) drainPendingSpecUpdates(ctx context.Context) {
 	defer drainSpan.Finish()
 	l := logger.FromContext(ctx)
 
-	drainSpan.SetTag("pendingSpecUpdateCount", len(a.pendingSpecUpdates))
+	drainSpan.SetTag("pendingSpecUpdateCountBefore", len(a.pendingSpecUpdates))
 	remaining := a.pendingSpecUpdates[:0]
 
 	for _, pu := range a.pendingSpecUpdates {
@@ -862,7 +862,7 @@ func (a *ArgoAppProcessor) drainPendingSpecUpdates(ctx context.Context) {
 			if err := a.updateApplication(ctx, pu.Retarget, "bracket.move.retarget"); err != nil {
 				remaining = append(remaining, pu)
 				puSpan.SetTag("skipReason", fmt.Sprintf("updateApplication failed %s", err.Error()))
-				puSpan.Finish()
+				puSpan.Finish(tracer.WithError(err))
 				continue
 			}
 			pu.Phase = BracketMovePhaseRetargeted
@@ -885,10 +885,12 @@ func (a *ArgoAppProcessor) drainPendingSpecUpdates(ctx context.Context) {
 			if err := a.resumeBracketAutoSync(ctx, app); err != nil {
 				remaining = append(remaining, pu)
 				puSpan.SetTag("skipReason", fmt.Sprintf("resumeBracketAutoSync failed %s", err.Error()))
-				puSpan.Finish()
+				puSpan.Finish(tracer.WithError(err))
 				continue
 			}
 		}
+		puSpan.SetTag("skipReason", "none")
+		puSpan.Finish()
 	}
 	a.pendingSpecUpdates = remaining
 	drainSpan.SetTag("pendingSpecUpdateCountAfter", len(a.pendingSpecUpdates))
@@ -966,7 +968,7 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 				} else if !appInfo.IsBracket {
 					// Non-bracket app with no deployment: cascade=false safety net for a
 					// transient cd-service overview (e.g. mid helm-upgrade).
-					a.DeleteArgoApps(ctx, ok, appInfo.ApplicationName, appInfo.EnvironmentName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
+					a.DeleteArgoApps(ctx, ok, appInfo.ApplicationName, appInfo.EnvironmentName, appInfo.ParentEnvironmentName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
 				}
 				// Else: bracket with no deployment AND not a move. Do NOT delete here.
 				// The rollout_should_undeploy_cascade table is the single authority for
@@ -1239,7 +1241,7 @@ func calculateFinalizers() []string {
 	return nil
 }
 
-func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName, envName string, deployment *api.Deployment) {
+func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName, envName, parentEnvName string, deployment *api.Deployment) {
 	toDelete := make([]*v1alpha1.Application, 0)
 	deleteSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplications")
 	defer deleteSpan.Finish()
@@ -1250,6 +1252,7 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 		deleteAppSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplication")
 		deleteAppSpan.SetTag("application", toDelete[i].Name)
 		deleteAppSpan.SetTag("environment", envName)
+		deleteAppSpan.SetTag("parentEnvironment", parentEnvName)
 		deleteAppSpan.SetTag("namespace", toDelete[i].Namespace)
 		deleteAppSpan.SetTag("operation", "delete")
 		// Cascade=false here is a safety net: this path can fire on a transient
@@ -1264,9 +1267,10 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 			zap.String("kuberpult.app", appName))
 		if err := DeleteApplication(ctx, a.ApplicationClient, toDelete[i].Name, false); err != nil {
 			logger.FromContext(ctx).Error("deleting application: "+toDelete[i].Name, zap.Error(err))
-			deleteAppSpan.SetTag("error", err.Error())
+			deleteAppSpan.Finish(tracer.WithError(err))
+		} else {
+			deleteAppSpan.Finish()
 		}
-		deleteAppSpan.Finish()
 	}
 }
 
