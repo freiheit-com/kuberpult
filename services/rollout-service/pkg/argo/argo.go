@@ -892,6 +892,10 @@ func (a *ArgoAppProcessor) drainPendingSpecUpdates(ctx context.Context) {
 		puSpan.SetTag("skipReason", "none")
 		puSpan.Finish()
 	}
+	l.Info("specUpdate",
+		zap.Int("pendingSpecUpdatesBefore", len(a.pendingSpecUpdates)),
+		zap.Int("pendingSpecUpdatesAfter", len(remaining)),
+	)
 	a.pendingSpecUpdates = remaining
 	drainSpan.SetTag("pendingSpecUpdateCountAfter", len(a.pendingSpecUpdates))
 }
