@@ -21,7 +21,7 @@ git:
   # The git url of the manifest repository (git protocol)
   url:  # git@github.com/.../...
 
-  # The branch to be use in the manifest repository
+  # The branch to use for reading from and writing to the manifest repository
   branch: "master"
 
   # If this is set, kuberpult will render a link to apps in the manifest repository (not the source repo).
