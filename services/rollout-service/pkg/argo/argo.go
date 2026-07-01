@@ -177,7 +177,7 @@ type Processor interface {
 	Consume(ctx context.Context, hlth *setup.HealthReporter, chPtr WriteOnceCh) error
 	CreateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo)
 	UpdateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo, existingApp *v1alpha1.Application)
-	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment)
+	DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName, envName string, deployment *api.Deployment)
 	GetManageArgoAppsFilter() []string
 	GetManageArgoAppsEnabled() bool
 }
@@ -543,16 +543,16 @@ func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnv
 // against reading a stale status from before the retarget (whose desired
 // manifests still contained the moved apps — "nothing to prune" for the wrong
 // reason).
-func bracketDisowned(app *v1alpha1.Application, expectedPath string) bool {
+func bracketDisowned(app *v1alpha1.Application, expectedPath string) string {
 	if app.Status.Sync.ComparedTo.Source.Path != expectedPath {
-		return false
+		return fmt.Sprintf("source path mismatch %s != %s", app.Status.Sync.ComparedTo.Source.Path, expectedPath)
 	}
 	for _, res := range app.Status.Resources {
 		if res.RequiresPruning {
-			return false
+			return fmt.Sprintf("resource %s/%s/%s requires pruning", res.Namespace, res.Kind, res.Name)
 		}
 	}
-	return true
+	return ""
 }
 
 func (a *ArgoAppProcessor) findPendingSpecUpdate(envName, appName string) *PendingSpecUpdate {
@@ -582,22 +582,22 @@ func (a *ArgoAppProcessor) removePendingSpecUpdate(envName, appName string) {
 // requested or running operation remains. Only then is it safe to move the
 // manifest path: an in-flight sync operation executes against the spec path at
 // execution time, with the prune flag it was initiated with.
-func bracketPausedAndQuiet(app *v1alpha1.Application) bool {
+func bracketPausedAndQuiet(app *v1alpha1.Application) string {
 	if app.Spec.SyncPolicy != nil && app.Spec.SyncPolicy.Automated != nil {
-		return false
+		return "automated sync policy exists"
 	}
 	if _, refreshPending := app.Annotations[argocdRefreshAnnotation]; refreshPending {
-		return false
+		return "refresh pending"
 	}
 	if app.Operation != nil {
-		return false
+		return "requested operation exists"
 	}
 	if state := app.Status.OperationState; state != nil {
 		if state.Phase == "Running" || state.Phase == "Terminating" {
-			return false
+			return "operation running"
 		}
 	}
-	return true
+	return ""
 }
 
 // recoverPendingSpecUpdate re-enters the pause protocol for an app carrying the
@@ -822,49 +822,76 @@ func (a *ArgoAppProcessor) resumeBracketAutoSync(ctx context.Context, app *v1alp
 // retargeted brackets get auto-sync restored once their own sync status proves
 // the moved resources are no longer attributed to them.
 func (a *ArgoAppProcessor) drainPendingSpecUpdates(ctx context.Context) {
+	drainSpan, ctx := tracer.StartSpanFromContext(ctx, "DrainPendingSpecUpdates")
+	defer drainSpan.Finish()
 	l := logger.FromContext(ctx)
+
+	drainSpan.SetTag("pendingSpecUpdateCount", len(a.pendingSpecUpdates))
 	remaining := a.pendingSpecUpdates[:0]
+
 	for _, pu := range a.pendingSpecUpdates {
+		puSpan, ctx := tracer.StartSpanFromContext(ctx, "ProcessingPendingSpecUpdate")
+		puSpan.SetTag("app", pu.ApplicationName)
+		puSpan.SetTag("env", pu.EnvironmentName)
+		puSpan.SetTag("phase", pu.Phase)
+
 		var app *v1alpha1.Application
 		if knownApps := a.KnownApps[pu.EnvironmentName]; knownApps != nil {
 			app = knownApps[pu.ApplicationName]
 		}
 		if app == nil {
 			remaining = append(remaining, pu)
+			puSpan.SetTag("skipReason", "Argo app is nil")
+			puSpan.Finish()
 			continue
 		}
 		switch pu.Phase {
 		case BracketMovePhasePaused:
-			if !bracketPausedAndQuiet(app) || pu.Retarget == nil {
+			bracketPausedReason := bracketPausedAndQuiet(app)
+			if bracketPausedReason != "" || pu.Retarget == nil {
 				l.Info("bracket.retarget.blocked",
 					zap.String("app", pu.ApplicationName),
 					zap.String("env", pu.EnvironmentName),
-					zap.Bool("retarget-known", pu.Retarget != nil))
+					zap.Bool("retarget-known", pu.Retarget != nil),
+					zap.String("reason", bracketPausedReason))
 				remaining = append(remaining, pu)
+				puSpan.SetTag("skipReason", bracketPausedReason)
+				puSpan.Finish()
 				continue
 			}
 			if err := a.updateApplication(ctx, pu.Retarget, "bracket.move.retarget"); err != nil {
 				remaining = append(remaining, pu)
+				puSpan.SetTag("skipReason", fmt.Sprintf("updateApplication failed %s", err.Error()))
+				puSpan.Finish()
 				continue
 			}
 			pu.Phase = BracketMovePhaseRetargeted
 			remaining = append(remaining, pu)
+			puSpan.SetTag("skipReason", "bracket move retargeted")
+			puSpan.Finish()
 		default: // BracketMovePhaseRetargeted
-			if !bracketDisowned(app, pu.ExpectedPath) {
+			bracketDisownedReason := bracketDisowned(app, pu.ExpectedPath)
+			if bracketDisownedReason != "" {
 				l.Info("bracket.resume.blocked",
 					zap.String("app", pu.ApplicationName),
 					zap.String("env", pu.EnvironmentName),
-					zap.String("expected-path", pu.ExpectedPath))
+					zap.String("expected-path", pu.ExpectedPath),
+					zap.String("reason", bracketDisownedReason))
 				remaining = append(remaining, pu)
+				puSpan.SetTag("skipReason", bracketDisownedReason)
+				puSpan.Finish()
 				continue
 			}
 			if err := a.resumeBracketAutoSync(ctx, app); err != nil {
 				remaining = append(remaining, pu)
+				puSpan.SetTag("skipReason", fmt.Sprintf("resumeBracketAutoSync failed %s", err.Error()))
+				puSpan.Finish()
 				continue
 			}
 		}
 	}
 	a.pendingSpecUpdates = remaining
+	drainSpan.SetTag("pendingSpecUpdateCountAfter", len(a.pendingSpecUpdates))
 }
 
 func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInfo, currentAppDetails *api.GetAppDetailsResponse, overview *api.GetOverviewResponse, allAppDetails map[string]*api.GetAppDetailsResponse) {
@@ -939,7 +966,7 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 				} else if !appInfo.IsBracket {
 					// Non-bracket app with no deployment: cascade=false safety net for a
 					// transient cd-service overview (e.g. mid helm-upgrade).
-					a.DeleteArgoApps(ctx, ok, appInfo.ApplicationName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
+					a.DeleteArgoApps(ctx, ok, appInfo.ApplicationName, appInfo.EnvironmentName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
 				}
 				// Else: bracket with no deployment AND not a move. Do NOT delete here.
 				// The rollout_should_undeploy_cascade table is the single authority for
@@ -1212,7 +1239,7 @@ func calculateFinalizers() []string {
 	return nil
 }
 
-func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName string, deployment *api.Deployment) {
+func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, appName, envName string, deployment *api.Deployment) {
 	toDelete := make([]*v1alpha1.Application, 0)
 	deleteSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplications")
 	defer deleteSpan.Finish()
@@ -1222,6 +1249,7 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 	for i := range toDelete {
 		deleteAppSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplication")
 		deleteAppSpan.SetTag("application", toDelete[i].Name)
+		deleteAppSpan.SetTag("environment", envName)
 		deleteAppSpan.SetTag("namespace", toDelete[i].Namespace)
 		deleteAppSpan.SetTag("operation", "delete")
 		// Cascade=false here is a safety net: this path can fire on a transient
@@ -1236,6 +1264,7 @@ func (a *ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[stri
 			zap.String("kuberpult.app", appName))
 		if err := DeleteApplication(ctx, a.ApplicationClient, toDelete[i].Name, false); err != nil {
 			logger.FromContext(ctx).Error("deleting application: "+toDelete[i].Name, zap.Error(err))
+			deleteAppSpan.SetTag("error", err.Error())
 		}
 		deleteAppSpan.Finish()
 	}
