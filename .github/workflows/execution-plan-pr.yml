@@ -11,8 +11,8 @@ jobs:
     secrets: inherit
 
   test-helm:
+    needs: [ execution-plan ] # helm tests are using the builder image
     uses: ./.github/workflows/run-helm-test.yml
-
 
   integration-tests:
     needs: [ execution-plan ]
