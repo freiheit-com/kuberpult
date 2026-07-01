@@ -11,7 +11,8 @@ jobs:
     secrets: inherit
 
   test-helm:
-    uses: ./github/workflows/run-helm-test.yml
+    uses: ./.github/workflows/run-helm-test.yml
+
 
   integration-tests:
     needs: [ execution-plan ]
