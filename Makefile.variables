@@ -24,8 +24,3 @@ BUILDER_IMAGE?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main
 CLI_IMAGE:=kuberpult-client
 GO_TEST_ARGS ?=
 export GO_TEST_ARGS
-
-BUILDER_IMAGENAME_VERSIONED=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(VERSION)
-BUILDER_IMAGENAME_VERSIONED_PR=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
-BUILDER_IMAGENAME_VERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main-$(VERSION)
-BIULDER_IMAGENAME_UNVERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main
