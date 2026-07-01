@@ -11,11 +11,7 @@ jobs:
     secrets: inherit
 
   test-helm:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Run helm chart tests
-        run: |
-          IMAGE_TAG_KUBERPULT="main-$(make version)" make -C charts/kuberpult test-helm
+    uses: ./github/workflows/run-helm-test.yml
 
   integration-tests:
     needs: [ execution-plan ]
