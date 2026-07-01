@@ -59,6 +59,7 @@ else
 endif
 
 test-helm: $(TGZ_FILE) Chart.yaml
+	echo "IMAGE_TAG_KUBERPULT=$(IMAGE_TAG_KUBERPULT)"
 	docker run --rm -w /kp -v "$(MAKEFILE_DIR)$(TGZ_FILE):/kp/$(TGZ_FILE)" -v "$(MAKEFILE_DIR)Chart.yaml:/kp/Chart.yaml" -v "$(MAKEFILE_DIR)values.yaml:/kp/values.yaml" -v "$(MAKEFILE_DIR)templates:/kp/templates" -v "$(MAKEFILE_DIR)tests:/kp/tests" $(BUILDER_IMAGE) sh -c "helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com && helm dependency build && cd tests && go mod tidy && go test ./..."
 
 test: ct-test test-helm
@@ -124,7 +125,3 @@ docker-rollout-service:
 
 docker-frontend-service:
 	$(MAKE) -C ../../services/frontend-service docker gen-api IMAGE_TAG=$(IMAGE_TAG)
-
-# Prints the version of the PR builder image, for use in CI (see run-helm-test.yml).
-ci-version:
-	@echo $(BUILDER_IMAGENAME_VERSIONED_PR)

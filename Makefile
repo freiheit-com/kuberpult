@@ -64,6 +64,10 @@ init:
 version:
 	@echo $(VERSION)
 
+# Prints the version of the PR builder image, for use in CI (see run-helm-test.yml).
+builder-pr-version:
+	@echo $(BUILDER_IMAGENAME_VERSIONED_PR)
+
 .PHONY: cleanup-pr
 cleanup-pr:
 	@echo "Nothing to do"
