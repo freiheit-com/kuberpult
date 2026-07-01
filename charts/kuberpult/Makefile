@@ -124,3 +124,7 @@ docker-rollout-service:
 
 docker-frontend-service:
 	$(MAKE) -C ../../services/frontend-service docker gen-api IMAGE_TAG=$(IMAGE_TAG)
+
+# Prints the version of the PR builder image, for use in CI (see run-helm-test.yml).
+ci-version:
+	@echo $(BUILDER_IMAGENAME_VERSIONED_PR)

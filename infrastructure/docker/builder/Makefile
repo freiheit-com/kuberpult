@@ -19,10 +19,6 @@ MAX_DOCKER_SIZE_MB=1367
 include ../../../Makefile.variables
 
 IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
-IMAGENAME_VERSIONED=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(VERSION)
-IMAGENAME_VERSIONED_PR=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION)
-IMAGENAME_VERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main-$(VERSION)
-IMAGENAME_UNVERSIONED_MAIN=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:main
 
 build:
 	docker build -t $(IMAGENAME) -f Dockerfile ../../../
@@ -30,15 +26,15 @@ build:
 
 build-pr: build publish
 	echo "Building on pull request"
-	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_PR)
-	docker push $(IMAGENAME_VERSIONED_PR)
+	docker tag $(IMAGENAME) $(BUILDER_IMAGENAME_VERSIONED_PR)
+	docker push $(BUILDER_IMAGENAME_VERSIONED_PR)
 
 build-main: build publish
-	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED_MAIN)
-	docker push $(IMAGENAME_VERSIONED_MAIN)
+	docker tag $(IMAGENAME) $(BUILDER_IMAGENAME_VERSIONED_MAIN)
+	docker push $(BUILDER_IMAGENAME_VERSIONED_MAIN)
 ifndef SKIP_UNVERSIONED_BUILDS
-	docker tag $(IMAGENAME) $(IMAGENAME_UNVERSIONED_MAIN)
-	docker push $(IMAGENAME_UNVERSIONED_MAIN)
+	docker tag $(IMAGENAME) $(BIULDER_IMAGENAME_UNVERSIONED_MAIN)
+	docker push $(BIULDER_IMAGENAME_UNVERSIONED_MAIN)
 endif
 
 .PHONY: cleanup-pr
@@ -51,9 +47,9 @@ cleanup-main:
 
 release:
 	echo "Releasing $(IMAGENAME)"
-	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED)
+	docker tag $(IMAGENAME) $(BUILDER_IMAGENAME_VERSIONED)
 	docker push $(IMAGENAME)
-	docker push $(IMAGENAME_VERSIONED)
+	docker push $(BUILDER_IMAGENAME_VERSIONED)
 
 publish: release
 	echo $(IMAGE_TAG)
@@ -64,4 +60,4 @@ get-builder-image:
 	@echo "$(KUBERPULT_BUILDER)"
 
 retag-main:
-	docker pull $(IMAGENAME_UNVERSIONED_MAIN) && docker tag $(IMAGENAME_UNVERSIONED_MAIN) $(IMAGENAME_VERSIONED_PR) && docker push $(IMAGENAME_VERSIONED_PR)
+	docker pull $(BIULDER_IMAGENAME_UNVERSIONED_MAIN) && docker tag $(BIULDER_IMAGENAME_UNVERSIONED_MAIN) $(BUILDER_IMAGENAME_VERSIONED_PR) && docker push $(BUILDER_IMAGENAME_VERSIONED_PR)
