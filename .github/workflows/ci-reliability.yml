@@ -137,7 +137,13 @@ jobs:
         uses: actions/download-artifact@v6
         with:
           name: validation-errors-5.zip
-          path: validation-errors-5          
+          path: validation-errors-5
+      - name: Download validation errors for Test 6
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-6.zip
+          path: validation-errors-6
       - name: Notify results
         run: |
           EMOJI_RESULT_OVERALL="✅"
@@ -146,6 +152,7 @@ jobs:
           EMOJI_RESULT_CI_TEST_3="✅"
           EMOJI_RESULT_CI_TEST_4="✅"
           EMOJI_RESULT_CI_TEST_5="✅"
+          EMOJI_RESULT_CI_TEST_6="✅"
 
           # If the validation-errors artifact is not uploaded, it means the CI test failed
           VALIDATION_ERRORS_CI_TEST_1=$(cat validation-errors-1/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
@@ -153,6 +160,7 @@ jobs:
           VALIDATION_ERRORS_CI_TEST_3=$(cat validation-errors-3/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
           VALIDATION_ERRORS_CI_TEST_4=$(cat validation-errors-4/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
           VALIDATION_ERRORS_CI_TEST_5=$(cat validation-errors-5/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
+          VALIDATION_ERRORS_CI_TEST_6=$(cat validation-errors-6/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
 
           if [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
             EMOJI_RESULT_CI_TEST_1="❌"
@@ -176,6 +184,11 @@ jobs:
 
           if [[ -n "$VALIDATION_ERRORS_CI_TEST_5" ]]; then
             EMOJI_RESULT_CI_TEST_5="❌"
+            EMOJI_RESULT_OVERALL="❌"
+          fi
+
+          if [[ -n "$VALIDATION_ERRORS_CI_TEST_6" ]]; then
+            EMOJI_RESULT_CI_TEST_6="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
 
@@ -206,8 +219,16 @@ jobs:
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_5\n\`\`\`"
           fi
 
+          MSG+="\n\n*Test 6:* $EMOJI_RESULT_CI_TEST_6 error in helm test detected"
+          if [ -n "$VALIDATION_ERRORS_CI_TEST_6" ]; then
+            MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_6\n\`\`\`"
+          fi
+
           MSG+="\n\n*🔗 View in GitHub Action:* $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
+          echo "${MSG}"
+
+          exit 0 ## TODO SU: remove
           curl \
             --request POST \
             --header "Content-Type: application/json" \
