@@ -100,7 +100,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref || '' }}
-      - name: DEBUG LOG
+      - name: Print Plan Outputs
         run: |
           echo "atLeastOneImageRebuilt=${{ needs.execution_plan.outputs.atLeastOneImageRebuilt }}"
           echo "fullversion=${{ needs.execution_plan.outputs.fullversion }}"
