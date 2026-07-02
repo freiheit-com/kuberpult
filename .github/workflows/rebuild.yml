@@ -28,10 +28,16 @@ jobs:
       ref: "${{ inputs.ref }}"
       skip_unversioned_builds: true
     secrets: inherit
+
+  helm-test:
+    uses: ./.github/workflows/run-helm-test.yml
+    with:
+      imageTagPrefix: "main-"
+
   release:
     name: Release Kuberpult with the specific Ref
     runs-on: ubuntu-latest
-    needs: [execution-plan]
+    needs: [execution-plan, helm-test]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,9 +47,6 @@ jobs:
         run: |
           echo "The provided ref is: ${{ inputs.ref }}"
           echo "The current checked-out SHA is: $(git rev-parse HEAD)"
-      - name: Run helm chart tests
-        run: |
-          IMAGE_TAG_KUBERPULT="main-$(make version)" make -C charts/kuberpult test-helm
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:

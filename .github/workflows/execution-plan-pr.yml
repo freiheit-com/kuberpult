@@ -13,6 +13,8 @@ jobs:
   test-helm:
     needs: [ execution-plan ] # helm tests are using the builder image
     uses: ./.github/workflows/run-helm-test.yml
+    with:
+      imageTagPrefix: "pr-"
 
   integration-tests:
     needs: [ execution-plan ]

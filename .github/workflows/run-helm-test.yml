@@ -1,6 +1,11 @@
 name: "Helm Test"
 on:
   workflow_call:
+    inputs:
+      imageTagPrefix:
+        description: 'Either "pr-" or "main-"'
+        required: true
+        type: string
 
 jobs:
   run-helm-test:
@@ -12,4 +17,4 @@ jobs:
           fetch-depth: 0
       - name: Run helm chart tests
         run: |
-          IMAGE_TAG_KUBERPULT="$(make pr-version)" make -C charts/kuberpult test-helm
+          IMAGE_TAG_KUBERPULT="${{ inputs.imageTagPrefix }}$(make version)" make -C charts/kuberpult test-helm
