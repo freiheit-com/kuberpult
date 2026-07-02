@@ -84,6 +84,22 @@ jobs:
             expect_cd: false
             expect_fe: false
             expect_export: false
+
+          - id: "6" # test helm reliability
+            source_branch: automated/ci-reliability/ci-test-5
+            modify_pkg: false
+            modify_cd: false
+            modify_fe: false
+            modify_export: false
+
+            modify_readme: false
+            inject_linting_error: false
+            inject_helm_error: true
+
+            check_new_images: false
+            expect_cd: false
+            expect_fe: false
+            expect_export: false
     uses: ./.github/workflows/ci-reliability-snippet.yml
     with:
       test_id: ${{ matrix.id }}
@@ -96,6 +112,7 @@ jobs:
       
       modify_readme: ${{ matrix.modify_readme }}
       inject_linting_error: ${{ matrix.inject_linting_error }}
+      inject_helm_error: ${{ matrix.inject_helm_error }}
 
       check_new_images: ${{ matrix.check_new_images }}
       expect_new_image_cd_service: ${{ matrix.expect_cd }}

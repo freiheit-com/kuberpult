@@ -99,7 +99,7 @@ jobs:
       - name: Modify Helm
         if: inputs.inject_helm_error == true
         run: |
-          echo -e "\nInvalid:yaml:construct" >> charts/kuberpult/templates/cd-service.yaml
+          echo -e "\nInvalid:yaml:construct:no:way:this:is:valid" >> charts/kuberpult/templates/cd-service.yaml
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
