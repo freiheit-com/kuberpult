@@ -4,7 +4,13 @@ on:
   workflow_call:
 
 jobs:
+  helm-test:
+    uses: ./.github/workflows/run-helm-test.yml
+    with:
+      imageTagPrefix: "main-"
+
   release:
+    needs: [helm-test]
     name: Release kuberpult with semantic versioning
     runs-on: ubuntu-latest
     steps:
@@ -18,9 +24,6 @@ jobs:
           dry: true
           ghr: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Run helm chart tests
-        run: |
-          IMAGE_TAG_KUBERPULT="main-$(make version)" make -C charts/kuberpult test-helm
       - name: Create helm chart for release
         run: |
           make -C charts/kuberpult release-tag VERSION=v${{ steps.new-semrel-version.outputs.version }}
