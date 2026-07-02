@@ -58,6 +58,11 @@ else
 		sh -c "ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git"
 endif
 
+build-main:
+	IMAGE_TAG_KUBERPULT=pr-$(VERSION) $(MAKE) test-helm
+build-pr:
+	IMAGE_TAG_KUBERPULT=main-$(VERSION) $(MAKE) test-helm
+
 test-helm: $(TGZ_FILE) Chart.yaml
 	docker run --rm -w /kp -v "$(MAKEFILE_DIR)$(TGZ_FILE):/kp/$(TGZ_FILE)" -v "$(MAKEFILE_DIR)Chart.yaml:/kp/Chart.yaml" -v "$(MAKEFILE_DIR)values.yaml:/kp/values.yaml" -v "$(MAKEFILE_DIR)templates:/kp/templates" -v "$(MAKEFILE_DIR)tests:/kp/tests" $(BUILDER_IMAGE) sh -c "helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com && helm dependency build && cd tests && go mod tidy && go test ./..."
 

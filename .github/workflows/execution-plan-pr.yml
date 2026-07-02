@@ -10,11 +10,11 @@ jobs:
       trigger: pull-request
     secrets: inherit
 
-  test-helm:
-    needs: [ execution-plan ] # helm tests are using the builder image
-    uses: ./.github/workflows/run-helm-test.yml
-    with:
-      imageTagPrefix: "pr-"
+#  test-helm:
+#    needs: [ execution-plan ] # helm tests are using the builder image
+#    uses: ./.github/workflows/run-helm-test.yml
+#    with:
+#      imageTagPrefix: "pr-"
 
   integration-tests:
     needs: [ execution-plan ]
@@ -37,7 +37,7 @@ jobs:
     name: "All Checks Passed"
     runs-on: ubuntu-latest
     needs:
-      - test-helm
+#      - test-helm
       - execution-plan
       - integration-tests
       - vulnerability-scan

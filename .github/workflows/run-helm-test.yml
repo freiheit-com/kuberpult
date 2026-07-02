@@ -18,3 +18,4 @@ jobs:
       - name: Run helm chart tests
         run: |
           IMAGE_TAG_KUBERPULT="${{ inputs.imageTagPrefix }}$(make version)" make -C charts/kuberpult test-helm
+          echo "we should not reach this point"

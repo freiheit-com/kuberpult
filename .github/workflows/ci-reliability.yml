@@ -22,12 +22,13 @@ jobs:
 
             modify_readme: false
             inject_linting_error: false
+            inject_helm_error: false
 
             check_new_images: true
             expect_cd: true
             expect_fe: false
             expect_export: false
-          - id: "2" # test change in frontend-service and manifest-repo-export-service
+          - id: "2" # test change in frontend-service and manifest-repo-export-su-a-SRX-UREFYC-pr-testservice
             source_branch: automated/ci-reliability/ci-test-2
             modify_pkg: false
             modify_cd: false
@@ -36,6 +37,7 @@ jobs:
 
             modify_readme: false
             inject_linting_error: false
+            inject_helm_error: false
 
             check_new_images: true
             expect_cd: false
@@ -50,6 +52,7 @@ jobs:
 
             modify_readme: false
             inject_linting_error: false
+            inject_helm_error: false
 
             check_new_images: true
             expect_cd: true
@@ -64,6 +67,7 @@ jobs:
 
             modify_readme: true
             inject_linting_error: false
+            inject_helm_error: false
 
             check_new_images: true
             expect_cd: false
@@ -79,6 +83,7 @@ jobs:
 
             modify_readme: false
             inject_linting_error: true
+            inject_helm_error: false
 
             check_new_images: false
             expect_cd: false
@@ -86,7 +91,7 @@ jobs:
             expect_export: false
 
           - id: "6" # test helm reliability
-            source_branch: automated/ci-reliability/ci-test-5
+            source_branch: automated/ci-reliability/ci-test-6
             modify_pkg: false
             modify_cd: false
             modify_fe: false
