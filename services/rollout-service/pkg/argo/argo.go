@@ -487,7 +487,11 @@ func (a *ArgoAppProcessor) deleteAppNoCascadeByName(ctx context.Context, argoApp
 drainPendingDeletions deletes normal argo apps that have now been replaced by bracket apps.
 */
 func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnvName string) {
+	drainSpan, ctx := tracer.StartSpanFromContext(ctx, "DrainPendingDeletions")
+	defer drainSpan.Finish()
 	l := logger.FromContext(ctx)
+
+	drainSpan.SetTag("pendingDeletionsBefore", len(a.pendingDeletions))
 	remaining := a.pendingDeletions[:0]
 	for _, pd := range a.pendingDeletions {
 		// if the app belongs to the bracket:
@@ -532,7 +536,13 @@ func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnv
 			remaining = append(remaining, pd)
 		}
 	}
+
+	l.Info("pendingDeletion",
+		zap.Int("pendingDeletionsBefore", len(a.pendingDeletions)),
+		zap.Int("pendingDeletionsAfter", len(remaining)))
+
 	a.pendingDeletions = remaining
+	drainSpan.SetTag("pendingDeletionsAfter", len(remaining))
 }
 
 // bracketDisowned reports whether the paused bracket app's sync status —
