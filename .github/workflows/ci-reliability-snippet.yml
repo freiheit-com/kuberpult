@@ -72,7 +72,6 @@ jobs:
           # create testing branch with changes
           git checkout ${{ inputs.base_branch }}
           git checkout -b ${{ inputs.source_branch }}
-          git log | head -n20 || true
       - name: Modify pkg
         if: inputs.modify_pkg == true
         run: |
@@ -217,8 +216,6 @@ jobs:
           path: linting-report
       - name: "Check helm linting errors"
         run: |
-          ls linting-report/ || true
-          cat linting-report/helm_lint.log
           touch validation-errors.txt
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
             echo "CI build should have failed due to linting error" >> validation-errors.txt
