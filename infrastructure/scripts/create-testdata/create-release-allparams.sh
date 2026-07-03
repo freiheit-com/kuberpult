@@ -145,14 +145,11 @@ echo "manifest is in $file"
 # shellcheck source=ports.sh
 source "$(dirname "$0")/ports.sh"
 
-if [[ $(uname -o) == Darwin ]];
-then
-  EMAIL=$(echo -n "script-user@example.com" | base64 -b 0)
-  AUTHOR=$(echo -n "script-user" | base64 -b 0)
-else
-  EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
-  AUTHOR=$(echo -n "script-user" | base64 -w 0)
-fi
+# Strip newlines with tr instead of base64's wrap flag, since the flag differs
+# between BSD base64 (-b 0) and GNU coreutils base64 (-w 0). tr works with both,
+# which matters on macOS where GNU coreutils may be on PATH (e.g. via nix/brew).
+EMAIL=$(echo -n "script-user@example.com" | base64 | tr -d '\n')
+AUTHOR=$(echo -n "script-user" | base64 | tr -d '\n')
 
 inputs=()
 inputs+=(--form-string "application=$name")
