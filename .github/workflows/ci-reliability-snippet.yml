@@ -72,6 +72,7 @@ jobs:
           # create testing branch with changes
           git checkout ${{ inputs.base_branch }}
           git checkout -b ${{ inputs.source_branch }}
+          git log | head -n20 || true
       - name: Modify pkg
         if: inputs.modify_pkg == true
         run: |
