@@ -38,7 +38,7 @@ unit-test::
 .PHONY: bench-test
 bench-test:
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml up -d
-	docker run --rm -w $(SERVICE_DIR) --network kuberpult-test-net -v ".:$(SERVICE_DIR)" -v $(MIGRATION_VOLUME) $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) -bench=. ./..."
+	docker run --rm -w $(SERVICE_DIR) --network kuberpult-test-net -v ".:$(SERVICE_DIR)" -v $(MIGRATION_VOLUME) $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) -run=NONE -bench=. ./..." # run benchmarks only, no tests
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
 .PHONY: lint
