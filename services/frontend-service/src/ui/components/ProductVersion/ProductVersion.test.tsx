@@ -65,7 +65,7 @@ jest.mock('../../utils/GrpcApi', () => ({
     get useApi() {
         return {
             productSummaryService: () => ({
-                GetProductSummary: () => mockGetProductSummary(),
+                GetProductSummary: (req: unknown) => mockGetProductSummary(req),
             }),
         };
     },
@@ -266,10 +266,140 @@ describe('Default tag selection', () => {
 
             // The latest tag is shown in the results section, outside the dropdown.
             expect(screen.getByTestId('selected_tag').textContent).toContain(testCase.expectedSelectedTag);
+            // The release train button lives in the results section.
+            expect(screen.getByText('Run Release Train')).toBeInTheDocument();
             // Filters start empty.
             expect(screen.getByTestId('tag_search')).toHaveValue('');
             expect(screen.getByTestId('date_search')).toHaveValue('');
         });
+    });
+});
+
+describe('Selecting a tag updates the results', () => {
+    it('refetches the product summary for the newly selected tag', async () => {
+        const tags: TagData[] = [
+            { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+            { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+        ];
+        mock_UseEnvGroups.returns([
+            {
+                environments: [sampleEnvsA[0]],
+                distanceToUpstream: 1,
+                environmentGroupName: 'g1',
+                priority: Priority.UNRECOGNIZED,
+            },
+        ]);
+        const useTagsResponse: TagsWithFilter = {
+            tagsResponse: { response: { tagData: tags }, tagsReady: TagResponse.READY },
+            filteredTagData: tags,
+        };
+        mock_UseTags.returns(useTagsResponse);
+        mockGetProductSummary.mockImplementation((req: { manifestRepoCommitHash: string }) =>
+            Promise.resolve({
+                productSummary: [
+                    {
+                        app: 'app-for-' + req.manifestRepoCommitHash,
+                        version: '4',
+                        revision: '0',
+                        commitId: req.manifestRepoCommitHash,
+                        displayVersion: 'v1.2.3',
+                        environment: 'dev',
+                        team: '',
+                    },
+                ],
+            })
+        );
+        mock_FrontendConfig.returns({
+            configsReady: true,
+            configs: {
+                sourceRepoUrl: '',
+                manifestRepoUrl: '',
+                branch: '',
+                kuberpultVersion: '0',
+                revisionsEnabled: false,
+            },
+        });
+        render(
+            <MemoryRouter>
+                <ProductVersion />
+            </MemoryRouter>
+        );
+        await act(global.nextTick);
+
+        // Initial load defaults to the latest tag (beta / bbb222).
+        expect(document.querySelector('.table')?.textContent).toContain('app-for-bbb222');
+
+        // Narrow the dropdown via the search filter first, then select the narrowed tag.
+        await act(async () => {
+            fireEvent.change(screen.getByTestId('tag_search'), { target: { value: 'alpha' } });
+            await global.nextTick();
+        });
+        // Even though the filter excludes it, the currently selected tag (beta) must remain an
+        // option so the select keeps displaying the real selection instead of silently jumping to
+        // the first filtered option.
+        const options = Array.from(screen.getByTestId('drop_down').querySelectorAll('option')).map((o) =>
+            o.getAttribute('value')
+        );
+        expect(options).toContain('bbb222');
+        expect(options).toContain('aaa111');
+
+        await act(async () => {
+            fireEvent.change(screen.getByTestId('drop_down'), { target: { value: 'aaa111' } });
+            await global.nextTick();
+        });
+
+        // The results table should now show the newly selected tag's data.
+        expect(document.querySelector('.table')?.textContent).toContain('app-for-aaa111');
+        expect(document.querySelector('.table')?.textContent).not.toContain('app-for-bbb222');
+        // ...and the banner should reflect it.
+        expect(screen.getByTestId('selected_tag').textContent).toContain('alpha');
+    });
+});
+
+describe('Tag selection from the url (page refresh)', () => {
+    it('keeps the tag from the url selected instead of falling back to the first/latest', async () => {
+        const tags: TagData[] = [
+            { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+            { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+        ];
+        mock_UseEnvGroups.returns([
+            {
+                environments: [sampleEnvsA[0]],
+                distanceToUpstream: 1,
+                environmentGroupName: 'g1',
+                priority: Priority.UNRECOGNIZED,
+            },
+        ]);
+        const useTagsResponse: TagsWithFilter = {
+            tagsResponse: { response: { tagData: tags }, tagsReady: TagResponse.READY },
+            filteredTagData: tags,
+        };
+        mock_UseTags.returns(useTagsResponse);
+        mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+        mock_FrontendConfig.returns({
+            configsReady: true,
+            configs: {
+                sourceRepoUrl: '',
+                manifestRepoUrl: '',
+                branch: '',
+                kuberpultVersion: '0',
+                revisionsEnabled: false,
+            },
+        });
+        // Simulate a refresh: the url already carries a tag that is NOT the latest one.
+        render(
+            <MemoryRouter initialEntries={['/?tag=aaa111']}>
+                <ProductVersion />
+            </MemoryRouter>
+        );
+        await act(global.nextTick);
+
+        // The selection must reflect the url tag (alpha), not the latest (beta) or the first option.
+        expect(screen.getByTestId('selected_tag').textContent).toContain('alpha');
+        expect(screen.getByTestId('drop_down')).toHaveValue('aaa111');
+        expect(mockGetProductSummary).toHaveBeenLastCalledWith(
+            expect.objectContaining({ manifestRepoCommitHash: 'aaa111' })
+        );
     });
 });
 

@@ -110,19 +110,6 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
               g1/tester
             </option>
           </select>
-          <button
-            aria-label="Run Release Train"
-            class="mdc-button release_train_button"
-          >
-            <div
-              class="mdc-button__ripple"
-            />
-            <span
-              class="mdc-button__label"
-            >
-              Run Release Train
-            </span>
-          </button>
         </fieldset>
       </div>
       <div>
@@ -130,10 +117,27 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
           class="table_padding"
         >
           <div
-            class="selected_tag_banner"
-            data-testid="selected_tag"
+            class="results_header"
           >
-            No tag selected
+            <div
+              class="selected_tag_banner"
+              data-testid="selected_tag"
+            >
+              No tag selected
+            </div>
+            <button
+              aria-label="Run Release Train"
+              class="mdc-button release_train_button"
+            >
+              <div
+                class="mdc-button__ripple"
+              />
+              <span
+                class="mdc-button__label"
+              >
+                Run Release Train
+              </span>
+            </button>
           </div>
           <table
             class="table"
@@ -288,19 +292,6 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
               g1/tester
             </option>
           </select>
-          <button
-            aria-label="Run Release Train"
-            class="mdc-button release_train_button"
-          >
-            <div
-              class="mdc-button__ripple"
-            />
-            <span
-              class="mdc-button__label"
-            >
-              Run Release Train
-            </span>
-          </button>
         </fieldset>
       </div>
       <div>
@@ -308,10 +299,27 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
           class="table_padding"
         >
           <div
-            class="selected_tag_banner"
-            data-testid="selected_tag"
+            class="results_header"
           >
-            No tag selected
+            <div
+              class="selected_tag_banner"
+              data-testid="selected_tag"
+            >
+              No tag selected
+            </div>
+            <button
+              aria-label="Run Release Train"
+              class="mdc-button release_train_button"
+            >
+              <div
+                class="mdc-button__ripple"
+              />
+              <span
+                class="mdc-button__label"
+              >
+                Run Release Train
+              </span>
+            </button>
           </div>
           <table
             class="table"

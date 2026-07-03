@@ -81,9 +81,18 @@ Copyright freiheit.com*/
     color: var(--mdc-theme-on-background);
 }
 
-.selected_tag_banner {
-    padding: 12px 16px;
+.results_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
     margin-bottom: 20px;
+}
+
+.selected_tag_banner {
+    flex: 1 1 auto;
+    padding: 12px 16px;
     border-radius: 4px;
     border-left: 4px solid var(--mdc-theme-primary);
     background-color: var(--mdc-theme-surface);
@@ -100,15 +109,26 @@ Copyright freiheit.com*/
     color: var(--mdc-theme-on-surface-light);
 }
 
-.release_train_button {
-    position: relative;
-    margin-left: auto;
-    margin-right: $environment-actions-right-displacement;
-    margin-top: $environment-actions-top-displacement;
-    border: $environment-add-lock-button-border;
-    border-radius: $environment-add-lock-button-border-radius;
-    color: $environment-add-lock-button-color;
-    margin: $environment-buttons-column-margin;
+.release_train_button.mdc-button {
+    flex: 0 0 auto;
+    align-self: center;
+    height: 50px;
+    padding: 0 24px;
+    margin: 0;
+    border: none;
+    border-radius: 4px;
+    background-color: var(--mdc-theme-primary);
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:not(:disabled) {
+        color: white;
+    }
+
+    .mdc-button__label {
+        color: white;
+        font-weight: 700;
+    }
 }
 
 .tag_search {

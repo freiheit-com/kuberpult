@@ -150,7 +150,7 @@ export const ProductVersion: React.FC = () => {
     const [productSummaries, setProductSummaries] = useState<ProductSummaries>({ summaries: [], error: null });
 
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
-    const [selectedTag, setSelectedTag] = React.useState('');
+    const [selectedTag, setSelectedTag] = React.useState(() => searchParams.get('tag') || '');
     const [tagSearch, setTagSearch] = React.useState('');
     const [dateSearch, setDateSearch] = React.useState('');
     const envsList = useEnvironments();
@@ -175,6 +175,17 @@ export const ProductVersion: React.FC = () => {
             return matchesTag && matchesDate;
         });
     }, [tagSearch, dateSearch, tagsResponse.response.tagData]);
+    // Always keep the currently selected tag in the dropdown, even when it does not match the
+    // active filter. Otherwise the browser silently displays the first filtered option while the
+    // selection state still points at the (now hidden) tag; re-picking that displayed option then
+    // fires no change event, so the results never update.
+    const dropdownTagData = React.useMemo(() => {
+        if (selectedTag === '' || searchedTagData.some((tag) => tag.commitId === selectedTag)) {
+            return searchedTagData;
+        }
+        const selected = tagsResponse.response.tagData.find((tag) => tag.commitId === selectedTag);
+        return selected ? [selected, ...searchedTagData] : searchedTagData;
+    }, [searchedTagData, selectedTag, tagsResponse.response.tagData]);
     const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             setSelectedTag(e.target.value);
@@ -209,6 +220,9 @@ export const ProductVersion: React.FC = () => {
             setSearchParams(searchParams);
             return;
         }
+        // Keep the selection state in sync with the tag from the url (e.g. on a page refresh),
+        // otherwise the dropdown falls back to displaying the first option.
+        setSelectedTag(tag);
         const env = splitCombinedGroupName(environment);
         useApi
             .productSummaryService()
@@ -356,7 +370,7 @@ export const ProductVersion: React.FC = () => {
                             <option value="default" disabled>
                                 Select a Tag
                             </option>
-                            {searchedTagData.map((tag) => (
+                            {dropdownTagData.map((tag) => (
                                 <option value={tag.commitId} key={tag.tag} disabled={!tag.commitDate}>
                                     {tag.commitId.substring(0, 12)}
                                     {' @ '}
@@ -376,12 +390,6 @@ export const ProductVersion: React.FC = () => {
                                 </option>
                             ))}
                         </select>
-                        <Button
-                            label={'Run Release Train'}
-                            className="release_train_button"
-                            onClick={openDialog}
-                            highlightEffect={false}
-                        />
                     </fieldset>
                 </div>
             ) : (
@@ -389,25 +397,33 @@ export const ProductVersion: React.FC = () => {
             )}
             <div>
                 <div className="table_padding">
-                    <div className="selected_tag_banner" data-testid="selected_tag">
-                        {selectedTagData ? (
-                            <>
-                                Showing product version for tag{' '}
-                                <span className="selected_tag_name">
-                                    {selectedTagData.tag.replace('refs/tags/', '')}
-                                </span>{' '}
-                                <span className="selected_tag_details">
-                                    {'(commit '}
-                                    {selectedTagData.commitId.substring(0, 12)}
-                                    {selectedTagData.commitDate
-                                        ? ' @ ' + String(selectedTagData.commitDate.toISOString())
-                                        : ''}
-                                    {')'}
-                                </span>
-                            </>
-                        ) : (
-                            'No tag selected'
-                        )}
+                    <div className="results_header">
+                        <div className="selected_tag_banner" data-testid="selected_tag">
+                            {selectedTagData ? (
+                                <>
+                                    Showing product version for tag{' '}
+                                    <span className="selected_tag_name">
+                                        {selectedTagData.tag.replace('refs/tags/', '')}
+                                    </span>{' '}
+                                    <span className="selected_tag_details">
+                                        {'(commit '}
+                                        {selectedTagData.commitId.substring(0, 12)}
+                                        {selectedTagData.commitDate
+                                            ? ' @ ' + String(selectedTagData.commitDate.toISOString())
+                                            : ''}
+                                        {')'}
+                                    </span>
+                                </>
+                            ) : (
+                                'No tag selected'
+                            )}
+                        </div>
+                        <Button
+                            label={'Run Release Train'}
+                            className="release_train_button"
+                            onClick={openDialog}
+                            highlightEffect={false}
+                        />
                     </div>
                     <TableFiltered productSummary={productSummaries.summaries} teams={teams} />
                 </div>
