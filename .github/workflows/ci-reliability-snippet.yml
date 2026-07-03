@@ -170,7 +170,7 @@ jobs:
   check-go-linting-errors:
     # check if the golangci-lint detects the injected linting error in cd-service
     # this check is only run when inputs.inject_linting_error is set to true
-    name: "Check go linting errors"
+    name: "Handle go linting errors"
     if: ${{ inputs.inject_linting_error == true && always() }}
     needs: [trigger-ci]
     runs-on: ubuntu-latest
@@ -183,7 +183,7 @@ jobs:
         with:
           name: linting-report-services_cd-service-5.zip
           path: linting-report
-      - name: "Check linting errors"
+      - name: "Check go linting errors"
         run: |
           touch validation-errors.txt
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
@@ -202,8 +202,8 @@ jobs:
           path: validation-errors.txt
   check-helm-linting-errors:
     # check if helm test detects the injected linting error in the yaml
-    name: "Check helm linting errors"
-    if: ${{ inputs.inject_helm_linting_error == true && always() }}
+    name: "Handle helm linting errors"
+    if: ${{ inputs.inject_helm_error == true && always() }}
     needs: [trigger-ci]
     runs-on: ubuntu-latest
     steps:
@@ -215,7 +215,7 @@ jobs:
         with:
           name: linting-report-services_cd-service-5.zip
           path: linting-report
-      - name: "Check linting errors"
+      - name: "Check helm linting errors"
         run: |
           touch validation-errors.txt
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
