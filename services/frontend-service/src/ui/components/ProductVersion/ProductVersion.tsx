@@ -151,16 +151,37 @@ export const ProductVersion: React.FC = () => {
 
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
     const [selectedTag, setSelectedTag] = React.useState(() => searchParams.get('tag') || '');
-    const [tagSearch, setTagSearch] = React.useState('');
-    const [dateSearch, setDateSearch] = React.useState('');
+    const [tagSearch, setTagSearch] = React.useState(() => searchParams.get('tagFilter') || '');
+    const [dateSearch, setDateSearch] = React.useState(() => searchParams.get('dateFilter') || '');
     const envsList = useEnvironments();
     const { tagsResponse, filteredTagData }: TagsWithFilter = useTags();
-    const onChangeTagSearch = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setTagSearch(e.target.value);
-    }, []);
-    const onChangeDateSearch = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setDateSearch(e.target.value);
-    }, []);
+    // Persist the filters in the url so they survive a page refresh. Use replace so that typing
+    // does not create a new browser-history entry per keystroke.
+    const setFilterParam = React.useCallback(
+        (key: string, value: string) => {
+            if (value === '') {
+                searchParams.delete(key);
+            } else {
+                searchParams.set(key, value);
+            }
+            setSearchParams(searchParams, { replace: true });
+        },
+        [searchParams, setSearchParams]
+    );
+    const onChangeTagSearch = React.useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            setTagSearch(e.target.value);
+            setFilterParam('tagFilter', e.target.value);
+        },
+        [setFilterParam]
+    );
+    const onChangeDateSearch = React.useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            setDateSearch(e.target.value);
+            setFilterParam('dateFilter', e.target.value);
+        },
+        [setFilterParam]
+    );
     const searchedTagData = React.useMemo(() => {
         const tagNeedle = tagSearch.trim().toLowerCase();
         const dateNeedle = dateSearch.trim().toLowerCase();
@@ -195,39 +216,40 @@ export const ProductVersion: React.FC = () => {
         [searchParams, setSearchParams]
     );
 
+    // When no tag is selected yet (e.g. navigated in without a tag in the url), default to the
+    // latest valid tag (most recent commit date) and persist it to the url.
     React.useEffect(() => {
-        let tag = searchParams.get('tag');
-        if (tag === null) {
-            // if there is no tag in the url, default to the latest valid tag (most recent commit date):
-            if (filteredTagData.length === 0) {
-                return;
-            }
-            const latest = filteredTagData.reduce((a, b) => {
-                if (!b.commitDate) {
-                    return a;
-                }
-                if (!a.commitDate) {
-                    return b;
-                }
-                return b.commitDate > a.commitDate ? b : a;
-            });
-            tag = latest.commitId;
-            if (tag === null) {
-                return;
-            }
-            setSelectedTag(tag);
-            searchParams.set('tag', tag);
-            setSearchParams(searchParams);
+        if (selectedTag !== '') {
             return;
         }
-        // Keep the selection state in sync with the tag from the url (e.g. on a page refresh),
-        // otherwise the dropdown falls back to displaying the first option.
-        setSelectedTag(tag);
+        if (filteredTagData.length === 0) {
+            return;
+        }
+        const latest = filteredTagData.reduce((a, b) => {
+            if (!b.commitDate) {
+                return a;
+            }
+            if (!a.commitDate) {
+                return b;
+            }
+            return b.commitDate > a.commitDate ? b : a;
+        });
+        setSelectedTag(latest.commitId);
+        searchParams.set('tag', latest.commitId);
+        setSearchParams(searchParams);
+    }, [selectedTag, filteredTagData, searchParams, setSearchParams]);
+
+    // Fetch the product summary for the selected tag. This is driven by the selection (and
+    // environment), not the raw url params, so changing the tag/date filters does not refetch.
+    React.useEffect(() => {
+        if (selectedTag === '') {
+            return;
+        }
         const env = splitCombinedGroupName(environment);
         useApi
             .productSummaryService()
             .GetProductSummary(
-                { manifestRepoCommitHash: tag, environment: env[0], environmentGroup: env[1] },
+                { manifestRepoCommitHash: selectedTag, environment: env[0], environmentGroup: env[1] },
                 authHeader
             )
             .then((result: GetProductSummaryResponse) => {
@@ -237,7 +259,7 @@ export const ProductVersion: React.FC = () => {
                 setProductSummaries({ summaries: [], error: e.message });
             });
         setSummaryLoading(false);
-    }, [authHeader, environment, filteredTagData, searchParams, setSearchParams]);
+    }, [authHeader, environment, selectedTag]);
 
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {

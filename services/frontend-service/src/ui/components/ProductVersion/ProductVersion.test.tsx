@@ -403,6 +403,71 @@ describe('Tag selection from the url (page refresh)', () => {
     });
 });
 
+describe('Filters persist in the url', () => {
+    const tags: TagData[] = [
+        { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+        { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+    ];
+    const setupMocks = (): void => {
+        mock_UseEnvGroups.returns([
+            {
+                environments: [sampleEnvsA[0]],
+                distanceToUpstream: 1,
+                environmentGroupName: 'g1',
+                priority: Priority.UNRECOGNIZED,
+            },
+        ]);
+        const useTagsResponse: TagsWithFilter = {
+            tagsResponse: { response: { tagData: tags }, tagsReady: TagResponse.READY },
+            filteredTagData: tags,
+        };
+        mock_UseTags.returns(useTagsResponse);
+        mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+        mock_FrontendConfig.returns({
+            configsReady: true,
+            configs: {
+                sourceRepoUrl: '',
+                manifestRepoUrl: '',
+                branch: '',
+                kuberpultVersion: '0',
+                revisionsEnabled: false,
+            },
+        });
+    };
+
+    it('restores the filters from the url on load (survives a refresh)', async () => {
+        setupMocks();
+        render(
+            <MemoryRouter initialEntries={['/?tag=aaa111&tagFilter=alph&dateFilter=2023']}>
+                <ProductVersion />
+            </MemoryRouter>
+        );
+        await act(global.nextTick);
+
+        expect(screen.getByTestId('tag_search')).toHaveValue('alph');
+        expect(screen.getByTestId('date_search')).toHaveValue('2023');
+    });
+
+    it('does not refetch the product summary when a filter changes', async () => {
+        setupMocks();
+        render(
+            <MemoryRouter initialEntries={['/?tag=aaa111']}>
+                <ProductVersion />
+            </MemoryRouter>
+        );
+        await act(global.nextTick);
+        const callsAfterLoad = mockGetProductSummary.mock.calls.length;
+
+        await act(async () => {
+            fireEvent.change(screen.getByTestId('tag_search'), { target: { value: 'beta' } });
+            await global.nextTick();
+        });
+
+        // Filtering only narrows the dropdown; it must not trigger a new product summary request.
+        expect(mockGetProductSummary.mock.calls.length).toBe(callsAfterLoad);
+    });
+});
+
 describe('Tag search filtering', () => {
     type TestData = {
         name: string;
