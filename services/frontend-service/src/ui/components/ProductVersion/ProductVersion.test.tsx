@@ -428,14 +428,24 @@ describe('Filters restore from the url on load (survive a refresh)', () => {
             expectedTagFilter: 'alph',
             expectedDateFilter: '2023',
         },
-        { name: 'only the tag filter', urlQuery: 'tagFilter=beta', expectedTagFilter: 'beta', expectedDateFilter: '' },
+        {
+            name: 'only the tag filter',
+            urlQuery: 'tagFilter=beta',
+            expectedTagFilter: 'beta',
+            expectedDateFilter: '',
+        },
         {
             name: 'only the date filter',
             urlQuery: 'dateFilter=2024',
             expectedTagFilter: '',
             expectedDateFilter: '2024',
         },
-        { name: 'no filters', urlQuery: '', expectedTagFilter: '', expectedDateFilter: '' },
+        {
+            name: 'no filters',
+            urlQuery: '',
+            expectedTagFilter: '',
+            expectedDateFilter: '',
+        },
     ];
     describe.each(data)(`Populates the filter inputs`, (testCase) => {
         it(testCase.name, async () => {
@@ -485,15 +495,16 @@ describe('Changing a filter does not refetch the product summary', () => {
                 </MemoryRouter>
             );
             await act(global.nextTick);
-            const callsAfterLoad = mockGetProductSummary.mock.calls.length;
+            // The initial load fetches the product summary exactly once (for the tag in the url).
+            expect(mockGetProductSummary).toHaveBeenCalledTimes(1);
 
             await act(async () => {
                 fireEvent.change(screen.getByTestId(testCase.filterTestId), { target: { value: testCase.newValue } });
                 await global.nextTick();
             });
 
-            // Filtering only narrows the dropdown; it must not trigger a new product summary request.
-            expect(mockGetProductSummary.mock.calls.length).toBe(callsAfterLoad);
+            // Filtering only narrows the dropdown; it must not trigger another product summary request.
+            expect(mockGetProductSummary).toHaveBeenCalledTimes(1);
         });
     });
 });
