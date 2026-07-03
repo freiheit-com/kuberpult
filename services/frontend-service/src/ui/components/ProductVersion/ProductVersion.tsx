@@ -187,11 +187,20 @@ export const ProductVersion: React.FC = () => {
     React.useEffect(() => {
         let tag = searchParams.get('tag');
         if (tag === null) {
-            // if there is no tag in the url, use the first valid tag that we know of:
+            // if there is no tag in the url, default to the latest valid tag (most recent commit date):
             if (filteredTagData.length === 0) {
                 return;
             }
-            tag = filteredTagData[0].commitId;
+            const latest = filteredTagData.reduce((a, b) => {
+                if (!b.commitDate) {
+                    return a;
+                }
+                if (!a.commitDate) {
+                    return b;
+                }
+                return b.commitDate > a.commitDate ? b : a;
+            });
+            tag = latest.commitId;
             if (tag === null) {
                 return;
             }
@@ -301,6 +310,7 @@ export const ProductVersion: React.FC = () => {
 
     const groupName = splitCombinedGroupName(environment)[0];
     const envsFiltered = envsList.filter((env) => groupName === env.config?.upstream?.environment);
+    const selectedTagData = tagsResponse.response.tagData.find((tag) => tag.commitId === selectedTag);
 
     const dialog = (
         <EnvSelectionDialogTrain
@@ -316,8 +326,9 @@ export const ProductVersion: React.FC = () => {
             <h1 className="environment_name">{'Product Version Page'}</h1>
             {dialog}
             {tagsResponse.response.tagData.length > 0 ? (
-                <div className="space_apart_row">
-                    <div className="dropdown_div">
+                <div className="tag_selection_section">
+                    <fieldset className="tag_filters">
+                        <legend className="section_label">1. Filter tags</legend>
                         <input
                             type="text"
                             className="tag_search"
@@ -334,6 +345,9 @@ export const ProductVersion: React.FC = () => {
                             value={dateSearch}
                             onChange={onChangeDateSearch}
                         />
+                    </fieldset>
+                    <fieldset className="tag_selection">
+                        <legend className="section_label">2. Select a tag and source environment</legend>
                         <select
                             onChange={onChangeTag}
                             className="drop_down"
@@ -362,19 +376,39 @@ export const ProductVersion: React.FC = () => {
                                 </option>
                             ))}
                         </select>
-                    </div>
-                    <Button
-                        label={'Run Release Train'}
-                        className="release_train_button"
-                        onClick={openDialog}
-                        highlightEffect={false}
-                    />
+                        <Button
+                            label={'Run Release Train'}
+                            className="release_train_button"
+                            onClick={openDialog}
+                            highlightEffect={false}
+                        />
+                    </fieldset>
                 </div>
             ) : (
                 <div />
             )}
             <div>
                 <div className="table_padding">
+                    <div className="selected_tag_banner" data-testid="selected_tag">
+                        {selectedTagData ? (
+                            <>
+                                Showing product version for tag{' '}
+                                <span className="selected_tag_name">
+                                    {selectedTagData.tag.replace('refs/tags/', '')}
+                                </span>{' '}
+                                <span className="selected_tag_details">
+                                    {'(commit '}
+                                    {selectedTagData.commitId.substring(0, 12)}
+                                    {selectedTagData.commitDate
+                                        ? ' @ ' + String(selectedTagData.commitDate.toISOString())
+                                        : ''}
+                                    {')'}
+                                </span>
+                            </>
+                        ) : (
+                            'No tag selected'
+                        )}
+                    </div>
                     <TableFiltered productSummary={productSummaries.summaries} teams={teams} />
                 </div>
             </div>

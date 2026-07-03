@@ -214,6 +214,65 @@ describe('Product Version Data', () => {
     });
 });
 
+describe('Default tag selection', () => {
+    type TestData = {
+        name: string;
+        tags: TagData[];
+        expectedSelectedTag: string;
+    };
+    const data: TestData[] = [
+        {
+            name: 'selects the tag with the most recent commit date',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+                { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+                { commitId: 'ccc333', tag: 'refs/tags/gamma', commitDate: new Date('2022-03-10T00:00:00Z') },
+            ],
+            expectedSelectedTag: 'beta',
+        },
+    ];
+    describe.each(data)(`Displays the selected tag in the results section`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns([
+                {
+                    environments: [sampleEnvsA[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                    priority: Priority.UNRECOGNIZED,
+                },
+            ]);
+            const useTagsResponse: TagsWithFilter = {
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: testCase.tags,
+            };
+            mock_UseTags.returns(useTagsResponse);
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns({
+                configsReady: true,
+                configs: {
+                    sourceRepoUrl: '',
+                    manifestRepoUrl: '',
+                    branch: '',
+                    kuberpultVersion: '0',
+                    revisionsEnabled: false,
+                },
+            });
+            render(
+                <MemoryRouter>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            // The latest tag is shown in the results section, outside the dropdown.
+            expect(screen.getByTestId('selected_tag').textContent).toContain(testCase.expectedSelectedTag);
+            // Filters start empty.
+            expect(screen.getByTestId('tag_search')).toHaveValue('');
+            expect(screen.getByTestId('date_search')).toHaveValue('');
+        });
+    });
+});
+
 describe('Tag search filtering', () => {
     type TestData = {
         name: string;

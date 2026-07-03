@@ -55,6 +55,51 @@ Copyright freiheit.com*/
     padding-left: 35px;
 }
 
+.tag_selection_section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+    padding-left: 35px;
+}
+
+.tag_filters,
+.tag_selection {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 20px;
+    border: 1px solid var(--mdc-theme-on-surface-light);
+    border-radius: 4px;
+    padding: 20px;
+    margin: 0;
+}
+
+.section_label {
+    font-weight: 700;
+    padding: 0 8px;
+    color: var(--mdc-theme-on-background);
+}
+
+.selected_tag_banner {
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    border-left: 4px solid var(--mdc-theme-primary);
+    background-color: var(--mdc-theme-surface);
+    color: var(--mdc-theme-on-surface);
+    font-size: 16px;
+}
+
+.selected_tag_name {
+    font-weight: 700;
+    color: var(--mdc-theme-on-background);
+}
+
+.selected_tag_details {
+    color: var(--mdc-theme-on-surface-light);
+}
+
 .release_train_button {
     position: relative;
     margin-left: auto;
