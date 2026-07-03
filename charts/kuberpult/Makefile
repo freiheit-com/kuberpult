@@ -14,6 +14,8 @@
 
 # Copyright freiheit.com
 
+SHELL := /bin/bash
+.SHELLFLAGS := -o pipefail -c
 .PHONY: build-base-image push-base-image clean release-tag ct-test test-helm test kind-test kind-test-gke
 include ../../Makefile.variables
 MAKEFILE_PATH := $(abspath $(word 1, $(MAKEFILE_LIST)))
