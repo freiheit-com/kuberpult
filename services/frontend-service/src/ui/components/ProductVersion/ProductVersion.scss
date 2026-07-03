@@ -177,6 +177,13 @@ Copyright freiheit.com*/
     border-radius: 4px;
 }
 
+.table th,
+.table td {
+    // Headers share their column's alignment so they sit directly above the values.
+    text-align: left;
+    padding: 8px 12px;
+}
+
 .table_title {
     background-color: var(--mdc-theme-primary);
     color: white;
