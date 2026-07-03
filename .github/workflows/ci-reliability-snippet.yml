@@ -210,13 +210,15 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Download golangci-lint report
+      - name: Download helm-lint report
         uses: actions/download-artifact@v6
         with:
-          name: linting-report-services_cd-service-5.zip
+          name: linting-report-charts_kuberpult-6.zip
           path: linting-report
       - name: "Check helm linting errors"
         run: |
+          ls linting-report/ || true
+          ls 
           touch validation-errors.txt
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
             echo "CI build should have failed due to linting error" >> validation-errors.txt
