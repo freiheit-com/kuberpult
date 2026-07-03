@@ -223,7 +223,7 @@ jobs:
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
             echo "CI build should have failed due to linting error" >> validation-errors.txt
           fi
-          if $(grep -q -F "[ERROR] templates/cd-service.yaml" linting-report/helm_lint_fail.log); then
+          if $(grep -q -F "[ERROR] templates/cd-service.yaml" linting-report/helm_lint.log); then
             echo "Helm linting error not detected" >> validation-errors.txt
           fi
         env:
