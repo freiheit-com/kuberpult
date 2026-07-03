@@ -43,6 +43,13 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
             type="text"
             value=""
           />
+          <input
+            class="tag_search"
+            data-testid="date_search"
+            placeholder="Filter by date…"
+            type="text"
+            value=""
+          />
           <select
             class="drop_down"
             data-testid="drop_down"
@@ -201,6 +208,13 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
             class="tag_search"
             data-testid="tag_search"
             placeholder="Filter by commit id or tag…"
+            type="text"
+            value=""
+          />
+          <input
+            class="tag_search"
+            data-testid="date_search"
+            placeholder="Filter by date…"
             type="text"
             value=""
           />

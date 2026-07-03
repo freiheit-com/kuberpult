@@ -310,6 +310,102 @@ describe('Tag search filtering', () => {
     });
 });
 
+describe('Tag date filtering', () => {
+    type TestData = {
+        name: string;
+        tags: TagData[];
+        dateSearch: string;
+        expectedTags: string[];
+        hiddenTags: string[];
+    };
+    const data: TestData[] = [
+        {
+            name: 'empty date search shows all tags',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+                { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+            ],
+            dateSearch: '',
+            expectedTags: ['alpha', 'beta'],
+            hiddenTags: [],
+        },
+        {
+            name: 'filters by full date',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+                { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+            ],
+            dateSearch: '2024-06-15',
+            expectedTags: ['beta'],
+            hiddenTags: ['alpha'],
+        },
+        {
+            name: 'filters by year only',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+                { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+            ],
+            dateSearch: '2023',
+            expectedTags: ['alpha'],
+            hiddenTags: ['beta'],
+        },
+        {
+            name: 'hides tags with a missing timestamp',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+                { commitId: 'bbb222', tag: 'refs/tags/beta' },
+            ],
+            dateSearch: '2023',
+            expectedTags: ['alpha'],
+            hiddenTags: ['beta'],
+        },
+    ];
+    describe.each(data)(`Filters the tag dropdown by date`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns([
+                {
+                    environments: [sampleEnvsA[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                    priority: Priority.UNRECOGNIZED,
+                },
+            ]);
+            const useTagsResponse: TagsWithFilter = {
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: [{ tag: 'test-tag-1', commitId: 'sha-123' }],
+            };
+            mock_UseTags.returns(useTagsResponse);
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns({
+                configsReady: true,
+                configs: {
+                    sourceRepoUrl: '',
+                    manifestRepoUrl: '',
+                    branch: '',
+                    kuberpultVersion: '0',
+                    revisionsEnabled: false,
+                },
+            });
+            render(
+                <MemoryRouter>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            fireEvent.change(screen.getByTestId('date_search'), { target: { value: testCase.dateSearch } });
+
+            const dropDownText = document.querySelector('.drop_down')?.textContent ?? '';
+            for (const expected of testCase.expectedTags) {
+                expect(dropDownText).toContain(expected);
+            }
+            for (const hidden of testCase.hiddenTags) {
+                expect(dropDownText).not.toContain(hidden);
+            }
+        });
+    });
+});
+
 describe('Test table filtering', () => {
     type TestData = {
         name: string;

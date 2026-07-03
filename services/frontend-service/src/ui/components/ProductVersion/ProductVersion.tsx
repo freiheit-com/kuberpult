@@ -152,21 +152,29 @@ export const ProductVersion: React.FC = () => {
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
     const [selectedTag, setSelectedTag] = React.useState('');
     const [tagSearch, setTagSearch] = React.useState('');
+    const [dateSearch, setDateSearch] = React.useState('');
     const envsList = useEnvironments();
     const { tagsResponse, filteredTagData }: TagsWithFilter = useTags();
     const onChangeTagSearch = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         setTagSearch(e.target.value);
     }, []);
+    const onChangeDateSearch = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setDateSearch(e.target.value);
+    }, []);
     const searchedTagData = React.useMemo(() => {
-        const needle = tagSearch.trim().toLowerCase();
-        if (needle === '') {
-            return tagsResponse.response.tagData;
-        }
-        return tagsResponse.response.tagData.filter(
-            (tag) =>
-                tag.tag.toLowerCase().includes(needle) || tag.commitId.toLowerCase().includes(needle)
-        );
-    }, [tagSearch, tagsResponse.response.tagData]);
+        const tagNeedle = tagSearch.trim().toLowerCase();
+        const dateNeedle = dateSearch.trim().toLowerCase();
+        return tagsResponse.response.tagData.filter((tag) => {
+            const matchesTag =
+                tagNeedle === '' ||
+                tag.tag.toLowerCase().includes(tagNeedle) ||
+                tag.commitId.toLowerCase().includes(tagNeedle);
+            const matchesDate =
+                dateNeedle === '' ||
+                (!!tag.commitDate && tag.commitDate.toISOString().toLowerCase().includes(dateNeedle));
+            return matchesTag && matchesDate;
+        });
+    }, [tagSearch, dateSearch, tagsResponse.response.tagData]);
     const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             setSelectedTag(e.target.value);
@@ -317,6 +325,14 @@ export const ProductVersion: React.FC = () => {
                             placeholder="Filter by commit id or tag…"
                             value={tagSearch}
                             onChange={onChangeTagSearch}
+                        />
+                        <input
+                            type="text"
+                            className="tag_search"
+                            data-testid="date_search"
+                            placeholder="Filter by date…"
+                            value={dateSearch}
+                            onChange={onChangeDateSearch}
                         />
                         <select
                             onChange={onChangeTag}
