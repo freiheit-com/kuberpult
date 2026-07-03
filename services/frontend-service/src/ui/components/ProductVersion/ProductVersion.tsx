@@ -150,9 +150,82 @@ export const ProductVersion: React.FC = () => {
     const [productSummaries, setProductSummaries] = useState<ProductSummaries>({ summaries: [], error: null });
 
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
-    const [selectedTag, setSelectedTag] = React.useState('');
+    const [selectedTag, setSelectedTag] = React.useState(() => searchParams.get('tag') || '');
+    const [tagSearch, setTagSearch] = React.useState(() => searchParams.get('tagFilter') || '');
+    const [dateSearch, setDateSearch] = React.useState(() => searchParams.get('dateFilter') || '');
     const envsList = useEnvironments();
     const { tagsResponse, filteredTagData }: TagsWithFilter = useTags();
+    // Persist the filters in the url so they survive a page refresh. Use replace so that typing
+    // does not create a new browser-history entry per keystroke.
+    const setFilterParam = React.useCallback(
+        (key: string, value: string) => {
+            if (value === '') {
+                searchParams.delete(key);
+            } else {
+                searchParams.set(key, value);
+            }
+            setSearchParams(searchParams, { replace: true });
+        },
+        [searchParams, setSearchParams]
+    );
+    const onChangeTagSearch = React.useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            setTagSearch(e.target.value);
+            setFilterParam('tagFilter', e.target.value);
+        },
+        [setFilterParam]
+    );
+    const onChangeDateSearch = React.useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            setDateSearch(e.target.value);
+            setFilterParam('dateFilter', e.target.value);
+        },
+        [setFilterParam]
+    );
+    // Sort latest (most recent commit date) first, oldest last. Tags without a timestamp (which are
+    // not selectable anyway) sink to the bottom. Sorting here — keyed on the raw tag data — keeps the
+    // O(n log n) work off the per-keystroke filter path below.
+    const sortedTagData = React.useMemo(
+        () =>
+            [...tagsResponse.response.tagData].sort((a, b) => {
+                if (!a.commitDate && !b.commitDate) {
+                    return 0;
+                }
+                if (!a.commitDate) {
+                    return 1;
+                }
+                if (!b.commitDate) {
+                    return -1;
+                }
+                return b.commitDate.getTime() - a.commitDate.getTime();
+            }),
+        [tagsResponse.response.tagData]
+    );
+    const searchedTagData = React.useMemo(() => {
+        const tagNeedle = tagSearch.trim().toLowerCase();
+        const dateNeedle = dateSearch.trim().toLowerCase();
+        return sortedTagData.filter((tag) => {
+            const matchesTag =
+                tagNeedle === '' ||
+                tag.tag.toLowerCase().includes(tagNeedle) ||
+                tag.commitId.toLowerCase().includes(tagNeedle);
+            const matchesDate =
+                dateNeedle === '' ||
+                (!!tag.commitDate && tag.commitDate.toISOString().toLowerCase().includes(dateNeedle));
+            return matchesTag && matchesDate;
+        });
+    }, [tagSearch, dateSearch, sortedTagData]);
+    // Always keep the currently selected tag in the dropdown, even when it does not match the
+    // active filter. Otherwise the browser silently displays the first filtered option while the
+    // selection state still points at the (now hidden) tag; re-picking that displayed option then
+    // fires no change event, so the results never update.
+    const dropdownTagData = React.useMemo(() => {
+        if (selectedTag === '' || searchedTagData.some((tag) => tag.commitId === selectedTag)) {
+            return searchedTagData;
+        }
+        const selected = tagsResponse.response.tagData.find((tag) => tag.commitId === selectedTag);
+        return selected ? [selected, ...searchedTagData] : searchedTagData;
+    }, [searchedTagData, selectedTag, tagsResponse.response.tagData]);
     const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             setSelectedTag(e.target.value);
@@ -162,27 +235,40 @@ export const ProductVersion: React.FC = () => {
         [searchParams, setSearchParams]
     );
 
+    // When no tag is selected yet (e.g. navigated in without a tag in the url), default to the
+    // latest valid tag (most recent commit date) and persist it to the url.
     React.useEffect(() => {
-        let tag = searchParams.get('tag');
-        if (tag === null) {
-            // if there is no tag in the url, use the first valid tag that we know of:
-            if (filteredTagData.length === 0) {
-                return;
+        if (selectedTag !== '') {
+            return;
+        }
+        if (filteredTagData.length === 0) {
+            return;
+        }
+        const latest = filteredTagData.reduce((a, b) => {
+            if (!b.commitDate) {
+                return a;
             }
-            tag = filteredTagData[0].commitId;
-            if (tag === null) {
-                return;
+            if (!a.commitDate) {
+                return b;
             }
-            setSelectedTag(tag);
-            searchParams.set('tag', tag);
-            setSearchParams(searchParams);
+            return b.commitDate > a.commitDate ? b : a;
+        });
+        setSelectedTag(latest.commitId);
+        searchParams.set('tag', latest.commitId);
+        setSearchParams(searchParams);
+    }, [selectedTag, filteredTagData, searchParams, setSearchParams]);
+
+    // Fetch the product summary for the selected tag. This is driven by the selection (and
+    // environment), not the raw url params, so changing the tag/date filters does not refetch.
+    React.useEffect(() => {
+        if (selectedTag === '') {
             return;
         }
         const env = splitCombinedGroupName(environment);
         useApi
             .productSummaryService()
             .GetProductSummary(
-                { manifestRepoCommitHash: tag, environment: env[0], environmentGroup: env[1] },
+                { manifestRepoCommitHash: selectedTag, environment: env[0], environmentGroup: env[1] },
                 authHeader
             )
             .then((result: GetProductSummaryResponse) => {
@@ -192,7 +278,7 @@ export const ProductVersion: React.FC = () => {
                 setProductSummaries({ summaries: [], error: e.message });
             });
         setSummaryLoading(false);
-    }, [authHeader, environment, filteredTagData, searchParams, setSearchParams]);
+    }, [authHeader, environment, selectedTag]);
 
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -279,6 +365,7 @@ export const ProductVersion: React.FC = () => {
 
     const groupName = splitCombinedGroupName(environment)[0];
     const envsFiltered = envsList.filter((env) => groupName === env.config?.upstream?.environment);
+    const selectedTagData = tagsResponse.response.tagData.find((tag) => tag.commitId === selectedTag);
 
     const dialog = (
         <EnvSelectionDialogTrain
@@ -294,8 +381,28 @@ export const ProductVersion: React.FC = () => {
             <h1 className="environment_name">{'Product Version Page'}</h1>
             {dialog}
             {tagsResponse.response.tagData.length > 0 ? (
-                <div className="space_apart_row">
-                    <div className="dropdown_div">
+                <div className="tag_selection_section">
+                    <fieldset className="tag_filters">
+                        <legend className="section_label">1. Filter tags</legend>
+                        <input
+                            type="text"
+                            className="tag_search"
+                            data-testid="tag_search"
+                            placeholder="Filter by commit id or tag…"
+                            value={tagSearch}
+                            onChange={onChangeTagSearch}
+                        />
+                        <input
+                            type="text"
+                            className="tag_search"
+                            data-testid="date_search"
+                            placeholder="Filter by date…"
+                            value={dateSearch}
+                            onChange={onChangeDateSearch}
+                        />
+                    </fieldset>
+                    <fieldset className="tag_selection">
+                        <legend className="section_label">2. Select a tag and source environment</legend>
                         <select
                             onChange={onChangeTag}
                             className="drop_down"
@@ -304,7 +411,7 @@ export const ProductVersion: React.FC = () => {
                             <option value="default" disabled>
                                 Select a Tag
                             </option>
-                            {tagsResponse.response.tagData.map((tag) => (
+                            {dropdownTagData.map((tag) => (
                                 <option value={tag.commitId} key={tag.tag} disabled={!tag.commitDate}>
                                     {tag.commitId.substring(0, 12)}
                                     {' @ '}
@@ -324,19 +431,41 @@ export const ProductVersion: React.FC = () => {
                                 </option>
                             ))}
                         </select>
-                    </div>
-                    <Button
-                        label={'Run Release Train'}
-                        className="release_train_button"
-                        onClick={openDialog}
-                        highlightEffect={false}
-                    />
+                    </fieldset>
                 </div>
             ) : (
                 <div />
             )}
             <div>
                 <div className="table_padding">
+                    <div className="results_header">
+                        <div className="selected_tag_banner" data-testid="selected_tag">
+                            {selectedTagData ? (
+                                <>
+                                    Showing product version for tag{' '}
+                                    <span className="selected_tag_name">
+                                        {selectedTagData.tag.replace('refs/tags/', '')}
+                                    </span>{' '}
+                                    <span className="selected_tag_details">
+                                        {'(commit '}
+                                        {selectedTagData.commitId.substring(0, 12)}
+                                        {selectedTagData.commitDate
+                                            ? ' @ ' + String(selectedTagData.commitDate.toISOString())
+                                            : ''}
+                                        {')'}
+                                    </span>
+                                </>
+                            ) : (
+                                'No tag selected'
+                            )}
+                        </div>
+                        <Button
+                            label={'Run Release Train'}
+                            className="release_train_button"
+                            onClick={openDialog}
+                            highlightEffect={false}
+                        />
+                    </div>
                     <TableFiltered productSummary={productSummaries.summaries} teams={teams} />
                 </div>
             </div>

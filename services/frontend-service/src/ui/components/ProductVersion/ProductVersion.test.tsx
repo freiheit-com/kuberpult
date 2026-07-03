@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Environment, EnvironmentGroup, Priority, ProductSummary, TagData } from '../../../api/api';
 import { ProductVersion, TableFiltered } from './ProductVersion';
@@ -65,7 +65,7 @@ jest.mock('../../utils/GrpcApi', () => ({
     get useApi() {
         return {
             productSummaryService: () => ({
-                GetProductSummary: () => mockGetProductSummary(),
+                GetProductSummary: (req: unknown) => mockGetProductSummary(req),
             }),
         };
     },
@@ -77,6 +77,26 @@ const sampleEnvsA: Environment[] = [
         priority: Priority.UPSTREAM,
     },
 ];
+
+// Shared mock inputs so each test only has to declare what actually varies (the tags).
+const standardEnvGroups: EnvironmentGroup[] = [
+    {
+        environments: [sampleEnvsA[0]],
+        distanceToUpstream: 1,
+        environmentGroupName: 'g1',
+        priority: Priority.UNRECOGNIZED,
+    },
+];
+const standardFrontendConfig = {
+    configsReady: true,
+    configs: {
+        sourceRepoUrl: '',
+        manifestRepoUrl: '',
+        branch: '',
+        kuberpultVersion: '0',
+        revisionsEnabled: false,
+    },
+};
 
 describe('Product Version Data', () => {
     type TestData = {
@@ -209,6 +229,491 @@ describe('Product Version Data', () => {
             const releaseTrainButton = screen.queryByText('Run Release Train');
             if (testCase.tags.length > 0) {
                 expect(releaseTrainButton).toBeInTheDocument();
+            }
+        });
+    });
+});
+
+const datedTags: TagData[] = [
+    { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+    { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+    { commitId: 'ccc333', tag: 'refs/tags/gamma', commitDate: new Date('2022-03-10T00:00:00Z') },
+];
+
+describe('Default tag selection', () => {
+    type TestData = {
+        name: string;
+        tags: TagData[];
+        expectedSelectedTag: string;
+    };
+    const data: TestData[] = [
+        {
+            name: 'selects the tag with the most recent commit date',
+            tags: datedTags,
+            expectedSelectedTag: 'beta',
+        },
+    ];
+    describe.each(data)(`Displays the selected tag in the results section`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns(standardEnvGroups);
+            mock_UseTags.returns({
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: testCase.tags,
+            });
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns(standardFrontendConfig);
+            render(
+                <MemoryRouter>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            // The latest tag is shown in the results section, outside the dropdown.
+            expect(screen.getByTestId('selected_tag').textContent).toContain(testCase.expectedSelectedTag);
+            // The release train button lives in the results section.
+            expect(screen.getByText('Run Release Train')).toBeInTheDocument();
+            // Filters start empty.
+            expect(screen.getByTestId('tag_search')).toHaveValue('');
+            expect(screen.getByTestId('date_search')).toHaveValue('');
+        });
+    });
+});
+
+describe('Selecting a tag updates the results', () => {
+    type TestData = {
+        name: string;
+        tags: TagData[];
+        filterText: string;
+        selectCommitId: string;
+        initialTableApp: string;
+        // Options that must stay selectable after filtering (incl. the still-selected tag).
+        requiredOptions: string[];
+        expectedTableApp: string;
+        absentTableApp: string;
+        expectedBanner: string;
+    };
+    const data: TestData[] = [
+        {
+            name: 'refetches for a tag picked after filtering it down',
+            tags: datedTags,
+            filterText: 'alpha',
+            selectCommitId: 'aaa111',
+            initialTableApp: 'app-for-bbb222',
+            requiredOptions: ['bbb222', 'aaa111'],
+            expectedTableApp: 'app-for-aaa111',
+            absentTableApp: 'app-for-bbb222',
+            expectedBanner: 'alpha',
+        },
+    ];
+    describe.each(data)(`Refetches the product summary for the new selection`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns(standardEnvGroups);
+            mock_UseTags.returns({
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: testCase.tags,
+            });
+            mockGetProductSummary.mockImplementation((req: { manifestRepoCommitHash: string }) =>
+                Promise.resolve({
+                    productSummary: [
+                        {
+                            app: 'app-for-' + req.manifestRepoCommitHash,
+                            version: '4',
+                            revision: '0',
+                            commitId: req.manifestRepoCommitHash,
+                            displayVersion: 'v1.2.3',
+                            environment: 'dev',
+                            team: '',
+                        },
+                    ],
+                })
+            );
+            mock_FrontendConfig.returns(standardFrontendConfig);
+            render(
+                <MemoryRouter>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            // Initial load defaults to the latest tag.
+            expect(document.querySelector('.table')?.textContent).toContain(testCase.initialTableApp);
+
+            // Narrow the dropdown via the search filter first, then select the narrowed tag.
+            await act(async () => {
+                fireEvent.change(screen.getByTestId('tag_search'), { target: { value: testCase.filterText } });
+                await global.nextTick();
+            });
+            // Even when the filter excludes it, the currently selected tag must remain an option so
+            // the select keeps displaying the real selection instead of silently jumping to the
+            // first filtered option.
+            const options = Array.from(screen.getByTestId('drop_down').querySelectorAll('option')).map((o) =>
+                o.getAttribute('value')
+            );
+            for (const required of testCase.requiredOptions) {
+                expect(options).toContain(required);
+            }
+
+            await act(async () => {
+                fireEvent.change(screen.getByTestId('drop_down'), { target: { value: testCase.selectCommitId } });
+                await global.nextTick();
+            });
+
+            // The results table should now show the newly selected tag's data.
+            expect(document.querySelector('.table')?.textContent).toContain(testCase.expectedTableApp);
+            expect(document.querySelector('.table')?.textContent).not.toContain(testCase.absentTableApp);
+            // ...and the banner should reflect it.
+            expect(screen.getByTestId('selected_tag').textContent).toContain(testCase.expectedBanner);
+        });
+    });
+});
+
+describe('Tag selection from the url (page refresh)', () => {
+    type TestData = {
+        name: string;
+        tags: TagData[];
+        urlTag: string;
+        expectedBanner: string;
+    };
+    const data: TestData[] = [
+        {
+            name: 'keeps a non-latest url tag selected instead of defaulting to the latest',
+            tags: datedTags,
+            urlTag: 'aaa111',
+            expectedBanner: 'alpha',
+        },
+        {
+            name: 'keeps the oldest url tag selected instead of the first list element',
+            tags: datedTags,
+            urlTag: 'ccc333',
+            expectedBanner: 'gamma',
+        },
+    ];
+    describe.each(data)(`Restores the selection from the url`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns(standardEnvGroups);
+            mock_UseTags.returns({
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: testCase.tags,
+            });
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns(standardFrontendConfig);
+            render(
+                <MemoryRouter initialEntries={['/?tag=' + testCase.urlTag]}>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            expect(screen.getByTestId('selected_tag').textContent).toContain(testCase.expectedBanner);
+            expect(screen.getByTestId('drop_down')).toHaveValue(testCase.urlTag);
+            expect(mockGetProductSummary).toHaveBeenLastCalledWith(
+                expect.objectContaining({ manifestRepoCommitHash: testCase.urlTag })
+            );
+        });
+    });
+});
+
+describe('Filters restore from the url on load (survive a refresh)', () => {
+    type TestData = {
+        name: string;
+        urlQuery: string;
+        expectedTagFilter: string;
+        expectedDateFilter: string;
+    };
+    const data: TestData[] = [
+        {
+            name: 'both filters',
+            urlQuery: 'tagFilter=alph&dateFilter=2023',
+            expectedTagFilter: 'alph',
+            expectedDateFilter: '2023',
+        },
+        {
+            name: 'only the tag filter',
+            urlQuery: 'tagFilter=beta',
+            expectedTagFilter: 'beta',
+            expectedDateFilter: '',
+        },
+        {
+            name: 'only the date filter',
+            urlQuery: 'dateFilter=2024',
+            expectedTagFilter: '',
+            expectedDateFilter: '2024',
+        },
+        {
+            name: 'no filters',
+            urlQuery: '',
+            expectedTagFilter: '',
+            expectedDateFilter: '',
+        },
+    ];
+    describe.each(data)(`Populates the filter inputs`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns(standardEnvGroups);
+            mock_UseTags.returns({
+                tagsResponse: { response: { tagData: datedTags }, tagsReady: TagResponse.READY },
+                filteredTagData: datedTags,
+            });
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns(standardFrontendConfig);
+            const query = ['tag=aaa111', testCase.urlQuery].filter((part) => part !== '').join('&');
+            render(
+                <MemoryRouter initialEntries={['/?' + query]}>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            expect(screen.getByTestId('tag_search')).toHaveValue(testCase.expectedTagFilter);
+            expect(screen.getByTestId('date_search')).toHaveValue(testCase.expectedDateFilter);
+        });
+    });
+});
+
+describe('Changing a filter does not refetch the product summary', () => {
+    type TestData = {
+        name: string;
+        filterTestId: string;
+        newValue: string;
+    };
+    const data: TestData[] = [
+        { name: 'tag filter', filterTestId: 'tag_search', newValue: 'beta' },
+        { name: 'date filter', filterTestId: 'date_search', newValue: '2024' },
+    ];
+    describe.each(data)(`Leaves the results request untouched`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns(standardEnvGroups);
+            mock_UseTags.returns({
+                tagsResponse: { response: { tagData: datedTags }, tagsReady: TagResponse.READY },
+                filteredTagData: datedTags,
+            });
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns(standardFrontendConfig);
+            render(
+                <MemoryRouter initialEntries={['/?tag=aaa111']}>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+            // The initial load fetches the product summary exactly once (for the tag in the url).
+            expect(mockGetProductSummary).toHaveBeenCalledTimes(1);
+
+            await act(async () => {
+                fireEvent.change(screen.getByTestId(testCase.filterTestId), { target: { value: testCase.newValue } });
+                await global.nextTick();
+            });
+
+            // Filtering only narrows the dropdown; it must not trigger another product summary request.
+            expect(mockGetProductSummary).toHaveBeenCalledTimes(1);
+        });
+    });
+});
+
+describe('Tag dropdown ordering', () => {
+    type TestData = {
+        name: string;
+        tags: TagData[];
+        expectedOrder: string[];
+    };
+    const data: TestData[] = [
+        {
+            name: 'lists tags latest first, oldest last',
+            // Intentionally provided out of order.
+            tags: [
+                { commitId: 'mid', tag: 'refs/tags/mid', commitDate: new Date('2023-06-01T00:00:00Z') },
+                { commitId: 'newest', tag: 'refs/tags/newest', commitDate: new Date('2024-12-31T00:00:00Z') },
+                { commitId: 'oldest', tag: 'refs/tags/oldest', commitDate: new Date('2022-01-01T00:00:00Z') },
+            ],
+            expectedOrder: ['newest', 'mid', 'oldest'],
+        },
+        {
+            name: 'sinks tags without a timestamp to the bottom',
+            tags: [
+                { commitId: 'newest', tag: 'refs/tags/newest', commitDate: new Date('2024-12-31T00:00:00Z') },
+                { commitId: 'undated', tag: 'refs/tags/undated' },
+                { commitId: 'older', tag: 'refs/tags/older', commitDate: new Date('2022-01-01T00:00:00Z') },
+            ],
+            expectedOrder: ['newest', 'older', 'undated'],
+        },
+    ];
+    describe.each(data)(`Orders the dropdown options`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns(standardEnvGroups);
+            mock_UseTags.returns({
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: testCase.tags,
+            });
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns(standardFrontendConfig);
+            render(
+                <MemoryRouter>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            // The placeholder option is first; the real tags follow newest -> oldest.
+            const optionValues = Array.from(screen.getByTestId('drop_down').querySelectorAll('option'))
+                .map((o) => o.getAttribute('value'))
+                .filter((v) => v !== 'default');
+            expect(optionValues).toEqual(testCase.expectedOrder);
+        });
+    });
+});
+
+describe('Tag search filtering', () => {
+    type TestData = {
+        name: string;
+        tags: TagData[];
+        search: string;
+        expectedTags: string[];
+        hiddenTags: string[];
+    };
+    const data: TestData[] = [
+        {
+            name: 'empty search shows all tags',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha' },
+                { commitId: 'bbb222', tag: 'refs/tags/beta' },
+            ],
+            search: '',
+            expectedTags: ['alpha', 'beta'],
+            hiddenTags: [],
+        },
+        {
+            name: 'filters by tag name',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha' },
+                { commitId: 'bbb222', tag: 'refs/tags/beta' },
+            ],
+            search: 'alph',
+            expectedTags: ['alpha'],
+            hiddenTags: ['beta'],
+        },
+        {
+            name: 'filters by commit id',
+            tags: [
+                { commitId: 'deadbeef', tag: 'refs/tags/alpha' },
+                { commitId: 'cafef00d', tag: 'refs/tags/beta' },
+            ],
+            search: 'cafe',
+            expectedTags: ['beta'],
+            hiddenTags: ['alpha'],
+        },
+        {
+            name: 'filtering is case insensitive',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/Alpha' },
+                { commitId: 'bbb222', tag: 'refs/tags/beta' },
+            ],
+            search: 'ALPHA',
+            expectedTags: ['Alpha'],
+            hiddenTags: ['beta'],
+        },
+    ];
+    describe.each(data)(`Filters the tag dropdown`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns(standardEnvGroups);
+            mock_UseTags.returns({
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: [{ tag: 'test-tag-1', commitId: 'sha-123' }],
+            });
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns(standardFrontendConfig);
+            render(
+                <MemoryRouter>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            fireEvent.change(screen.getByTestId('tag_search'), { target: { value: testCase.search } });
+
+            const dropDownText = document.querySelector('.drop_down')?.textContent ?? '';
+            for (const expected of testCase.expectedTags) {
+                expect(dropDownText).toContain(expected);
+            }
+            for (const hidden of testCase.hiddenTags) {
+                expect(dropDownText).not.toContain(hidden);
+            }
+        });
+    });
+});
+
+describe('Tag date filtering', () => {
+    type TestData = {
+        name: string;
+        tags: TagData[];
+        dateSearch: string;
+        expectedTags: string[];
+        hiddenTags: string[];
+    };
+    const data: TestData[] = [
+        {
+            name: 'empty date search shows all tags',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+                { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+            ],
+            dateSearch: '',
+            expectedTags: ['alpha', 'beta'],
+            hiddenTags: [],
+        },
+        {
+            name: 'filters by full date',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+                { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+            ],
+            dateSearch: '2024-06-15',
+            expectedTags: ['beta'],
+            hiddenTags: ['alpha'],
+        },
+        {
+            name: 'filters by year only',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+                { commitId: 'bbb222', tag: 'refs/tags/beta', commitDate: new Date('2024-06-15T00:00:00Z') },
+            ],
+            dateSearch: '2023',
+            expectedTags: ['alpha'],
+            hiddenTags: ['beta'],
+        },
+        {
+            name: 'hides tags with a missing timestamp',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha', commitDate: new Date('2023-01-01T00:00:00Z') },
+                { commitId: 'bbb222', tag: 'refs/tags/beta' },
+            ],
+            dateSearch: '2023',
+            expectedTags: ['alpha'],
+            hiddenTags: ['beta'],
+        },
+    ];
+    describe.each(data)(`Filters the tag dropdown by date`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns(standardEnvGroups);
+            mock_UseTags.returns({
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: [{ tag: 'test-tag-1', commitId: 'sha-123' }],
+            });
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns(standardFrontendConfig);
+            render(
+                <MemoryRouter>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            fireEvent.change(screen.getByTestId('date_search'), { target: { value: testCase.dateSearch } });
+
+            const dropDownText = document.querySelector('.drop_down')?.textContent ?? '';
+            for (const expected of testCase.expectedTags) {
+                expect(dropDownText).toContain(expected);
+            }
+            for (const hidden of testCase.hiddenTags) {
+                expect(dropDownText).not.toContain(hidden);
             }
         });
     });
