@@ -28,7 +28,7 @@ jobs:
             expect_cd: true
             expect_fe: false
             expect_export: false
-          - id: "2" # test change in frontend-service and manifest-repo-export-su-a-SRX-UREFYC-pr-testservice
+          - id: "2" # test change in frontend-service and manifest-repo-export-service
             source_branch: automated/ci-reliability/ci-test-2
             modify_pkg: false
             modify_cd: false
