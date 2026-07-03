@@ -151,8 +151,22 @@ export const ProductVersion: React.FC = () => {
 
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
     const [selectedTag, setSelectedTag] = React.useState('');
+    const [tagSearch, setTagSearch] = React.useState('');
     const envsList = useEnvironments();
     const { tagsResponse, filteredTagData }: TagsWithFilter = useTags();
+    const onChangeTagSearch = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setTagSearch(e.target.value);
+    }, []);
+    const searchedTagData = React.useMemo(() => {
+        const needle = tagSearch.trim().toLowerCase();
+        if (needle === '') {
+            return tagsResponse.response.tagData;
+        }
+        return tagsResponse.response.tagData.filter(
+            (tag) =>
+                tag.tag.toLowerCase().includes(needle) || tag.commitId.toLowerCase().includes(needle)
+        );
+    }, [tagSearch, tagsResponse.response.tagData]);
     const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             setSelectedTag(e.target.value);
@@ -296,6 +310,14 @@ export const ProductVersion: React.FC = () => {
             {tagsResponse.response.tagData.length > 0 ? (
                 <div className="space_apart_row">
                     <div className="dropdown_div">
+                        <input
+                            type="text"
+                            className="tag_search"
+                            data-testid="tag_search"
+                            placeholder="Filter by commit id or tag…"
+                            value={tagSearch}
+                            onChange={onChangeTagSearch}
+                        />
                         <select
                             onChange={onChangeTag}
                             className="drop_down"
@@ -304,7 +326,7 @@ export const ProductVersion: React.FC = () => {
                             <option value="default" disabled>
                                 Select a Tag
                             </option>
-                            {tagsResponse.response.tagData.map((tag) => (
+                            {searchedTagData.map((tag) => (
                                 <option value={tag.commitId} key={tag.tag} disabled={!tag.commitDate}>
                                     {tag.commitId.substring(0, 12)}
                                     {' @ '}

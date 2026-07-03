@@ -36,6 +36,13 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
         <div
           class="dropdown_div"
         >
+          <input
+            class="tag_search"
+            data-testid="tag_search"
+            placeholder="Filter by commit id or tag…"
+            type="text"
+            value=""
+          />
           <select
             class="drop_down"
             data-testid="drop_down"
@@ -190,6 +197,13 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
         <div
           class="dropdown_div"
         >
+          <input
+            class="tag_search"
+            data-testid="tag_search"
+            placeholder="Filter by commit id or tag…"
+            type="text"
+            value=""
+          />
           <select
             class="drop_down"
             data-testid="drop_down"

@@ -66,6 +66,17 @@ Copyright freiheit.com*/
     margin: $environment-buttons-column-margin;
 }
 
+.tag_search {
+    border-radius: 3px;
+    min-width: 220px;
+    height: 50px;
+    border: 1px solid var(--mdc-theme-on-surface-light);
+    color: var(--mdc-theme-on-surface-light);
+    background-color: var(--mdc-theme-surface);
+    padding-left: 1em;
+    margin-right: 20px;
+}
+
 .drop_down {
     border-radius: 3px;
     min-width: 220px;

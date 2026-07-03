@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright freiheit.com*/
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Environment, EnvironmentGroup, Priority, ProductSummary, TagData } from '../../../api/api';
 import { ProductVersion, TableFiltered } from './ProductVersion';
@@ -209,6 +209,102 @@ describe('Product Version Data', () => {
             const releaseTrainButton = screen.queryByText('Run Release Train');
             if (testCase.tags.length > 0) {
                 expect(releaseTrainButton).toBeInTheDocument();
+            }
+        });
+    });
+});
+
+describe('Tag search filtering', () => {
+    type TestData = {
+        name: string;
+        tags: TagData[];
+        search: string;
+        expectedTags: string[];
+        hiddenTags: string[];
+    };
+    const data: TestData[] = [
+        {
+            name: 'empty search shows all tags',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha' },
+                { commitId: 'bbb222', tag: 'refs/tags/beta' },
+            ],
+            search: '',
+            expectedTags: ['alpha', 'beta'],
+            hiddenTags: [],
+        },
+        {
+            name: 'filters by tag name',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/alpha' },
+                { commitId: 'bbb222', tag: 'refs/tags/beta' },
+            ],
+            search: 'alph',
+            expectedTags: ['alpha'],
+            hiddenTags: ['beta'],
+        },
+        {
+            name: 'filters by commit id',
+            tags: [
+                { commitId: 'deadbeef', tag: 'refs/tags/alpha' },
+                { commitId: 'cafef00d', tag: 'refs/tags/beta' },
+            ],
+            search: 'cafe',
+            expectedTags: ['beta'],
+            hiddenTags: ['alpha'],
+        },
+        {
+            name: 'filtering is case insensitive',
+            tags: [
+                { commitId: 'aaa111', tag: 'refs/tags/Alpha' },
+                { commitId: 'bbb222', tag: 'refs/tags/beta' },
+            ],
+            search: 'ALPHA',
+            expectedTags: ['Alpha'],
+            hiddenTags: ['beta'],
+        },
+    ];
+    describe.each(data)(`Filters the tag dropdown`, (testCase) => {
+        it(testCase.name, async () => {
+            mock_UseEnvGroups.returns([
+                {
+                    environments: [sampleEnvsA[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                    priority: Priority.UNRECOGNIZED,
+                },
+            ]);
+            const useTagsResponse: TagsWithFilter = {
+                tagsResponse: { response: { tagData: testCase.tags }, tagsReady: TagResponse.READY },
+                filteredTagData: [{ tag: 'test-tag-1', commitId: 'sha-123' }],
+            };
+            mock_UseTags.returns(useTagsResponse);
+            mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+            mock_FrontendConfig.returns({
+                configsReady: true,
+                configs: {
+                    sourceRepoUrl: '',
+                    manifestRepoUrl: '',
+                    branch: '',
+                    kuberpultVersion: '0',
+                    revisionsEnabled: false,
+                },
+            });
+            render(
+                <MemoryRouter>
+                    <ProductVersion />
+                </MemoryRouter>
+            );
+            await act(global.nextTick);
+
+            fireEvent.change(screen.getByTestId('tag_search'), { target: { value: testCase.search } });
+
+            const dropDownText = document.querySelector('.drop_down')?.textContent ?? '';
+            for (const expected of testCase.expectedTags) {
+                expect(dropDownText).toContain(expected);
+            }
+            for (const hidden of testCase.hiddenTags) {
+                expect(dropDownText).not.toContain(hidden);
             }
         });
     });
