@@ -468,6 +468,53 @@ describe('Filters persist in the url', () => {
     });
 });
 
+describe('Tag dropdown ordering', () => {
+    it('lists tags latest first, oldest last', async () => {
+        // Intentionally provided out of order.
+        const tags: TagData[] = [
+            { commitId: 'mid', tag: 'refs/tags/mid', commitDate: new Date('2023-06-01T00:00:00Z') },
+            { commitId: 'newest', tag: 'refs/tags/newest', commitDate: new Date('2024-12-31T00:00:00Z') },
+            { commitId: 'oldest', tag: 'refs/tags/oldest', commitDate: new Date('2022-01-01T00:00:00Z') },
+        ];
+        mock_UseEnvGroups.returns([
+            {
+                environments: [sampleEnvsA[0]],
+                distanceToUpstream: 1,
+                environmentGroupName: 'g1',
+                priority: Priority.UNRECOGNIZED,
+            },
+        ]);
+        const useTagsResponse: TagsWithFilter = {
+            tagsResponse: { response: { tagData: tags }, tagsReady: TagResponse.READY },
+            filteredTagData: tags,
+        };
+        mock_UseTags.returns(useTagsResponse);
+        mockGetProductSummary.mockResolvedValue({ productSummary: [] });
+        mock_FrontendConfig.returns({
+            configsReady: true,
+            configs: {
+                sourceRepoUrl: '',
+                manifestRepoUrl: '',
+                branch: '',
+                kuberpultVersion: '0',
+                revisionsEnabled: false,
+            },
+        });
+        render(
+            <MemoryRouter>
+                <ProductVersion />
+            </MemoryRouter>
+        );
+        await act(global.nextTick);
+
+        // The placeholder option is first; the real tags follow newest -> oldest.
+        const optionValues = Array.from(screen.getByTestId('drop_down').querySelectorAll('option'))
+            .map((o) => o.getAttribute('value'))
+            .filter((v) => v !== 'default');
+        expect(optionValues).toEqual(['newest', 'mid', 'oldest']);
+    });
+});
+
 describe('Tag search filtering', () => {
     type TestData = {
         name: string;

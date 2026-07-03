@@ -182,10 +182,29 @@ export const ProductVersion: React.FC = () => {
         },
         [setFilterParam]
     );
+    // Sort latest (most recent commit date) first, oldest last. Tags without a timestamp (which are
+    // not selectable anyway) sink to the bottom. Sorting here — keyed on the raw tag data — keeps the
+    // O(n log n) work off the per-keystroke filter path below.
+    const sortedTagData = React.useMemo(
+        () =>
+            [...tagsResponse.response.tagData].sort((a, b) => {
+                if (!a.commitDate && !b.commitDate) {
+                    return 0;
+                }
+                if (!a.commitDate) {
+                    return 1;
+                }
+                if (!b.commitDate) {
+                    return -1;
+                }
+                return b.commitDate.getTime() - a.commitDate.getTime();
+            }),
+        [tagsResponse.response.tagData]
+    );
     const searchedTagData = React.useMemo(() => {
         const tagNeedle = tagSearch.trim().toLowerCase();
         const dateNeedle = dateSearch.trim().toLowerCase();
-        return tagsResponse.response.tagData.filter((tag) => {
+        return sortedTagData.filter((tag) => {
             const matchesTag =
                 tagNeedle === '' ||
                 tag.tag.toLowerCase().includes(tagNeedle) ||
@@ -195,7 +214,7 @@ export const ProductVersion: React.FC = () => {
                 (!!tag.commitDate && tag.commitDate.toISOString().toLowerCase().includes(dateNeedle));
             return matchesTag && matchesDate;
         });
-    }, [tagSearch, dateSearch, tagsResponse.response.tagData]);
+    }, [tagSearch, dateSearch, sortedTagData]);
     // Always keep the currently selected tag in the dropdown, even when it does not match the
     // active filter. Otherwise the browser silently displays the first filtered option while the
     // selection state still points at the (now hidden) tag; re-picking that displayed option then
