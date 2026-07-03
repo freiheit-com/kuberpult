@@ -167,10 +167,10 @@ jobs:
         with:
           name: validation-errors-${{ inputs.test_id }}.zip
           path: validation-errors.txt
-  check-linting-errors:
+  check-go-linting-errors:
     # check if the golangci-lint detects the injected linting error in cd-service
     # this check is only run when inputs.inject_linting_error is set to true
-    name: "Check linting errors"
+    name: "Check go linting errors"
     if: ${{ inputs.inject_linting_error == true && always() }}
     needs: [trigger-ci]
     runs-on: ubuntu-latest
@@ -191,6 +191,38 @@ jobs:
           elif [[ ! -n $(grep "services/cd-service/cmd/server/main.go" linting-report/.golangci_lint.log | grep "const unusedConst is unused") ]]; then
             # the injected linting error is not correctly detected: unused const "unusedConst" in main.go file
             echo "Linting error not detected" >> validation-errors.txt
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload validation errors
+        id: upload-validation-errors
+        uses: actions/upload-artifact@v6
+        with:
+          name: validation-errors-${{ inputs.test_id }}.zip
+          path: validation-errors.txt
+  check-helm-linting-errors:
+    # check if helm test detects the injected linting error in the yaml
+    name: "Check helm linting errors"
+    if: ${{ inputs.inject_helm_linting_error == true && always() }}
+    needs: [trigger-ci]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Download golangci-lint report
+        uses: actions/download-artifact@v6
+        with:
+          name: linting-report-services_cd-service-5.zip
+          path: linting-report
+      - name: "Check linting errors"
+        run: |
+          touch validation-errors.txt
+          if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
+            echo "CI build should have failed due to linting error" >> validation-errors.txt
+          fi
+          if $(grep -q -F "[ERROR] templates/cd-service.yaml" linting-report/helm_lint_fail.log); then
+            echo "Helm linting error not detected" >> validation-errors.txt
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,13 +4,7 @@ on:
   workflow_call:
 
 jobs:
-  helm-test:
-    uses: ./.github/workflows/run-helm-test.yml
-    with:
-      imageTagPrefix: "main-"
-
   release:
-    needs: [helm-test]
     name: Release kuberpult with semantic versioning
     runs-on: ubuntu-latest
     steps:
