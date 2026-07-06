@@ -57,16 +57,18 @@ type ServerConfig struct {
 	GrpcMaxRecvMsgSize                 int           `default:"4" split_words:"true"`
 	RevisionsEnabled                   bool          `default:"false" split_words:"true"`
 	ReleaseYamlValidationEnabled       bool          `default:"true" split_words:"true"`
+	RootAppsPointToBrackets            bool          `default:"false" split_words:"true"`
 }
 
 type FrontendConfig struct {
-	ArgoCd           *ArgoCdConfig `json:"argocd"`
-	Auth             *AuthConfig   `json:"auth"`
-	KuberpultVersion string        `json:"version"`
-	SourceRepoUrl    string        `json:"source"`
-	ManifestRepoUrl  string        `json:"manifestRepoUrl"`
-	Branch           string        `json:"branch"`
-	RevisionsEnabled bool          `json:"revisionsEnabled"`
+	ArgoCd                  *ArgoCdConfig `json:"argocd"`
+	Auth                    *AuthConfig   `json:"auth"`
+	KuberpultVersion        string        `json:"version"`
+	SourceRepoUrl           string        `json:"source"`
+	ManifestRepoUrl         string        `json:"manifestRepoUrl"`
+	Branch                  string        `json:"branch"`
+	RevisionsEnabled        bool          `json:"revisionsEnabled"`
+	RootAppsPointToBrackets bool          `json:"rootAppsPointToBrackets"`
 }
 
 type ArgoCdConfig struct {

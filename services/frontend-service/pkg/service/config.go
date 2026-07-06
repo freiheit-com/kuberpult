@@ -47,11 +47,12 @@ func (c *FrontendConfigServiceServer) GetConfig(
 				Enabled: c.Config.Auth.DexAuthConfig.Enabled,
 			},
 		},
-		SourceRepoUrl:    c.Config.SourceRepoUrl,
-		ManifestRepoUrl:  c.Config.ManifestRepoUrl,
-		KuberpultVersion: c.Config.KuberpultVersion,
-		Branch:           c.Config.Branch,
-		RevisionsEnabled: c.Config.RevisionsEnabled,
+		SourceRepoUrl:           c.Config.SourceRepoUrl,
+		ManifestRepoUrl:         c.Config.ManifestRepoUrl,
+		KuberpultVersion:        c.Config.KuberpultVersion,
+		Branch:                  c.Config.Branch,
+		RevisionsEnabled:        c.Config.RevisionsEnabled,
+		RootAppsPointToBrackets: c.Config.RootAppsPointToBrackets,
 	}
 	return &result, nil
 }

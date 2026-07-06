@@ -207,6 +207,7 @@ describe('EnvironmentChip', () => {
                 branch: 'main',
                 manifestRepoUrl: 'http://manifests.example.com',
                 revisionsEnabled: false,
+                rootAppsPointToBrackets: false,
             },
             configReady: true,
         });
