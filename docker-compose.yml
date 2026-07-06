@@ -144,6 +144,7 @@ services:
 # keyring is only needed for azure auth
 #      - KUBERPULT_PGP_KEY_RING_PATH=/kp/kuberpult/services/cd-service/test_pgp_keyring.asc
       - KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS=development
+      - KUBERPULT_ROOT_APPS_POINT_TO_BRACKETS=true
     ports:
       - "${KUBERPULT_PORT_FRONTEND_HTTP:-8081}:8081"
       - "${KUBERPULT_PORT_FRONTEND_GRPC:-5555}:5555"
