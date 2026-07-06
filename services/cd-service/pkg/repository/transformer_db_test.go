@@ -4459,6 +4459,99 @@ func TestUndeployApplicationDB(t *testing.T) {
 	}
 }
 
+// TestUndeployApplicationDeletesLingeringDeployments reproduces a bug where a deployment
+// lingered on an environment that had been removed from the configs (e.g. a deleted env).
+// Because the old cleanup only iterated the current configs, such a deployment was never
+// removed and clearing the releases afterwards violated the fk_releases_deployments foreign
+// key. UndeployApplication must delete every deployment of the app regardless of the configs.
+func TestUndeployApplicationDeletesLingeringDeployments(t *testing.T) {
+	const app = "app1"
+	tcs := []struct {
+		Name string
+		// LingeringEnvs get a leftover deployment for the app injected directly into the DB
+		// (referencing release version 1) while being absent from the environment configs.
+		LingeringEnvs []types.EnvName
+	}{
+		{
+			Name:          "single lingering deployment on a deleted environment",
+			LingeringEnvs: []types.EnvName{"deleted-env"},
+		},
+		{
+			Name:          "multiple lingering deployments on deleted environments",
+			LingeringEnvs: []types.EnvName{"deleted-env-1", "deleted-env-2"},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := SetupRepositoryTestWithDB(t)
+			ctx := testutilauth.MakeTestContext()
+			r := repo.(*repository)
+			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				setup := []Transformer{
+					&CreateEnvironment{
+						Environment: envAcceptance,
+						Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+					},
+					&CreateApplicationVersion{
+						Application:     app,
+						Manifests:       map[types.EnvName]string{envAcceptance: "acceptance"},
+						WriteCommitData: true,
+						Version:         1,
+					},
+					&CreateUndeployApplicationVersion{
+						Application: app,
+					},
+				}
+				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, setup...); err != nil {
+					return err
+				}
+
+				// A valid transformereslversion is required by the deployments FK; reuse the
+				// one from the real deployment on the configured environment.
+				existing, err := r.State().DBHandler.DBSelectLatestDeployment(ctx, transaction, app, envAcceptance)
+				if err != nil {
+					return err
+				}
+				if existing == nil {
+					t.Fatalf("expected a deployment on env '%s' after setup", envAcceptance)
+				}
+				// Inject deployments on environments that are absent from the configs, simulating
+				// deployments left behind when their environment was deleted. They reference the
+				// still-existing release version 1.
+				for _, env := range tc.LingeringEnvs {
+					if err := r.State().DBHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+						App:            app,
+						Env:            env,
+						ReleaseNumbers: types.MakeReleaseNumberVersion(1),
+						TransformerID:  existing.TransformerID,
+					}); err != nil {
+						return err
+					}
+				}
+
+				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, &UndeployApplication{Application: app}); err != nil {
+					return err
+				}
+
+				// If any deployment survived, clearing the releases would have failed on the
+				// fk_releases_deployments constraint, so verify none remain.
+				remaining, err := r.State().DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, app)
+				if err != nil {
+					return err
+				}
+				if len(remaining) != 0 {
+					t.Errorf("expected no deployments to remain for app '%s', got %d: %v", app, len(remaining), remaining)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("did not expect error but got:\n%+v", err)
+			}
+		})
+	}
+}
+
 func TestDeleteEnvironment(t *testing.T) {
 	const testAppName = "test-app"
 	tcs := []struct {
