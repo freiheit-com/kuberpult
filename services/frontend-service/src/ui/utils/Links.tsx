@@ -15,13 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 import React from 'react';
-import {
-    useArgoCdBaseUrl,
-    useSourceRepoUrl,
-    useBranch,
-    useManifestRepoUrl,
-    ReleaseNumbers,
-} from './store';
+import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl, ReleaseNumbers } from './store';
 import classNames from 'classnames';
 import { Argo } from '../../images';
 
