@@ -195,6 +195,8 @@ func parseEnvVars() (*config.ServerConfig, error) {
 	}
 	r.RevisionsEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_REVISIONS_ENABLED", false)
 	r.ReleaseYamlValidationEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_RELEASE_YAML_VALIDATION_ENABLED", true)
+
+	r.RootAppsPointToBrackets = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ROOT_APPS_POINT_TO_BRACKETS", false)
 	return &r, nil
 }
 
@@ -394,11 +396,12 @@ func runServer(ctx context.Context) error {
 					Enabled: c.DexEnabled,
 				},
 			},
-			ManifestRepoUrl:  c.ManifestRepoUrl,
-			SourceRepoUrl:    c.SourceRepoUrl,
-			KuberpultVersion: c.Version,
-			Branch:           c.GitBranch,
-			RevisionsEnabled: c.RevisionsEnabled,
+			ManifestRepoUrl:         c.ManifestRepoUrl,
+			SourceRepoUrl:           c.SourceRepoUrl,
+			KuberpultVersion:        c.Version,
+			Branch:                  c.GitBranch,
+			RevisionsEnabled:        c.RevisionsEnabled,
+			RootAppsPointToBrackets: c.RootAppsPointToBrackets,
 		},
 	}
 

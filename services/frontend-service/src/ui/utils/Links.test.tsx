@@ -44,6 +44,7 @@ const setupArgoCd = (baseUrl: string | undefined, namespace: string) => {
             sourceRepoUrl: 'mysource',
             branch: 'dontcare',
             revisionsEnabled: false,
+            rootAppsPointToBrackets: false,
         },
     });
 };
@@ -169,6 +170,7 @@ const setupSourceRepo = (baseUrl: string) => {
             sourceRepoUrl: baseUrl,
             branch: 'main',
             revisionsEnabled: false,
+            rootAppsPointToBrackets: false,
         },
     });
 };
@@ -183,6 +185,7 @@ const setupManifestRepo = (baseUrl: string) => {
             sourceRepoUrl: 'mysource',
             branch: 'main',
             revisionsEnabled: false,
+            rootAppsPointToBrackets: false,
         },
     });
 };

@@ -31,9 +31,9 @@ import (
 	"time"
 
 	"github.com/MicahParks/keyfunc/v2"
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/armor"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
@@ -319,16 +319,16 @@ func TestEnvVarParsing(t *testing.T) {
 				"KUBERPULT_GIT_AUTHOR_EMAIL": "git-email2",
 			},
 			ExpectedConfiguration: &config.ServerConfig{
-				CdServer:               "kuberpult-cd-service:8443",
-				ManifestExportServer:   "kuberpult-manifest-repo-export-service:8443",
-				ArgocdNamespace:        "tools",
-				AzureCloudInstance:     "https://login.microsoftonline.com/",
-				AzureEnableAuth:        false,
-				DexFullNameOverride:    "kuberpult-dex",
-				BatchClientTimeout:     2 * time.Minute,
-				MaxWaitDuration:        10 * time.Minute,
-				ApiEnableDespiteNoAuth: false,
-				IapEnabled:             false,
+				CdServer:                     "kuberpult-cd-service:8443",
+				ManifestExportServer:         "kuberpult-manifest-repo-export-service:8443",
+				ArgocdNamespace:              "tools",
+				AzureCloudInstance:           "https://login.microsoftonline.com/",
+				AzureEnableAuth:              false,
+				DexFullNameOverride:          "kuberpult-dex",
+				BatchClientTimeout:           2 * time.Minute,
+				MaxWaitDuration:              10 * time.Minute,
+				ApiEnableDespiteNoAuth:       false,
+				IapEnabled:                   false,
 				GrpcMaxRecvMsgSize:           4,
 				RevisionsEnabled:             false,
 				ReleaseYamlValidationEnabled: true,
@@ -383,6 +383,8 @@ func TestEnvVarParsing(t *testing.T) {
 				"KUBERPULT_IAP_ENABLED":                "true",
 				"KUBERPULT_GRPC_MAX_RECV_MSG_SIZE":     "50",
 				"KUBERPULT_REVISIONS_ENABLED":          "true",
+
+				"KUBERPULT_ROOT_APPS_POINT_TO_BRACKETS": "true",
 			},
 			ExpectedConfiguration: &config.ServerConfig{
 				CdServer:              "cd:8443",
@@ -421,13 +423,14 @@ func TestEnvVarParsing(t *testing.T) {
 				GitAuthorName:  "git name",
 				GitAuthorEmail: "git mail",
 
-				BatchClientTimeout:     22 * time.Minute,
-				MaxWaitDuration:        33 * time.Minute,
-				ApiEnableDespiteNoAuth: true,
-				IapEnabled:             true,
+				BatchClientTimeout:           22 * time.Minute,
+				MaxWaitDuration:              33 * time.Minute,
+				ApiEnableDespiteNoAuth:       true,
+				IapEnabled:                   true,
 				GrpcMaxRecvMsgSize:           50,
 				RevisionsEnabled:             true,
 				ReleaseYamlValidationEnabled: true,
+				RootAppsPointToBrackets:      true,
 			},
 			ExpectedError: nil,
 		},

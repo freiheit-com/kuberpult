@@ -95,6 +95,7 @@ const standardFrontendConfig = {
         branch: '',
         kuberpultVersion: '0',
         revisionsEnabled: false,
+        rootAppsPointToBrackets: false,
     },
 };
 
@@ -206,6 +207,7 @@ describe('Product Version Data', () => {
                     branch: '',
                     kuberpultVersion: '0',
                     revisionsEnabled: false,
+                    rootAppsPointToBrackets: false,
                 },
             });
             render(
