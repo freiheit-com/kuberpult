@@ -1175,50 +1175,22 @@ func (u *UndeployApplication) Transform(
 	if err != nil {
 		return "", err
 	}
-	var undeployedEnvs []types.EnvName
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Permission checks and app-lock cleanup stay scoped to the currently configured
+	// environments: undeploy permission is an RBAC gate that can only be granted on an
+	// environment that still exists in the config (a failure here rolls back the whole
+	// transaction), and app locks are only meaningful for existing environments. Deployment
+	// deletion below is deliberately NOT limited to the configs — see the comment there.
 	for env := range configs {
 		err := state.checkUserPermissions(ctx, transaction, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig, true)
 		if err != nil {
 			return "", err
 		}
-		deployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, u.Application, env)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication(db): error cannot un-deploy application '%v' the release '%v' cannot be found", u.Application, env)
-		}
-
-		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
-			user, err := auth.ReadUserFromContext(ctx)
-			if err != nil {
-				return "", err
-			}
-			// delete deployment
-			err = state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, deployment.App, env, u.TransformerEslVersion, db.DeploymentMetadata{
-				DeployedByName:  user.Name,
-				DeployedByEmail: user.Email,
-				CiLink:          "",
-			})
-			if err != nil {
-				return "", err
-			}
-			// Signal the rollout-service to cascade-delete the Argo Application
-			// that managed this app's workload. argo_app is the kuberpult app
-			// name (which matches the com.freiheit.kuberpult/application annotation
-			// on the Argo Application); the rollout-service consumer constructs
-			// the Argo CD Application name as <env>-<argo_app>.
-			err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), env, false, u.TransformerEslVersion)
-			if err != nil {
-				return "", fmt.Errorf("UndeployApplication: could not signal cascade-delete for env '%s': %w", env, err)
-			}
-			undeployedEnvs = append(undeployedEnvs, env)
-		}
 		locks, err := state.DBHandler.DBSelectAllAppLocks(ctx, transaction, env, u.Application)
-		if err != nil {
-			return "", err
-		}
-		if locks == nil {
-			continue
-		}
-		user, err := auth.ReadUserFromContext(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -1230,6 +1202,42 @@ func (u *UndeployApplication) Transform(
 			if err != nil {
 				return "", err
 			}
+		}
+	}
+
+	// The whole app is being removed, so every one of its deployments must go.
+	// We drive this off the deployments that actually exist rather than the
+	// current env configs: a deployment can linger on an environment that was
+	// deleted from the configs, and clearing the releases below would then
+	// violate the fk_releases_deployments foreign key. Selecting all deployments
+	// for the app makes such leftovers impossible by construction.
+	deployedEnvs, err := state.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, u.Application)
+	if err != nil {
+		return "", fmt.Errorf("UndeployApplication: could not select deployments for app '%s': %w", u.Application, err)
+	}
+	undeployedEnvs := make([]types.EnvName, 0, len(deployedEnvs))
+	for env := range deployedEnvs {
+		undeployedEnvs = append(undeployedEnvs, env)
+	}
+	slices.Sort(undeployedEnvs)
+	for _, env := range undeployedEnvs {
+		// delete deployment
+		err = state.DBHandler.DBDeleteDeploymentWithHistory(ctx, transaction, u.Application, env, u.TransformerEslVersion, db.DeploymentMetadata{
+			DeployedByName:  user.Name,
+			DeployedByEmail: user.Email,
+			CiLink:          "",
+		})
+		if err != nil {
+			return "", err
+		}
+		// Signal the rollout-service to cascade-delete the Argo Application
+		// that managed this app's workload. argo_app is the kuberpult app
+		// name (which matches the com.freiheit.kuberpult/application annotation
+		// on the Argo Application); the rollout-service consumer constructs
+		// the Argo CD Application name as <env>-<argo_app>.
+		err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), env, false, u.TransformerEslVersion)
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not signal cascade-delete for env '%s': %w", env, err)
 		}
 	}
 	dbApp, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, u.Application)
