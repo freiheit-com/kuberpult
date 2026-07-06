@@ -21,6 +21,7 @@ import {
     UpdateAction,
     updateAllEnvLocks,
     updateAppDetails,
+    UpdateFrontendConfig,
     UpdateOverview,
     UpdateRolloutStatus,
 } from '../../utils/store';
@@ -774,6 +775,77 @@ describe('Release Dialog', () => {
             for (const [descr, count] of Object.entries(statusCount)) {
                 expect(document.querySelectorAll('.rollout__description_' + descr)).toHaveLength(count);
             }
+        });
+    });
+
+    describe.each([
+        {
+            name: 'brackets enabled: the cluster-unspecific Argo link searches by bracket name',
+            rootAppsPointToBrackets: true,
+            expectedSearch: 'applications?search=-my-bracket',
+        },
+        {
+            name: 'brackets disabled: the cluster-unspecific Argo link searches by app name',
+            rootAppsPointToBrackets: false,
+            expectedSearch: 'applications?search=-test1',
+        },
+    ])(`Renders the cluster-unspecific Argo link`, (testcase) => {
+        it(testcase.name, () => {
+            // given: an app that belongs to a bracket, an Argo base url, and the brackets toggle
+            UpdateFrontendConfig.set({
+                configs: {
+                    argoCd: { baseUrl: 'https://argo.example.com/', namespace: 'tools' },
+                    sourceRepoUrl: '',
+                    manifestRepoUrl: '',
+                    branch: '',
+                    kuberpultVersion: '0',
+                    revisionsEnabled: false,
+                    rootAppsPointToBrackets: testcase.rootAppsPointToBrackets,
+                },
+                configReady: true,
+            });
+            updateAppDetails.set({
+                test1: {
+                    details: {
+                        application: {
+                            name: 'test1',
+                            releases: [
+                                {
+                                    version: 2,
+                                    sourceMessage: 'test1',
+                                    sourceAuthor: 'test',
+                                    sourceCommitId: 'commit',
+                                    createdAt: new Date(2002),
+                                    undeployVersion: false,
+                                    prNumber: '',
+                                    displayVersion: '2',
+                                    isMinor: false,
+                                    isPrepublish: false,
+                                    environments: [],
+                                    ciLink: '',
+                                    revision: 0,
+                                },
+                            ],
+                            sourceRepoUrl: '',
+                            team: 'example',
+                            undeploySummary: UndeploySummary.NORMAL,
+                            warnings: [],
+                            argoBracket: 'my-bracket',
+                        },
+                        appLocks: {},
+                        teamLocks: {},
+                        deployments: {},
+                    },
+                    updatedAt: new Date(Date.now()),
+                    appDetailState: AppDetailsState.READY,
+                    errorMessage: '',
+                },
+            });
+            // when
+            getWrapper({ app: 'test1', version: { version: 2, revision: 0 } });
+            // then
+            const argoLink = document.querySelector('a[title="Opens this app/bracket in ArgoCd for all environments"]');
+            expect(argoLink?.getAttribute('href')).toContain(testcase.expectedSearch);
         });
     });
 

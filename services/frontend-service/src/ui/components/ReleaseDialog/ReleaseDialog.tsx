@@ -34,6 +34,7 @@ import {
     useReleaseOptional,
     useRolloutStatus,
     useRolloutStatusAAEnv,
+    useRootAppsPointToBrackets,
     useTeamFromApplication,
     useTeamLocks,
 } from '../../utils/store';
@@ -543,7 +544,10 @@ export const undeployTooltipExplanation =
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
     const appDetails = useAppDetailsForApp(app);
-    const linkTarget: string = appDetails?.details?.application?.argoBracket || app;
+    const rootAppsPointToBrackets = useRootAppsPointToBrackets();
+    // In bracket mode the Argo root apps point to brackets, so we always search Argo by the bracket
+    // name (a bracket is always present in this mode). Otherwise we search by the app name.
+    const linkTarget: string = rootAppsPointToBrackets ? (appDetails?.details?.application?.argoBracket ?? '') : app;
     const team = useTeamFromApplication(app) || '';
     const closeReleaseDialog = useCloseReleaseDialog();
     if (!appDetails) {
