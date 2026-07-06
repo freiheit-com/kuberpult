@@ -405,6 +405,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 <EnvironmentChip
                     env={env}
                     app={app}
+                    argoBracket={appDetails?.details?.application?.argoBracket}
                     envGroup={envGroup}
                     className={'release-environment'}
                     key={env.name}

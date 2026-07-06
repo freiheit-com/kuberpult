@@ -66,6 +66,7 @@ export type EnvironmentChipProps = {
     env: Environment;
     envGroup: EnvironmentGroup;
     app: string;
+    argoBracket?: string;
     groupNameOverride?: string;
     numberEnvsDeployed?: number;
     numberEnvsInGroup?: number;
@@ -74,7 +75,7 @@ export type EnvironmentChipProps = {
 };
 
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
-    const { className, env, envGroup, smallEnvChip, app } = props;
+    const { className, env, envGroup, smallEnvChip, app, argoBracket } = props;
     const envLocks = useAllEnvLocks((map) => map.allEnvLocks)[env.name]?.locks ?? [];
     const argocdConfigs = env.config?.argoConfigs;
 
@@ -123,9 +124,10 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
                 (config) => argocdConfigs.commonEnvPrefix + '-' + name + '-' + config.concreteEnvName
             )}
             namespace={namespace}
+            argoBracket={argoBracket}
         />
     ) : (
-        <ArgoAppEnvLink app={app} env={name} namespace={namespace} />
+        <ArgoAppEnvLink app={app} env={name} namespace={namespace} argoBracket={argoBracket} />
     );
     return (
         <div className={fullClassName} role="row">

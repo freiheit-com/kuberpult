@@ -15,7 +15,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright freiheit.com*/
 
 import React from 'react';
-import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl, ReleaseNumbers } from './store';
+import {
+    useArgoCdBaseUrl,
+    useSourceRepoUrl,
+    useBranch,
+    useManifestRepoUrl,
+    useRootAppsPointToBrackets,
+    ReleaseNumbers,
+} from './store';
 import classNames from 'classnames';
 import { Argo } from '../../images';
 
@@ -122,11 +129,17 @@ export const ArgoAppLink: React.FC<{ linkTarget: string }> = (props): JSX.Elemen
     );
 };
 
-export const ArgoAppEnvLink: React.FC<{ app: string; env: string; namespace: string | undefined }> = (
-    props
-): JSX.Element => {
-    const { app, env, namespace } = props;
+export const ArgoAppEnvLink: React.FC<{
+    app: string;
+    env: string;
+    namespace: string | undefined;
+    argoBracket?: string;
+}> = (props): JSX.Element => {
+    const { app, env, namespace, argoBracket } = props;
     const argoBaseUrl = useArgoCdBaseUrl();
+    const rootAppsPointToBrackets = useRootAppsPointToBrackets();
+    // In bracket mode the per-env Argo app is named after the bracket, so we link to the bracket.
+    const linkTarget = rootAppsPointToBrackets ? (argoBracket ?? '') : app;
     return (
         <>
             <span className={classNames('env-card-header-name')}>{env}</span>
@@ -134,7 +147,7 @@ export const ArgoAppEnvLink: React.FC<{ app: string; env: string; namespace: str
                 <a
                     title={'Opens the app in ArgoCd for this environment'}
                     className={classNames('env-card-link')}
-                    href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
+                    href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, linkTarget, env, namespace) : undefined}>
                     <Argo className={classNames('argo-logo')}></Argo>
                 </a>
             )}
@@ -147,9 +160,13 @@ export const ArgoAppMultiEnvLink: React.FC<{
     env: string;
     envs: string[];
     namespace: string | undefined;
+    argoBracket?: string;
 }> = (props): JSX.Element => {
-    const { app, env, envs, namespace } = props;
+    const { app, env, envs, namespace, argoBracket } = props;
     const argoBaseUrl = useArgoCdBaseUrl();
+    const rootAppsPointToBrackets = useRootAppsPointToBrackets();
+    // In bracket mode the per-env Argo app is named after the bracket, so we link to the bracket.
+    const linkTarget = rootAppsPointToBrackets ? (argoBracket ?? '') : app;
     return (
         <>
             <span className={classNames('env-card-header-name')}>{env}</span>
@@ -159,7 +176,7 @@ export const ArgoAppMultiEnvLink: React.FC<{
                         key={env}
                         title={'Opens the app in ArgoCd for the cluster ' + env}
                         className={classNames('env-card-link')}
-                        href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
+                        href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, linkTarget, env, namespace) : undefined}>
                         <Argo className={classNames('argo-logo')}></Argo>
                     </a>
                 ))}
