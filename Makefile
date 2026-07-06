@@ -187,13 +187,10 @@ commitlint: $(COMMIT_MSG_FILE)
 $(COMMIT_MSG_FILE):
 	git log -1 --pretty=%B > $(COMMIT_MSG_FILE)
 
-.git/hooks/pre-commit: hooks/pre-commit
-	cp $< $@
-
 .git/hooks/commit-msg: hooks/commit-msg
 	cp $< $@
 
-kuberpult: .git/hooks/pre-commit .git/hooks/commit-msg
+kuberpult: .git/hooks/commit-msg
 
 .PHONY: lint lint-fix
 lint: $(addsuffix /lint,$(MAKEDIRS))
