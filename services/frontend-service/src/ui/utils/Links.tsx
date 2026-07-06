@@ -19,7 +19,6 @@ import {
     useArgoCdBaseUrl,
     useSourceRepoUrl,
     useBranch,
-    useGitSyncStatus,
     useManifestRepoUrl,
     ReleaseNumbers,
 } from './store';
@@ -134,11 +133,10 @@ export const ArgoAppEnvLink: React.FC<{ app: string; env: string; namespace: str
 ): JSX.Element => {
     const { app, env, namespace } = props;
     const argoBaseUrl = useArgoCdBaseUrl();
-    const gitSyncStatusEnabled = useGitSyncStatus((getter) => getter.isEnabled());
     return (
         <>
             <span className={classNames('env-card-header-name')}>{env}</span>
-            {argoBaseUrl && !gitSyncStatusEnabled && (
+            {argoBaseUrl && (
                 <a
                     title={'Opens the app in ArgoCd for this environment'}
                     className={classNames('env-card-link')}
@@ -158,12 +156,10 @@ export const ArgoAppMultiEnvLink: React.FC<{
 }> = (props): JSX.Element => {
     const { app, env, envs, namespace } = props;
     const argoBaseUrl = useArgoCdBaseUrl();
-    const gitSyncStatusEnabled = useGitSyncStatus((getter) => getter.isEnabled());
     return (
         <>
             <span className={classNames('env-card-header-name')}>{env}</span>
             {argoBaseUrl &&
-                !gitSyncStatusEnabled &&
                 envs.map((env) => (
                     <a
                         key={env}
