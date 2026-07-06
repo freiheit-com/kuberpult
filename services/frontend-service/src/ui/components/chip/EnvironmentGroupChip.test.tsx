@@ -62,6 +62,34 @@ describe('EnvironmentChip', () => {
             },
         },
     };
+    // A plain non-active/active env (no argocdConfigs) renders the single ArgoAppEnvLink.
+    const envNonAA: Environment = {
+        name: 'development',
+        distanceToUpstream: 0,
+        priority: Priority.PROD,
+    };
+    // An env with an argocd config but no common prefix and no concrete env name (e.g. a non-AA env).
+    // The Argo app name must not gain leading/double dashes from the empty parts.
+    const envNoArgoParts: Environment = {
+        name: 'staging',
+        distanceToUpstream: 0,
+        priority: Priority.PROD,
+        config: {
+            argoConfigs: {
+                commonEnvPrefix: '',
+                configs: [
+                    {
+                        concreteEnvName: '',
+                        syncWindows: [],
+                        accessList: [],
+                        applicationAnnotations: {},
+                        ignoreDifferences: [],
+                        syncOptions: [],
+                    },
+                ],
+            },
+        },
+    };
     const allEnvLocks: GetAllEnvTeamLocksResponse = {
         allEnvLocks: {},
         allTeamLocks: {},
@@ -185,41 +213,97 @@ describe('EnvironmentChip', () => {
         );
     });
 
-    it('renders a list of argcod links for active/active', () => {
-        // given
-        const envGroup = {
-            environments: [envAA],
-            environmentGroupName: 'dontcare',
-            distanceToUpstream: 0,
-            priority: Priority.UNRECOGNIZED,
-        };
-        UpdateOverview.set({
-            environmentGroups: [envGroup],
-        });
-        UpdateFrontendConfig.set({
-            configs: {
-                argoCd: {
-                    baseUrl: 'http://argcod.example.com',
-                    namespace: 'some-namespace',
+    const argoLinkCases: {
+        name: string;
+        env: Environment;
+        rootAppsPointToBrackets: boolean;
+        argoBracket?: string;
+        expectedHrefs: string[];
+    }[] = [
+        {
+            name: 'active/active, brackets disabled: links use the app name',
+            env: envAA,
+            rootAppsPointToBrackets: false,
+            expectedHrefs: [
+                'http://argcod.example.com/applications/some-namespace/common-AA-aa1-app2',
+                'http://argcod.example.com/applications/some-namespace/common-AA-aa2-app2',
+            ],
+        },
+        {
+            name: 'active/active, brackets enabled: links use the bracket name',
+            env: envAA,
+            rootAppsPointToBrackets: true,
+            argoBracket: 'my-bracket',
+            expectedHrefs: [
+                'http://argcod.example.com/applications/some-namespace/common-AA-aa1-my-bracket',
+                'http://argcod.example.com/applications/some-namespace/common-AA-aa2-my-bracket',
+            ],
+        },
+        {
+            name: 'env without common prefix or concrete env name: no leading or double dashes',
+            env: envNoArgoParts,
+            rootAppsPointToBrackets: false,
+            expectedHrefs: ['http://argcod.example.com/applications/some-namespace/staging-app2'],
+        },
+        {
+            name: 'env without common prefix or concrete env name, brackets enabled: link uses the bracket name',
+            env: envNoArgoParts,
+            rootAppsPointToBrackets: true,
+            argoBracket: 'my-bracket',
+            expectedHrefs: ['http://argcod.example.com/applications/some-namespace/staging-my-bracket'],
+        },
+        {
+            name: 'non-active/active, brackets disabled: link uses the app name',
+            env: envNonAA,
+            rootAppsPointToBrackets: false,
+            expectedHrefs: ['http://argcod.example.com/applications/some-namespace/development-app2'],
+        },
+        {
+            name: 'non-active/active, brackets enabled: link uses the bracket name',
+            env: envNonAA,
+            rootAppsPointToBrackets: true,
+            argoBracket: 'my-bracket',
+            expectedHrefs: ['http://argcod.example.com/applications/some-namespace/development-my-bracket'],
+        },
+    ];
+    describe.each(argoLinkCases)('renders argocd links for the environment', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            const envGroup = {
+                environments: [testcase.env],
+                environmentGroupName: 'dontcare',
+                distanceToUpstream: 0,
+                priority: Priority.UNRECOGNIZED,
+            };
+            UpdateOverview.set({
+                environmentGroups: [envGroup],
+            });
+            UpdateFrontendConfig.set({
+                configs: {
+                    argoCd: {
+                        baseUrl: 'http://argcod.example.com',
+                        namespace: 'some-namespace',
+                    },
+                    sourceRepoUrl: 'http://source.example.com',
+                    kuberpultVersion: '0.0.1',
+                    branch: 'main',
+                    manifestRepoUrl: 'http://manifests.example.com',
+                    revisionsEnabled: false,
+                    rootAppsPointToBrackets: testcase.rootAppsPointToBrackets,
                 },
-                sourceRepoUrl: 'http://source.example.com',
-                kuberpultVersion: '0.0.1',
-                branch: 'main',
-                manifestRepoUrl: 'http://manifests.example.com',
-                revisionsEnabled: false,
-                rootAppsPointToBrackets: false,
-            },
-            configReady: true,
+                configReady: true,
+            });
+            updateAllEnvLocks.set(allEnvLocks);
+            // then
+            const { container } = getWrapper({
+                smallEnvChip: false,
+                env: testcase.env,
+                envGroup,
+                argoBracket: testcase.argoBracket,
+            });
+            const links = Array.from(container.querySelectorAll('.env-card-link'));
+            expect(links.map((n) => n.getAttribute('href'))).toStrictEqual(testcase.expectedHrefs);
         });
-        updateAllEnvLocks.set(allEnvLocks);
-        // then
-        const { container } = getWrapper({ smallEnvChip: false, env: envAA, envGroup: envGroup });
-        const links = Array.from(container.querySelectorAll('.env-card-link'));
-        expect(links.length).toBe(2);
-        expect(links.map((n) => n.getAttribute('href'))).toStrictEqual([
-            'http://argcod.example.com/applications/some-namespace/common-AA-aa1-app2',
-            'http://argcod.example.com/applications/some-namespace/common-AA-aa2-app2',
-        ]);
     });
 });
 

@@ -120,8 +120,10 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
         <ArgoAppMultiEnvLink
             app={app}
             env={name}
-            envs={argocdConfigs.configs.map(
-                (config) => argocdConfigs.commonEnvPrefix + '-' + name + '-' + config.concreteEnvName
+            envs={argocdConfigs.configs.map((config) =>
+                // Join only the non-empty parts so envs without a common prefix or concrete env name
+                // (e.g. non-AA envs) don't produce leading/double dashes in the Argo app name.
+                [argocdConfigs.commonEnvPrefix, name, config.concreteEnvName].filter(Boolean).join('-')
             )}
             namespace={namespace}
             argoBracket={argoBracket}
