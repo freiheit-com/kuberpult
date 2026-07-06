@@ -2016,6 +2016,7 @@ ingress:
 				"cert-manager.io/acme-challenge-type":            "dns01",
 				"cert-manager.io/cluster-issuer":                 "letsencrypt",
 				"kubernetes.io/ingress.allow-http":               "false",
+				"kubernetes.io/ingress.class":                    "",
 				"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
 			}
 			for key, value := range tc.ExpectedExtraAnnotations {
