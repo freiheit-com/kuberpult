@@ -126,6 +126,7 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     with:
       trigger: pull-request
+      ref: ${{ inputs.source_branch }}
       fullversion: ${{ needs.trigger-ci.outputs.fullversion }}
       runTest: true
     secrets: inherit
@@ -218,7 +219,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ inputs.source_branch }}
       - name: "Check integration tests errors"
         run: |
           touch validation-errors.txt
