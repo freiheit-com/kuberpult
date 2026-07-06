@@ -215,6 +215,10 @@ jobs:
     needs: [trigger-integration-tests]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.source_branch }}
       - name: "Check integration tests errors"
         run: |
           touch validation-errors.txt
