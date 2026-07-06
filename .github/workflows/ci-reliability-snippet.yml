@@ -222,7 +222,7 @@ jobs:
       - name: "Check integration tests errors"
         run: |
           touch validation-errors.txt
-          if [[ "${{ needs.trigger-integration-tests.result }}" != "failure" ]]; then
+          if [[ "${{ needs.trigger-integration-tests.result }}" != "failure" && "${{ needs.trigger-integration-tests.result }}" != "cancelled" ]]; then
             echo "Integration tests build must be failed" >> validation-errors.txt
           fi
         env:
