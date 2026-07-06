@@ -96,11 +96,11 @@ jobs:
         if: inputs.modify_readme == true
         run: |
           echo -e "\nTest reliability" >> README.md
-      - name: Inject error in integration tests
-        if: inputs.inject_integration_tests_error == true
-        run: |
-          # change Postgres port to 2345
-          sed -i 's/5432/2345/' tests/integration-tests/cluster-setup/setup-postgres.sh
+      # - name: Inject error in integration tests
+      #   if: inputs.inject_integration_tests_error == true
+      #   run: |
+      #     # change Postgres port to 2345
+      #     sed -i 's/5432/2345/' tests/integration-tests/cluster-setup/setup-postgres.sh
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
