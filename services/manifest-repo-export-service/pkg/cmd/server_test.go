@@ -930,6 +930,15 @@ func TestProcessOneEventBatchedPushEndToEnd(t *testing.T) {
 			expectedCutoff:  3,
 			expectedPushes:  1,
 		},
+		{
+			// A batch that produces no commit (no release deployed) must not push - there is
+			// nothing to push - but the cutoff still advances so the events are not reprocessed.
+			Name:            "all-NoOp batch does not push but advances the cutoff",
+			deploys:         []bool{false, false, false},
+			expectedCommits: 0,
+			expectedCutoff:  3,
+			expectedPushes:  0,
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {

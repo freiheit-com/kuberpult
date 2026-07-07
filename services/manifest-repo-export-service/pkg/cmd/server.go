@@ -626,12 +626,27 @@ func ProcessOneEvent(
 		// The cutoff is a single cursor; writing the highest version of the batch marks the whole
 		// batch as processed.
 		highestEsl := batch[len(batch)-1].Esl
-		logging.Info(ctx, "event processed successfully, now writing to cutoff and pushing...")
+		logging.Info(ctx, "event processed successfully, now writing to cutoff (and pushing if the batch produced a commit)...")
 		err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 			err2 := db.DBWriteCutoff(dbHandler, ctx, transaction, highestEsl.EslVersion)
 			if err2 != nil {
 				return err2
 			}
+			// Decide whether the batch changed anything before touching the remote. A batch made up
+			// only of NoOp events (releases that did not deploy, lock create/delete, etc.) leaves HEAD
+			// untouched, so there is nothing to push.
+			anyCommitCreated := false
+			for i := range batch {
+				if batch[i].CommitHash != "" {
+					anyCommitCreated = true
+					break
+				}
+			}
+			if !anyCommitCreated {
+				logging.Info(ctx, "no commit was created, skipping push and tagging")
+				return nil
+			}
+
 			err2 = repo.PushRepo(ctx)
 			if err2 != nil {
 				d := sleepDuration.NextBackOff()
@@ -647,20 +662,13 @@ func ProcessOneEvent(
 			// commit, using that event's own Created time. Events that produced no commit (NoOp) have
 			// an empty hash and are skipped. Writing only the head commit is not enough: intermediate
 			// commits are looked up by hash elsewhere and would otherwise have no timestamp row.
-			anyCommitCreated := false
 			for i := range batch {
 				if batch[i].CommitHash == "" {
 					continue
 				}
-				anyCommitCreated = true
 				if err3 := dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, batch[i].CommitHash, batch[i].Esl.Created); err3 != nil {
 					return err3
 				}
-			}
-
-			if !anyCommitCreated {
-				logging.Warn(ctx, "no commit was created, tagging skipped")
-				return nil
 			}
 			// Push each transformer's git tag. The export's CreateApplicationVersion carries no tag,
 			// so this loop is a no-op for batched releases, but we loop per transformer (not
@@ -737,7 +745,7 @@ func handleFailedEvent(ctx context.Context, dbHandler *db.DBHandler, transaction
 			return err2
 		}
 
-		//If we fail to process the transformer, we say that SYNC has failed
+		// If we fail to process the transformer, we say that SYNC has failed
 		err2 = dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(esl.EslVersion), db.SYNC_FAILED)
 		if err2 != nil {
 			return err2
