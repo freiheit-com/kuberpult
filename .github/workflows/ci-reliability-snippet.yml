@@ -240,6 +240,7 @@ jobs:
           fi
           if ! grep -q -F "[ERROR] templates/cd-service.yaml" linting-report/helm_lint.log ; then
             echo "Helm linting error not detected" >> validation-errors.txt
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload validation errors
