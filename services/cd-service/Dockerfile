@@ -33,8 +33,6 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 COPY services/cd-service/gitconfig /etc/gitconfig
-COPY services/cd-service/policy.csv /etc/policy.csv
-COPY services/cd-service/team.csv /etc/team.csv
 
 COPY services/cd-service/cmd/server/lib/ /lib
 COPY services/cd-service/cmd/server/usr/ /usr
@@ -65,6 +63,9 @@ RUN adduser --disabled-password --home "/kp" --uid ${UID} kp
 
 COPY --from=compiler /main /main
 COPY --from=compiler /lib /lib
+
+COPY services/cd-service/policy.csv /etc/policy.csv
+COPY services/cd-service/team.csv /etc/team.csv
 
 RUN mkdir -p database/migrations
 COPY database/migrations /migrations

@@ -169,6 +169,7 @@ func isApplicableForAllAppsAndEnvs(p Permission) bool {
 }
 
 func ValidateRbacPermission(line string) (p Permission, err error) {
+	// p, role:<role>, <permission>, <environment-group>:<environment>, <application>, allow
 	cfg := initPolicyConfig()
 	// Verifies if all fields are specified
 	c := strings.Split(line, ",")
@@ -232,6 +233,7 @@ func ValidateTeamRbacPermission(line string) (team string, users []string, err e
 }
 
 func ValidateRbacGroup(line string) (p RBACGroup, err error) {
+	// g, <group>, role:<role>
 	// Verifies if all fields are specified
 	c := strings.Split(line, ",")
 	if len(c) != 3 {
