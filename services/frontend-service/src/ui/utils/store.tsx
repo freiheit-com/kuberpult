@@ -1359,6 +1359,7 @@ export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendCon
         branch: '',
         kuberpultVersion: '0',
         revisionsEnabled: false,
+        rootAppsPointToBrackets: false,
     },
     configReady: false,
 });
@@ -1421,6 +1422,8 @@ export const useSourceRepoUrl = (): string | undefined => useFrontendConfig((con
 export const useManifestRepoUrl = (): string | undefined =>
     useFrontendConfig((configs) => configs.configs.manifestRepoUrl);
 export const useBranch = (): string | undefined => useFrontendConfig((configs) => configs.configs.branch);
+export const useRootAppsPointToBrackets = (): boolean =>
+    useFrontendConfig((configs) => configs.configs.rootAppsPointToBrackets);
 
 export type RolloutStatusApplication = {
     [environment: string]: StreamStatusResponse;

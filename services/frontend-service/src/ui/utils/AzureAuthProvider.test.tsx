@@ -239,6 +239,7 @@ describe('AuthProvider', () => {
                         },
                     },
                     revisionsEnabled: false,
+                    rootAppsPointToBrackets: false,
                 },
                 configReady: true,
             });

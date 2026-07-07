@@ -99,6 +99,8 @@ spec:
           value: {{ .Values.git.author.email | quote }}
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
+        - name: KUBERPULT_ROOT_APPS_POINT_TO_BRACKETS
+          value: {{ .Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets | quote }}
         - name: KUBERPULT_VERSIONSERVER
 {{- if .Values.manifestRepoExport.enabled }}
           value: kuberpult-manifest-repo-export-service:8443

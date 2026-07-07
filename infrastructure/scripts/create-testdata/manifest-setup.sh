@@ -36,8 +36,8 @@ for v in $(seq 1 "$NUM_VERSIONS"); do
         "${SCRIPT_DIR}/create-release-allparams.sh" "${APP_NAME}" "${TEAM}" "${ARGO_BRACKET}"
     if (( v % TRAIN_INTERVAL == 0 )); then
         train_count=$((train_count + 1))
-        echo "triggering release train with git tag setup-tag-${train_count}"
-        "${SCRIPT_DIR}/run-releasetrain.sh" staging "team=${TEAM}&gitTag=setup-tag-${train_count}"
+        echo "triggering release train with git tag setup-tag-${APP_NAME}-${train_count}"
+        "${SCRIPT_DIR}/run-releasetrain.sh" staging "team=${TEAM}&gitTag=setup-tag-${APP_NAME}-${train_count}"
     fi
     NEXT_VERSION=$((START_VERSION + v + 1))
 done
@@ -45,8 +45,8 @@ done
 # Promote and tag any releases created after the last interval-triggered train.
 if (( NUM_VERSIONS % TRAIN_INTERVAL != 0 )); then
     train_count=$((train_count + 1))
-    echo "triggering final release train with git tag setup-tag-${train_count}"
-    "${SCRIPT_DIR}/run-releasetrain.sh" staging "team=${TEAM}&gitTag=setup-tag-${train_count}"
+    echo "triggering final release train with git tag setup-tag-${APP_NAME}-${train_count}"
+    "${SCRIPT_DIR}/run-releasetrain.sh" staging "team=${TEAM}&gitTag=setup-tag-${APP_NAME}-${train_count}"
 fi
 
 # One extra release, left un-promoted, so not all apps are in the same state

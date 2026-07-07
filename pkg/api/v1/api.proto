@@ -441,6 +441,7 @@ message GetFrontendConfigResponse {
   string branch = 5;
   string manifest_repo_url = 6;
   bool revisions_enabled = 7;
+  bool root_apps_point_to_brackets = 8;
 }
 
 service VersionService {

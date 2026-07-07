@@ -55,15 +55,91 @@ Copyright freiheit.com*/
     padding-left: 35px;
 }
 
-.release_train_button {
-    position: relative;
-    margin-left: auto;
-    margin-right: $environment-actions-right-displacement;
-    margin-top: $environment-actions-top-displacement;
-    border: $environment-add-lock-button-border;
-    border-radius: $environment-add-lock-button-border-radius;
-    color: $environment-add-lock-button-color;
-    margin: $environment-buttons-column-margin;
+.tag_selection_section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+    padding-left: 35px;
+}
+
+.tag_filters,
+.tag_selection {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 20px;
+    border: 1px solid var(--mdc-theme-on-surface-light);
+    border-radius: 4px;
+    padding: 20px;
+    margin: 0;
+}
+
+.section_label {
+    font-weight: 700;
+    padding: 0 8px;
+    color: var(--mdc-theme-on-background);
+}
+
+.results_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.selected_tag_banner {
+    flex: 1 1 auto;
+    padding: 12px 16px;
+    border-radius: 4px;
+    border-left: 4px solid var(--mdc-theme-primary);
+    background-color: var(--mdc-theme-surface);
+    color: var(--mdc-theme-on-surface);
+    font-size: 16px;
+}
+
+.selected_tag_name {
+    font-weight: 700;
+    color: var(--mdc-theme-on-background);
+}
+
+.selected_tag_details {
+    color: var(--mdc-theme-on-surface-light);
+}
+
+.release_train_button.mdc-button {
+    flex: 0 0 auto;
+    align-self: center;
+    height: 50px;
+    padding: 0 24px;
+    margin: 0;
+    border: none;
+    border-radius: 4px;
+    background-color: var(--mdc-theme-primary);
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:not(:disabled) {
+        color: white;
+    }
+
+    .mdc-button__label {
+        color: white;
+        font-weight: 700;
+    }
+}
+
+.tag_search {
+    border-radius: 3px;
+    min-width: 220px;
+    height: 50px;
+    border: 1px solid var(--mdc-theme-on-surface-light);
+    color: var(--mdc-theme-on-surface-light);
+    background-color: var(--mdc-theme-surface);
+    padding-left: 1em;
+    margin-right: 20px;
 }
 
 .drop_down {
@@ -99,6 +175,13 @@ Copyright freiheit.com*/
     border: 2px solid var(--mdc-theme-primary);
     width: 100%;
     border-radius: 4px;
+}
+
+.table th,
+.table td {
+    // Headers share their column's alignment so they sit directly above the values.
+    text-align: left;
+    padding: 8px 12px;
 }
 
 .table_title {

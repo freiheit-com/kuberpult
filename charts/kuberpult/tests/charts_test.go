@@ -1446,6 +1446,26 @@ frontend:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
+		{
+			Name: "Test toggling experimentalRootAppsPointToBrackets in mainfest export rendering",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+manifestRepoExport:
+  rendering:
+    experimentalRenderBrackets: true
+    experimentalRootAppsPointToBrackets: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ROOT_APPS_POINT_TO_BRACKETS",
+					Value: "true",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -2016,6 +2036,7 @@ ingress:
 				"cert-manager.io/acme-challenge-type":            "dns01",
 				"cert-manager.io/cluster-issuer":                 "letsencrypt",
 				"kubernetes.io/ingress.allow-http":               "false",
+				"kubernetes.io/ingress.class":                    "",
 				"nginx.ingress.kubernetes.io/proxy-read-timeout": "300",
 			}
 			for key, value := range tc.ExpectedExtraAnnotations {

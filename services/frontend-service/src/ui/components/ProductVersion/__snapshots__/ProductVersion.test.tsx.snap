@@ -31,11 +31,39 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
         class=""
       />
       <div
-        class="space_apart_row"
+        class="tag_selection_section"
       >
-        <div
-          class="dropdown_div"
+        <fieldset
+          class="tag_filters"
         >
+          <legend
+            class="section_label"
+          >
+            1. Filter tags
+          </legend>
+          <input
+            class="tag_search"
+            data-testid="tag_search"
+            placeholder="Filter by commit id or tag…"
+            type="text"
+            value=""
+          />
+          <input
+            class="tag_search"
+            data-testid="date_search"
+            placeholder="Filter by date…"
+            type="text"
+            value=""
+          />
+        </fieldset>
+        <fieldset
+          class="tag_selection"
+        >
+          <legend
+            class="section_label"
+          >
+            2. Select a tag and source environment
+          </legend>
           <select
             class="drop_down"
             data-testid="drop_down"
@@ -82,25 +110,35 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
               g1/tester
             </option>
           </select>
-        </div>
-        <button
-          aria-label="Run Release Train"
-          class="mdc-button release_train_button"
-        >
-          <div
-            class="mdc-button__ripple"
-          />
-          <span
-            class="mdc-button__label"
-          >
-            Run Release Train
-          </span>
-        </button>
+        </fieldset>
       </div>
       <div>
         <div
           class="table_padding"
         >
+          <div
+            class="results_header"
+          >
+            <div
+              class="selected_tag_banner"
+              data-testid="selected_tag"
+            >
+              No tag selected
+            </div>
+            <button
+              aria-label="Run Release Train"
+              class="mdc-button release_train_button"
+            >
+              <div
+                class="mdc-button__ripple"
+              />
+              <span
+                class="mdc-button__label"
+              >
+                Run Release Train
+              </span>
+            </button>
+          </div>
           <table
             class="table"
           >
@@ -185,11 +223,39 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
         class=""
       />
       <div
-        class="space_apart_row"
+        class="tag_selection_section"
       >
-        <div
-          class="dropdown_div"
+        <fieldset
+          class="tag_filters"
         >
+          <legend
+            class="section_label"
+          >
+            1. Filter tags
+          </legend>
+          <input
+            class="tag_search"
+            data-testid="tag_search"
+            placeholder="Filter by commit id or tag…"
+            type="text"
+            value=""
+          />
+          <input
+            class="tag_search"
+            data-testid="date_search"
+            placeholder="Filter by date…"
+            type="text"
+            value=""
+          />
+        </fieldset>
+        <fieldset
+          class="tag_selection"
+        >
+          <legend
+            class="section_label"
+          >
+            2. Select a tag and source environment
+          </legend>
           <select
             class="drop_down"
             data-testid="drop_down"
@@ -226,25 +292,35 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
               g1/tester
             </option>
           </select>
-        </div>
-        <button
-          aria-label="Run Release Train"
-          class="mdc-button release_train_button"
-        >
-          <div
-            class="mdc-button__ripple"
-          />
-          <span
-            class="mdc-button__label"
-          >
-            Run Release Train
-          </span>
-        </button>
+        </fieldset>
       </div>
       <div>
         <div
           class="table_padding"
         >
+          <div
+            class="results_header"
+          >
+            <div
+              class="selected_tag_banner"
+              data-testid="selected_tag"
+            >
+              No tag selected
+            </div>
+            <button
+              aria-label="Run Release Train"
+              class="mdc-button release_train_button"
+            >
+              <div
+                class="mdc-button__ripple"
+              />
+              <span
+                class="mdc-button__label"
+              >
+                Run Release Train
+              </span>
+            </button>
+          </div>
           <table
             class="table"
           >
