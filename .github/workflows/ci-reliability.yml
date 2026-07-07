@@ -292,8 +292,6 @@ jobs:
           MSG+="\n\n*🔗 View in GitHub Action:* $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
           echo "${MSG}"
-
-          exit 0 ## TODO SU: remove
           curl \
             --request POST \
             --header "Content-Type: application/json" \
